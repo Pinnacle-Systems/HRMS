@@ -58,7 +58,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -66,21 +66,21 @@ export default function ResetPassword() {
         className="w-full max-w-4xl h-[85vh] bg-white rounded-sm p-[25px] shadow-xl grid grid-cols-1 gap-6 md:grid-cols-2 overflow-hidden"
       >
         {/* Left Section */}
-        <div className="bg-gradient-to-bl rounded-xl from-orange-50 to-gray-100 p-10 flex flex-col justify-between">
+        <div className="bg-gradient-to-bl rounded-xl from-primary-50 to-gray-100 p-10 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-8">
-              <div className="w-4 h-4 bg-[#e16a3d] rounded-sm rotate-45"></div>
+              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
-                Vibe<span className="text-[#e16a3d]">HR</span>
+                Vibe<span className="text-primary">HR</span>
               </span>
             </div>
             <p className="text-2xl font-bold mb-4">
-              Fresh <span className="text-[#e16a3d]">Start. </span>
+              Fresh <span className="text-primary">Start. </span>
               <br />
               <span className="">Stronger access. </span>
             </p>
             <div className="flex items-center justify-center mb-4">
-              <p className="text-gray-600 max-w-sm text-[12px]">
+              <p className="text-gray-600 max-w-sm text-[12px] text-justify">
                 Your new password must be different from previously used
                 passwords.
               </p>
@@ -88,10 +88,10 @@ export default function ResetPassword() {
             <img src="src/assets/reset.png" width="30%" />
           </div>
           <div className="space-y-4 text-sm mb-8">
-            <p className="mb-2 font-semibold  text-orange-600">
+            <p className="mb-2 font-semibold  text-primary-dark">
               Password Reset Tips
             </p>
-            <p className="text-[12px] text-gray-600">
+            <p className="text-[12px] text-gray-600 text-justify">
               Choose a strong password that you haven't used before. A strong
               password helps keep your account secure and protected.
             </p>
@@ -109,7 +109,7 @@ export default function ResetPassword() {
           {!submitted ? (
             <>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Reset Your <span className="text-[#e16a3d]">Password</span>
+                Reset Your <span className="text-primary">Password</span>
               </h2>
               <div className="text-[12px] mb-8 text-gray-400">
                 Create a new secure password for your account
@@ -125,12 +125,12 @@ export default function ResetPassword() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    className="w-full px-4 text-sm py-2 border border-gray-400 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#e16a3d] pr-10"
+                    className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                   />
                   <div className="absolute top-[38px] right-[0]">
                     <i
-                      className="material-icons mr-2 !text-[16px] text-[#e16a3d] hover:text-orange-600 cursor-pointer"
+                      className="material-icons mr-2 !text-[16px] text-primary hover:text-primary-dark cursor-pointer"
                       onClick={() => setVisible1(!visible1)}
                     >
                       {visible1 ? "visibility" : "visibility_off"}
@@ -173,12 +173,12 @@ export default function ResetPassword() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    className="w-full px-4 text-sm py-2 border border-gray-400 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#e16a3d] pr-10"
+                    className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                   />
                   <div className="absolute top-[38px] right-[0]">
                     <i
-                      className="material-icons mr-2 !text-[16px] text-[#e16a3d] hover:text-orange-600 cursor-pointer"
+                      className="material-icons mr-2 !text-[16px] text-primary hover:text-primary-dark cursor-pointer"
                       onClick={() => setVisible2(!visible2)}
                     >
                       {visible2 ? "visibility" : "visibility_off"}
@@ -192,7 +192,7 @@ export default function ResetPassword() {
                 )}
                 <button
                   type="submit"
-                  className={`w-full mt-4 text-sm text-white py-3 rounded-sm font-semibold cursor-pointer bg-[#e16a3d]`}
+                  className={`w-full mt-4 text-sm text-white py-3 rounded-sm font-semibold cursor-pointer bg-primary`}
                 >
                   Reset Password
                 </button>
@@ -200,7 +200,7 @@ export default function ResetPassword() {
                 <div className="text-center mt-4">
                   <Link
                     to="/login"
-                    className="text-sm text-[#e16a3d] hover:text-orange-600"
+                    className="text-sm text-primary hover:text-primary-dark"
                   >
                     ← Back to Sign In
                   </Link>
@@ -210,11 +210,11 @@ export default function ResetPassword() {
           ) : (
             // Success State
             <div className="text-center">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl text-orange-500">✓</span>
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl text-primary-dark">✓</span>
               </div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                Password <span className="text-[#e16a3d]">Reset</span>
+                Password <span className="text-primary">Reset</span>
               </h2>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">
                 Successfully!
@@ -226,7 +226,7 @@ export default function ResetPassword() {
               </p>
               <Link
                 to="/login"
-                className="inline-block w-full text-sm bg-[#e16a3d] text-white py-3 rounded-sm font-semibold transition cursor-pointer text-center"
+                className="inline-block w-full text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer text-center"
               >
                 Go to Sign In
               </Link>

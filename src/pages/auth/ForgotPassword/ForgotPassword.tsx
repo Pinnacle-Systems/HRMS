@@ -14,7 +14,7 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen  bg-gray-100 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -22,34 +22,33 @@ function ForgotPassword() {
         className="w-full max-w-4xl h-[85vh]  bg-white rounded-sm p-[25px] shadow-xl grid grid-cols-1 gap-6 md:grid-cols-2 overflow-hidden"
       >
         {/* Left Section */}
-        <div className="bg-gradient-to-bl rounded-xl from-orange-50 to-gray-100 p-10 flex flex-col justify-between">
+        <div className="bg-gradient-to-bl rounded-xl from-primary-50 to-gray-100 p-10 flex flex-col justify-between">
           <div>
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-8">
-                <div className="w-4 h-4 bg-[#e16a3d] rounded-sm rotate-45"></div>
+                <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
                 <span className="font-bold text-gray-700">
-                  Vibe<span className="text-[#e16a3d]">HR</span>
+                  Vibe<span className="text-primary">HR</span>
                 </span>
               </div>
             </div>
             <p className="text-2xl font-bold mb-4">
               No{" "}
-              <span className="text-[#e16a3d]">
+              <span className="text-primary">
                 Worries. <br />
               </span>
               These things happen.
             </p>
             <div className="mb-8 text-[12px] text-gray-600">
-              <p></p>
-              <p>Enter your Login ID and we'll help you reset</p>
+              <p className="text-justify">Enter your Login ID and we'll help you reset</p>
             </div>
             <div className="flex items-center">
               <img src="src/assets/forgot.png" width="30%" />
             </div>
           </div>
           <div className="space-y-4 text-sm mb-8">
-            <p className="mb-2 font-semibold  text-orange-600">Security Tip</p>
-            <p className="text-[12px] text-gray-600">
+            <p className="mb-2 font-semibold  text-primary-dark">Security Tip</p>
+            <p className="text-[12px] text-gray-600 text-justify">
               Always use a strong and unique password for your account.
             </p>
           </div>
@@ -66,7 +65,7 @@ function ForgotPassword() {
             <>
               <div className="mb-8">
                 <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-                  Forgot <span className="text-[#e16a3d]">Password?</span>
+                  Forgot <span className="text-primary">Password?</span>
                 </h2>
                 <p className="text-gray-400 text-[12px]">
                   Enter your email to reset your password
@@ -83,14 +82,14 @@ function ForgotPassword() {
                     placeholder="tuhelrana@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full text-sm px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                    className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                   />
                 </div>
                 {/* Reset Password Button */}
                 <button
                   type="submit"
-                  className="w-full bg-[#e16a3d] text-white text-sm py-2.5 rounded-lg font-semibold cursor-pointer"
+                  className="w-full bg-primary text-white text-sm py-2.5 rounded-sm font-semibold cursor-pointer"
                 >
                   Send Reset Link
                 </button>
@@ -98,7 +97,7 @@ function ForgotPassword() {
                 <div className="text-center pt-4">
                   <Link
                     to="/login"
-                    className="text-sm text-[#e16a3d] hover:text-orange-600 font-medium"
+                    className="text-sm text-primary hover:text-primary-dark font-medium"
                   >
                     ← Back to Sign In
                   </Link>
@@ -107,9 +106,9 @@ function ForgotPassword() {
             </>
           ) : (
             <div className="text-center space-y-6">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto">
                 <svg
-                  className="w-8 h-8 text-[#e16a3d]"
+                  className="w-8 h-8 text-primary"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -134,7 +133,7 @@ function ForgotPassword() {
               </div>
               <Link
                 to="/login"
-                className="text-sm inline-block w-full bg-[#e16a3d] text-white py-2.5 rounded-lg font-semibold transition duration-200 text-center"
+                className="text-sm inline-block w-full bg-primary text-white py-2.5 rounded-lg font-semibold transition duration-200 text-center"
               >
                 Back to Sign In
               </Link>

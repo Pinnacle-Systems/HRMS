@@ -1,0 +1,274 @@
+import { useState } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import {
+  AppBar,
+  Box,
+  CssBaseline,
+  Drawer,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Toolbar,
+  Avatar,
+  Menu,
+  MenuItem,
+  Divider,
+  Badge,
+  Tooltip,
+  Popover,
+} from "@mui/material";
+import {
+  Menu as MenuIcon,
+  Dashboard as DashboardIcon,
+  People as PeopleIcon,
+  Assignment as AssignmentIcon,
+  AttachMoney as MoneyIcon,
+  Settings as SettingsIcon,
+  Notifications as NotificationsIcon,
+  Person as PersonIcon,
+  ExitToApp as ExitToAppIcon,
+  Contrast as ContrastIcon }
+from "@mui/icons-material";
+import { ThemeSwitcher } from "../components/ThemeSwitcher";
+
+const drawerWidth = 180;
+
+export default function Layout() {
+  const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleDrawerToggle = () => {
+    setOpen(!open);
+  };
+
+  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    handleProfileMenuClose();
+    navigate("/login");
+  };
+
+  const handleConMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setSettingsAnchorEl(event.currentTarget);
+  };
+
+  const handleSettingsMenuClose = () => {
+    setSettingsAnchorEl(null);
+  };
+
+  const handleMyProfile = () => {
+    handleProfileMenuClose();
+    navigate("/profile");
+  };
+
+  const menuItems = [
+    { text: "Home", icon: <DashboardIcon />, path: "/home" },
+    { text: "Employees", icon: <PeopleIcon />, path: "/employees" },
+    { text: "Leave / Attendance", icon: <AssignmentIcon />, path: "/leave" },
+    { text: "Payroll", icon: <MoneyIcon />, path: "/payroll" },
+    { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
+  ];
+
+  const notifications = [
+    { id: 1, message: "New employee joined", time: "5 min ago", read: false },
+    { id: 2, message: "Task assigned to you", time: "1 hour ago", read: false },
+    { id: 3, message: "Meeting at 3 PM", time: "2 hours ago", read: true },
+    { id: 4, message: "Salary processed", time: "1 day ago", read: true },
+  ];
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <Box className="flex">
+      <CssBaseline />
+      <AppBar
+        position="fixed"
+        className="text-gray-800 shadow-sm z-[1200]"
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: "white",
+        }}
+      >
+        <Toolbar className="bg-white flex justify-between items-center">
+          <Box className="flex text-primary items-center gap-2">
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              onClick={handleDrawerToggle}
+              edge="start"
+              className="text-primary"
+            >
+              <MenuIcon />
+            </IconButton>
+            <Box className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
+              <div className="font-bold text-gray-700">
+                Vibe<span className="text-primary">HR</span>
+              </div>
+            </Box>
+          </Box>
+
+          {/* Right Side Icons */}
+          <Box className="flex items-center gap-2">
+            <Tooltip title="Notifications">
+              <IconButton size="small" aria-label="show notifications" color="inherit">
+                <Badge badgeContent={unreadCount} className="text-primary">
+                  <NotificationsIcon className="text-gray-500 !w-5" />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Theme Settings">
+              <IconButton size="small" onClick={handleConMenuOpen} className="text-gray-500">
+                <ContrastIcon className="!w-5" />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Account">
+              <IconButton
+                size="small"
+                edge="end"
+                onClick={handleProfileMenuOpen}
+                color="inherit"
+              >
+                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">A</Avatar>
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      {/* Profile Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        keepMounted
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        open={Boolean(anchorEl)}
+        onClose={handleProfileMenuClose}
+        classes={{ paper: "bg-white" }}
+      >
+        <MenuItem onClick={handleMyProfile} className="bg-white">
+          <ListItemIcon>
+            <PersonIcon className="text-primary !w-5" />
+          </ListItemIcon>
+          <div className="text-sm text-gray-800 ">My Profile</div>
+        </MenuItem>
+        <Divider className="border border-gray-200" />
+        <MenuItem onClick={handleLogout} className="bg-white">
+          <ListItemIcon>
+            <ExitToAppIcon className="text-error !w-5" />
+          </ListItemIcon>
+          <div className="text-sm text-error">Logout</div>
+        </MenuItem>
+      </Menu>
+
+      {/* Theme Settings Popover */}
+      <Popover
+        anchorEl={settingsAnchorEl}
+        open={Boolean(settingsAnchorEl)}
+        onClose={handleSettingsMenuClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        sx={{
+          "& .MuiPopover-paper": {
+            backgroundColor: "transparent",
+            boxShadow: "none",
+          },
+        }}
+      >
+        <ThemeSwitcher />
+      </Popover>
+
+      {/* Mini Variant Drawer */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: {
+            width: open ? drawerWidth : 60,
+            boxSizing: "border-box",
+            backgroundColor: "var(--bg-primary)",
+            transition: (theme) =>
+              theme.transitions.create("width", {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+            overflowX: "hidden",
+            borderRight: "1px solid #bebebe",
+            marginTop: "64px",
+            height: "calc(100% - 64px)",
+            position: "fixed",
+          },
+        }}
+        open={open}
+      >
+        <List>
+          {menuItems.map((item) => (
+            <ListItem
+              key={item.text}
+              disablePadding
+              className="block whitespace-nowrap"
+            >
+              <ListItemButton
+                className={`min-h-[48px] px-2.5 text-sm ${
+                  location.pathname === item.path
+                    ? "text-primary !bg-primary-50"
+                    : "text-gray-400"
+                } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                onClick={() => navigate(item.path)}
+              >
+                <ListItemIcon
+                  className={`!min-w-0 ml-2 ${open ? "mr-5" : "mr-0"} w-2 dark:text-primary justify-center`}
+                  sx={{ "& svg": { fontSize: 20 } }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  className={open ? "opacity-100 dark:text-white" : "opacity-0"}
+                  sx={{
+                    "& .MuiTypography-root": { fontSize: "12px" },
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Drawer>
+
+      {/* Main Content - Only this adjusts when drawer opens/closes */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          mt: "64px",
+          backgroundColor: "var(--bg-primary)",
+          minHeight: "calc(100vh - 64px)",
+          transition: (theme) =>
+            theme.transitions.create("padding", {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+          // Add padding-left based on drawer state
+          paddingLeft: open ? `${drawerWidth + 24}px` : "89px", // 65px (drawer) + 24px (padding)
+        }}
+      >
+        <Outlet />
+      </Box>
+    </Box>
+  );
+}

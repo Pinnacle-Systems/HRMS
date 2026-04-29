@@ -4,13 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
-  const [mobileNumber, setMobileNumber] = useState<string>("9876543210");
+  const [mobileNumber] = useState<string>("9876543210");
   const [timeLeft, setTimeLeft] = useState<number>(60);
   const [canResend, setCanResend] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const navigate = useNavigate();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
   useEffect(() => {
     if (timeLeft > 0 && !canResend) {
       const timer = setTimeout(() => {
@@ -84,7 +83,7 @@ export default function VerifyOTP() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -93,16 +92,16 @@ export default function VerifyOTP() {
         style={{ height: "auto", minHeight: "85vh" }}
       >
         {/* Left Section */}
-        <div className="bg-gradient-to-bl rounded-xl from-orange-50 to-gray-100 p-10 flex flex-col justify-between">
+        <div className="bg-gradient-to-bl rounded-xl from-primary-50 to-gray-100 p-10 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-8">
-              <div className="w-4 h-4 bg-[#e16a3d] rounded-sm rotate-45"></div>
+              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
-                Vibe<span className="text-[#e16a3d]">HR</span>
+                Vibe<span className="text-primary">HR</span>
               </span>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 leading-snug mb-4">
-              Verify Your <span className="text-[#e16a3d]">Identity.</span>
+              Verify Your <span className="text-primary">Identity.</span>
             </h1>
             <div className="flex items-center justify-center mb-4">
               <p className="text-gray-600 max-w-sm text-[12px]">
@@ -118,11 +117,11 @@ export default function VerifyOTP() {
             <p className="mb-2">
               📱 <span className="font-bold">OTP Sent to:</span>
               <br />
-              <span className="text-orange-600">{mobileNumber}</span>
+              <span className="text-primary-dark">{mobileNumber}</span>
               <br />
             </p>
             {/* <span className="text-gray-500">Check your spam folder if you don't see the email</span> */}
-            <span className="text-gray-500">
+            <span className="text-gray-400">
               Check your SMS inbox if you don't receive the code.
             </span>
           </div>
@@ -139,7 +138,7 @@ export default function VerifyOTP() {
 
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">
             Enter <br />
-            Verification <span className="text-[#e16a3d]">Code</span>
+            Verification <span className="text-primary">Code</span>
           </h2>
           <div className="text-[12px] mb-6 text-gray-400">
             We've sent a 6-digit code to your mobile number
@@ -166,7 +165,7 @@ export default function VerifyOTP() {
                       handleKeyDown(index, e)
                     }
                     onPaste={index === 0 ? handlePaste : undefined}
-                    className="w-12 h-12 text-center text-lg font-semibold border border-gray-400 rounded-sm focus:outline-none focus:ring-2 focus:ring-[#e16a3d] focus:border-transparent"
+                    className="w-12 bg-white h-12 text-center text-lg font-semibold border border-gray-400 rounded-sm focus:outline-none focus:ring-2 focus:ring-primary-light focus:border-transparent"
                     autoFocus={index === 0}
                   />
                 ))}
@@ -186,14 +185,14 @@ export default function VerifyOTP() {
                 <button
                   type="button"
                   onClick={handleResendOTP}
-                  className="text-sm text-[#e16a3d] hover:text-orange-600 font-medium cursor-pointer"
+                  className="text-sm text-primary hover:text-primary-dark font-medium cursor-pointer"
                 >
                   Resend OTP
                 </button>
               ) : (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-400">
                   Resend code in{" "}
-                  <span className="font-semibold text-[#e16a3d]">
+                  <span className="font-semibold text-primary">
                     {timeLeft}
                   </span>{" "}
                   seconds
@@ -204,7 +203,7 @@ export default function VerifyOTP() {
             {/* Verify Button */}
             <button
               type="submit"
-              className="w-full text-sm bg-[#e16a3d] text-white py-3 rounded-sm font-semibold transition cursor-pointer"
+              className="w-full text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer"
             >
               Verify & Continue
             </button>
@@ -213,14 +212,14 @@ export default function VerifyOTP() {
             <div className="text-center">
               <Link
                 to="/login"
-                className="text-sm text-[#e16a3d] hover:text-orange-600"
+                className="text-sm text-primary hover:text-primary-dark"
               >
                 ← Back to Sign In
               </Link>
             </div>
 
-            <p className="text-sm text-gray-500 flex items-center gap-2">
-              <span className="text-[#e16a3d] rounded-xl bg-orange-50 w-[25px] h-[25px] flex items-center justify-center">
+            <p className="text-sm text-gray-400 flex items-center gap-2">
+              <span className="text-primary rounded-xl bg-primary-50 w-[25px] h-[25px] flex items-center justify-center">
                 🔒
               </span>
               Two-step verification for added security
