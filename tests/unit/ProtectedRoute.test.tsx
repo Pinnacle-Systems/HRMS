@@ -40,4 +40,49 @@ describe("ProtectedRoute", () => {
 
     expect(screen.getByText("Employees secure content")).toBeInTheDocument();
   });
+
+  it("redirects authenticated users when required permissions are missing", async () => {
+    const session = createMockAuthSession();
+
+    renderWithProviders(
+      <AuthContext.Provider
+        value={createAuthContextValue(
+          createMockAuthSession({
+            user: {
+              ...session.user,
+              permissions: [],
+            },
+          }),
+        )}
+      >
+        <Routes>
+          <Route element={<ProtectedRoute requiredPermissions={["EMPLOYEE_READ"]} />}>
+            <Route path="/employees" element={<div>Employees secure content</div>} />
+          </Route>
+          <Route path="/unauthorized" element={<div>Unauthorized Page</div>} />
+        </Routes>
+      </AuthContext.Provider>,
+      { route: "/employees" },
+    );
+
+    expect(await screen.findByText("Unauthorized Page")).toBeInTheDocument();
+    expect(screen.queryByText("Employees secure content")).not.toBeInTheDocument();
+  });
+
+  it("allows authenticated users when required permissions are present", () => {
+    renderWithProviders(
+      <AuthContext.Provider value={createAuthContextValue(createMockAuthSession())}>
+        <Routes>
+          <Route element={<ProtectedRoute requiredPermissions={["EMPLOYEE_READ"]} />}>
+            <Route path="/employees" element={<div>Employees secure content</div>} />
+          </Route>
+          <Route path="/unauthorized" element={<div>Unauthorized Page</div>} />
+        </Routes>
+      </AuthContext.Provider>,
+      { route: "/employees" },
+    );
+
+    expect(screen.getByText("Employees secure content")).toBeInTheDocument();
+    expect(screen.queryByText("Unauthorized Page")).not.toBeInTheDocument();
+  });
 });

@@ -53,24 +53,53 @@ function AppRoutesContent() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
-            <Route path="home" element={<Home />} />
-            <Route path="admin/dashboard" element={<Home />} />
-            <Route path="hr/dashboard" element={<Home />} />
-            <Route path="manager/dashboard" element={<Home />} />
-            <Route path="employee/dashboard" element={<Home />} />
-            <Route path="employees" element={<Employees />} />
-            <Route path="leave" element={<Leave />} />
-            <Route path="payroll" element={<Payroll />} />
-            <Route path="settings" element={<Settings />}>
-              <Route
-                path="general/company-settings"
-                element={<CompanySettings />}
-              />
-              <Route
-                path="general/password-config"
-                element={<PasswordConfig />}
-              />
-              <Route index element={<CompanySettings />} />
+            <Route
+              element={<ProtectedRoute allowedRoles={["ADMIN", "HR", "MANAGER", "EMPLOYEE"]} />}
+            >
+              <Route path="home" element={<Home />} />
+              <Route path="leave" element={<Leave />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+              <Route path="admin/dashboard" element={<Home />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["HR"]} />}>
+              <Route path="hr/dashboard" element={<Home />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["MANAGER"]} />}>
+              <Route path="manager/dashboard" element={<Home />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["EMPLOYEE"]} />}>
+              <Route path="employee/dashboard" element={<Home />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  allowedRoles={["HR", "ADMIN"]}
+                  requiredPermissions={["EMPLOYEE_READ"]}
+                />
+              }
+            >
+              <Route path="employees" element={<Employees />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>
+              <Route path="payroll" element={<Payroll />} />
+              <Route path="settings" element={<Settings />}>
+                <Route
+                  path="general/company-settings"
+                  element={<CompanySettings />}
+                />
+                <Route
+                  path="general/password-config"
+                  element={<PasswordConfig />}
+                />
+                <Route index element={<CompanySettings />} />
+              </Route>
             </Route>
           </Route>
         </Route>

@@ -11,9 +11,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Theme>
       <ThemeProvider theme={createTheme}>
-       <CssBaseline />
-      <App />
-    </ThemeProvider>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
     </Theme>
   </React.StrictMode>,
 )

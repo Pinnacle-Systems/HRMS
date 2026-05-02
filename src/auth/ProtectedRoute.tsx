@@ -30,10 +30,8 @@ export default function ProtectedRoute({
   const hasRole =
     !allowedRoles?.length ||
     allowedRoles.some((role) => user.roles.includes(role));
-  const hasPermissions = user.permissions.length > 0;
   const hasPermission =
     !requiredPermissions?.length ||
-    !hasPermissions ||
     requiredPermissions.every((permission) =>
       user.permissions.includes(permission),
     );

@@ -170,10 +170,8 @@ export function getWorkspaceLabel(user: AuthUser): string {
 
 export function canShowNavItem(user: AuthUser, item: NavItem): boolean {
   const roleAllowed = item.roles.some((role) => user.roles.includes(role));
-  const hasPermissions = user.permissions.length > 0;
   const permissionAllowed =
     !item.permissions?.length ||
-    !hasPermissions ||
     item.permissions.every((permission) =>
       user.permissions.includes(permission),
     );
