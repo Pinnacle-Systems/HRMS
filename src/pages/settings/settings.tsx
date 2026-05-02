@@ -6,7 +6,8 @@ import {
   MenuItem,
   ListItemText,
 } from "@mui/material";
-import { ArrowDropDown, ArrowDropUp } from "@mui/icons-material";
+import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUp from "@mui/icons-material/ArrowDropUp";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import { tabs } from "./const";
 

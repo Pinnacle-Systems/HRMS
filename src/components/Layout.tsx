@@ -20,18 +20,16 @@ import {
   Tooltip,
   Popover,
 } from "@mui/material";
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Assignment as AssignmentIcon,
-  AttachMoney as MoneyIcon,
-  Settings as SettingsIcon,
-  Notifications as NotificationsIcon,
-  Person as PersonIcon,
-  ExitToApp as ExitToAppIcon,
-  Contrast as ContrastIcon }
-from "@mui/icons-material";
+import MenuIcon from "@mui/icons-material/Menu";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import PeopleIcon from "@mui/icons-material/People";
+import AssignmentIcon from "@mui/icons-material/Assignment";
+import MoneyIcon from "@mui/icons-material/AttachMoney";
+import SettingsIcon from "@mui/icons-material/Settings";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import PersonIcon from "@mui/icons-material/Person";
+import ExitToAppIcon from "@mui/icons-material/ExitToApp";
+import ContrastIcon from "@mui/icons-material/Contrast";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { useAuth } from "../auth/authContext";
 import { canShowNavItem, getDefaultRoute, getWorkspaceLabel } from "../auth/authMapper";

@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react';
 import { Box, Typography, Button, IconButton, Paper } from '@mui/material';
-import { Close, CloudUpload, PictureAsPdf } from '@mui/icons-material';
+import Close from "@mui/icons-material/Close";
+import CloudUpload from "@mui/icons-material/CloudUpload";
+import PictureAsPdf from "@mui/icons-material/PictureAsPdf";
 
 interface FileUploadProps {
   label: string;
