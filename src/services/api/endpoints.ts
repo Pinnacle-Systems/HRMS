@@ -3,9 +3,13 @@ export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/auth/login",
     LOGOUT: "/auth/logout",
-    REFRESH: "/auth/refresh",
+    REFRESH: "/auth/refresh-token",
     FORGOT_PASSWORD: "/auth/forgot-password",
-    RESET_PASSWORD: "/auth/reset-password",
+    MFA_VERIFY: "/auth/mfa/verify",
+    SELECT_TENANT: "/auth/login/select-tenant",
+    SET_PASSWORD: "/auth/set-password",
+    PROFILE: "/auth/profile",
+    PERMISSIONS: "/auth/permissions",
   },
 
   COMPANY: {

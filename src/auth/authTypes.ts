@@ -1,0 +1,95 @@
+import type { ReactNode } from "react";
+
+export type ApiRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS" | string;
+
+export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
+
+export type TenantInfo = {
+  id: string;
+  name: string;
+  subdomain?: string;
+};
+
+export type AuthUser = {
+  userId: string;
+  tenantId: string;
+  email: string;
+  roles: AppRole[];
+  rawRoles: string[];
+  permissions: string[];
+};
+
+export type AuthSession = {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+  expiresAt: number;
+  user: AuthUser;
+};
+
+export type ApiResponse<T> = {
+  success: boolean;
+  message?: string;
+  data?: T;
+  timestamp?: string;
+};
+
+export type LoginRequest = {
+  loginId?: string;
+  password?: string;
+  mobileNumber?: string;
+  mobileOtp?: string;
+  tenantId?: string;
+};
+
+export type AuthResponse = {
+  accessToken?: string;
+  refreshToken?: string;
+  tokenType?: string;
+  expiresIn?: number;
+  userId?: string;
+  tenantId?: string;
+  email?: string;
+  roles?: string[];
+  mfaRequired?: boolean;
+  mfaType?: string;
+  sessionToken?: string;
+  multiTenant?: boolean;
+  tenants?: TenantInfo[];
+  mustChangePassword?: boolean;
+  passwordExpiringSoon?: boolean;
+  daysUntilPasswordExpiry?: number;
+};
+
+export type LoginApiResponse = ApiResponse<AuthResponse>;
+
+export type LoginOutcome =
+  | { type: "authenticated"; session: AuthSession }
+  | { type: "mfaRequired"; sessionToken: string; mfaType?: string }
+  | { type: "tenantSelection"; tenants: TenantInfo[]; email: string }
+  | { type: "mustChangePassword"; session?: AuthSession; email?: string }
+  | { type: "failed"; message: string };
+
+export type NavItem = {
+  text: string;
+  path: string;
+  icon: ReactNode;
+  roles: AppRole[];
+  permissions?: string[];
+};
+
+export type ProtectedRouteProps = {
+  children?: ReactNode;
+  allowedRoles?: AppRole[];
+  requiredPermissions?: string[];
+};
+
+export type AuthContextValue = {
+  session: AuthSession | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  login: (request: LoginRequest) => Promise<LoginOutcome>;
+  logout: () => Promise<void>;
+  refreshSession: () => Promise<AuthSession | null>;
+};

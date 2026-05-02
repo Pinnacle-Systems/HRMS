@@ -33,6 +33,9 @@ import {
   Contrast as ContrastIcon }
 from "@mui/icons-material";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
+import { useAuth } from "../auth/authContext";
+import { canShowNavItem, getDefaultRoute, getWorkspaceLabel } from "../auth/authMapper";
+import type { NavItem } from "../auth/authTypes";
 
 const drawerWidth = 180;
 
@@ -42,6 +45,8 @@ export default function Layout() {
   const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { session, logout } = useAuth();
+  const user = session?.user;
 
   const handleDrawerToggle = () => {
     setOpen(!open);
@@ -55,8 +60,9 @@ export default function Layout() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     handleProfileMenuClose();
+    await logout();
     navigate("/login");
   };
 
@@ -73,13 +79,43 @@ export default function Layout() {
     navigate("/profile");
   };
 
-  const menuItems = [
-    { text: "Home", icon: <DashboardIcon />, path: "/home" },
-    { text: "Employees", icon: <PeopleIcon />, path: "/employees" },
-    { text: "Leave / Attendance", icon: <AssignmentIcon />, path: "/leave" },
-    { text: "Payroll", icon: <MoneyIcon />, path: "/payroll" },
-    { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
+  const menuItems: NavItem[] = [
+    {
+      text: "Dashboard",
+      icon: <DashboardIcon />,
+      path: user ? getDefaultRoute(user) : "/home",
+      roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "Employees",
+      icon: <PeopleIcon />,
+      path: "/employees",
+      roles: ["HR", "ADMIN"],
+      permissions: ["EMPLOYEE_READ"],
+    },
+    {
+      text: "Leave / Attendance",
+      icon: <AssignmentIcon />,
+      path: "/leave",
+      roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "Payroll",
+      icon: <MoneyIcon />,
+      path: "/payroll",
+      roles: ["HR", "ADMIN"],
+    },
+    {
+      text: "Settings",
+      icon: <SettingsIcon />,
+      path: "/settings",
+      roles: ["HR", "ADMIN"],
+    },
   ];
+  const visibleMenuItems = user
+    ? menuItems.filter((item) => canShowNavItem(user, item))
+    : [];
+  const avatarInitial = user?.email?.charAt(0).toUpperCase() || "U";
 
   const notifications = [
     { id: 1, message: "New employee joined", time: "5 min ago", read: false },
@@ -114,8 +150,15 @@ export default function Layout() {
             </IconButton>
             <Box className="flex items-center gap-2">
               <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
-              <div className="font-bold text-gray-700">
-                Vibe<span className="text-primary">HR</span>
+              <div>
+                <div className="font-bold text-gray-700 leading-4">
+                  Vibe<span className="text-primary">HR</span>
+                </div>
+                {user && (
+                  <div className="text-[10px] text-gray-400 leading-3">
+                    {getWorkspaceLabel(user)}
+                  </div>
+                )}
               </div>
             </Box>
           </Box>
@@ -143,7 +186,9 @@ export default function Layout() {
                 onClick={handleProfileMenuOpen}
                 color="inherit"
               >
-                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">A</Avatar>
+                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">
+                  {avatarInitial}
+                </Avatar>
               </IconButton>
             </Tooltip>
           </Box>
@@ -216,7 +261,7 @@ export default function Layout() {
         open={open}
       >
         <List>
-          {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
             <ListItem
               key={item.text}
               disablePadding
@@ -224,7 +269,7 @@ export default function Layout() {
             >
               <ListItemButton
                 className={`min-h-[48px] px-2.5 text-sm ${
-                  location.pathname === item.path
+                  location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
                     ? "text-primary !bg-primary-50"
                     : "text-gray-400"
                 } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}

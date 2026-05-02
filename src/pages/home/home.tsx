@@ -1,5 +1,4 @@
 // src/pages/Home.tsx
-import { useState, useEffect } from "react";
 import {
   Grid,
   // Card,
@@ -62,7 +61,7 @@ export default function Home() {
   //   },
   //   {
   //     id: 3,
-  //     user: "Mike Johnson",
+  //     user: "Mike Johnson",5
   //     action: "joined the company",
   //     type: "hire",
   //     time: "2 hours ago",

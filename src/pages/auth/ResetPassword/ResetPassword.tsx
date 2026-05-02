@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -8,46 +9,28 @@ export default function ResetPassword() {
   const [visible1, setVisible1] = useState(false);
   const [visible2, setVisible2] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [passwordMatch, setPasswordMatch] = useState(true);
   const navigate = useNavigate();
 
-  const [validation, setValidation] = useState({
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-  });
+  const validation = {
+    length: newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(newPassword),
+    lowercase: /[a-z]/.test(newPassword),
+    number: /[0-9]/.test(newPassword),
+  };
+  const passwordMatch = confirmPassword === "" || newPassword === confirmPassword;
   const isPasswordValid =
     validation.length &&
     validation.uppercase &&
     validation.lowercase &&
     validation.number;
 
-  useEffect(() => {
-    setValidation({
-      length: newPassword.length >= 8,
-      uppercase: /[A-Z]/.test(newPassword),
-      lowercase: /[a-z]/.test(newPassword),
-      number: /[0-9]/.test(newPassword),
-    });
-  }, [newPassword]);
-
-  useEffect(() => {
-    if (confirmPassword !== "") {
-      setPasswordMatch(newPassword === confirmPassword);
-    } else {
-      setPasswordMatch(true);
-    }
-  }, [newPassword, confirmPassword]);
-
-  const handleSubmit = (e: any) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isPasswordValid) {
       alert("Please meet all password requirements");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordMatch(false);
       return;
     }
     console.log("Password reset successfully:", { newPassword });

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { Box, Typography, Button, Avatar, IconButton, Paper } from '@mui/material';
-import { Close, CloudUpload, Delete, Image, PictureAsPdf } from '@mui/icons-material';
+import { Box, Typography, Button, IconButton, Paper } from '@mui/material';
+import { Close, CloudUpload, PictureAsPdf } from '@mui/icons-material';
 
 interface FileUploadProps {
   label: string;
@@ -63,8 +63,6 @@ export const FileUpload = ({
   };
 
   const isImage = preview && (preview.startsWith('data:image') || preview.match(/\.(jpg|jpeg|png|gif|svg)$/i));
-  const isPdf = typeof value === 'object' && value?.type === 'application/pdf';
-
   return (
     <Paper variant="outlined" className="p-4 bg-white">
       <Typography variant="subtitle2" className="font-semibold !mb-2 !text-gray-800">

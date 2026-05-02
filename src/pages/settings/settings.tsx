@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   Button,
@@ -23,19 +23,20 @@ export default function Settings() {
   //   severity: "success",
   // });
 
-  useEffect(() => {
+  const routeTabId = useMemo(() => {
     const currentPath = location.pathname;
     for (const tab of tabs) {
       for (const option of tab.options) {
         if (currentPath === option.path) {
-          setActiveTab(tab.id);
-          break;
+          return tab.id;
         }
       }
     }
+    return "general";
   }, [location.pathname]);
 
-  const currentTab = tabs.find((tab) => tab.id === activeTab)!;
+  const selectedTabId = openDropdown ? activeTab : routeTabId;
+  const currentTab = tabs.find((tab) => tab.id === selectedTabId)!;
 
   const handleTabClick = (
     event: React.MouseEvent<HTMLElement>,
@@ -115,14 +116,14 @@ export default function Settings() {
             key={tab.id}
             onClick={(e) => handleTabClick(e, tab.id)}
             className={`flex items-center rounded-lg !capitalize ${
-              activeTab === tab.id
+              selectedTabId === tab.id
                 ? "!bg-primary-50 !text-primary"
                 : "hover:!bg-primary-50 !text-gray-600"
             }`}
             sx={{ px: 2 }}
           >
             {tab.label}
-            {activeTab === tab.id && openDropdown ? (
+            {selectedTabId === tab.id && openDropdown ? (
               <ArrowDropUp className="!w-4 !h-4 ml-1" />
             ) : (
               <ArrowDropDown className="!w-4 !h-4 ml-1" />

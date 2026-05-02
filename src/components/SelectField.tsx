@@ -1,5 +1,5 @@
 // components/SelectField.tsx
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FormControl,
   InputLabel,
@@ -16,8 +16,6 @@ import {
   DialogActions,
   TextField,
   Button,
-  Box,
-  Chip,
   type SxProps,
   type Theme,
 } from "@mui/material";
@@ -25,8 +23,8 @@ import AddIcon from "@mui/icons-material/Add";
 
 interface DynamicSelectWithAddProps {
   label: string;
-  value: any;
-  onChange: (value: any) => void;
+  value: string | string[];
+  onChange: (value: string | string[]) => void;
   options: string[];
   onAddOption: (newOption: string) => void;
   error?: boolean;
@@ -56,16 +54,15 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
 }) => {
   const [openDialog, setOpenDialog] = useState(false);
   const [newOption, setNewOption] = useState("");
-  const [localOptions, setLocalOptions] = useState(options);
-
-  useEffect(() => {
-    setLocalOptions(options);
-  }, [options]);
+  const [addedOptions, setAddedOptions] = useState<string[]>([]);
+  const localOptions = useMemo(
+    () => Array.from(new Set([...options, ...addedOptions])),
+    [addedOptions, options],
+  );
 
   const handleAddOption = () => {
     if (newOption.trim() && !localOptions.includes(newOption.trim())) {
-      const updatedOptions = [...localOptions, newOption.trim()];
-      setLocalOptions(updatedOptions);
+      setAddedOptions((current) => [...current, newOption.trim()]);
       if (onAddOption) {
         onAddOption(newOption.trim());
       }
@@ -80,7 +77,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
   };
 
   // Render selected values
-  const renderValue = (selected: any) => {
+  const renderValue = (selected: unknown) => {
     // if (multiple && Array.isArray(selected) && selected.length > 0) {
     //   return (
     //     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
@@ -95,7 +92,10 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
     //     </Box>
     //   );
     // }
-    return selected || placeholder || `Select ${label}`;
+    if (Array.isArray(selected)) {
+      return selected.join(", ") || placeholder || `Select ${label}`;
+    }
+    return String(selected || placeholder || `Select ${label}`);
   };
 
   // Build menu items

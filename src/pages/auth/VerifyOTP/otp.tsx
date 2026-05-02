@@ -6,20 +6,22 @@ export default function VerifyOTP() {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [mobileNumber] = useState<string>("9876543210");
   const [timeLeft, setTimeLeft] = useState<number>(60);
-  const [canResend, setCanResend] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const navigate = useNavigate();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const canResend = timeLeft === 0;
+
   useEffect(() => {
-    if (timeLeft > 0 && !canResend) {
-      const timer = setTimeout(() => {
-        setTimeLeft(timeLeft - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (timeLeft === 0) {
-      setCanResend(true);
+    if (timeLeft === 0) {
+      return;
     }
-  }, [timeLeft, canResend]);
+
+    const timer = window.setTimeout(() => {
+      setTimeLeft((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [timeLeft]);
 
   const handleChange = (index: number, value: string): void => {
     if (value && !/^\d+$/.test(value)) return;
@@ -75,7 +77,6 @@ export default function VerifyOTP() {
     if (canResend) {
       console.log("Resending OTP to:", mobileNumber);
       setTimeLeft(60);
-      setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
       setError("");
       inputRefs.current[0]?.focus();

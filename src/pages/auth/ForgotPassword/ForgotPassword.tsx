@@ -1,16 +1,29 @@
 // ForgotPassword.jsx
 import { motion } from "framer-motion";
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { forgotPassword } from "../../../auth/authApi";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Reset password for:", email);
-    setSubmitted(true);
+    setError("");
+    setLoading(true);
+
+    try {
+      await forgotPassword(email);
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -89,10 +102,16 @@ function ForgotPassword() {
                 {/* Reset Password Button */}
                 <button
                   type="submit"
-                  className="w-full bg-primary text-white text-sm py-2.5 rounded-sm font-semibold cursor-pointer"
+                  disabled={loading}
+                  className="w-full bg-primary text-white text-sm py-2.5 rounded-sm font-semibold cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Send Reset Link
+                  {loading ? "Sending..." : "Send Reset Link"}
                 </button>
+                {error && (
+                  <div className="text-sm text-error bg-red-50 border border-red-100 rounded-sm px-3 py-2">
+                    {error}
+                  </div>
+                )}
                 {/* Back to Login Link */}
                 <div className="text-center pt-4">
                   <Link

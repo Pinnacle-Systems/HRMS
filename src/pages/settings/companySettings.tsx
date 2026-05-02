@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TextField, Box, Button, Snackbar, Alert } from "@mui/material";
-import { companyFields, fileUploadFields, masterData } from "./const";
+import type { AlertColor } from "@mui/material";
+import { companyFields, fileUploadFields } from "./const";
 import { FileUpload } from "../../components/FileUpload";
 import { validateField, validationRules } from "../../utils/validation";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -53,7 +54,7 @@ const CompanySettings = () => {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
-    severity: "success",
+    severity: "success" as AlertColor,
   });
 
   // Master data state for select fields
@@ -173,7 +174,7 @@ const CompanySettings = () => {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-4">
         {companyFields.map(
-          ({ key, label, multiline, rows, placeholder, type }) => {
+          ({ key, label, multiline, placeholder, type }) => {
             const hasError = !!errors[key];
             const rules = validationRules[key as keyof typeof validationRules];
             const value = companyInfo[key as keyof typeof companyInfo];
@@ -222,7 +223,11 @@ const CompanySettings = () => {
                 {type === "select" && (
                   <DynamicSelectWithAdd
                     label={label}
-                    value={value}
+                    value={
+                      typeof value === "string" || Array.isArray(value)
+                        ? value
+                        : ""
+                    }
                     onChange={(newValue: string | string[]) =>
                       handleChange(key, newValue)
                     }
@@ -288,7 +293,7 @@ const CompanySettings = () => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity as any} variant="filled">
+        <Alert severity={snackbar.severity} variant="filled">
           {snackbar.message}
         </Alert>
       </Snackbar>
