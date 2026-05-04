@@ -15,6 +15,7 @@ import type {
   LoginApiResponse,
   LoginOutcome,
   LoginRequest,
+  SelectTenantRequest,
 } from "./authTypes";
 
 export async function login(request: LoginRequest): Promise<LoginOutcome> {
@@ -23,6 +24,31 @@ export async function login(request: LoginRequest): Promise<LoginOutcome> {
     request,
   )) as LoginApiResponse;
   const outcome = mapLoginResponseToOutcome(response, request.loginId);
+
+  if (outcome.type === "authenticated") {
+    saveSession(outcome.session);
+  }
+
+  if (outcome.type === "mustChangePassword" && outcome.session) {
+    saveSession(outcome.session);
+  }
+
+  return outcome;
+}
+
+export async function selectTenant(
+  request: SelectTenantRequest,
+): Promise<LoginOutcome> {
+  const response = (await apiService.post(
+    API_ENDPOINTS.AUTH.SELECT_TENANT,
+    request,
+    {
+      headers: {
+        Authorization: `Bearer ${request.sessionToken}`,
+      },
+    },
+  )) as LoginApiResponse;
+  const outcome = mapLoginResponseToOutcome(response);
 
   if (outcome.type === "authenticated") {
     saveSession(outcome.session);

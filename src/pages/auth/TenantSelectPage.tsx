@@ -1,27 +1,77 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/authContext";
+import { getDefaultRoute } from "../../auth/authMapper";
 import type { TenantInfo } from "../../auth/authTypes";
 
 type TenantLocationState = {
   tenants?: TenantInfo[];
   email?: string;
+  sessionToken?: string;
 };
 
 export default function TenantSelectPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { selectTenant } = useAuth();
   const state = (location.state || {}) as TenantLocationState;
   const tenants = state.tenants || [];
   const [tenantId, setTenantId] = useState(tenants[0]?.id || "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleContinue = () => {
-    navigate("/login", {
-      replace: true,
-      state: {
+  const handleContinue = async () => {
+    if (!tenantId) {
+      return;
+    }
+
+    if (!state.sessionToken) {
+      setError("Unable to continue. Please sign in again.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const outcome = await selectTenant({
         tenantId,
-        email: state.email,
-      },
-    });
+        sessionToken: state.sessionToken,
+      });
+
+      switch (outcome.type) {
+        case "authenticated":
+          navigate(getDefaultRoute(outcome.session.user), { replace: true });
+          break;
+        case "mfaRequired":
+          navigate("/mfa", {
+            replace: true,
+            state: {
+              sessionToken: outcome.sessionToken,
+              mfaType: outcome.mfaType,
+            },
+          });
+          break;
+        case "mustChangePassword":
+          navigate("/reset-password", {
+            replace: true,
+            state: {
+              email: outcome.email || state.email,
+            },
+          });
+          break;
+        case "tenantSelection":
+          setError("Please choose a company to continue.");
+          break;
+        case "failed":
+          setError(outcome.message || "Unable to select company.");
+          break;
+      }
+    } catch {
+      setError("Unable to select company. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,6 +84,7 @@ export default function TenantSelectPage() {
           Choose the company workspace to continue signing in.
         </p>
         <select
+          aria-label="Company"
           value={tenantId}
           onChange={(event) => setTenantId(event.target.value)}
           className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition mb-6"
@@ -44,13 +95,18 @@ export default function TenantSelectPage() {
             </option>
           ))}
         </select>
+        {error && (
+          <div className="text-sm text-error bg-red-50 border border-red-100 rounded-sm px-3 py-2 mb-4">
+            {error}
+          </div>
+        )}
         <button
           type="button"
-          disabled={!tenantId}
+          disabled={!tenantId || loading}
           onClick={handleContinue}
           className="w-full bg-primary text-white text-sm py-3 rounded-sm font-semibold disabled:opacity-60"
         >
-          Continue
+          {loading ? "Continuing..." : "Continue"}
         </button>
         <Link
           to="/login"

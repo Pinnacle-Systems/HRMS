@@ -43,6 +43,11 @@ export type LoginRequest = {
   tenantId?: string;
 };
 
+export type SelectTenantRequest = {
+  tenantId: string;
+  sessionToken: string;
+};
+
 export type AuthResponse = {
   accessToken?: string;
   refreshToken?: string;
@@ -67,7 +72,12 @@ export type LoginApiResponse = ApiResponse<AuthResponse>;
 export type LoginOutcome =
   | { type: "authenticated"; session: AuthSession }
   | { type: "mfaRequired"; sessionToken: string; mfaType?: string }
-  | { type: "tenantSelection"; tenants: TenantInfo[]; email: string }
+  | {
+      type: "tenantSelection";
+      tenants: TenantInfo[];
+      email: string;
+      sessionToken?: string;
+    }
   | { type: "mustChangePassword"; session?: AuthSession; email?: string }
   | { type: "failed"; message: string };
 
@@ -90,6 +100,7 @@ export type AuthContextValue = {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (request: LoginRequest) => Promise<LoginOutcome>;
+  selectTenant: (request: SelectTenantRequest) => Promise<LoginOutcome>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<AuthSession | null>;
 };

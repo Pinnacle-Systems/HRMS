@@ -34,6 +34,10 @@ export function createAuthContextValue(
     isLoading: false,
     isAuthenticated: Boolean(session),
     login: async () => ({ type: "authenticated", session: session ?? createMockAuthSession() }),
+    selectTenant: async () => ({
+      type: "authenticated",
+      session: session ?? createMockAuthSession(),
+    }),
     logout: async () => undefined,
     refreshSession: async () => session,
   };

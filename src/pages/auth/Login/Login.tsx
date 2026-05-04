@@ -68,6 +68,7 @@ export default function Login() {
             state: {
               tenants: outcome.tenants,
               email: outcome.email || email,
+              sessionToken: outcome.sessionToken,
             },
           });
           break;

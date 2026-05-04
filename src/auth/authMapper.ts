@@ -110,6 +110,7 @@ export function mapLoginResponseToOutcome(
       type: "tenantSelection",
       tenants: data.tenants,
       email: data.email || loginId || "",
+      sessionToken: data.sessionToken,
     };
   }
 

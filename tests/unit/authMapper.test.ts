@@ -89,12 +89,14 @@ describe("authMapper", () => {
         createLoginResponse({
           multiTenant: true,
           email: "admin@company.com",
+          sessionToken: "tenant-session",
           tenants: [{ id: "tenant-1", name: "Tenant One" }],
         }),
       ),
     ).toEqual({
       type: "tenantSelection",
       email: "admin@company.com",
+      sessionToken: "tenant-session",
       tenants: [{ id: "tenant-1", name: "Tenant One" }],
     });
 

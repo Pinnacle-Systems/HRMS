@@ -4,7 +4,13 @@ import { apiService } from "../services/api/api.config";
 import * as authApi from "./authApi";
 import { clearSession, loadSession, saveSession } from "./authSession";
 import { AuthContext } from "./authContext";
-import type { AuthContextValue, AuthSession, LoginOutcome, LoginRequest } from "./authTypes";
+import type {
+  AuthContextValue,
+  AuthSession,
+  LoginOutcome,
+  LoginRequest,
+  SelectTenantRequest,
+} from "./authTypes";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(() => loadSession());
@@ -17,6 +23,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (request: LoginRequest): Promise<LoginOutcome> => {
       const outcome = await authApi.login(request);
+
+      if (outcome.type === "authenticated") {
+        setSession(outcome.session);
+        apiService.setAuthToken(outcome.session.accessToken);
+      }
+
+      if (outcome.type === "mustChangePassword" && outcome.session) {
+        setSession(outcome.session);
+        apiService.setAuthToken(outcome.session.accessToken);
+      }
+
+      return outcome;
+    },
+    [],
+  );
+
+  const selectTenant = useCallback(
+    async (request: SelectTenantRequest): Promise<LoginOutcome> => {
+      const outcome = await authApi.selectTenant(request);
 
       if (outcome.type === "authenticated") {
         setSession(outcome.session);
@@ -59,10 +84,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       isAuthenticated: Boolean(session),
       login,
+      selectTenant,
       logout,
       refreshSession,
     }),
-    [isLoading, login, logout, refreshSession, session],
+    [isLoading, login, logout, refreshSession, selectTenant, session],
   );
 
   useEffect(() => {
