@@ -192,9 +192,7 @@ export default function VerifyOTP() {
               ) : (
                 <p className="text-sm text-gray-400">
                   Resend code in{" "}
-                  <span className="font-semibold text-primary">
-                    {timeLeft}
-                  </span>{" "}
+                  <span className="font-semibold text-primary">{timeLeft}</span>{" "}
                   seconds
                 </p>
               )}

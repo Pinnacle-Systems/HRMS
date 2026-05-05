@@ -3,5 +3,6 @@ export const API_CONFIG = {
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
+    'accept': '*/*' 
   },
 };

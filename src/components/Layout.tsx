@@ -22,24 +22,27 @@ import {
 } from "@mui/material";
 import {
   Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Assignment as AssignmentIcon,
-  AttachMoney as MoneyIcon,
-  Settings as SettingsIcon,
-  Notifications as NotificationsIcon,
-  Person as PersonIcon,
-  ExitToApp as ExitToAppIcon,
-  Contrast as ContrastIcon }
-from "@mui/icons-material";
+  DashboardOutlined as DashboardOutlinedIcon,
+  PeopleAltOutlined as PeopleAltOutlinedIcon,
+  AssignmentOutlined as AssignmentOutlinedIcon,
+  AttachMoneyOutlined as AttachMoneyOutlinedIcon,
+  SettingsOutlined as SettingsOutlinedIcon,
+  NotificationsNoneOutlined as NotificationsNoneOutlinedIcon,
+  Person4Outlined as Person4OutlinedIcon,
+  LogoutOutlined as LogoutOutlinedIcon,
+  ContrastOutlined as ContrastOutlinedIcon,
+} from "@mui/icons-material";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
+import { authService } from "../services/modules/auth";
 
 const drawerWidth = 180;
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(null);
+  const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(
+    null,
+  );
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -55,9 +58,17 @@ export default function Layout() {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     handleProfileMenuClose();
-    navigate("/login");
+    try {
+      const response = await authService.logout();
+      console.log("logout", response);
+      if (response.success) {
+        navigate("/login");
+      }
+    } catch (err: any) {
+      // setError(err.message || "Login failed");
+    }
   };
 
   const handleConMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -68,17 +79,17 @@ export default function Layout() {
     setSettingsAnchorEl(null);
   };
 
-  const handleMyProfile = () => {
+  const handleMyProfile = async () => {
     handleProfileMenuClose();
     navigate("/profile");
   };
 
   const menuItems = [
-    { text: "Home", icon: <DashboardIcon />, path: "/home" },
-    { text: "Employees", icon: <PeopleIcon />, path: "/employees" },
-    { text: "Leave / Attendance", icon: <AssignmentIcon />, path: "/leave" },
-    { text: "Payroll", icon: <MoneyIcon />, path: "/payroll" },
-    { text: "Settings", icon: <SettingsIcon />, path: "/settings" },
+    { text: "Home", icon: <DashboardOutlinedIcon />, path: "/home" },
+    { text: "Employees", icon: <PeopleAltOutlinedIcon />, path: "/employees" },
+    { text: "Leave / Attendance", icon: <AssignmentOutlinedIcon />, path: "/leave" },
+    { text: "Payroll", icon: <AttachMoneyOutlinedIcon />, path: "/payroll" },
+    { text: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings" },
   ];
 
   const notifications = [
@@ -123,16 +134,24 @@ export default function Layout() {
           {/* Right Side Icons */}
           <Box className="flex items-center gap-2">
             <Tooltip title="Notifications">
-              <IconButton size="small" aria-label="show notifications" color="inherit">
+              <IconButton
+                size="small"
+                aria-label="show notifications"
+                color="inherit"
+              >
                 <Badge badgeContent={unreadCount} className="text-primary">
-                  <NotificationsIcon className="text-gray-500 !w-5" />
+                  <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
                 </Badge>
               </IconButton>
             </Tooltip>
 
             <Tooltip title="Theme Settings">
-              <IconButton size="small" onClick={handleConMenuOpen} className="text-gray-500">
-                <ContrastIcon className="!w-5" />
+              <IconButton
+                size="small"
+                onClick={handleConMenuOpen}
+                className="text-gray-500"
+              >
+                <ContrastOutlinedIcon className="!w-5" />
               </IconButton>
             </Tooltip>
 
@@ -162,14 +181,14 @@ export default function Layout() {
       >
         <MenuItem onClick={handleMyProfile} className="bg-white">
           <ListItemIcon>
-            <PersonIcon className="text-primary !w-5" />
+            <Person4OutlinedIcon className="text-primary !w-4" />
           </ListItemIcon>
           <div className="text-sm text-gray-800 ">My Profile</div>
         </MenuItem>
         <Divider className="border border-gray-200" />
         <MenuItem onClick={handleLogout} className="bg-white">
           <ListItemIcon>
-            <ExitToAppIcon className="text-error !w-5" />
+            <LogoutOutlinedIcon className="!w-4" />
           </ListItemIcon>
           <div className="text-sm text-error">Logout</div>
         </MenuItem>
@@ -217,34 +236,38 @@ export default function Layout() {
       >
         <List>
           {menuItems.map((item) => (
-            <ListItem
-              key={item.text}
-              disablePadding
-              className="block whitespace-nowrap"
-            >
-              <ListItemButton
-                className={`min-h-[48px] px-2.5 text-sm ${
-                  location.pathname === item.path
-                    ? "text-primary !bg-primary-50"
-                    : "text-gray-400"
-                } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
-                onClick={() => navigate(item.path)}
+            <Tooltip title={item.text}>
+              <ListItem
+                key={item.text}
+                disablePadding
+                className="block whitespace-nowrap"
               >
-                <ListItemIcon
-                  className={`!min-w-0 ml-2 ${open ? "mr-5" : "mr-0"} w-2 dark:text-primary justify-center`}
-                  sx={{ "& svg": { fontSize: 20 } }}
+                <ListItemButton
+                  className={`min-h-[48px] px-2.5 text-sm ${
+                    location.pathname === item.path
+                      ? "text-primary !bg-primary-50"
+                      : "text-gray-400"
+                  } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                  onClick={() => navigate(item.path)}
                 >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  className={open ? "opacity-100 dark:text-white" : "opacity-0"}
-                  sx={{
-                    "& .MuiTypography-root": { fontSize: "12px" },
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
+                  <ListItemIcon
+                    className={`!min-w-0 ml-2 ${open ? "mr-5" : "mr-0"} w-2 dark:text-primary justify-center`}
+                    sx={{ "& svg": { fontSize: 20 } }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.text}
+                    className={
+                      open ? "opacity-100 dark:text-white" : "opacity-0"
+                    }
+                    sx={{
+                      "& .MuiTypography-root": { fontSize: "12px" },
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            </Tooltip>
           ))}
         </List>
       </Drawer>

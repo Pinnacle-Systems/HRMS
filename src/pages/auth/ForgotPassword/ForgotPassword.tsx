@@ -1,16 +1,29 @@
-// ForgotPassword.jsx
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { authService } from "../../../services/modules/auth";
+import { useUI } from "../../../context/Snackbar";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const { showSnackbar, showSpinner, hideSpinner } = useUI();
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
-    console.log("Reset password for:", email);
     setSubmitted(true);
+    showSpinner();
+    try {
+      const response = await authService.forgotPassword({ loginId: email });
+      if (response.success) {
+        // navigate("/home");
+        showSnackbar(response.message, "success");
+      }
+    } catch (err: any) {
+      showSnackbar(err.message, "error");
+    } finally {
+      hideSpinner();
+    }
   };
 
   return (
@@ -40,14 +53,18 @@ function ForgotPassword() {
               These things happen.
             </p>
             <div className="mb-8 text-[12px] text-gray-600">
-              <p className="text-justify">Enter your Login ID and we'll help you reset</p>
+              <p className="text-justify">
+                Enter your Login ID and we'll help you reset
+              </p>
             </div>
             <div className="flex items-center">
               <img src="src/assets/forgot.png" width="30%" />
             </div>
           </div>
           <div className="space-y-4 text-sm mb-8">
-            <p className="mb-2 font-semibold  text-primary-dark">Security Tip</p>
+            <p className="mb-2 font-semibold  text-primary-dark">
+              Security Tip
+            </p>
             <p className="text-[12px] text-gray-600 text-justify">
               Always use a strong and unique password for your account.
             </p>

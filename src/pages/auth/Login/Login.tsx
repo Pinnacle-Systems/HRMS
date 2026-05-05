@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
+import { useUI } from "../../../context/Snackbar";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -10,50 +11,35 @@ export default function Login() {
   const [visible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const { showSnackbar, showSpinner, hideSpinner } = useUI();
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (isMobile && mobileNumber) {
-      //Login with mobile number
-      const response = await fetch(
-        "http://122.166.169.82:7091/api/auth/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include", // Add this
-          mode: "cors", // Add this
-          body: JSON.stringify({
-            mobileNumber: mobileNumber,
-            // otpSent: true
-          }),
-        },
-      );
-      const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("authToken", data.token);
-        localStorage.setItem("userData", JSON.stringify(data.user));
-        navigate("/verify-otp", {
-          state: { mobileNumber, userId: data.userId },
-        });
-      } else {
-        alert(data.message || "Login failed");
-      }
-    } else if (!isMobile && email && password) {
-      // Login with email
+      showSpinner();
       try {
-        const response = await authService.login({ loginId:email, password });
-        console.log("Login successful:", response);
+        const response = await authService.getOtp({ mobileNumber });
         if (response.success) {
           navigate("/home");
+          showSnackbar(response.message, "success");
         }
       } catch (err: any) {
-        setError(err.message || "Login failed");
+        showSnackbar(err.message, "error");
       } finally {
-        setLoading(false);
+        hideSpinner();
+      }
+    } else if (!isMobile && email && password) {
+      showSpinner();
+      try {
+        const response = await authService.login({ loginId: email, password });
+        if (response.success) {
+          navigate("/home");
+          showSnackbar(response.message, "success");
+        }
+      } catch (err: any) {
+        showSnackbar(err.message, "error");
+      } finally {
+        hideSpinner();
       }
     }
   };
@@ -93,11 +79,6 @@ export default function Login() {
               <div>10+ </div>
               <div>Years</div>
             </div>
-            {/* <div className="border-r border-gray-300  text-center pr-2">
-              <div>🌍 </div>
-              <div>15 </div>
-              <div>Markets</div>
-            </div> */}
             <div className="border-r border-gray-300  text-center pr-2">
               <div>👥 </div>
               <div>500+ </div>
@@ -189,21 +170,19 @@ export default function Login() {
               </>
             )}
             {/* Button */}
-            {/* <Link to={isMobile ? '/verify-otp' : '/home'} > */}
-            <button
-              type="submit"
-              className="w-full mt-2 text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer"
-            >
-              {isMobile ? "Get OTP" : "Sign in"}
-            </button>
-            {/* </Link> */}
-
-            <div className="text-gray-500">
-              --------------------------- or ------------------------------
+            <div className="text-center mt-2 ">
+              <button
+                type="submit"
+                className="w-full text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer"
+              >
+                {isMobile ? "Get OTP" : "Sign in"}
+              </button>
+              <div className="text-gray-500 mt-5">
+                --------------------------- or ------------------------------
+              </div>
             </div>
           </form>
           <div>
-            {/* <Link to="/verify-otp" > */}
             <button
               type="submit"
               onClick={() => setIsMobile(isMobile == false ? true : false)}
@@ -211,12 +190,6 @@ export default function Login() {
             >
               {isMobile ? "Back to Sign In" : "Login in with Mobile Number"}
             </button>
-            {/* </Link> */}
-
-            {/* <p className="text-sm mt-4 text-gray-500 flex items-center gap-2">
-                            <span className="text-primary-500 rounded-xl bg-primary-50 w-[25px] h-[25px] flex items-center justify-center">✔</span>
-                            One platform for all HR needs
-                        </p> */}
           </div>
         </div>
       </motion.div>

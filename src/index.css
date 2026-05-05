@@ -4,9 +4,8 @@
 @tailwind components;
 @tailwind utilities;
 
-
 @layer base {
-   html {
+  html {
     font-family: "Gill Sans", sans-serif;
     /* font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; */
   }
@@ -41,7 +40,7 @@
   .bg-primary-light {
     background-color: var(--bg-primary);
   }
-  
+
   .text-primary-light {
     color: var(--text-primary);
   }
@@ -52,16 +51,18 @@
 }
 
 .MuiOutlinedInput-root .MuiPickersSectionList-root {
-  padding: 8px !important;
+  padding: 10px !important;
 }
 
-.css-o9f5zw-MuiInputBase-root-MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+.css-o9f5zw-MuiInputBase-root-MuiOutlinedInput-root:hover
+  .MuiOutlinedInput-notchedOutline {
   border-color: var(--border-color) !important;
 }
 
 .css-1tktgsa-MuiPaper-root-MuiPopover-paper-MuiMenu-paper {
   /* height: 200px !important; */
-  max-height : 200px !important
+  max-height: 200px !important;
+  width: 200px !important;
 }
 
 .css-18p5xg2-MuiNotchedOutlined-root-MuiOutlinedInput-notchedOutline {
@@ -81,10 +82,72 @@
   color: var(--text-primary) !important;
 }
 
-.css-14500qs-MuiSvgIcon-root{
-  color: var(--text-primary) !important;
+.css-14500qs-MuiSvgIcon-root {
+  color: var(--text-secondary) !important;
 }
 
 .css-1ugbrpl-MuiFormControl-root-MuiPickersTextField-root {
-  width: 200px !important;
+  /* width: 200px !important; */
+}
+.css-up5yqv-MuiFormControl-root-MuiTextField-root {
+  min-width: 180px !important;
+  /* width: 200px !important; */
+}
+
+.css-1pjd06b {
+  padding: 15px !important;
+  padding-left: 80px !important;
+}
+.css-166ur73-MuiPickersInputBase-root-MuiPickersOutlinedInput-root {
+  width: 193px !important;
+}
+
+.css-1r46z6h-MuiPaper-root-MuiDialog-paper {
+  background-color: var(--bg-primary) !important;
+}
+
+.css-1fb7els-MuiPickersSectionList-root-MuiPickersInputBase-sectionsContainer-MuiPickersOutlinedInput-sectionsContainer {
+  color: var(--text-primary) !important;
+}
+
+.css-6khlkn-MuiFormLabel-root-MuiInputLabel-root {
+  color: var(--text-primary) !important;
+}
+
+.css-1ljffdk-MuiFormLabel-asterisk {
+  color: red;
+}
+
+.css-peaglx-MuiButtonBase-root-MuiButton-root {
+  text-transform: capitalize !important;
+}
+
+.css-1dx2d47-MuiButtonBase-root-MuiButton-root {
+  text-transform: capitalize !important;
+}
+
+.css-3hfh1o-MuiButtonBase-root-MuiButton-root {
+  text-transform: capitalize !important;
+}
+
+.css-xs1jo8-MuiButtonBase-root-MuiTab-root {
+  text-transform: capitalize !important;
+}
+
+.css-orhhbu-MuiTableCell-root {
+  padding: 2px 2px 2px 16px !important;
+}
+
+.css-1yhyctn-MuiPaper-root-MuiDialog-paper {
+  background-color: var(--bg-primary) !important;
+}
+
+.css-1h5yrpd-MuiSvgIcon-root-MuiNativeSelect-root-MuiSelect-icon {
+  color: var(--text-primary) !important;
+}
+
+.css-1cckmy8-MuiButtonBase-root-MuiButton-root {
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+  padding: 8px !important;
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
+import { authService } from "../../../services/modules/auth";
+import { useUI } from "../../../context/Snackbar";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -10,7 +12,8 @@ export default function ResetPassword() {
   const [submitted, setSubmitted] = useState(false);
   const [passwordMatch, setPasswordMatch] = useState(true);
   const navigate = useNavigate();
-
+  const token = localStorage.getItem("resetToken");
+  const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [validation, setValidation] = useState({
     length: false,
     uppercase: false,
@@ -40,21 +43,36 @@ export default function ResetPassword() {
     }
   }, [newPassword, confirmPassword]);
 
-  const handleSubmit = (e: any) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault();
     if (!isPasswordValid) {
-      alert("Please meet all password requirements");
+      showSnackbar("Please meet all password requirements", "warning");
       return;
     }
     if (newPassword !== confirmPassword) {
       setPasswordMatch(false);
       return;
     }
-    console.log("Password reset successfully:", { newPassword });
     setSubmitted(true);
-    setTimeout(() => {
-      navigate("/login");
-    }, 3000);
+    // setTimeout(() => {
+    //   navigate("/login");
+    // }, 3000);
+    showSpinner();
+    try {
+      const response = await authService.resetPassword({
+        resetToken: token,
+        newPassword,
+        confirmPassword,
+      });
+      if (response.success) {
+        // navigate("/home");
+        showSnackbar(response.message, "success");
+      }
+    } catch (err: any) {
+      showSnackbar(err.message, "error");
+    } finally {
+      hideSpinner();
+    }
   };
 
   return (

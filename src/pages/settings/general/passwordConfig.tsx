@@ -15,7 +15,7 @@ export default function PasswordConfig() {
 
   return (
     <div className="space-y-6">
-          <div className="text-secondary">Settings <KeyboardDoubleArrowRightIcon/> Password Config</div>
+      <div className="text-secondary mb-3 mt-3">Settings <KeyboardDoubleArrowRightIcon/> Password Config</div>
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 6 }}>
           <TextField

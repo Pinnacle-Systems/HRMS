@@ -102,7 +102,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
   const menuItems = [
     ...localOptions.map((option: string) => (
       <MenuItem key={option} value={option}>
-        {multiple && <Checkbox checked={value?.includes(option)} />}
+        {/* {multiple && <Checkbox checked={value?.includes(option)} />} */}
         <ListItemText primary={option} />
       </MenuItem>
     )),
@@ -136,17 +136,19 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
         required={required}
         sx={{
           width: "max-content",
-          minWidth: "200px",
+          minWidth: "180px",
           maxWidth: "100%",
           ...sx,
         }}
       >
         <InputLabel>{label}</InputLabel>
         <Select
-          multiple={multiple}
-          value={value || (multiple ? [] : "")}
+          // multiple={multiple}
+          // value={value || (multiple ? [] : "")}
+          value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           input={<OutlinedInput label={label} />}
+          className="!text-[12px]"
           sx={{
             "& .MuiPaper-root": {
               Height: 100,
@@ -198,14 +200,14 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
               setOpenDialog(false);
               setNewOption("");
             }}
-            className="!capitalize !text-gray-800"
+            className="!text-gray-800"
           >
             Cancel
           </Button>
           <Button
             onClick={handleAddOption}
             variant="contained"
-            className="!capitalize !bg-primary !text-white"
+            className="!bg-primary !text-white"
             disabled={!newOption.trim() || localOptions.includes(newOption.trim())}
           >
             Add

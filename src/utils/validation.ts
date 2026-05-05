@@ -8,17 +8,17 @@ export interface ValidationRule {
 
 export const validationRules: Record<string, ValidationRule> = {
   // Tax Numbers
-  // gst: {
-  //   pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
-  //   message: 'Invalid GST number format',
-  //   formatExample: '22AAAAA0000A1Z'
-  // },
-  pan: {
+  gstNo: {
+    pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+    message: 'Invalid GST number format',
+    formatExample: '22AAAAA0000A1Z'
+  },
+  panNo: {
     pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/,
     message: 'Invalid PAN number format',
     formatExample: 'ABCDE1234F'
   },
-  tan_no: {
+  tanNo: {
     pattern: /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/,
     message: 'Invalid TAN number format',
     formatExample: 'ABCD12345E'
@@ -33,7 +33,7 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid CST number format',
     formatExample: 'CST/1234567890'
   },
-  cin_no: {
+  cin: {
     pattern: /^[UL][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/,
     message: 'Invalid CIN number format',
     formatExample: 'U12345MH2024PLC123456'
@@ -59,12 +59,12 @@ export const validationRules: Record<string, ValidationRule> = {
   },
   
   // Statutory
-  pf_no: {
+  pfNo: {
     pattern: /^[A-Z]{2}\/\d{5}\/\d{4}$/,
     message: 'Invalid PF number format',
     formatExample: 'MH/12345/1234'
   },
-  esi_no: {
+  esiNo: {
     pattern: /^\d{17}$/,
     message: 'Invalid ESI number format (17 digits required)',
     formatExample: '12345678901234567'
@@ -74,7 +74,7 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid ESIC code format (17 digits required)',
     formatExample: '12345678901234567'
   },
-  lin_no: {
+  linNo: {
     pattern: /^LIN\/[A-Z]{2}\/\d{4}\/\d{5}$/,
     message: 'Invalid LIN number format',
     formatExample: 'LIN/MH/2024/12345'
@@ -86,7 +86,7 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid license number format',
     formatExample: 'TRD/MH/123/2024'
   },
-  registration_no: {
+  registrationCertificateNo: {
     pattern: /^[A-Z]{3}-\d{10}$/,
     message: 'Invalid registration number format',
     formatExample: 'ROC-1234567890'
@@ -118,7 +118,7 @@ export const validationRules: Record<string, ValidationRule> = {
 };
 
 // Helper function to validate a field
-export const validateField = (key: string, value: string): string => {
+export const validateField = (key: string, value: string): string => {  
   const rule = validationRules[key];
   if (!rule) return '';
   

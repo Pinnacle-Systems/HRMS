@@ -4,6 +4,7 @@ import {
   AxiosError,
 } from "axios";
 import type { ApiError } from "./api.types";
+import { apiService } from "./api.config";
 
 // Track token refresh state
 let isRefreshing = false;
@@ -24,19 +25,18 @@ const processQueue = (error: any | null, token: string | null = null) => {
 };
 
 export const setupInterceptors = (axiosInstance: AxiosInstance) => {
-  // Request Interceptor
+  // Request Interceptor - ONLY add token if not already present
   axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+      // Don't add token if it's a refresh request
+      if (config.url?.includes('/refresh-token')) {
+        return config;
+      }
+      
       const token = localStorage.getItem("accessToken");
-      if (token) {
+      if (token && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-
-      // Add company context
-      // const companyId = localStorage.getItem('company_id');
-      // if (companyId) {
-      //   config.headers['X-Company-Id'] = companyId;
-      // }
 
       // Remove Content-Type for FormData
       if (config.data instanceof FormData) {
@@ -45,23 +45,27 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
 
       return config;
     },
-    (error: any) => {
-      return Promise.reject(error);
-    },
+    (error: any) => Promise.reject(error),
   );
 
   // Response Interceptor
   axiosInstance.interceptors.response.use(
-    (response) => {
-      return response;
-    },
+    (response) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as any;
+      
+      // Prevent infinite loops
+      if (originalRequest.url?.includes('/refresh-token')) {
+        localStorage.clear();
+        if (window.location.pathname !== '/login') {
+          window.location.href = "/login";
+        }
+        return Promise.reject(error);
+      }
 
       // Handle 401 Unauthorized
       if (error.response?.status === 401 && !originalRequest._retry) {
         if (isRefreshing) {
-          // Queue the request while token is refreshing
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           })
@@ -81,40 +85,38 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
             throw new Error("No refresh token");
           }
 
-          const response = await axiosInstance.post("/auth/refresh", {
+          // Use consistent endpoint
+          const response = await axiosInstance.post("/auth/refresh-token", {
             refreshToken: refreshToken,
           });
 
           const { accessToken } = response.data.data;
           localStorage.setItem("accessToken", accessToken);
 
-          // Process queued requests
           processQueue(null, accessToken);
 
-          // Retry original request
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return axiosInstance(originalRequest);
         } catch (refreshError) {
-          // Refresh failed - clear session and redirect to login
           processQueue(refreshError, null);
           localStorage.clear();
-          window.location.href = "/login";
+          apiService.setAuthToken(null);
+          
+          // Prevent redirect loops
+          if (window.location.pathname !== '/login') {
+            window.location.href = "/login";
+          }
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
         }
       }
 
-      // Format error for consistent handling
       const apiError: ApiError = {
         status: error.response?.status || 0,
-        message:
-          (error.response?.data as any)?.message ||
-          error.message ||
-          "An error occurred",
+        message: (error.response?.data as any)?.message || error.message || "An error occurred",
         errors: (error.response?.data as any)?.errors,
       };
-
       return Promise.reject(apiError);
     },
   );

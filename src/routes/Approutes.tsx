@@ -8,9 +8,13 @@ import Home from "../pages/home/home";
 import Layout from "../components/Layout";
 import Employees from "../pages/employees/employees";
 import Settings from "../pages/settings/settings";
-import CompanySettings from "../pages/settings/companySettings";
-import PasswordConfig from "../pages/settings/passwordConfig";
-
+import CompanySettings from "../pages/settings/general/companySettings";
+import PasswordConfig from "../pages/settings/general/passwordConfig";
+import Profile from "../pages/myProfile/myprofile";
+import BranchSettings from "../pages/settings/general/branchSettings";
+import DepartmentSettings from "../pages/settings/employee/depSettings";
+import CategorySettings from "../pages/settings/employee/otherCategory";
+import CategoryItems from "../pages/settings/employee/categoryItems";
 
 const AppRoutes = () => {
   return (
@@ -26,26 +30,45 @@ const AppRoutes = () => {
             <Route index element={<Home />} />
             <Route path="home" element={<Home />} />
             <Route path="employees" element={<Employees />} />
+            <Route path="profile" element={<Profile />} />
             {/* Settings Routes */}
-          <Route path="settings" element={<Settings />}>
-            {/* General Tab Routes */}
-            <Route path="general/company-settings" element={<CompanySettings />} />
-            <Route path="general/password-config" element={<PasswordConfig />} />
-            
-            {/* Employee Tab Routes */}
-            {/* <Route path="employee/employee" element={<Employee />} />
-            <Route path="employee/employee-positions" element={<EmployeePositions />} /> */}
-            
-            {/* Payroll Tab Routes */}
-            {/* <Route path="payroll/payroll-settings" element={<PayrollSettings />} /> */}
-            
-            {/* Income Tax Tab Routes */}
-            {/* <Route path="income-tax/income-tax-settings" element={<IncomeTaxSettings />} /> */}
-            
-            {/* Default redirect */}
-            <Route index element={<CompanySettings />} />
-          </Route>
-           
+            <Route path="settings" element={<Settings />}>
+              <Route
+                path="general/company-settings"
+                element={<CompanySettings />}
+              />
+              <Route
+                path="general/branch-settings"
+                element={<BranchSettings />}
+              />
+              <Route
+                path="general/password-config"
+                element={<PasswordConfig />}
+              />
+              {/* Employee Tab Routes */}
+              <Route path="employee" element={<Employees />} />
+              <Route
+                path="employee/department-settings"
+                element={<DepartmentSettings />}
+              />
+              <Route
+                path="employee/category-settings"
+                element={<CategorySettings />}
+              />
+              <Route
+                path="employee/category-items/:categoryId"
+                element={<CategoryItems />}
+              />
+
+              {/* Payroll Tab Routes */}
+              {/* <Route path="payroll/payroll-settings" element={<PayrollSettings />} /> */}
+
+              {/* Income Tax Tab Routes */}
+              {/* <Route path="income-tax/income-tax-settings" element={<IncomeTaxSettings />} /> */}
+
+              {/* Default redirect */}
+              <Route index element={<CompanySettings />} />
+            </Route>
           </Route>
         </Route>
       </Routes>

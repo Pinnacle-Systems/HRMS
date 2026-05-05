@@ -39,9 +39,10 @@ const theme = createTheme({
             },
           },
           "& .MuiInputLabel-root": {
-            fontSize: "12px",
+            fontSize: "13px",
             backgroundColor: "var(--bg-primary)",
             padding: "0 4px",
+            top:"-5px",
             color: "var(--text-primary) !important",
             "&.Mui-focused": {
               color: "var(--text-primary) !important",
@@ -54,6 +55,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           fontSize: "12px",
+          top:"-5px",
           "&.Mui-focused": {
             color: "var(--text-primary) !important",
           },
@@ -68,7 +70,7 @@ const theme = createTheme({
             borderWidth: "2px",
           },
           "& .MuiPickersSectionList-root": {
-            padding: "8px",
+            padding: "10px",
           },
         },
       },
@@ -104,10 +106,10 @@ const theme = createTheme({
     MuiSelect: {
       styleOverrides: {
         select: {
-          padding: '8px',
+          padding: '10px',
         },
         outlined: {
-          padding: '8px',
+          padding: '10px',
         },
         root: {
           '&:hover .MuiOutlinedInput-notchedOutline': {

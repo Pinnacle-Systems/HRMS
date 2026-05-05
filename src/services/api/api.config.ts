@@ -6,10 +6,9 @@ import { API_CONFIG } from "./config";
 class ApiService {
   private static instance: ApiService;
   public axiosInstance: AxiosInstance;
-
   private constructor() {
     this.axiosInstance = axios.create({
-      baseURL: API_CONFIG.baseURL,
+      baseURL: API_CONFIG.baseURL || import.meta.env.VITE_API_URL,
       timeout: API_CONFIG.timeout,
       headers: API_CONFIG.headers,
     });

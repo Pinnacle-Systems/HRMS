@@ -58,7 +58,7 @@ export const Theme = ({ children }: { children: React.ReactNode }) => {
   const [mode, setMode] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('theme-mode');
     if (saved) return saved as ThemeMode;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'light';
   });
 
   // Color theme state
