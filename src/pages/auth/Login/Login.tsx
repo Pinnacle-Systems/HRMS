@@ -1,10 +1,37 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
+import type { FormEvent } from "react";
+import { useAuth } from "../../../auth/authContext";
+import { getDefaultRoute } from "../../../auth/authMapper";
+
+type LoginLocationState = {
+  tenantId?: string;
+  email?: string;
+};
+
+function getLoginErrorMessage(error: unknown) {
+  const status =
+    typeof error === "object" && error && "status" in error
+      ? Number((error as { status?: number }).status)
+      : 0;
+
+  if (status === 400 || status === 401 || status === 403) {
+    return "Invalid email or password.";
+  }
+
+  if (status === 0) {
+    return "Unable to connect. Please check your internet connection.";
+  }
+
+  return "Something went wrong. Please try again.";
+}
 
 export default function Login() {
+  const location = useLocation();
+  const locationState = (location.state || {}) as LoginLocationState;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
@@ -12,32 +39,78 @@ export default function Login() {
   const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { login } = useAuth();
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    if (isMobile && mobileNumber) {
+        setError("");
+
+    // if (isMobile && mobileNumber) {
+    //   showSpinner();
+    //   try {
+    //     const response = await authService.getOtp({ mobileNumber });
+    //     if (response.success) {
+    //       navigate("/home");
+    //       showSnackbar(response.message, "success");
+    //     }
+    //   } catch (err: any) {
+    //     showSnackbar(err.message, "error");
+    //   } finally {
+    //     hideSpinner();
+    //   }
+    // } else
+    if (!isMobile && email && password) {
       showSpinner();
       try {
-        const response = await authService.getOtp({ mobileNumber });
-        if (response.success) {
-          navigate("/home");
-          showSnackbar(response.message, "success");
+        const outcome = await login({
+          loginId: email,
+          password,
+          tenantId: locationState.tenantId,
+        });
+        // if (response.success) {
+        //   navigate("/home");
+        //   showSnackbar(response.message, "success");
+        // }
+        switch (outcome.type) {
+          case "authenticated":
+            navigate(getDefaultRoute(outcome.session.user), { replace: true });
+            break;
+          case "mfaRequired":
+            navigate("/mfa", {
+              replace: true,
+              state: {
+                sessionToken: outcome.sessionToken,
+                mfaType: outcome.mfaType,
+              },
+            });
+            break;
+          case "tenantSelection":
+            navigate("/select-tenant", {
+              replace: true,
+              state: {
+                tenants: outcome.tenants,
+                email: outcome.email || email,
+                sessionToken: outcome.sessionToken,
+              },
+            });
+            break;
+          case "mustChangePassword":
+            navigate("/reset-password", {
+              replace: true,
+              state: {
+                email: outcome.email || email,
+              },
+            });
+            break;
+          case "failed":
+            showSnackbar(outcome.message, "error");
+            break;
         }
       } catch (err: any) {
         showSnackbar(err.message, "error");
-      } finally {
-        hideSpinner();
-      }
-    } else if (!isMobile && email && password) {
-      showSpinner();
-      try {
-        const response = await authService.login({ loginId: email, password });
-        if (response.success) {
-          navigate("/home");
-          showSnackbar(response.message, "success");
-        }
-      } catch (err: any) {
-        showSnackbar(err.message, "error");
+        setError(getLoginErrorMessage(err));
+
       } finally {
         hideSpinner();
       }
@@ -62,14 +135,14 @@ export default function Login() {
               </span>
             </div>
             <h1 className="text-2xl font-semibold leading-snug mb-6">
-              Vibe<span className="text-primary">HR</span> is your <br />{" "}
-              ultimate HRMS platform
+              Sign in to <br />
+              Vibe<span className="text-primary">HR</span>
             </h1>
             <div className="flex items-center justify-center">
               <img src="src\assets\grp.png" width="50" height="100" />
               <p className="text-gray-600 max-w-sm text-[11px] ml-4 text-justify">
-                We provide the only platform that makes it easy to manage
-                employees, attendance, payroll, and more.
+                Access payroll, attendance, onboarding, employee records, and
+                company workflows from one secure HRMS workspace.
               </p>
             </div>
           </div>
@@ -116,7 +189,7 @@ export default function Login() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder="employee@company.com"
                     className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                   />
@@ -142,8 +215,19 @@ export default function Login() {
                       {visible == false ? "visibility_off" : "visibility"}
                     </i>
                   </div>
+                  {/* <button
+                    type="button"
+                    className="absolute top-[35px] right-[8px] text-primary hover:text-primary-dark text-xs"
+                    onClick={() => setIsVisible((current) => !current)}
+                  >
+                    {visible ? "Hide" : "Show"}
+                  </button> */}
                 </div>
-                <div className="flex items-end justify-end text-sm cursor-pointer">
+                <div className="flex items-center justify-between text-sm">
+                  <label className="flex items-center gap-2 text-gray-500">
+                    <input type="checkbox" className="accent-primary" />
+                    Remember this device
+                  </label>
                   <Link
                     to="/forgot-password"
                     className="text-primary hover:text-primary-dark"
@@ -151,6 +235,11 @@ export default function Login() {
                     Forgot password?
                   </Link>
                 </div>
+                 {error && (
+              <div className="text-sm text-error bg-red-50 border border-red-100 rounded-sm px-3 py-2">
+                {error}
+              </div>
+            )}
               </>
             )}
             {isMobile && (
@@ -171,18 +260,24 @@ export default function Login() {
             )}
             {/* Button */}
             <div className="text-center mt-2 ">
-              <button
+              {/* <button
                 type="submit"
                 className="w-full text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer"
               >
                 {isMobile ? "Get OTP" : "Sign in"}
-              </button>
-              <div className="text-gray-500 mt-5">
+              </button> */}
+              <button
+              type="submit"
+              className="w-full mt-2 text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              Sign in
+            </button>
+              {/* <div className="text-gray-500 mt-5">
                 --------------------------- or ------------------------------
-              </div>
+              </div> */}
             </div>
           </form>
-          <div>
+          {/* <div>
             <button
               type="submit"
               onClick={() => setIsMobile(isMobile == false ? true : false)}
@@ -190,7 +285,7 @@ export default function Login() {
             >
               {isMobile ? "Back to Sign In" : "Login in with Mobile Number"}
             </button>
-          </div>
+          </div> */}
         </div>
       </motion.div>
     </div>

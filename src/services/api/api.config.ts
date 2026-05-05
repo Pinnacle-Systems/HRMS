@@ -3,6 +3,9 @@ import { setupInterceptors } from "./interceptors";
 // import type { ApiResponse } from "./api.types";
 import { API_CONFIG } from "./config";
 
+type RequestBody = Record<string, unknown> | FormData | File | string | number | boolean | null;
+type UploadAdditionalData = Record<string, string | Blob>;
+
 class ApiService {
   private static instance: ApiService;
   public axiosInstance: AxiosInstance;
@@ -25,8 +28,11 @@ class ApiService {
   }
 
   // Generic GET request
-  async get(url: string, config?: AxiosRequestConfig): Promise<any> {
-    const response = await this.axiosInstance.get<any>(url, config);
+  async get<TResponse = unknown>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<TResponse> {
+    const response = await this.axiosInstance.get<TResponse>(url, config);
     return response.data;
   }
 
@@ -39,36 +45,39 @@ class ApiService {
   // Generic POST request
   async post(
     url: string,
-    data?: any,
+    data?: RequestBody,
     config?: AxiosRequestConfig,
-  ): Promise<any> {
-    const response = await this.axiosInstance.post<any>(url, data, config);
+  ): Promise<unknown> {
+    const response = await this.axiosInstance.post<unknown>(url, data, config);
     return response.data;
   }
 
   // Generic PUT request
   async put(
     url: string,
-    data?: any,
+    data?: RequestBody,
     config?: AxiosRequestConfig,
-  ): Promise<any> {
-    const response = await this.axiosInstance.put<any>(url, data, config);
+  ): Promise<unknown> {
+    const response = await this.axiosInstance.put<unknown>(url, data, config);
     return response.data;
   }
 
   // Generic PATCH request
   async patch(
     url: string,
-    data?: any,
+    data?: RequestBody,
     config?: AxiosRequestConfig,
-  ): Promise<any> {
-    const response = await this.axiosInstance.patch<any>(url, data, config);
+  ): Promise<unknown> {
+    const response = await this.axiosInstance.patch<unknown>(url, data, config);
     return response.data;
   }
 
   // Generic DELETE request
-  async delete(url: string, config?: AxiosRequestConfig): Promise<any> {
-    const response = await this.axiosInstance.delete<any>(url, config);
+  async delete<TResponse = unknown>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<TResponse> {
+    const response = await this.axiosInstance.delete<TResponse>(url, config);
     return response.data;
   }
 
@@ -77,8 +86,8 @@ class ApiService {
     url: string,
     file: File,
     fieldName: string = "file",
-    additionalData?: any,
-  ): Promise<any> {
+    additionalData?: UploadAdditionalData,
+  ): Promise<unknown> {
     const formData = new FormData();
     formData.append(fieldName, file);
 
@@ -98,8 +107,8 @@ class ApiService {
     url: string,
     files: File[],
     fieldName: string = "files",
-    additionalData?: any,
-  ): Promise<any> {
+    additionalData?: UploadAdditionalData,
+  ): Promise<unknown> {
     const formData = new FormData();
     files.forEach((file) => {
       formData.append(fieldName, file);
@@ -136,11 +145,9 @@ class ApiService {
   // Set auth token
   setAuthToken(token: string | null) {
     if (token) {
-      localStorage.setItem("accessToken", token);
       this.axiosInstance.defaults.headers.common["Authorization"] =
         `Bearer ${token}`;
     } else {
-      localStorage.removeItem("accessToken");
       delete this.axiosInstance.defaults.headers.common["Authorization"];
     }
   }

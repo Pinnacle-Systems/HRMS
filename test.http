@@ -1,0 +1,41 @@
+@api_base_url=http://122.166.169.82:7091/api
+
+###
+# @name admin_login
+POST {{api_base_url}}/auth/login
+Content-Type: application/json
+
+{
+    "loginId": "admin@pinnaclesystems.com",
+    "password": "password"
+}
+
+###
+# @name hr_login
+POST {{api_base_url}}/auth/login
+Content-Type: application/json
+
+{
+    "loginId": "hr@pinnaclesystems.com",
+    "password": "password"
+}
+
+###
+# @name manager_login
+POST {{api_base_url}}/auth/login
+Content-Type: application/json
+
+{
+    "loginId": "manager@pinnaclesystems.com",
+    "password": "password"
+}
+
+###
+# @name employee_login
+POST {{api_base_url}}/auth/login
+Content-Type: application/json 
+
+{
+    "loginId": "employee@pinnaclesystems.com",
+    "password": "password"
+}

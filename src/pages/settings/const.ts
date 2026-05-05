@@ -2,7 +2,7 @@ export const companyFieldsWithSections = [
   // Section 1: Basic Information
   { section: 'Basic Information', isSection: true },
   { key: 'companyName', label: 'Company Name', type: 'text', required:true, multiline: true, placeholder: '(e.g., VibeHR Solutions)' },
-//   { key: 'alias_name', label: 'Alias Name', type: 'text', placeholder: '(e.g., VibeHR)', multiline: true },
+  { key: 'alias_name', label: 'Alias Name', type: 'text', placeholder: '(e.g., VibeHR)', multiline: true },
   { key: 'code', label: 'Company Code', type: 'text', placeholder: '(e.g., VHR001)' },
   { key: 'cost_code', label: 'Cost Code', type: 'text', placeholder: '(e.g., CC-2024-001)' },
   { key: 'companyType', label: 'Company Type', type: 'select', placeholder: '(e.g., Private Limited, Public)' },

@@ -1,7 +1,13 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { Button, Menu, MenuItem, ListItemText } from "@mui/material";
-import { ArrowDropDown, ArrowDropUp } from "@mui/icons-material";
+import {
+  Button,
+  Menu,
+  MenuItem,
+  ListItemText,
+} from "@mui/material";
+import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUp from "@mui/icons-material/ArrowDropUp";
 import { tabs } from "./const";
 
 export default function Settings() {
@@ -11,19 +17,20 @@ export default function Settings() {
   const [openDropdown, setOpenDropdown] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
-  useEffect(() => {
+  const routeTabId = useMemo(() => {
     const currentPath = location.pathname;
     for (const tab of tabs) {
       for (const option of tab.options) {
         if (currentPath === option.path) {
-          setActiveTab(tab.id);
-          break;
+          return tab.id;
         }
       }
     }
+    return "general";
   }, [location.pathname]);
 
-  const currentTab = tabs.find((tab) => tab.id === activeTab)!;
+  const selectedTabId = openDropdown ? activeTab : routeTabId;
+  const currentTab = tabs.find((tab) => tab.id === selectedTabId)!;
 
   const handleTabClick = (
     event: React.MouseEvent<HTMLElement>,
@@ -66,7 +73,7 @@ export default function Settings() {
             sx={{ px: 2 }}
           >
             {tab.label}
-            {activeTab === tab.id && openDropdown ? (
+            {selectedTabId === tab.id && openDropdown ? (
               <ArrowDropUp className="!w-4 !h-4 ml-1" />
             ) : (
               <ArrowDropDown className="!w-4 !h-4 ml-1" />

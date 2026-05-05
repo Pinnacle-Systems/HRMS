@@ -10,38 +10,30 @@ export default function ResetPassword() {
   const [visible1, setVisible1] = useState(false);
   const [visible2, setVisible2] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [passwordMatch, setPasswordMatch] = useState(true);
-  const navigate = useNavigate();
+  // const [passwordMatch, setPasswordMatch] = useState(true);
+  // const navigate = useNavigate();
   const token = localStorage.getItem("resetToken");
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
-  const [validation, setValidation] = useState({
-    length: false,
-    uppercase: false,
-    lowercase: false,
-    number: false,
-  });
+  const validation = {
+    length: newPassword.length >= 8,
+    uppercase: /[A-Z]/.test(newPassword),
+    lowercase: /[a-z]/.test(newPassword),
+    number: /[0-9]/.test(newPassword),
+  };
+  const passwordMatch = confirmPassword === "" || newPassword === confirmPassword;
   const isPasswordValid =
     validation.length &&
     validation.uppercase &&
     validation.lowercase &&
     validation.number;
 
-  useEffect(() => {
-    setValidation({
-      length: newPassword.length >= 8,
-      uppercase: /[A-Z]/.test(newPassword),
-      lowercase: /[a-z]/.test(newPassword),
-      number: /[0-9]/.test(newPassword),
-    });
-  }, [newPassword]);
-
-  useEffect(() => {
-    if (confirmPassword !== "") {
-      setPasswordMatch(newPassword === confirmPassword);
-    } else {
-      setPasswordMatch(true);
-    }
-  }, [newPassword, confirmPassword]);
+  // useEffect(() => {
+  //   if (confirmPassword !== "") {
+  //     setPasswordMatch(newPassword === confirmPassword);
+  //   } else {
+  //     setPasswordMatch(true);
+  //   }
+  // }, [newPassword, confirmPassword]);
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
@@ -50,7 +42,6 @@ export default function ResetPassword() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordMatch(false);
       return;
     }
     setSubmitted(true);
@@ -64,10 +55,10 @@ export default function ResetPassword() {
         newPassword,
         confirmPassword,
       });
-      if (response.success) {
-        // navigate("/home");
-        showSnackbar(response.message, "success");
-      }
+      // if (response.success) {
+      //   // navigate("/home");
+      //   showSnackbar(response.message, "success");
+      // }
     } catch (err: any) {
       showSnackbar(err.message, "error");
     } finally {

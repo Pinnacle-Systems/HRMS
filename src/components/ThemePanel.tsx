@@ -1,8 +1,7 @@
-import React from 'react';
-import { useTheme } from '../context/Theme';
+import { useTheme, type ColorTheme } from '../context/themeContext';
 
 export const ThemePanel = () => {
-  const { mode, colorTheme, toggleMode, changeColor, setMode } = useTheme();
+  const { mode, colorTheme, changeColor, setMode } = useTheme();
 
   const colorThemes = [
     { name: 'Orange', value: 'orange', class: 'bg-[#e16a3d]' },
@@ -60,7 +59,7 @@ export const ThemePanel = () => {
           {colorThemes.map((color) => (
             <button
               key={color.value}
-              onClick={() => changeColor(color.value as any)}
+              onClick={() => changeColor(color.value as ColorTheme)}
               className={`h-10 rounded-lg ${color.class} ${
                 colorTheme === color.value
                   ? 'ring-2 ring-offset-2 ring-gray-400'

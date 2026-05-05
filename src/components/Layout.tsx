@@ -34,6 +34,13 @@ import {
 } from "@mui/icons-material";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { authService } from "../services/modules/auth";
+import { useAuth } from "../auth/authContext";
+import {
+  canShowNavItem,
+  getDefaultRoute,
+  getWorkspaceLabel,
+} from "../auth/authMapper";
+import type { NavItem } from "../auth/authTypes";
 
 const drawerWidth = 180;
 
@@ -45,6 +52,8 @@ export default function Layout() {
   );
   const navigate = useNavigate();
   const location = useLocation();
+  const { session, logout } = useAuth();
+  const user = session?.user;
 
   const handleDrawerToggle = () => {
     setOpen(!open);
@@ -61,14 +70,11 @@ export default function Layout() {
   const handleLogout = async () => {
     handleProfileMenuClose();
     try {
-      const response = await authService.logout();
-      console.log("logout", response);
-      if (response.success) {
-        navigate("/login");
-      }
-    } catch (err: any) {
-      // setError(err.message || "Login failed");
-    }
+      await logout();
+      // if (response.success) {
+      navigate("/login");
+      // }
+    } catch (err: any) {}
   };
 
   const handleConMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -84,13 +90,44 @@ export default function Layout() {
     navigate("/profile");
   };
 
-  const menuItems = [
-    { text: "Home", icon: <DashboardOutlinedIcon />, path: "/home" },
-    { text: "Employees", icon: <PeopleAltOutlinedIcon />, path: "/employees" },
-    { text: "Leave / Attendance", icon: <AssignmentOutlinedIcon />, path: "/leave" },
-    { text: "Payroll", icon: <AttachMoneyOutlinedIcon />, path: "/payroll" },
-    { text: "Settings", icon: <SettingsOutlinedIcon />, path: "/settings" },
+  const menuItems:  NavItem[] = [
+    {
+      text: "Home",
+      icon: <DashboardOutlinedIcon />,
+      path: user ? getDefaultRoute(user) : "/home",
+      roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "Employees",
+      icon: <PeopleAltOutlinedIcon />,
+      path: "/employees",
+      roles: ["HR", "ADMIN"],
+      permissions: ["EMPLOYEE_READ"],
+    },
+    {
+      text: "Leave / Attendance",
+      icon: <AssignmentOutlinedIcon />,
+      path: "/leave",
+      roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "Payroll",
+      icon: <AttachMoneyOutlinedIcon />,
+      path: "/payroll",
+      roles: ["HR", "ADMIN"],
+    },
+    {
+      text: "Settings",
+      icon: <SettingsOutlinedIcon />,
+      path: "/settings",
+      roles: ["HR", "ADMIN"],
+    },
   ];
+
+  const visibleMenuItems = user
+    ? menuItems.filter((item) => canShowNavItem(user, item))
+    : [];
+  const avatarInitial = user?.email?.charAt(0).toUpperCase() || "U";
 
   const notifications = [
     { id: 1, message: "New employee joined", time: "5 min ago", read: false },
@@ -128,6 +165,11 @@ export default function Layout() {
               <div className="font-bold text-gray-700">
                 Vibe<span className="text-primary">HR</span>
               </div>
+              {user && (
+                  <div className="text-[10px] text-gray-400 leading-3">
+                    {getWorkspaceLabel(user)}
+                  </div>
+                )}
             </Box>
           </Box>
 
@@ -162,7 +204,7 @@ export default function Layout() {
                 onClick={handleProfileMenuOpen}
                 color="inherit"
               >
-                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">A</Avatar>
+                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">{avatarInitial}</Avatar>
               </IconButton>
             </Tooltip>
           </Box>
@@ -235,7 +277,7 @@ export default function Layout() {
         open={open}
       >
         <List>
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <Tooltip title={item.text}>
               <ListItem
                 key={item.text}
@@ -244,7 +286,7 @@ export default function Layout() {
               >
                 <ListItemButton
                   className={`min-h-[48px] px-2.5 text-sm ${
-                    location.pathname === item.path
+                   location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
                       ? "text-primary !bg-primary-50"
                       : "text-gray-400"
                   } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}

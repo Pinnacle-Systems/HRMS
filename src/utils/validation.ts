@@ -136,11 +136,12 @@ export const getFieldError = (key: string, value: string): string => {
 };
 
 // Validation for all fields
-export const validateAllFields = (data: Record<string, any>): Record<string, string> => {
+export const validateAllFields = (data: Record<string, unknown>): Record<string, string> => {
   const errors: Record<string, string> = {};
   
   Object.keys(data).forEach(key => {
-    const error = validateField(key, data[key]);
+    const value = data[key];
+    const error = validateField(key, typeof value === "string" ? value : "");
     if (error) {
       errors[key] = error;
     }

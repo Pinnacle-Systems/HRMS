@@ -40,7 +40,7 @@ interface Category {
   createdAt?: string;
 }
 
-export default function CategoryList() {
+export default function CategorySettings() {
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -58,9 +58,8 @@ export default function CategoryList() {
   const getCategories = async () => {
     showSpinner();
     try {
-      const response = await categoryService.getCategories();
+      const response: any = await categoryService.getCategories();
       if (response.success) {
-        showSnackbar(response.message, "success");
         setCategories(response.data.content || []);
       }
     } catch (error: any) {
@@ -100,13 +99,13 @@ export default function CategoryList() {
           categoryName: formData.categoryName,
           enabled: formData.enabled,
         };
-        const res = await categoryService.updateCategory(
+        const res: any = await categoryService.updateCategory(
           editingCategory.id,
           updatedValues,
         );
         res.success ? showSnackbar(res.message, "success") : "";
       } else {
-        const res = await categoryService.createCategory(formData);
+        const res: any = await categoryService.createCategory(formData);
         res.success ? showSnackbar(res.message, "success") : "";
       }
       await getCategories();
@@ -121,7 +120,7 @@ export default function CategoryList() {
   const handleToggleStatus = async (category: Category) => {
     showSpinner();
     try {
-      const res = await categoryService.toggleCategoryStatus(category.id);
+      const res: any = await categoryService.toggleCategoryStatus(category.id);
       if (res.success) {
         showSnackbar(
           `${category.categoryName} ${!category.enabled ? "activated" : "deactivated"} successfully!`,
@@ -145,7 +144,7 @@ export default function CategoryList() {
       onConfirm: async () => {
         showSpinner();
         try {
-          const res = await categoryService.deleteCategory(category.id);
+          const res: any = await categoryService.deleteCategory(category.id);
           if (res.success) {
             showSnackbar(res.message, "success");
             await getCategories();

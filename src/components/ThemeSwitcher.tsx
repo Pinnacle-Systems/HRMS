@@ -1,4 +1,4 @@
-import { useTheme } from "../context/Theme";
+import { useTheme, type ColorTheme } from "../context/themeContext";
 
 export const ThemeSwitcher = () => {
   const { mode, colorTheme, toggleMode, changeColor } = useTheme();
@@ -20,7 +20,7 @@ export const ThemeSwitcher = () => {
           {colors.map((color) => (
             <button
               key={color.name}
-              onClick={() => changeColor(color.name as any)}
+              onClick={() => changeColor(color.name as ColorTheme)}
               className={`w-4 h-4 m-2 rounded-full ${color.class} ${
                 colorTheme === color.name
                   ? "ring-2 ring-offset-2 ring-primary-dark"

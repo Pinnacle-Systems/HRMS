@@ -155,7 +155,7 @@ export default function Profile() {
   useEffect(() => {
     const fetchProfile = async (): Promise<void> => {
       try {
-        const response = await authService.getProfile();
+        const response: any = await authService.getProfile();
         setUserData(response.data);
       } catch (error: any) {
         console.error("Failed to load profile:", error.message);
@@ -201,7 +201,7 @@ export default function Profile() {
         biography: editFormData.biography,
       };
 
-      const response = await authService.updateProfile(updatedData);
+      const response: any = await authService.updateProfile(updatedData);
       setUserData(response.data);
       setEditDialogOpen(false);
       if (response.success) {
@@ -233,8 +233,8 @@ export default function Profile() {
       showSnackbar("New passwords do not match!", "warning");
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      showSnackbar("Password must be at least 6 characters long!", "warning");
+    if (passwordData.newPassword.length < 9) {
+      showSnackbar("Password must be at least 8 characters long!", "warning");
       return;
     }
     try {
@@ -244,7 +244,7 @@ export default function Profile() {
         confirmPassword: passwordData.confirmPassword,
       };
       showSpinner();
-      const response = await authService.changePassword(updatedData);
+      const response: any = await authService.changePassword(updatedData);
       if (response.success) {
         showSnackbar(response.message, "success");
         setPasswordDialogOpen(false);
@@ -702,7 +702,7 @@ export default function Profile() {
             <CloseOutlined />
           </IconButton>
         </div>
-        <DialogContent className="mt-4 space-y-6">
+        <DialogContent className="space-y-6">
           <div>
             <TextField
               fullWidth
@@ -728,7 +728,7 @@ export default function Profile() {
                 },
               }}
             >
-              {showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              {!showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
             </IconButton>
           </div>
           <div>
@@ -756,7 +756,7 @@ export default function Profile() {
                 },
               }}
             >
-              {showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              {!showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
             </IconButton>
           </div>
           <div>
@@ -784,7 +784,7 @@ export default function Profile() {
                 },
               }}
             >
-              {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              {!showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
             </IconButton>
           </div>
         </DialogContent>

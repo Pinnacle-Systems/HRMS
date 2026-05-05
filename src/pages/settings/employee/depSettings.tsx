@@ -102,11 +102,10 @@ export default function DepartmentSettings() {
       if (searchTerm) {
         params.search = searchTerm;
       }
-      const response = await departmentService.getDepartments(params);
+      const response: any = await departmentService.getDepartments(params);
       if (response.success) {
         setDepartments(response.data.content || response.data || []);
         setTotal(response.data.totalElements || response.data.total || 0);
-        showSnackbar(response.message, "success");
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -119,7 +118,7 @@ export default function DepartmentSettings() {
   // Fetch branches for dropdown
   const getBranches = async () => {
     try {
-      const response = await branchService.getBranches({
+      const response: any = await branchService.getBranches({
         page: 0,
         limit: 100,
         sortBy: "branchName,ASC",
@@ -223,7 +222,7 @@ export default function DepartmentSettings() {
           departmentCode: formData.departmentCode,
           active: formData.active,
         };
-        const res = await departmentService.updateDepartment(
+        const res: any = await departmentService.updateDepartment(
           editingDepartment.id,
           updatedValues,
         );
@@ -231,7 +230,7 @@ export default function DepartmentSettings() {
           showSnackbar(res.message, "success");
         }
       } else {
-        const res = await departmentService.createDepartment(formData);
+        const res: any = await departmentService.createDepartment(formData);
         if (res.success) {
           showSnackbar(res.message, "success");
         }
@@ -254,7 +253,7 @@ export default function DepartmentSettings() {
       onConfirm: async () => {
         showSpinner();
         try {
-          const res = await departmentService.deleteDepartmentById(id);
+          const res: any = await departmentService.deleteDepartmentById(id);
           res.success ? showSnackbar(res.message, "success") : "";
           await getDepartments();
         } catch (error: any) {

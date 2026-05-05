@@ -1,77 +1,43 @@
+import * as authApi from "../../auth/authApi";
+import { loadSession } from "../../auth/authSession";
+import type { LoginRequest } from "../../auth/authTypes";
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
 class AuthService {
-
-  async login(credentials: any) {
-    const response = await apiService.post(
-      API_ENDPOINTS.AUTH.LOGIN,
-      credentials,
-    );
-    if (response.success && response.data) {
-      localStorage.setItem("accessToken", response.data.accessToken);
-      localStorage.setItem("refreshToken", response.data.refreshToken);
-      localStorage.setItem("userId", JSON.stringify(response.data.userId));
-    }
-    return response;
-  }
-
-  async getOtp(payload: any) {
-    const response = await apiService.post(API_ENDPOINTS.AUTH.GET_OTP, payload);
-    return response;
-  }
-
-  async forgotPassword(loginId: any) {
-    const response = await apiService.post(
-      API_ENDPOINTS.AUTH.FORGOT_PASSWORD,
-      loginId,
-    );
-    return response;
-  }
-
-  async resetPassword(payload: any) {
-    const response = await apiService.post(
-      API_ENDPOINTS.AUTH.RESET_PASSWORD,
-      payload,
-    );
-    return response;
+  async login(credentials: LoginRequest) {
+    return authApi.login(credentials);
   }
 
   async logout() {
-    const response = await apiService.delete(API_ENDPOINTS.AUTH.LOGOUT);
-    localStorage.clear();
-    return response;
+    await authApi.logout();
   }
 
   async refreshToken() {
-    const refreshToken = localStorage.getItem("refreshToken");
-    const response = await apiService.post(API_ENDPOINTS.AUTH.REFRESH, {
-      refreshToken: refreshToken,
-    });
-    if (response.success && response.data) {
-      localStorage.setItem("accessToken", response.data.accessToken);
-    }
-    return response;
+    return authApi.refreshSession();
   }
 
-  getCurrentUser(): any {
-    const userStr = localStorage.getItem("userId");
-    return userStr ? JSON.parse(userStr) : null;
+  async resetPassword(payload: any) {
+    return await apiService.post(API_ENDPOINTS.AUTH.SET_PASSWORD, payload);
+  }
+
+  getCurrentUser() {
+    return loadSession()?.user ?? null;
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem("accessToken");
+    return Boolean(loadSession());
   }
 
   async getProfile(params?: any) {
     return apiService.get(API_ENDPOINTS.AUTH.PROFILE, { params });
   }
 
-   async updateProfile(payload: any) {
+  async updateProfile(payload: any) {
     return apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload);
   }
 
-   async changePassword(payload: any) {
+  async changePassword(payload: any) {
     const response = await apiService.post(
       API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
       payload,

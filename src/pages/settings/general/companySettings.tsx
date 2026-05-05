@@ -80,7 +80,7 @@ const CompanySettings = () => {
     }
     showSpinner();
     try {
-      const res = await companyService.createCompany(companyInfo);
+      const res:any = await companyService.createCompany(companyInfo);
       if (res.success) {
         showSnackbar(res.message, "success");
       }
@@ -217,7 +217,7 @@ const CompanySettings = () => {
         {type === "select" && (
           <DynamicSelectWithAdd
             label={label}
-            value={value}
+            value={value || ''}
             onChange={(newValue: string | string[]) =>
               handleChange(key, newValue)
             }

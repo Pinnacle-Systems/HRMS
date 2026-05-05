@@ -70,14 +70,13 @@ export default function CategoryItems() {
       if (searchTerm) {
         params.search = searchTerm;
       }
-      const response = await categoryService.getCategoryItems(
+      const response: any = await categoryService.getCategoryItems(
         category.id,
         params,
       );
       if (response.success) {
         setItems(response.data?.content || response.data || []);
         setTotal(response.data?.totalElements || response.data?.total || 0);
-        showSnackbar(response.message, "success");
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -121,10 +120,15 @@ export default function CategoryItems() {
     showSpinner();
     try {
       if (editingItem) {
+        const updatedValues = {
+          code : formData.code,
+          name : formData.name,
+          active : formData.active
+        }
         await categoryService.updateCategoryItem(
           editingItem.id,
           category.id,
-          formData,
+          updatedValues,
         );
         showSnackbar("Item updated successfully!", "success");
       } else {

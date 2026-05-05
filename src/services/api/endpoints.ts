@@ -1,21 +1,19 @@
-// services/api/endpoints.ts
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: "/auth/login",
     LOGOUT: "/auth/logout",
     REFRESH: "/auth/refresh-token",
     FORGOT_PASSWORD: "/auth/forgot-password",
-    RESET_PASSWORD: "/auth/set-password",
-    GET_OTP: "/auth/mfa/setup",
     PROFILE: "/auth/profile",
-    PERMISSION: "/auth/permissions",
     VERIFY_OTP: "/auth/verify-otp",
     MFA_VERIFY: "/auth/mfa/verify",
     MFA_SETUP: "/auth/mfa/setup",
     MFA_RESENDOTP: "/auth/mfa/resend-otp",
     MFA_ENABLE: "/auth/mfa/enable",
-    TENANT: "/auth/login/select-tenant",
     CHANGE_PASSWORD: "/auth/change-password",
+    SELECT_TENANT: "/auth/login/select-tenant",
+    SET_PASSWORD: "/auth/set-password",
+    PERMISSIONS: "/auth/permissions",
   },
 
   BRANCH: {
@@ -32,7 +30,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/org/departments/${id}`,
     GET_BY_ID: (id: string) => `/org/departments/${id}`,
     BASE: "/org/departments",
-    GET_BY_BRANCHID: (bid: string) => `/org/departments/by-branch${bid}`,
+    GET_BY_BRANCHID: (bid: string) => `/org/departments/by-branch/${bid}`,
     GET_ACTIVE: "/org/departments/active",
     PATCH: (id: string) => `/org/departments/${id}/toggle-active`,
     CREATE: "/org/departments",

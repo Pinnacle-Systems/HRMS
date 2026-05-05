@@ -72,7 +72,7 @@ export default function BranchSettings() {
       if (searchTerm) {
         params.search = searchTerm;
       }
-      const response = await branchService.getBranches(params);
+      const response: any = await branchService.getBranches(params);
       if (response.success) {
         setBranches(response.data.content || response.data || []);
         setTotal(
@@ -81,7 +81,6 @@ export default function BranchSettings() {
             response.data.length ||
             0,
         );
-        showSnackbar(response.message, "success");
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -212,13 +211,13 @@ export default function BranchSettings() {
           branchHeadId: formData.branchHeadId,
           active: formData.active,
         };
-        const res = await branchService.updateBranch(
+        const res: any = await branchService.updateBranch(
           editingBranch.id,
           updatedValues,
         );
         res.success ? showSnackbar(res.message, "success") : "";
       } else {
-        const res = await branchService.createBranch(formData);
+        const res: any = await branchService.createBranch(formData);
         res.success ? showSnackbar(res.message, "success") : "";
       }
       await getBranches();
@@ -239,7 +238,7 @@ export default function BranchSettings() {
       onConfirm: async () => {
         showSpinner();
         try {
-          const res = await branchService.deleteBranchById(id);
+          const res: any = await branchService.deleteBranchById(id);
           if (res.success) {
             showSnackbar(res.message, "success");
             await getBranches();

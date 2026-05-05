@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
+import { forgotPassword } from "../../../auth/authApi";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -14,10 +15,10 @@ function ForgotPassword() {
     setSubmitted(true);
     showSpinner();
     try {
-      const response = await authService.forgotPassword({ loginId: email });
+      const response = await forgotPassword(email);
       if (response.success) {
         // navigate("/home");
-        showSnackbar(response.message, "success");
+        // showSnackbar(response.message, "success");
       }
     } catch (err: any) {
       showSnackbar(err.message, "error");
