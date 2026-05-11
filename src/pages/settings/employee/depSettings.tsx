@@ -21,7 +21,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Box,
   Autocomplete,
 } from "@mui/material";
 import {
@@ -565,7 +564,7 @@ export default function DepartmentSettings() {
                   return `${option.name} (${option.employeeId})`;
                 }}
                 value={selectedEmployee}
-                onChange={(event, newValue) => {
+                onChange={(_event, newValue) => {
                   setSelectedEmployee(newValue);
                   setFormData((prev) => ({
                     ...prev,

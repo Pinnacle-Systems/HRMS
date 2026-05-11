@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { apiService } from "../services/api/api.config";
+import { logger } from "../utils/logger";
 import * as authApi from "./authApi";
 import { clearSession, loadSession, saveSession } from "./authSession";
 import { AuthContext } from "./authContext";
@@ -18,11 +19,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     apiService.setAuthToken(session?.accessToken ?? null);
-  }, [session?.accessToken]);
+    logger.debug("Auth token updated on API service", {
+      isAuthenticated: Boolean(session),
+      userId: session?.user.userId,
+      tenantId: session?.user.tenantId,
+      roles: session?.user.roles,
+    });
+  }, [session]);
 
   const login = useCallback(
     async (request: LoginRequest): Promise<LoginOutcome> => {
+      logger.info("Login started", {
+        loginId: request.loginId,
+        hasMobileNumber: Boolean(request.mobileNumber),
+        tenantId: request.tenantId,
+      });
+
       const outcome = await authApi.login(request);
+      logger.info("Login completed", {
+        outcome: outcome.type,
+        userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
+        roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
+      });
 
       if (outcome.type === "authenticated") {
         setSession(outcome.session);
@@ -41,7 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const selectTenant = useCallback(
     async (request: SelectTenantRequest): Promise<LoginOutcome> => {
+      logger.info("Tenant selection started", { tenantId: request.tenantId });
       const outcome = await authApi.selectTenant(request);
+      logger.info("Tenant selection completed", {
+        tenantId: request.tenantId,
+        outcome: outcome.type,
+        userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
+      });
 
       if (outcome.type === "authenticated") {
         setSession(outcome.session);
@@ -59,22 +83,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    logger.info("Logout started", { userId: session?.user.userId });
     await authApi.logout();
     setSession(null);
-  }, []);
+    logger.info("Logout completed");
+  }, [session?.user.userId]);
 
   const refreshSession = useCallback(async () => {
+    logger.info("Session refresh started");
     const refreshedSession = await authApi.refreshSession();
 
     if (refreshedSession) {
       setSession(refreshedSession);
       apiService.setAuthToken(refreshedSession.accessToken);
+      logger.info("Session refresh completed", {
+        userId: refreshedSession.user.userId,
+        tenantId: refreshedSession.user.tenantId,
+        roles: refreshedSession.user.roles,
+      });
       return refreshedSession;
     }
 
     clearSession();
     setSession(null);
     apiService.setAuthToken(null);
+    logger.warn("Session refresh returned no session; cleared auth state");
     return null;
   }, []);
 

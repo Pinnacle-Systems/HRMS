@@ -247,20 +247,20 @@ const CompanySettings = () => {
   };
 
   // Configuration for which select fields should show add button
-  const getSelectConfig = (key: string) => {
-    const configs: Record<
-      string,
-      { multiple: boolean; showAddButton: boolean }
-    > = {
-      type_name: { multiple: false, showAddButton: false },
-      city: { multiple: false, showAddButton: false },
-      country: { multiple: false, showAddButton: false },
-      states: { multiple: true, showAddButton: false },
-      timezone: { multiple: false, showAddButton: false },
-      currency: { multiple: false, showAddButton: false },
-    };
-    return configs[key] || { multiple: false, showAddButton: true };
-  };
+  // const getSelectConfig = (key: string) => {
+  //   const configs: Record<
+  //     string,
+  //     { multiple: boolean; showAddButton: boolean }
+  //   > = {
+  //     type_name: { multiple: false, showAddButton: false },
+  //     city: { multiple: false, showAddButton: false },
+  //     country: { multiple: false, showAddButton: false },
+  //     states: { multiple: true, showAddButton: false },
+  //     timezone: { multiple: false, showAddButton: false },
+  //     currency: { multiple: false, showAddButton: false },
+  //   };
+  //   return configs[key] || { multiple: false, showAddButton: true };
+  // };
 
   // Common sx styles for all fields
   const commonSx = {

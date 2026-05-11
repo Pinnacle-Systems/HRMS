@@ -5,7 +5,6 @@ import {
   AxiosError,
 } from "axios";
 import type { ApiError } from "./api.types";
-import { apiService } from "./api.config";
 import { API_ENDPOINTS } from "./endpoints";
 import {
   clearSession,
@@ -13,6 +12,21 @@ import {
   getRefreshToken,
   updateAccessToken,
 } from "../../auth/authSession";
+import { logger } from "../../utils/logger";
+
+declare module "axios" {
+  export interface InternalAxiosRequestConfig {
+    metadata?: {
+      startTime: number;
+    };
+  }
+
+  export interface AxiosRequestConfig {
+    metadata?: {
+      startTime: number;
+    };
+  }
+}
 
 // Track token refresh state
 let isRefreshing = false;
@@ -49,33 +63,65 @@ const processQueue = (error: unknown | null, token: string | null = null) => {
 };
 
 export const setupInterceptors = (axiosInstance: AxiosInstance) => {
-  // Request Interceptor - ONLY add token if not already present
+  // Request Interceptor
   axiosInstance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+      config.metadata = { startTime: Date.now() };
       const token = getAccessToken();
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+
+      // Add company context
+      // const companyId = localStorage.getItem('company_id');
+      // if (companyId) {
+      //   config.headers['X-Company-Id'] = companyId;
+      // }
 
       // Remove Content-Type for FormData
       if (config.data instanceof FormData) {
         delete config.headers["Content-Type"];
       }
 
+      logger.debug("API request started", {
+        method: config.method?.toUpperCase(),
+        url: config.url,
+        params: config.params,
+      });
+
       return config;
     },
     (error: unknown) => {
+      logger.error("API request setup failed", { error });
       return Promise.reject(error);
     },
   );
 
   // Response Interceptor
   axiosInstance.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      const metadata = response.config.metadata;
+      logger.debug("API request completed", {
+        method: response.config.method?.toUpperCase(),
+        url: response.config.url,
+        status: response.status,
+        durationMs: metadata?.startTime ? Date.now() - metadata.startTime : undefined,
+      });
+
+      return response;
+    },
     async (error: AxiosError) => {
       const originalRequest = error.config as RetryRequestConfig;
       const requestUrl = originalRequest?.url || "";
       const isRefreshRequest = requestUrl.includes(API_ENDPOINTS.AUTH.REFRESH);
+      const metadata = originalRequest?.metadata;
+
+      logger.warn("API request failed", {
+        method: originalRequest?.method?.toUpperCase(),
+        url: requestUrl,
+        status: error.response?.status,
+        durationMs: metadata?.startTime ? Date.now() - metadata.startTime : undefined,
+      });
 
       // Handle 401 Unauthorized
       if (
@@ -84,6 +130,11 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         !isRefreshRequest
       ) {
         if (isRefreshing) {
+          logger.info("Queueing request while token refresh is in progress", {
+            url: requestUrl,
+          });
+
+          // Queue the request while token is refreshing
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           })
@@ -99,6 +150,9 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
 
         originalRequest._retry = true;
         isRefreshing = true;
+        logger.info("Refreshing access token after unauthorized response", {
+          url: requestUrl,
+        });
 
         try {
           const refreshToken = getRefreshToken();
@@ -118,7 +172,9 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
             throw new Error("Refresh response did not include an access token");
           }
           updateAccessToken(accessToken, expiresIn);
+          logger.info("Access token refreshed successfully");
 
+          // Process queued requests
           processQueue(null, accessToken);
 
           // Retry original request
@@ -128,6 +184,10 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
           };
           return axiosInstance(originalRequest);
         } catch (refreshError) {
+          // Refresh failed - clear session and redirect to login
+          logger.error("Access token refresh failed; clearing session", {
+            error: refreshError,
+          });
           processQueue(refreshError, null);
           clearSession();
           window.location.href = "/login";
@@ -147,6 +207,7 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
           "An error occurred",
         errors: errorData?.errors,
       };
+
       return Promise.reject(apiError);
     },
   );

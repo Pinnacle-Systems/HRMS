@@ -33,7 +33,6 @@ import {
   ContrastOutlined as ContrastOutlinedIcon,
 } from "@mui/icons-material";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
-import { authService } from "../services/modules/auth";
 import { useAuth } from "../auth/authContext";
 import {
   canShowNavItem,

@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
 import { forgotPassword } from "../../../auth/authApi";
+import forgot from '../../../assets/forgot.png';
+import pinnacle from '../../../assets/pinnacle.jpg';
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -59,7 +60,7 @@ function ForgotPassword() {
               </p>
             </div>
             <div className="flex items-center">
-              <img src="src/assets/forgot.png" width="30%" />
+              <img src={forgot} width="30%" />
             </div>
           </div>
           <div className="space-y-4 text-sm mb-8">
@@ -75,7 +76,7 @@ function ForgotPassword() {
         {/* Right Section */}
         <div className="p-10 flex flex-col justify-center relative">
           <img
-            src="src/assets/pinnacle.jpg"
+            src={pinnacle}
             width="40%"
             className="absolute top-[0] right-[0]"
           />

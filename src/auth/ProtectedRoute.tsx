@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { logger } from "../utils/logger";
 import { useAuth } from "./authContext";
 import type { ProtectedRouteProps } from "./authTypes";
 
@@ -23,6 +24,9 @@ export default function ProtectedRoute({
   }
 
   if (!session) {
+    logger.info("Protected route blocked unauthenticated user", {
+      path: location.pathname,
+    });
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -37,6 +41,15 @@ export default function ProtectedRoute({
     );
 
   if (!hasRole || !hasPermission) {
+    logger.warn("Protected route denied access", {
+      path: location.pathname,
+      userId: user.userId,
+      roles: user.roles,
+      requiredRoles: allowedRoles,
+      requiredPermissions,
+      hasRole,
+      hasPermission,
+    });
     return <Navigate to="/unauthorized" replace />;
   }
 

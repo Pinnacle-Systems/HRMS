@@ -43,8 +43,8 @@ import { categoryService } from "../../services/modules/category";
 import { useUI } from "../../context/Snackbar";
 import { GlobalPagination } from "../../components/GlobalPagination";
 import {
-  employeeStatusColors,
-  employeeStatusLabels,
+  // employeeStatusColors,
+  // employeeStatusLabels,
   type Branches,
   type Department,
   type Designation,
@@ -187,7 +187,6 @@ export default function EmployeeManagement() {
 
   // Handle Edit Employee - Open Edit Dialog
   const handleOpenEditDialog = (employee: Employee) => {
-    console.log(employee);
     setIsEditing(true);
     setSelectedEmployee(employee);
     setFormData({

@@ -1,7 +1,7 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { TextField, Box, Button, CircularProgress, Paper, List, ListItem, ListItemText } from '@mui/material';
-import { MyLocation as MyLocationIcon, Search as SearchIcon } from '@mui/icons-material';
+import { MyLocation as MyLocationIcon } from '@mui/icons-material';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 

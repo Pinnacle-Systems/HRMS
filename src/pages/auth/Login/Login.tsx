@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
-import type { FormEvent } from "react";
 import { useAuth } from "../../../auth/authContext";
 import { getDefaultRoute } from "../../../auth/authMapper";
+import grp from '../../../assets/grp.png';
+import pinnacle from '../../../assets/pinnacle.jpg';
 
 type LoginLocationState = {
   tenantId?: string;
@@ -139,7 +139,7 @@ export default function Login() {
               Vibe<span className="text-primary">HR</span>
             </h1>
             <div className="flex items-center justify-center">
-              <img src="src\assets\grp.png" width="50" height="100" />
+              <img src={grp} width="50" height="100" />
               <p className="text-gray-600 max-w-sm text-[11px] ml-4 text-justify">
                 Access payroll, attendance, onboarding, employee records, and
                 company workflows from one secure HRMS workspace.
@@ -169,7 +169,7 @@ export default function Login() {
         <div className="p-10 flex flex-col justify-center relative">
           <h2 className="text-2xl font-semibold mb-2">
             <img
-              src="src/assets/pinnacle.jpg"
+              src={pinnacle}
               width="40%"
               className="absolute top-[0] right-[0]"
             />
@@ -277,7 +277,7 @@ export default function Login() {
               </div> */}
             </div>
           </form>
-          {/* <div>
+          <div>
             <button
               type="submit"
               onClick={() => setIsMobile(isMobile == false ? true : false)}
@@ -285,7 +285,7 @@ export default function Login() {
             >
               {isMobile ? "Back to Sign In" : "Login in with Mobile Number"}
             </button>
-          </div> */}
+          </div>
         </div>
       </motion.div>
     </div>

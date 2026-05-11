@@ -1,4 +1,4 @@
-import { TablePagination, Box, Select, MenuItem, FormControl, InputLabel, Pagination } from '@mui/material';
+import { TablePagination, Box, Select, MenuItem, FormControl, Pagination } from '@mui/material';
 
 interface GlobalPaginationProps {
   total: number;

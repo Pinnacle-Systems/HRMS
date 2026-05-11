@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
+import reset from '../../../assets/reset.png';
+import pinnacle from '../../../assets/pinnacle.jpg';
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -50,7 +52,7 @@ export default function ResetPassword() {
     // }, 3000);
     showSpinner();
     try {
-      const response = await authService.resetPassword({
+      await authService.resetPassword({
         resetToken: token,
         newPassword,
         confirmPassword,
@@ -94,7 +96,7 @@ export default function ResetPassword() {
                 passwords.
               </p>
             </div>
-            <img src="src/assets/reset.png" width="30%" />
+            <img src={reset} width="30%" />
           </div>
           <div className="space-y-4 text-sm mb-8">
             <p className="mb-2 font-semibold  text-primary-dark">
@@ -110,7 +112,7 @@ export default function ResetPassword() {
         {/* Right Section - Reset Password Form */}
         <div className="p-10 flex flex-col justify-center relative">
           <img
-            src="src/assets/pinnacle.jpg"
+            src={pinnacle}
             width="40%"
             className="absolute top-[0] right-[0]"
             alt="pinnacle"

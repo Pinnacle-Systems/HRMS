@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
+import otpImg from '../../../assets/otp.png';
+import pinnacle from '../../../assets/pinnacle.jpg';
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
@@ -110,7 +112,7 @@ export default function VerifyOTP() {
                 resetting your password.
               </p>
             </div>
-            <img src="src/assets/otp.png" width="100" alt="OTP" />
+            <img src={otpImg} width="100" alt="OTP" />
           </div>
 
           {/* OTP Info Box */}
@@ -131,7 +133,7 @@ export default function VerifyOTP() {
         {/* Right Section - OTP Verification Form */}
         <div className="p-10 flex flex-col justify-center relative">
           <img
-            src="src/assets/pinnacle.jpg"
+            src={pinnacle}
             width="40%"
             className="absolute top-0 right-0"
             alt="pinnacle"

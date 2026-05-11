@@ -17,10 +17,6 @@ import {
   FormControlLabel,
   Chip,
   Tooltip,
-  FormControl,
-  Select,
-  MenuItem,
-  InputLabel,
   Autocomplete,
 } from "@mui/material";
 import {
@@ -216,8 +212,8 @@ export default function BranchSettings() {
           }));
           showSnackbar("Location fetched successfully!", "success");
         },
-        (error) => {
-          showSnackbar("Failed to fetch location. Please enable GPS.", "error");
+        (error:any) => {
+          showSnackbar(error.message || "Failed to fetch location. Please enable GPS.", "error");
         },
       );
     } else {
@@ -282,10 +278,10 @@ export default function BranchSettings() {
     });
   };
 
-  const getEmployeeName = (employeeId: string) => {
-    const employee = employees.find(emp => emp.id === employeeId);
-    return employee ? `${employee.name} (${employee.employeeId})` : employeeId || "Not assigned";
-  };
+  // const getEmployeeName = (employeeId: string) => {
+  //   const employee = employees.find(emp => emp.id === employeeId);
+  //   return employee ? `${employee.name} (${employee.employeeId})` : employeeId || "Not assigned";
+  // };
 
   const commonsx = {
     "& .MuiDialog-paper": {
@@ -549,7 +545,7 @@ export default function BranchSettings() {
                   return `${option.name} (${option.employeeId})`;
                 }}
                 value={selectedEmployee}
-                onChange={(event, newValue) => {
+                onChange={(_event, newValue) => {
                   setSelectedEmployee(newValue);
                   setFormData((prev) => ({
                     ...prev,

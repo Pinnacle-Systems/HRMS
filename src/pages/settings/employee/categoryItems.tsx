@@ -18,14 +18,11 @@ import {
   Chip,
   Tooltip,
   Typography,
-  Card,
-  CardContent,
 } from "@mui/material";
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   CloseOutlined,
-  Add as AddIcon,
   ArrowBack as ArrowBackIcon,
   Category as CategoryIcon,
 } from "@mui/icons-material";

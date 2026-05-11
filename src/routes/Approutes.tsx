@@ -4,6 +4,7 @@ import { useAuth } from "../auth/authContext";
 import { getDefaultRoute } from "../auth/authMapper";
 import ProtectedRoute from "../auth/ProtectedRoute";
 import Layout from "../components/Layout";
+import { logger } from "../utils/logger";
 import Employees from "../pages/employees/employeeManagement";
 import ForgotPassword from "../pages/auth/ForgotPassword/ForgotPassword";
 import Home from "../pages/home/home";
@@ -36,9 +37,15 @@ function RootRedirect() {
     );
   }
 
-  return (
-    <Navigate to={session ? getDefaultRoute(session.user) : "/login"} replace />
-  );
+  const redirectTo = session ? getDefaultRoute(session.user) : "/login";
+  logger.info("Root redirect resolved", {
+    redirectTo,
+    isAuthenticated: Boolean(session),
+    userId: session?.user.userId,
+    roles: session?.user.roles,
+  });
+
+  return <Navigate to={redirectTo} replace />;
 }
 
 function AppRoutesContent() {

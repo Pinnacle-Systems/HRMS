@@ -24,11 +24,6 @@ import {
   Dialog,
   DialogContent,
   DialogActions,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from "@mui/material";
 import {
   ArrowBack as ArrowBackIcon,
@@ -88,7 +83,6 @@ import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { categoryService } from "../../services/modules/category";
 import { DynamicSelectWithAdd } from "../../components/SelectField";
-import { MasterSelect } from "../../components/MasterSelect";
 import { getCategoryName } from "../const";
 
 function TabPanel(props: TabPanelProps) {
@@ -144,18 +138,12 @@ const EditableGroup = ({ title, fields, data, onSave, icon, categoryOptions }: a
 
   const getSelectOptions = (fieldKey: string, fieldLabel: string) => {
     const categoryName = getCategoryName(fieldKey, fieldLabel);
-    console.log(categoryName, categoryOptions);
-
     const category = Object.keys(categoryOptions).find(catName =>
       catName.toLowerCase() === categoryName.toLowerCase() ||
       catName.toLowerCase() === fieldKey.toLowerCase() ||
       catName.toLowerCase() === fieldLabel.toLowerCase()
     );
-    console.log(category);
-
     const options = category ? categoryOptions[category] : [];
-    console.log(options);
-
     return options.map((opt: any) => opt.name);
   };
 
@@ -171,27 +159,6 @@ const EditableGroup = ({ title, fields, data, onSave, icon, categoryOptions }: a
     const options = getFieldOptions(fieldKey, "");
     const option = options.find((opt: any) => opt.value === value);
     return option?.label || value;
-  };
-
-  const handleMasterDataChange = (fieldKey: string, value: string) => {
-    setEditData({
-      ...editData,
-      [fieldKey]: value
-    });
-
-    // Reset dependent fields
-    if (fieldKey === 'country') {
-      setEditData((prev: any) => ({
-        ...prev,
-        state: '',
-        city: ''
-      }));
-    } else if (fieldKey === 'state') {
-      setEditData((prev: any) => ({
-        ...prev,
-        city: ''
-      }));
-    }
   };
 
   const handleAddOption = async (fieldKey: string, newOption: string) => {
@@ -222,9 +189,7 @@ const EditableGroup = ({ title, fields, data, onSave, icon, categoryOptions }: a
     }
   };
 
-  useEffect(() => {
-    console.log(categoryOptions);
-    
+  useEffect(() => {    
   }, [categoryOptions]);
 
   return (
@@ -426,7 +391,6 @@ const EditableTableGroup = ({
   };
 
   useEffect(() => {
-    console.log(`Data changed for ${title}:`, data);
     setEditData(data);
   }, [data]);
 
@@ -486,24 +450,6 @@ const EditableTableGroup = ({
     return option?.label || value;
   };
 
-  const handleMasterDataChange = (rowIndex: number, fieldKey: string, value: string) => {
-    const newData = [...editData];
-    newData[rowIndex] = {
-      ...newData[rowIndex],
-      [fieldKey]: value
-    };
-
-    // Reset dependent fields
-    if (fieldKey === 'country') {
-      newData[rowIndex].state = '';
-      newData[rowIndex].city = '';
-    } else if (fieldKey === 'state') {
-      newData[rowIndex].city = '';
-    }
-
-    setEditData(newData);
-  };
-
   const handleAddOption = async (fieldKey: string, newOption: string) => {
     try {
       showSpinner();
@@ -523,7 +469,7 @@ const EditableTableGroup = ({
         active: true
       };
       await categoryService.createCategoryItem(category.id, payload);
-      const itemsResponse = await categoryService.getCategoryItems(category.id);
+      await categoryService.getCategoryItems(category.id);
       // setCategoryOptions((prev: any) => ({
       //   ...prev,
       //   [category.categoryName]: itemsResponse.data.content || []
@@ -575,7 +521,7 @@ const EditableTableGroup = ({
           </div>
           <DialogContent>
             <div className="flex flex-wrap gap-4">
-              {addDialogFields.map((field: any, index: any) => (
+              {addDialogFields.map((field: any) => (
                 <div key={field.key}>
                   {field.type === "date" ? (
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1045,7 +991,6 @@ export default function EmployeeDetails() {
   }, [id]);
 
   useEffect(() => {
-    console.log("Category options updated:", categoryOptions);
   }, [categoryOptions]);
 
   // ==================== PATCH UPDATES ====================
