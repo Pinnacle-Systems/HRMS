@@ -16,11 +16,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
   Paper,
   ListItemIcon,
   Tooltip,
-  CircularProgress,
 } from "@mui/material";
 import {
   EmailOutlined as EmailOutlinedIcon,
@@ -29,7 +27,6 @@ import {
   WorkOutlineOutlined as WorkOutlineOutlinedIcon,
   CalendarTodayOutlined as CalendarTodayOutlinedIcon,
   DevicesOutlined as DevicesOutlinedIcon,
-  LocationCityOutlined as LocationCityOutlinedIcon,
   Business as BusinessIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
@@ -37,6 +34,7 @@ import {
   Person2Outlined,
   PhotoCameraOutlined,
   CloseOutlined,
+  CalendarMonthOutlined,
 } from "@mui/icons-material";
 import { authService } from "../../services/modules/auth";
 import React from "react";
@@ -44,6 +42,12 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { useUI } from "../../context/Snackbar";
+import type { LoginHistory } from "./const";
+import { GlobalPagination } from "../../components/GlobalPagination";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
+import dayjs from "dayjs";
+import { getRowColor } from "../const";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -73,7 +77,15 @@ export default function Profile() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const [loginHistory, setLoginHistory] = useState<LoginHistory[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [limit, setLimit] = useState(20);
+  const [isSaving, setIsSaving] = useState(false);
+  const [clearDaysDialogOpen, setClearDaysDialogOpen] = useState(false);
+  const [daysToKeep, setDaysToKeep] = useState(30);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [userData, setUserData] = useState<any>({
     firstName: "",
@@ -86,6 +98,13 @@ export default function Profile() {
     location: "",
     hireDate: "",
     employeeId: "",
+  });
+  const [editFormData, setEditFormData] = useState(userData);
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   });
 
   const personalInfo = [
@@ -152,26 +171,23 @@ export default function Profile() {
     { name: "roles", dname: "Role", icon: <DevicesOutlinedIcon /> },
   ];
 
-  useEffect(() => {
-    const fetchProfile = async (): Promise<void> => {
-      try {
-        const response: any = await authService.getProfile();
+  const fetchProfile = async () => {
+    showSpinner();
+    try {
+      const response: any = await authService.getProfile();
+      if (response.success) {
         setUserData(response.data);
-      } catch (error: any) {
-        console.error("Failed to load profile:", error.message);
       }
-    };
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  useEffect(() => {
     fetchProfile();
   }, []);
-
-  useEffect(() => {}, [userData]);
-
-  const [editFormData, setEditFormData] = useState(userData);
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -185,7 +201,6 @@ export default function Profile() {
   const handleEditDialogClose = () => {
     setEditDialogOpen(false);
   };
-  const [isSaving, setIsSaving] = useState(false);
 
   const handleEditSave = async () => {
     if (isSaving) return; // Prevent double submission
@@ -202,9 +217,10 @@ export default function Profile() {
       };
 
       const response: any = await authService.updateProfile(updatedData);
-      setUserData(response.data);
-      setEditDialogOpen(false);
       if (response.success) {
+        setUserData(response.data);
+        setEditDialogOpen(false);
+        await fetchProfile();
         showSnackbar(response.message, "success");
       }
     } catch (error: any) {
@@ -263,53 +279,92 @@ export default function Profile() {
   };
 
   // Login history data
-  const loginHistory = [
-    {
-      id: 1,
-      date: "Apr 30, 2024",
-      time: "09:15 AM",
-      ipAddress: "192.168.1.101",
-      device: "Chrome on Windows",
-      location: "New York, USA",
-      status: "success",
-    },
-    {
-      id: 2,
-      date: "Apr 29, 2024",
-      time: "08:45 AM",
-      ipAddress: "192.168.1.101",
-      device: "Chrome on Windows",
-      location: "New York, USA",
-      status: "success",
-    },
-    {
-      id: 3,
-      date: "Apr 28, 2024",
-      time: "09:30 AM",
-      ipAddress: "192.168.1.105",
-      device: "Safari on Mac",
-      location: "New York, USA",
-      status: "success",
-    },
-    {
-      id: 4,
-      date: "Apr 27, 2024",
-      time: "10:00 AM",
-      ipAddress: "10.0.0.25",
-      device: "Firefox on Ubuntu",
-      location: "Unknown",
-      status: "failed",
-    },
-    {
-      id: 5,
-      date: "Apr 26, 2024",
-      time: "08:30 AM",
-      ipAddress: "192.168.1.101",
-      device: "Chrome on Windows",
-      location: "New York, USA",
-      status: "success",
-    },
-  ];
+  const getLoginHistory = async () => {
+    showSpinner();
+    try {
+      const params: any = {
+        page: page,
+        size: limit,
+      };
+      const response: any = await authService.getLoginHistory(params);
+      if (response.success) {
+        setLoginHistory(response.data.content || response.data || []);
+        setTotal(
+          response.data.totalElements ||
+          response.data.total ||
+          response.data.length ||
+          0,
+        );
+      }
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  useEffect(() => {
+    getLoginHistory();
+  }, [page, limit]);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage - 1); // Convert to 0-based for API
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(0);
+  };
+
+  const handleClearAllHistory = async () => {
+    showConfirmDialog({
+      title: "Clear All Login History",
+      message: "Are you sure you want to clear all login history?",
+      confirmText: "Clear All",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await authService.clearLoginHistory();
+          showSnackbar("All login history cleared successfully!", "success");
+          getLoginHistory();
+        } catch (error: any) {
+          showSnackbar(error.message, "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  const handleClearOlderThanDays = async () => {
+    if (daysToKeep < 1) {
+      showSnackbar("Please enter a valid number of days", "error");
+      return;
+    }
+    showConfirmDialog({
+      title: "Clear Login History",
+      message: `Are you sure you want to clear all login history older than ${daysToKeep} days?`,
+      confirmText: "Clear",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await authService.clearLoginHistoryOlderThan(daysToKeep);
+          showSnackbar(
+            `Login history older than ${daysToKeep} days cleared successfully!`,
+            "success",
+          );
+          setClearDaysDialogOpen(false);
+          getLoginHistory();
+        } catch (error: any) {
+          showSnackbar(error.message, "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
 
   const getInitials = () => {
     return `${userData?.firstName?.[0] || ""}${userData?.lastName?.[0] || ""}`;
@@ -328,7 +383,7 @@ export default function Profile() {
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DatePicker
             label={dname}
-            // value={value ? dayjs(value) : null}
+            value={value ? dayjs(value) : null}
             onChange={(newValue) =>
               setEditFormData({
                 ...editFormData,
@@ -366,21 +421,16 @@ export default function Profile() {
     }
   };
 
-  // const [uploadingImage, setUploadingImage] = useState(false);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleImageUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      showSnackbar("Please upload a valid image file", "warning");
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      showSnackbar("Please upload a valid image file (JPG, PNG, WEBP)", "warning");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
@@ -389,15 +439,20 @@ export default function Profile() {
     }
     showSpinner();
     try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      // API call here
-    } catch (error) {
-      showSnackbar("Error uploading image:", "error");
-      alert("Failed to upload profile picture");
+      const response: any = await authService.uploadProfilePicture(file);
+      if (response.success) {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        if (response.data?.profilePicUrl) {
+          await fetchProfile();
+        }
+        showSnackbar("Profile picture updated successfully!", "success");
+      } else {
+        showSnackbar(response.message || "Upload failed", "error");
+      }
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      showSnackbar(error.response?.data?.message || "Error uploading image", "error");
     } finally {
       hideSpinner();
     }
@@ -434,7 +489,7 @@ export default function Profile() {
 
         {/* Profile Info Tab */}
         <TabPanel value={tabValue} index={0}>
-          <div className="space-y-6">
+          <div className="space-y-6 mt-4">
             {/* Personal Information */}
             <div className="border border-gray-300 rounded-lg p-6">
               <div className="font-semibold mb-3 text-primary">
@@ -458,19 +513,14 @@ export default function Profile() {
                       onClick={handleImageClick}
                     >
                       <Avatar
-                        className="!w-24 !h-24 !bg-primary text-3xl transition-all duration-300"
-                        // sx={{
-                        //   filter: uploadingImage ? "blur(2px)" : "none",
-                        // }}
-                        src={
-                          profileImage || userData?.profilePicture || undefined
-                        }
+                        className={`!w-24 !h-24 text-3xl transition-all duration-300 ${(userData?.profilePicUrl)
+                            ? 'border border-gray-300 shadow-sm'
+                            : 'bg-primary'
+                          }`}
+                        src={ userData?.profilePicUrl ||  ''}
                       >
-                        {!profileImage &&
-                          !userData?.profilePicture &&
-                          (getInitials() || "U")}
+                        {!(userData?.profilePicUrl) && (getInitials() || "U")}
                       </Avatar>
-
                       <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 transition-all duration-300 rounded-full flex items-center justify-center">
                         {/* {uploadingImage ? (
                           <CircularProgress size={30} className="text-white" />
@@ -493,8 +543,8 @@ export default function Profile() {
                   )} */}
                 </div>
                 <div className="grid grid-cols-3 gap-8">
-                  {personalInfo.map((item) => (
-                    <div className="flex items-start text-gray-600">
+                  {personalInfo.map((item, index) => (
+                    <div key={item.name || index} className="flex items-start text-gray-600">
                       <ListItemIcon
                         className="!text-primary !w-3"
                         sx={{ "& svg": { fontSize: 18 } }}
@@ -536,8 +586,8 @@ export default function Profile() {
                 Employment Information
               </div>
               <div className="grid grid-cols-4 gap-8 ml-6">
-                {employementInfo.map((item) => (
-                  <div className="flex items-start text-gray-600">
+                {employementInfo.map((item, index) => (
+                  <div key={item.name || index} className="flex items-start text-gray-600">
                     <ListItemIcon
                       className="!text-primary !w-3"
                       sx={{ "& svg": { fontSize: 18 } }}
@@ -559,28 +609,59 @@ export default function Profile() {
 
         {/* Login History Tab */}
         <TabPanel value={tabValue} index={1}>
-          <div className="p-4 ">
-            <TableContainer component={Paper} elevation={0}>
-              <Table className="border">
+          <div className="pt-4 ">
+            <div className="flex justify-between items-center mb-4 px-4">
+              <div className="font-semibold text-gray-800">Login History</div>
+              {loginHistory.length > 0 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outlined"
+                    className="!capitalize"
+                    color="error"
+                    onClick={handleClearAllHistory}
+                  >
+                    Clear All
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    className="!capitalize !border-primary !text-primary"
+                    startIcon={
+                      <CalendarMonthOutlined
+                        sx={{ color: "!var(--color-primary)" }}
+                      />
+                    }
+                    onClick={() => setClearDaysDialogOpen(true)}
+                  >
+                    Clear Older Than
+                  </Button>
+                </div>
+              )}
+            </div>
+            <TableContainer
+              component={Paper}
+              elevation={0}
+              className="h-[calc(100vh-245px)] overflow-auto bg-white-50"
+            >
+              <Table stickyHeader className="border">
                 <TableHead>
                   <TableRow className="bg-gray-100 !text-primary">
                     <TableCell className="!font-semibold text-gray-800">
                       S No
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
-                      Date
+                      Browser
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
-                      Time
+                      OS
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
                       IP Address
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
-                      Device
+                      Device Type
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
-                      Location
+                      User Agent
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
                       Status
@@ -589,54 +670,77 @@ export default function Profile() {
                 </TableHead>
                 <TableBody className="bg-white">
                   {loginHistory.map((history, index) => (
-                    <TableRow key={history.id} hover>
-                      <TableCell className="text-gray-800 text-sm">
+                    <TableRow key={history.id} hover sx={getRowColor(index)}>
+                      <TableCell className="text-gray-800">
                         {index + 1}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        {history.date}
+                        {history.browser}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        {history.time}
+                        {history.os}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        <code className="text-sm bg-gray-100 px-2 py-1 rounded">
+                        <code className="bg-gray-100 px-2 py-1 rounded">
                           {history.ipAddress}
                         </code>
                       </TableCell>
                       <TableCell className="text-gray-800">
                         <div className="flex items-center gap-1">
                           <DevicesOutlinedIcon className="!w-4 !h-4 text-gray-400" />
-                          <span className="text-sm">{history.device}</span>
+                          <span className="!capitalize">
+                            {history.deviceType}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-gray-800">
                         <div className="flex items-center gap-1">
-                          <LocationCityOutlinedIcon className="!w-4 !h-4 text-gray-400" />
-                          <span className="text-sm">{history.location}</span>
+                          {/* <LocationCityOutlinedIcon className="!w-4 !h-4 text-gray-400" /> */}
+                          <span className="">{history.userAgent}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={
-                            history.status === "success" ? "Success" : "Failed"
+                        <Tooltip
+                          title={
+                            history.status === "SUCCESS" ? "success" : "failed"
                           }
-                          color={
-                            history.status === "success" ? "success" : "error"
-                          }
-                          size="small"
-                        />
+                        >
+                          <IconButton size="small" color="error">
+                            {history.status === "SUCCESS" ? (
+                              <CheckCircleRoundedIcon
+                                className="!w-4"
+                                sx={{ color: "green" }}
+                              />
+                            ) : (
+                              <ErrorRoundedIcon
+                                className="!w-4"
+                                sx={{ color: "red" }}
+                              />
+                            )}
+                          </IconButton>
+                        </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              {loginHistory.length === 0 && (
+                <div className="text-center border !border-gray-200 py-8 text-gray-500">
+                  No login history available
+                </div>
+              )}
             </TableContainer>
-
-            {loginHistory.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No login history available
-              </div>
+            {/* Global Pagination */}
+            {total > 0 && (
+              <GlobalPagination
+                total={total}
+                page={page + 1} // Convert to 1-based for component
+                limit={limit}
+                onPageChange={handlePageChange}
+                onLimitChange={handleLimitChange}
+                pageSizeOptions={[5, 10, 20, 50, 100]}
+                showTotal={true}
+              />
             )}
           </div>
         </TabPanel>
@@ -684,7 +788,7 @@ export default function Profile() {
             variant="contained"
             className="!bg-primary hover:bg-primary-dark"
           >
-            Save Changes
+            Update Profile
           </Button>
         </DialogActions>
       </Dialog>
@@ -728,7 +832,11 @@ export default function Profile() {
                 },
               }}
             >
-              {!showCurrentPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              {!showCurrentPassword ? (
+                <VisibilityOffIcon />
+              ) : (
+                <VisibilityIcon />
+              )}
             </IconButton>
           </div>
           <div>
@@ -784,7 +892,11 @@ export default function Profile() {
                 },
               }}
             >
-              {!showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              {!showConfirmPassword ? (
+                <VisibilityOffIcon />
+              ) : (
+                <VisibilityIcon />
+              )}
             </IconButton>
           </div>
         </DialogContent>
@@ -802,6 +914,48 @@ export default function Profile() {
             className="!bg-primary !hover:bg-primary-dark"
           >
             Update Password
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Clear Older Than N Days Dialog */}
+      <Dialog
+        open={clearDaysDialogOpen}
+        onClose={() => setClearDaysDialogOpen(false)}
+        maxWidth="sm"
+        sx={commonsx}
+      >
+        <div className="text-primary p-2 border-b !border-gray-300">
+          <div className="ml-4">Clear Login History</div>
+        </div>
+        <DialogContent className="mt-2">
+          {/* <div className="mb-4">
+            Clear all login history older than specified number of days.
+          </div> */}
+          <TextField
+            fullWidth
+            type="number"
+            label="Number of Days"
+            value={daysToKeep}
+            onChange={(e) => setDaysToKeep(parseInt(e.target.value))}
+            helperText="Enter number of days to keep (older than this will be deleted)"
+          />
+        </DialogContent>
+        <DialogActions className="!p-4 border-t !border-gray-300">
+          <Button
+            onClick={() => setClearDaysDialogOpen(false)}
+            variant="outlined"
+            className="!border-gray-300 !text-gray-800"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleClearOlderThanDays}
+            variant="contained"
+            color="error"
+            className="!capitalize"
+          >
+            Clear History
           </Button>
         </DialogActions>
       </Dialog>

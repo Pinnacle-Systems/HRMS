@@ -74,7 +74,7 @@ export default function Layout() {
       // if (response.success) {
       navigate("/login");
       // }
-    } catch (err: any) {}
+    } catch (err: any) { }
   };
 
   const handleConMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -90,7 +90,7 @@ export default function Layout() {
     navigate("/profile");
   };
 
-  const menuItems:  NavItem[] = [
+  const menuItems: NavItem[] = [
     {
       text: "Home",
       icon: <DashboardOutlinedIcon />,
@@ -119,7 +119,8 @@ export default function Layout() {
     {
       text: "Settings",
       icon: <SettingsOutlinedIcon />,
-      path: "/settings",
+      path: "/settings/general/company-settings",
+      // path: `/settings/general/company-settings/${user?.tenantId}`,
       roles: ["HR", "ADMIN"],
     },
   ];
@@ -166,10 +167,10 @@ export default function Layout() {
                 Vibe<span className="text-primary">HR</span>
               </div>
               {user && (
-                  <div className="text-[10px] text-gray-400 leading-3">
-                    {getWorkspaceLabel(user)}
-                  </div>
-                )}
+                <div className="text-[10px] text-gray-400 leading-3">
+                  {getWorkspaceLabel(user)}
+                </div>
+              )}
             </Box>
           </Box>
 
@@ -204,7 +205,9 @@ export default function Layout() {
                 onClick={handleProfileMenuOpen}
                 color="inherit"
               >
-                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">{avatarInitial}</Avatar>
+                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">
+                  {avatarInitial}
+                </Avatar>
               </IconButton>
             </Tooltip>
           </Box>
@@ -221,7 +224,7 @@ export default function Layout() {
         onClose={handleProfileMenuClose}
         classes={{ paper: "bg-white" }}
       >
-        <MenuItem onClick={handleMyProfile} className="bg-white">
+        <MenuItem onClick={handleMyProfile} className="bg-white-50">
           <ListItemIcon>
             <Person4OutlinedIcon className="text-primary !w-4" />
           </ListItemIcon>
@@ -277,19 +280,18 @@ export default function Layout() {
         open={open}
       >
         <List>
-          {visibleMenuItems.map((item) => (
-            <Tooltip title={item.text}>
-              <ListItem
-                key={item.text}
-                disablePadding
-                className="block whitespace-nowrap"
-              >
+          {visibleMenuItems.map((item, index) => (
+            <Tooltip
+              key={`item-${index}-${item.text}`}
+              title={item.text}
+            >
+              <ListItem disablePadding className="block whitespace-nowrap">
                 <ListItemButton
-                  className={`min-h-[48px] px-2.5 text-sm ${
-                   location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+                  className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
+                      location.pathname.startsWith(`${item.path}/`)
                       ? "text-primary !bg-primary-50"
                       : "text-gray-400"
-                  } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                    } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
                   onClick={() => navigate(item.path)}
                 >
                   <ListItemIcon

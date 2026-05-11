@@ -2,19 +2,20 @@ export const companyFieldsWithSections = [
   // Section 1: Basic Information
   { section: 'Basic Information', isSection: true },
   { key: 'companyName', label: 'Company Name', type: 'text', required:true, multiline: true, placeholder: '(e.g., VibeHR Solutions)' },
-  { key: 'alias_name', label: 'Alias Name', type: 'text', placeholder: '(e.g., VibeHR)', multiline: true },
+  { key: 'aliasName', label: 'Alias Name', type: 'text', placeholder: '(e.g., VibeHR)', multiline: true },
   { key: 'code', label: 'Company Code', type: 'text', placeholder: '(e.g., VHR001)' },
-  { key: 'cost_code', label: 'Cost Code', type: 'text', placeholder: '(e.g., CC-2024-001)' },
-  { key: 'companyType', label: 'Company Type', type: 'select', placeholder: '(e.g., Private Limited, Public)' },
+  { key: 'costCode', label: 'Cost Code', type: 'text', placeholder: '(e.g., CC-2024-001)' },
+  { key: 'companyType', label: 'Company Type', type: 'text', placeholder: '(e.g., Head Office)' },
   { key: 'companyAddress', label: 'Address', type: 'text', required:true, multiline: true, rows: 6 },
   { key: 'location', label: 'Location', type: 'text', multiline: true, rows: 6 },
 
   
   // Sub Section: Address Information
   { subSection: 'Address Information', isSubSection: true, parentSection: 'Basic Information' },
-  { key: 'cityId', label: 'City', type: 'select', placeholder: '(e.g., Mumbai, Delhi, Bangalore)' },
-  { key: 'stateId', label: 'State', type: 'select', placeholder: '(e.g., Maharashtra, Karnataka)' },
-  { key: 'countryId', label: 'Country', type: 'select', placeholder: '(e.g., India)' },
+  { key: 'countryId', label: 'Country', type: 'master-select', placeholder: '(e.g., India)' },
+  { key: 'stateId', label: 'State', type: 'master-select', placeholder: '(e.g., Maharashtra, Karnataka)' },
+
+  { key: 'cityId', label: 'City', type: 'master-select', placeholder: '(e.g., Mumbai, Delhi, Bangalore)' },
   { key: 'pincode', label: 'Pincode', type: 'text', placeholder: '(e.g., 400001)' },
   { key: 'phone', label: 'Phone Number', type: 'text', required:true, placeholder: '(e.g., +91 9876543210)' },
   { key: 'fax', label: 'Fax Number', type: 'text', placeholder: '(e.g., +91 22 12345678)' },
@@ -44,23 +45,31 @@ export const companyFieldsWithSections = [
   { key: 'designation', label: 'Designation', type: 'text', placeholder: '(e.g., CEO)' },
   { key: 'phone_no', label: 'Phone Number', type: 'text', placeholder: '(e.g.,  +91 9876543210)' },
   { key: 'contact_email', label: 'Email Address', type: 'text', placeholder: '(e.g., johndoe@example.com)' },
+//  "payrollFrequency": "string",
+//   "salaryPayDay": 31,
+//   "fiscalYearStartMonth": 12,
+//  "linkedinUrl": "string",
+//   "facebookUrl": "string",
+//   "instagramHandle": "string",
+//   "signatoryName": "string",
+//   "signatoryDesignation": "string"
 ];
 
 // Separate file upload fields
 export const fileUploadFields = [
-    {
-        key: 'logo',
-        label: 'Company Logo',
-        accept: 'image/*',
-        maxSize: 2,
-        description: 'Upload company logo (JPEG, PNG, SVG - Max 2MB)'
+     {
+      key: "logo",
+      label: "Company Logo",
+      accept: "image/jpeg,image/png,image/jpg,image/svg+xml",
+      maxSize: 2,
+      description: "Recommended size: 200x200px. Max size: 2MB",
     },
     {
-        key: 'signature',
-        label: 'Digital Signature',
-        accept: 'image/*,.pdf',
-        maxSize: 1,
-        description: 'Upload authorized signature (JPEG, PNG, PDF - Max 1MB)'
+      key: "signature",
+      label: "Signature",
+      accept: "image/jpeg,image/png,image/jpg",
+      maxSize: 1,
+      description: "Digital signature for documents. Max size: 1MB",
     },
 ];
 

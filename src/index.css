@@ -21,6 +21,7 @@
     --color-primary-light: #fb923c;
     --color-primary-100: #ffedd5;
     --color-primary-50: #fff7ed;
+    --head: #f3f4f6;
   }
 
   .dark {
@@ -30,8 +31,9 @@
     --text-primary: #f9fafb;
     --text-secondary: #d1d5db;
     --border-color: #374151;
-    --color-primary-100: #431d0e;
-    --color-primary-50: #2a1209;
+    --color-primary-100: #f75f2385;
+    --color-primary-50: #af9389;
+    --head: #11223b;
   }
 }
 
@@ -67,6 +69,8 @@
 
 .css-18p5xg2-MuiNotchedOutlined-root-MuiOutlinedInput-notchedOutline {
   border-color: var(--border-color) !important;
+  /* padding: 16px 8px !important; */
+  /* top: 0px !important; */
 }
 
 .css-1tktgsa-MuiPaper-root-MuiPopover-paper-MuiMenu-paper {
@@ -86,9 +90,6 @@
   color: var(--text-secondary) !important;
 }
 
-.css-1ugbrpl-MuiFormControl-root-MuiPickersTextField-root {
-  /* width: 200px !important; */
-}
 .css-up5yqv-MuiFormControl-root-MuiTextField-root {
   min-width: 180px !important;
   /* width: 200px !important; */
@@ -97,9 +98,25 @@
 .css-1pjd06b {
   padding: 15px !important;
   padding-left: 80px !important;
+  padding-bottom: 0 !important;
 }
+
+.css-yerm9j {
+  padding: 15px !important;
+  padding-left: 204px !important;
+  padding-bottom: 0 !important;
+}
+
 .css-166ur73-MuiPickersInputBase-root-MuiPickersOutlinedInput-root {
   width: 193px !important;
+}
+
+.css-b1g3vx-MuiNativeSelect-root-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
+  width: 150px !important;
+}
+
+.css-eqc3kq-MuiFormControl-root-MuiPickersTextField-root {
+  width: 100% !important;
 }
 
 .css-1r46z6h-MuiPaper-root-MuiDialog-paper {
@@ -150,4 +167,72 @@
   border-color: var(--border-color) !important;
   color: var(--text-primary) !important;
   padding: 8px !important;
+}
+
+.css-1phy807 {
+  padding: 0 !important;
+}
+
+.css-15sdycy-MuiTableCell-root {
+  color: var(--text-primary) !important;
+  padding: 12px 16px !important;
+  font-weight: 600 !important;
+  background-color: var(--head) !important  ;
+}
+
+.css-orhhbu-MuiTableCell-root {
+  color: var(--text-secondary) !important;
+}
+
+.css-dx7nlk-MuiPaper-root-MuiDialog-paper {
+  background-color: var(--bg-primary) !important;
+}
+
+.css-aqlqb4-MuiButtonBase-root-MuiSwitchBase-root-MuiSwitch-switchBase.Mui-checked {
+  color: var(--color-primary) !important;
+}
+
+.css-aqlqb4-MuiButtonBase-root-MuiSwitchBase-root-MuiSwitch-switchBase.Mui-checked
+  + .MuiSwitch-track {
+  background-color: var(--color-primary) !important;
+}
+
+.css-5qu1g4-MuiTableCell-root {
+  background-color: var(--head) !important  ;
+}
+
+.css-w58ak0-MuiCircularProgress-root {
+  color: var(--color-primary) !important;
+}
+
+.css-nxe85d-MuiFormHelperText-root {
+  color: var(--text-primary) !important;
+}
+
+.css-14500qs-MuiSvgIcon-root {
+  font-size: 18px !important;
+}
+
+.css-18n2af1-MuiInputBase-root-MuiOutlinedInput-root {
+  /* top: -5px !important; */
+}
+
+.css-1idi8go-MuiTableCell-root {
+  padding: 8px 16px !important;
+}
+
+.css-8aqssk-MuiFormControl-root-MuiTextField-root {
+  /* top: 5px !important; */
+}
+
+.css-1iw3t7y-MuiFormControl-root {
+  width: 100% !important;
+}
+
+.css-29y90v-MuiPickersInputBase-root-MuiPickersOutlinedInput-root {
+  padding: 0 14px 0 0 !important;
+}
+
+.css-nxe85d-MuiFormHelperText-root.Mui-error {
+  color: #e42929 !important;
 }

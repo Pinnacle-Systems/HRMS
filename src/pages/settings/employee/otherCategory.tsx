@@ -58,7 +58,7 @@ export default function CategorySettings() {
   const getCategories = async () => {
     showSpinner();
     try {
-      const response: any = await categoryService.getCategories();
+      const response: any = await categoryService.getCategories({size:100});
       if (response.success) {
         setCategories(response.data.content || []);
       }
@@ -363,6 +363,7 @@ export default function CategorySettings() {
                       setFormData({ ...formData, enabled: e.target.checked })
                     }
                     color="primary"
+                    className="text-gray-800"
                   />
                 }
                 label="Active"

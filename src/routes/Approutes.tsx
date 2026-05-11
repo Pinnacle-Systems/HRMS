@@ -4,7 +4,7 @@ import { useAuth } from "../auth/authContext";
 import { getDefaultRoute } from "../auth/authMapper";
 import ProtectedRoute from "../auth/ProtectedRoute";
 import Layout from "../components/Layout";
-import Employees from "../pages/employees/employees";
+import Employees from "../pages/employees/employeeManagement";
 import ForgotPassword from "../pages/auth/ForgotPassword/ForgotPassword";
 import Home from "../pages/home/home";
 import Leave from "../pages/leave/leave";
@@ -23,6 +23,7 @@ import BranchSettings from "../pages/settings/general/branchSettings";
 import DepartmentSettings from "../pages/settings/employee/depSettings";
 import CategoryItems from "../pages/settings/employee/categoryItems";
 import CategorySettings from "../pages/settings/employee/otherCategory";
+import EmployeeDetails from "../pages/employees/employeeDetails";
 
 function RootRedirect() {
   const { session, isLoading } = useAuth();
@@ -92,6 +93,7 @@ function AppRoutesContent() {
               }
             >
               <Route path="employees" element={<Employees />} />
+              <Route path="employees/:id" element={<EmployeeDetails />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>
@@ -99,6 +101,7 @@ function AppRoutesContent() {
               <Route path="settings" element={<Settings />}>
                 <Route
                   path="general/company-settings"
+                  // path="general/company-settings/:id"
                   element={<CompanySettings />}
                 />
                 <Route

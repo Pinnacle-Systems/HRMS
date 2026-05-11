@@ -22,6 +22,7 @@ import {
   FormControl,
   InputLabel,
   Box,
+  Autocomplete,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -37,6 +38,9 @@ import { branchService } from "../../../services/modules/branch";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
+import { getRowColor } from "../../const";
+import type { Employee } from "../general/type";
+import { employeeService } from "../../../services/modules/employees";
 
 interface Department {
   id: string;
@@ -90,6 +94,20 @@ export default function DepartmentSettings() {
     active: true,
   });
 
+  // Employee list for branch head dropdown
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  // Fetch active employees for branch head dropdown
+  const getActiveEmployees = async () => {
+    try {
+      const response: any = await employeeService.getEmployees({ size: 100 });
+      setEmployees(response.data.content || response.data || []);
+    } catch (error: any) {
+      showSnackbar(error.message, error);
+    }
+  };
+
   // Fetch departments
   const getDepartments = async () => {
     showSpinner();
@@ -132,7 +150,18 @@ export default function DepartmentSettings() {
   useEffect(() => {
     getDepartments();
     getBranches();
+    getActiveEmployees();
   }, [page, limit, sortBy, sortOrder, searchTerm]);
+
+   useEffect(() => {
+    if (formData.departmentHeadId && employees.length > 0) {
+      const employee = employees.find(emp => emp.id === formData.departmentHeadId);
+      setSelectedEmployee(employee || null);
+    } else {
+      setSelectedEmployee(null);
+    }
+  }, [formData.departmentHeadId, employees]);
+
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage - 1);
@@ -327,9 +356,9 @@ export default function DepartmentSettings() {
         <TableContainer
           component={Paper}
           elevation={0}
-          className="h-[calc(100vh-310px)] overflow-auto"
+          className="h-[calc(100vh-290px)] overflow-auto bg-white-50"
         >
-          <Table className="border">
+          <Table stickyHeader className="border">
             <TableHead className="bg-gray-100">
               <TableRow>
                 <TableCell className="!font-semibold text-gray-800">
@@ -401,15 +430,11 @@ export default function DepartmentSettings() {
             </TableHead>
             <TableBody>
               {departments.map((department, index) => (
-                <TableRow key={department.id} hover className="!bg-white">
+                <TableRow key={department.id} hover sx={getRowColor(index)}>
                   <TableCell className="font-medium text-gray-800">
                     {page * limit + index + 1}
                   </TableCell>
-                  <TableCell>
-                    <code className="text-sm bg-gray-100 text-gray-800 px-2 py-1 rounded">
-                      {department.departmentCode}
-                    </code>
-                  </TableCell>
+                  <TableCell>{department.departmentCode}</TableCell>
                   <TableCell className="font-medium text-gray-800">
                     {department.departmentName}
                   </TableCell>
@@ -432,10 +457,10 @@ export default function DepartmentSettings() {
                     <Tooltip title="Edit">
                       <IconButton
                         size="small"
-                        color="primary"
+                        color="primary" className="!mr-2"
                         onClick={() => handleOpenDialog(department)}
                       >
-                        <EditIcon className="!w-4" sx={{ color: "blue" }} />
+                        <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
@@ -446,7 +471,7 @@ export default function DepartmentSettings() {
                           handleDelete(department.id, department.departmentName)
                         }
                       >
-                        <DeleteIcon className="!w-4" sx={{ color: "red" }} />
+                        <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
                       </IconButton>
                     </Tooltip>
                   </TableCell>
@@ -531,16 +556,61 @@ export default function DepartmentSettings() {
                 </Select>
               </FormControl>
             </div>
+            {/* Department Head Autocomplete */}
             <div>
-              <TextField
-                fullWidth
-                label="Department Head"
-                name="departmentHeadId"
-                value={formData.departmentHeadId || ""}
-                onChange={handleInputChange}
-                placeholder="Enter department head name or ID"
+              <Autocomplete
+                options={employees}
+                getOptionLabel={(option) => {
+                  if (typeof option === 'string') return option;
+                  return `${option.name} (${option.employeeId})`;
+                }}
+                value={selectedEmployee}
+                onChange={(event, newValue) => {
+                  setSelectedEmployee(newValue);
+                  setFormData((prev) => ({
+                    ...prev,
+                    departmentHeadId: newValue ? newValue.id : "",
+                  }));
+                }}
+                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                renderOption={(props, option) => {
+                  const { key, ...restProps } = props;
+                  return (
+                    <li key={key} {...restProps}>
+                      <div className="flex items-center gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{option.name}</span>
+                            <span className="text-xs text-gray-400">({option.employeeId})</span>
+                          </div>
+                          <div className="text-xs text-gray-500">{option.designation || "Employee"}</div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Assign Department Head"
+                    placeholder="Search employee by name or ID..."
+                  />
+                )}
+                loading={employees.length === 0}
+                loadingText="Loading employees..."
+                noOptionsText="No employees found"
+                filterOptions={(options, state) => {
+                  const searchLower = state.inputValue.toLowerCase();
+                  return options.filter(option =>
+                    option.name?.toLowerCase().includes(searchLower) ||
+                    option.employeeId?.toLowerCase().includes(searchLower) ||
+                    option.emailAddress?.toLowerCase().includes(searchLower) ||
+                    option.designation?.toLowerCase().includes(searchLower)
+                  );
+                }}
               />
             </div>
+
             <div>
               <FormControlLabel
                 control={

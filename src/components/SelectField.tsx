@@ -1,4 +1,3 @@
-// components/SelectField.tsx
 import React, { useMemo, useState } from "react";
 import {
   FormControl,
@@ -6,7 +5,6 @@ import {
   Select,
   OutlinedInput,
   MenuItem,
-  Checkbox,
   ListItemText,
   Divider,
   FormHelperText,
@@ -53,6 +51,8 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
   sx,
 }) => {
   const [openDialog, setOpenDialog] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+
   const [newOption, setNewOption] = useState("");
   const [addedOptions, setAddedOptions] = useState<string[]>([]);
   const localOptions = useMemo(
@@ -60,21 +60,38 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
     [addedOptions, options],
   );
 
-  const handleAddOption = () => {
-    if (newOption.trim() && !localOptions.includes(newOption.trim())) {
-      setAddedOptions((current) => [...current, newOption.trim()]);
-      if (onAddOption) {
-        onAddOption(newOption.trim());
-      }
+  const handleAddOption = async () => {
+    if (!newOption.trim()) return;
+
+    if (localOptions.includes(newOption.trim())) {
+      // Option already exists
       setNewOption("");
       setOpenDialog(false);
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      // Call the parent's onAddOption which should handle the API call
+      await onAddOption(newOption.trim());
+
+      // Add to local state for immediate display
+      setAddedOptions((current) => [...current, newOption.trim()]);
 
       // Auto-select the newly added option for single select
       if (!multiple && onChange) {
         onChange(newOption.trim());
       }
+
+      setNewOption("");
+      setOpenDialog(false);
+    } catch (error) {
+      console.error("Failed to add option:", error);
+    } finally {
+      setIsAdding(false);  
     }
   };
+
 
   // Render selected values
   const renderValue = (selected: unknown) => {
@@ -135,9 +152,9 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
         disabled={disabled}
         required={required}
         sx={{
-          width: "max-content",
-          minWidth: "180px",
-          maxWidth: "100%",
+          // width: "max-content",
+          // minWidth: "180px",
+          // maxWidth: "100%",
           ...sx,
         }}
       >
@@ -152,7 +169,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
           sx={{
             "& .MuiPaper-root": {
               Height: 100,
-              },
+            },
           }}
           renderValue={renderValue}
         >
@@ -162,11 +179,14 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
       </FormControl>
 
       {/* Add New Option Dialog */}
-      <Dialog
+     <Dialog
         open={openDialog}
-        onClose={() => setOpenDialog(false)}
+        onClose={() => {
+          setOpenDialog(false);
+          setNewOption("");
+        }}
         maxWidth="sm"
-        className="w-[100vw]"
+        fullWidth
       >
         <DialogTitle className="!text-primary !font-bold">
           Add New {label}
@@ -179,7 +199,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
             type="text"
             variant="outlined"
             value={newOption}
-            className="w-[400px]"
+            fullWidth
             onChange={(e) => setNewOption(e.target.value)}
             placeholder={`Enter new ${label.toLowerCase()}`}
             onKeyPress={(e) => {
@@ -191,7 +211,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
               localOptions.includes(newOption) ? "This value already exists" : ""
             }
             error={localOptions.includes(newOption)}
-            sx={{ mt: 1 }}
+            disabled={isAdding}
           />
         </DialogContent>
         <DialogActions>
@@ -201,6 +221,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
               setNewOption("");
             }}
             className="!text-gray-800"
+            disabled={isAdding}
           >
             Cancel
           </Button>
@@ -208,9 +229,9 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
             onClick={handleAddOption}
             variant="contained"
             className="!bg-primary !text-white"
-            disabled={!newOption.trim() || localOptions.includes(newOption.trim())}
+            disabled={!newOption.trim() || localOptions.includes(newOption.trim()) || isAdding}
           >
-            Add
+            {isAdding ? "Adding..." : "Add"}
           </Button>
         </DialogActions>
       </Dialog>

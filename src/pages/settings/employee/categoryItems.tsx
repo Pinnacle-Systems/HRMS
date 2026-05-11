@@ -33,6 +33,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { categoryService } from "../../../services/modules/category";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
+import { getRowColor } from "../../const";
 
 interface CategoryItem {
   id: string;
@@ -121,10 +122,10 @@ export default function CategoryItems() {
     try {
       if (editingItem) {
         const updatedValues = {
-          code : formData.code,
-          name : formData.name,
-          active : formData.active
-        }
+          code: formData.code,
+          name: formData.name,
+          active: formData.active,
+        };
         await categoryService.updateCategoryItem(
           editingItem.id,
           category.id,
@@ -239,9 +240,9 @@ export default function CategoryItems() {
       <TableContainer
         component={Paper}
         elevation={0}
-        className="h-[calc(100vh-310px)] overflow-auto"
+        className="h-[calc(100vh-295px)] overflow-auto bg-white-50"
       >
-        <Table className="border ">
+        <Table stickyHeader className="border ">
           <TableHead className="bg-gray-100">
             <TableRow>
               <TableCell className="!font-semibold text-gray-800">
@@ -263,14 +264,14 @@ export default function CategoryItems() {
           </TableHead>
           <TableBody>
             {items.map((item, index) => (
-              <TableRow key={item.id} hover>
-                <TableCell>{page * limit + index + 1}</TableCell>
-                <TableCell>
-                  <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                    {item.code}
-                  </code>
+              <TableRow key={item.id} hover sx={getRowColor(index)}>
+                <TableCell className="text-gray-800">
+                  {page * limit + index + 1}
                 </TableCell>
-                <TableCell className="font-medium">{item.name}</TableCell>
+                <TableCell> {item.code}</TableCell>
+                <TableCell className="font-medium text-gray-800">
+                  {item.name}
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={item.active ? "Active" : "Inactive"}
@@ -283,10 +284,13 @@ export default function CategoryItems() {
                 <TableCell className="text-center">
                   <Tooltip title="Edit">
                     <IconButton
-                      size="small"
+                      size="small" className="!mr-2"
                       onClick={() => handleOpenDialog(item)}
                     >
-                      <EditIcon className="!w-4" sx={{ color: "blue" }} />
+                      <EditIcon
+                        className="!w-4"
+                        sx={{ color: "#0087ff" }}
+                      />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Delete">
@@ -294,7 +298,7 @@ export default function CategoryItems() {
                       size="small"
                       onClick={() => handleDelete(item.id, item.name)}
                     >
-                      <DeleteIcon className="!w-4" sx={{ color: "red" }} />
+                      <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
                     </IconButton>
                   </Tooltip>
                 </TableCell>
@@ -303,7 +307,7 @@ export default function CategoryItems() {
           </TableBody>
         </Table>
         {items.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-gray-500 border border-gray-200 rounded-sm">
             No {category.categoryName.toLowerCase()} items found
           </div>
         )}
@@ -376,7 +380,8 @@ export default function CategoryItems() {
                     onChange={(e) =>
                       setFormData({ ...formData, active: e.target.checked })
                     }
-                    color="primary"
+                    // color="primary"
+                    className="text-gray-800"
                   />
                 }
                 label="Active"

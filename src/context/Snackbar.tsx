@@ -1,14 +1,30 @@
-import React, { createContext, useContext, useState, type ReactNode } from 'react';
-import { Snackbar, Alert, CircularProgress, Backdrop, DialogContentText, DialogContent, DialogActions, Button, DialogTitle, Dialog } from '@mui/material';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  Snackbar,
+  Alert,
+  CircularProgress,
+  Backdrop,
+  DialogContentText,
+  DialogContent,
+  DialogActions,
+  Button,
+  DialogTitle,
+  Dialog,
+} from "@mui/material";
 
 interface UIState {
   snackbar: {
     open: boolean;
     message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
+    severity: "success" | "error" | "info" | "warning";
   };
   spinner: boolean;
-   confirmDialog: {
+  confirmDialog: {
     open: boolean;
     title: string;
     message: string;
@@ -21,11 +37,14 @@ interface UIState {
 
 interface UIContextType {
   state: UIState;
-  showSnackbar: (message: string, severity: UIState['snackbar']['severity']) => void;
+  showSnackbar: (
+    message: string,
+    severity: UIState["snackbar"]["severity"],
+  ) => void;
   hideSnackbar: () => void;
   showSpinner: () => void;
   hideSpinner: () => void;
-   showConfirmDialog: (options: {
+  showConfirmDialog: (options: {
     title: string;
     message: string;
     onConfirm: () => void;
@@ -41,7 +60,7 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 export const useUI = () => {
   const context = useContext(UIContext);
   if (!context) {
-    throw new Error('useUI must be used within UIProvider');
+    throw new Error("useUI must be used within UIProvider");
   }
   return context;
 };
@@ -54,21 +73,24 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
   const [state, setState] = useState<UIState>({
     snackbar: {
       open: false,
-      message: '',
-      severity: 'success',
+      message: "",
+      severity: "success",
     },
     spinner: false,
     confirmDialog: {
       open: false,
-      title: '',
-      message: '',
+      title: "",
+      message: "",
       onConfirm: () => {},
-      confirmText: 'Confirm',
-      cancelText: 'Cancel',
+      confirmText: "Confirm",
+      cancelText: "Cancel",
     },
   });
 
-  const showSnackbar = (message: string, severity: UIState['snackbar']['severity']) => {
+  const showSnackbar = (
+    message: string,
+    severity: UIState["snackbar"]["severity"],
+  ) => {
     setState((prev) => ({
       ...prev,
       snackbar: { open: true, message, severity },
@@ -106,8 +128,8 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
         message: options.message,
         onConfirm: options.onConfirm,
         onCancel: options.onCancel,
-        confirmText: options.confirmText || 'Confirm',
-        cancelText: options.cancelText || 'Cancel',
+        confirmText: options.confirmText || "Confirm",
+        cancelText: options.cancelText || "Cancel",
       },
     }));
   };
@@ -119,7 +141,7 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
     }));
   };
 
-   const handleConfirm = () => {
+  const handleConfirm = () => {
     state.confirmDialog.onConfirm();
     hideConfirmDialog();
   };
@@ -144,13 +166,13 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
       }}
     >
       {children}
-      
+
       {/* Global Snackbar */}
       <Snackbar
         open={state.snackbar.open}
-        autoHideDuration={2000}
+        autoHideDuration={1000}
         onClose={hideSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >
         <Alert
           onClose={hideSnackbar}
@@ -163,42 +185,39 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
 
       {/* Global Spinner */}
       <Backdrop
-        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
         open={state.spinner}
       >
-        <CircularProgress color="primary" />
+        <CircularProgress color="secondary" enableTrackSlot size={40} aria-label="Loading…" />
       </Backdrop>
 
-       {/* Global Confirmation Dialog */}
-      <Dialog
-        open={state.confirmDialog.open}
-        onClose={handleCancel}
-      >
+      {/* Global Confirmation Dialog */}
+      <Dialog open={state.confirmDialog.open} onClose={handleCancel}>
         <DialogTitle
           id="confirm-dialog-title"
-          className='!border-b !text-gray-800 !border-gray-300 !text-[14px] !p-[15px] !font-semibold'
+          className="!border-b !text-gray-800 !border-gray-300 !text-[14px] !p-[15px] !font-semibold"
         >
           {state.confirmDialog.title}
         </DialogTitle>
-        <DialogContent className='!p-2'>
+        <DialogContent className="!p-2">
           <DialogContentText
             id="confirm-dialog-description"
-            className='!text-[14px] !p-2 !text-gray-600'
+            className="!text-[14px] !p-2 !text-gray-600"
           >
             {state.confirmDialog.message}
           </DialogContentText>
         </DialogContent>
-        <DialogActions sx={{ padding: '16px 24px', gap: '12px' }}>
+        <DialogActions sx={{ padding: "16px 24px", gap: "12px" }}>
           <Button
             onClick={handleCancel}
             variant="outlined"
             sx={{
-              textTransform: 'none',
-              borderColor: '#cbd5e1',
-              color: 'var(--text-primary)',
-              '&:hover': {
-                borderColor: '#94a3b8',
-                backgroundColor: '#f8fafc',
+              textTransform: "none",
+              borderColor: "#cbd5e1",
+              color: "var(--text-primary)",
+              "&:hover": {
+                borderColor: "#94a3b8",
+                backgroundColor: "#f8fafc",
               },
             }}
           >
@@ -208,10 +227,10 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
             onClick={handleConfirm}
             variant="contained"
             sx={{
-              textTransform: 'none',
-              backgroundColor: '#ef4444',
-              '&:hover': {
-                backgroundColor: '#dc2626',
+              textTransform: "none",
+              backgroundColor: "#ef4444",
+              "&:hover": {
+                backgroundColor: "#dc2626",
               },
             }}
             autoFocus
@@ -220,7 +239,6 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
           </Button>
         </DialogActions>
       </Dialog>
-
     </UIContext.Provider>
   );
 };

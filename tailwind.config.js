@@ -49,7 +49,8 @@ export default {
         ".dark .bg-gray-200": { backgroundColor: theme("colors.gray.700") },
         ".dark .bg-gray-300": { backgroundColor: theme("colors.gray.600") },
         ".dark .bg-white": { backgroundColor: theme("colors.gray.800") },
-         ".dark .bg-primary-50": { backgroundColor: theme("colors.gray.800") },
+        ".dark .bg-white-50": { backgroundColor: theme("colors.gray.900") },
+        ".dark .bg-primary-50": { backgroundColor: theme("colors.gray.800") },
 
         // Texts
         ".dark .text-gray-400": { color: theme("colors.gray.100") },
@@ -61,9 +62,11 @@ export default {
         ".dark .text-white": { color: theme("colors.gray.100") },
 
         // Ring
-        ".dark .ring-gray-400": { "--tw-ring-color": "var(--color-primary-dark)" },
+        ".dark .ring-gray-400": {
+          "--tw-ring-color": "var(--color-primary-dark)",
+        },
 
-         ".dark .ring-2": { "--tw-ring-offset-color": "#333030" },
+        ".dark .ring-2": { "--tw-ring-offset-color": "#333030" },
 
         // // Ring offset
         // ".dark .ring-offset-gray-100": {

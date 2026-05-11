@@ -51,6 +51,7 @@ export const GlobalSort = ({
           endIcon={currentSortOrder === 'asc' ? <ArrowUpward /> : <ArrowDownward />}
           onClick={handleClick}
           size="small"
+          className='!capitalize'
         >
           {getCurrentSortLabel()}
         </Button>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Box, Typography, Button, IconButton, Paper } from '@mui/material';
 import Close from "@mui/icons-material/Close";
 import CloudUpload from "@mui/icons-material/CloudUpload";
@@ -21,7 +21,17 @@ export const FileUpload = ({
   maxSize = 2,
   description 
 }: FileUploadProps) => {
-  const [preview, setPreview] = useState<string>(typeof value === 'string' ? value : '');
+ const [preview, setPreview] = useState<string>('');
+
+useEffect(() => {
+  if (typeof value === 'string') {
+    setPreview(value);
+  } else if (value instanceof File) {
+    setPreview(URL.createObjectURL(value));
+  } else {
+    setPreview('');
+  }
+}, [value]);
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,7 +74,12 @@ export const FileUpload = ({
     }
   };
 
-  const isImage = preview && (preview.startsWith('data:image') || preview.match(/\.(jpg|jpeg|png|gif|svg)$/i));
+  const isImage =
+  typeof preview === "string" &&
+  (
+    preview.startsWith("data:image") ||
+    /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(preview)
+  );
   return (
     <Paper variant="outlined" className="p-4 bg-white">
       <Typography variant="subtitle2" className="font-semibold !mb-2 !text-gray-800">

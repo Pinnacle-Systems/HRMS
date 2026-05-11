@@ -71,7 +71,7 @@ export const GlobalPagination = ({
       rowsPerPage={limit}
       onRowsPerPageChange={(e) => onLimitChange(parseInt(e.target.value, 10))}
       rowsPerPageOptions={pageSizeOptions}
-      labelRowsPerPage="Rows per page:"
+      labelRowsPerPage="Rows Per Page:"
       labelDisplayedRows={({ from, to, count }) =>
         `${from}-${to} of ${count}`
       }

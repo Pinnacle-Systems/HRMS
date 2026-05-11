@@ -37,12 +37,41 @@ class AuthService {
     return apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload);
   }
 
+  
+  async uploadProfilePicture(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiService.post(API_ENDPOINTS.AUTH.PHOTO, formData);
+  }
+
   async changePassword(payload: any) {
     const response = await apiService.post(
       API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
       payload,
     );
     return response;
+  }
+
+  async getLoginHistory(params?: any) {
+    return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.BASE, { params });
+  }
+
+  async getLoginHistoryByUser(id?: any) {
+    return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_USERID(id));
+  }
+
+  async getLoginHistoryByTenant(params?: any) {
+    return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_TENANTID, {
+      params,
+    });
+  }
+
+  async clearLoginHistory(params?: any) {
+    return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.DELETE, { params });
+  }
+
+  async clearLoginHistoryOlderThan(days: any) {
+    return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.CLEAR_OLDER(days));
   }
 }
 

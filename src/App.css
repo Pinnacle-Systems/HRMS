@@ -12,6 +12,14 @@
   color: #f8fafc;
 }
 
+.full-width-datepicker {
+  width: 100% !important;
+}
+
+.full-width-datepicker .MuiInputBase-root {
+  width: 100% !important;
+}
+
 * {
   scrollbar-width: thin;
 }

@@ -32,25 +32,17 @@ class CompanyService {
 
   async uploadLogo (id: string, file: File) {
     const formData = new FormData();
-    formData.append('logo', file);
+    formData.append('file', file);
     
-    const response = await apiService.post(API_ENDPOINTS.COMPANY.UPLOAD_LOGO(id), formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiService.post(API_ENDPOINTS.COMPANY.UPLOAD_LOGO(id), formData);
     return response;
   }
 
   async uploadSignature (id: string, file: File) {
     const formData = new FormData();
-    formData.append('signature', file);
+    formData.append('file', file);
     
-    const response = await apiService.post(API_ENDPOINTS.COMPANY.UPLOAD_SIGNATURE(id), formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await apiService.post(API_ENDPOINTS.COMPANY.UPLOAD_SIGNATURE(id), formData);
     return response;
   }
 

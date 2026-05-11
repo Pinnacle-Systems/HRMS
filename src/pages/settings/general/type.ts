@@ -44,8 +44,17 @@ export interface Branch {
   longitude: number;
   radius: number;
   branchHeadId: string;
+  branchHeadName:any;
   active: boolean;
   location?: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  employeeId: string;
+  emailAddress: string;
+  designation?: string;
 }
 
 export const sortOptions = [
