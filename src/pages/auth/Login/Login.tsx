@@ -36,7 +36,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [visible, setIsVisible] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile] = useState(false);
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const { login } = useAuth();
