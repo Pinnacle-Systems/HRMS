@@ -130,7 +130,7 @@ theme.components = {
           borderColor: "#02afff !important",
           borderWidth: "2px",
         },
-      ".css-lqwr9g-MuiPickersOutlinedInput-notchedOutline": {
+      ".MuiPickersOutlinedInput-notchedOutline": {
         borderColor: "var(--border-color) !important",
       },
     },
