@@ -48,7 +48,7 @@
   }
 }
 
-.MuiPickersSectionList-root {
+/* .MuiPickersSectionList-root {
   padding: 8px !important;
 }
 
@@ -62,15 +62,12 @@
 }
 
 .css-1tktgsa-MuiPaper-root-MuiPopover-paper-MuiMenu-paper {
-  /* height: 200px !important; */
   max-height: 200px !important;
   width: 200px !important;
 }
 
 .css-18p5xg2-MuiNotchedOutlined-root-MuiOutlinedInput-notchedOutline {
   border-color: var(--border-color) !important;
-  /* padding: 16px 8px !important; */
-  /* top: 0px !important; */
 }
 
 .css-1tktgsa-MuiPaper-root-MuiPopover-paper-MuiMenu-paper {
@@ -92,7 +89,6 @@
 
 .css-up5yqv-MuiFormControl-root-MuiTextField-root {
   min-width: 180px !important;
-  /* width: 200px !important; */
 }
 
 .css-1pjd06b {
@@ -213,16 +209,8 @@
   font-size: 18px !important;
 }
 
-.css-18n2af1-MuiInputBase-root-MuiOutlinedInput-root {
-  /* top: -5px !important; */
-}
-
 .css-1idi8go-MuiTableCell-root {
   padding: 8px 16px !important;
-}
-
-.css-8aqssk-MuiFormControl-root-MuiTextField-root {
-  /* top: 5px !important; */
 }
 
 .css-1iw3t7y-MuiFormControl-root {
@@ -235,4 +223,4 @@
 
 .css-nxe85d-MuiFormHelperText-root.Mui-error {
   color: #e42929 !important;
-}
+} */

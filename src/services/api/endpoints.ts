@@ -22,7 +22,7 @@ export const API_ENDPOINTS = {
     CLEAR_OLDER: (days: string) => `/login-history/older-than/${days}`,
     BASE: "/login-history",
     GET_BY_USERID: (id: string) => `/login-history/user/${id}`,
-    GET_BY_TENANTID: "/login-history/tenant"
+    GET_BY_TENANTID: "/login-history/tenant",
   },
 
   BRANCH: {
@@ -48,17 +48,21 @@ export const API_ENDPOINTS = {
 
   CATEGORY: {
     DELETECAT: (id: string) => `/org/category/${id}`,
-    DELETECATITEM: (id: string, cid: string) => `/org/category/${cid}/items/${id}`,
+    DELETECATITEM: (id: string, cid: string) =>
+      `/org/category/${cid}/items/${id}`,
     GET_BY_CATID: (id: string) => `/org/category/${id}`,
-    GET_BY_CATITEMID: (id: string, cid: string) => `/org/category/${cid}/items/${id}`,
+    GET_BY_CATITEMID: (id: string, cid: string) =>
+      `/org/category/${cid}/items/${id}`,
     BASECAT: "/org/category",
     BASECATITEM: (cid: string) => `/org/category/${cid}/items`,
     PATCHCAT: (cid: string) => `/org/category/${cid}/toggle-enabled`,
-    PATCHCATITEM: (id: string, cid: string) => `/org/category/${cid}/items/${id}/toggle-active`,
+    PATCHCATITEM: (id: string, cid: string) =>
+      `/org/category/${cid}/items/${id}/toggle-active`,
     CREATECAT: "/org/category",
     CREATECATITEM: (cid: string) => `/org/category/${cid}/items`,
     UPDATECAT: (id: string) => `/org/category/${id}`,
-    UPDATECATITEM: (id: string, cid: string) => `/org/category/${cid}/items/${id}`,
+    UPDATECATITEM: (id: string, cid: string) =>
+      `/org/category/${cid}/items/${id}`,
   },
 
   COMPANY: {
@@ -73,15 +77,24 @@ export const API_ENDPOINTS = {
 
   EMPLOYEE: {
     DELETE: (id: string) => `/employees/${id}`,
-    DELETE_TRAINING: (id: string, tid: string) => `/employees/${id}/training-details/${tid}`,
-    DELETE_QUALIFICATION: (id: string, qid: string) => `/employees/${id}/qualifications/${qid}`,
-    DELETE_PRE_EMP: (id: string, pid: string) => `/employees/${id}/previous-employments/${pid}`,
-    DELETE_PF: (id: string, pid: string) => `/employees/${id}/pf-accounts/${pid}`,
-    DELETE_NOMINATION: (id: string, nid: string) => `/employees/${id}/nominations/${nid}`,
-    DELETE_FAMILY: (id: string, fid: string) => `/employees/${id}/family-members/${fid}`,
-    DELETE_EMERGENCY: (id: string, eid: string) => `/employees/${id}/emergency-contacts/${eid}`,
-    DELETE_ADDRESS: (id: string, aid: string) => `/employees/${id}/addresses/${aid}`,
-    DELETE_ATTACHMENT: (id: string, aid: string) => `/employees/${id}/attachments/${aid}`,
+    DELETE_TRAINING: (id: string, tid: string) =>
+      `/employees/${id}/training-details/${tid}`,
+    DELETE_QUALIFICATION: (id: string, qid: string) =>
+      `/employees/${id}/qualifications/${qid}`,
+    DELETE_PRE_EMP: (id: string, pid: string) =>
+      `/employees/${id}/previous-employments/${pid}`,
+    DELETE_PF: (id: string, pid: string) =>
+      `/employees/${id}/pf-accounts/${pid}`,
+    DELETE_NOMINATION: (id: string, nid: string) =>
+      `/employees/${id}/nominations/${nid}`,
+    DELETE_FAMILY: (id: string, fid: string) =>
+      `/employees/${id}/family-members/${fid}`,
+    DELETE_EMERGENCY: (id: string, eid: string) =>
+      `/employees/${id}/emergency-contacts/${eid}`,
+    DELETE_ADDRESS: (id: string, aid: string) =>
+      `/employees/${id}/addresses/${aid}`,
+    DELETE_ATTACHMENT: (id: string, aid: string) =>
+      `/employees/${id}/attachments/${aid}`,
 
     GET_BY_ID: (id: string) => `/employees/${id}`,
     BASE: "/employees",
@@ -116,23 +129,56 @@ export const API_ENDPOINTS = {
     BULK_UPLOAD: "/employees/bulk-upload",
 
     UPDATE: (id: string) => `/employees/${id}`,
-    UPDATE_TRAINING: (id: string, tid: string) => `/employees/${id}/training-details/${tid}`,
-    UPDATE_QUALIFICATION: (id: string, qid: string) => `/employees/${id}/qualifications/${qid}`,
-    UPDATE_PRE_EMP: (id: string, pid: string) => `/employees/${id}/previous-employments/${pid}`,
-    UPDATE_PF: (id: string, pid: string) => `/employees/${id}/pf-accounts/${pid}`,
-    UPDATE_NOMINATION: (id: string, nid: string) => `/employees/${id}/nominations/${nid}`,
-    UPDATE_FAMILY: (id: string, fid: string) => `/employees/${id}/family-members/${fid}`,
-    UPDATE_EMERGENCY: (id: string, eid: string) => `/employees/${id}/emergency-contacts/${eid}`,
-    UPDATE_ADDRESS: (id: string, aid: string) => `/employees/${id}/addresses/${aid}`,
+    UPDATE_TRAINING: (id: string, tid: string) =>
+      `/employees/${id}/training-details/${tid}`,
+    UPDATE_QUALIFICATION: (id: string, qid: string) =>
+      `/employees/${id}/qualifications/${qid}`,
+    UPDATE_PRE_EMP: (id: string, pid: string) =>
+      `/employees/${id}/previous-employments/${pid}`,
+    UPDATE_PF: (id: string, pid: string) =>
+      `/employees/${id}/pf-accounts/${pid}`,
+    UPDATE_NOMINATION: (id: string, nid: string) =>
+      `/employees/${id}/nominations/${nid}`,
+    UPDATE_FAMILY: (id: string, fid: string) =>
+      `/employees/${id}/family-members/${fid}`,
+    UPDATE_EMERGENCY: (id: string, eid: string) =>
+      `/employees/${id}/emergency-contacts/${eid}`,
+    UPDATE_ADDRESS: (id: string, aid: string) =>
+      `/employees/${id}/addresses/${aid}`,
   },
 
   MASTER: {
     GET_CITY: "/master/cities",
-    GET_COUNTRY:"/master/countries",
-    GET_STATES:"/master/states",
-    GET_CURRENCIES:"/master/currencies",
-    GET_STATES_BY_COUNTRY: (cid:any) => `/master/states/by-country/${cid}`,
-    GET_CITIES_BY_COUNTRY: (cid:any) => `/master/cities/by-country/${cid}`,
-    GET_CITIES_BY_STATE: (sid:any) => `/master/cities/by-state/${sid}`
-  }
+    GET_COUNTRY: "/master/countries",
+    GET_STATES: "/master/states",
+    GET_CURRENCIES: "/master/currencies",
+    GET_STATES_BY_COUNTRY: (cid: any) => `/master/states/by-country/${cid}`,
+    GET_CITIES_BY_COUNTRY: (cid: any) => `/master/cities/by-country/${cid}`,
+    GET_CITIES_BY_STATE: (sid: any) => `/master/cities/by-state/${sid}`,
+  },
+
+  ONBOARDING: {
+    DELETE: (id: string) => `/onboarding/checklist/${id}`,
+    DELETE_TASK: (id: string, tid: string) =>
+      `/onboarding/checklist/${id}/tasks/${tid}`,
+    DELETE_EMP: (id: string) => `/onboarding/${id}`,
+    DELETE_DOC: (id: string) => `/onboarding/documents/${id}`,
+
+    GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
+    BASE: "/onboarding/checklist",
+    GET_BY_ID: (id: string,cid:string) => `/onboarding/${id}/checklist/${cid}/tasks`,
+    GET_PROGRESS: (id: string) => `/onboarding/progress/${id}`,
+
+    PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
+    PATCH_REORDER: (id: string) => `/onboarding/checklist/${id}/tasks/reorder`,
+
+    SEND_WELCOME: "/onboarding/send-welcome",
+    CREATE_DOC: "/onboarding/documents",
+    CREATE: "/onboarding/checklist",
+    CREATE_TASK:(id: string) => `/onboarding/checklist/${id}/tasks`,
+    ASSIGN: "/onboarding/assign",
+
+    UPDATE: (id: string) => `/onboarding/checklist/${id}`,
+    UPDATE_TASK: (id: string,tid:string) => `/onboarding/checklist/${id}/tasks/${tid}`,
+  },
 };

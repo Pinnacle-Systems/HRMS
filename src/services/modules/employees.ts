@@ -200,8 +200,13 @@ export const employeeService = {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_ATTACHMENT(id), { params });
   },
 
-  async addAttachment(id: string, data: any) {
-    return apiService.post(API_ENDPOINTS.EMPLOYEE.POST_ATTACHMENT(id), data);
+  async addAttachment(id: string, file: any) {
+    console.log(file);
+    const formData = new FormData();
+    formData.append("file", file.file);
+    formData.append("documentName ", file.documentName);
+    formData.append("documentType ", file.documentType);
+    return apiService.post(API_ENDPOINTS.EMPLOYEE.POST_ATTACHMENT(id), formData);
   },
 
   async deleteAttachment(id: string, attachmentId: string) {
@@ -212,10 +217,8 @@ export const employeeService = {
   
   async uploadPhoto(id: string, file: File) {
     const formData = new FormData();
-    formData.append("photo", file);
-    return apiService.post(API_ENDPOINTS.EMPLOYEE.UPLOAD_PHOTO(id), formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    formData.append("file", file);
+    return apiService.post(API_ENDPOINTS.EMPLOYEE.UPLOAD_PHOTO(id), formData);
   },
 
   // ==================== BULK UPLOAD ====================

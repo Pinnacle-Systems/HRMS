@@ -60,7 +60,7 @@ export default function CategorySettings() {
     try {
       const response: any = await categoryService.getCategories({size:100});
       if (response.success) {
-        setCategories(response.data.content || []);
+        setCategories(response.data.content || response.data || []);
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -289,7 +289,7 @@ export default function CategorySettings() {
           }}
         >
           <ListItemIcon>
-            <EditNoteIcon fontSize="small" />
+            <EditNoteIcon fontSize="small" className="text-gray-800"/>
           </ListItemIcon>
           <ListItemText>Edit Category</ListItemText>
         </MenuItem>
@@ -301,9 +301,9 @@ export default function CategorySettings() {
         >
           <ListItemIcon>
             {selectedCategory?.enabled ? (
-              <CancelIcon fontSize="small" />
+              <CancelIcon fontSize="small" className="text-orange-500"/>
             ) : (
-              <CheckCircleIcon fontSize="small" />
+              <CheckCircleIcon fontSize="small" className="text-green-500" />
             )}
           </ListItemIcon>
           <ListItemText>
@@ -363,10 +363,10 @@ export default function CategorySettings() {
                       setFormData({ ...formData, enabled: e.target.checked })
                     }
                     color="primary"
-                    className="text-gray-800"
                   />
                 }
                 label="Active"
+                className="text-gray-800"
               />
             </div>
           </div>

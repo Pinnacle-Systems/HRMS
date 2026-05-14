@@ -27,13 +27,14 @@ export const categoryMapping: Record<string, string> = {
   salaryPaymentMode: "Salary Payment Mode",
   salaryType: "Salary Type",
   pfScheme: "PF Scheme",
-  nominationType:"Nomination Type"
+  nominationType:"Nomination Type",
+  documentType:"Document Type"
 };
 
 export const getCategoryName = (
   fieldKey: string,
   fieldLabel: string,
-): string => {
+): string => {  
   if (categoryMapping[fieldKey]) {
     return categoryMapping[fieldKey];
   }

@@ -23,3 +23,11 @@
 * {
   scrollbar-width: thin;
 }
+
+.p-b-0 {
+  padding-bottom: 0 !important;
+}
+
+.MuiPickersOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: var(--border-color) !important;
+}

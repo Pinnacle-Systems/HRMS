@@ -320,7 +320,8 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: "15px",
+          pb:0,
           mt: "64px",
           backgroundColor: "var(--bg-primary)",
           minHeight: "calc(100vh - 64px)",
@@ -330,7 +331,7 @@ export default function Layout() {
               duration: theme.transitions.duration.enteringScreen,
             }),
           // Add padding-left based on drawer state
-          paddingLeft: open ? `${drawerWidth + 24}px` : "89px", // 65px (drawer) + 24px (padding)
+          paddingLeft: open ? `${drawerWidth + 16}px` : "76px", // 65px (drawer) + 24px (padding)
         }}
       >
         <Outlet />

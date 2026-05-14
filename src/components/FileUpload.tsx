@@ -3,6 +3,7 @@ import { Box, Typography, Button, IconButton, Paper } from '@mui/material';
 import Close from "@mui/icons-material/Close";
 import CloudUpload from "@mui/icons-material/CloudUpload";
 import PictureAsPdf from "@mui/icons-material/PictureAsPdf";
+import { companyService } from '../services/modules/company';
 
 interface FileUploadProps {
   label: string;
@@ -11,27 +12,29 @@ interface FileUploadProps {
   accept?: string;
   maxSize?: number;
   description?: string;
+  companyId?: number
 }
 
-export const FileUpload = ({ 
-  label, 
-  value, 
-  onChange, 
+export const FileUpload = ({
+  label,
+  value,
+  onChange,
   accept = 'image/*',
   maxSize = 2,
-  description 
+  description,
+  companyId
 }: FileUploadProps) => {
- const [preview, setPreview] = useState<string>('');
+  const [preview, setPreview] = useState<string>('');
 
-useEffect(() => {
-  if (typeof value === 'string') {
-    setPreview(value);
-  } else if (value instanceof File) {
-    setPreview(URL.createObjectURL(value));
-  } else {
-    setPreview('');
-  }
-}, [value]);
+  useEffect(() => {
+    if (typeof value === 'string') {
+      setPreview(value);
+    } else if (value instanceof File) {
+      setPreview(URL.createObjectURL(value));
+    } else {
+      setPreview('');
+    }
+  }, [value]);
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,7 +56,7 @@ useEffect(() => {
     }
 
     setError('');
-    
+
     // Create preview for images
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -62,36 +65,42 @@ useEffect(() => {
       };
       reader.readAsDataURL(file);
     }
-    
+
     onChange(file);
   };
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
     setPreview('');
     onChange('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    if (label == 'Signature') {
+      await companyService.updateCompany(companyId, { signatureUrl: '' });
+    } else {
+      await companyService.updateCompany(companyId, { logoUrl: '' });
+    }
+
   };
 
   const isImage =
-  typeof preview === "string" &&
-  (
-    preview.startsWith("data:image") ||
-    /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(preview)
-  );
+    typeof preview === "string" &&
+    (
+      preview.startsWith("data:image") ||
+      /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(preview)
+    );
   return (
     <Paper variant="outlined" className="p-4 bg-white">
       <Typography variant="subtitle2" className="font-semibold !mb-2 !text-gray-800">
         {label}
       </Typography>
-      
+
       {preview ? (
         <Box className="relative inline-block">
           {isImage ? (
-            <img 
-              src={preview} 
-              alt={label} 
+            <img
+              src={preview}
+              alt={label}
               className="w-32 h-32 object-cover rounded-lg border border-gray-200"
             />
           ) : (
@@ -117,7 +126,7 @@ useEffect(() => {
           Choose File
         </Button>
       )}
-      
+
       <input
         ref={fileInputRef}
         type="file"
@@ -125,13 +134,13 @@ useEffect(() => {
         onChange={handleFileSelect}
         className="hidden"
       />
-      
+
       {description && (
         <Typography variant="caption" className="text-gray-500 block mt-2">
           {description}
         </Typography>
       )}
-      
+
       {error && (
         <Typography variant="caption" className="text-red-500 block mt-1">
           {error}

@@ -65,7 +65,7 @@ function TabPanel(props: TabPanelProps) {
       // aria-labelledby={`profile-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
     </div>
   );
 }
@@ -421,38 +421,16 @@ export default function Profile() {
     }
   };
 
-  const handleImageClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (!file) return;
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-    if (!allowedTypes.includes(file.type)) {
-      showSnackbar("Please upload a valid image file (JPG, PNG, WEBP)", "warning");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      showSnackbar("Image size should be less than 5MB", "warning");
-      return;
-    }
-    showSpinner();
     try {
-      const response: any = await authService.uploadProfilePicture(file);
-      if (response.success) {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        if (response.data?.profilePicUrl) {
-          await fetchProfile();
-        }
-        showSnackbar("Profile picture updated successfully!", "success");
-      } else {
-        showSnackbar(response.message || "Upload failed", "error");
-      }
+      showSpinner();
+      await authService.uploadProfilePicture(file);
+      showSnackbar("Profile photo uploaded successfully", "success");
+      fetchProfile();
     } catch (error: any) {
-      console.error("Upload error:", error);
-      showSnackbar(error.response?.data?.message || "Error uploading image", "error");
+      showSnackbar(error.message, "error");
     } finally {
       hideSpinner();
     }
@@ -489,58 +467,36 @@ export default function Profile() {
 
         {/* Profile Info Tab */}
         <TabPanel value={tabValue} index={0}>
-          <div className="space-y-6 mt-4">
+          <div className="space-y-6">
             {/* Personal Information */}
             <div className="border border-gray-300 rounded-lg p-6">
               <div className="font-semibold mb-3 text-primary">
                 Personal Information
               </div>
               <div className="ml-6 flex items-center gap-5">
-                <div className="flex flex-col items-center gap-2 mr-8">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageUpload}
-                    accept="image/jpeg,image/png,image/jpg,image/gif"
-                    className="hidden"
-                  />
-                  <Tooltip
-                    title="Click to upload profile picture"
-                    placement="bottom"
+                <div className="relative group">
+                  <Avatar
+                    src={userData.profilePicUrl}
+                    className="!w-24 !h-24 text-2xl cursor-pointer"
                   >
-                    <div
-                      className="relative cursor-pointer"
-                      onClick={handleImageClick}
-                    >
-                      <Avatar
-                        className={`!w-24 !h-24 text-3xl transition-all duration-300 ${(userData?.profilePicUrl)
-                            ? 'border border-gray-300 shadow-sm'
-                            : 'bg-primary'
-                          }`}
-                        src={ userData?.profilePicUrl ||  ''}
-                      >
-                        {!(userData?.profilePicUrl) && (getInitials() || "U")}
-                      </Avatar>
-                      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 transition-all duration-300 rounded-full flex items-center justify-center">
-                        {/* {uploadingImage ? (
-                          <CircularProgress size={30} className="text-white" />
-                        ) : ( */}
-                        <div className="opacity-0 hover:opacity-100 transition-opacity duration-300">
-                          <PhotoCameraOutlined
-                            className="!text-white text-3xl"
-                            sx={{ "& svg": { color: "white" } }}
-                          />
-                        </div>
-                        {/* )} */}
-                      </div>
-                    </div>
-                  </Tooltip>
+                   {getInitials() || 'U'}
+                  </Avatar>
 
-                  {/* {uploadingImage && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Uploading...
-                    </div>
-                  )} */}
+                  {/* Hover Overlay */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
+                    <PhotoCameraOutlined className="!text-white" sx={{ "& svg": { color: "white" } }} />
+                  </div>
+
+                  {/* Hidden File Input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleProfileUpload}
+                  />
                 </div>
                 <div className="grid grid-cols-3 gap-8">
                   {personalInfo.map((item, index) => (
@@ -609,7 +565,7 @@ export default function Profile() {
 
         {/* Login History Tab */}
         <TabPanel value={tabValue} index={1}>
-          <div className="pt-4 ">
+          <div className="">
             <div className="flex justify-between items-center mb-4 px-4">
               <div className="font-semibold text-gray-800">Login History</div>
               {loginHistory.length > 0 && (
@@ -681,9 +637,9 @@ export default function Profile() {
                         {history.os}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        <code className="bg-gray-100 px-2 py-1 rounded">
+                        {/* <code className="bg-gray-100 px-2 py-1 rounded"> */}
                           {history.ipAddress}
-                        </code>
+                        {/* </code> */}
                       </TableCell>
                       <TableCell className="text-gray-800">
                         <div className="flex items-center gap-1">

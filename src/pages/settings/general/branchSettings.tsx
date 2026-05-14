@@ -377,7 +377,7 @@ export default function BranchSettings() {
                   <TableCell>
                     <Chip label={branch.active ? "Active" : "Inactive"} color={branch.active ? "success" : "error"} size="small" />
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="!flex">
                     <Tooltip title="Edit">
                       <IconButton size="small" color="primary" className="!mr-2" onClick={() => handleOpenDialog(branch)}>
                         <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />

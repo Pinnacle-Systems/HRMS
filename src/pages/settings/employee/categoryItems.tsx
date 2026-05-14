@@ -377,11 +377,11 @@ export default function CategoryItems() {
                     onChange={(e) =>
                       setFormData({ ...formData, active: e.target.checked })
                     }
-                    // color="primary"
-                    className="text-gray-800"
+                    color="primary"                    
                   />
                 }
                 label="Active"
+                className="text-gray-800"
               />
             </div>
           </div>

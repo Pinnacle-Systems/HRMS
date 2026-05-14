@@ -48,25 +48,23 @@ export const useMasterData = () => {
   }, []);
 
   // States by country
-  const fetchStatesByCountry = useCallback(async (countryId: string) => {
-    try {
-      setLoading(true);
-
-      const response: any =
-        await masterService.getStatesByCountry(countryId);
-
-      const data = response.data?.content || response.data || [];
-
-      setStates(data);
-
-      return data;
-    } catch (error) {
-      console.error("Error fetching states", error);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+// In useMasterData hook
+const fetchStatesByCountry = useCallback(async (countryId: string) => {
+  if (!countryId) return [];
+  
+  try {
+    setLoading(true);
+    const response: any = await masterService.getStatesByCountry(countryId);
+    const data = response.data?.content || response.data || [];
+    setStates(data); // Update the states state
+    return data; // Return the data
+  } catch (error) {
+    console.error("Error fetching states", error);
+    return [];
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   // Cities by country
   const fetchCitiesByCountry = useCallback(async (countryId: string) => {

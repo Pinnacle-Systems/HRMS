@@ -62,27 +62,18 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
 
   const handleAddOption = async () => {
     if (!newOption.trim()) return;
-
     if (localOptions.includes(newOption.trim())) {
-      // Option already exists
       setNewOption("");
       setOpenDialog(false);
       return;
     }
-
     setIsAdding(true);
     try {
-      // Call the parent's onAddOption which should handle the API call
       await onAddOption(newOption.trim());
-
-      // Add to local state for immediate display
       setAddedOptions((current) => [...current, newOption.trim()]);
-
-      // Auto-select the newly added option for single select
       if (!multiple && onChange) {
         onChange(newOption.trim());
       }
-
       setNewOption("");
       setOpenDialog(false);
     } catch (error) {
@@ -165,7 +156,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           input={<OutlinedInput label={label} />}
-          className="!text-[12px]"
+          className="!text-[12px] !text-gray-800"
           sx={{
             "& .MuiPaper-root": {
               Height: 100,
@@ -188,10 +179,10 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle className="!text-primary !font-bold">
+        <DialogTitle className="!text-primary !font-bold !border-b !border-gray-200">
           Add New {label}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent className="!pt-4">
           <TextField
             autoFocus
             margin="dense"
@@ -214,14 +205,15 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
             disabled={isAdding}
           />
         </DialogContent>
-        <DialogActions>
+        <DialogActions className="border-t borde-gray-200 !p-4">
           <Button
             onClick={() => {
               setOpenDialog(false);
               setNewOption("");
             }}
-            className="!text-gray-800"
+            className="!text-gray-800 !border-gray-200"
             disabled={isAdding}
+            variant="outlined"
           >
             Cancel
           </Button>

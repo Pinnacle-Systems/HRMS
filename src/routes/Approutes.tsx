@@ -25,6 +25,7 @@ import DepartmentSettings from "../pages/settings/employee/depSettings";
 import CategoryItems from "../pages/settings/employee/categoryItems";
 import CategorySettings from "../pages/settings/employee/otherCategory";
 import EmployeeDetails from "../pages/employees/employeeDetails";
+import OnBoardingProcess from "../pages/settings/employee/onBoardingProcess/onboard";
 
 function RootRedirect() {
   const { session, isLoading } = useAuth();
@@ -118,6 +119,10 @@ function AppRoutesContent() {
                 <Route
                   path="general/password-config"
                   element={<PasswordConfig />}
+                />
+                 <Route
+                  path="employee/onboarding-process"
+                  element={<OnBoardingProcess />}
                 />
                 <Route
                   path="employee/department-settings"

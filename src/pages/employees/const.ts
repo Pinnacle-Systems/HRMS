@@ -16,7 +16,7 @@ export const basicInfoFields = [
   { key: "maritalStatus", label: "Marital Status", type: "select" },
   { key: "marriageDate", label: "Date of Marriage", type: "date" },
   { key: "spouseName", label: "Spouse's Name" },
-  { key: "fatherName", label: "Father's Name" },
+  { key: "fathersName", label: "Father's Name" },
   { key: "height", label: "Height (cm)" },
   { key: "weight", label: "Weight (kg)" },
   { key: "identificationMark", label: "Identification Mark" },
@@ -123,9 +123,9 @@ export const addressColumns = [
   // { key: "village", label: "Village" },
   // { key: "taluk", label: "Taluk" },
   // { key: "district", label: "District", type: "select" },
-  { key: "city", label: "City", type: "master-select" },
-  { key: "state", label: "State", type: "master-select" },
   { key: "country", label: "Country", type: "master-select" },
+  { key: "state", label: "State", type: "master-select" },
+  { key: "city", label: "City", type: "master-select" },
   { key: "pincode", label: "Pincode" },
   { key: "primary", label: "Primary", type: "boolean" },
 ];
@@ -214,34 +214,26 @@ export const insuranceColumns = [
 // ==================== NOMINATIONS ====================
 export const nominationTypes = ["EPF", "EPS", "EPI", "GRATUITY"];
 
-export const nominationConfigs:any = {
+export const nominationConfigs: any = {
   EPF: {
     title: "EPF Nominations",
     columns: [
-      // { key: "nominationType", label: "Nomination Type"},
-      { key: "nomineeName", label: "Nominee Name" },
+      { key: "nomineeName", label: "Nominee Name", type: "select" },
       { key: "sharePercentage", label: "Nomination Percentage (%)" },
     ],
   },
   EPS: {
     title: "EPS Nominations",
-    columns: [
-      // { key: "nominationType", label: "Nomination Type"},
-      { key: "nomineeName", label: "Nominee Name" },
-    ],
+    columns: [{ key: "nomineeName", label: "Nominee Name", type: "select" }],
   },
   EPI: {
     title: "EPI Nominations",
-    columns: [
-      // { key: "nominationType", label: "Nomination Type"},
-      { key: "nomineeName", label: "Nominee Name" },
-    ],
+    columns: [{ key: "nomineeName", label: "Nominee Name", type: "select" }],
   },
   GRATUITY: {
     title: "Gratuity Nominations",
     columns: [
-      // { key: "nominationType", label: "Nomination Type"},
-      { key: "nomineeName", label: "Nominee Name" },
+      { key: "nomineeName", label: "Nominee Name", type: "select" },
       { key: "sharePercentage", label: "Nomination Percentage (%)" },
     ],
   },
@@ -260,10 +252,16 @@ export const trainingDetailsColumns = [
 
 // ==================== ATTACHMENTS ====================
 export const attachmentColumns = [
-  { key: "documentType", label: "Document Type" },
-  { key: "fileName", label: "File Name" },
-  { key: "fileUrl", label: "File URL" },
+  { key: "documentType", label: "Document Type", type: "select" },
+  { key: "documentName", label: "File Name" },
+  { key: "fileUrl", label: "File URL", type: "link" },
   { key: "uploadedAt", label: "Uploaded Date", type: "date" },
+];
+
+export const attachmentAddFields = [
+  { key: "documentType", label: "Document Type", type: "select", required:true },
+  { key: "documentName", label: "File Name", type: "text", disabled: true },
+  { key: "file", label: "File", type: "file" },
 ];
 
 // ==================== ELIGIBILITY FIELDS ====================
@@ -278,7 +276,7 @@ export const eligibilityFields = [
 
 // ==================== LOGIN & VERIFICATION ====================
 export const loginColumns = [
-  { key: "loginUsername", label: "Login Username" },
+  { key: "loginUserName", label: "Login Username" },
   { key: "loginIpAddress", label: "Login IP Address" },
 ];
 

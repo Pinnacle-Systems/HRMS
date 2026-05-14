@@ -25,7 +25,7 @@ export const companyFieldsWithSections = [
 
   // Section 2: Tax Information
   { section: 'Tax Information', isSection: true },
-  { key: 'gstNo', label: 'GST Number', type: 'text', required:true, placeholder: '22AAAAA0000A1Z (15 characters)' },
+  { key: 'gstNo', label: 'GST Number', type: 'text', required:true, placeholder: '22AAAAA0000A1ZA (15 characters)' },
   { key: 'panNo', label: 'PAN Number', type: 'text', placeholder: 'AAAAA1234A (10 characters)' },
   { key: 'tanNo', label: 'TAN Number', type: 'text', placeholder: 'ABCD12345E (10 characters)' },
   { key: 'tin_no', label: 'TIN Number', type: 'text', placeholder: '12345678901 (11 digits)' },
@@ -99,6 +99,11 @@ export const tabs = [
         id: "employee",
         label: "Employee",
         options: [
+             {
+                id: "onboarding-process",
+                label: "Onboarding Process",
+                path: "/settings/employee/onboarding-process",
+            },
             {
                 id: "department-settings",
                 label: "Department Settings",

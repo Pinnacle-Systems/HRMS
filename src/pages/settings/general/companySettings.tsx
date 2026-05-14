@@ -265,9 +265,12 @@ const CompanySettings = () => {
   // Common sx styles for all fields
   const commonSx = {
     width: "max-content",
-    minWidth: "193px",
+    minWidth: "194px",
     maxWidth: "100%",
     background: "var(--bg-primary)",
+    "& .MuiPickersOutlinedInput-root": {
+      width: "194px"
+    },
     "& .MuiFormHelperText-root": {
       fontSize: "10px",
       marginLeft: 0,
@@ -444,7 +447,7 @@ const CompanySettings = () => {
               <div className="flex flex-wrap">
                 {section.fields.length > 0 && (
                   <>
-                    <div className="flex flex-wrap gap-y-5 gap-x-4">
+                    <div className="flex flex-wrap items-center justify-center gap-y-5 gap-x-4">
                       {section.fields.map((field: any) => renderField(field))}
                       {section.subSections.length > 0 && (
                         <>
@@ -481,6 +484,7 @@ const CompanySettings = () => {
                 accept={field.accept}
                 maxSize={field.maxSize}
                 description={field.description}
+                companyId={companyInfo.id ? companyInfo.id : ''}
               />
             ))}
           </div>

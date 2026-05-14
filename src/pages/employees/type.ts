@@ -42,7 +42,6 @@ export interface Branches {
   branchCode: string;
 }
 
-
 export const employeeStatusColors = {
   PENDING: "warning",
   ACTIVE: "success",
@@ -87,6 +86,8 @@ export interface EmployeeDetails {
   existingEpsMember: boolean;
   esiEligible: boolean;
   lwfCovered: boolean;
+  loginUserName: string;
+  photoUrl:string
 }
 
 export interface Address {
@@ -97,7 +98,7 @@ export interface Address {
   state: string;
   country: string;
   pincode: string;
-  isPrimary: boolean;
+  primary: boolean;
 }
 
 export interface EmergencyContact {
@@ -106,14 +107,20 @@ export interface EmergencyContact {
   relationship: string;
   mobileNumber: string;
   alternateNumber?: string;
+  relationshipId?: string;
 }
 
 export interface Qualification {
   id: string;
-  qualification: string;
+  qualificationTypeId?: string;
+  qualificationAreaId?: string;
   institution: string;
   yearOfPassing: number;
   percentage: number;
+  qualificationType: string;
+  qualificationArea: string;
+  boardUniversity: string;
+  grade: string;
 }
 
 export interface PreviousEmployment {
@@ -128,8 +135,13 @@ export interface PreviousEmployment {
 export interface PfAccount {
   id: string;
   pfNumber: string;
-  uanNumber: string;
-  joiningDate: string;
+  uan: string;
+  pfScheme: string;
+  pfSchemeId: string;
+  fromDate: string;
+  toDate: string;
+  remarks: string;
+  current: boolean;
 }
 
 export interface Nomination {
@@ -144,8 +156,9 @@ export interface FamilyMember {
   id: string;
   name: string;
   relationship: string;
+  relationshipId: string;
   dateOfBirth: string;
-  isDependent: boolean;
+  dependent: boolean;
 }
 
 export interface TrainingDetail {

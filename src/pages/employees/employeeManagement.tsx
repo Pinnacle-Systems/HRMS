@@ -23,8 +23,7 @@ import {
   Typography,
   Alert,
   LinearProgress,
-  RadioGroup,
-  Radio,
+  Checkbox,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -57,6 +56,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { getRowColor } from "../const";
 import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
+import { logger } from "../../utils/logger";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -71,23 +71,16 @@ export default function EmployeeManagement() {
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
 
-  // Dialog states
-  // const [addDialogOpen, setAddDialogOpen] = useState(false);
-  // const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
-    null,
-  );
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [bulkUploadDialogOpen, setBulkUploadDialogOpen] = useState(false);
 
   // ID Generation
-  const [idGenerationMethod, setIdGenerationMethod] = useState<
-    "auto" | "manual"
-  >("auto");
-  const [employeeIdPattern, setEmployeeIdPattern] = useState("EMP");
-  const [employeeIdSequence, setEmployeeIdSequence] = useState(1001);
-  const [manualEmployeeId, setManualEmployeeId] = useState("");
+  // const [idGenerationMethod, setIdGenerationMethod] = useState<"auto" | "manual">("auto");
+  // const [employeeIdPattern, setEmployeeIdPattern] = useState("EMP");
+  // const [employeeIdSequence, setEmployeeIdSequence] = useState(1001);
+  // const [manualEmployeeId, setManualEmployeeId] = useState("");
 
   // Form data
   const [formData, setFormData] = useState<Partial<Employee>>({});
@@ -95,10 +88,52 @@ export default function EmployeeManagement() {
   // Bulk upload
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
+
+  // Code Generation
+  const [hasManualEmpId, setHasManualEmpId] = useState(false);
+  const [empCodeMode, setEmpCodeMode] = useState("auto");
+  const [empCodeType, setEmpCodeType] = useState("pattern");
+  const [empGenerationFlow, setEmpGenerationFlow] = useState<"new" | "continue">("new");
+  const [empPrefix, setEmpPrefix] = useState("EMP");
+  const [empStartNumber, setEmpStartNumber] = useState("001");
+  const [manualEmployeeId, setManualEmployeeId] = useState("");
+  const [hasEmpIdColumn, setHasEmpIdColumn] = useState(true);
+  const [empDigitCount, setEmpDigitCount] = useState("4");
+
+  useEffect(() => {
+    if (hasEmpIdColumn) {
+      setEmpCodeMode("auto");
+    }
+  }, [hasEmpIdColumn]);
+
+  const generateRandomAlphaNumeric = (length: number) => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(
+        Math.floor(Math.random() * chars.length)
+      );
+    }
+    return result;
+  };
+
+  const getNextEmployeeId = () => {
+    if (employees.length === 0) {
+      return `${empPrefix}${empStartNumber}`;
+    }
+    const employeeIds = employees.map((emp) => emp.employeeId).filter(Boolean);
+    const lastId = employeeIds[0];
+    const numericPart = lastId.replace(/\D/g, "");
+    const nextNumber = String(Number(numericPart) + 1).padStart(
+      numericPart.length,
+      "0"
+    );
+    const prefix = lastId.replace(/[0-9]/g, "");
+    return `${prefix}${nextNumber}`;
+  };
 
   // Fetch employees
   const getEmployees = async () => {
@@ -153,10 +188,20 @@ export default function EmployeeManagement() {
     );
   };
 
-  // Generate auto employee ID
-  const generateEmployeeId = () => {
-    const sequence = employeeIdSequence.toString().padStart(4, "0");
-    return `${employeeIdPattern}${sequence}`;
+  const generateEmployeeIdPreview = () => {
+    if (hasManualEmpId) {
+      return manualEmployeeId || "Manual Entry";
+    }
+    if (empGenerationFlow === "continue") {
+      return getNextEmployeeId();
+    }
+    if (empCodeType === "pattern") {
+      return `${empPrefix}${empStartNumber}`;
+    }
+    if (empCodeType === "alphanumeric") {
+      return generateRandomAlphaNumeric(Number(empDigitCount));
+    }
+    return empStartNumber;
   };
 
   // Reset form
@@ -165,17 +210,20 @@ export default function EmployeeManagement() {
       name: "",
       emailAddress: "",
       joiningDate: "",
-      // location: "",
       employeeId: "",
       departmentId: "",
       designationId: "",
       mobileNumber: "",
+      branchId: "",
     });
-    setIdGenerationMethod("auto");
+
+    setHasManualEmpId(false);
+    setEmpCodeType("pattern");
+    setEmpPrefix("EMP");
+    setEmpStartNumber("001");
+    setEmpDigitCount("4");
     setManualEmployeeId("");
     setSelectedEmployee(null);
-    setEmployeeIdPattern("EMP");
-    setEmployeeIdSequence(1001);
   };
 
   // Handle Add Employee
@@ -187,13 +235,14 @@ export default function EmployeeManagement() {
 
   // Handle Edit Employee - Open Edit Dialog
   const handleOpenEditDialog = (employee: Employee) => {
-    setIsEditing(true);
+    setIsEditing(true);    
     setSelectedEmployee(employee);
     setFormData({
       name: employee.name,
       emailAddress: employee.emailAddress,
       joiningDate: employee.joiningDate?.split("T")[0] || "",
       branch: employee.branch || "",
+      branchId: employee.branchId,
       employeeId: employee.employeeId,
       departmentId: employee.departmentId,
       designationId: employee.designationId,
@@ -222,21 +271,17 @@ export default function EmployeeManagement() {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
           joiningDate: formData.joiningDate,
-          branchId: formData.branchId,
-          departmentId: formData.departmentId,
-          designationId: formData.designationId,
+          branchId: formData.branchId || selectedEmployee?.branchId,
+          departmentId: formData.departmentId || selectedEmployee?.departmentId,
+          designationId: formData.designationId || selectedEmployee?.designationId,
           mobileNumber: formData.mobileNumber,
         };
         await employeeService.updateEmployee(selectedEmployee!.id, payload);
         showSnackbar("Employee updated successfully!", "success");
       } else {
-        let employeeId = "";
-        if (idGenerationMethod === "auto") {
-          employeeId = generateEmployeeId();
-          setEmployeeIdSequence((prev) => prev + 1);
-        } else {
-          employeeId = manualEmployeeId;
-        }
+        const employeeId = hasManualEmpId
+          ? manualEmployeeId
+          : generateEmployeeIdPreview();
         const payload = {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
@@ -295,27 +340,28 @@ export default function EmployeeManagement() {
     try {
       const formData = new FormData();
       formData.append("file", uploadFile);
-      for (let pair of formData.entries()) {
-        console.log(pair[0], pair[1]);
+      formData.append("hasEmpIdColumn", String(hasEmpIdColumn));
+      if (!hasEmpIdColumn) {
+        formData.append("empCodeMode", empCodeMode);
+        formData.append("empCodeType", empCodeType);
+        empCodeType == 'pattern' ? formData.append("empPrefix", empPrefix) : '';
+        (empCodeType == 'pattern' || empCodeType == 'number') ? formData.append("empStartNumber", empStartNumber) : '';
+        empCodeType == 'alphanumeric' ? formData.append("empDigitCount", empDigitCount) : '';
       }
       const response: any = await employeeService.bulkUploadEmployees(
-        formData,
-        (progress) => {
-          setUploadProgress(progress);
-        },
-      );
-      if (response.success) {
+        formData, (progress) => { setUploadProgress(progress); },);
+      if (response.success && response.data.errors.length == 0) {
         showSnackbar("Upload successful!", "success");
         setBulkUploadDialogOpen(false);
         setUploadFile(null);
         setUploadProgress(0);
         getEmployees();
+      } else if (response.data.errors.length > 0) {
+        logger.info("Bulk upload Error", response.data.errors);
+        showSnackbar(response.data.status + " Check the error in console", "error");
       }
     } catch (error: any) {
-      showSnackbar(
-        error.response?.data?.message || error.message || "Failed to upload",
-        "error",
-      );
+      showSnackbar(error.message || "Failed to upload", "error");
     } finally {
       hideSpinner();
     }
@@ -350,7 +396,6 @@ export default function EmployeeManagement() {
 
   return (
     <div className="">
-      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <div className="font-semibold text-gray-800">
@@ -542,22 +587,14 @@ export default function EmployeeManagement() {
             {employees.map((employee, index) => (
               <TableRow key={employee.id} hover sx={getRowColor(index)}>
                 <TableCell>{page * limit + index + 1}</TableCell>
-                <TableCell>
-
-                  {employee.employeeId}
-
-                </TableCell>
+                <TableCell>{employee.employeeId}</TableCell>
                 <TableCell className="font-medium">{employee.name}</TableCell>
                 <TableCell>{employee.emailAddress}</TableCell>
                 <TableCell>{employee.mobileNumber || "-"}</TableCell>
                 <TableCell>{employee.designation || "-"}</TableCell>
                 <TableCell>{employee.department || "-"}</TableCell>
                 <TableCell>{employee.branch || "-"}</TableCell>
-                <TableCell>
-                  {employee.joiningDate
-                    ? new Date(employee.joiningDate).toLocaleDateString()
-                    : "-"}
-                </TableCell>
+                <TableCell>{employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : "-"}</TableCell>
                 {/* <TableCell>
                   <Chip
                     label={employee.status === "ACTIVE" ? "Active" : "Inactive"}
@@ -566,37 +603,39 @@ export default function EmployeeManagement() {
                   />
                 </TableCell> */}
                 <TableCell className="text-center">
-                  <Tooltip title="View Details">
-                    <IconButton
-                      size="small"
-                      className="!mr-1"
-                      onClick={() => navigate(`/employees/${employee.id}`)}
-                    >
-                      <VisibilityOutlined
-                        className="!w-4"
-                        sx={{ color: "var(--color-primary)" }}
-                      />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Edit">
-                    <IconButton
-                      size="small"
-                      className="!mr-1"
-                      onClick={() => handleOpenEditDialog(employee)}
-                    >
-                      <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton
-                      size="small"
-                      onClick={() =>
-                        handleDeleteEmployee(employee.id, employee.name)
-                      }
-                    >
-                      <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                    </IconButton>
-                  </Tooltip>
+                  <div className="flex">
+                    <Tooltip title="View Details">
+                      <IconButton
+                        size="small"
+                        className="!mr-1"
+                        onClick={() => navigate(`/employees/${employee.id}`)}
+                      >
+                        <VisibilityOutlined
+                          className="!w-4"
+                          sx={{ color: "var(--color-primary)" }}
+                        />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Edit">
+                      <IconButton
+                        size="small"
+                        className="!mr-1"
+                        onClick={() => handleOpenEditDialog(employee)}
+                      >
+                        <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() =>
+                          handleDeleteEmployee(employee.id, employee.name)
+                        }
+                      >
+                        <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </div>
                   {/* {!employee.isWelcomeEmailSent && (
                     <Tooltip title="Resend Welcome Email">
                       <IconButton
@@ -656,7 +695,7 @@ export default function EmployeeManagement() {
           </IconButton>
         </div>
         <DialogContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
             <TextField
               fullWidth
               label="Employee Name"
@@ -698,14 +737,6 @@ export default function EmployeeManagement() {
                 }}
               />
             </LocalizationProvider>
-            {/* <TextField
-              fullWidth
-              label="Location"
-              value={formData.location}
-              onChange={(e) =>
-                setFormData({ ...formData, location: e.target.value })
-              }
-            /> */}
             <FormControl fullWidth>
               <InputLabel>Department</InputLabel>
               <Select
@@ -804,80 +835,6 @@ export default function EmployeeManagement() {
                 setFormData({ ...formData, mobileNumber: e.target.value })
               }
             />
-
-            {!isEditing && (
-              <>
-                <div className="md:col-span-2">
-                  <FormControl component="fieldset">
-                    <div className="mb-1 font-medium text-gray-700">
-                      Employee ID Generation
-                    </div>
-                    <RadioGroup
-                      row
-                      value={idGenerationMethod}
-                      onChange={(e) =>
-                        setIdGenerationMethod(
-                          e.target.value as "auto" | "manual",
-                        )
-                      }
-                    >
-                      <FormControlLabel
-                        value="auto"
-                        control={<Radio />}
-                        className="!text-gray-800"
-                        label="Auto Generate"
-                      />
-                      <FormControlLabel
-                        value="manual"
-                        control={<Radio />}
-                        className="!text-gray-800"
-                        label="Manual Entry"
-                      />
-                    </RadioGroup>
-                  </FormControl>
-                </div>
-                {idGenerationMethod === "auto" ? (
-                  <div className="md:col-span-2 space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <TextField
-                        fullWidth
-                        label="ID Pattern"
-                        value={employeeIdPattern}
-                        onChange={(e) => setEmployeeIdPattern(e.target.value)}
-                        placeholder="e.g., EMP, E, COMP, STAFF"
-                        helperText="Prefix for employee ID"
-                      />
-
-                      <TextField
-                        fullWidth
-                        label="Next Sequence"
-                        type="number"
-                        value={employeeIdSequence}
-                        onChange={(e) =>
-                          setEmployeeIdSequence(parseInt(e.target.value) || 1)
-                        }
-                        placeholder="e.g., 1001"
-                        helperText="Starting number (auto-increments after use)"
-                      />
-                    </div>
-
-                    <Alert severity="info">
-                      Auto-generated ID preview:{" "}
-                      <strong>{generateEmployeeId()}</strong>
-                    </Alert>
-                  </div>
-                ) : (
-                  <TextField
-                    fullWidth
-                    label="Employee ID"
-                    value={manualEmployeeId}
-                    onChange={(e) => setManualEmployeeId(e.target.value)}
-                    placeholder="e.g., EMP001"
-                  />
-                )}
-              </>
-            )}
-
             {isEditing && (
               <TextField
                 fullWidth
@@ -887,6 +844,158 @@ export default function EmployeeManagement() {
               />
             )}
           </div>
+          {!isEditing && (
+            <>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={hasManualEmpId}
+                    onChange={(e) => setHasManualEmpId(e.target.checked)}
+                  />
+                }
+                label="Enter Employee ID Manually"
+                className="my-2"
+              />
+
+              <div className="md:col-span-2 border rounded-lg p-4 bg-gray-50">
+                <div className="font-semibold text-gray-800">
+                  Employee ID Configuration
+                </div>
+                {/* AUTO GENERATION */}
+                {!hasManualEmpId ? (
+                  <>
+                    <FormControl fullWidth className="!mt-6">
+                      <InputLabel>Generation Flow</InputLabel>
+                      <Select
+                        value={empGenerationFlow}
+                        label="Generation Flow"
+                        className="!text-[12px]"
+                        onChange={(e) =>
+                          setEmpGenerationFlow(
+                            e.target.value as "new" | "continue"
+                          )
+                        }
+                      >
+                        <MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MenuItem>
+                        <MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MenuItem>
+                      </Select>
+                    </FormControl>
+
+                    {empGenerationFlow === "new" &&
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                        <FormControl fullWidth>
+                          <InputLabel>Format Type</InputLabel>
+                          <Select
+                            value={empCodeType}
+                            label="Format Type"
+                            className="!text-[12px]"
+                            onChange={(e) => setEmpCodeType(e.target.value)}
+                          >
+                            <MenuItem value="pattern" className="!text-[12px]">Pattern</MenuItem>
+                            <MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MenuItem>
+                            <MenuItem value="number" className="!text-[12px]">Number</MenuItem>
+                          </Select>
+                        </FormControl>
+                        {empCodeType === "pattern" && (
+                          <>
+                            <TextField
+                              fullWidth
+                              label="Prefix"
+                              className="!text-[12px]"
+                              value={empPrefix}
+                              onChange={(e) =>
+                                setEmpPrefix(e.target.value)
+                              }
+                              placeholder="EMP"
+                            />
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Starting Number"
+                              className="!text-[12px]"
+                              value={empStartNumber}
+                              onChange={(e) =>
+                                setEmpStartNumber(e.target.value)
+                              }
+                            />
+                          </>
+                        )}
+                        {empCodeType === "alphanumeric" && (
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Number Of Digits"
+                            className="!text-[12px]"
+                            value={empDigitCount}
+                            onChange={(e) =>
+                              setEmpDigitCount(e.target.value)
+                            }
+                            helperText="Random mixed employee ID"
+                          />
+                        )}
+                        {empCodeType === "number" && (
+                          <TextField
+                            fullWidth
+                            type="number"
+                            label="Starting Number"
+                            className="!text-[12px]"
+                            value={empStartNumber}
+                            onChange={(e) =>
+                              setEmpStartNumber(e.target.value)
+                            }
+                          />
+                        )}
+                      </div>
+                    }
+
+                    <Alert severity="info" className="mt-4">
+                      <div className="flex flex-col gap-1">
+                        {empGenerationFlow === "continue" && (
+                          <>
+                            <div>
+                              Last Generated ID:&nbsp;
+                              <strong>
+                                {employees?.[0]?.employeeId || "No Employees"}
+                              </strong>
+                            </div>
+
+                            <div>
+                              Next Sequence:&nbsp;
+                              <strong>
+                                {generateEmployeeIdPreview()}
+                              </strong>
+                            </div>
+                          </>
+                        )}
+
+                        {empGenerationFlow === "new" && (
+                          <div>
+                            Generated Preview:&nbsp;
+                            <strong>
+                              {generateEmployeeIdPreview()}
+                            </strong>
+                          </div>
+                        )}
+                      </div>
+                    </Alert>
+                  </>
+                ) : (
+                  <div className="mt-4">
+                    <TextField
+                      fullWidth
+                      label="Employee ID"
+                      value={manualEmployeeId}
+                      onChange={(e) =>
+                        setManualEmployeeId(e.target.value)
+                      }
+                      placeholder="EMP001"
+                      helperText="Enter unique employee ID"
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">
           <Button
@@ -897,7 +1006,7 @@ export default function EmployeeManagement() {
             Cancel
           </Button>
           <Button
-            onClick={handleSaveEmployee}
+            onClick={() => handleSaveEmployee()}
             variant="contained"
             className="!bg-primary"
           >
@@ -924,7 +1033,7 @@ export default function EmployeeManagement() {
             Download the sample template, fill in employee details, and upload.
             Welcome emails will be sent automatically.
           </Alert>
-          <div className="text-center mb-4">
+          <div className="text-center">
             <Button
               variant="outlined"
               startIcon={<DownloadIcon />}
@@ -933,6 +1042,191 @@ export default function EmployeeManagement() {
               Download Sample Template
             </Button>
           </div>
+
+          {/* CHECKBOX */}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={hasEmpIdColumn}
+                onChange={(e) =>
+                  setHasEmpIdColumn(e.target.checked)
+                }
+                sx={{
+                  "& .MuiSvgIcon-root": {
+                    color: "red !important",
+                  },
+                }}
+              />
+            }
+            className="text-red-500 mb-2"
+            label="Excel already contains Employee ID column"
+          />
+          {hasEmpIdColumn && (
+            <Alert
+              severity="info"
+              className="mb-3"
+            >
+              Employee IDs will be
+              validated from uploaded
+              Excel.
+            </Alert>
+          )}
+          {!hasEmpIdColumn && (
+            <div className="border rounded-lg p-4 !mb-4">
+              <div className="font-semibold text-gray-800">Employee ID Generation</div>
+              <div className="!mt-6">
+                <FormControl fullWidth className="">
+                  <InputLabel>Generation Flow</InputLabel>
+                  <Select
+                    value={empGenerationFlow}
+                    label="Generation Flow"
+                    className="!text-[12px]"
+                    onChange={(e) =>
+                      setEmpGenerationFlow(
+                        e.target.value as "new" | "continue"
+                      )
+                    }
+                  >
+                    <MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MenuItem>
+                    <MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MenuItem>
+                  </Select>
+                </FormControl>
+                {/* AUTO GENERATE DEFAULT */}
+                {empGenerationFlow == 'new' && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                    {/* <FormControl
+                      fullWidth
+                      className="!mb-6"
+                    >
+                      <InputLabel>Generation Type</InputLabel>
+                      <Select
+                        value={empCodeMode}
+                        label="Generation Type"
+                        className="!text-[12px]"
+                        disabled={!hasEmpIdColumn}
+                        onChange={(e) =>
+                          setEmpCodeMode(
+                            e.target.value
+                          )
+                        }
+                      >
+                        <MenuItem value="auto">Auto Generate</MenuItem>
+                        <MenuItem value="manual">Manual Type</MenuItem>
+                      </Select>
+                    </FormControl> */}
+                    <FormControl
+                      style={{ minWidth: 200 }}>
+                      <InputLabel>Format Type</InputLabel>
+                      <Select
+                        value={empCodeType}
+                        label="Format Type"
+                        className="!text-[12px] !text-gray-800"
+                        onChange={(e) =>
+                          setEmpCodeType(
+                            e.target.value
+                          )
+                        }
+                      >
+                        <MenuItem value="pattern" className="!text-[12px]">Pattern</MenuItem>
+                        <MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MenuItem>
+                        <MenuItem value="number" className="!text-[12px]">Number</MenuItem>
+                      </Select>
+                    </FormControl>
+                    {empCodeType === "pattern" && (
+                      <>
+                        <TextField
+                          label="Prefix"
+                          value={empPrefix}
+                          required
+                          className="!text-[12px]"
+                          onChange={(e) =>
+                            setEmpPrefix(
+                              e.target.value
+                            )
+                          }
+                        />
+                        <TextField
+                          label="Starting Number"
+                          className="!text-[12px]"
+                          value={empStartNumber}
+                          required
+                          onChange={(e) =>
+                            setEmpStartNumber(
+                              e.target.value
+                            )
+                          }
+                        />
+                      </>
+                    )}
+                    {empCodeType === "alphanumeric" && (
+                      <TextField
+                        type="number"
+                        label="Number Of Digits"
+                        className="!text-[12px]"
+                        required
+                        value={empDigitCount}
+                        onChange={(e) =>
+                          setEmpDigitCount(
+                            e.target.value
+                          )
+                        }
+                      />
+                    )}
+                    {empCodeType === "number" && (
+                      <TextField
+                        type="number"
+                        label="Starting Number"
+                        className="!text-[12px]"
+                        value={empStartNumber}
+                        required
+                        onChange={(e) =>
+                          setEmpStartNumber(
+                            e.target.value
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                )}
+                <Alert severity="info" className="mt-4">
+                  <div className="flex flex-col gap-1">
+                    {empGenerationFlow === "continue" && (
+                      <>
+                        <div>
+                          Last Generated ID:&nbsp;
+                          <strong>
+                            {employees?.[0]?.employeeId || "No Employees"}
+                          </strong>
+                        </div>
+
+                        <div>
+                          Next Sequence:&nbsp;
+                          <strong>
+                            {generateEmployeeIdPreview()}
+                          </strong>
+                        </div>
+                      </>
+                    )}
+
+                    {empGenerationFlow === "new" && (
+                      <div>
+                        Generated Preview:&nbsp;
+                        <strong>
+                          {generateEmployeeIdPreview()}
+                        </strong>
+                      </div>
+                    )}
+                  </div>
+                </Alert>
+                {/* <div className="text-[12px] text-gray-600">
+                  Preview:&nbsp;
+                  {empCodeType === "pattern" ? `${empPrefix}${empStartNumber}` :
+                    empCodeType === "alphanumeric" ? `Cj6k${"0".repeat(Number(empDigitCount))}` : empStartNumber}
+                </div> */}
+              </div>
+            </div>
+          )}
+
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"

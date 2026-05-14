@@ -10,9 +10,7 @@ export const useCategoryOptions = () => {
     try {
       const response:any = await categoryService.getCategories();
       const categoryData = response.data || [];
-      
       const categoryMap: Record<string, any[]> = {};
-      
       for (const category of categoryData) {
         const itemsResponse:any = await categoryService.getCategoryItems(category.id);
         categoryMap[category.categoryName] = itemsResponse.data || [];
