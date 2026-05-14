@@ -12,6 +12,7 @@ import ApplyLeavePage from "../pages/leave/ApplyLeavePage";
 import CompOffsPage from "../pages/leave/CompOffsPage";
 import HolidayCalendarPage from "../pages/leave/HolidayCalendarPage";
 import LeavePlaceholderPage from "../pages/leave/LeavePlaceholderPage";
+import ManagerLeaveApprovalsPage from "../pages/leave/ManagerLeaveApprovalsPage";
 import MyLeaveDashboard from "../pages/leave/MyLeaveDashboard";
 import MyLeaveRequestsPage from "../pages/leave/MyLeaveRequestsPage";
 import { leaveRoutes } from "../pages/leave/leaveRoutes";
@@ -130,7 +131,13 @@ function AppRoutesContent() {
                 <Route
                   key={route.path}
                   path={route.path.replace(/^\//, "")}
-                  element={<LeavePlaceholderPage route={route} />}
+                  element={
+                    route.path === "/leaves/approvals" ? (
+                      <ManagerLeaveApprovalsPage />
+                    ) : (
+                      <LeavePlaceholderPage route={route} />
+                    )
+                  }
                 />
               ))}
             </Route>

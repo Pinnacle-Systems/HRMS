@@ -198,6 +198,8 @@ export type LeaveListParams = {
   sort?: string;
   search?: string;
   employeeId?: string;
+  managerId?: string;
+  department?: string;
   status?: LeaveRequestStatus;
   leaveTypeId?: string;
   fromDate?: string;

@@ -110,16 +110,19 @@ function updateStatus(
   status: LeaveRequest["status"],
   payload?: LeaveActionPayload,
 ): LeaveRequest {
-  const request = mockLeaveRequests.find((item) => item.id === id);
+  const requestIndex = mockLeaveRequests.findIndex((item) => item.id === id);
+  const request = mockLeaveRequests[requestIndex];
   if (!request) {
     throw new Error("Leave request not found");
   }
 
-  return {
+  const updated = {
     ...request,
     status,
     approverRemarks: payload?.remarks ?? request.approverRemarks,
   };
+  mockLeaveRequests[requestIndex] = updated;
+  return updated;
 }
 
 class LeaveService {
@@ -140,6 +143,16 @@ class LeaveService {
         (request) => request.employeeId === params.employeeId,
       );
     }
+    if (params?.managerId) {
+      requests = requests.filter(
+        (request) => request.managerId === params.managerId,
+      );
+    }
+    if (params?.department) {
+      requests = requests.filter(
+        (request) => request.department === params.department,
+      );
+    }
     if (params?.leaveTypeId) {
       requests = requests.filter(
         (request) => request.leaveTypeId === params.leaveTypeId,
@@ -155,6 +168,10 @@ class LeaveService {
     }
 
     return mockResponse(paginate(requests, params), "Leave requests loaded");
+  }
+
+  async getManagerLeaveApprovals(params?: LeaveListParams) {
+    return this.getLeaves({ ...params, managerId: params?.managerId ?? "emp-200" });
   }
 
   async createLeave(
@@ -340,20 +357,42 @@ class LeaveService {
     return this.cancelLeaveRequest(id, payload);
   }
 
-  async approveLeave(id: string, payload?: LeaveActionPayload) {
+  async approveLeave(
+    id: string,
+    payload?: LeaveActionPayload,
+  ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(API_ENDPOINTS.LEAVE.APPROVE(id), payload ?? {});
+      return apiService.post(
+        API_ENDPOINTS.LEAVE.APPROVE(id),
+        payload ?? {},
+      ) as Promise<LeaveApiResponse<LeaveRequest>>;
     }
 
     return mockResponse(updateStatus(id, "APPROVED", payload), "Leave approved");
   }
 
-  async rejectLeave(id: string, payload?: LeaveActionPayload) {
+  async rejectLeave(
+    id: string,
+    payload?: LeaveActionPayload,
+  ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(API_ENDPOINTS.LEAVE.REJECT(id), payload ?? {});
+      return apiService.post(
+        API_ENDPOINTS.LEAVE.REJECT(id),
+        payload ?? {},
+      ) as Promise<LeaveApiResponse<LeaveRequest>>;
     }
 
     return mockResponse(updateStatus(id, "REJECTED", payload), "Leave rejected");
+  }
+
+  async requestLeaveClarification(
+    id: string,
+    payload?: LeaveActionPayload,
+  ): Promise<LeaveApiResponse<LeaveRequest>> {
+    return mockResponse(
+      updateStatus(id, "PENDING", payload),
+      "Clarification requested",
+    );
   }
 
   async overrideLeave(id: string, payload?: LeaveActionPayload) {
