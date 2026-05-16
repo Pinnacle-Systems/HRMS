@@ -46,7 +46,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
   error,
   helperText,
   placeholder,
-  multiple = false,
+  // multiple = false,
   showAddButton = true,
   disabled = false,
   required = false,

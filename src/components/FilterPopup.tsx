@@ -1,5 +1,5 @@
 // components/FilterPopup.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,12 +14,10 @@ import {
   TextField,
   Box,
   Chip,
-  Divider,
   Typography,
   RadioGroup,
   Radio,
   FormControlLabel,
-  Checkbox,
   Autocomplete,
   FormHelperText,
 } from '@mui/material';
@@ -37,7 +35,6 @@ import type {
   FilterRule,
   FilterCondition,
   FilterField,
-  FilterConfig,
   FilterPopupProps,
   FilterOperator,
 } from '../types/filter';
@@ -146,7 +143,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
     if (!field) return null;
     
     const operator = rule.operator;
-    const inputType = getInputTypeForOperator(operator, field.type);
+   getInputTypeForOperator(operator, field.type);
     
     // Between operator
     if (operator === 'between') {
@@ -336,7 +333,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
             </Box>
           ) : (
             rules.map((rule, index) => {
-              const field = getField(rule.field);
+              getField(rule.field);
               const operators = getAvailableOperators(rule.field);
               
               return (
@@ -350,7 +347,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                         label="Field"
                         onChange={(e) => {
                           const newFieldId = e.target.value;
-                          const newField = getField(newFieldId);
+                          getField(newFieldId);
                           const defaultOperators = getAvailableOperators(newFieldId);
                           updateRule(rule.id, {
                             field: newFieldId,

@@ -21,8 +21,8 @@ import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
 import { logger } from "../../utils/logger";
 import { formatDate } from "../../utils/dateFormatter";
-import { stickyHeaderLeftSx, stickyHeaderRightSx, stickyLeftSx, stickyRightSx } from "./const";
-import type { FilterConfig, FilterField, FilterOperator } from "../../types/filter.ts";
+import { stickyHeaderLeftSx, stickyHeaderRightSx} from "./const";
+import type { FilterConfig, FilterField } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
 
 export default function EmployeeManagement() {
@@ -312,7 +312,7 @@ export default function EmployeeManagement() {
   // Update filter fields when master data changes
   useEffect(() => {
     // This will update the filter fields options when departments/designations/branches change
-    const updatedFields = filterFields.map(field => {
+    filterFields.map(field => {
       if (field.id === 'designation') {
         return { ...field, options: designations.map(d => ({ value: d.name, label: d.name })) };
       }
@@ -388,26 +388,26 @@ export default function EmployeeManagement() {
   };
 
   // Handle Edit Employee - Open Edit Dialog
-  const handleOpenEditDialog = (employee: Employee) => {
-    setIsEditing(true);
-    setSelectedEmployee(employee);
-    console.log(employee);
+  // const handleOpenEditDialog = (employee: Employee) => {
+  //   setIsEditing(true);
+  //   setSelectedEmployee(employee);
+  //   console.log(employee);
 
-    setFormData({
-      name: employee.name,
-      emailAddress: employee.emailAddress,
-      joiningDate: employee.joiningDate?.split("T")[0] || "",
-      branch: employee.branch || "",
-      branchId: employee.branchId,
-      employeeId: employee.employeeId,
-      departmentId: employee.departmentId,
-      designationId: employee.designationId,
-      department: employee.department,
-      designation: employee.designation,
-      mobileNumber: employee.mobileNumber || "",
-    });
-    setEmployeeDialogOpen(true);
-  };
+  //   setFormData({
+  //     name: employee.name,
+  //     emailAddress: employee.emailAddress,
+  //     joiningDate: employee.joiningDate?.split("T")[0] || "",
+  //     branch: employee.branch || "",
+  //     branchId: employee.branchId,
+  //     employeeId: employee.employeeId,
+  //     departmentId: employee.departmentId,
+  //     designationId: employee.designationId,
+  //     department: employee.department,
+  //     designation: employee.designation,
+  //     mobileNumber: employee.mobileNumber || "",
+  //   });
+  //   setEmployeeDialogOpen(true);
+  // };
 
   // Handle Update Employee
   const handleSaveEmployee = async () => {

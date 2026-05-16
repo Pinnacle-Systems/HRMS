@@ -31,7 +31,6 @@ import {
   Person4Outlined as Person4OutlinedIcon,
   LogoutOutlined as LogoutOutlinedIcon,
   ContrastOutlined as ContrastOutlinedIcon,
-  HelpCenterOutlined,
   HelpOutlineTwoTone,
 } from "@mui/icons-material";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
