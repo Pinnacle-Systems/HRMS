@@ -37,7 +37,9 @@ import { GlobalSort } from "../../../components/GlobalSort";
 import { sortOptions, type Branch, type Employee } from "./type";
 import { getRowColor } from "../../const";
 import { employeeService } from "../../../services/modules/employees";
-import { LocationMap } from "../../../components/Location";
+// import { LocationMap } from "../../../components/Location";
+import LocationMap from "../../../components/Map";
+
 
 export default function BranchSettings() {
   // Pagination & Sorting State
@@ -48,6 +50,14 @@ export default function BranchSettings() {
   const [sortBy, setSortBy] = useState("branchName");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("ASC");
   const [searchTerm, setSearchTerm] = useState("");
+  const [showMap, setShowMap] = useState(false);
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const [mapUrl, setMapUrl] = useState("");
+  const [googleMapLink, setGoogleMapLink] = useState("");
+
+  // Employee list for branch head dropdown
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -62,13 +72,6 @@ export default function BranchSettings() {
     branchHeadId: "",
     active: true,
   });
-
-  const [showMap, setShowMap] = useState(false);
-  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
-
-  // Employee list for branch head dropdown
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   // Fetch active employees for branch head dropdown
   const getActiveEmployees = async () => {
@@ -123,16 +126,51 @@ export default function BranchSettings() {
     }
   }, [formData.branchHeadId, employees]);
 
-  const handleLocationFromMap = (lat: number, lng: number, address: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      latitude: lat,
-      longitude: lng,
-      branchAddress: address,
-    }));
-    setShowMap(false);
-    showSnackbar("Location updated from map!", "success");
+  const generateMapFromAddress = async (address: string) => {
+    const encodedAddress = encodeURIComponent(address);
+    setMapUrl(
+      `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+    );
+    setGoogleMapLink(
+      `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
+    );
+    try {
+      // Fetch latitude & longitude
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodedAddress}`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+
+        setFormData((prev) => ({
+          ...prev,
+          latitude: lat,
+          longitude: lon,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to fetch coordinates", error);
+    }
   };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (formData.branchAddress) {
+        generateMapFromAddress(formData.branchAddress);
+      }
+    }, 700);
+    return () => clearTimeout(timeout);
+  }, [formData.branchAddress]);
+
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage - 1);
@@ -204,20 +242,46 @@ export default function BranchSettings() {
   const handleGetCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setFormData((prev) => ({
-            ...prev,
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          }));
-          showSnackbar("Location fetched successfully!", "success");
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+            );
+            const data = await response.json();
+            const address = data?.display_name || "";
+            setFormData((prev) => ({
+              ...prev,
+              latitude: lat,
+              longitude: lng,
+              branchAddress: address,
+            }));
+            setShowMap(true);
+            setMapUrl(
+              `https://maps.google.com/maps?q=${lat},${lng}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+            );
+            setGoogleMapLink(
+              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+            );
+            showSnackbar("Location fetched successfully!", "success");
+          } catch (error) {
+            console.error(error);
+            showSnackbar("Failed to fetch address", "error");
+          }
         },
-        (error:any) => {
-          showSnackbar(error.message || "Failed to fetch location. Please enable GPS.", "error");
-        },
+        (error: any) => {
+          showSnackbar(
+            error.message || "Failed to fetch location. Please enable GPS.",
+            "error"
+          );
+        }
       );
     } else {
-      showSnackbar("Geolocation is not supported by this browser.", "error");
+      showSnackbar(
+        "Geolocation is not supported by this browser.",
+        "error"
+      );
     }
   };
 
@@ -278,11 +342,6 @@ export default function BranchSettings() {
     });
   };
 
-  // const getEmployeeName = (employeeId: string) => {
-  //   const employee = employees.find(emp => emp.id === employeeId);
-  //   return employee ? `${employee.name} (${employee.employeeId})` : employeeId || "Not assigned";
-  // };
-
   const commonsx = {
     "& .MuiDialog-paper": {
       width: "700px",
@@ -319,7 +378,7 @@ export default function BranchSettings() {
           <TextField
             fullWidth
             variant="outlined"
-            placeholder="Search by branch name, code or branch head..."
+            placeholder="Search by branch name, code or branch Address..."
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
             className="!flex-1"
@@ -394,7 +453,7 @@ export default function BranchSettings() {
             </TableBody>
           </Table>
           {branches.length === 0 && (
-            <div className="bg-white text-gray-900 text-center py-8 text-gray-500">No branches found</div>
+            <div className="bg-white border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500">No branches found</div>
           )}
         </TableContainer>
 
@@ -476,19 +535,8 @@ export default function BranchSettings() {
                 </Button>
               </div>
 
-              {/* Show selected location preview */}
-              {/* {(formData.latitude !== 0 || formData.longitude !== 0) && !showMap && (
-                <div className="mt-3 p-2 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="text-xs text-blue-600 font-medium">Selected Location:</div>
-                  <div className="text-sm text-gray-700">{formData.branchAddress}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Lat: {formData.latitude?.toFixed(6)}, Lng: {formData.longitude?.toFixed(6)}
-                  </div>
-                </div>
-              )} */}
-
               {/* Integrated Map */}
-              {showMap && (
+              {/* {showMap && (
                 <div className="mt-3">
                   <LocationMap
                     address={formData.branchAddress || ""}
@@ -505,7 +553,18 @@ export default function BranchSettings() {
                     Close Map
                   </Button>
                 </div>
-              )}
+              )} */}
+              {
+                showMap &&
+                <LocationMap
+                  mapUrl={mapUrl}
+                  googleMapLink={googleMapLink}
+                  style={{
+                    height: "250px",
+                    width: "100%",
+                  }}
+                />
+              }
             </div>
 
             {/* Latitude & Longitude Fields */}

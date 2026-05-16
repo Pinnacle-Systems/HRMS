@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TextField, Box, Button } from "@mui/material";
+import { TextField, Box, Button, Select, FormControl, InputLabel, MenuItem, FormHelperText } from "@mui/material";
 import {
   companyFieldsWithSections,
   fileUploadFields,
@@ -16,6 +16,8 @@ import { companyService } from "../../../services/modules/company";
 import { useUI } from "../../../context/Snackbar";
 import { useMasterData } from "../../../hooks/useMasterData";
 import { MasterSelect } from "../../../components/MasterSelect";
+import LocationMap from "../../../components/Map";
+import dayjs from "dayjs";
 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({});
@@ -32,6 +34,21 @@ const CompanySettings = () => {
     fetchCitiesByCountry,
     fetchCitiesByState,
   } = useMasterData();
+  const [mapUrl, setMapUrl] = useState("");
+
+  const [googleMapLink, setGoogleMapLink] = useState("");
+
+  const generateMapFromAddress = (address: string) => {
+    const encodedAddress = encodeURIComponent(address);
+
+    setMapUrl(
+      `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+    );
+
+    setGoogleMapLink(
+      `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
+    );
+  };
 
   const handleMasterDataChange = async (
     key: string,
@@ -71,11 +88,20 @@ const CompanySettings = () => {
     }
   };
 
-  const handleChange = (key: string, value: string | string[]) => {
+  const handleChange = async (key: string, value: string | string[]) => {
     setCompanyInfo({ ...companyInfo, [key]: value });
     const error = validateField(key, value as string);
     setErrors((prev) => ({ ...prev, [key]: error }));
   };
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (companyInfo.companyAddress) {
+        generateMapFromAddress(companyInfo.companyAddress);
+      }
+    }, 700);
+    return () => clearTimeout(timeout);
+  }, [companyInfo.companyAddress]);
 
   const handleLogoUpload = async (file: File) => {
     const companyId = companyInfo.id;
@@ -184,6 +210,10 @@ const CompanySettings = () => {
       try {
         const updatedValue = {
           "companyName": companyInfo.companyName,
+          aliasName: companyInfo.aliasName || "",
+          code: companyInfo.code || "",
+          costCode: companyInfo.costCode || "",
+          "companyType": companyInfo.companyType,
           "companyAddress": companyInfo.companyAddress,
           "countryId": companyInfo.countryId,
           "stateId": companyInfo.stateId,
@@ -195,10 +225,13 @@ const CompanySettings = () => {
           "phone": companyInfo.phone,
           "website": companyInfo.website,
           "fax": companyInfo.fax,
-          "companyType": companyInfo.companyType,
           "cin": companyInfo.cin,
           // "incorporationDate": "2026-05-11",
           // "udyamNo": companyInfo.company,
+          licenseNo: companyInfo.licenseNo || "",
+          tinNo: companyInfo.tinNo || "",
+          cstNo: companyInfo.cstNo || "",
+          cstDate: companyInfo.cstDate || "",
           "pfNo": companyInfo.pfNo,
           "tanNo": companyInfo.tanNo,
           "panNo": companyInfo.panNo,
@@ -206,15 +239,21 @@ const CompanySettings = () => {
           "linNo": companyInfo.linNo,
           "gstNo": companyInfo.gstNo,
           "registrationCertificateNo": companyInfo.registrationCertificateNo,
-          // "payrollFrequency": companyInfo.company,
-          "salaryPayDay": 31,
-          "fiscalYearStartMonth": 12,
+          esicCode: companyInfo.esicCode || "",
+          estdCode: companyInfo.estdCode || "",
+          contactName: companyInfo.contactName || "",
+          designation: companyInfo.designation || "",
+          phoneNo: companyInfo.phoneNo || "",
+          contactEmail: companyInfo.contactEmail || "",
+          "payrollFrequency": companyInfo.company,
+          "salaryPayDay": companyInfo.salaryPayDay,
+          "fiscalYearStartMonth": companyInfo.fiscalYearStartMonth,
           "twitterHandle": companyInfo.twitterHandle,
-          // "linkedinUrl": companyInfo.company,
-          // "facebookUrl": companyInfo.company,
-          // "instagramHandle": companyInfo.company,
-          // "signatoryName": companyInfo.company,
-          // "signatoryDesignation": companyInfo.company
+          "linkedinUrl": companyInfo.linkedinUrl,
+          "facebookUrl": companyInfo.facebookUrl,
+          "instagramHandle": companyInfo.instagramHandle,
+          "signatoryName": companyInfo.signatoryName,
+          "signatoryDesignation": companyInfo.signatoryDesignation
         }
         const res: any = await companyService.updateCompany(companyInfo.id, updatedValue);
         if (res.success) {
@@ -245,22 +284,6 @@ const CompanySettings = () => {
     setSignatureFile("");
     setErrors({});
   };
-
-  // Configuration for which select fields should show add button
-  // const getSelectConfig = (key: string) => {
-  //   const configs: Record<
-  //     string,
-  //     { multiple: boolean; showAddButton: boolean }
-  //   > = {
-  //     type_name: { multiple: false, showAddButton: false },
-  //     city: { multiple: false, showAddButton: false },
-  //     country: { multiple: false, showAddButton: false },
-  //     states: { multiple: true, showAddButton: false },
-  //     timezone: { multiple: false, showAddButton: false },
-  //     currency: { multiple: false, showAddButton: false },
-  //   };
-  //   return configs[key] || { multiple: false, showAddButton: true };
-  // };
 
   // Common sx styles for all fields
   const commonSx = {
@@ -318,10 +341,12 @@ const CompanySettings = () => {
 
   // renderField function
   const renderField = (field: any) => {
-    const { key, label, multiline, rows, placeholder, type, required } = field;
+    const { key, label, multiline, rows, placeholder, type, required, disabled } = field;
     const hasError = !!errors[key];
     const rules = validationRules[key as keyof typeof validationRules];
+    companyInfo['companyType'] = 'Head Office';
     const value = companyInfo[key];
+
 
     return (
       <div key={key}>
@@ -331,6 +356,7 @@ const CompanySettings = () => {
             multiline={multiline}
             rows={rows}
             required={required}
+            disabled={disabled}
             placeholder={
               placeholder ||
               (rules?.formatExample
@@ -346,11 +372,26 @@ const CompanySettings = () => {
           />
         )}
 
+        {type === "number" && (
+          <TextField
+            type="number"
+            label={label}
+            required={required}
+            disabled={disabled}
+            value={value || ""}
+            error={hasError}
+            helperText={hasError ? errors[key] : ""}
+            onChange={(e) => handleChange(key, e.target.value)}
+            sx={commonSx}
+            className={`${key == "contact_email" ? "!w-[230px]" : ""}`}
+          />
+        )}
+
         {type === "date" && (
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
               label={label}
-              // value={value || null}
+              value={value ? dayjs(value) : null}
               onChange={(newValue) =>
                 handleChange(key, newValue?.format("YYYY-MM-DD") || "")
               }
@@ -388,23 +429,44 @@ const CompanySettings = () => {
             sx={commonSx}
           />
         )}
-        {/* {type === "select" && (
-          <DynamicSelectWithAdd
-            label={label}
-            value={value || ''}
-            onChange={(newValue: string | string[]) =>
-              handleChange(key, newValue)
-            }
-            options={masterOptions[key as keyof typeof masterOptions] || []}
-            onAddOption={(newOption: string) => handleAddOption(key, newOption)}
+        {type === "select" && (
+          <FormControl
+            fullWidth
+            size="small"
             error={hasError}
-            helperText={hasError ? errors[key] : ""}
-            placeholder={placeholder}
-            multiple={getSelectConfig(key).multiple}
-            showAddButton={getSelectConfig(key).showAddButton}
+            required={required}
+            disabled={disabled}
             sx={commonSx}
+          >
+            <InputLabel>{label}</InputLabel>
+            <Select
+              label={label}
+              value={value || ''}
+              onChange={(e) => handleChange(key, e.target.value)}
+              className="!text-[12px]"
+            >
+              <MenuItem value="">
+                <em>{placeholder || `Select ${label}`}</em>
+              </MenuItem>
+              {(field.options || []).map((option: any) => (
+                <MenuItem key={option.value} value={option.value} className="!text-[12px]">
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Select>
+            {hasError && <FormHelperText>{errors[key]}</FormHelperText>}
+          </FormControl>
+        )}
+        {type === "map" && (
+          <LocationMap
+            mapUrl={mapUrl}
+            googleMapLink={googleMapLink}
+            style={{
+              height: "137px",
+              width: "400px",
+            }}
           />
-        )} */}
+        )}
       </div>
     );
   };
@@ -447,7 +509,7 @@ const CompanySettings = () => {
               <div className="flex flex-wrap">
                 {section.fields.length > 0 && (
                   <>
-                    <div className="flex flex-wrap items-center justify-center gap-y-5 gap-x-4">
+                    <div className="flex flex-wrap items-center gap-y-5 gap-x-4">
                       {section.fields.map((field: any) => renderField(field))}
                       {section.subSections.length > 0 && (
                         <>

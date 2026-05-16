@@ -1,49 +1,12 @@
 import { useState, useEffect } from "react";
-import {
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Dialog,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControlLabel,
-  Tooltip,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Box,
-  Typography,
-  Alert,
-  LinearProgress,
-  Checkbox,
-} from "@mui/material";
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  CloseOutlined,
-  FileUpload as FileUploadIcon,
-  Download as DownloadIcon,
-  CloudUpload as CloudUploadIcon,
-  ArrowUpward,
-  ArrowDownward,
-  VisibilityOutlined,
-} from "@mui/icons-material";
+import MaterialModule from "../../materialModule";
 import { employeeService } from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
 import { useUI } from "../../context/Snackbar";
 import { GlobalPagination } from "../../components/GlobalPagination";
+import FilterPopup from "../../components/FilterPopup.tsx";
 import {
-  // employeeStatusColors,
-  // employeeStatusLabels,
   type Branches,
   type Department,
   type Designation,
@@ -53,10 +16,14 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { getRowColor } from "../const";
+import { getRowColor, getStickyLeftSx, getStickyRightSx } from "../const";
 import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
 import { logger } from "../../utils/logger";
+import { formatDate } from "../../utils/dateFormatter";
+import { stickyHeaderLeftSx, stickyHeaderRightSx, stickyLeftSx, stickyRightSx } from "./const";
+import type { FilterConfig, FilterField, FilterOperator } from "../../types/filter.ts";
+import { operatorLabels } from "../../types/filterOperators";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -64,12 +31,18 @@ export default function EmployeeManagement() {
 
   // State for employees
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [originalEmployees, setOriginalEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+
+  // Filter state
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
 
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -103,6 +76,68 @@ export default function EmployeeManagement() {
   const [hasEmpIdColumn, setHasEmpIdColumn] = useState(true);
   const [empDigitCount, setEmpDigitCount] = useState("4");
 
+  // Define filter fields for employee management
+  const filterFields: FilterField[] = [
+    {
+      id: 'employeeId',
+      label: 'Employee ID',
+      type: 'text',
+      placeholder: 'Enter employee ID',
+    },
+    {
+      id: 'name',
+      label: 'Employee Name',
+      type: 'text',
+      placeholder: 'Enter employee name',
+    },
+    {
+      id: 'emailAddress',
+      label: 'Email Address',
+      type: 'text',
+      placeholder: 'Enter email address',
+    },
+    {
+      id: 'mobileNumber',
+      label: 'Mobile Number',
+      type: 'text',
+      placeholder: 'Enter mobile number',
+    },
+    {
+      id: 'designation',
+      label: 'Designation',
+      type: 'select',
+      options: designations.map(d => ({ value: d.name, label: d.name })),
+    },
+    {
+      id: 'department',
+      label: 'Department',
+      type: 'select',
+      options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })),
+    },
+    {
+      id: 'branch',
+      label: 'Branch',
+      type: 'select',
+      options: branches.map(b => ({ value: b.branchName, label: b.branchName })),
+    },
+    {
+      id: 'joiningDate',
+      label: 'Joining Date',
+      type: 'date',
+    },
+    {
+      id: 'employeeStatus',
+      label: 'Employee Status',
+      type: 'select',
+      options: [
+        { value: 'ACTIVE', label: 'Active' },
+        { value: 'INACTIVE', label: 'Inactive' },
+        { value: 'ONBOARDING', label: 'Onboarding' },
+        { value: 'TERMINATED', label: 'Terminated' },
+      ],
+    },
+  ];
+
   useEffect(() => {
     if (hasEmpIdColumn) {
       setEmpCodeMode("auto");
@@ -113,9 +148,7 @@ export default function EmployeeManagement() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let result = "";
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(
-        Math.floor(Math.random() * chars.length)
-      );
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return result;
   };
@@ -127,12 +160,108 @@ export default function EmployeeManagement() {
     const employeeIds = employees.map((emp) => emp.employeeId).filter(Boolean);
     const lastId = employeeIds[0];
     const numericPart = lastId.replace(/\D/g, "");
-    const nextNumber = String(Number(numericPart) + 1).padStart(
-      numericPart.length,
-      "0"
-    );
+    const nextNumber = String(Number(numericPart) + 1).padStart(numericPart.length, "0");
     const prefix = lastId.replace(/[0-9]/g, "");
     return `${prefix}${nextNumber}`;
+  };
+
+  // Evaluate a single filter rule
+  const evaluateRule = (item: any, rule: any): boolean => {
+    const fieldValue = item[rule.field];
+    const ruleValue = rule.value;
+    
+    switch (rule.operator) {
+      case 'equals':
+        return String(fieldValue).toLowerCase() === String(ruleValue).toLowerCase();
+      case 'notEquals':
+        return String(fieldValue).toLowerCase() !== String(ruleValue).toLowerCase();
+      case 'contains':
+        return String(fieldValue).toLowerCase().includes(String(ruleValue).toLowerCase());
+      case 'notContains':
+        return !String(fieldValue).toLowerCase().includes(String(ruleValue).toLowerCase());
+      case 'startsWith':
+        return String(fieldValue).toLowerCase().startsWith(String(ruleValue).toLowerCase());
+      case 'endsWith':
+        return String(fieldValue).toLowerCase().endsWith(String(ruleValue).toLowerCase());
+      case 'greaterThan':
+        return new Date(fieldValue) > new Date(ruleValue);
+      case 'greaterThanOrEqual':
+        return new Date(fieldValue) >= new Date(ruleValue);
+      case 'lessThan':
+        return new Date(fieldValue) < new Date(ruleValue);
+      case 'lessThanOrEqual':
+        return new Date(fieldValue) <= new Date(ruleValue);
+      case 'between':
+        return new Date(fieldValue) >= new Date(ruleValue) && new Date(fieldValue) <= new Date(rule.value2);
+      case 'in':
+        return Array.isArray(ruleValue) && ruleValue.includes(fieldValue);
+      case 'notIn':
+        return Array.isArray(ruleValue) && !ruleValue.includes(fieldValue);
+      case 'isEmpty':
+        return !fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0);
+      case 'isNotEmpty':
+        return fieldValue && fieldValue !== '' && (!Array.isArray(fieldValue) || fieldValue.length > 0);
+      default:
+        return true;
+    }
+  };
+
+  // Apply filters to data
+  const applyFiltersToData = (data: Employee[], filters: FilterConfig): Employee[] => {
+    if (!filters || filters.rules.length === 0) return data;
+    
+    return data.filter(item => {
+      const ruleResults = filters.rules.map(rule => evaluateRule(item, rule));
+      
+      if (filters.condition === 'AND') {
+        return ruleResults.every(result => result === true);
+      } else {
+        return ruleResults.some(result => result === true);
+      }
+    });
+  };
+
+  // Handle filter application
+  const handleApplyFilters = (filters: FilterConfig) => {
+    setActiveFilters(filters);
+    const filtered = applyFiltersToData(originalEmployees, filters);
+    setFilteredEmployees(filtered);
+    setEmployees(filtered);
+    setTotal(filtered.length);
+    setPage(0); // Reset to first page
+  };
+
+  // Remove a specific filter
+  const removeFilter = (ruleId: string) => {
+    if (activeFilters) {
+      const newRules = activeFilters.rules.filter(rule => rule.id !== ruleId);
+      if (newRules.length > 0) {
+        const newFilters = { ...activeFilters, rules: newRules };
+        setActiveFilters(newFilters);
+        const filtered = applyFiltersToData(originalEmployees, newFilters);
+        setFilteredEmployees(filtered);
+        setEmployees(filtered);
+        setTotal(filtered.length);
+      } else {
+        // Clear all filters if no rules left
+        clearAllFilters();
+      }
+      setPage(0);
+    }
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setActiveFilters(null);
+    setFilteredEmployees(originalEmployees);
+    setEmployees(originalEmployees);
+    setTotal(originalEmployees.length);
+    setPage(0);
+  };
+
+  // Get active filter count
+  const getActiveFilterCount = (): number => {
+    return activeFilters?.rules.length || 0;
   };
 
   // Fetch employees
@@ -142,8 +271,18 @@ export default function EmployeeManagement() {
       const params: any = { page, size: limit, sort: `${sortBy},${sortOrder}` };
       if (searchTerm) params.search = searchTerm;
       const response: any = await employeeService.getEmployees(params);
-      setEmployees(response.data.content || response.data || []);
-      setTotal(response.data.totalElements || response.data.total || 0);
+      const employeeData = response.data.content || response.data || [];
+      setEmployees(employeeData);
+      setOriginalEmployees(employeeData);
+      setFilteredEmployees(employeeData);
+      setTotal(response.data.totalElements || response.data.total ||  response.data.length || 0);
+      
+      // Re-apply filters if any exist
+      if (activeFilters && activeFilters.rules.length > 0) {
+        const filtered = applyFiltersToData(employeeData, activeFilters);
+        setEmployees(filtered);
+        setTotal(filtered.length);
+      }
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employees", "error");
     } finally {
@@ -170,10 +309,25 @@ export default function EmployeeManagement() {
     getMasterData();
   }, [page, limit, sortBy, sortOrder, searchTerm]);
 
-  const handleSortChange = (
-    newSortBy: string,
-    newSortOrder?: "ASC" | "DESC",
-  ) => {
+  // Update filter fields when master data changes
+  useEffect(() => {
+    // This will update the filter fields options when departments/designations/branches change
+    const updatedFields = filterFields.map(field => {
+      if (field.id === 'designation') {
+        return { ...field, options: designations.map(d => ({ value: d.name, label: d.name })) };
+      }
+      if (field.id === 'department') {
+        return { ...field, options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })) };
+      }
+      if (field.id === 'branch') {
+        return { ...field, options: branches.map(b => ({ value: b.branchName, label: b.branchName })) };
+      }
+      return field;
+    });
+    // Update filterFields state if needed
+  }, [departments, designations, branches]);
+
+  const handleSortChange = (newSortBy: string, newSortOrder?: "ASC" | "DESC") => {
     setSortBy(newSortBy);
     setSortOrder(newSortOrder || "ASC");
     setPage(0);
@@ -182,9 +336,9 @@ export default function EmployeeManagement() {
   const getSortIcon = (column: string) => {
     if (sortBy !== column) return null;
     return sortOrder === "ASC" ? (
-      <ArrowUpward fontSize="small" className="ml-1" />
+      <MaterialModule.ArrowUpward fontSize="small" className="ml-1" />
     ) : (
-      <ArrowDownward fontSize="small" className="ml-1" />
+      <MaterialModule.ArrowDownward fontSize="small" className="ml-1" />
     );
   };
 
@@ -235,8 +389,10 @@ export default function EmployeeManagement() {
 
   // Handle Edit Employee - Open Edit Dialog
   const handleOpenEditDialog = (employee: Employee) => {
-    setIsEditing(true);    
+    setIsEditing(true);
     setSelectedEmployee(employee);
+    console.log(employee);
+
     setFormData({
       name: employee.name,
       emailAddress: employee.emailAddress,
@@ -267,7 +423,7 @@ export default function EmployeeManagement() {
     showSpinner();
     try {
       if (isEditing) {
-        const payload = {
+        const payload: any = {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
           joiningDate: formData.joiningDate,
@@ -276,6 +432,7 @@ export default function EmployeeManagement() {
           designationId: formData.designationId || selectedEmployee?.designationId,
           mobileNumber: formData.mobileNumber,
         };
+        console.log(payload);
         await employeeService.updateEmployee(selectedEmployee!.id, payload);
         showSnackbar("Employee updated successfully!", "success");
       } else {
@@ -286,7 +443,6 @@ export default function EmployeeManagement() {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
           joiningDate: formData.joiningDate,
-          branch: formData.branch,
           employeeId: employeeId,
           departmentId: formData.departmentId,
           designationId: formData.designationId,
@@ -349,7 +505,7 @@ export default function EmployeeManagement() {
         empCodeType == 'alphanumeric' ? formData.append("empDigitCount", empDigitCount) : '';
       }
       const response: any = await employeeService.bulkUploadEmployees(
-        formData, (progress) => { setUploadProgress(progress); },);
+        formData, (progress) => { setUploadProgress(progress); });
       if (response.success && response.data.errors.length == 0) {
         showSnackbar("Upload successful!", "success");
         setBulkUploadDialogOpen(false);
@@ -367,33 +523,6 @@ export default function EmployeeManagement() {
     }
   };
 
-  // Resend Welcome Email
-  // const handleResendWelcomeEmail = async (employeeId: string, email: string) => {
-  //   showConfirmDialog({
-  //     title: "Resend Welcome Email",
-  //     message: `Are you sure you want to resend the welcome email to ${email}?`,
-  //     confirmText: "Resend",
-  //     cancelText: "Cancel",
-  //     onConfirm: async () => {
-  //       showSpinner();
-  //       try {
-  //         await employeeService.resendWelcomeEmail(employeeId);
-  //         showSnackbar("Welcome email resent successfully!", "success");
-  //         getEmployees();
-  //       } catch (error: any) {
-  //         showSnackbar(error.message || "Failed to resend email", "error");
-  //       } finally {
-  //         hideSpinner();
-  //       }
-  //     },
-  //   });
-  // };
-
-  // Download Sample Template
-  // const downloadSampleTemplate = () => {
-  //   employeeService.downloadSampleTemplate();
-  // };
-
   return (
     <div className="">
       <div className="flex justify-between items-center mb-6">
@@ -406,22 +535,63 @@ export default function EmployeeManagement() {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button
+          <MaterialModule.Button
             variant="outlined"
-            startIcon={<FileUploadIcon />}
+            // startIcon={<MaterialModule.FilterListIcon />}
+            onClick={() => setFilterOpen(true)}
+            sx={{ position: 'relative' }}
+          >
+            Filters
+            {getActiveFilterCount() > 0 && (
+              <MaterialModule.Chip
+                label={getActiveFilterCount()}
+                size="small"
+                color="primary"
+                sx={{ ml: 1 }}
+              />
+            )}
+          </MaterialModule.Button>
+          <MaterialModule.Button
+            variant="outlined"
+            startIcon={<MaterialModule.FileUploadIcon />}
             onClick={() => setBulkUploadDialogOpen(true)}
           >
             Bulk Upload
-          </Button>
-          <Button
+          </MaterialModule.Button>
+          <MaterialModule.Button
             variant="contained"
             onClick={() => handleOpenAddDialog()}
             className="!bg-primary"
           >
             Add Employee
-          </Button>
+          </MaterialModule.Button>
         </div>
       </div>
+
+      {/* Active Filters Display */}
+      {activeFilters && activeFilters.rules.length > 0 && (
+        <MaterialModule.Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+          <MaterialModule.Typography variant="caption" color="textSecondary">
+            Active filters ({activeFilters.condition}):
+          </MaterialModule.Typography>
+          {activeFilters.rules.map((rule) => {
+            const field = filterFields.find(f => f.id === rule.field);
+            return (
+              <MaterialModule.Chip
+                key={rule.id}
+                label={`${field?.label} ${operatorLabels[rule.operator]} ${rule.value}`}
+                onDelete={() => removeFilter(rule.id)}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            );
+          })}
+          <MaterialModule.Button size="small" onClick={clearAllFilters}>
+            Clear All
+          </MaterialModule.Button>
+        </MaterialModule.Box>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 text-[12px]">
@@ -431,21 +601,27 @@ export default function EmployeeManagement() {
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500">
           <div className="text-gray-500">Pending Onboarding</div>
-          <div className="font-bold">0</div>
+          <div className="font-bold">
+            {employees.filter(e => e.employeeStatus === 'ONBOARDING').length}
+          </div>
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
           <div className="text-gray-500">Active Employees</div>
-          <div className="font-bold">0</div>
+          <div className="font-bold">
+            {employees.filter(e => e.employeeStatus === 'Active').length}
+          </div>
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
           <div className="text-gray-500">Onboarding</div>
-          <div className="font-bold">0</div>
+          <div className="font-bold">
+            {employees.filter(e => e.employeeStatus === 'ONBOARDING').length}
+          </div>
         </div>
       </div>
 
       {/* Search Bar */}
       <div className="mb-4">
-        <TextField
+        <MaterialModule.TextField
           fullWidth
           variant="outlined"
           placeholder="Search by name, email, or employee ID..."
@@ -455,18 +631,27 @@ export default function EmployeeManagement() {
       </div>
 
       {/* Employees Table */}
-      <TableContainer
-        component={Paper}
+      <MaterialModule.TableContainer
+        component={MaterialModule.Paper}
         elevation={0}
         className="h-[calc(100vh-340px)] overflow-auto !bg-white-50"
       >
-        <Table stickyHeader className="border">
-          <TableHead>
-            <TableRow>
-              <TableCell className="!font-semibold text-gray-800 ">
+        <MaterialModule.Table stickyHeader className="border">
+          <MaterialModule.TableHead>
+            <MaterialModule.TableRow>
+              <MaterialModule.TableCell className="!font-semibold text-gray-800 " sx={{
+                ...stickyHeaderLeftSx,
+                minWidth: "70px",
+              }}>
                 S No
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell sx={{
+                position: "sticky",
+                left: "70px",
+                zIndex: 5,
+                backgroundColor: "white",
+                minWidth: "100px",
+              }}
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -479,8 +664,8 @@ export default function EmployeeManagement() {
                   Employee ID
                   {getSortIcon("employeeId")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange("name", sortOrder === "ASC" ? "DESC" : "ASC")
@@ -490,8 +675,8 @@ export default function EmployeeManagement() {
                   Employee Name
                   {getSortIcon("name")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -504,8 +689,8 @@ export default function EmployeeManagement() {
                   Employee Email
                   {getSortIcon("emailAddress")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -518,8 +703,8 @@ export default function EmployeeManagement() {
                   Mobile Number
                   {getSortIcon("mobileNumber")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -532,8 +717,8 @@ export default function EmployeeManagement() {
                   Designation
                   {getSortIcon("designation")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -546,8 +731,8 @@ export default function EmployeeManagement() {
                   Department
                   {getSortIcon("department")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -560,8 +745,8 @@ export default function EmployeeManagement() {
                   Branch
                   {getSortIcon("branch")}
                 </div>
-              </TableCell>
-              <TableCell
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
@@ -574,94 +759,106 @@ export default function EmployeeManagement() {
                   Joining Date
                   {getSortIcon("joiningDate")}
                 </div>
-              </TableCell>
-              {/* <TableCell className="!font-semibold text-gray-800 ">
-                Status
-              </TableCell> */}
-              <TableCell className="!font-semibold text-gray-800 text-center">
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() =>
+                  handleSortChange(
+                    "employeeStatus",
+                    sortOrder === "ASC" ? "DESC" : "ASC",
+                  )
+                }>
+                <div className="flex items-center gap-1">
+                  Status
+                  {getSortIcon("employeeStatus")}
+                </div>
+              </MaterialModule.TableCell>
+              <MaterialModule.TableCell className="!font-semibold text-gray-800 text-center" sx={{
+                ...stickyHeaderRightSx,
+                minWidth: "100px",
+              }}>
                 Actions
-              </TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+              </MaterialModule.TableCell>
+            </MaterialModule.TableRow>
+          </MaterialModule.TableHead>
+          <MaterialModule.TableBody>
             {employees.map((employee, index) => (
-              <TableRow key={employee.id} hover sx={getRowColor(index)}>
-                <TableCell>{page * limit + index + 1}</TableCell>
-                <TableCell>{employee.employeeId}</TableCell>
-                <TableCell className="font-medium">{employee.name}</TableCell>
-                <TableCell>{employee.emailAddress}</TableCell>
-                <TableCell>{employee.mobileNumber || "-"}</TableCell>
-                <TableCell>{employee.designation || "-"}</TableCell>
-                <TableCell>{employee.department || "-"}</TableCell>
-                <TableCell>{employee.branch || "-"}</TableCell>
-                <TableCell>{employee.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : "-"}</TableCell>
-                {/* <TableCell>
-                  <Chip
-                    label={employee.status === "ACTIVE" ? "Active" : "Inactive"}
-                    color={employee.status === "ACTIVE" ? "success" : "default"}
+              <MaterialModule.TableRow key={employee.id} hover sx={getRowColor(index)}>
+                <MaterialModule.TableCell sx={{
+                  ...getStickyLeftSx(index),
+                  minWidth: "70px",
+                }}>{page * limit + index + 1}</MaterialModule.TableCell>
+                <MaterialModule.TableCell sx={{
+                  ...getStickyLeftSx(index),
+                  left: "70px",
+                  minWidth: "100px",
+                }}>{employee.employeeId}</MaterialModule.TableCell>
+                <MaterialModule.TableCell className="font-medium">{employee.name}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.emailAddress}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.mobileNumber || "-"}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.designation || "-"}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.department || "-"}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.branch || "-"}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.joiningDate ? formatDate(employee.joiningDate) : "-"}</MaterialModule.TableCell>
+                <MaterialModule.TableCell>{employee.employeeStatus || "-"}
+                 
+                  {/* <MaterialModule.Chip
+                    label={employee.employeeStatus || "-"}
+                    color={
+                      employee.employeeStatus === 'Active' ? 'success' : 'deafult'
+                      // employee.employeeStatus === 'INACTIVE' ? 'default' :
+                      // employee.employeeStatus === 'ONBOARDING' ? 'warning' : 'error'
+                    }
                     size="small"
-                  />
-                </TableCell> */}
-                <TableCell className="text-center">
+                  /> */}
+                </MaterialModule.TableCell>
+                <MaterialModule.TableCell className="text-center" sx={{
+                  ...getStickyRightSx(index),
+                  minWidth: "50px",
+                }}>
                   <div className="flex">
-                    <Tooltip title="View Details">
-                      <IconButton
+                    <MaterialModule.Tooltip title="View Details">
+                      <MaterialModule.IconButton
                         size="small"
                         className="!mr-1"
                         onClick={() => navigate(`/employees/${employee.id}`)}
                       >
-                        <VisibilityOutlined
+                        <MaterialModule.VisibilityOutlined
                           className="!w-4"
                           sx={{ color: "var(--color-primary)" }}
                         />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
+                      </MaterialModule.IconButton>
+                    </MaterialModule.Tooltip>
+                    {/* <MaterialModule.Tooltip title="Edit">
+                      <MaterialModule.IconButton
                         size="small"
                         className="!mr-1"
                         onClick={() => handleOpenEditDialog(employee)}
                       >
-                        <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
+                        <MaterialModule.EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
+                      </MaterialModule.IconButton>
+                    </MaterialModule.Tooltip> */}
+                    <MaterialModule.Tooltip title="Delete">
+                      <MaterialModule.IconButton
                         size="small"
                         onClick={() =>
                           handleDeleteEmployee(employee.id, employee.name)
                         }
                       >
-                        <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                      </IconButton>
-                    </Tooltip>
+                        <MaterialModule.DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                      </MaterialModule.IconButton>
+                    </MaterialModule.Tooltip>
                   </div>
-                  {/* {!employee.isWelcomeEmailSent && (
-                    <Tooltip title="Resend Welcome Email">
-                      <IconButton
-                        size="small"
-                        onClick={() =>
-                          handleResendWelcomeEmail(
-                            employee.id,
-                            employee.emailAddress,
-                          )
-                        }
-                      >
-                        <EmailIcon className="!w-4" sx={{ color: "#f59e0b" }} />
-                      </IconButton>
-                    </Tooltip>
-                  )} */}
-                </TableCell>
-              </TableRow>
+                </MaterialModule.TableCell>
+              </MaterialModule.TableRow>
             ))}
-          </TableBody>
-        </Table>
+          </MaterialModule.TableBody>
+        </MaterialModule.Table>
         {employees.length === 0 && (
           <div className="text-center py-8 text-gray-500 border border-gray-200">
             No employees found
           </div>
         )}
-      </TableContainer>
+      </MaterialModule.TableContainer>
 
       {/* Pagination */}
       {total > 0 && (
@@ -679,24 +876,35 @@ export default function EmployeeManagement() {
         />
       )}
 
+      {/* Filter Popup */}
+      <FilterPopup
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onApply={handleApplyFilters}
+        fields={filterFields}
+        initialFilters={activeFilters || undefined}
+        title="Filter Employees"
+      />
+
       {/* Add/Edit Employee Dialog */}
-      <Dialog
+      <MaterialModule.Dialog
         open={employeeDialogOpen}
         onClose={() => setEmployeeDialogOpen(false)}
         maxWidth="md"
         fullWidth
       >
+        {/* ... (keep your existing dialog code) ... */}
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
           <div className="text-primary ml-4">
             {isEditing ? "Edit Employee" : "Add New Employee"}
           </div>
-          <IconButton onClick={() => setEmployeeDialogOpen(false)}>
-            <CloseOutlined />
-          </IconButton>
+          <MaterialModule.IconButton onClick={() => setEmployeeDialogOpen(false)}>
+            <MaterialModule.CloseOutlined />
+          </MaterialModule.IconButton>
         </div>
-        <DialogContent>
+        <MaterialModule.DialogContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-            <TextField
+            <MaterialModule.TextField
               fullWidth
               label="Employee Name"
               value={formData.name}
@@ -706,7 +914,7 @@ export default function EmployeeManagement() {
               required
               disabled={isEditing}
             />
-            <TextField
+            <MaterialModule.TextField
               fullWidth
               label="Email ID"
               type="email"
@@ -732,14 +940,13 @@ export default function EmployeeManagement() {
                 slotProps={{
                   textField: {
                     fullWidth: true,
-                    // required: required,
                   },
                 }}
               />
             </LocalizationProvider>
-            <FormControl fullWidth>
-              <InputLabel>Department</InputLabel>
-              <Select
+            <MaterialModule.FormControl fullWidth>
+              <MaterialModule.InputLabel>Department</MaterialModule.InputLabel>
+              <MaterialModule.Select
                 value={formData.department || ""}
                 label="Department"
                 className="!text-[12px]"
@@ -753,23 +960,23 @@ export default function EmployeeManagement() {
                   })
                 }
               >
-                <MenuItem value="" className="!text-[12px]">
+                <MaterialModule.MenuItem value="" className="!text-[12px]">
                   Select Department
-                </MenuItem>
+                </MaterialModule.MenuItem>
                 {departments.map((dept) => (
-                  <MenuItem
+                  <MaterialModule.MenuItem
                     key={dept.id}
                     value={dept.departmentName}
                     className="!text-[12px]"
                   >
                     {dept.departmentName}
-                  </MenuItem>
+                  </MaterialModule.MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Designation</InputLabel>
-              <Select
+              </MaterialModule.Select>
+            </MaterialModule.FormControl>
+            <MaterialModule.FormControl fullWidth>
+              <MaterialModule.InputLabel>Designation</MaterialModule.InputLabel>
+              <MaterialModule.Select
                 value={formData.designation || ""}
                 label="Designation"
                 className="!text-[12px]"
@@ -783,51 +990,21 @@ export default function EmployeeManagement() {
                   })
                 }
               >
-                <MenuItem value="" className="!text-[12px]">
+                <MaterialModule.MenuItem value="" className="!text-[12px]">
                   Select Designation
-                </MenuItem>
+                </MaterialModule.MenuItem>
                 {designations.map((desig) => (
-                  <MenuItem
+                  <MaterialModule.MenuItem
                     key={desig.id}
                     value={desig.name}
                     className="!text-[12px]"
                   >
                     {desig.name}
-                  </MenuItem>
+                  </MaterialModule.MenuItem>
                 ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth>
-              <InputLabel>Branch</InputLabel>
-              <Select
-                value={formData.branch || ""}
-                label="Branch"
-                className="!text-[12px]"
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    branch: e.target.value,
-                    branchId: branches.find(
-                      (d) => d.branchName === e.target.value,
-                    )?.id,
-                  })
-                }
-              >
-                <MenuItem value="" className="!text-[12px]">
-                  Select Branch
-                </MenuItem>
-                {branches.map((br) => (
-                  <MenuItem
-                    key={br.id}
-                    value={br.branchName}
-                    className="!text-[12px]"
-                  >
-                    {br.branchName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
+              </MaterialModule.Select>
+            </MaterialModule.FormControl>
+            <MaterialModule.TextField
               fullWidth
               label="Mobile Number"
               value={formData.mobileNumber}
@@ -836,7 +1013,7 @@ export default function EmployeeManagement() {
               }
             />
             {isEditing && (
-              <TextField
+              <MaterialModule.TextField
                 fullWidth
                 label="Employee ID"
                 value={formData.employeeId}
@@ -846,9 +1023,9 @@ export default function EmployeeManagement() {
           </div>
           {!isEditing && (
             <>
-              <FormControlLabel
+              <MaterialModule.FormControlLabel
                 control={
-                  <Checkbox
+                  <MaterialModule.Checkbox
                     checked={hasManualEmpId}
                     onChange={(e) => setHasManualEmpId(e.target.checked)}
                   />
@@ -861,12 +1038,11 @@ export default function EmployeeManagement() {
                 <div className="font-semibold text-gray-800">
                   Employee ID Configuration
                 </div>
-                {/* AUTO GENERATION */}
                 {!hasManualEmpId ? (
                   <>
-                    <FormControl fullWidth className="!mt-6">
-                      <InputLabel>Generation Flow</InputLabel>
-                      <Select
+                    <MaterialModule.FormControl fullWidth className="!mt-6">
+                      <MaterialModule.InputLabel>Generation Flow</MaterialModule.InputLabel>
+                      <MaterialModule.Select
                         value={empGenerationFlow}
                         label="Generation Flow"
                         className="!text-[12px]"
@@ -876,29 +1052,29 @@ export default function EmployeeManagement() {
                           )
                         }
                       >
-                        <MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MenuItem>
-                        <MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MenuItem>
-                      </Select>
-                    </FormControl>
+                        <MaterialModule.MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MaterialModule.MenuItem>
+                        <MaterialModule.MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MaterialModule.MenuItem>
+                      </MaterialModule.Select>
+                    </MaterialModule.FormControl>
 
                     {empGenerationFlow === "new" &&
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                        <FormControl fullWidth>
-                          <InputLabel>Format Type</InputLabel>
-                          <Select
+                        <MaterialModule.FormControl fullWidth>
+                          <MaterialModule.InputLabel>Format Type</MaterialModule.InputLabel>
+                          <MaterialModule.Select
                             value={empCodeType}
                             label="Format Type"
                             className="!text-[12px]"
                             onChange={(e) => setEmpCodeType(e.target.value)}
                           >
-                            <MenuItem value="pattern" className="!text-[12px]">Pattern</MenuItem>
-                            <MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MenuItem>
-                            <MenuItem value="number" className="!text-[12px]">Number</MenuItem>
-                          </Select>
-                        </FormControl>
+                            <MaterialModule.MenuItem value="pattern" className="!text-[12px]">Pattern</MaterialModule.MenuItem>
+                            <MaterialModule.MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MaterialModule.MenuItem>
+                            <MaterialModule.MenuItem value="number" className="!text-[12px]">Number</MaterialModule.MenuItem>
+                          </MaterialModule.Select>
+                        </MaterialModule.FormControl>
                         {empCodeType === "pattern" && (
                           <>
-                            <TextField
+                            <MaterialModule.TextField
                               fullWidth
                               label="Prefix"
                               className="!text-[12px]"
@@ -908,7 +1084,7 @@ export default function EmployeeManagement() {
                               }
                               placeholder="EMP"
                             />
-                            <TextField
+                            <MaterialModule.TextField
                               fullWidth
                               type="number"
                               label="Starting Number"
@@ -921,7 +1097,7 @@ export default function EmployeeManagement() {
                           </>
                         )}
                         {empCodeType === "alphanumeric" && (
-                          <TextField
+                          <MaterialModule.TextField
                             fullWidth
                             type="number"
                             label="Number Of Digits"
@@ -934,7 +1110,7 @@ export default function EmployeeManagement() {
                           />
                         )}
                         {empCodeType === "number" && (
-                          <TextField
+                          <MaterialModule.TextField
                             fullWidth
                             type="number"
                             label="Starting Number"
@@ -948,7 +1124,7 @@ export default function EmployeeManagement() {
                       </div>
                     }
 
-                    <Alert severity="info" className="mt-4">
+                    <MaterialModule.Alert severity="info" className="mt-4">
                       <div className="flex flex-col gap-1">
                         {empGenerationFlow === "continue" && (
                           <>
@@ -977,11 +1153,11 @@ export default function EmployeeManagement() {
                           </div>
                         )}
                       </div>
-                    </Alert>
+                    </MaterialModule.Alert>
                   </>
                 ) : (
                   <div className="mt-4">
-                    <TextField
+                    <MaterialModule.TextField
                       fullWidth
                       label="Employee ID"
                       value={manualEmployeeId}
@@ -996,57 +1172,57 @@ export default function EmployeeManagement() {
               </div>
             </>
           )}
-        </DialogContent>
-        <DialogActions className="!p-4 border-t !border-gray-300">
-          <Button
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
+          <MaterialModule.Button
             onClick={() => setEmployeeDialogOpen(false)}
             variant="outlined"
             className="!border-gray-300 !text-gray-800"
           >
             Cancel
-          </Button>
-          <Button
+          </MaterialModule.Button>
+          <MaterialModule.Button
             onClick={() => handleSaveEmployee()}
             variant="contained"
             className="!bg-primary"
           >
             {isEditing ? "Update Employee" : "Add & Send Welcome Email"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </MaterialModule.Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
 
       {/* Bulk Upload Dialog */}
-      <Dialog
+      <MaterialModule.Dialog
         open={bulkUploadDialogOpen}
         onClose={() => setBulkUploadDialogOpen(false)}
         maxWidth="md"
         fullWidth
       >
+        {/* ... (keep your existing bulk upload dialog code) ... */}
         <div className="flex items-center justify-between p-2 border-b !border-gray-300">
           <div className="text-primary ml-4">Bulk Upload Employees</div>
-          <IconButton onClick={() => setBulkUploadDialogOpen(false)}>
-            <CloseOutlined />
-          </IconButton>
+          <MaterialModule.IconButton onClick={() => setBulkUploadDialogOpen(false)}>
+            <MaterialModule.CloseOutlined />
+          </MaterialModule.IconButton>
         </div>
-        <DialogContent>
-          <Alert severity="info" className="mb-4">
+        <MaterialModule.DialogContent>
+          <MaterialModule.Alert severity="info" className="mb-4">
             Download the sample template, fill in employee details, and upload.
             Welcome emails will be sent automatically.
-          </Alert>
+          </MaterialModule.Alert>
           <div className="text-center">
-            <Button
+            <MaterialModule.Button
               variant="outlined"
-              startIcon={<DownloadIcon />}
+              startIcon={<MaterialModule.DownloadIcon />}
             // onClick={downloadSampleTemplate}
             >
               Download Sample Template
-            </Button>
+            </MaterialModule.Button>
           </div>
 
-          {/* CHECKBOX */}
-          <FormControlLabel
+          <MaterialModule.FormControlLabel
             control={
-              <Checkbox
+              <MaterialModule.Checkbox
                 checked={hasEmpIdColumn}
                 onChange={(e) =>
                   setHasEmpIdColumn(e.target.checked)
@@ -1062,22 +1238,22 @@ export default function EmployeeManagement() {
             label="Excel already contains Employee ID column"
           />
           {hasEmpIdColumn && (
-            <Alert
+            <MaterialModule.Alert
               severity="info"
               className="mb-3"
             >
               Employee IDs will be
               validated from uploaded
               Excel.
-            </Alert>
+            </MaterialModule.Alert>
           )}
           {!hasEmpIdColumn && (
             <div className="border rounded-lg p-4 !mb-4">
               <div className="font-semibold text-gray-800">Employee ID Generation</div>
               <div className="!mt-6">
-                <FormControl fullWidth className="">
-                  <InputLabel>Generation Flow</InputLabel>
-                  <Select
+                <MaterialModule.FormControl fullWidth className="">
+                  <MaterialModule.InputLabel>Generation Flow</MaterialModule.InputLabel>
+                  <MaterialModule.Select
                     value={empGenerationFlow}
                     label="Generation Flow"
                     className="!text-[12px]"
@@ -1087,108 +1263,76 @@ export default function EmployeeManagement() {
                       )
                     }
                   >
-                    <MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MenuItem>
-                    <MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MenuItem>
-                  </Select>
-                </FormControl>
-                {/* AUTO GENERATE DEFAULT */}
+                    <MaterialModule.MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MaterialModule.MenuItem>
+                    <MaterialModule.MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MaterialModule.MenuItem>
+                  </MaterialModule.Select>
+                </MaterialModule.FormControl>
                 {empGenerationFlow == 'new' && (
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                    {/* <FormControl
-                      fullWidth
-                      className="!mb-6"
-                    >
-                      <InputLabel>Generation Type</InputLabel>
-                      <Select
-                        value={empCodeMode}
-                        label="Generation Type"
-                        className="!text-[12px]"
-                        disabled={!hasEmpIdColumn}
-                        onChange={(e) =>
-                          setEmpCodeMode(
-                            e.target.value
-                          )
-                        }
-                      >
-                        <MenuItem value="auto">Auto Generate</MenuItem>
-                        <MenuItem value="manual">Manual Type</MenuItem>
-                      </Select>
-                    </FormControl> */}
-                    <FormControl
-                      style={{ minWidth: 200 }}>
-                      <InputLabel>Format Type</InputLabel>
-                      <Select
+                    <MaterialModule.FormControl style={{ minWidth: 200 }}>
+                      <MaterialModule.InputLabel>Format Type</MaterialModule.InputLabel>
+                      <MaterialModule.Select
                         value={empCodeType}
                         label="Format Type"
                         className="!text-[12px] !text-gray-800"
                         onChange={(e) =>
-                          setEmpCodeType(
-                            e.target.value
-                          )
+                          setEmpCodeType(e.target.value)
                         }
                       >
-                        <MenuItem value="pattern" className="!text-[12px]">Pattern</MenuItem>
-                        <MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MenuItem>
-                        <MenuItem value="number" className="!text-[12px]">Number</MenuItem>
-                      </Select>
-                    </FormControl>
+                        <MaterialModule.MenuItem value="pattern" className="!text-[12px]">Pattern</MaterialModule.MenuItem>
+                        <MaterialModule.MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MaterialModule.MenuItem>
+                        <MaterialModule.MenuItem value="number" className="!text-[12px]">Number</MaterialModule.MenuItem>
+                      </MaterialModule.Select>
+                    </MaterialModule.FormControl>
                     {empCodeType === "pattern" && (
                       <>
-                        <TextField
+                        <MaterialModule.TextField
                           label="Prefix"
                           value={empPrefix}
                           required
                           className="!text-[12px]"
                           onChange={(e) =>
-                            setEmpPrefix(
-                              e.target.value
-                            )
+                            setEmpPrefix(e.target.value)
                           }
                         />
-                        <TextField
+                        <MaterialModule.TextField
                           label="Starting Number"
                           className="!text-[12px]"
                           value={empStartNumber}
                           required
                           onChange={(e) =>
-                            setEmpStartNumber(
-                              e.target.value
-                            )
+                            setEmpStartNumber(e.target.value)
                           }
                         />
                       </>
                     )}
                     {empCodeType === "alphanumeric" && (
-                      <TextField
+                      <MaterialModule.TextField
                         type="number"
                         label="Number Of Digits"
                         className="!text-[12px]"
                         required
                         value={empDigitCount}
                         onChange={(e) =>
-                          setEmpDigitCount(
-                            e.target.value
-                          )
+                          setEmpDigitCount(e.target.value)
                         }
                       />
                     )}
                     {empCodeType === "number" && (
-                      <TextField
+                      <MaterialModule.TextField
                         type="number"
                         label="Starting Number"
                         className="!text-[12px]"
                         value={empStartNumber}
                         required
                         onChange={(e) =>
-                          setEmpStartNumber(
-                            e.target.value
-                          )
+                          setEmpStartNumber(e.target.value)
                         }
                       />
                     )}
                   </div>
                 )}
-                <Alert severity="info" className="mt-4">
+                <MaterialModule.Alert severity="info" className="mt-4">
                   <div className="flex flex-col gap-1">
                     {empGenerationFlow === "continue" && (
                       <>
@@ -1217,12 +1361,7 @@ export default function EmployeeManagement() {
                       </div>
                     )}
                   </div>
-                </Alert>
-                {/* <div className="text-[12px] text-gray-600">
-                  Preview:&nbsp;
-                  {empCodeType === "pattern" ? `${empPrefix}${empStartNumber}` :
-                    empCodeType === "alphanumeric" ? `Cj6k${"0".repeat(Number(empDigitCount))}` : empStartNumber}
-                </div> */}
+                </MaterialModule.Alert>
               </div>
             </div>
           )}
@@ -1236,42 +1375,42 @@ export default function EmployeeManagement() {
               onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
             />
             <label htmlFor="file-upload" className="cursor-pointer">
-              <CloudUploadIcon className="text-6xl text-gray-400 mb-2" />
-              <Typography variant="body1" className="text-gray-600">
+              <MaterialModule.CloudUploadIcon className="text-6xl text-gray-400 mb-2" />
+              <MaterialModule.Typography variant="body1" className="text-gray-600">
                 {uploadFile ? uploadFile.name : "Click or drag file to upload"}
-              </Typography>
-              <Typography variant="caption" className="text-gray-400">
+              </MaterialModule.Typography>
+              <MaterialModule.Typography variant="caption" className="text-gray-400">
                 Supported formats: .xlsx, .xls, .csv
-              </Typography>
+              </MaterialModule.Typography>
             </label>
           </div>
           {uploadProgress > 0 && uploadProgress < 100 && (
-            <Box className="mt-4">
-              <LinearProgress variant="determinate" value={uploadProgress} />
-              <Typography variant="caption" className="text-gray-500 mt-1">
+            <MaterialModule.Box className="mt-4">
+              <MaterialModule.LinearProgress variant="determinate" value={uploadProgress} />
+              <MaterialModule.Typography variant="caption" className="text-gray-500 mt-1">
                 Uploading: {uploadProgress}%
-              </Typography>
-            </Box>
+              </MaterialModule.Typography>
+            </MaterialModule.Box>
           )}
-        </DialogContent>
-        <DialogActions className="!p-4 border-t !border-gray-300">
-          <Button
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
+          <MaterialModule.Button
             onClick={() => setBulkUploadDialogOpen(false)}
             variant="outlined"
             className="!text-gray-800 !border-gray-300"
           >
             Cancel
-          </Button>
-          <Button
+          </MaterialModule.Button>
+          <MaterialModule.Button
             onClick={handleBulkUpload}
             variant="contained"
             disabled={!uploadFile}
             className={!uploadFile ? "!bg-gray-300" : "!bg-primary"}
           >
             Upload & Send Emails
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </MaterialModule.Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
     </div>
   );
 }

@@ -1,10 +1,9 @@
 export interface CompanyInfo {
   companyName: string;
-//   alias_name: string;
-//   code: string;
-//   cost_code: string;
+  alias_name: string;
+  code: string;
+  cost_code: string;
   companyType: string;
-  contact_person: string;
   phone: string;
   fax: string;
   email: string;
@@ -20,17 +19,17 @@ export interface CompanyInfo {
   gstNo: string;
   panNo: string;
   tanNo: string;
-//   tin_no: string;
-//   cst_no: string;
-//   cst_date: string;
+  tin_no: string;
+  cst_no: string;
+  cst_date: string;
   cin: string;
-//   license_no: string;
+  license_no: string;
   registrationCertificateNo: string;
   pfNo: string;
   esiNo: string;
-//   esic_code: string;
+  esic_code: string;
   linNo: string;
-//   estd_code: string;
+  estd_code: string;
 //   logo: string | File;
 //   signature: string | File;
 }

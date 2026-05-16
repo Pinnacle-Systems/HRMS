@@ -3,6 +3,22 @@ export const getRowColor = (index: number) => ({
     index % 2 === 0 ? "var(--bg-primary)" : "var(--bg-secondary)",
 });
 
+export const getStickyLeftSx = (index: number) => ({
+  position: "sticky",
+  left: 0,
+  zIndex: 2,
+  backgroundColor:
+    index % 2 === 0 ? "var(--bg-primary)" : "var(--bg-secondary)",
+});
+
+export const getStickyRightSx = (index: number) => ({
+  position: "sticky",
+  right: 0,
+  zIndex: 2,
+  backgroundColor:
+    index % 2 === 0 ? "var(--bg-primary)" : "var(--bg-secondary)",
+});
+
 export const categoryMapping: Record<string, string> = {
   gender: "Gender",
   bloodGroup: "Blood Group",

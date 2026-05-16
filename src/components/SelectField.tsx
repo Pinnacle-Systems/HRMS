@@ -21,6 +21,7 @@ import AddIcon from "@mui/icons-material/Add";
 
 interface DynamicSelectWithAddProps {
   label: string;
+  title?:string;
   value: string | string[];
   onChange: (value: string | string[]) => void;
   options: string[];
@@ -37,6 +38,7 @@ interface DynamicSelectWithAddProps {
 
 export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
   label,
+  title,
   value,
   onChange,
   options,
@@ -58,7 +60,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
   const localOptions = useMemo(
     () => Array.from(new Set([...options, ...addedOptions])),
     [addedOptions, options],
-  );
+  );  
 
   const handleAddOption = async () => {
     if (!newOption.trim()) return;
@@ -71,15 +73,15 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
     try {
       await onAddOption(newOption.trim());
       setAddedOptions((current) => [...current, newOption.trim()]);
-      if (!multiple && onChange) {
-        onChange(newOption.trim());
-      }
+      // if (!multiple && onChange) {
+      //   onChange(newOption.trim());
+      // }
       setNewOption("");
       setOpenDialog(false);
     } catch (error) {
       console.error("Failed to add option:", error);
     } finally {
-      setIsAdding(false);  
+      setIsAdding(false);
     }
   };
 
@@ -101,9 +103,9 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
     //   );
     // }
     if (Array.isArray(selected)) {
-      return selected.join(", ") || placeholder || `Select ${label}`;
+      return selected.join(", ") || placeholder || `Select ${label ? label : title}`;
     }
-    return String(selected || placeholder || `Select ${label}`);
+    return String(selected);
   };
 
   // Build menu items
@@ -114,25 +116,33 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
         <ListItemText primary={option} />
       </MenuItem>
     )),
-    showAddButton && <Divider key="divider" />,
     showAddButton && (
-      <MenuItem
-        key="add-button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpenDialog(true);
-        }}
-        sx={{
-          color: "primary.main",
-          justifyContent: "center",
-          gap: 1,
-          py: 1,
-        }}
-      >
-        <AddIcon fontSize="small" />
-        <span style={{ fontSize: "12px", fontWeight: 500 }}>Add New {label}</span>
-      </MenuItem>
+      <div key="sticky-add"
+        style={{
+          position: "sticky",
+          bottom: 0,
+          background: "white",
+          zIndex: 10,
+        }}>
+        <Divider key="divider" />
+        <MenuItem
+          key="add-button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpenDialog(true);
+          }}
+          sx={{
+            color: "primary.main",
+            justifyContent: "center",
+            gap: 1,
+            py: 1,
+          }}
+        >
+          <AddIcon fontSize="small" className="!h-8" />
+          <span style={{ fontSize: "12px", fontWeight: 500 }}>Add New {label ? label : title}</span>
+        </MenuItem>
+      </div>
     ),
   ].filter(Boolean);
 
@@ -149,20 +159,36 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
           ...sx,
         }}
       >
-        <InputLabel>{label}</InputLabel>
+        <InputLabel>{label ? label : ''}</InputLabel>
         <Select
           // multiple={multiple}
           // value={value || (multiple ? [] : "")}
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          input={<OutlinedInput label={label} />}
+          displayEmpty
+          input={<OutlinedInput label={label ? label : title} />}
           className="!text-[12px] !text-gray-800"
-          sx={{
-            "& .MuiPaper-root": {
-              Height: 100,
+          // sx={{
+          //   "& .MuiPaper-root": {
+          //     Height: 100,
+          //   },
+          // }}
+          renderValue={renderValue}
+          MenuProps={{
+            slotProps: {
+              paper: {
+                sx: {
+                  maxHeight: 250,
+                  pb: 0,
+                },
+              },
+              list: {
+                sx: {
+                  pb: 0,
+                },
+              },
             },
           }}
-          renderValue={renderValue}
         >
           {menuItems}
         </Select>
@@ -170,7 +196,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
       </FormControl>
 
       {/* Add New Option Dialog */}
-     <Dialog
+      <Dialog
         open={openDialog}
         onClose={() => {
           setOpenDialog(false);
@@ -180,19 +206,19 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
         fullWidth
       >
         <DialogTitle className="!text-primary !font-bold !border-b !border-gray-200">
-          Add New {label}
+          Add New {label ? label : title}
         </DialogTitle>
         <DialogContent className="!pt-4">
           <TextField
             autoFocus
             margin="dense"
-            label={`New ${label}`}
+            label={`New ${label ? label : title}`}
             type="text"
             variant="outlined"
             value={newOption}
             fullWidth
             onChange={(e) => setNewOption(e.target.value)}
-            placeholder={`Enter new ${label.toLowerCase()}`}
+            placeholder={`Enter new ${label ? label.toLowerCase() : title ? title.toLowerCase() : ''}`}
             onKeyPress={(e) => {
               if (e.key === "Enter") {
                 handleAddOption();

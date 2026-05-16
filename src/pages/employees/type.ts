@@ -18,6 +18,8 @@ export interface Employee {
   branch: string;
   branchId: string;
   designation?: string;
+  employeeStatus?:string;
+  employeeStatusId?:string;
   //   status: "PENDING" | "ACTIVE" | "INACTIVE" | "ONBOARDING";
   //   isWelcomeEmailSent: boolean;
   //   welcomeEmailSentAt?: string;
@@ -177,3 +179,9 @@ interface Attachment {
   fileUrl: string;
   uploadedAt: string;
 }
+
+export const toTitleCase = (value: string) => {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};

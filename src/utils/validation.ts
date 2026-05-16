@@ -23,12 +23,12 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid TAN number format',
     formatExample: 'ABCD12345E'
   },
-  tin_no: {
+  tinNo: {
     pattern: /^[0-9]{11}$/,
     message: 'Invalid TIN number format',
     formatExample: '12345678901'
   },
-  cst_no: {
+  cstNo: {
     pattern: /^CST\/[0-9]{10}$/,
     message: 'Invalid CST number format',
     formatExample: 'CST/1234567890'
@@ -57,6 +57,12 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid email format',
     formatExample: 'company@example.com'
   },
+
+  contactEmail: {
+    pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+    message: 'Invalid email format',
+    formatExample: 'company@example.com'
+  },
   
   // Statutory
   pfNo: {
@@ -69,7 +75,7 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid ESI number format (17 digits required)',
     formatExample: '12345678901234567'
   },
-  esic_code: {
+  esicCode: {
     pattern: /^\d{17}$/,
     message: 'Invalid ESIC code format (17 digits required)',
     formatExample: '12345678901234567'
@@ -81,7 +87,7 @@ export const validationRules: Record<string, ValidationRule> = {
   },
   
   // License Numbers
-  license_no: {
+  licenseNo: {
     pattern: /^[A-Z]{3}\/[A-Z]{2}\/\d{3}\/\d{4}$/,
     message: 'Invalid license number format',
     formatExample: 'TRD/MH/123/2024'
@@ -110,7 +116,7 @@ export const validationRules: Record<string, ValidationRule> = {
   //   message: 'Invalid company code',
   //   formatExample: 'VHR001'
   // },
-  cost_code: {
+  costCode: {
     pattern: /^[A-Z]{2}-\d{4}-\d{3}$/,
     message: 'Invalid cost code format',
     formatExample: 'CC-2024-001'

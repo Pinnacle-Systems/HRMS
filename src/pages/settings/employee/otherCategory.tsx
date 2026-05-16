@@ -215,19 +215,18 @@ export default function CategorySettings() {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <div
-                      className={`p-2 rounded-lg ${category.enabled ? "bg-primary/10" : "bg-gray-100"}`}
+                      className={`p-2 rounded-lg ${category.enabled ? "" : "bg-gray-100"}`}
                     >
                       <CategoryIcon
-                        className={`${category.enabled ? "text-primary" : "text-gray-400"}`}
+                        className={`${category.enabled ? "text-gray-600" : "text-gray-400"}`}
                       />
                     </div>
                     <div>
-                      <Typography
-                        variant="h6"
-                        className="font-semibold text-gray-800"
+                      <div
+                        className="text-[12px] text-gray-800"
                       >
                         {category.categoryName}
-                      </Typography>
+                      </div>
                     </div>
                   </div>
                   <IconButton
@@ -237,7 +236,7 @@ export default function CategorySettings() {
                       handleMenuOpen(e, category);
                     }}
                   >
-                    <MoreVertIcon className="!w-4 !h-4" />
+                    <MoreVertIcon className="!w-4 !h-4 !text-gray-800" />
                   </IconButton>
                 </div>
                 <div className="mt-3 flex justify-between items-center">

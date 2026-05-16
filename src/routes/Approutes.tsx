@@ -26,6 +26,7 @@ import CategoryItems from "../pages/settings/employee/categoryItems";
 import CategorySettings from "../pages/settings/employee/otherCategory";
 import EmployeeDetails from "../pages/employees/employeeDetails";
 import OnBoardingProcess from "../pages/settings/employee/onBoardingProcess/onboard";
+import Documentation from "../pages/Documentation/doc";
 
 function RootRedirect() {
   const { session, isLoading } = useAuth();
@@ -74,6 +75,7 @@ function AppRoutesContent() {
               <Route path="home" element={<Home />} />
               <Route path="leave" element={<Leave />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="documentation" element={<Documentation />} />
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>

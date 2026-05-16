@@ -502,7 +502,7 @@ export default function Profile() {
                   {personalInfo.map((item, index) => (
                     <div key={item.name || index} className="flex items-start text-gray-600">
                       <ListItemIcon
-                        className="!text-primary !w-3"
+                        className="!w-3"
                         sx={{ "& svg": { fontSize: 18 } }}
                       >
                         {item.icon}
@@ -545,7 +545,7 @@ export default function Profile() {
                 {employementInfo.map((item, index) => (
                   <div key={item.name || index} className="flex items-start text-gray-600">
                     <ListItemIcon
-                      className="!text-primary !w-3"
+                      className="!w-3"
                       sx={{ "& svg": { fontSize: 18 } }}
                     >
                       {item.icon}

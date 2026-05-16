@@ -31,6 +31,8 @@ import {
   Person4Outlined as Person4OutlinedIcon,
   LogoutOutlined as LogoutOutlinedIcon,
   ContrastOutlined as ContrastOutlinedIcon,
+  HelpCenterOutlined,
+  HelpOutlineTwoTone,
 } from "@mui/icons-material";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { useAuth } from "../auth/authContext";
@@ -121,6 +123,12 @@ export default function Layout() {
       path: "/settings/general/company-settings",
       // path: `/settings/general/company-settings/${user?.tenantId}`,
       roles: ["HR", "ADMIN"],
+    },
+    {
+      text: "Help",
+      icon: <HelpOutlineTwoTone />,
+      path: "/documentation",
+      roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
     },
   ];
 
@@ -225,16 +233,16 @@ export default function Layout() {
       >
         <MenuItem onClick={handleMyProfile} className="bg-white-50">
           <ListItemIcon>
-            <Person4OutlinedIcon className="text-primary !w-4" />
+            <Person4OutlinedIcon className="!w-4" />
           </ListItemIcon>
           <div className="text-sm text-gray-800 ">My Profile</div>
         </MenuItem>
         <Divider className="border border-gray-200" />
-        <MenuItem onClick={handleLogout} className="bg-white">
+        <MenuItem onClick={handleLogout} className="bg-white text-error">
           <ListItemIcon>
             <LogoutOutlinedIcon className="!w-4" />
           </ListItemIcon>
-          <div className="text-sm text-error">Logout</div>
+          <div className="text-sm">Logout</div>
         </MenuItem>
       </Menu>
 
@@ -325,6 +333,7 @@ export default function Layout() {
           mt: "64px",
           backgroundColor: "var(--bg-primary)",
           minHeight: "calc(100vh - 64px)",
+          overflow:"auto",
           transition: (theme) =>
             theme.transitions.create("padding", {
               easing: theme.transitions.easing.sharp,

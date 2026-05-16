@@ -256,6 +256,14 @@ const theme = createTheme({
             borderColor: "#02afff !important",
             borderWidth: "2px !important",
           },
+
+        ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+          padding: "0 10px 0 2px",
+        },
+
+        // ".MuiPickersSectionList-root": {
+        //   padding: "8px 0",
+        // },
       },
     },
 
@@ -407,6 +415,27 @@ const theme = createTheme({
         },
       },
     },
+
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        },
+      },
+    },
+
+    MuiTableRow: {
+    styleOverrides: {
+      root: {
+        "&.MuiTableRow-hover:hover": {
+          // backgroundColor: "#4b556354",
+          cursor:'pointer'
+        },
+      },
+    },
+  },
   },
 });
 

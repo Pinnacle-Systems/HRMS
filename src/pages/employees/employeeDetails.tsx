@@ -1,61 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  Button,
-  Chip,
-  Avatar,
-  IconButton,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tabs,
-  Tab,
-  Box,
-  TextField,
-  FormControlLabel,
-  Switch,
-  Card,
-  CardContent,
-  Tooltip,
-  Dialog,
-  DialogContent,
-  DialogActions,
-} from "@mui/material";
-import {
-  ArrowBack as ArrowBackIcon,
-  LocationOn as LocationIcon,
-  School as SchoolIcon,
-  WorkHistory as WorkHistoryIcon,
-  FamilyRestroom as FamilyIcon,
-  AccountBalance as AccountBalanceIcon,
-  AttachFile as AttachmentIcon,
-  Edit as EditIcon,
-  Save as SaveIcon,
-  Cancel as CancelIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Person2Outlined,
-  Person2TwoTone,
-  CloseOutlined,
-  LoginOutlined,
-  ContactEmergencyOutlined,
-  LocationOnOutlined,
-  SchoolOutlined,
-  VerifiedUserOutlined,
-  LocalLibraryOutlined,
-  WorkHistoryOutlined,
-  FlightLandOutlined,
-  Diversity3Outlined,
-  PeopleOutlineOutlined,
-  CameraAlt
-} from "@mui/icons-material";
+import MaterialModule from "../../materialModule";
 import { employeeService } from "../../services/modules/employees";
 import { useUI } from "../../context/Snackbar";
-import type { Branches, Department, EmployeeDetails, TabPanelProps } from "./type";
+import { toTitleCase, type Branches, type Department, type EmployeeDetails, type TabPanelProps } from "./type";
 import {
   aadhaarColumns,
   addressColumns,
@@ -66,12 +14,8 @@ import {
   emergencyColumns,
   employeeColumns,
   employmentColumns,
-  // epfNominationColumns,
-  // epiNominationColumns,
-  // epsNominationColumns,
   esiColumns,
   familyColumns,
-  // gratuityNominationColumns,
   insuranceColumns,
   VerificationColumns,
   loginColumns,
@@ -84,6 +28,12 @@ import {
   nominationTypes,
   nominationConfigs,
   attachmentAddFields,
+  stickyHeaderLeftSx,
+  stickyHeaderRightSx,
+  stickyLeftSx,
+  commonSx,
+  stickyRightSx,
+  commonsx,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -96,6 +46,7 @@ import { useMasterData } from "../../hooks/useMasterData";
 import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
+import { formatDate } from "../../utils/dateFormatter";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -107,7 +58,7 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`employee-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ py: 0 }}>{children}</Box>}
+      {value === index && <MaterialModule.Box sx={{ py: 0 }}>{children}</MaterialModule.Box>}
     </div>
   );
 }
@@ -120,12 +71,12 @@ const EditableGroup = ({
   onSave,
   icon,
   categoryOptions,
+  refreshCategoryOptions
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [department, setDepartments] = useState<Department[]>([]);
-  // const [designation, setDesignations] = useState<Designation[]>([]);
   const [branch, setBranches] = useState<Branches[]>([]);
 
   const handleSave = async () => {
@@ -199,13 +150,6 @@ const EditableGroup = ({
     return option?.value || name;
   };
 
-  const getOptionNameFromId = (fieldKey: string, value: string) => {
-    if (!value) return " -";
-    const options = getFieldOptions(fieldKey, "");
-    const option = options.find((opt: any) => opt.value === value);
-    return option?.label || value;
-  };
-
   const handleAddOption = async (fieldKey: string, newOption: string) => {
     try {
       showSpinner();
@@ -222,11 +166,12 @@ const EditableGroup = ({
       }
       const payload = {
         name: newOption,
-        code: newOption.toUpperCase().replace(/\s/g, "_"),
+        code: newOption.substring(0, 3).toUpperCase().replace(/\s/g, "_"),
         active: true,
       };
       await categoryService.createCategoryItem(category.id, payload);
-      await categoryService.getCategoryItems(category.id);
+      // await categoryService.getCategoryItems(category.id);
+      await refreshCategoryOptions();
       showSnackbar(`"${newOption}" added successfully!`, "success");
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -235,17 +180,9 @@ const EditableGroup = ({
     }
   };
 
-  useEffect(() => { }, [categoryOptions]);
-
-  const {
-    countries,
-    states,
-    cities,
-    loading,
-    fetchStatesByCountry,
-    fetchCitiesByCountry,
-    fetchCitiesByState,
-  } = useMasterData();
+  useEffect(() => {
+    console.log(categoryOptions);
+  }, [categoryOptions]);
 
   const getMasterData = async () => {
     try {
@@ -253,48 +190,14 @@ const EditableGroup = ({
       setDepartments(deptRes.data.content || deptRes.data || []);
       const branchRes: any = await branchService.getBranches();
       setBranches(branchRes.data.content || branchRes.data || []);
-      // const desigRes: any = await categoryService.getCategoryItems("00c4fd3c-4fb6-4d33-932e-80a615a90825");
-      // setDesignations(desigRes.data.content || desigRes.data || []);
     } catch (error: any) {
       showSnackbar(error.message, "error");
     }
   };
+
   useEffect(() => {
-    getMasterData();
+    (title == 'Employee Details') ? getMasterData() : '';
   }, []);
-
-  const handleMasterDataChange = async (key: string, value: string) => {
-    setEditData((prev: any) => ({
-      ...prev,
-      [key]: value,
-    }));
-
-    // Country selected
-    if (key === "country") {
-      setEditData((prev: any) => ({
-        ...prev,
-        country: value,
-        state: "",
-        city: "",
-      }));
-
-      await fetchStatesByCountry(value);
-
-      // OPTIONAL
-      await fetchCitiesByCountry(value);
-    }
-
-    // State selected
-    if (key === "state") {
-      setEditData((prev: any) => ({
-        ...prev,
-        state: value,
-        city: "",
-      }));
-
-      await fetchCitiesByState(value);
-    }
-  };
 
   return (
     <div className="mb-6 p-4 border rounded-lg mt-3 shadow-sm border-gray-300">
@@ -305,21 +208,21 @@ const EditableGroup = ({
             <div className="text-primary-dark "> {title} </div>
           </div>
           {!isEditing ? (
-            <IconButton size="small" onClick={() => setIsEditing(true)}>
-              <EditIcon fontSize="small" className="text-gray-800" />
-            </IconButton>
+            <MaterialModule.IconButton size="small" onClick={() => setIsEditing(true)}>
+              <MaterialModule.EditIcon fontSize="small" className="text-gray-800" />
+            </MaterialModule.IconButton>
           ) : (
             <div className="flex gap-1">
-              <Tooltip title="Save Changes">
-                <IconButton size="small" onClick={handleSave} color="success">
-                  <SaveIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Cancel">
-                <IconButton size="small" onClick={handleCancel} color="error">
-                  <CancelIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              <MaterialModule.Tooltip title="Save Changes">
+                <MaterialModule.IconButton size="small" onClick={handleSave} color="success">
+                  <MaterialModule.SaveIcon fontSize="small" />
+                </MaterialModule.IconButton>
+              </MaterialModule.Tooltip>
+              <MaterialModule.Tooltip title="Cancel">
+                <MaterialModule.IconButton size="small" onClick={handleCancel} color="error">
+                  <MaterialModule.CancelIcon fontSize="small" />
+                </MaterialModule.IconButton>
+              </MaterialModule.Tooltip>
             </div>
           )}
         </div>
@@ -353,9 +256,9 @@ const EditableGroup = ({
                         />
                       </LocalizationProvider>
                     ) : field.type === "boolean" ? (
-                      <FormControlLabel
+                      <MaterialModule.FormControlLabel
                         control={
-                          <Switch
+                          <MaterialModule.Switch
                             checked={editData[field.key] || false}
                             onChange={(e) =>
                               setEditData({
@@ -371,9 +274,9 @@ const EditableGroup = ({
                     ) : field.type === "select" ? (
                       <DynamicSelectWithAdd
                         label=""
+                        title={field.label}
                         value={
-                          getOptionNameFromId(field.key, editData[field.key]) ||
-                          ""
+                          editData[field.key] || ""
                         }
                         onChange={(value) => {
                           const id = getOptionIdFromName(
@@ -383,60 +286,58 @@ const EditableGroup = ({
                           );
                           setEditData((prev: any) => ({
                             ...prev,
-                            [field.key]: id,
+                            [field.key]: value,
+                            [`${field.key}Id`]: id,
                           }));
                         }}
                         options={getSelectOptions(field.key, field.label)}
                         onAddOption={(newOption) =>
                           handleAddOption(field.key, newOption)
                         }
-                        showAddButton={true}
+                        showAddButton={(field.key == 'branch' || field.key == 'department') ? false : true}
                       />
-                    ) : field.type === "master-select" ? (
-                      <MasterSelect
-                        label={field.label}
-                        value={editData[field.key] || ""}
-                        onChange={(newValue: any) =>
-                          handleMasterDataChange(field.key, newValue)
-                        }
-                        countries={field.key === "country" ? countries : []}
-                        states={field.key === "state" ? states : []}
-                        cities={field.key === "city" ? cities : []}
-                        disabled={loading}
-                      // sx={commonSx}
-                      />
-                    ) : (
-                      <TextField
-                        size="small"
-                        value={editData[field.key] || ""}
-                        multiline={field.multiline || false}
-                        rows={field.multiline ? 3 : 1}
-                        disabled={field.disabled}
-                        onChange={(e) =>
-                          setEditData({
-                            ...editData,
-                            [field.key]: e.target.value,
-                          })
-                        }
-                        fullWidth
-                      />
-                    )}
+                    )
+                      // : field.type === "master-select" ? (
+                      //   <MasterSelect
+                      //     label={field.label}
+                      //     value={editData[field.key] || ""}
+                      //     onChange={(newValue: any) =>
+                      //       handleMasterDataChange(field.key, newValue)
+                      //     }
+                      //     countries={field.key === "country" ? countries : []}
+                      //     states={field.key === "state" ? states : []}
+                      //     cities={field.key === "city" ? cities : []}
+                      //     disabled={loading}
+                      //   // sx={commonSx}
+                      //   />
+                      // ) 
+                      : (
+                        <MaterialModule.TextField
+                          size="small"
+                          value={editData[field.key] || ""}
+                          multiline={field.multiline || false}
+                          rows={field.multiline ? 3 : 1}
+                          disabled={field.disabled}
+                          onChange={(e) =>
+                            setEditData({
+                              ...editData,
+                              [field.key]: e.target.value,
+                            })
+                          }
+                          fullWidth
+                        />
+                      )}
                   </div>
                 ) : (
                   <div className="text-[12px] text-ellipsis overflow-hidden text-gray-800 mt-1">
                     {field.type === "date" && editData[field.key]
-                      ? new Date(editData[field.key]).toLocaleDateString()
+                      ? formatDate(editData[field.key])
                       : field.type === "boolean"
                         ? editData[field.key]
                           ? "Yes"
                           : "No"
                         : field.type === "select"
-                          ? // (() => {
-                          //   const optionsList = getFieldOptions(field.key, field.label);
-                          //   const selected = optionsList.find((opt: any) => opt.value === editData[field.key]);
-                          //   return selected?.label || editData[field.key] || "-";
-                          // })()
-                          getOptionNameFromId(field.key, editData[field.key])
+                          ? editData[field.key] || (isEditing ? "" : "-")
                           : editData[field.key] || "-"}
                   </div>
                 )}
@@ -468,20 +369,7 @@ const EditableTableGroup = ({
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isEdit, setIsEdit] = useState(false);
-
-  const {
-    countries,
-    // states,
-    // cities,
-    loading,
-    fetchStatesByCountry,
-    // fetchCitiesByCountry,
-    fetchCitiesByState,
-  } = useMasterData();
-
-  useEffect(() => {
-    setEditData(data);
-  }, [data]);
+  const isMasterTab = title === "Addresses";
 
   const handleSave = () => {
     onSave(editData);
@@ -531,7 +419,6 @@ const EditableTableGroup = ({
   };
 
   const handleEditClick = (row: any) => {
-    console.log(row);
     setNewItemData({
       documentType: row.documentType,
       documentName: row.documentName,
@@ -601,7 +488,7 @@ const EditableTableGroup = ({
         (opt: any) => opt.id === value
       );
 
-      return option?.name || '-';
+      return option?.name || "";
     } else {
       const options = getFieldOptions(fieldKey, "");
       const option = options.find((opt: any) => opt.value === value);
@@ -641,49 +528,49 @@ const EditableTableGroup = ({
   // ====================== STATES ======================
   const [stateOptionsMap, setStateOptionsMap] = useState<any>({});
   const [cityOptionsMap, setCityOptionsMap] = useState<any>({});
-
-  // ====================== LOAD EXISTING DATA ======================
+  const {
+    countries,
+    loading,
+    fetchStatesByCountry,
+    fetchCitiesByState,
+  } = useMasterData(isMasterTab);
 
   useEffect(() => {
-    const loadExistingMasterData = async () => {
-      if (!editData?.length) return;
+    setEditData(data);
+  }, [data]);
 
-      const newStateMap: any = {};
-      const newCityMap: any = {};
-
-      for (let i = 0; i < editData.length; i++) {
-        const row = editData[i];
-
-        // LOAD STATES for this row
-        if (row.country && !stateOptionsMap[i]) { // Only load if not already loaded
-          const statesData = await fetchStatesByCountry(row.country);
-          newStateMap[i] = statesData || [];
-        }
-
-        // LOAD CITIES for this row
-        if (row.state && !cityOptionsMap[i]) { // Only load if not already loaded
-          const citiesData = await fetchCitiesByState(row.state);
-          newCityMap[i] = citiesData || [];
-        }
+  // ====================== LOAD EXISTING DATA ======================
+  const loadExistingMasterData = async () => {
+    if (!editData?.length) return;
+    const newStateMap: any = {};
+    const newCityMap: any = {};
+    for (let i = 0; i < editData.length; i++) {
+      const row = editData[i];
+      // LOAD STATES for this row
+      if (row.country && !stateOptionsMap[i]) { // Only load if not already loaded
+        const statesData = await fetchStatesByCountry(row.country);
+        newStateMap[i] = statesData || [];
       }
-
-      // Only update if we have new data
-      if (Object.keys(newStateMap).length > 0) {
-        setStateOptionsMap((prev: any) => ({ ...prev, ...newStateMap }));
+      // LOAD CITIES for this row
+      if (row.state && !cityOptionsMap[i]) { // Only load if not already loaded
+        const citiesData = await fetchCitiesByState(row.state);
+        newCityMap[i] = citiesData || [];
       }
-      if (Object.keys(newCityMap).length > 0) {
-        setCityOptionsMap((prev: any) => ({ ...prev, ...newCityMap }));
-      }
-    };
+    }
+    // Only update if we have new data
+    if (Object.keys(newStateMap).length > 0) {
+      setStateOptionsMap((prev: any) => ({ ...prev, ...newStateMap }));
+    }
+    if (Object.keys(newCityMap).length > 0) {
+      setCityOptionsMap((prev: any) => ({ ...prev, ...newCityMap }));
+    }
+  };
 
+  useEffect(() => {
     loadExistingMasterData();
-  }, [editData]);
+  }, [isEditing]);
 
-  const handleMasterDataChange = async (
-    rowIndex: number | undefined,
-    key: string,
-    value: string
-  ) => {
+  const handleMasterDataChange = async (rowIndex: any, key: string, value: string) => {
     if (rowIndex !== undefined) {
       if (key === "country" && value) {
         setEditData((prev: any[]) => {
@@ -697,6 +584,7 @@ const EditableTableGroup = ({
           return updated;
         });
         const statesData = await fetchStatesByCountry(value);
+        // const citiesData = await fetchCitiesByCountry(value);
         setStateOptionsMap((prev: any) => ({
           ...prev,
           [rowIndex]: statesData || [],
@@ -774,21 +662,6 @@ const EditableTableGroup = ({
     }
   };
 
-  const commonSx = {
-    background: "var(--bg-primary)",
-    "& .MuiFormHelperText-root": {
-      fontSize: "10px",
-      marginLeft: 0,
-    },
-  };
-
-  const commonsx = {
-    "& .MuiDialog-paper": {
-      width: "500px",
-      maxWidth: "500px",
-    },
-  };
-
   const tablesx = {
     padding: !isEditing ? "8px 16px !important" : "2px 2px 2px 16px !important",
   }
@@ -803,8 +676,8 @@ const EditableTableGroup = ({
               <div className="bg-primary-50 p-1 rounded-lg !text-primary"> {icon} </div>
               <div className="text-primary-dark "> {title} </div>
             </div>
-            <Button
-              startIcon={<AddIcon sx={{ color: "var(--color-primary)" }} />}
+            <MaterialModule.Button
+              startIcon={<MaterialModule.AddIcon sx={{ color: "var(--color-primary)" }} />}
               size="small"
               onClick={handleAddClick}
               variant="outlined"
@@ -814,7 +687,7 @@ const EditableTableGroup = ({
               }}
             >
               Add {title}
-            </Button>
+            </MaterialModule.Button>
           </div>
           <div className="text-center text-gray-500 py-4">
             No {title.toLowerCase()} found
@@ -833,247 +706,283 @@ const EditableTableGroup = ({
               {!isEditing ? (
                 <>
                   <div className="flex items-center gap-1 border border-gray-300 rounded">
-                    <Button
+                    <MaterialModule.Button
                       size="small"
                       onClick={handleAddClick}
                       className="!min-w-0"
                     >
-                      <AddIcon fontSize="small" className="text-gray-800" />
-                    </Button>
+                      <MaterialModule.AddIcon fontSize="small" className="text-gray-800" />
+                    </MaterialModule.Button>
                     {
                       title != 'Attachments' &&
                       <>
                         <div className="border-l border-gray-300 h-5" />
-                        <Button
+                        <MaterialModule.Button
                           size="small"
                           onClick={() => setIsEditing(true)}
                           className="!min-w-0"
                         >
-                          <EditIcon
+                          <MaterialModule.EditIcon
                             fontSize="small"
                             className="text-gray-800 !w-3.5"
                           />
-                        </Button>
+                        </MaterialModule.Button>
                       </>
                     }
                   </div>
                 </>
               ) : (
                 <>
-                  <IconButton size="small" onClick={handleSave} color="primary">
-                    <SaveIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={handleCancel} color="error">
-                    <CancelIcon fontSize="small" />
-                  </IconButton>
+                  <MaterialModule.IconButton size="small" onClick={handleSave} color="primary">
+                    <MaterialModule.SaveIcon fontSize="small" />
+                  </MaterialModule.IconButton>
+                  <MaterialModule.IconButton size="small" onClick={handleCancel} color="error">
+                    <MaterialModule.CancelIcon fontSize="small" />
+                  </MaterialModule.IconButton>
                 </>
               )}
             </div>
           </div>
 
-          <TableContainer component={Paper} elevation={0} className="border">
-            <Table>
-              <TableHead className="bg-gray-100">
-                <TableRow>
-                  <TableCell>S No</TableCell>
-                  {columns.map((col: any) => (
-                    <TableCell key={col.key}>{col.label}</TableCell>
-                  ))}
-                  {(isEditing || title == 'Attachments') && <TableCell>Actions</TableCell>}
-                </TableRow>
-              </TableHead>
-              <TableBody className="bg-white-50">
-                {editData.map((row: any, rowIndex: number) => (
-                  <TableRow key={row.id || rowIndex}>
-                    <TableCell sx={tablesx}>{rowIndex + 1}</TableCell>
+          <div>
+            <MaterialModule.TableContainer component={MaterialModule.Paper} elevation={0} className="border">
+              <MaterialModule.Table>
+                <MaterialModule.TableHead className="bg-gray-100">
+                  <MaterialModule.TableRow>
+                    <MaterialModule.TableCell sx={{
+                      ...stickyHeaderLeftSx,
+                      minWidth: "70px",
+                    }}>S No</MaterialModule.TableCell>
                     {columns.map((col: any) => (
-                      <TableCell
-                        key={col.key}
-                        className="!text-gray-800"
-                        sx={tablesx}
-                      >
-                        {isEditing ? (
-                          col.type === "select" ? (
-                            <DynamicSelectWithAdd
-                              label=""
-                              value={
-                                getOptionNameFromId(col.key, row[col.key]) || ""
-                              }
-                              onChange={(value) => {
-                                const id = getOptionIdFromName(
-                                  col.key,
-                                  col.label,
-                                  value as string,
-                                );
-                                handleCellChange(rowIndex, col.key, id);
-                              }}
-                              options={getSelectOptions(col.key, col.label)}
-                              onAddOption={(newOption) =>
-                                handleAddOption(col.key, newOption)
-                              }
-                              showAddButton={col.key == 'nomineeName' ? false : true}
-                              sx={{
-                                ...commonSx, "& .MuiSelect-select": {
-                                  padding: "5px !important",
-                                },
-                              }}
-                            />
-                          ) : col.type === "date" ? (
-                            <TextField
-                              size="small"
-                              type="date"
-                              value={row[col.key] || ""}
-                              onChange={(e) =>
-                                handleCellChange(
-                                  rowIndex,
-                                  col.key,
-                                  e.target.value,
-                                )
-                              }
-                              fullWidth
-                              sx={{
-                                "& .MuiInputBase-root": {
-                                  fontSize: "12px",
-                                  minHeight: "32px",
-                                },
-                                "& .MuiInputBase-input": {
-                                  padding: "5px 10px",
-                                },
-                              }}
-                            />
-                          ) : col.type === "boolean" ? (
-                            <FormControlLabel
-                              control={
-                                <Switch
-                                  checked={row[col.key] || false}
-                                  onChange={(e) =>
-                                    handleCellChange(
-                                      rowIndex,
-                                      col.key,
-                                      e.target.checked,
-                                    )
-                                  }
-                                  className="text-gray-800"
-                                />
-                              }
-                              label=""
-                            />
-                          ) : col.type === "master-select" ? (
-                            <MasterSelect
-                              type={
-                                col.key
-                              }
-                              countries={countries}
-                              states={stateOptionsMap[rowIndex] || []}
-                              cities={cityOptionsMap[rowIndex] || []}
-                              value={row[col.key] || ""}
-                              onChange={(newValue: any) =>
-                                handleMasterDataChange(
-                                  rowIndex,
-                                  col.key,
-                                  newValue
-                                )
-                              }
-                              disabled={loading}
-                              // label={col.label + "j"}
-                              sx={{
-                                ...commonSx, "& .MuiSelect-select": {
-                                  padding: "5px !important",
-                                },
-                              }}
-                            />
-                          ) : (
-                            <TextField
-                              size="small"
-                              value={row[col.key] || ""}
-                              onChange={(e) =>
-                                handleCellChange(
-                                  rowIndex,
-                                  col.key,
-                                  e.target.value,
-                                )
-                              }
-                              fullWidth
-                              variant="outlined"
-                              sx={{
-                                "& .MuiInputBase-root": {
-                                  fontSize: "12px",
-                                  minHeight: "auto",
-                                },
-                                "& .MuiInputBase-input": {
-                                  padding: "5px",
-                                },
-                              }}
-                            />
-                          )
-                        ) : (
-                          <span className="text-[13px]">
-                            {col.type === "link" && row[col.key] ? (
-                              <a
-                                href={row[col.key]}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline"
-                              >
-                                View File
-                              </a>
-                            ) : col.type === "date" && row[col.key] ? (
-                              new Date(row[col.key]).toLocaleDateString()
-                            ) : col.type === "boolean" ? (
-                              row[col.key] ? (
-                                <span className="text-green-500">Yes</span>
-                              ) : (
-                                <span className="text-red-500">No</span>
-                              )
-                            ) : (col.type === "select" || col.type === 'master-select') ? (
-                              getOptionNameFromId(col.key, row[col.key])
-                            ) : (
-                              row[col.key] || "-"
-                            )}
-                          </span>
-                        )}
-                      </TableCell>
+                      <MaterialModule.TableCell key={col.key} sx={{
+                        background: "#f3f4f6",
+                        minWidth: "180px",
+                      }}>{col.label}</MaterialModule.TableCell>
                     ))}
-                    {isEditing ? (
-                      <TableCell >
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteRow(rowIndex)}
-                          color="error"
+                    {(isEditing || title == 'Attachments') && <MaterialModule.TableCell sx={{
+                      ...stickyHeaderRightSx,
+                      minWidth: "100px",
+                    }}>Actions</MaterialModule.TableCell>}
+                  </MaterialModule.TableRow>
+                </MaterialModule.TableHead>
+                <MaterialModule.TableBody className="bg-white-50">
+                  {editData.map((row: any, rowIndex: number) => (
+                    <MaterialModule.TableRow key={row.id || rowIndex}>
+                      <MaterialModule.TableCell sx={{
+                        ...tablesx,
+                        ...stickyLeftSx,
+                        minWidth: "70px",
+                      }}>{rowIndex + 1}</MaterialModule.TableCell>
+                      {columns.map((col: any) => (
+                        <MaterialModule.TableCell
+                          key={col.key}
+                          className="!text-gray-800"
+                          sx={{
+                            ...tablesx,
+                            minWidth: "180px",
+                          }}
                         >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    ) : null}
-                    {
-                      title == 'Attachments' &&
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => { handleEditClick(row); setIsEdit(true) }}
-                          color="primary"
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteRow(rowIndex)}
-                          color="error"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                          {isEditing ? (
+                            col.type === "select" ? (
+                              <DynamicSelectWithAdd
+                                label=""
+                                value={
+                                  col.options ? col.options.find(
+                                    (opt: string) =>
+                                      opt.toLowerCase() === String(row[col.key]).toLowerCase()
+                                  ) || "" : getOptionNameFromId(col.key, row[col.key]) || ""
+                                }
+                                onChange={(value) => {
+                                  if (col.options) {
+                                    handleCellChange(rowIndex, col.key, value);
+                                  } else {
+                                    const id = getOptionIdFromName(
+                                      col.key,
+                                      col.label,
+                                      value as string,
+                                    );
+                                    handleCellChange(rowIndex, col.key, id);
+                                  }
+                                }}
+                                options={col.options ? col.options : getSelectOptions(col.key, col.label)}
+                                onAddOption={(newOption) =>
+                                  handleAddOption(col.key, newOption)
+                                }
+                                showAddButton={(col.key == 'nomineeName' || col.options) ? false : true}
+                                sx={{
+                                  ...commonSx, "& .MuiSelect-select": {
+                                    padding: "5px !important",
+                                    width: "150px !important"
+                                  },
+                                }}
+                              />
+                            ) : col.type === "date" ? (
+                              <MaterialModule.TextField
+                                size="small"
+                                type="date"
+                                value={row[col.key] || ""}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    rowIndex,
+                                    col.key,
+                                    e.target.value,
+                                  )
+                                }
+                                fullWidth
+                                sx={{
+                                  "& .MuiInputBase-root": {
+                                    fontSize: "12px",
+                                    minHeight: "32px",
+                                  },
+                                  "& .MuiInputBase-input": {
+                                    padding: "5px 10px",
+                                  },
+                                }}
+                              />
+                            ) : col.type === "boolean" ? (
+                              <MaterialModule.FormControlLabel
+                                control={
+                                  <MaterialModule.Switch
+                                    checked={row[col.key] || false}
+                                    onChange={(e) =>
+                                      handleCellChange(
+                                        rowIndex,
+                                        col.key,
+                                        e.target.checked,
+                                      )
+                                    }
+                                    className="text-gray-800"
+                                  />
+                                }
+                                label=""
+                              />
+                            ) : col.type === "master-select" ? (
+                              <MasterSelect
+                                type={
+                                  col.key
+                                }
+                                countries={countries}
+                                states={stateOptionsMap[rowIndex] || []}
+                                cities={cityOptionsMap[rowIndex] || []}
+                                value={row[col.key] || ""}
+                                onChange={(newValue: any) =>
+                                  handleMasterDataChange(
+                                    rowIndex,
+                                    col.key,
+                                    newValue
+                                  )
+                                }
+                                disabled={loading}
+                                // label={col.label + "j"}
+                                sx={{
+                                  ...commonSx, "& .MuiSelect-select": {
+                                    padding: "5px !important",
+                                    width: "150px !important"
+                                  },
+                                }}
+                              />
+                            ) : (
+                              <MaterialModule.TextField
+                                size="small"
+                                value={row[col.key] || ""}
+                                onChange={(e) =>
+                                  handleCellChange(
+                                    rowIndex,
+                                    col.key,
+                                    e.target.value,
+                                  )
+                                }
+                                fullWidth
+                                variant="outlined"
+                                sx={{
+                                  "& .MuiInputBase-root": {
+                                    fontSize: "12px",
+                                    minHeight: "auto",
+                                  },
+                                  "& .MuiInputBase-input": {
+                                    padding: "5px",
+                                    width: "150px !important"
+                                  },
+                                }}
+                              />
+                            )
+                          ) : (
+                            <span className="text-[13px]">
+                              {col.type === "link" && row[col.key] ? (
+                                <a
+                                  href={row[col.key]}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline"
+                                >
+                                  View File
+                                </a>
+                              ) : col.type === "date" && row[col.key] ? (
+                                formatDate(row[col.key])
+                              ) : col.type === "boolean" ? (
+                                row[col.key] ? (
+                                  <span className="text-green-500">Yes</span>
+                                ) : (
+                                  <span className="text-red-500">No</span>
+                                )
+                              ) : (col.type === "select" || col.type === 'master-select') ? (
+                                col.options ? toTitleCase(row[col.key]) : getOptionNameFromId(col.key, row[col.key])
+                              ) : (
+                                row[col.key] || "-"
+                              )}
+                            </span>
+                          )}
+                        </MaterialModule.TableCell>
+                      ))}
+                      {isEditing ? (
+                        <MaterialModule.TableCell sx={{
+                          ...tablesx,
+                          ...stickyRightSx,
+                          minWidth: "50px",
+                        }}>
+                          <MaterialModule.IconButton
+                            size="small"
+                            onClick={() => handleDeleteRow(rowIndex)}
+                            color="error"
+                          >
+                            <MaterialModule.DeleteIcon fontSize="small" />
+                          </MaterialModule.IconButton>
+                        </MaterialModule.TableCell>
+                      ) : null}
+                      {
+                        title == 'Attachments' &&
+                        <MaterialModule.TableCell sx={{
+                          ...tablesx,
+                          ...stickyRightSx,
+                          minWidth: "50px",
+                        }}>
+                          <MaterialModule.IconButton
+                            size="small"
+                            onClick={() => { handleEditClick(row); setIsEdit(true) }}
+                            color="primary"
+                          >
+                            <MaterialModule.EditIcon fontSize="small" />
+                          </MaterialModule.IconButton>
+                          <MaterialModule.IconButton
+                            size="small"
+                            onClick={() => handleDeleteRow(rowIndex)}
+                            color="error"
+                          >
+                            <MaterialModule.DeleteIcon fontSize="small" />
+                          </MaterialModule.IconButton>
 
-                      </TableCell>
-                    }
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                        </MaterialModule.TableCell>
+                      }
+                    </MaterialModule.TableRow>
+                  ))}
+                </MaterialModule.TableBody>
+              </MaterialModule.Table>
+            </MaterialModule.TableContainer>
+          </div>
         </div>
       }
 
-      <Dialog
+      <MaterialModule.Dialog
         open={addDialogOpen}
         onClose={() => { setAddDialogOpen(false); setSelectedFile(null); setNewItemData({}) }}
         maxWidth="sm"
@@ -1081,15 +990,15 @@ const EditableTableGroup = ({
       >
         <div className="text-primary !border-b !p-2 flex items-center justify-between !border-gray-200">
           <span className="ml-4">{isEdit ? 'Edit' : 'Add'} {title}</span>
-          <IconButton onClick={() => {
+          <MaterialModule.IconButton onClick={() => {
             setAddDialogOpen(false);
             setSelectedFile(null);
             setNewItemData({})
           }}>
-            <CloseOutlined />
-          </IconButton>
+            <MaterialModule.CloseOutlined />
+          </MaterialModule.IconButton>
         </div>
-        <DialogContent>
+        <MaterialModule.DialogContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {addDialogFields.map((field: any) => (
               <div key={field.key} className="w-[220px]">
@@ -1122,30 +1031,47 @@ const EditableTableGroup = ({
                   <DynamicSelectWithAdd
                     label={field.label}
                     value={
-                      getOptionNameFromId(
-                        field.key,
-                        newItemData[field.key],
-                      ) || ""
-                    } // Show name
+                      field.options
+                        ? field.options.find(
+                          (opt: string) =>
+                            opt.toLowerCase() ===
+                            String(newItemData[field.key] || "").toLowerCase()
+                        ) || ""
+                        : getOptionNameFromId(
+                          field.key,
+                          newItemData[field.key],
+                        ) || ""
+                    }
                     onChange={(value) => {
-                      const id = getOptionIdFromName(
-                        field.key,
-                        field.label,
-                        value as string,
-                      ); // Convert name to ID
-                      setNewItemData({ ...newItemData, [field.key]: id });
+                      if (field.options) {
+                        setNewItemData({
+                          ...newItemData,
+                          [field.key]: value,
+                        });
+                      } else {
+                        const id = getOptionIdFromName(
+                          field.key,
+                          field.label,
+                          value as string,
+                        );
+
+                        setNewItemData({
+                          ...newItemData,
+                          [field.key]: id,
+                        });
+                      }
                     }}
-                    options={getSelectOptions(field.key, field.label)}
+                    options={field.options ? field.options : getSelectOptions(field.key, field.label)}
                     onAddOption={(newOption) =>
                       handleAddOption(field.key, newOption)
                     }
-                    showAddButton={field.key == 'nomineeName' ? false : true}
+                    showAddButton={(field.key == 'nomineeName' || field.options) ? false : true}
                     required={field.required}
                   />
                 ) : field.type === "boolean" ? (
-                  <FormControlLabel
+                  <MaterialModule.FormControlLabel
                     control={
-                      <Switch
+                      <MaterialModule.Switch
                         checked={newItemData[field.key] || false}
                         onChange={(e) =>
                           setNewItemData({
@@ -1201,14 +1127,14 @@ const EditableTableGroup = ({
                       }}
                     />
                     <label htmlFor="file-upload">
-                      <Button
+                      <MaterialModule.Button
                         variant="outlined"
                         component="span"
                         fullWidth
-                        startIcon={<AttachmentIcon />}
+                        startIcon={<MaterialModule.AttachmentIcon />}
                       >
                         {selectedFile ? selectedFile.name : "Choose File"}
-                      </Button>
+                      </MaterialModule.Button>
                     </label>
                     {selectedFile && (
                       <div className="mt-2 text-[12px]">
@@ -1217,7 +1143,7 @@ const EditableTableGroup = ({
                     )}
                   </>
                 ) : (
-                  <TextField
+                  <MaterialModule.TextField
                     fullWidth
                     size="small"
                     disabled={field.disabled}
@@ -1239,9 +1165,9 @@ const EditableTableGroup = ({
               </div>
             ))}
           </div>
-        </DialogContent>
-        <DialogActions className="!p-3 !border-t !border-gray-200">
-          <Button
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="!p-3 !border-t !border-gray-200">
+          <MaterialModule.Button
             onClick={() => {
               setAddDialogOpen(false); setSelectedFile(null);
               setNewItemData({})
@@ -1250,16 +1176,16 @@ const EditableTableGroup = ({
             className="!text-gray-800 !border-gray-300"
           >
             Cancel
-          </Button>
-          <Button
+          </MaterialModule.Button>
+          <MaterialModule.Button
             onClick={handleAddConfirm}
             variant="contained"
             className="!bg-primary"
           >
             {isEdit ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </MaterialModule.Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
     </div>
   );
 };
@@ -1268,18 +1194,31 @@ export default function EmployeeDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
-  const [employee, setEmployee] = useState<EmployeeDetails | null>(null);
+  const [employee, setEmployee] = useState<any>();
   const [tabValue, setTabValue] = useState(0);
   const [categoryOptions, setCategoryOptions] = useState<Record<string, any[]>>(
     {},
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const tabs = [
+    { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
+    { label: "Addresses", icon: <MaterialModule.LocationIcon /> },
+    { label: "Qualifications", icon: <MaterialModule.SchoolIcon /> },
+    { label: "Employee Details", icon: <MaterialModule.Person2TwoTone /> },
+    { label: "Training Details", icon: <MaterialModule.AccountBalanceIcon /> },
+    { label: "Previous Employment", icon: <MaterialModule.WorkHistoryIcon /> },
+    { label: "Identification Details", icon: <MaterialModule.WorkHistoryIcon /> },
+    { label: "Family Details", icon: <MaterialModule.FamilyIcon /> },
+    { label: "Nominations", icon: <MaterialModule.AccountBalanceIcon /> },
+    { label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
+  ];
 
   const fetchEmployeeDetails = async () => {
     showSpinner();
     try {
       const response: any = await employeeService.getEmployeeById(id);
       setEmployee(response.data);
+      console.log(response.data, 'ppp');
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
       navigate("/employees");
@@ -1315,71 +1254,41 @@ export default function EmployeeDetails() {
   useEffect(() => { }, [categoryOptions]);
 
   // ==================== PATCH UPDATES ====================
-  const getChanges = (
-    original: any,
-    updated: any,
-    fieldMap: Record<string, string>,
-  ) => {
-    const changes: any = {};
-    Object.entries(fieldMap).forEach(([apiKey, formKey]) => {
-      if (updated[formKey] !== original[formKey]) {
-        changes[apiKey] = updated[formKey];
-      }
-    });
-    return changes;
-  };
-
+  //BASIC INFO
   const updatePersonalInfo = async (updatedData: any) => {
     showSpinner();
     try {
-      // const payload = {
-      //   dateOfBirth: updatedData.dateOfBirth,
-      //   birthday: updatedData.birthday,
-      //   marriageDate: updatedData.marriageDate,
-      //   // mobileNumber: updatedData.mobileNumber,
-      //   nickName: updatedData.nickName,
-      //   genderId: updatedData.gender,
-      //   bloodGroupId: updatedData.bloodGroup,
-      //   nationalityId: updatedData.nationality,
-      //   religionId: updatedData.religion,
-      //   maritalStatusId: updatedData.maritalStatus,
-      //   spouseName: updatedData.spouseName,
-      //   fathersName: updatedData.fatherName,
-      //   personalEmailAddress: updatedData.personalEmail,
-      //   height: Number(updatedData.height),
-      //   weight: Number(updatedData.weight),
-      //   physicallyChallenged: updatedData.physicallyChallenged,
-      //   internationalEmployee: updatedData.internationalEmployee,
-      //   disabilityTypeId: updatedData.disabilityType,
-      //   employeeReferenceNumber: updatedData.employeeReferenceNumber,
-      //   // extensionNumber: updatedData.extensionNumber,
-      // };
-      const fieldMap = {
-        dateOfBirth: "dateOfBirth",
-        birthday: "birthday",
-        marriageDate: "marriageDate",
-        nickName: "nickName",
-        genderId: "gender",
-        bloodGroupId: "bloodGroup",
-        nationalityId: "nationality",
-        religionId: "religion",
-        maritalStatusId: "maritalStatus",
-        spouseName: "spouseName",
-        fathersName: "fatherName",
-        personalEmailAddress: "personalEmail",
-        height: "height",
-        weight: "weight",
-        physicallyChallenged: "physicallyChallenged",
-        internationalEmployee: "internationalEmployee",
-        disabilityTypeId: "disabilityType",
-        employeeReferenceNumber: "employeeReferenceNumber",
+      const payload = {
+        firstName: updatedData.firstName,
+        lastName: updatedData.lastName,
+        genderId: updatedData.genderId,
+        dateOfBirth: updatedData.dateOfBirth,
+        birthday: updatedData.birthday,
+        maritalStatusId: updatedData.maritalStatusId,
+        marriageDate: updatedData.marriageDate,
+        bloodGroupId: updatedData.bloodGroupId,
+        fathersName: updatedData.fathersName,
+        spouseName: updatedData.spouseName,
+        nationalityId: updatedData.nationalityId,
+        religionId: updatedData.religionId,
+        height: Number(updatedData.height),
+        weight: Number(updatedData.weight),
+        disabilityTypeId: updatedData.disabilityTypeId,
+        personalEmailAddress: updatedData.personalEmailAddress,
+        // age: Number(updatedData.age),
+        // totalExperience: Number(updatedData.totalExperience),
+        // extensionNumber: updatedData.extensionNumber 
+        nickName: updatedData.nickName,
+        // employeeReferenceNumber: updatedData.employeeReferenceNumber 
+        identificationMark: updatedData.identificationMark,
+        hobbies: updatedData.hobbies,
+        languagesKnown: updatedData.languagesKnown,
+        physicallyChallenged: updatedData.physicallyChallenged,
+        internationalEmployee: updatedData.internationalEmployee
       };
-      const payload = getChanges(employee, updatedData, fieldMap);
-      if (payload.height) payload.height = Number(payload.height);
-      if (payload.weight) payload.weight = Number(payload.weight);
       if (Object.keys(payload).length) {
         await employeeService.updatePersonalInfo(id!, payload);
-        // setEmployee((prev) => (prev ? { ...prev, ...updatedData } : null));
+        await fetchEmployeeDetails();
         showSnackbar("Personal information updated successfully!", "success");
       }
     } catch (error: any) {
@@ -1389,271 +1298,19 @@ export default function EmployeeDetails() {
     }
   };
 
-  const updateAdminInfo = async (updatedData: any) => {
-    showSpinner();
+  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !employee?.id) return;
     try {
-      // const payload = {
-      // employeeId: updatedData.employeeId,
-      // joiningDate: updatedData.joiningDate,
-      // confirmationDate: updatedData.confirmationDate,
-      // probationPeriod: Number(updatedData.probationPeriod),
-      // noticePeriod: Number(updatedData.noticePeriod),
-      // departmentId: updatedData.department,
-      // designationId: updatedData.designation,
-      // gradeId: updatedData.grade,
-      // branchId: updatedData.branch,
-      // bandId: updatedData.band,
-      // managerId: updatedData.reportingManager,
-      // empTypeId: updatedData.employeeType,
-      // // salaryType: updatedData.salaryType,
-      // // salaryPaymentMode: updatedData.salaryPaymentMode,
-      // attendanceSchemaId: updatedData.attendanceSchema,
-      // // bonusPolicy: updatedData.bonusPolicy,
-      // // otPolicy: updatedData.otPolicy,
-      // // otAmount: updatedData.otAmount,
-      // hostel: updatedData.hostel,
-      // // vehicle: updatedData.vehicle,
-      // // vehicleTypeId:updatedData.vehicleType,
-      // // migrant: updatedData.migrant,
-      // // exService: updatedData.exService,
-      // // firstAidTrainee: updatedData.firstAidTrainee,
-      // // category: updatedData.category,
-      // // employeeIdentity: updatedData.employeeIdentity,
-      // // employeeReferenceNumber: updatedData.employeeReferenceNumber,
-      // referredBy: updatedData.referredBy,
-      // // monthlySalary: updatedData.monthlySalary,
-      // employeeStatusId: updatedData.employeeStatus,
-      // remarks: updatedData.remarks,
-      // idCardNo: updatedData.idCardNo,
-      // midNo: updatedData.midNo,
-      // oldIdNo: updatedData.oldIdNo,
-      // };
-      const fieldMap = {
-        departmentId: "department",
-        employeeStatusId: "employeeStatus",
-        attendanceSchemaId: "attendanceSchema",
-        empTypeId: "employeeType",
-        managerId: "reportingManager",
-        bandId: "band",
-        branchId: "branch",
-        gradeId: "grade",
-        designationId: "designation",
-        joiningDate: "joiningDate",
-        confirmationDate: "confirmationDate",
-        hostel: 'hostel',
-        referredBy: "referredBy",
-        noticePeriod: "noticePeriod",
-        probationPeriod: "probationPeriod"
-      };
-      const payload = getChanges(employee, updatedData, fieldMap);
-      if (payload.probationPeriod) payload.probationPeriod = Number(payload.probationPeriod);
-      if (payload.noticePeriod) payload.noticePeriod = Number(payload.noticePeriod);
-      console.log(payload);
-      if (Object.keys(payload).length) {
-        await employeeService.updateAdminInfo(id!, payload);
-        // setEmployee((prev) => (prev ? { ...prev, ...updatedData } : null));
-        showSnackbar("Employee details updated successfully!", "success");
-      }
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to update", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const updateBankInfo = async (updatedData: any) => {
-    showSpinner();
-    try {
-      const fieldMap = {
-        bankAccountNumber: "bankAccountNumber",
-        bankName: "bankName",
-        bankBranch: "bankBranch",
-        ifscCode: "ifscCode",
-        nameAsPerBankRecords: "nameAsPerBankRecords",
-        bankAccountTypeId: "bankAccountType",
-        ddPayableAt: "ddPayableAt",
-        salaryPaymentModeId: "salaryPaymentMode",
-        salaryTypeId: "salaryType",
-        iban: "iban",
-      };
-      const payload = getChanges(employee, updatedData, fieldMap);
-      if (Object.keys(payload).length) {
-        await employeeService.updateBankDetails(id!, payload);
-        // setEmployee((prev) => (prev ? { ...prev, ...updatedData } : null));
-        showSnackbar("Bank details updated successfully!", "success");
-      }
+      showSpinner();
+      await employeeService.uploadPhoto(employee.id, file);
+      showSnackbar("Profile photo uploaded successfully", "success");
+      fetchEmployeeDetails();
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
       hideSpinner();
     }
-  };
-
-  const updatePFInfo = async (updatedData: any) => {
-    showSpinner();
-    try {
-      const payload = {
-        esiNumber: updatedData.esiNumber,
-        //   esiJoiningDate: updatedData.esiJoiningDate,
-        //   esiRelievingDate: updatedData.esiRelievingDate,
-      };
-      await employeeService.updateEligibilityInfo(id!, payload);
-      await fetchEmployeeDetails()
-      showSnackbar("Bank details updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const updateIdentityInfo = async (updatedData: any) => {
-    showSpinner();
-    try {
-      const payload = {
-        panNumber: updatedData.panNumber,
-        aadhaarEnrolmentNo: updatedData.aadhaarEnrolmentNo,
-        nameAsOnAadhaar: updatedData.nameAsOnAadhaar,
-        aadhaarNumber: updatedData.aadhaarNumber,
-        universalAccountNumber: updatedData.uan,
-        pranNumber: updatedData.pranNumber,
-        nameAsPerPran: updatedData.nameAsPerPran,
-        passportNumber: updatedData.passportNumber,
-        visaType: updatedData.visaType,
-        visaExpiry: updatedData.visaExpiry,
-        loginIpAddress: updatedData.loginIpAddress,
-        loginUserName: updatedData.loginUserName,
-        //   nameInPan: updatedData.nameInPan,
-        //   nameInPassport: updatedData.nameInPassport,
-        //   placeOfIssue: updatedData.placeOfIssue,
-        //   dateOfIssue: updatedData.dateOfIssue,
-        //   expiryDate: updatedData.dateOfExpiry,
-        //   insuranceNumber: updatedData.insuranceNumber,
-        //   nameInInsurance: updatedData.nameInInsurance,
-        //   insuranceValidFrom: updatedData.insuranceValidFrom,
-        //   insuranceValidTo: updatedData.insuranceValidTo,
-      };
-      await employeeService.updateIdentityInfo(id!, payload);
-      await fetchEmployeeDetails();
-      // setEmployee((prev) => (prev ? { ...prev, ...updatedData } : null));
-      showSnackbar("Identification details updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const updateEligibilityInfo = async (updatedData: any) => {
-    showSpinner();
-    try {
-      const payload = {
-        pfEligible: updatedData.pfEligible,
-        excessEpfEligible: updatedData.excessEpfEligible,
-        excessEpsEligible: updatedData.excessEpsEligible,
-        existingEpsMember: updatedData.existingEpsMember,
-        esiEligible: updatedData.esiEligible,
-        lwfCovered: updatedData.lwfCovered,
-      };
-      await employeeService.updateEligibilityInfo(id!, payload);
-      // setEmployee((prev) => (prev ? { ...prev, ...updatedData } : null));
-      showSnackbar("Eligibility information updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to update", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const updateBackgroundInfo = async (updatedData: any) => {
-    showSpinner();
-    try {
-      const payload = {
-        // loginUsername: updatedData.loginUsername,
-        // loginIpAddress: updatedData.loginIpAddress,
-        backgroundCheckStatus: updatedData.backgroundCheckStatus,
-        backgroundVerificationCompletedOn:
-          updatedData.backgroundVerificationCompletedOn,
-        backgroundVerificationIndicator:
-          updatedData.backgroundVerificationIndicator,
-        agencyName: updatedData.agencyName,
-        backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
-      };
-      await employeeService.updateBackgroundInfo(id!, payload);
-      setEmployee((prev) => (prev ? { ...prev, ...updatedData } : null));
-      showSnackbar("Background information updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to update", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  // ==================== ARRAY ITEM OPERATIONS ====================
-
-  // Addresses
-  const handleUpdateAddresses = async (updatedData: any[]) => {
-    showSpinner();
-    try {
-      const originalData = employee?.addresses || [];
-      for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
-        if (
-          originalItem &&
-          JSON.stringify(originalItem) !== JSON.stringify(item)
-        ) {
-          const updatedItem = {
-            addressType: item.addressType,
-            addressLine1: item.addressLine1,
-            addressLine2: item.addressLine2,
-            city: item.city,
-            state: item.state,
-            country: item.country,
-            pincode: item.pincode,
-            primary: item.primary,
-          };
-          await employeeService.updateAddress(id!, item.id, updatedItem);
-        }
-      }
-      showSnackbar("Addresses updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to update addresses", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const handleAddAddress = async (newItem: any) => {
-    showSpinner();
-    try {
-      await employeeService.addAddress(id!, newItem);
-      await fetchEmployeeDetails();
-      showSnackbar("Address added successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const handleDeleteAddress = async (itemId: string) => {
-    showConfirmDialog({
-      title: "Delete Address",
-      message: "Are you sure you want to delete this address?",
-      confirmText: "Delete",
-      onConfirm: async () => {
-        showSpinner();
-        try {
-          await employeeService.deleteAddress(id!, itemId);
-          await fetchEmployeeDetails();
-          showSnackbar("Address deleted successfully!", "success");
-        } catch (error: any) {
-          showSnackbar(error.message, "error");
-        } finally {
-          hideSpinner();
-        }
-      },
-    });
   };
 
   // Emergency Contacts
@@ -1662,7 +1319,7 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.emergencyContacts || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
@@ -1718,14 +1375,74 @@ export default function EmployeeDetails() {
         showSpinner();
         try {
           await employeeService.deleteEmergencyContact(id!, itemId);
-          // const updatedData = (employee?.emergencyContacts || []).filter(
-          //   (item) => item.id !== itemId,
-          // );
-          // setEmployee((prev) =>
-          //   prev ? { ...prev, emergencyContacts: updatedData } : null,
-          // );
           await fetchEmployeeDetails();
           showSnackbar("Emergency contact deleted successfully!", "success");
+        } catch (error: any) {
+          showSnackbar(error.message, "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  // Addresses
+  const handleUpdateAddresses = async (updatedData: any[]) => {
+    showSpinner();
+    try {
+      const originalData = employee?.addresses || [];
+      for (const item of updatedData) {
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        if (
+          originalItem &&
+          JSON.stringify(originalItem) !== JSON.stringify(item)
+        ) {
+          const updatedItem = {
+            addressType: item.addressType,
+            addressLine1: item.addressLine1,
+            addressLine2: item.addressLine2,
+            city: item.city,
+            state: item.state,
+            country: item.country,
+            pincode: item.pincode,
+            primary: item.primary,
+          };
+          await employeeService.updateAddress(id!, item.id, updatedItem);
+          await fetchEmployeeDetails();
+        }
+      }
+      showSnackbar("Addresses updated successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to update addresses", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleAddAddress = async (newItem: any) => {
+    showSpinner();
+    try {
+      await employeeService.addAddress(id!, newItem);
+      await fetchEmployeeDetails();
+      showSnackbar("Address added successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleDeleteAddress = async (itemId: string) => {
+    showConfirmDialog({
+      title: "Delete Address",
+      message: "Are you sure you want to delete this address?",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await employeeService.deleteAddress(id!, itemId);
+          await fetchEmployeeDetails();
+          showSnackbar("Address deleted successfully!", "success");
         } catch (error: any) {
           showSnackbar(error.message, "error");
         } finally {
@@ -1741,7 +1458,7 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.qualifications || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
@@ -1812,13 +1529,178 @@ export default function EmployeeDetails() {
     });
   };
 
+  //ADMIN INFO
+  const updateAdminInfo = async (updatedData: any) => {
+    showSpinner();
+    try {
+      const payload = {
+        employeeStatusId: updatedData.employeeStatusId,
+        designationId: updatedData.designationId,
+        gradeId: updatedData.gradeId,
+        empTypeId: updatedData.empTypeId,
+        departmentId: updatedData.departmentId,
+        branchId: updatedData.branchId,
+        managerId: updatedData.reportingManager,
+        bandId: updatedData.bandId,
+        joiningDate: updatedData.joiningDate,
+        confirmationDate: updatedData.confirmationDate,
+        probationPeriod: Number(updatedData.probationPeriod),
+        noticePeriod: Number(updatedData.noticePeriod),
+        attendanceSchemaId: updatedData.attendanceSchemaId,
+        vehicleTypeId: updatedData.vehicleTypeId,
+        hostel: updatedData.hostel,
+        // currentCompanyExperience: updatedData.currentCompanyExperience,
+        referredBy: updatedData.referredBy,
+        bonusPolicyId: updatedData.bonusPolicyId,
+        otPolicyId: updatedData.otPolicyId,
+        otAmount: updatedData.otAmount,
+        vehicleFacility: updatedData.vehicleFacility,
+        migrant: updatedData.migrant,
+        exService: updatedData.exService,
+        monthly: updatedData.monthly,
+        adminRemarks: updatedData.adminRemarks,
+        idCardNo: updatedData.idCardNo,
+        midNo: updatedData.midNo,
+        oldIdNo: updatedData.oldIdNo
+      }
+      if (Object.keys(payload).length) {
+        await employeeService.updateAdminInfo(id!, payload);
+        await fetchEmployeeDetails();
+        showSnackbar("Employee details updated successfully!", "success");
+      }
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to update", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  //ELIGIBILITY INFO
+  const updateEligibilityInfo = async (updatedData: any) => {
+    showSpinner();
+    try {
+      const payload = {
+        pfEligible: updatedData.pfEligible,
+        excessEpfEligible: updatedData.excessEpfEligible,
+        excessEpsEligible: updatedData.excessEpsEligible,
+        existingEpsMember: updatedData.existingEpsMember,
+        esiEligible: updatedData.esiEligible,
+        lwfCovered: updatedData.lwfCovered,
+      };
+      await employeeService.updateEligibilityInfo(id!, payload);
+      await fetchEmployeeDetails();
+      showSnackbar("Eligibility information updated successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to update", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  //BG CHECK
+  const updateBackgroundInfo = async (updatedData: any) => {
+    showSpinner();
+    try {
+      const payload = {
+        // loginUsername: updatedData.loginUsername,
+        // loginIpAddress: updatedData.loginIpAddress,
+        backgroundCheckStatus: updatedData.backgroundCheckStatus,
+        backgroundVerificationCompletedOn:
+          updatedData.backgroundVerificationCompletedOn,
+        backgroundVerificationIndicator:
+          updatedData.backgroundVerificationIndicator,
+        agencyName: updatedData.agencyName,
+        backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
+      };
+      await employeeService.updateBackgroundInfo(id!, payload);
+      await fetchEmployeeDetails();
+      showSnackbar("Background information updated successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to update", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // Training Details
+  const handleUpdateTrainingDetails = async (updatedData: any[]) => {
+    showSpinner();
+    try {
+      const originalData = employee?.trainingDetails || [];
+      for (const item of updatedData) {
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        if (
+          originalItem &&
+          JSON.stringify(originalItem) !== JSON.stringify(item)
+        ) {
+          const updatedItem = {
+            trainingName: item.trainingName,
+            institute: item.institute,
+            fromDate: item.fromDate,
+            toDate: item.toDate,
+            certificateNo: item.certificateNo,
+            remarks: item.remarks,
+            durationHours: Number(item.durationHours),
+            conductedBy: item.conductedBy
+          };
+          await employeeService.updateTrainingDetail(id!, item.id, updatedItem);
+          await fetchEmployeeDetails();
+        }
+      }
+      showSnackbar("Training details updated successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(
+        error.message || "Failed to update training details",
+        "error",
+      );
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleAddTrainingDetail = async (newItem: any) => {
+    showSpinner();
+    try {
+      await employeeService.addTrainingDetail(id!, newItem);
+      await fetchEmployeeDetails();
+      showSnackbar("Training detail added successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleDeleteTrainingDetail = async (itemId: string) => {
+    showConfirmDialog({
+      title: "Delete Training Detail",
+      message: "Are you sure you want to delete this training detail?",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await employeeService.deleteTrainingDetail(id!, itemId);
+          await fetchEmployeeDetails();
+          showSnackbar("Training detail deleted successfully!", "success");
+        } catch (error: any) {
+          showSnackbar(
+            error.message || "Failed to delete training detail",
+            "error",
+          );
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
   // Previous Employments
   const handleUpdatePreviousEmployments = async (updatedData: any[]) => {
     showSpinner();
     try {
       const originalData = employee?.previousEmployments || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
@@ -1830,6 +1712,9 @@ export default function EmployeeDetails() {
             toDate: item.toDate,
             ctc: Number(item.ctc),
             reasonForLeaving: item.reasonForLeaving,
+            companyAddress: item.companyAddress,
+            achievements: item.achievements,
+            experience: Number(item.experience),
             // "referenceName": item.referenceName,
             // "referenceContact": item.referenceContact
           };
@@ -1838,11 +1723,9 @@ export default function EmployeeDetails() {
             item.id,
             updatedItem,
           );
+          await fetchEmployeeDetails();
         }
       }
-      setEmployee((prev) =>
-        prev ? { ...prev, previousEmployments: updatedData } : null,
-      );
       showSnackbar("Previous employments updated successfully!", "success");
     } catch (error: any) {
       showSnackbar(
@@ -1882,13 +1765,8 @@ export default function EmployeeDetails() {
         showSpinner();
         try {
           await employeeService.deletePreviousEmployment(id!, itemId);
-          const updatedData = (employee?.previousEmployments || []).filter(
-            (item) => item.id !== itemId,
-          );
-          setEmployee((prev) =>
-            prev ? { ...prev, previousEmployments: updatedData } : null,
-          );
           showSnackbar("Previous employment deleted successfully!", "success");
+          await fetchEmployeeDetails();
         } catch (error: any) {
           showSnackbar(
             error.message || "Failed to delete previous employment",
@@ -1901,145 +1779,32 @@ export default function EmployeeDetails() {
     });
   };
 
-  // Family Members
-  const handleUpdateFamilyMembers = async (updatedData: any[]) => {
+  //BANKINFO
+  const updateBankInfo = async (updatedData: any) => {
     showSpinner();
     try {
-      const originalData = employee?.familyMembers || [];
-      for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
-        if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
-          const matchValue = (originalItem.relationship == item.relationship && originalItem.relationshipId == item.relationshipId) ?
-            originalItem.relationshipId : item.relationship;
-          const updatedItem = {
-            name: item.name,
-            relationshipId: matchValue,
-            dateOfBirth: item.dateOfBirth,
-            occupation: item.occupation,
-            dependent: item.dependent,
-          };
-          await employeeService.updateFamilyMember(id!, item.id, updatedItem);
-        }
+      const payload = {
+        bankAccountNumber: updatedData.bankAccountNumber,
+        bankName: updatedData.bankName,
+        bankBranch: updatedData.bankBranch,
+        ifscCode: updatedData.ifscCode,
+        nameAsPerBankRecords: updatedData.nameAsPerBankRecords,
+        bankAccountTypeId: updatedData.bankAccountTypeId,
+        ddPayableAt: updatedData.ddPayableAt,
+        salaryPaymentModeId: updatedData.salaryPaymentModeId,
+        salaryTypeId: updatedData.salaryTypeId,
+        iban: updatedData.iban,
+      };
+      if (Object.keys(payload).length) {
+        await employeeService.updateBankDetails(id!, payload);
+        await fetchEmployeeDetails();
+        showSnackbar("Bank details updated successfully!", "success");
       }
-      await fetchEmployeeDetails();
-      showSnackbar("Family members updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to update family members", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const handleAddFamilyMember = async (newItem: any) => {
-    showSpinner();
-    try {
-      newItem.relationshipId = newItem.relationship;
-      delete newItem.relationship;
-      await employeeService.addFamilyMember(id!, newItem);
-      await fetchEmployeeDetails();
-      showSnackbar("Family member added successfully!", "success");
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
       hideSpinner();
     }
-  };
-
-  const handleDeleteFamilyMember = async (itemId: string) => {
-    showConfirmDialog({
-      title: "Delete Family Member",
-      message: "Are you sure you want to delete this family member?",
-      confirmText: "Delete",
-      onConfirm: async () => {
-        showSpinner();
-        try {
-          await employeeService.deleteFamilyMember(id!, itemId);
-          await fetchEmployeeDetails();
-          showSnackbar("Family member deleted successfully!", "success");
-        } catch (error: any) {
-          showSnackbar(error.message, "error");
-        } finally {
-          hideSpinner();
-        }
-      },
-    });
-  };
-
-  // Training Details
-  const handleUpdateTrainingDetails = async (updatedData: any[]) => {
-    showSpinner();
-    try {
-      const originalData = employee?.trainingDetails || [];
-      for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
-        if (
-          originalItem &&
-          JSON.stringify(originalItem) !== JSON.stringify(item)
-        ) {
-          const updatedItem = {
-            trainingName: item.trainingName,
-            institute: item.institute,
-            fromDate: item.fromDate,
-            toDate: item.toDate,
-            certificateNo: item.certificateNo,
-            remarks: item.remarks,
-          };
-          await employeeService.updateTrainingDetail(id!, item.id, updatedItem);
-        }
-      }
-      setEmployee((prev) =>
-        prev ? { ...prev, trainingDetails: updatedData } : null,
-      );
-      showSnackbar("Training details updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(
-        error.message || "Failed to update training details",
-        "error",
-      );
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const handleAddTrainingDetail = async (newItem: any) => {
-    showSpinner();
-    try {
-      await employeeService.addTrainingDetail(id!, newItem);
-      await fetchEmployeeDetails();
-      showSnackbar("Training detail added successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const handleDeleteTrainingDetail = async (itemId: string) => {
-    showConfirmDialog({
-      title: "Delete Training Detail",
-      message: "Are you sure you want to delete this training detail?",
-      confirmText: "Delete",
-      onConfirm: async () => {
-        showSpinner();
-        try {
-          await employeeService.deleteTrainingDetail(id!, itemId);
-          const updatedData = (employee?.trainingDetails || []).filter(
-            (item) => item.id !== itemId,
-          );
-          setEmployee((prev) =>
-            prev ? { ...prev, trainingDetails: updatedData } : null,
-          );
-          showSnackbar("Training detail deleted successfully!", "success");
-        } catch (error: any) {
-          showSnackbar(
-            error.message || "Failed to delete training detail",
-            "error",
-          );
-        } finally {
-          hideSpinner();
-        }
-      },
-    });
   };
 
   // PF Accounts
@@ -2048,7 +1813,7 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.pfAccounts || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
         if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
           const matchValue = (originalItem.pfScheme == item.pfScheme && originalItem.pfSchemeId == item.pfSchemeId) ?
             originalItem.pfSchemeId : item.pfScheme;
@@ -2062,9 +1827,9 @@ export default function EmployeeDetails() {
             "current": item.current
           };
           await employeeService.updatePfAccount(id!, item.id, updatedItem);
+          await fetchEmployeeDetails();
         }
       }
-      await fetchEmployeeDetails();
       showSnackbar("PF Account updated successfully!", "success");
     } catch (error: any) {
       showSnackbar(error.message || "Failed to update addresses", "error");
@@ -2108,42 +1873,133 @@ export default function EmployeeDetails() {
     });
   };
 
-  // Attachments
-  const handleAddAttachment = async (newItem: any) => {
+  //IDENTITY INFO
+  const updateIdentityInfo = async (updatedData: any) => {
     showSpinner();
     try {
-      if (!newItem.documentType) {
-        showSnackbar('Document Type is Mandatory', 'warning')
-        return
+      const payload = {
+        panNumber: updatedData.panNumber,
+        aadhaarEnrolmentNo: updatedData.aadhaarEnrolmentNo,
+        nameAsOnAadhaar: updatedData.nameAsOnAadhaar,
+        aadhaarNumber: updatedData.aadhaarNumber,
+        universalAccountNumber: updatedData.universalAccountNumber,
+        pranNumber: updatedData.pranNumber,
+        nameAsPerPran: updatedData.nameAsPerPran,
+        passportNumber: updatedData.passportNumber,
+        visaType: updatedData.visaType,
+        visaExpiry: updatedData.visaExpiry,
+        loginIpAddress: updatedData.loginIpAddress,
+        loginUserName: updatedData.loginUserName,
+        nameInPan: updatedData.nameInPan,
+        nameInPassport: updatedData.nameInPassport,
+        placeOfIssue: updatedData.placeOfIssue,
+        dateOfIssue: updatedData.dateOfIssue,
+        expiryDate: updatedData.expiryDate,
+        insuranceNumber: updatedData.insuranceNumber,
+        nameInInsurance: updatedData.nameInInsurance,
+        insuranceValidFrom: updatedData.insuranceValidFrom,
+        insuranceValidTo: updatedData.insuranceValidTo,
       };
-      await employeeService.addAttachment(id!, newItem);
+      await employeeService.updateIdentityInfo(id!, payload);
       await fetchEmployeeDetails();
-      showSnackbar("Attachment added successfully!", "success");
+      showSnackbar("Identification details updated successfully!", "success");
     } catch (error: any) {
-      showSnackbar(error.message || "Failed to add attachment", "error");
+      showSnackbar(error.message, "error");
     } finally {
       hideSpinner();
     }
   };
 
-  const handleDeleteAttachment = async (itemId: string) => {
+  //ESI INFO
+  const updateESIInfo = async (updatedData: any) => {
+    showSpinner();
+    try {
+      const payload = {
+        esiNumber: updatedData.esiNumber,
+        esiJoiningDate: updatedData.esiJoiningDate,
+        esiRelievingDate: updatedData.esiRelievingDate,
+      };
+      await employeeService.updateEligibilityInfo(id!, payload);
+      await fetchEmployeeDetails()
+      showSnackbar("Bank details updated successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // Family Members
+  const handleUpdateFamilyMembers = async (updatedData: any[]) => {
+    showSpinner();
+    try {
+      const originalData = employee?.familyMembers || [];
+      for (const item of updatedData) {
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
+          const matchValue = (originalItem.relationship == item.relationship && originalItem.relationshipId == item.relationshipId) ?
+            originalItem.relationshipId : item.relationship;
+          const matchGender = (originalItem.gender == item.gender && originalItem.genderId == item.genderId) ?
+            originalItem.genderId : item.gender;
+          const matchBg = (originalItem.bloodGroup == item.bloodGroup && originalItem.bloodGroupId == item.bloodGroupId) ?
+            originalItem.bloodGroupId : item.bloodGroup;
+          const updatedItem = {
+            name: item.name,
+            relationshipId: matchValue,
+            dateOfBirth: item.dateOfBirth,
+            occupation: item.occupation,
+            dependent: item.dependent,
+            genderId: matchGender,
+            bloodGroupId: matchBg,
+            age: item.age,
+            mobileNumber: item.mobileNumber,
+          };
+          await employeeService.updateFamilyMember(id!, item.id, updatedItem);
+          await fetchEmployeeDetails();
+        }
+      }
+      showSnackbar("Family members updated successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to update family members", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleAddFamilyMember = async (newItem: any) => {
+    showSpinner();
+    try {
+      newItem.relationshipId = newItem.relationship;
+      newItem.genderId = newItem.gender;
+      newItem.bloodGroupId = newItem.bloodGroup;
+
+      delete newItem.bloodGroup;
+      delete newItem.gender;
+      delete newItem.relationship;
+
+      await employeeService.addFamilyMember(id!, newItem);
+      await fetchEmployeeDetails();
+      showSnackbar("Family member added successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleDeleteFamilyMember = async (itemId: string) => {
     showConfirmDialog({
-      title: "Delete Attachment",
-      message: "Are you sure you want to delete this attachment?",
+      title: "Delete Family Member",
+      message: "Are you sure you want to delete this family member?",
       confirmText: "Delete",
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteAttachment(id!, itemId);
-          const updatedData = (employee?.attachments || []).filter(
-            (item) => item.id !== itemId,
-          );
-          setEmployee((prev) =>
-            prev ? { ...prev, attachments: updatedData } : null,
-          );
-          showSnackbar("Attachment deleted successfully!", "success");
+          await employeeService.deleteFamilyMember(id!, itemId);
+          await fetchEmployeeDetails();
+          showSnackbar("Family member deleted successfully!", "success");
         } catch (error: any) {
-          showSnackbar(error.message || "Failed to delete attachment", "error");
+          showSnackbar(error.message, "error");
         } finally {
           hideSpinner();
         }
@@ -2174,7 +2030,6 @@ export default function EmployeeDetails() {
   const fetchFamilyMembers = async () => {
     try {
       const response: any = await employeeService.getFamilyMembers(id!);
-
       setFamilyMembers(response.data || []);
     } catch (error) {
       console.error(error);
@@ -2186,6 +2041,10 @@ export default function EmployeeDetails() {
       fetchFamilyMembers();
     }
   }, [id]);
+
+  useEffect(() => {
+    tabValue == 8 ? fetchFamilyMembers() : ''
+  }, [tabValue])
 
   const familyMemberOptions = familyMembers.map((member: any) => ({
     id: member.id,
@@ -2214,7 +2073,7 @@ export default function EmployeeDetails() {
       }
       const originalData = employee?.nominations || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig) => orig.id === item.id);
+        const originalItem = originalData.find((orig: any) => orig.id === item.id);
         if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
           const payload = {
             "nomineeName": item.nomineeName,
@@ -2268,12 +2127,7 @@ export default function EmployeeDetails() {
         showSpinner();
         try {
           await employeeService.deleteNomination(id!, itemId);
-          const updatedData = (employee?.nominations || []).filter(
-            (item) => item.id !== itemId,
-          );
-          setEmployee((prev) =>
-            prev ? { ...prev, nominations: updatedData } : null,
-          );
+          await fetchEmployeeDetails()
           showSnackbar("Nomination deleted successfully!", "success");
         } catch (error: any) {
           showSnackbar(error.message || "Failed to delete nomination", "error");
@@ -2284,48 +2138,58 @@ export default function EmployeeDetails() {
     });
   };
 
-  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !employee?.id) return;
+  // Attachments
+  const handleAddAttachment = async (newItem: any) => {
+    showSpinner();
     try {
-      showSpinner();
-      await employeeService.uploadPhoto(employee.id, file);
-      showSnackbar("Profile photo uploaded successfully", "success");
-      fetchEmployeeDetails();
+      if (!newItem.documentType) {
+        showSnackbar('Document Type is Mandatory', 'warning')
+        return
+      };
+      await employeeService.addAttachment(id!, newItem);
+      await fetchEmployeeDetails();
+      showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
-      showSnackbar(error.message, "error");
+      showSnackbar(error.message || "Failed to add attachment", "error");
     } finally {
       hideSpinner();
     }
+  };
+
+  const handleDeleteAttachment = async (itemId: string) => {
+    showConfirmDialog({
+      title: "Delete Attachment",
+      message: "Are you sure you want to delete this attachment?",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await employeeService.deleteAttachment(id!, itemId);
+          await fetchEmployeeDetails();
+          showSnackbar("Attachment deleted successfully!", "success");
+        } catch (error: any) {
+          showSnackbar(error.message || "Failed to delete attachment", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   if (!employee) {
     return null;
   }
 
-  const tabs = [
-    { label: "Personal Info", icon: <Person2Outlined /> },
-    { label: "Addresses", icon: <LocationIcon /> },
-    { label: "Qualifications", icon: <SchoolIcon /> },
-    { label: "Employee Details", icon: <Person2TwoTone /> },
-    { label: "Training Details", icon: <AccountBalanceIcon /> },
-    { label: "Previous Employment", icon: <WorkHistoryIcon /> },
-    { label: "Identification Details", icon: <WorkHistoryIcon /> },
-    { label: "Family Details", icon: <FamilyIcon /> },
-    { label: "Nominations", icon: <AccountBalanceIcon /> },
-    { label: "Attachments", icon: <AttachmentIcon /> },
-  ];
-
   return (
     <div className="">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
-        <IconButton
+        <MaterialModule.IconButton
           onClick={() => navigate("/employees")}
           className="!bg-gray-100"
         >
-          <ArrowBackIcon />
-        </IconButton>
+          <MaterialModule.ArrowBackIcon />
+        </MaterialModule.IconButton>
         <div className="flex-1">
           <div className="font-semibold text-gray-800">Employee Details</div>
           <div className="text-gray-500 text-[12px]">
@@ -2336,23 +2200,23 @@ export default function EmployeeDetails() {
       </div>
 
       {/* Profile Header */}
-      <Card className="mb-2 bg-white">
-        <CardContent className="py-2 px-6">
+      <MaterialModule.Card className="mb-2 bg-white">
+        <MaterialModule.CardContent className="py-2 px-6">
           <div className="flex items-center gap-4">
             <div className="relative group">
-              <Avatar
+              <MaterialModule.Avatar
                 src={employee.photoUrl}
                 className="!w-16 !h-16 !bg-primary text-2xl cursor-pointer"
               >
                 {employee.firstName?.charAt(0)}
                 {employee.lastName?.charAt(0)}
-              </Avatar>
+              </MaterialModule.Avatar>
 
               {/* Hover Overlay */}
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
-                <CameraAlt className="!text-white" sx={{ "& svg": { color: "white" } }} />
+                <MaterialModule.CameraAlt className="!text-white" sx={{ "& svg": { color: "white" } }} />
               </div>
 
               {/* Hidden File Input */}
@@ -2367,19 +2231,19 @@ export default function EmployeeDetails() {
             <div>
               <div className="font-bold text-gray-800">{employee.name}</div>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <Chip
+                <MaterialModule.Chip
                   label={`ID: ${employee.employeeId}`}
                   size="small"
                   color="primary"
                   className="!bg-primary"
                 />
-                <Chip
+                <MaterialModule.Chip
                   label={employee.emailAddress}
                   size="small"
                   variant="outlined"
                   className="text-gray-700"
                 />
-                <Chip
+                <MaterialModule.Chip
                   label={employee.mobileNumber}
                   size="small"
                   variant="outlined"
@@ -2388,12 +2252,12 @@ export default function EmployeeDetails() {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </MaterialModule.CardContent>
+      </MaterialModule.Card>
 
       {/* Tabs Navigation */}
       <div className="">
-        <Tabs
+        <MaterialModule.Tabs
           value={tabValue}
           onChange={(_, val) => setTabValue(val)}
           variant="scrollable"
@@ -2410,7 +2274,7 @@ export default function EmployeeDetails() {
           }}
         >
           {tabs.map((tab, index) => (
-            <Tab
+            <MaterialModule.Tab
               key={index}
               label={
                 <div className="flex items-center gap-1 !text-gray-900">
@@ -2419,21 +2283,22 @@ export default function EmployeeDetails() {
               }
             />
           ))}
-        </Tabs>
+        </MaterialModule.Tabs>
         <div className="h-[calc(100vh-350px)] overflow-auto">
           {/* Tab 0: Personal Information */}
           <TabPanel value={tabValue} index={0}>
             <EditableGroup
               title="Basic Information"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={basicInfoFields}
               data={employee}
               onSave={updatePersonalInfo}
               categoryOptions={categoryOptions}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableTableGroup
               title="Emergency Contacts"
-              icon={<ContactEmergencyOutlined />}
+              icon={<MaterialModule.ContactEmergencyOutlined />}
               data={employee.emergencyContacts || []}
               columns={emergencyColumns}
               onSave={handleUpdateEmergencyContacts}
@@ -2441,6 +2306,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteEmergencyContact}
               addDialogFields={emergencyColumns}
               categoryOptions={categoryOptions}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
           </TabPanel>
 
@@ -2448,7 +2314,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={1}>
             <EditableTableGroup
               title="Addresses"
-              icon={<LocationOnOutlined />}
+              icon={<MaterialModule.LocationOnOutlined />}
               data={employee.addresses || []}
               columns={addressColumns}
               onSave={handleUpdateAddresses}
@@ -2463,7 +2329,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={2}>
             <EditableTableGroup
               title="Qualifications"
-              icon={<SchoolOutlined />}
+              icon={<MaterialModule.SchoolOutlined />}
               data={employee.qualifications || []}
               columns={qualificationColumns}
               onSave={handleUpdateQualifications}
@@ -2471,6 +2337,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteQualification}
               addDialogFields={qualificationColumns}
               categoryOptions={categoryOptions}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
           </TabPanel>
 
@@ -2478,15 +2345,16 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={3}>
             <EditableGroup
               title="Employee Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={employeeColumns}
               data={employee}
               onSave={updateAdminInfo}
               categoryOptions={categoryOptions}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="Eligibility Information"
-              icon={<AccountBalanceIcon />}
+              icon={<MaterialModule.AccountBalanceIcon />}
               fields={eligibilityFields}
               data={employee}
               onSave={updateEligibilityInfo}
@@ -2494,7 +2362,7 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="Verification"
-              icon={<VerifiedUserOutlined />}
+              icon={<MaterialModule.VerifiedUserOutlined />}
               fields={VerificationColumns}
               data={employee}
               onSave={updateBackgroundInfo}
@@ -2506,7 +2374,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={4}>
             <EditableTableGroup
               title="Training Details"
-              icon={<LocalLibraryOutlined />}
+              icon={<MaterialModule.LocalLibraryOutlined />}
               data={employee.trainingDetails || []}
               columns={trainingDetailsColumns}
               onSave={handleUpdateTrainingDetails}
@@ -2521,7 +2389,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={5}>
             <EditableTableGroup
               title="Previous Employments"
-              icon={<WorkHistoryOutlined />}
+              icon={<MaterialModule.WorkHistoryOutlined />}
               data={employee.previousEmployments || []}
               columns={employmentColumns}
               onSave={handleUpdatePreviousEmployments}
@@ -2536,7 +2404,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={6}>
             <EditableGroup
               title="Bank Details"
-              icon={<AccountBalanceIcon />}
+              icon={<MaterialModule.AccountBalanceIcon />}
               fields={bankColumns}
               data={employee}
               onSave={updateBankInfo}
@@ -2544,7 +2412,7 @@ export default function EmployeeDetails() {
             />
             <EditableTableGroup
               title="PF Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               data={employee.pfAccounts || []}
               columns={pfColumns}
               onSave={handleUpdatePf}
@@ -2555,7 +2423,7 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="PAN Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={panColumns}
               data={employee}
               onSave={updateIdentityInfo}
@@ -2563,7 +2431,7 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="Aadhaar Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={aadhaarColumns}
               data={employee}
               onSave={updateIdentityInfo}
@@ -2571,7 +2439,7 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="Passport Details"
-              icon={<FlightLandOutlined />}
+              icon={<MaterialModule.FlightLandOutlined />}
               fields={passportVisaColumns}
               data={employee}
               onSave={updateIdentityInfo}
@@ -2579,7 +2447,7 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="Insurance Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={insuranceColumns}
               data={employee}
               onSave={updateIdentityInfo}
@@ -2587,15 +2455,15 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="ESI Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={esiColumns}
               data={employee}
-              onSave={updatePFInfo}
+              onSave={updateESIInfo}
               categoryOptions={categoryOptions}
             />
             <EditableGroup
               title="PRAN Details"
-              icon={<Person2Outlined />}
+              icon={<MaterialModule.Person2Outlined />}
               fields={pranColumns}
               data={employee}
               onSave={updateIdentityInfo}
@@ -2603,7 +2471,7 @@ export default function EmployeeDetails() {
             />
             <EditableGroup
               title="Login"
-              icon={<LoginOutlined />}
+              icon={<MaterialModule.LoginOutlined />}
               fields={loginColumns}
               data={employee}
               onSave={updateIdentityInfo}
@@ -2615,7 +2483,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={7}>
             <EditableTableGroup
               title="Family Members"
-              icon={<Diversity3Outlined />}
+              icon={<MaterialModule.Diversity3Outlined />}
               data={employee.familyMembers || []}
               columns={familyColumns}
               onSave={handleUpdateFamilyMembers}
@@ -2623,6 +2491,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteFamilyMember}
               addDialogFields={familyColumns}
               categoryOptions={categoryOptions}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
           </TabPanel>
 
@@ -2632,7 +2501,7 @@ export default function EmployeeDetails() {
               <EditableTableGroup
                 key={type}
                 title={nominationConfigs[type].title}
-                icon={<PeopleOutlineOutlined />}
+                icon={<MaterialModule.PeopleOutlineOutlined />}
                 data={
                   employee.nominations?.filter(
                     (n: any) => n.nominationType === type,
@@ -2657,7 +2526,7 @@ export default function EmployeeDetails() {
           <TabPanel value={tabValue} index={9}>
             <EditableTableGroup
               title="Attachments"
-              icon={<AttachmentIcon />}
+              icon={<MaterialModule.AttachmentIcon />}
               data={employee.attachments || []}
               columns={attachmentColumns}
               onAdd={handleAddAttachment}
