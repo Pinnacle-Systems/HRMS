@@ -23,6 +23,7 @@ import {
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -35,6 +36,7 @@ import type {
   CompOffCredit,
   CompOffCreditRequest,
   LeaveDayType,
+  LeaveType,
 } from "../../services/modules/leaveTypes";
 import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
 
@@ -108,6 +110,7 @@ export default function CompOffsPage() {
   const [workedSession, setWorkedSession] = useState<LeaveDayType>("FULL_DAY");
   const [reason, setReason] = useState("");
   const [attachment, setAttachment] = useState<File | string>("");
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const currentEmployeeId = session?.user.userId ?? "";
 
@@ -147,6 +150,40 @@ export default function CompOffsPage() {
     loadCompOffs();
   }, [currentEmployeeId]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadLeaveTypes = async () => {
+      try {
+        const response = await leaveService.getLeaveTypes({
+          page: 0,
+          size: 50,
+          sort: "name,ASC",
+        });
+        if (isMounted) {
+          setLeaveTypes(response.data?.content ?? []);
+        }
+      } catch {
+        if (isMounted) {
+          setLeaveTypes([]);
+        }
+      }
+    };
+
+    loadLeaveTypes();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const compOffLeaveType = useMemo(
+    () =>
+      leaveTypes.find((leaveType) =>
+        ["CO", "COMP_OFF", "COMP-OFF"].includes(leaveType.code.toUpperCase()) ||
+        leaveType.name.toLowerCase().includes("comp"),
+      ),
+    [leaveTypes],
+  );
+
   const availableCredits = credits.filter((credit) => credit.status === "AVAILABLE");
   const availableDays = availableCredits.reduce(
     (total, credit) => total + credit.creditedDays,
@@ -168,6 +205,7 @@ export default function CompOffsPage() {
     const nextErrors: Record<string, string> = {};
     if (!workedDate) nextErrors.workedDate = "Worked date is required";
     if (!reason.trim()) nextErrors.reason = "Reason is required";
+    if (!compOffLeaveType?.id) nextErrors.leaveTypeId = "Comp-off leave type is unavailable";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
 
@@ -181,7 +219,10 @@ export default function CompOffsPage() {
         employeeId: currentEmployeeId,
         workedDate: workedDate!.format("YYYY-MM-DD"),
         workedSession,
+        creditDays: workedSession === "FULL_DAY" ? 1 : 0.5,
+        expiryDate: workedDate!.add(90, "day").format("YYYY-MM-DD"),
         reason,
+        leaveTypeId: compOffLeaveType?.id,
         attachment,
       });
       if (response.success) {
@@ -370,11 +411,18 @@ export default function CompOffsPage() {
                   setWorkedDate(value);
                   setErrors((current) => ({ ...current, workedDate: "" }));
                 }}
+                slots={{
+                  openPickerIcon: CalendarMonthOutlinedIcon,
+                }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
                     error: Boolean(errors.workedDate),
                     helperText: errors.workedDate,
+                  },
+                  openPickerButton: {
+                    color: "primary",
+                    edge: "end",
                   },
                 }}
               />

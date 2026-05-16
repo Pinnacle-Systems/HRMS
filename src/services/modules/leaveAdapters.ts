@@ -15,18 +15,28 @@ import type {
 export type LeaveRequestDateResponse = {
   id?: string;
   date?: string;
+  leaveDate?: string;
   session?: string;
+  sessionType?: string;
   dayType?: string;
   dayValue?: number;
+  holiday?: boolean;
+  weeklyOff?: boolean;
+  calculatedLeaveDays?: number;
 };
 
 export type LeaveRequestApprovalResponse = {
   id?: string;
   approverId?: string;
+  approverEmployeeId?: string;
   approverName?: string;
+  approvalLevel?: number;
   status?: string;
+  actionTaken?: string;
   remarks?: string;
+  actionComments?: string;
   actedAt?: string;
+  actionAt?: string;
 };
 
 export type LeaveRequestResponse = {
@@ -40,17 +50,24 @@ export type LeaveRequestResponse = {
   leaveTypeId?: string;
   leaveTypeCode?: string;
   leaveTypeName?: string;
+  originalLeaveTypeId?: string;
   fromDate?: string;
   toDate?: string;
   fromSession?: string;
   toSession?: string;
   totalDays?: number;
   appliedReason?: string;
+  emergencyContactNumber?: string;
   currentStatus?: string;
   currentApproverId?: string;
   currentApproverName?: string;
+  payrollTreatment?: string;
+  lop?: boolean;
+  cancellationRequested?: boolean;
   submittedAt?: string;
   approvedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
   dates?: LeaveRequestDateResponse[];
   approvals?: LeaveRequestApprovalResponse[];
 };
@@ -86,17 +103,34 @@ export type LeaveBalanceResponse = {
 
 export type HolidayResponse = {
   id?: string;
+  holidayName?: string;
   name?: string;
+  holidayDate?: string;
   date?: string;
+  holidayType?: string;
   type?: string;
+  holidayCalendarId?: string;
+  calendarId?: string;
+  holidayCalendarName?: string;
+  calendarName?: string;
+  branchName?: string;
   location?: string;
   locations?: string[];
+  optionalHoliday?: boolean;
+  optional?: boolean;
+  active?: boolean;
 };
 
 export type HolidayCalendarResponse = {
   id?: string;
+  calendarName?: string;
   name?: string;
   year?: number;
+  branchId?: string;
+  branchName?: string;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   locations?: string[];
   holidays?: HolidayResponse[];
 };
@@ -212,6 +246,11 @@ export function mapLeaveRequestResponseToViewModel(
   const fromSession = mapSession(dto.fromSession);
   const toSession = mapSession(dto.toSession);
   const totalDays = asNumber(dto.totalDays, 0);
+  const dates = dto.dates ?? [];
+  const approvals = dto.approvals ?? [];
+  const firstRemark = approvals.find(
+    (approval) => approval.actionComments || approval.remarks,
+  );
 
   return {
     id: asString(dto.id),
@@ -236,14 +275,14 @@ export function mapLeaveRequestResponseToViewModel(
     reason: asString(dto.appliedReason),
     appliedReason: dto.appliedReason,
     status: mapLeaveStatus(dto.currentStatus),
-    appliedOn: asString(dto.submittedAt),
+    appliedOn: asString(dto.submittedAt ?? dto.createdAt),
     approverId: dto.currentApproverId,
     approverName: dto.currentApproverName,
     submittedAt: dto.submittedAt,
     approvedAt: dto.approvedAt,
-    dates: dto.dates ?? [],
-    approvals: dto.approvals ?? [],
-    approverRemarks: dto.approvals?.find((approval) => approval.remarks)?.remarks,
+    dates,
+    approvals,
+    approverRemarks: firstRemark?.actionComments ?? firstRemark?.remarks,
   };
 }
 
@@ -294,24 +333,38 @@ export function mapLeaveBalanceResponseToViewModel(
 }
 
 export function mapHolidayResponseToViewModel(dto: HolidayResponse): Holiday {
+  const branchName = asString(dto.branchName);
+  const locations = dto.locations?.join(", ");
   return {
     id: asString(dto.id),
-    name: asString(dto.name),
-    date: asString(dto.date),
-    type: mapHolidayType(dto.type),
-    location: dto.locations?.join(", ") ?? asString(dto.location),
+    name: asString(dto.holidayName ?? dto.name),
+    date: asString(dto.holidayDate ?? dto.date),
+    type:
+      dto.optionalHoliday || dto.optional
+        ? "OPTIONAL"
+        : mapHolidayType(dto.holidayType ?? dto.type),
+    location: locations ?? branchName ?? asString(dto.location),
+    calendarId: dto.holidayCalendarId ?? dto.calendarId,
+    calendarName: dto.holidayCalendarName ?? dto.calendarName,
+    active: asBoolean(dto.active, true),
   };
 }
 
 export function mapHolidayCalendarResponseToViewModel(
   dto: HolidayCalendarResponse,
 ): HolidayCalendar {
+  const branchName = asString(dto.branchName);
   return {
     id: asString(dto.id),
-    name: asString(dto.name),
+    name: asString(dto.calendarName ?? dto.name),
     year: asNumber(dto.year, new Date().getFullYear()),
-    locations: dto.locations ?? [],
+    locations: dto.locations ?? (branchName ? [branchName] : []),
     holidays: (dto.holidays ?? []).map(mapHolidayResponseToViewModel),
+    branchId: dto.branchId,
+    branchName: dto.branchName,
+    active: asBoolean(dto.active, true),
+    createdAt: dto.createdAt,
+    updatedAt: dto.updatedAt,
   };
 }
 

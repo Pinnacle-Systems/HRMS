@@ -13,6 +13,7 @@ import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArro
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -247,6 +248,7 @@ export default function ApplyLeavePage() {
         dayType: form.fromSession,
         days: calculation?.days ?? 0,
         reason: form.reason,
+        emergencyContactNumber: form.emergencyContact.trim() || undefined,
         status,
       });
 
@@ -283,8 +285,8 @@ export default function ApplyLeavePage() {
 
       <Paper
         elevation={0}
-        className="border border-gray-300 !bg-white w-full max-w-full overflow-hidden"
-        sx={{ maxWidth: "100%", overflowX: "hidden" }}
+        className="border border-gray-300 !bg-white w-full max-w-full overflow-x-hidden overflow-y-visible"
+        sx={{ maxWidth: "100%", overflowX: "hidden", overflowY: "visible" }}
       >
         <Tabs
           value={location.pathname}
@@ -335,7 +337,7 @@ export default function ApplyLeavePage() {
             </div>
           ) : (
             <div className="space-y-3 w-full min-w-0 max-w-full overflow-x-hidden">
-              <div className="min-w-0 overflow-hidden border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="min-w-0 overflow-x-hidden overflow-y-visible border border-gray-300 rounded-lg p-3 bg-gray-50">
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch [&>*]:min-w-0">
                     <TextField
@@ -374,12 +376,23 @@ export default function ApplyLeavePage() {
                     <DatePicker
                       label="From Date"
                       value={form.fromDate}
+                      format="DD MMM YYYY"
                       onChange={(value) => handleChange("fromDate", value)}
+                      slots={{
+                        openPickerIcon: CalendarMonthOutlinedIcon,
+                      }}
                       slotProps={{
                         textField: {
                           fullWidth: true,
                           error: Boolean(errors.fromDate),
                           helperText: errors.fromDate,
+                        },
+                        openPickerButton: {
+                          color: "primary",
+                          edge: "end",
+                        },
+                        actionBar: {
+                          actions: ["clear", "today", "accept"],
                         },
                       }}
                     />
@@ -411,12 +424,23 @@ export default function ApplyLeavePage() {
                       label="To Date"
                       value={form.toDate}
                       minDate={form.fromDate ?? undefined}
+                      format="DD MMM YYYY"
                       onChange={(value) => handleChange("toDate", value)}
+                      slots={{
+                        openPickerIcon: CalendarMonthOutlinedIcon,
+                      }}
                       slotProps={{
                         textField: {
                           fullWidth: true,
                           error: Boolean(errors.toDate),
                           helperText: errors.toDate,
+                        },
+                        openPickerButton: {
+                          color: "primary",
+                          edge: "end",
+                        },
+                        actionBar: {
+                          actions: ["clear", "today", "accept"],
                         },
                       }}
                     />

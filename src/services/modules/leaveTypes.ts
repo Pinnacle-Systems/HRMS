@@ -47,6 +47,7 @@ export type LeaveRequest = {
   days: number;
   reason: string;
   appliedReason?: string;
+  emergencyContactNumber?: string;
   status: LeaveRequestStatus;
   appliedOn: string;
   approverId?: string;
@@ -120,6 +121,9 @@ export type Holiday = {
   date: string;
   type: "PUBLIC" | "COMPANY" | "OPTIONAL" | "RESTRICTED" | "NATIONAL" | "REGIONAL";
   location: string;
+  calendarId?: string;
+  calendarName?: string;
+  active?: boolean;
 };
 
 export type HolidayCalendar = {
@@ -128,6 +132,11 @@ export type HolidayCalendar = {
   year: number;
   locations: string[];
   holidays: Holiday[];
+  branchId?: string;
+  branchName?: string;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type TeamCalendarEntry = {
@@ -220,7 +229,11 @@ export type CompOffCreditRequestPayload = {
   employeeId: string;
   workedDate: string;
   workedSession: LeaveDayType;
+  creditDays?: number;
+  expiryDate?: string;
   reason: string;
+  approverId?: string;
+  leaveTypeId?: string;
   attachment?: File | string;
 };
 

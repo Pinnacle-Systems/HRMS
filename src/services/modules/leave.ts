@@ -4,12 +4,14 @@ import {
   mapCompOffResponseToCreditViewModel,
   mapCompOffResponseToViewModel,
   mapHolidayCalendarResponseToViewModel,
+  mapHolidayResponseToViewModel,
   mapLeaveBalanceResponseToViewModel,
   mapLeaveRequestResponseToViewModel,
   mapLeaveTypeResponseToViewModel,
   mapWorkCalendarResponseToViewModel,
   type CompOffResponse,
   type HolidayCalendarResponse,
+  type HolidayResponse,
   type LeaveBalanceResponse,
   type LeaveRequestResponse,
   type LeaveTypeResponse,
@@ -43,6 +45,8 @@ import type {
   LeaveType,
   PageResponse,
   PayrollLeaveInput,
+  Holiday,
+  HolidayCalendar,
 } from "./leaveTypes";
 
 export const USE_MOCK_LEAVE_SERVICE =
@@ -61,6 +65,29 @@ type CreateLeaveRequestApiPayload = {
   fromSession?: LeaveRequest["dayType"];
   toSession?: LeaveRequest["dayType"];
   appliedReason?: string;
+  emergencyContactNumber?: string;
+  draft?: boolean;
+  approverId?: string;
+  holidayCalendarId?: string;
+  workCalendarId?: string;
+};
+
+type LeaveCalculationResponse = {
+  days?: number;
+  totalDays?: number;
+  requestedDays?: number;
+  workingDays?: number;
+  holidays?: string[];
+  holidayDates?: string[];
+  excludedHolidays?: string[];
+  weeklyOffs?: string[];
+  weeklyOffDates?: string[];
+  excludedWeeklyOffs?: string[];
+  availableBalance?: number;
+  closingBalance?: number;
+  balance?: number;
+  lopDays?: number;
+  lossOfPayDays?: number;
 };
 
 type ApiEnvelope<T> = {
@@ -284,6 +311,123 @@ function paginate<T>(items: T[], params?: LeaveListParams): PageResponse<T> {
   };
 }
 
+function buildLeaveRequestApiParams(params?: LeaveListParams) {
+  if (!params) {
+    return undefined;
+  }
+
+  const { status, fromDate, toDate, ...rest } = params;
+  return {
+    ...rest,
+    currentStatus: status,
+    startDate: fromDate,
+    endDate: toDate,
+  };
+}
+
+function filterLeaveRequests(
+  requests: LeaveRequest[],
+  params?: LeaveListParams,
+) {
+  let filtered = requests;
+  if (params?.status) {
+    filtered = filtered.filter((request) => request.status === params.status);
+  }
+  if (params?.leaveTypeId) {
+    filtered = filtered.filter(
+      (request) => request.leaveTypeId === params.leaveTypeId,
+    );
+  }
+  if (params?.fromDate) {
+    filtered = filtered.filter((request) => request.toDate >= params.fromDate!);
+  }
+  if (params?.toDate) {
+    filtered = filtered.filter((request) => request.fromDate <= params.toDate!);
+  }
+
+  return filtered;
+}
+
+function attachHolidaysToCalendars(
+  calendars: HolidayCalendar[],
+  holidays: Holiday[],
+): HolidayCalendar[] {
+  if (holidays.length === 0) {
+    return calendars;
+  }
+
+  if (calendars.length === 0) {
+    return [
+      {
+        id: "holiday-calendar",
+        name: "Holiday Calendar",
+        year: new Date().getFullYear(),
+        locations: Array.from(
+          new Set(holidays.map((holiday) => holiday.location).filter(Boolean)),
+        ),
+        holidays,
+      },
+    ];
+  }
+
+  const holidaysByCalendarId = new Map<string, Holiday[]>();
+  const unassignedHolidays: Holiday[] = [];
+
+  holidays.forEach((holiday) => {
+    if (holiday.calendarId) {
+      const existing = holidaysByCalendarId.get(holiday.calendarId) ?? [];
+      holidaysByCalendarId.set(holiday.calendarId, [...existing, holiday]);
+      return;
+    }
+    unassignedHolidays.push(holiday);
+  });
+
+  return calendars.map((calendar, index) => {
+    const matchedHolidays = holidaysByCalendarId.get(calendar.id) ?? [];
+    const shouldReceiveUnassigned =
+      unassignedHolidays.length > 0 && (calendars.length === 1 || index === 0);
+    const calendarHolidays = shouldReceiveUnassigned
+      ? [...matchedHolidays, ...unassignedHolidays]
+      : matchedHolidays;
+
+    return {
+      ...calendar,
+      holidays: calendarHolidays.map((holiday) => ({
+        ...holiday,
+        location:
+          holiday.location ||
+          calendar.branchName ||
+          calendar.locations.join(", "),
+      })),
+    };
+  });
+}
+
+function normalizeDateList(value?: string[]) {
+  return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+function mapLeaveCalculationResponseToViewModel(
+  dto: LeaveCalculationResponse,
+): LeaveCalculationResult {
+  const days = dto.days ?? dto.totalDays ?? dto.requestedDays ?? dto.workingDays ?? 0;
+  const availableBalance =
+    dto.availableBalance ?? dto.closingBalance ?? dto.balance ?? 0;
+
+  return {
+    days,
+    workingDays: dto.workingDays ?? days,
+    holidays: normalizeDateList(
+      dto.holidays ?? dto.holidayDates ?? dto.excludedHolidays,
+    ),
+    weeklyOffs: normalizeDateList(
+      dto.weeklyOffs ?? dto.weeklyOffDates ?? dto.excludedWeeklyOffs,
+    ),
+    availableBalance,
+    lopDays: dto.lopDays ?? dto.lossOfPayDays ?? Math.max(0, days - availableBalance),
+  };
+}
+
 function updateStatus(
   id: string,
   status: LeaveRequest["status"],
@@ -309,19 +453,30 @@ class LeaveService {
     if (!USE_MOCK_LEAVE_SERVICE) {
       const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeaveRequestResponse> | LeaveRequestResponse[]>>(
         API_ENDPOINTS.LEAVE.BASE,
-        { params },
+        { params: buildLeaveRequestApiParams(params) },
       );
-      return apiMappedPageResponse(
+      const mappedResponse = apiMappedPageResponse(
         response,
         mapLeaveRequestResponseToViewModel,
         "Leave requests loaded",
       );
+      if (!mappedResponse.data) {
+        return mappedResponse;
+      }
+
+      const content = filterLeaveRequests(mappedResponse.data.content, params);
+      return {
+        ...mappedResponse,
+        data: {
+          ...mappedResponse.data,
+          content,
+          totalElements: content.length,
+          totalPages: Math.ceil(content.length / mappedResponse.data.size),
+        },
+      };
     }
 
     let requests = mockLeaveRequests;
-    if (params?.status) {
-      requests = requests.filter((request) => request.status === params.status);
-    }
     if (params?.employeeId) {
       requests = requests.filter(
         (request) => request.employeeId === params.employeeId,
@@ -337,19 +492,7 @@ class LeaveService {
         (request) => request.department === params.department,
       );
     }
-    if (params?.leaveTypeId) {
-      requests = requests.filter(
-        (request) => request.leaveTypeId === params.leaveTypeId,
-      );
-    }
-    if (params?.fromDate) {
-      requests = requests.filter(
-        (request) => request.toDate >= params.fromDate!,
-      );
-    }
-    if (params?.toDate) {
-      requests = requests.filter((request) => request.fromDate <= params.toDate!);
-    }
+    requests = filterLeaveRequests(requests, params);
 
     return mockResponse(paginate(requests, params), "Leave requests loaded");
   }
@@ -369,6 +512,9 @@ class LeaveService {
         fromSession: payload.fromSession ?? payload.dayType ?? "FULL_DAY",
         toSession: payload.toSession ?? payload.dayType ?? "FULL_DAY",
         appliedReason: payload.reason,
+        emergencyContactNumber: payload.emergencyContactNumber,
+        draft: payload.status === "DRAFT",
+        approverId: payload.approverId,
       };
       const response = await apiService.post(
         API_ENDPOINTS.LEAVE.BASE,
@@ -436,9 +582,19 @@ class LeaveService {
     if (!USE_MOCK_LEAVE_SERVICE) {
       const response = await apiService.post(
         API_ENDPOINTS.LEAVE.CALCULATE,
-        payload,
-      ) as ApiEnvelope<LeaveCalculationResult>;
-      return apiResponse(response, "Leave calculation completed");
+        {
+          leaveTypeId: payload.leaveTypeId,
+          fromDate: payload.fromDate,
+          toDate: payload.toDate,
+          fromSession: payload.fromSession ?? payload.dayType ?? "FULL_DAY",
+          toSession: payload.toSession ?? payload.dayType ?? "FULL_DAY",
+        },
+      ) as ApiEnvelope<LeaveCalculationResponse>;
+      return apiMappedResponse(
+        response,
+        mapLeaveCalculationResponseToViewModel,
+        "Leave calculation completed",
+      );
     }
 
     const from = new Date(payload.fromDate);
@@ -794,20 +950,65 @@ class LeaveService {
 
   async getHolidayCalendars(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<HolidayCalendarResponse>>>(
-        API_ENDPOINTS.HOLIDAY_CALENDAR.BASE,
-        { params },
-      );
-      return apiMappedPageResponse(
-        response,
+      const [calendarResponse, holidayResponse] = await Promise.all([
+        apiService.get<ApiEnvelope<HolidayCalendarResponse[]>>(
+          API_ENDPOINTS.HOLIDAY_CALENDAR.BASE,
+        ),
+        apiService.get<ApiEnvelope<SwaggerPageResponse<HolidayResponse> | HolidayResponse[]>>(
+          API_ENDPOINTS.HOLIDAY.BASE,
+        ),
+      ]);
+      const calendarPage = apiMappedPageResponse(
+        calendarResponse,
         mapHolidayCalendarResponseToViewModel,
         "Holiday calendars loaded",
       );
+      const holidayPage = apiMappedPageResponse(
+        holidayResponse,
+        mapHolidayResponseToViewModel,
+        "Holidays loaded",
+      );
+
+      if (!calendarPage.data || !holidayPage.data) {
+        return calendarPage;
+      }
+
+      const calendars = attachHolidaysToCalendars(
+        calendarPage.data.content,
+        holidayPage.data.content,
+      );
+
+      return {
+        ...calendarPage,
+        data: paginate(calendars, params),
+      };
     }
 
     return mockResponse(
       paginate(mockHolidayCalendars, params),
       "Holiday calendars loaded",
+    );
+  }
+
+  async getHolidays(params?: LeaveListParams) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<HolidayResponse> | HolidayResponse[]>>(
+        API_ENDPOINTS.HOLIDAY.BASE,
+        { params },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapHolidayResponseToViewModel,
+        "Holidays loaded",
+      );
+    }
+
+    return mockResponse(
+      paginate(
+        mockHolidayCalendars.flatMap((calendar) => calendar.holidays),
+        params,
+      ),
+      "Holidays loaded",
     );
   }
 
@@ -873,7 +1074,13 @@ class LeaveService {
         {
           workedDate: payload.workedDate,
           sessionType: payload.workedSession,
+          creditDays:
+            payload.creditDays ??
+            (payload.workedSession === "FULL_DAY" ? 1 : 0.5),
+          expiryDate: payload.expiryDate,
           reason: payload.reason,
+          approverId: payload.approverId,
+          leaveTypeId: payload.leaveTypeId,
         },
       ) as ApiEnvelope<CompOffResponse>;
       return apiMappedResponse(

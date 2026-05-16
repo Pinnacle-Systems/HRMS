@@ -25,6 +25,7 @@ import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import MoreVertOutlinedIcon from "@mui/icons-material/MoreVertOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -401,7 +402,16 @@ export default function MyLeaveRequestsPage() {
                   setFromDate(value);
                   setPage(1);
                 }}
-                slotProps={{ textField: { fullWidth: true } }}
+                slots={{
+                  openPickerIcon: CalendarMonthOutlinedIcon,
+                }}
+                slotProps={{
+                  textField: { fullWidth: true },
+                  openPickerButton: {
+                    color: "primary",
+                    edge: "end",
+                  },
+                }}
               />
               <DatePicker
                 label="To Date"
@@ -411,7 +421,16 @@ export default function MyLeaveRequestsPage() {
                   setToDate(value);
                   setPage(1);
                 }}
-                slotProps={{ textField: { fullWidth: true } }}
+                slots={{
+                  openPickerIcon: CalendarMonthOutlinedIcon,
+                }}
+                slotProps={{
+                  textField: { fullWidth: true },
+                  openPickerButton: {
+                    color: "primary",
+                    edge: "end",
+                  },
+                }}
               />
             </div>
           </LocalizationProvider>

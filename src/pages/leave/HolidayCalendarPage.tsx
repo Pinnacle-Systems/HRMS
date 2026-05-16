@@ -17,6 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
+import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -30,6 +31,7 @@ import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
 type HolidayGridRow = Holiday & {
   day: string;
   displayDate: string;
+  locationOptions: string[];
 };
 
 const holidayTypeLabels: Record<Holiday["type"], string> = {
@@ -94,6 +96,17 @@ function formatDay(value: string) {
   );
 }
 
+function splitLocations(value?: string) {
+  return (value ?? "")
+    .split(",")
+    .map((location) => location.trim())
+    .filter(Boolean);
+}
+
+function uniqueLocations(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
 export default function HolidayCalendarPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -150,7 +163,20 @@ export default function HolidayCalendarPage() {
     () =>
       calendars
         .filter((calendar) => calendar.year === year)
-        .flatMap((calendar) => calendar.holidays)
+        .flatMap((calendar) =>
+          calendar.holidays.map((holiday) => {
+            const locationOptions = uniqueLocations([
+              ...splitLocations(holiday.location),
+              ...(calendar.locations ?? []),
+              calendar.branchName ?? "",
+            ]);
+            return {
+              ...holiday,
+              location: locationOptions.join(", "),
+              locationOptions,
+            };
+          }),
+        )
         .sort((left, right) => left.date.localeCompare(right.date))
         .map((holiday) => ({
           ...holiday,
@@ -164,7 +190,7 @@ export default function HolidayCalendarPage() {
       Array.from(
         new Set(
           allHolidays.flatMap((holiday) =>
-            holiday.location.split(",").map((location) => location.trim()),
+            holiday.locationOptions,
           ),
         ),
       ).sort((left, right) => left.localeCompare(right)),
@@ -178,7 +204,10 @@ export default function HolidayCalendarPage() {
           .includes(nameFilter.trim().toLowerCase());
         const locationMatches =
           !locationFilter ||
-          holiday.location.toLowerCase().includes(locationFilter.toLowerCase());
+          holiday.locationOptions.some(
+            (location) =>
+              location.toLowerCase() === locationFilter.toLowerCase(),
+          );
 
         return (
           (!dateFilter || holiday.date === dateFilter) &&
@@ -327,9 +356,16 @@ export default function HolidayCalendarPage() {
               value={dateFilterValue}
               onChange={handleDateFilterChange}
               format="DD MMM YYYY"
+              slots={{
+                openPickerIcon: CalendarMonthOutlinedIcon,
+              }}
               slotProps={{
                 textField: {
                   fullWidth: true,
+                },
+                openPickerButton: {
+                  color: "primary",
+                  edge: "end",
                 },
               }}
             />
