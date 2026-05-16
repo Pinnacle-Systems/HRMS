@@ -1,4 +1,5 @@
-@api_base_url=http://122.166.169.82:7091/api
+@api_base_url=https://pnc-hr.auvitapps.com:7091/api
+
 
 ###
 # @name admin_login
@@ -7,7 +8,7 @@ Content-Type: application/json
 
 {
     "loginId": "admin@pinnaclesystems.com",
-    "password": "password"
+    "password": "admin1234"
 }
 
 ###
@@ -39,3 +40,99 @@ Content-Type: application/json
     "loginId": "employee@pinnaclesystems.com",
     "password": "password"
 }
+###
+@access_token={{admin_login.response.body.data.accessToken}}
+@employee_id=REPLACE_WITH_EMPLOYEE_ID
+@leave_request_id=REPLACE_WITH_LEAVE_REQUEST_ID
+@leave_type_id=REPLACE_WITH_LEAVE_TYPE_ID
+@leave_policy_id=REPLACE_WITH_LEAVE_POLICY_ID
+@holiday_calendar_id=REPLACE_WITH_HOLIDAY_CALENDAR_ID
+@holiday_id=REPLACE_WITH_HOLIDAY_ID
+@work_calendar_id=REPLACE_WITH_WORK_CALENDAR_ID
+@comp_off_id=REPLACE_WITH_COMP_OFF_ID
+@leave_year=2026
+
+###
+# @name get_leaves
+GET {{api_base_url}}/leaves?page=0&size=20&sort=createdAt,DESC
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_leave_by_id
+GET {{api_base_url}}/leaves/{{leave_request_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_leave_types
+GET {{api_base_url}}/leave-types?page=0&size=50&sort=name,ASC
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_leave_type_by_id
+GET {{api_base_url}}/leave-types/{{leave_type_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_leave_policies
+GET {{api_base_url}}/leave-policies?page=0&size=20
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_leave_policy_by_id
+GET {{api_base_url}}/leave-policies/{{leave_policy_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_leave_policy_rules
+GET {{api_base_url}}/leave-policy-rules?page=0&size=20
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_holiday_calendars
+GET {{api_base_url}}/holiday-calendars?page=0&size=20
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_holiday_calendar_by_id
+GET {{api_base_url}}/holiday-calendars/{{holiday_calendar_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_holidays
+GET {{api_base_url}}/holidays?page=0&size=50
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_work_calendars
+GET {{api_base_url}}/work-calendars?page=0&size=20
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_work_calendar_by_id
+GET {{api_base_url}}/work-calendars/{{work_calendar_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_comp_offs
+GET {{api_base_url}}/comp-offs?page=0&size=20
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_comp_off_by_id
+GET {{api_base_url}}/comp-offs/{{comp_off_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_employee_leave_balances
+GET {{api_base_url}}/employees/{{employee_id}}/leave-balances?leaveYear={{leave_year}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_employee_leave_ledger
+GET {{api_base_url}}/employees/{{employee_id}}/leave-ledger?leaveTypeId={{leave_type_id}}
+Authorization: Bearer {{access_token}}
+
+###
+# @name get_payroll_leave_summary
+GET {{api_base_url}}/payroll/leave-summary
+Authorization: Bearer {{access_token}}

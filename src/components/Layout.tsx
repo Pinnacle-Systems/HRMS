@@ -107,7 +107,7 @@ export default function Layout() {
     {
       text: "Leave / Attendance",
       icon: <AssignmentOutlinedIcon />,
-      path: "/leave",
+      path: "/leaves/my-dashboard",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
     },
     {
@@ -325,6 +325,7 @@ export default function Layout() {
       {/* Main Content - Only this adjusts when drawer opens/closes */}
       <Box
         component="main"
+        className="min-w-0 overflow-x-hidden"
         sx={{
           flexGrow: 1,
           p: "15px",

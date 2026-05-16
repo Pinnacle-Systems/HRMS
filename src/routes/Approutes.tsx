@@ -8,7 +8,14 @@ import { logger } from "../utils/logger";
 import Employees from "../pages/employees/employeeManagement";
 import ForgotPassword from "../pages/auth/ForgotPassword/ForgotPassword";
 import Home from "../pages/home/home";
-import Leave from "../pages/leave/leave";
+import ApplyLeavePage from "../pages/leave/ApplyLeavePage";
+import CompOffsPage from "../pages/leave/CompOffsPage";
+import HolidayCalendarPage from "../pages/leave/HolidayCalendarPage";
+import LeavePlaceholderPage from "../pages/leave/LeavePlaceholderPage";
+import ManagerLeaveApprovalsPage from "../pages/leave/ManagerLeaveApprovalsPage";
+import MyLeaveDashboard from "../pages/leave/MyLeaveDashboard";
+import MyLeaveRequestsPage from "../pages/leave/MyLeaveRequestsPage";
+import { leaveRoutes } from "../pages/leave/leaveRoutes";
 import Login from "../pages/auth/Login/Login";
 import MfaPage from "../pages/auth/MfaPage";
 import Payroll from "../pages/payroll/payroll";
@@ -51,6 +58,17 @@ function RootRedirect() {
 }
 
 function AppRoutesContent() {
+  const employeeLeaveRoutes = leaveRoutes.filter(
+    (route) => route.group === "employee",
+  );
+  const managerLeaveRoutes = leaveRoutes.filter(
+    (route) => route.group === "manager",
+  );
+  const hrLeaveRoutes = leaveRoutes.filter((route) => route.group === "hr");
+  const adminLeaveRoutes = leaveRoutes.filter(
+    (route) => route.group === "admin",
+  );
+
   return (
     <BrowserRouter>
       <Routes>
@@ -73,9 +91,77 @@ function AppRoutesContent() {
               }
             >
               <Route path="home" element={<Home />} />
-              <Route path="leave" element={<Leave />} />
+              <Route path="leave" element={<Navigate to="/leaves/my-dashboard" replace />} />
               <Route path="profile" element={<Profile />} />
               <Route path="documentation" element={<Documentation />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  allowedRoles={["ADMIN", "HR", "MANAGER", "EMPLOYEE"]}
+                />
+              }
+            >
+              {employeeLeaveRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path.replace(/^\//, "")}
+                  element={
+                    route.path === "/leaves/my-dashboard" ? (
+                      <MyLeaveDashboard />
+                    ) : route.path === "/leaves/apply" ? (
+                      <ApplyLeavePage />
+                    ) : route.path === "/leaves/my-requests" ? (
+                      <MyLeaveRequestsPage />
+                    ) : route.path === "/leaves/holiday-calendar" ? (
+                      <HolidayCalendarPage />
+                    ) : route.path === "/leaves/comp-offs" ? (
+                      <CompOffsPage />
+                    ) : (
+                      <LeavePlaceholderPage route={route} />
+                    )
+                  }
+                />
+              ))}
+            </Route>
+
+            <Route
+              element={<ProtectedRoute allowedRoles={["ADMIN", "MANAGER"]} />}
+            >
+              {managerLeaveRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path.replace(/^\//, "")}
+                  element={
+                    route.path === "/leaves/approvals" ? (
+                      <ManagerLeaveApprovalsPage />
+                    ) : (
+                      <LeavePlaceholderPage route={route} />
+                    )
+                  }
+                />
+              ))}
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "HR"]} />}>
+              {hrLeaveRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path.replace(/^\//, "")}
+                  element={<LeavePlaceholderPage route={route} />}
+                />
+              ))}
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+              {adminLeaveRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path.replace(/^\//, "")}
+                  element={<LeavePlaceholderPage route={route} />}
+                />
+              ))}
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
