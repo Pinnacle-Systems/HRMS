@@ -432,7 +432,6 @@ export default function EmployeeManagement() {
           designationId: formData.designationId || selectedEmployee?.designationId,
           mobileNumber: formData.mobileNumber,
         };
-        console.log(payload);
         await employeeService.updateEmployee(selectedEmployee!.id, payload);
         showSnackbar("Employee updated successfully!", "success");
       } else {
@@ -634,7 +633,7 @@ export default function EmployeeManagement() {
       <MaterialModule.TableContainer
         component={MaterialModule.Paper}
         elevation={0}
-        className="h-[calc(100vh-340px)] overflow-auto !bg-white-50"
+        className={`${activeFilters && activeFilters.rules.length > 0 ? 'h-[calc(100vh-400px)]' : 'h-[calc(100vh-340px)]'} overflow-auto !bg-white-50`}
       >
         <MaterialModule.Table stickyHeader className="border">
           <MaterialModule.TableHead>
@@ -781,7 +780,7 @@ export default function EmployeeManagement() {
             </MaterialModule.TableRow>
           </MaterialModule.TableHead>
           <MaterialModule.TableBody>
-            {employees.map((employee, index) => (
+            {filteredEmployees.map((employee, index) => (
               <MaterialModule.TableRow key={employee.id} hover sx={getRowColor(index)}>
                 <MaterialModule.TableCell sx={{
                   ...getStickyLeftSx(index),

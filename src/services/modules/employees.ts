@@ -201,7 +201,6 @@ export const employeeService = {
   },
 
   async addAttachment(id: string, file: any) {
-    console.log(file);
     const formData = new FormData();
     formData.append("file", file.file);
     formData.append("documentName ", file.documentName);

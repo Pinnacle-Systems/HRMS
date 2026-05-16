@@ -181,7 +181,6 @@ const EditableGroup = ({
   };
 
   useEffect(() => {
-    console.log(categoryOptions);
   }, [categoryOptions]);
 
   const getMasterData = async () => {
@@ -1218,7 +1217,6 @@ export default function EmployeeDetails() {
     try {
       const response: any = await employeeService.getEmployeeById(id);
       setEmployee(response.data);
-      console.log(response.data, 'ppp');
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
       navigate("/employees");
