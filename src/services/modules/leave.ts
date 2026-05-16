@@ -1,6 +1,21 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 import {
+  mapCompOffResponseToCreditViewModel,
+  mapCompOffResponseToViewModel,
+  mapHolidayCalendarResponseToViewModel,
+  mapLeaveBalanceResponseToViewModel,
+  mapLeaveRequestResponseToViewModel,
+  mapLeaveTypeResponseToViewModel,
+  mapWorkCalendarResponseToViewModel,
+  type CompOffResponse,
+  type HolidayCalendarResponse,
+  type LeaveBalanceResponse,
+  type LeaveRequestResponse,
+  type LeaveTypeResponse,
+  type WorkCalendarResponse,
+} from "./leaveAdapters";
+import {
   mockCompOffCreditRequests,
   mockCompOffCredits,
   mockHolidayCalendars,
@@ -17,10 +32,8 @@ import type {
   CompOffCredit,
   CompOffCreditRequest,
   CompOffCreditRequestPayload,
-  HolidayCalendar,
   LeaveAdjustmentPayload,
   LeaveApiResponse,
-  LeaveBalance,
   LeaveCalculationRequest,
   LeaveCalculationResult,
   LeaveLedgerEntry,
@@ -30,16 +43,182 @@ import type {
   LeaveType,
   PageResponse,
   PayrollLeaveInput,
-  WorkCalendar,
 } from "./leaveTypes";
 
-export const USE_MOCK_LEAVE_SERVICE = true;
+export const USE_MOCK_LEAVE_SERVICE =
+  import.meta.env.VITE_USE_MOCK_LEAVE_SERVICE === "true";
 const MOCK_EMPLOYEE_ID = "emp-100";
 
 type CreateLeaveRequestPayload = Partial<LeaveRequest>;
 type LeaveActionPayload = {
   remarks?: string;
 };
+
+type CreateLeaveRequestApiPayload = {
+  leaveTypeId?: string;
+  fromDate?: string;
+  toDate?: string;
+  fromSession?: LeaveRequest["dayType"];
+  toSession?: LeaveRequest["dayType"];
+  appliedReason?: string;
+};
+
+type ApiEnvelope<T> = {
+  success: boolean;
+  message?: string;
+  data?: T;
+  timestamp?: string;
+};
+
+type SwaggerPageResponse<T> = {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number?: number;
+  page?: number;
+  size: number;
+};
+
+function isApiEnvelope(value: unknown): value is ApiEnvelope<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "success" in value &&
+    typeof (value as { success?: unknown }).success === "boolean"
+  );
+}
+
+function isPageResponse<T>(value: unknown): value is SwaggerPageResponse<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { content?: unknown }).content)
+  );
+}
+
+export function unwrapApiData<T>(response: ApiEnvelope<T> | T): T {
+  if (!isApiEnvelope(response)) {
+    return response as T;
+  }
+
+  if (response.success === false) {
+    throw new Error(response.message || "Leave API request failed");
+  }
+
+  if (response.data === undefined) {
+    throw new Error(response.message || "Leave API response did not include data");
+  }
+
+  return response.data as T;
+}
+
+export function unwrapApiList<T>(response: ApiEnvelope<T[]> | T[]): T[] {
+  const data = unwrapApiData<T[] | SwaggerPageResponse<T>>(response);
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (isPageResponse<T>(data)) {
+    return data.content;
+  }
+
+  throw new Error("Leave API response did not include a list");
+}
+
+export function unwrapApiPageContent<T>(
+  response: ApiEnvelope<SwaggerPageResponse<T>> | SwaggerPageResponse<T>,
+): T[] {
+  const data = unwrapApiData<SwaggerPageResponse<T>>(response);
+  if (!isPageResponse<T>(data)) {
+    throw new Error("Leave API response did not include paginated content");
+  }
+
+  return data.content;
+}
+
+function unwrapApiPage<T>(
+  response:
+    | ApiEnvelope<SwaggerPageResponse<T> | T[]>
+    | SwaggerPageResponse<T>
+    | T[],
+): PageResponse<T> {
+  const data = unwrapApiData<SwaggerPageResponse<T> | T[]>(response);
+  if (Array.isArray(data)) {
+    return {
+      content: data,
+      totalElements: data.length,
+      totalPages: 1,
+      page: 0,
+      size: data.length,
+    };
+  }
+
+  if (!isPageResponse<T>(data)) {
+    throw new Error("Leave API response did not include paginated data");
+  }
+
+  return {
+    content: data.content,
+    totalElements: data.totalElements,
+    totalPages: data.totalPages,
+    page: data.page ?? data.number ?? 0,
+    size: data.size,
+  };
+}
+
+function apiResponse<T>(
+  response: ApiEnvelope<T>,
+  fallbackMessage = "Success",
+): LeaveApiResponse<T> {
+  return {
+    success: true,
+    message: response.message ?? fallbackMessage,
+    data: unwrapApiData<T>(response),
+    timestamp: response.timestamp ?? new Date().toISOString(),
+  };
+}
+
+function apiPageResponse<T>(
+  response: ApiEnvelope<SwaggerPageResponse<T> | T[]>,
+  fallbackMessage = "Success",
+): LeaveApiResponse<PageResponse<T>> {
+  return {
+    success: true,
+    message: response.message ?? fallbackMessage,
+    data: unwrapApiPage<T>(response),
+    timestamp: response.timestamp ?? new Date().toISOString(),
+  };
+}
+
+function apiMappedResponse<TDto, TView>(
+  response: ApiEnvelope<TDto>,
+  mapper: (dto: TDto) => TView,
+  fallbackMessage = "Success",
+): LeaveApiResponse<TView> {
+  return {
+    success: true,
+    message: response.message ?? fallbackMessage,
+    data: mapper(unwrapApiData<TDto>(response)),
+    timestamp: response.timestamp ?? new Date().toISOString(),
+  };
+}
+
+function apiMappedPageResponse<TDto, TView>(
+  response: ApiEnvelope<SwaggerPageResponse<TDto> | TDto[]>,
+  mapper: (dto: TDto) => TView,
+  fallbackMessage = "Success",
+): LeaveApiResponse<PageResponse<TView>> {
+  const page = unwrapApiPage<TDto>(response);
+
+  return {
+    success: true,
+    message: response.message ?? fallbackMessage,
+    data: {
+      ...page,
+      content: page.content.map(mapper),
+    },
+    timestamp: response.timestamp ?? new Date().toISOString(),
+  };
+}
 
 function mockResponse<T>(data: T, message = "Success"): LeaveApiResponse<T> {
   return {
@@ -128,9 +307,14 @@ function updateStatus(
 class LeaveService {
   async getLeaves(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<LeaveRequest>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeaveRequestResponse> | LeaveRequestResponse[]>>(
         API_ENDPOINTS.LEAVE.BASE,
         { params },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapLeaveRequestResponseToViewModel,
+        "Leave requests loaded",
       );
     }
 
@@ -178,10 +362,23 @@ class LeaveService {
     payload: CreateLeaveRequestPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const apiPayload: CreateLeaveRequestApiPayload = {
+        leaveTypeId: payload.leaveTypeId,
+        fromDate: payload.fromDate,
+        toDate: payload.toDate,
+        fromSession: payload.fromSession ?? payload.dayType ?? "FULL_DAY",
+        toSession: payload.toSession ?? payload.dayType ?? "FULL_DAY",
+        appliedReason: payload.reason,
+      };
+      const response = await apiService.post(
         API_ENDPOINTS.LEAVE.BASE,
-        payload,
-      ) as Promise<LeaveApiResponse<LeaveRequest>>;
+        apiPayload,
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(
+        response,
+        mapLeaveRequestResponseToViewModel,
+        "Leave request submitted",
+      );
     }
 
     const leaveType = mockLeaveTypes.find(
@@ -219,8 +416,13 @@ class LeaveService {
 
   async getLeaveById(id: string) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<LeaveRequest>>(
+      const response = await apiService.get<ApiEnvelope<LeaveRequestResponse>>(
         API_ENDPOINTS.LEAVE.GET_BY_ID(id),
+      );
+      return apiMappedResponse(
+        response,
+        mapLeaveRequestResponseToViewModel,
+        "Leave request loaded",
       );
     }
 
@@ -232,10 +434,11 @@ class LeaveService {
     payload: LeaveCalculationRequest,
   ): Promise<LeaveApiResponse<LeaveCalculationResult>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const response = await apiService.post(
         API_ENDPOINTS.LEAVE.CALCULATE,
         payload,
-      ) as Promise<LeaveApiResponse<LeaveCalculationResult>>;
+      ) as ApiEnvelope<LeaveCalculationResult>;
+      return apiResponse(response, "Leave calculation completed");
     }
 
     const from = new Date(payload.fromDate);
@@ -309,7 +512,8 @@ class LeaveService {
   }
 
   async getMyLeaves(params?: LeaveListParams) {
-    return this.getLeaves({ ...params, employeeId: MOCK_EMPLOYEE_ID });
+    const employeeId = params?.employeeId ?? (USE_MOCK_LEAVE_SERVICE ? MOCK_EMPLOYEE_ID : undefined);
+    return this.getLeaves({ ...params, employeeId });
   }
 
   async withdrawLeave(
@@ -317,10 +521,11 @@ class LeaveService {
     payload?: LeaveActionPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const response = await apiService.post(
         API_ENDPOINTS.LEAVE.WITHDRAW(id),
         payload ?? {},
-      ) as Promise<LeaveApiResponse<LeaveRequest>>;
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(response, mapLeaveRequestResponseToViewModel, "Leave withdrawn");
     }
 
     return mockResponse(updateStatus(id, "WITHDRAWN", payload), "Leave withdrawn");
@@ -338,10 +543,15 @@ class LeaveService {
     payload?: LeaveActionPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const response = await apiService.post(
         API_ENDPOINTS.LEAVE.CANCEL_REQUEST(id),
         payload ?? {},
-      ) as Promise<LeaveApiResponse<LeaveRequest>>;
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(
+        response,
+        mapLeaveRequestResponseToViewModel,
+        "Cancellation requested",
+      );
     }
 
     return mockResponse(
@@ -362,10 +572,11 @@ class LeaveService {
     payload?: LeaveActionPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const response = await apiService.post(
         API_ENDPOINTS.LEAVE.APPROVE(id),
         payload ?? {},
-      ) as Promise<LeaveApiResponse<LeaveRequest>>;
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(response, mapLeaveRequestResponseToViewModel, "Leave approved");
     }
 
     return mockResponse(updateStatus(id, "APPROVED", payload), "Leave approved");
@@ -376,10 +587,11 @@ class LeaveService {
     payload?: LeaveActionPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const response = await apiService.post(
         API_ENDPOINTS.LEAVE.REJECT(id),
         payload ?? {},
-      ) as Promise<LeaveApiResponse<LeaveRequest>>;
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(response, mapLeaveRequestResponseToViewModel, "Leave rejected");
     }
 
     return mockResponse(updateStatus(id, "REJECTED", payload), "Leave rejected");
@@ -389,6 +601,18 @@ class LeaveService {
     id: string,
     payload?: LeaveActionPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      const response = await apiService.post(
+        API_ENDPOINTS.LEAVE.REQUEST_CLARIFICATION(id),
+        payload ?? {},
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(
+        response,
+        mapLeaveRequestResponseToViewModel,
+        "Clarification requested",
+      );
+    }
+
     return mockResponse(
       updateStatus(id, "PENDING", payload),
       "Clarification requested",
@@ -397,7 +621,11 @@ class LeaveService {
 
   async overrideLeave(id: string, payload?: LeaveActionPayload) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(API_ENDPOINTS.LEAVE.OVERRIDE(id), payload ?? {});
+      const response = await apiService.post(
+        API_ENDPOINTS.LEAVE.OVERRIDE(id),
+        payload ?? {},
+      ) as ApiEnvelope<LeaveRequestResponse>;
+      return apiMappedResponse(response, mapLeaveRequestResponseToViewModel, "Leave overridden");
     }
 
     return mockResponse(updateStatus(id, "APPROVED", payload), "Leave overridden");
@@ -405,9 +633,19 @@ class LeaveService {
 
   async getEmployeeLeaveBalances(employeeId: string, params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<LeaveBalance>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeaveBalanceResponse> | LeaveBalanceResponse[]>>(
         API_ENDPOINTS.EMPLOYEE.LEAVE_BALANCES(employeeId),
-        { params },
+        {
+          params: {
+            ...params,
+            leaveYear: params?.leaveYear ?? new Date().getFullYear(),
+          },
+        },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapLeaveBalanceResponseToViewModel,
+        "Leave balances loaded",
       );
     }
 
@@ -419,10 +657,11 @@ class LeaveService {
 
   async getEmployeeLeaveLedger(employeeId: string, params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<LeaveLedgerEntry>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeaveLedgerEntry>>>(
         API_ENDPOINTS.EMPLOYEE.LEAVE_LEDGER(employeeId),
         { params },
       );
+      return apiPageResponse(response, "Leave ledger loaded");
     }
 
     const ledger = mockLeaveLedger.filter((item) => item.employeeId === employeeId);
@@ -431,10 +670,11 @@ class LeaveService {
 
   async createLeaveAdjustment(employeeId: string, payload: LeaveAdjustmentPayload) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(
+      const response = await apiService.post(
         API_ENDPOINTS.EMPLOYEE.LEAVE_ADJUSTMENTS(employeeId),
         payload,
-      );
+      ) as ApiEnvelope<LeaveLedgerEntry>;
+      return apiResponse(response, "Leave adjustment created");
     }
 
     const entry: LeaveLedgerEntry = {
@@ -451,10 +691,26 @@ class LeaveService {
 
   async getLeaveTypes(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<LeaveType>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeaveTypeResponse> | LeaveTypeResponse[]>>(
         API_ENDPOINTS.LEAVE_TYPE.BASE,
         { params },
       );
+      const mappedResponse = apiMappedPageResponse(
+        response,
+        mapLeaveTypeResponseToViewModel,
+        "Leave types loaded",
+      );
+      return {
+        ...mappedResponse,
+        data: mappedResponse.data
+          ? {
+              ...mappedResponse.data,
+              content: mappedResponse.data.content.filter(
+                (leaveType) => leaveType.enabled,
+              ),
+            }
+          : mappedResponse.data,
+      };
     }
 
     return mockResponse(paginate(mockLeaveTypes, params), "Leave types loaded");
@@ -462,7 +718,11 @@ class LeaveService {
 
   async createLeaveType(payload: Partial<LeaveType>) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(API_ENDPOINTS.LEAVE_TYPE.BASE, payload);
+      const response = await apiService.post(
+        API_ENDPOINTS.LEAVE_TYPE.BASE,
+        payload,
+      ) as ApiEnvelope<LeaveTypeResponse>;
+      return apiMappedResponse(response, mapLeaveTypeResponseToViewModel, "Leave type created");
     }
 
     const created: LeaveType = {
@@ -481,7 +741,11 @@ class LeaveService {
 
   async updateLeaveType(id: string, payload: Partial<LeaveType>) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.put(API_ENDPOINTS.LEAVE_TYPE.UPDATE(id), payload);
+      const response = await apiService.put(
+        API_ENDPOINTS.LEAVE_TYPE.UPDATE(id),
+        payload,
+      ) as ApiEnvelope<LeaveTypeResponse>;
+      return apiMappedResponse(response, mapLeaveTypeResponseToViewModel, "Leave type updated");
     }
 
     const existing = mockLeaveTypes.find((item) => item.id === id);
@@ -493,10 +757,11 @@ class LeaveService {
 
   async getLeavePolicies(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<LeavePolicy>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeavePolicy>>>(
         API_ENDPOINTS.LEAVE_POLICY.BASE,
         { params },
       );
+      return apiPageResponse(response, "Leave policies loaded");
     }
 
     return mockResponse(paginate(mockLeavePolicies, params), "Leave policies loaded");
@@ -504,7 +769,11 @@ class LeaveService {
 
   async createLeavePolicy(payload: Partial<LeavePolicy>) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.post(API_ENDPOINTS.LEAVE_POLICY.BASE, payload);
+      const response = await apiService.post(
+        API_ENDPOINTS.LEAVE_POLICY.BASE,
+        payload,
+      ) as ApiEnvelope<LeavePolicy>;
+      return apiResponse(response, "Leave policy created");
     }
 
     return mockResponse(
@@ -525,9 +794,14 @@ class LeaveService {
 
   async getHolidayCalendars(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<HolidayCalendar>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<HolidayCalendarResponse>>>(
         API_ENDPOINTS.HOLIDAY_CALENDAR.BASE,
         { params },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapHolidayCalendarResponseToViewModel,
+        "Holiday calendars loaded",
       );
     }
 
@@ -549,6 +823,18 @@ class LeaveService {
   }
 
   async getCompOffCredits(params?: LeaveListParams) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<CompOffResponse> | CompOffResponse[]>>(
+        API_ENDPOINTS.COMP_OFF.BASE,
+        { params },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapCompOffResponseToCreditViewModel,
+        "Comp-off credits loaded",
+      );
+    }
+
     const credits = mockCompOffCredits.filter(
       (item) => !params?.employeeId || item.employeeId === params.employeeId,
     );
@@ -559,6 +845,18 @@ class LeaveService {
   }
 
   async getCompOffCreditRequests(params?: LeaveListParams) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<CompOffResponse> | CompOffResponse[]>>(
+        API_ENDPOINTS.COMP_OFF.BASE,
+        { params },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapCompOffResponseToViewModel,
+        "Comp-off request history loaded",
+      );
+    }
+
     const requests = mockCompOffCreditRequests.filter(
       (item) => !params?.employeeId || item.employeeId === params.employeeId,
     );
@@ -569,6 +867,22 @@ class LeaveService {
   }
 
   async requestCompOffCredit(payload: CompOffCreditRequestPayload) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      const response = await apiService.post(
+        API_ENDPOINTS.COMP_OFF.BASE,
+        {
+          workedDate: payload.workedDate,
+          sessionType: payload.workedSession,
+          reason: payload.reason,
+        },
+      ) as ApiEnvelope<CompOffResponse>;
+      return apiMappedResponse(
+        response,
+        mapCompOffResponseToViewModel,
+        "Comp-off credit request submitted",
+      );
+    }
+
     const requestedDays = payload.workedSession === "FULL_DAY" ? 1 : 0.5;
     const request: CompOffCreditRequest = {
       id: `co-req-${Date.now()}`,
@@ -591,9 +905,14 @@ class LeaveService {
 
   async getWorkCalendars(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<WorkCalendar>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<WorkCalendarResponse>>>(
         API_ENDPOINTS.WORK_CALENDAR.BASE,
         { params },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapWorkCalendarResponseToViewModel,
+        "Work calendars loaded",
       );
     }
 
@@ -602,10 +921,11 @@ class LeaveService {
 
   async getPayrollLeaveInputs(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      return apiService.get<LeaveApiResponse<PageResponse<PayrollLeaveInput>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<PayrollLeaveInput>>>(
         API_ENDPOINTS.PAYROLL.LEAVE_INPUTS,
         { params },
       );
+      return apiPageResponse(response, "Payroll leave inputs loaded");
     }
 
     return mockResponse(

@@ -29,8 +29,6 @@ import type {
 } from "../../services/modules/leaveTypes";
 import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
 
-const MOCK_EMPLOYEE_ID = "emp-100";
-
 const sessionOptions: Array<{ value: LeaveDayType; label: string }> = [
   { value: "FULL_DAY", label: "Full Day" },
   { value: "FIRST_HALF", label: "First Half" },
@@ -81,6 +79,7 @@ export default function ApplyLeavePage() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [submitMode, setSubmitMode] = useState<"submit" | "draft" | null>(null);
+  const currentEmployeeId = session?.user.userId ?? "";
 
   const visibleRoutes = useMemo(() => {
     const roles = session?.user.roles ?? [];
@@ -149,8 +148,12 @@ export default function ApplyLeavePage() {
 
       setCalculating(true);
       try {
+        if (!currentEmployeeId) {
+          throw new Error("Current employee id is unavailable");
+        }
+
         const response = await leaveService.calculateLeaveDays({
-          employeeId: MOCK_EMPLOYEE_ID,
+          employeeId: currentEmployeeId,
           leaveTypeId: form.leaveTypeId,
           fromDate: form.fromDate.format("YYYY-MM-DD"),
           toDate: form.toDate.format("YYYY-MM-DD"),
@@ -183,6 +186,7 @@ export default function ApplyLeavePage() {
     form.fromSession,
     form.toDate,
     form.toSession,
+    currentEmployeeId,
   ]);
 
   const handleChange = <TKey extends keyof ApplyLeaveForm>(
@@ -228,12 +232,18 @@ export default function ApplyLeavePage() {
     setSubmitMode(mode);
     showSpinner();
     try {
+      if (!currentEmployeeId) {
+        throw new Error("Current employee id is unavailable");
+      }
+
       const status: LeaveRequestStatus = mode === "draft" ? "DRAFT" : "PENDING";
       const response = await leaveService.createLeaveRequest({
-        employeeId: MOCK_EMPLOYEE_ID,
+        employeeId: currentEmployeeId,
         leaveTypeId: form.leaveTypeId,
         fromDate: form.fromDate?.format("YYYY-MM-DD"),
         toDate: form.toDate?.format("YYYY-MM-DD"),
+        fromSession: form.fromSession,
+        toSession: form.toSession,
         dayType: form.fromSession,
         days: calculation?.days ?? 0,
         reason: form.reason,

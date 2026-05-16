@@ -27,6 +27,7 @@ export type LeaveType = {
 
 export type LeaveRequest = {
   id: string;
+  requestNumber?: string;
   employeeId: string;
   employeeCode: string;
   employeeName: string;
@@ -39,11 +40,21 @@ export type LeaveRequest = {
   leaveTypeName: string;
   fromDate: string;
   toDate: string;
+  fromSession?: LeaveDayType;
+  toSession?: LeaveDayType;
+  totalDays?: number;
   dayType: LeaveDayType;
   days: number;
   reason: string;
+  appliedReason?: string;
   status: LeaveRequestStatus;
   appliedOn: string;
+  approverId?: string;
+  approverName?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  dates?: unknown[];
+  approvals?: unknown[];
   approverRemarks?: string;
 };
 
@@ -51,13 +62,18 @@ export type LeaveBalance = {
   employeeId: string;
   employeeName: string;
   leaveTypeId: string;
+  code?: string;
   leaveTypeCode: string;
+  name?: string;
   leaveTypeName: string;
   opening: number;
+  accrued?: number;
   credited: number;
+  used?: number;
   availed: number;
   pending: number;
   adjusted: number;
+  available?: number;
   balance: number;
   year: number;
 };
@@ -162,26 +178,42 @@ export type CompOffCreditStatus = "AVAILABLE" | "PENDING" | "AVAILED" | "EXPIRED
 
 export type CompOffCredit = {
   id: string;
+  requestNumber?: string;
   employeeId: string;
+  employeeName?: string;
   workedDate: string;
+  sessionType?: LeaveDayType;
   workedSession: LeaveDayType;
+  creditDays?: number;
   creditedDays: number;
   expiryDate: string;
   status: CompOffCreditStatus;
   reason: string;
+  approverId?: string;
+  approverName?: string;
+  leaveTypeId?: string;
+  leaveTypeCode?: string;
   approvedBy?: string;
 };
 
 export type CompOffCreditRequest = {
   id: string;
+  requestNumber?: string;
   employeeId: string;
+  employeeName?: string;
   workedDate: string;
+  sessionType?: LeaveDayType;
   workedSession: LeaveDayType;
+  creditDays?: number;
   requestedDays: number;
   reason: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   submittedOn: string;
+  approverId?: string;
+  approverName?: string;
   approver: string;
+  leaveTypeId?: string;
+  leaveTypeCode?: string;
 };
 
 export type CompOffCreditRequestPayload = {
@@ -204,6 +236,7 @@ export type LeaveListParams = {
   leaveTypeId?: string;
   fromDate?: string;
   toDate?: string;
+  leaveYear?: number;
 };
 
 export type PageResponse<T> = {

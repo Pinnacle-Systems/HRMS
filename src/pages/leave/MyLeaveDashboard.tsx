@@ -24,11 +24,10 @@ import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import { useAuth } from "../../auth/authContext";
 import { useUI } from "../../context/Snackbar";
+import { authService } from "../../services/modules/auth";
 import { leaveService } from "../../services/modules/leave";
 import type { LeaveBalance, LeaveRequest, LeaveRequestStatus } from "../../services/modules/leaveTypes";
 import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
-
-const MOCK_EMPLOYEE_ID = "emp-100";
 
 const balanceOrder = [
   "Casual Leave",
@@ -78,6 +77,32 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
+type ProfileResponse = {
+  data?: {
+    id?: string;
+    employeeId?: string;
+    userId?: string;
+    employee?: {
+      id?: string;
+      employeeId?: string;
+      userId?: string;
+    };
+  };
+};
+
+function isAccessDeniedError(error: unknown) {
+  const message =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: unknown }).message)
+      : String(error ?? "");
+
+  return /access denied|insufficient permissions|forbidden/i.test(message);
+}
+
+function uniqueValues(values: Array<string | undefined>) {
+  return Array.from(new Set(values.filter(Boolean))) as string[];
+}
+
 export default function MyLeaveDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -88,6 +113,7 @@ export default function MyLeaveDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
+  const currentUserId = session?.user.userId ?? "";
 
   const visibleRoutes = useMemo(() => {
     const roles = session?.user.roles ?? [];
@@ -104,33 +130,77 @@ export default function MyLeaveDashboard() {
       setError("");
       showSpinner();
       try {
-        const [balanceResponse, requestResponse] = await Promise.all([
-          leaveService.getEmployeeLeaveBalances(MOCK_EMPLOYEE_ID, {
-            page: 0,
-            size: 20,
-            sort: "leaveTypeName,ASC",
-          }),
-          leaveService.getMyLeaves({
+        if (!currentUserId) {
+          throw new Error("Current employee id is unavailable");
+        }
+
+        let employeeIds = [currentUserId];
+        try {
+          const profileResponse = await authService.getProfile() as ProfileResponse;
+          employeeIds = uniqueValues([
+            profileResponse?.data?.employeeId ||
+              profileResponse?.data?.employee?.employeeId,
+            profileResponse?.data?.employee?.id,
+            profileResponse?.data?.id,
+            profileResponse?.data?.userId,
+            profileResponse?.data?.employee?.userId,
+            currentUserId,
+          ]);
+        } catch {
+          employeeIds = [currentUserId];
+        }
+
+        let employeeId = employeeIds[0];
+        let balanceResult = null;
+        let lastBalanceError: unknown = null;
+
+        for (const candidateEmployeeId of employeeIds) {
+          try {
+            balanceResult = await leaveService.getEmployeeLeaveBalances(candidateEmployeeId, {
+              page: 0,
+              size: 20,
+              sort: "leaveTypeName,ASC",
+              leaveYear: new Date().getFullYear(),
+            });
+            employeeId = candidateEmployeeId;
+            break;
+          } catch (balanceError) {
+            lastBalanceError = balanceError;
+          }
+        }
+
+        if (!balanceResult && lastBalanceError && !isAccessDeniedError(lastBalanceError)) {
+          throw lastBalanceError;
+        }
+
+        const requestResult = await leaveService
+          .getMyLeaves({
+            employeeId,
             page: 0,
             size: 10,
-            sort: "appliedOn,DESC",
-          }),
-        ]);
+            sort: "createdAt,DESC",
+          })
+          .catch(() => null);
 
         if (!isMounted) {
           return;
         }
 
-        setBalances(balanceResponse.data?.content ?? []);
-        setRequests(requestResponse.data?.content ?? []);
+        setBalances(balanceResult?.data?.content ?? []);
+        setRequests(requestResult?.data?.content ?? []);
       } catch (err: any) {
         if (!isMounted) {
           return;
         }
 
         const message = err?.message || "Failed to load leave dashboard";
-        setError(message);
-        showSnackbar(message, "error");
+        if (isAccessDeniedError(err)) {
+          setBalances([]);
+          setRequests([]);
+        } else {
+          setError(message);
+          showSnackbar(message, "error");
+        }
       } finally {
         if (isMounted) {
           hideSpinner();
@@ -145,7 +215,7 @@ export default function MyLeaveDashboard() {
       isMounted = false;
       hideSpinner();
     };
-  }, []);
+  }, [currentUserId]);
 
   const orderedBalances = useMemo(
     () =>

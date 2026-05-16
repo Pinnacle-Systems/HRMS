@@ -11,6 +11,7 @@ interface FileUploadProps {
   onChange: (file: File | string) => void;
   accept?: string;
   maxSize?: number;
+  compact?: boolean;
   description?: string;
   companyId?: number
 }
@@ -21,6 +22,7 @@ export const FileUpload = ({
   onChange,
   accept = 'image/*',
   maxSize = 2,
+  compact = false,
   description,
   companyId
 }: FileUploadProps) => {
@@ -90,8 +92,8 @@ export const FileUpload = ({
       /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(preview)
     );
   return (
-    <Paper variant="outlined" className="p-4 bg-white">
-      <Typography variant="subtitle2" className="font-semibold !mb-2 !text-gray-800">
+    <Paper variant="outlined" className={`${compact ? "p-3" : "p-4"} bg-white`}>
+      <Typography variant="subtitle2" className={`font-semibold !text-gray-800 ${compact ? "!mb-1" : "!mb-2"}`}>
         {label}
       </Typography>
 
@@ -101,10 +103,10 @@ export const FileUpload = ({
             <img
               src={preview}
               alt={label}
-              className="w-32 h-32 object-cover rounded-lg border border-gray-200"
+              className={`${compact ? "w-24 h-24" : "w-32 h-32"} object-cover rounded-lg border border-gray-200`}
             />
           ) : (
-            <Box className="w-32 h-32 flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200">
+            <Box className={`${compact ? "w-24 h-24" : "w-32 h-32"} flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
               <PictureAsPdf className="!w-12 !h-12 text-red-500" />
             </Box>
           )}
@@ -121,7 +123,7 @@ export const FileUpload = ({
           variant="outlined"
           startIcon={<CloudUpload />}
           onClick={() => fileInputRef.current?.click()}
-          className="normal-case !mb-2"
+          className={`normal-case ${compact ? "!mb-1" : "!mb-2"}`}
         >
           Choose File
         </Button>

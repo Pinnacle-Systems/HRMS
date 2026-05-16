@@ -166,7 +166,7 @@ export default function ManagerLeaveApprovalsPage() {
       const response = await leaveService.getManagerLeaveApprovals({
         page: page - 1,
         size: limit,
-        sort: "appliedOn,DESC",
+        sort: "createdAt,DESC",
         managerId: MOCK_MANAGER_ID,
         status: status || undefined,
         department: department || undefined,
@@ -192,7 +192,7 @@ export default function ManagerLeaveApprovalsPage() {
           page: 0,
           size: 100,
           managerId: MOCK_MANAGER_ID,
-          sort: "appliedOn,DESC",
+          sort: "createdAt,DESC",
         }),
       ]);
       setLeaveTypes(typeResponse.data?.content ?? []);

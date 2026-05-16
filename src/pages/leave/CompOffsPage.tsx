@@ -38,8 +38,6 @@ import type {
 } from "../../services/modules/leaveTypes";
 import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
 
-const MOCK_EMPLOYEE_ID = "emp-100";
-
 const sessionOptions: Array<{ value: LeaveDayType; label: string }> = [
   { value: "FULL_DAY", label: "Full Day" },
   { value: "FIRST_HALF", label: "First Half" },
@@ -111,6 +109,7 @@ export default function CompOffsPage() {
   const [reason, setReason] = useState("");
   const [attachment, setAttachment] = useState<File | string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const currentEmployeeId = session?.user.userId ?? "";
 
   const visibleRoutes = useMemo(() => {
     const roles = session?.user.roles ?? [];
@@ -122,13 +121,17 @@ export default function CompOffsPage() {
   const loadCompOffs = async () => {
     showSpinner();
     try {
+      if (!currentEmployeeId) {
+        throw new Error("Current employee id is unavailable");
+      }
+
       const [creditResponse, historyResponse] = await Promise.all([
-        leaveService.getCompOffCredits({ employeeId: MOCK_EMPLOYEE_ID, page: 0, size: 20 }),
+        leaveService.getCompOffCredits({ employeeId: currentEmployeeId, page: 0, size: 20 }),
         leaveService.getCompOffCreditRequests({
-          employeeId: MOCK_EMPLOYEE_ID,
+          employeeId: currentEmployeeId,
           page: 0,
           size: 20,
-          sort: "submittedOn,DESC",
+          sort: "createdAt,DESC",
         }),
       ]);
       setCredits(creditResponse.data?.content ?? []);
@@ -142,7 +145,7 @@ export default function CompOffsPage() {
 
   useEffect(() => {
     loadCompOffs();
-  }, []);
+  }, [currentEmployeeId]);
 
   const availableCredits = credits.filter((credit) => credit.status === "AVAILABLE");
   const availableDays = availableCredits.reduce(
@@ -170,8 +173,12 @@ export default function CompOffsPage() {
 
     showSpinner();
     try {
+      if (!currentEmployeeId) {
+        throw new Error("Current employee id is unavailable");
+      }
+
       const response = await leaveService.requestCompOffCredit({
-        employeeId: MOCK_EMPLOYEE_ID,
+        employeeId: currentEmployeeId,
         workedDate: workedDate!.format("YYYY-MM-DD"),
         workedSession,
         reason,

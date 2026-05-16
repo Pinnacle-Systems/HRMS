@@ -109,6 +109,7 @@ export default function MyLeaveRequestsPage() {
     useState<LeaveCalculationResult | null>(null);
   const [actionAnchorEl, setActionAnchorEl] = useState<HTMLElement | null>(null);
   const [actionRequest, setActionRequest] = useState<LeaveRequest | null>(null);
+  const currentEmployeeId = session?.user.userId ?? "";
 
   const visibleRoutes = useMemo(() => {
     const roles = session?.user.roles ?? [];
@@ -121,10 +122,15 @@ export default function MyLeaveRequestsPage() {
     setLoading(true);
     showSpinner();
     try {
+      if (!currentEmployeeId) {
+        throw new Error("Current employee id is unavailable");
+      }
+
       const response = await leaveService.getMyLeaves({
+        employeeId: currentEmployeeId,
         page: page - 1,
         size: limit,
-        sort: "appliedOn,DESC",
+        sort: "createdAt,DESC",
         status: status || undefined,
         leaveTypeId: leaveTypeId || undefined,
         fromDate: fromDate?.format("YYYY-MM-DD"),
@@ -167,7 +173,7 @@ export default function MyLeaveRequestsPage() {
 
   useEffect(() => {
     loadRequests();
-  }, [page, limit, status, leaveTypeId, fromDate, toDate]);
+  }, [page, limit, status, leaveTypeId, fromDate, toDate, currentEmployeeId]);
 
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit);

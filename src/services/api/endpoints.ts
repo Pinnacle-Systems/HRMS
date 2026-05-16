@@ -107,6 +107,8 @@ export const API_ENDPOINTS = {
     GET_EMERGENCY: (id: string) => `/employees/${id}/emergency-contacts`,
     GET_ADDRESS: (id: string) => `/employees/${id}/addresses`,
     GET_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
+    LEAVE_BALANCES: (id: string) => `/employees/${id}/leave-balances`,
+    LEAVE_LEDGER: (id: string) => `/employees/${id}/leave-ledger`,
 
     PATCH_PF: (id: string) => `/employees/${id}/pf`,
     PATCH_PERSONAL: (id: string) => `/employees/${id}/personal`,
@@ -126,6 +128,7 @@ export const API_ENDPOINTS = {
     POST_EMERGENCY: (id: string) => `/employees/${id}/emergency-contacts`,
     POST_ADDRESS: (id: string) => `/employees/${id}/addresses`,
     POST_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
+    LEAVE_ADJUSTMENTS: (id: string) => `/employees/${id}/leave-adjustments`,
     BULK_UPLOAD: "/employees/bulk-upload",
 
     UPDATE: (id: string) => `/employees/${id}`,
@@ -155,6 +158,90 @@ export const API_ENDPOINTS = {
     GET_STATES_BY_COUNTRY: (cid: any) => `/master/states/by-country/${cid}`,
     GET_CITIES_BY_COUNTRY: (cid: any) => `/master/cities/by-country/${cid}`,
     GET_CITIES_BY_STATE: (sid: any) => `/master/cities/by-state/${sid}`,
+  },
+
+  LEAVE: {
+    BASE: "/leaves",
+    BY_ID: (id: string) => `/leaves/${id}`,
+    GET_BY_ID: (id: string) => `/leaves/${id}`,
+    CALCULATE: "/leaves/calculate",
+    APPROVE: (id: string) => `/leaves/${id}/actions/approve`,
+    REJECT: (id: string) => `/leaves/${id}/actions/reject`,
+    REQUEST_CLARIFICATION: (id: string) =>
+      `/leaves/${id}/actions/request-clarification`,
+    REVOKE: (id: string) => `/leaves/${id}/actions/revoke`,
+    FORCE_APPROVE: (id: string) => `/leaves/${id}/actions/force-approve`,
+    CONVERT_TO_LOP: (id: string) => `/leaves/${id}/actions/convert-to-lop`,
+    WITHDRAW: (id: string) => `/leaves/${id}/actions/revoke`,
+    CANCEL_REQUEST: (id: string) => `/leaves/${id}/actions/revoke`,
+    OVERRIDE: (id: string) => `/leaves/${id}/actions/force-approve`,
+  },
+
+  LEAVE_TYPE: {
+    BASE: "/leave-types",
+    BY_ID: (id: string) => `/leave-types/${id}`,
+    GET_BY_ID: (id: string) => `/leave-types/${id}`,
+    UPDATE: (id: string) => `/leave-types/${id}`,
+    DELETE: (id: string) => `/leave-types/${id}`,
+  },
+
+  LEAVE_POLICY: {
+    BASE: "/leave-policies",
+    BY_ID: (id: string) => `/leave-policies/${id}`,
+    GET_BY_ID: (id: string) => `/leave-policies/${id}`,
+    UPDATE: (id: string) => `/leave-policies/${id}`,
+    DELETE: (id: string) => `/leave-policies/${id}`,
+  },
+
+  LEAVE_POLICY_RULE: {
+    BASE: "/leave-policy-rules",
+    BY_ID: (id: string) => `/leave-policy-rules/${id}`,
+    UPDATE: (id: string) => `/leave-policy-rules/${id}`,
+    DELETE: (id: string) => `/leave-policy-rules/${id}`,
+  },
+
+  HOLIDAY_CALENDAR: {
+    BASE: "/holiday-calendars",
+    BY_ID: (id: string) => `/holiday-calendars/${id}`,
+    GET_BY_ID: (id: string) => `/holiday-calendars/${id}`,
+    UPDATE: (id: string) => `/holiday-calendars/${id}`,
+    DELETE: (id: string) => `/holiday-calendars/${id}`,
+  },
+
+  HOLIDAY: {
+    BASE: "/holidays",
+    BY_ID: (id: string) => `/holidays/${id}`,
+    UPDATE: (id: string) => `/holidays/${id}`,
+    DELETE: (id: string) => `/holidays/${id}`,
+  },
+
+  HOLIDAY_IMPORT: {
+    BASE: "/holiday-imports",
+  },
+
+  WORK_CALENDAR: {
+    BASE: "/work-calendars",
+    BY_ID: (id: string) => `/work-calendars/${id}`,
+    GET_BY_ID: (id: string) => `/work-calendars/${id}`,
+    UPDATE: (id: string) => `/work-calendars/${id}`,
+    DELETE: (id: string) => `/work-calendars/${id}`,
+  },
+
+  COMP_OFF: {
+    BASE: "/comp-offs",
+    BY_ID: (id: string) => `/comp-offs/${id}`,
+    GET_BY_ID: (id: string) => `/comp-offs/${id}`,
+    APPROVE: (id: string) => `/comp-offs/${id}/actions/approve`,
+    REJECT: (id: string) => `/comp-offs/${id}/actions/reject`,
+  },
+
+  PAYROLL: {
+    LEAVE_INPUTS: "/payroll/leave-inputs",
+    LEAVE_SUMMARY: "/payroll/leave-summary",
+  },
+
+  LEAVE_ACCRUAL: {
+    RUN: "/leave-accruals/run",
   },
 
   ONBOARDING: {
