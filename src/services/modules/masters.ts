@@ -2,7 +2,7 @@ import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
 export const masterService = {
-  async getCities(params? :any) {
+  async getCities(params?: Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.MASTER.GET_CITY,{params});
   },
 

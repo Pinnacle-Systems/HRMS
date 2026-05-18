@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUI } from "../../../context/Snackbar";
@@ -42,7 +42,7 @@ export default function Login() {
   const { login } = useAuth();
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
         setError("");
 
@@ -107,8 +107,9 @@ export default function Login() {
             showSnackbar(outcome.message, "error");
             break;
         }
-      } catch (err: any) {
-        showSnackbar(err.message, "error");
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : 'An error occurred';
+        showSnackbar(errMsg, "error");
         setError(getLoginErrorMessage(err));
 
       } finally {
@@ -184,8 +185,9 @@ export default function Login() {
               <>
                 {/* Email */}
                 <div>
-                  <label className="block text-sm mb-2">Email</label>
+                  <label className="block text-sm mb-2" htmlFor="email">Email</label>
                   <input
+                    id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -196,8 +198,9 @@ export default function Login() {
                 </div>
                 {/* Password */}
                 <div className="relative">
-                  <label className="block text-sm mb-2">Password</label>
+                  <label className="block text-sm mb-2" htmlFor="password">Password</label>
                   <input
+                    id="password"
                     type={visible == false ? "password" : "text"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -246,8 +249,9 @@ export default function Login() {
               <>
                 {/* Mobile Number */}
                 <div>
-                  <label className="block text-sm mb-2">Mobile Number</label>
+                  <label className="block text-sm mb-2" htmlFor="mobileNumber">Mobile Number</label>
                   <input
+                    id="mobileNumber"
                     type="number"
                     required
                     value={mobileNumber}

@@ -29,13 +29,15 @@ export const FileUpload = ({
   const [preview, setPreview] = useState<string>('');
 
   useEffect(() => {
-    if (typeof value === 'string') {
-      setPreview(value);
-    } else if (value instanceof File) {
-      setPreview(URL.createObjectURL(value));
-    } else {
-      setPreview('');
-    }
+    void (async () => {
+      if (typeof value === 'string') {
+        setPreview(value);
+      } else if (value instanceof File) {
+        setPreview(URL.createObjectURL(value));
+      } else {
+        setPreview('');
+      }
+    })();
   }, [value]);
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -195,7 +195,9 @@ const EditableGroup = ({
   };
 
   useEffect(() => {
-    (title == 'Employee Details') ? getMasterData() : '';
+    if (title === 'Employee Details') {
+      getMasterData();
+    }
   }, []);
 
   return (
@@ -1352,8 +1354,8 @@ export default function EmployeeDetails() {
   const handleAddEmergencyContact = async (newItem: any) => {
     showSpinner();
     try {
-      ((newItem["relationshipId"] = newItem.relationship),
-        delete newItem.relationship);
+      newItem["relationshipId"] = newItem.relationship;
+      delete newItem.relationship;
       await employeeService.addEmergencyContact(id!, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Emergency contact added successfully!", "success");
@@ -1839,8 +1841,8 @@ export default function EmployeeDetails() {
   const handleAddPf = async (newItem: any) => {
     showSpinner();
     try {
-      ((newItem["pfSchemeId"] = newItem.pfScheme),
-        delete newItem.pfScheme);
+      newItem["pfSchemeId"] = newItem.pfScheme;
+      delete newItem.pfScheme;
       await employeeService.addPfAccount(id!, newItem);
       await fetchEmployeeDetails();
       showSnackbar("PF added successfully!", "success");
@@ -2041,7 +2043,9 @@ export default function EmployeeDetails() {
   }, [id]);
 
   useEffect(() => {
-    tabValue == 8 ? fetchFamilyMembers() : ''
+    if (tabValue === 8) {
+      fetchFamilyMembers();
+    }
   }, [tabValue])
 
   const familyMemberOptions = familyMembers.map((member: any) => ({

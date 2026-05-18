@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react';
 import { categoryService } from '../services/modules/category';
 
 export const useCategoryOptions = () => {
-  const [categories, setCategories] = useState<Record<string, any[]>>({});
+  const [categories, setCategories] = useState<Record<string, unknown[]>>({});
   const [loading, setLoading] = useState(false);
 
   const fetchCategoryOptions = async () => {
     setLoading(true);
     try {
-      const response:any = await categoryService.getCategories();
+      const response = await categoryService.getCategories() as { data?: { id: string; categoryName: string }[] };
       const categoryData = response.data || [];
-      const categoryMap: Record<string, any[]> = {};
+      const categoryMap: Record<string, unknown[]> = {};
       for (const category of categoryData) {
-        const itemsResponse:any = await categoryService.getCategoryItems(category.id);
+        const itemsResponse = await categoryService.getCategoryItems(category.id) as { data?: unknown[] };
         categoryMap[category.categoryName] = itemsResponse.data || [];
       }
       setCategories(categoryMap);
@@ -24,7 +24,7 @@ export const useCategoryOptions = () => {
   };
 
   useEffect(() => {
-    fetchCategoryOptions();
+    void (async () => { await fetchCategoryOptions(); })();
   }, []);
 
   const getOptions = (fieldName: string) => {

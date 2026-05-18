@@ -1,32 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
   Button,
-  Chip,
   MenuItem,
   Paper,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   TextField,
-  Typography,
 } from "@mui/material";
-import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs, { type Dayjs } from "dayjs";
-import { useAuth } from "../../auth/authContext";
+import DataState from "../../components/DataState";
 import { useUI } from "../../context/Snackbar";
 import { leaveService } from "../../services/modules/leave";
 import type { Holiday, HolidayCalendar } from "../../services/modules/leaveTypes";
-import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
+import HolidayTypeBadge from "./components/HolidayTypeBadge";
+import LeaveFilterBar from "./components/LeaveFilterBar";
+import LeavePageShell from "./components/LeavePageShell";
+import { getHolidayTypeMeta } from "./holidayTypeMeta";
+import { formatDate, formatDay } from "./leaveFormatters";
+import {
+  leaveTableActionCellSx,
+  leaveTableActionHeaderCellClassName,
+  leaveTableBodyCellSx,
+  leaveTableClassName,
+  leaveTableContainerSx,
+  leaveTableHeaderCellClassName,
+  leaveTableHeaderRowSx,
+  leaveTableLocationCellSx,
+  leaveTableRowSx,
+  leaveTableSx,
+} from "./components/leaveTableStyles";
 
 type HolidayGridRow = Holiday & {
   day: string;
@@ -34,67 +44,6 @@ type HolidayGridRow = Holiday & {
   locationOptions: string[];
 };
 
-const holidayTypeLabels: Record<Holiday["type"], string> = {
-  PUBLIC: "Public Holiday",
-  COMPANY: "Company Holiday",
-  OPTIONAL: "Optional Holiday",
-  RESTRICTED: "Restricted Holiday",
-  NATIONAL: "Public Holiday",
-  REGIONAL: "Restricted Holiday",
-};
-
-const holidayTypeClasses: Record<Holiday["type"], string> = {
-  PUBLIC: "!bg-green-50 !text-green-700",
-  COMPANY: "!bg-blue-50 !text-blue-700",
-  OPTIONAL: "!bg-primary-50 !text-primary",
-  RESTRICTED: "!bg-yellow-50 !text-yellow-700",
-  NATIONAL: "!bg-green-50 !text-green-700",
-  REGIONAL: "!bg-yellow-50 !text-yellow-700",
-};
-
-const holidayTextCellSx = {
-  color: "var(--text-primary)",
-  fontSize: "0.875rem",
-};
-
-const tableContainerSx = {
-  backgroundColor: "var(--bg-primary)",
-  borderColor: "var(--border-color)",
-};
-
-const tableSx = {
-  backgroundColor: "var(--bg-primary)",
-  borderColor: "var(--border-color)",
-};
-
-const tableHeaderRowSx = {
-  backgroundColor: "var(--bg-secondary)",
-  "& .MuiTableCell-root": {
-    borderColor: "var(--border-color)",
-    color: "var(--text-primary)",
-  },
-};
-
-const tableRowSx = {
-  backgroundColor: "var(--bg-primary)",
-  "& .MuiTableCell-root": {
-    borderColor: "var(--border-color)",
-  },
-};
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function formatDay(value: string) {
-  return new Intl.DateTimeFormat("en-IN", { weekday: "long" }).format(
-    new Date(value),
-  );
-}
 
 function splitLocations(value?: string) {
   return (value ?? "")
@@ -108,25 +57,15 @@ function uniqueLocations(values: string[]) {
 }
 
 export default function HolidayCalendarPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { session } = useAuth();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [calendars, setCalendars] = useState<HolidayCalendar[]>([]);
-  const [year, setYear] = useState(2026);
+  const [year, setYear] = useState(new Date().getFullYear());
   const [dateFilter, setDateFilter] = useState("");
   const [dayFilter, setDayFilter] = useState("");
   const [nameFilter, setNameFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<Holiday["type"] | "">("");
   const [locationFilter, setLocationFilter] = useState("");
   const [loading, setLoading] = useState(true);
-
-  const visibleRoutes = useMemo(() => {
-    const roles = session?.user.roles ?? [];
-    return leaveRoutes.filter((route) =>
-      route.roles.some((role) => roles.includes(role)),
-    );
-  }, [session?.user.roles]);
 
   useEffect(() => {
     let isMounted = true;
@@ -249,31 +188,35 @@ export default function HolidayCalendarPage() {
     setDateFilter(value ? value.format("YYYY-MM-DD") : "");
   };
 
+  const resetFilters = () => {
+    setDateFilter("");
+    setDayFilter("");
+    setNameFilter("");
+    setTypeFilter("");
+    setLocationFilter("");
+  };
+
   const renderHolidayRows = (items: HolidayGridRow[], includeAction = false) => (
     <>
       {items.map((holiday) => (
-        <TableRow key={holiday.id} hover sx={tableRowSx}>
-          <TableCell sx={holidayTextCellSx}>
+        <TableRow key={holiday.id} hover sx={leaveTableRowSx}>
+          <TableCell sx={leaveTableBodyCellSx}>
             {holiday.displayDate || "-"}
           </TableCell>
-          <TableCell sx={holidayTextCellSx}>
+          <TableCell sx={leaveTableBodyCellSx}>
             {holiday.day || "-"}
           </TableCell>
-          <TableCell sx={holidayTextCellSx}>
+          <TableCell sx={leaveTableBodyCellSx}>
             <span className="font-medium">{holiday.name || "-"}</span>
           </TableCell>
           <TableCell>
-            <Chip
-              size="small"
-              label={holidayTypeLabels[holiday.type]}
-              className={holidayTypeClasses[holiday.type]}
-            />
+            <HolidayTypeBadge type={holiday.type} />
           </TableCell>
-          <TableCell sx={{ ...holidayTextCellSx, maxWidth: 320 }} title={holiday.location}>
+          <TableCell sx={leaveTableLocationCellSx} title={holiday.location}>
             <span className="break-words">{holiday.location || "-"}</span>
           </TableCell>
           {includeAction && (
-            <TableCell className="text-center" sx={holidayTextCellSx}>
+            <TableCell sx={leaveTableActionCellSx}>
               <Button
                 size="small"
                 variant="outlined"
@@ -296,61 +239,28 @@ export default function HolidayCalendarPage() {
   );
 
   return (
-    <div className="space-y-4 w-full min-w-0 max-w-full overflow-x-hidden">
-      <div className="text-gray-500 text-sm flex flex-wrap items-center gap-1">
-        Leave
-        <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-        <span className="text-primary font-medium">{leaveGroupLabels.employee}</span>
-        <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-        <span className="text-gray-800 font-medium">Holiday Calendar</span>
-      </div>
-
-      <Paper elevation={0} className="border border-gray-300 !bg-white overflow-hidden">
-        <Tabs
-          value={location.pathname}
-          variant="scrollable"
-          scrollButtons="auto"
-          className="!border-b !border-gray-300"
-          sx={{ "& .MuiTabs-indicator": { backgroundColor: "var(--color-primary)", height: 3 } }}
+    <LeavePageShell
+      title="Holiday Calendar"
+      subtitle="View public, company, restricted, and optional holidays"
+      actions={
+        <TextField
+          select
+          label="Year"
+          value={year}
+          onChange={(event) => setYear(Number(event.target.value))}
+          className="min-w-[140px]"
         >
-          {visibleRoutes.map((route) => (
-            <Tab
-              key={route.path}
-              value={route.path}
-              label={route.label}
-              onClick={() => navigate(route.path)}
-              className="!text-gray-900"
-            />
+          {[new Date().getFullYear(), new Date().getFullYear() - 1].map((item) => (
+            <MenuItem key={item} value={item}>
+              {item}
+            </MenuItem>
           ))}
-        </Tabs>
+        </TextField>
+      }
+    >
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
 
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <div className="p-3 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-xl font-semibold text-gray-800">
-                Holiday Calendar
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                View public, company, restricted, and optional holidays
-              </div>
-            </div>
-            <TextField
-              select
-              label="Year"
-              value={year}
-              onChange={(event) => setYear(Number(event.target.value))}
-              className="min-w-[140px]"
-            >
-              {[2026, 2025].map((item) => (
-                <MenuItem key={item} value={item}>
-                  {item}
-                </MenuItem>
-              ))}
-            </TextField>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border border-gray-300 rounded-lg px-3 pb-3 pt-4 bg-gray-50">
+          <LeaveFilterBar className="px-3 pb-3 pt-4" onReset={resetFilters}>
             <DatePicker
               label="Date"
               value={dateFilterValue}
@@ -415,7 +325,7 @@ export default function HolidayCalendarPage() {
                 select: {
                   displayEmpty: true,
                   renderValue: (value: unknown) =>
-                    value ? holidayTypeLabels[value as Holiday["type"]] : "All Types",
+                    value ? getHolidayTypeMeta(value as string).label : "All Types",
                 },
               }}
             >
@@ -423,7 +333,7 @@ export default function HolidayCalendarPage() {
               {(["PUBLIC", "COMPANY", "OPTIONAL", "RESTRICTED"] as const).map(
                 (type) => (
                   <MenuItem key={type} value={type}>
-                    {holidayTypeLabels[type]}
+                    {getHolidayTypeMeta(type).label}
                   </MenuItem>
                 ),
               )}
@@ -447,38 +357,44 @@ export default function HolidayCalendarPage() {
                 <MenuItem key={location} value={location}>
                   {location}
                 </MenuItem>
-              ))}
+                ))}
             </TextField>
-          </div>
+          </LeaveFilterBar>
 
           <TableContainer
             component={Paper}
             elevation={0}
             className="overflow-auto"
-            sx={tableContainerSx}
+            sx={leaveTableContainerSx}
           >
-            <Table className="border" size="small" sx={tableSx}>
+            <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
               <TableHead>
-                <TableRow sx={tableHeaderRowSx}>
-                  <TableCell className="!font-semibold">Date</TableCell>
-                  <TableCell className="!font-semibold">Day</TableCell>
-                  <TableCell className="!font-semibold">Holiday Name</TableCell>
-                  <TableCell className="!font-semibold">Type</TableCell>
-                  <TableCell className="!font-semibold">Location/Branch</TableCell>
+                <TableRow sx={leaveTableHeaderRowSx}>
+                  <TableCell className={leaveTableHeaderCellClassName}>Date</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Day</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Holiday Name</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Type</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Location/Branch</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody>{!loading && renderHolidayRows(standardHolidays)}</TableBody>
+              <TableBody>
+                {!loading && renderHolidayRows(standardHolidays)}
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <DataState compact type="loading" title="Loading holidays..." />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && standardHolidays.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <DataState compact type="empty" title="No holidays found." />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
-            {loading && (
-              <Typography color="text.secondary" className="text-center py-8">
-                Loading holidays...
-              </Typography>
-            )}
-            {!loading && standardHolidays.length === 0 && (
-              <Typography color="text.secondary" className="text-center py-8">
-                No holidays found.
-              </Typography>
-            )}
           </TableContainer>
 
           <div className="font-semibold text-primary">Optional Holidays</div>
@@ -486,30 +402,36 @@ export default function HolidayCalendarPage() {
             component={Paper}
             elevation={0}
             className="overflow-auto"
-            sx={tableContainerSx}
+            sx={leaveTableContainerSx}
           >
-            <Table className="border" size="small" sx={tableSx}>
+            <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
               <TableHead>
-                <TableRow sx={tableHeaderRowSx}>
-                  <TableCell className="!font-semibold">Date</TableCell>
-                  <TableCell className="!font-semibold">Day</TableCell>
-                  <TableCell className="!font-semibold">Holiday Name</TableCell>
-                  <TableCell className="!font-semibold">Type</TableCell>
-                  <TableCell className="!font-semibold">Location/Branch</TableCell>
-                  <TableCell className="!font-semibold text-center">Optional Action</TableCell>
+                <TableRow sx={leaveTableHeaderRowSx}>
+                  <TableCell className={leaveTableHeaderCellClassName}>Date</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Day</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Holiday Name</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Type</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Location/Branch</TableCell>
+                  <TableCell className={leaveTableActionHeaderCellClassName}>Optional Action</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody>{!loading && renderHolidayRows(optionalHolidays, true)}</TableBody>
+              <TableBody>
+                {!loading && renderHolidayRows(optionalHolidays, true)}
+                {!loading && optionalHolidays.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <DataState
+                        compact
+                        type="empty"
+                        title="No optional holidays found."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
             </Table>
-            {!loading && optionalHolidays.length === 0 && (
-              <Typography color="text.secondary" className="text-center py-8">
-                No optional holidays found.
-              </Typography>
-            )}
           </TableContainer>
-        </div>
-        </LocalizationProvider>
-      </Paper>
-    </div>
+      </LocalizationProvider>
+    </LeavePageShell>
   );
 }

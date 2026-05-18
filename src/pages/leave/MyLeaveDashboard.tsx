@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Chip,
@@ -8,26 +8,38 @@ import {
   DialogContent,
   IconButton,
   Paper,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   Tooltip,
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
-import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import { useAuth } from "../../auth/authContext";
+import { resolveEmployeeIdFromProfile } from "../../auth/sessionIdentity";
+import DataState from "../../components/DataState";
 import { useUI } from "../../context/Snackbar";
 import { authService } from "../../services/modules/auth";
+import { isAccessDeniedError } from "../../utils/errorUtils";
 import { leaveService } from "../../services/modules/leave";
-import type { LeaveBalance, LeaveRequest, LeaveRequestStatus } from "../../services/modules/leaveTypes";
-import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
+import type { LeaveBalance, LeaveRequest } from "../../services/modules/leaveTypes";
+import LeavePageShell from "./components/LeavePageShell";
+import LeaveStatusBadge from "./components/LeaveStatusBadge";
+import {
+  leaveTableActionHeaderCellClassName,
+  leaveTableBodyClassName,
+  leaveTableClassName,
+  leaveTableContainerSx,
+  leaveTableHeaderCellClassName,
+  leaveTableHeaderRowSx,
+  leaveTableSx,
+} from "./components/leaveTableStyles";
+import { isUpcomingApprovedLeave } from "./leaveRules";
+import { formatDate } from "./leaveFormatters";
 
 const balanceOrder = [
   "Casual Leave",
@@ -37,75 +49,9 @@ const balanceOrder = [
   "Optional Holiday",
 ];
 
-const statusLabels: Record<LeaveRequestStatus, string> = {
-  DRAFT: "Draft",
-  PENDING: "Pending Manager Approval",
-  PENDING_HR_VERIFICATION: "Pending HR Verification",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  WITHDRAWN: "Cancelled",
-  CANCEL_REQUESTED: "Cancelled",
-  CANCELLED: "Cancelled",
-  CONVERTED_TO_LOP: "Converted to LOP",
-};
-
-const statusClasses: Record<LeaveRequestStatus, string> = {
-  DRAFT: "!bg-gray-100 !text-gray-800",
-  PENDING: "!bg-primary-50 !text-primary",
-  PENDING_HR_VERIFICATION: "!bg-blue-50 !text-blue-700",
-  APPROVED: "!bg-green-50 !text-green-700",
-  REJECTED: "!bg-red-50 !text-red-700",
-  WITHDRAWN: "!bg-gray-100 !text-gray-700",
-  CANCEL_REQUESTED: "!bg-yellow-50 !text-yellow-700",
-  CANCELLED: "!bg-gray-100 !text-gray-700",
-  CONVERTED_TO_LOP: "!bg-red-50 !text-red-700",
-};
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="bg-white text-center py-8 text-gray-500 text-sm">
-      {message}
-    </div>
-  );
-}
-
-type ProfileResponse = {
-  data?: {
-    id?: string;
-    employeeId?: string;
-    userId?: string;
-    employee?: {
-      id?: string;
-      employeeId?: string;
-      userId?: string;
-    };
-  };
-};
-
-function isAccessDeniedError(error: unknown) {
-  const message =
-    typeof error === "object" && error && "message" in error
-      ? String((error as { message?: unknown }).message)
-      : String(error ?? "");
-
-  return /access denied|insufficient permissions|forbidden/i.test(message);
-}
-
-function uniqueValues(values: Array<string | undefined>) {
-  return Array.from(new Set(values.filter(Boolean))) as string[];
-}
 
 export default function MyLeaveDashboard() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { session } = useAuth();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
@@ -114,13 +60,6 @@ export default function MyLeaveDashboard() {
   const [error, setError] = useState("");
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const currentUserId = session?.user.userId ?? "";
-
-  const visibleRoutes = useMemo(() => {
-    const roles = session?.user.roles ?? [];
-    return leaveRoutes.filter((route) =>
-      route.roles.some((role) => roles.includes(role)),
-    );
-  }, [session?.user.roles]);
 
   useEffect(() => {
     let isMounted = true;
@@ -134,44 +73,14 @@ export default function MyLeaveDashboard() {
           throw new Error("Current employee id is unavailable");
         }
 
-        let employeeIds = [currentUserId];
-        try {
-          const profileResponse = await authService.getProfile() as ProfileResponse;
-          employeeIds = uniqueValues([
-            profileResponse?.data?.employeeId ||
-              profileResponse?.data?.employee?.employeeId,
-            profileResponse?.data?.employee?.id,
-            profileResponse?.data?.id,
-            profileResponse?.data?.userId,
-            profileResponse?.data?.employee?.userId,
-            currentUserId,
-          ]);
-        } catch {
-          employeeIds = [currentUserId];
-        }
+        const employeeId = await resolveEmployeeIdFromProfile(session, authService);
 
-        let employeeId = employeeIds[0];
-        let balanceResult = null;
-        let lastBalanceError: unknown = null;
-
-        for (const candidateEmployeeId of employeeIds) {
-          try {
-            balanceResult = await leaveService.getEmployeeLeaveBalances(candidateEmployeeId, {
-              page: 0,
-              size: 20,
-              sort: "leaveTypeName,ASC",
-              leaveYear: new Date().getFullYear(),
-            });
-            employeeId = candidateEmployeeId;
-            break;
-          } catch (balanceError) {
-            lastBalanceError = balanceError;
-          }
-        }
-
-        if (!balanceResult && lastBalanceError && !isAccessDeniedError(lastBalanceError)) {
-          throw lastBalanceError;
-        }
+        const balanceResult = await leaveService.getEmployeeLeaveBalances(employeeId, {
+          page: 0,
+          size: 20,
+          sort: "leaveTypeName,ASC",
+          leaveYear: new Date().getFullYear(),
+        });
 
         const requestResult = await leaveService
           .getMyLeaves({
@@ -228,13 +137,8 @@ export default function MyLeaveDashboard() {
   );
 
   const upcomingLeaves = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     return requests
-      .filter(
-        (request) =>
-          request.status === "APPROVED" && new Date(request.fromDate) >= today,
-      )
+      .filter((request) => isUpcomingApprovedLeave(request))
       .sort(
         (left, right) =>
           new Date(left.fromDate).getTime() - new Date(right.fromDate).getTime(),
@@ -248,71 +152,30 @@ export default function MyLeaveDashboard() {
   const totalPending = orderedBalances.reduce((sum, item) => sum + item.pending, 0);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="text-gray-500 text-sm flex items-center gap-1">
-          Leave
-          <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-primary font-medium">
-            {leaveGroupLabels.employee}
-          </span>
-          <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-gray-800 font-medium">My Dashboard</span>
-        </div>
-      </div>
-
-      <Paper elevation={0} className="border border-gray-300 !bg-white">
-        <Tabs
-          value={location.pathname}
-          variant="scrollable"
-          scrollButtons="auto"
-          className="!border-b !border-gray-300"
-          sx={{
-            "& .MuiTabs-indicator": {
-              backgroundColor: "var(--color-primary)",
-              height: 3,
-            },
-          }}
+    <LeavePageShell
+      title="My Leave"
+      breadcrumbLabel="My Dashboard"
+      subtitle="View balances, upcoming leave, and recent requests"
+      actions={
+        <Button
+          variant="contained"
+          startIcon={<AddOutlinedIcon />}
+          className="!bg-primary"
+          onClick={() => navigate("/leaves/apply")}
         >
-          {visibleRoutes.map((route) => (
-            <Tab
-              key={route.path}
-              value={route.path}
-              label={route.label}
-              onClick={() => navigate(route.path)}
-              className="!text-gray-900"
-            />
-          ))}
-        </Tabs>
-
-        <div className="p-5 space-y-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="text-2xl font-semibold text-gray-800">My Leave</div>
-              <div className="text-sm text-gray-500 mt-1">
-                View balances, upcoming leave, and recent requests
-              </div>
-            </div>
-            <Button
-              variant="contained"
-              startIcon={<AddOutlinedIcon />}
-              className="!bg-primary"
-              onClick={() => navigate("/leaves/apply")}
-            >
-              Apply Leave
-            </Button>
-          </div>
+          Apply Leave
+        </Button>
+      }
+      contentClassName="p-5 space-y-5"
+      titleClassName="text-2xl font-semibold text-gray-800"
+    >
 
           {loading && (
-            <div className="border border-gray-300 rounded-lg p-5 text-sm text-gray-500 bg-gray-50">
-              Loading leave dashboard...
-            </div>
+            <DataState type="loading" title="Loading leave dashboard..." />
           )}
 
           {!loading && error && (
-            <div className="border border-red-200 rounded-lg p-5 text-sm text-red-700 bg-red-50">
-              {error}
-            </div>
+            <DataState type="error" title={error} />
           )}
 
           {!loading && !error && (
@@ -337,25 +200,29 @@ export default function MyLeaveDashboard() {
                   <div className="text-2xl font-semibold text-gray-800 mt-1">
                     {requests.length}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">mock requests loaded</div>
+                  <div className="text-xs text-gray-500 mt-1">submitted requests</div>
                 </div>
               </div>
 
               <div>
                 <div className="font-semibold text-primary mb-3">Leave Balances</div>
-                <TableContainer component={Paper} elevation={0}>
-                  <Table className="border">
+                <TableContainer
+                  component={Paper}
+                  elevation={0}
+                  sx={leaveTableContainerSx}
+                >
+                  <Table className={leaveTableClassName} sx={leaveTableSx}>
                     <TableHead>
-                      <TableRow className="bg-gray-100">
-                        <TableCell className="!font-semibold text-gray-800">Leave Type</TableCell>
-                        <TableCell className="!font-semibold text-gray-800">Opening</TableCell>
-                        <TableCell className="!font-semibold text-gray-800">Accrued</TableCell>
-                        <TableCell className="!font-semibold text-gray-800">Used</TableCell>
-                        <TableCell className="!font-semibold text-gray-800">Pending</TableCell>
-                        <TableCell className="!font-semibold text-gray-800">Available</TableCell>
+                      <TableRow sx={leaveTableHeaderRowSx}>
+                        <TableCell className={leaveTableHeaderCellClassName}>Leave Type</TableCell>
+                        <TableCell className={leaveTableHeaderCellClassName}>Opening</TableCell>
+                        <TableCell className={leaveTableHeaderCellClassName}>Accrued</TableCell>
+                        <TableCell className={leaveTableHeaderCellClassName}>Used</TableCell>
+                        <TableCell className={leaveTableHeaderCellClassName}>Pending</TableCell>
+                        <TableCell className={leaveTableHeaderCellClassName}>Available</TableCell>
                       </TableRow>
                     </TableHead>
-                    <TableBody className="bg-white">
+                    <TableBody className={leaveTableBodyClassName}>
                       {orderedBalances.map((balance) => (
                         <TableRow key={balance.leaveTypeId} hover>
                           <TableCell className="text-gray-800 font-medium">
@@ -370,11 +237,19 @@ export default function MyLeaveDashboard() {
                           </TableCell>
                         </TableRow>
                       ))}
+                      {orderedBalances.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6}>
+                            <DataState
+                              compact
+                              type="empty"
+                              title="No leave balances available."
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
-                  {orderedBalances.length === 0 && (
-                    <EmptyState message="No leave balances available." />
-                  )}
                 </TableContainer>
               </div>
 
@@ -382,7 +257,11 @@ export default function MyLeaveDashboard() {
                 <div className="border border-gray-300 rounded-lg p-4 bg-white">
                   <div className="font-semibold text-primary mb-3">Upcoming Leave</div>
                   {upcomingLeaves.length === 0 ? (
-                    <EmptyState message="No approved upcoming leave." />
+                    <DataState
+                      compact
+                      type="empty"
+                      title="No approved upcoming leave."
+                    />
                   ) : (
                     <div className="space-y-3">
                       {upcomingLeaves.map((request) => (
@@ -414,22 +293,26 @@ export default function MyLeaveDashboard() {
 
                 <div className="xl:col-span-2">
                   <div className="font-semibold text-primary mb-3">Recent Requests</div>
-                  <TableContainer component={Paper} elevation={0}>
-                    <Table className="border">
+                  <TableContainer
+                    component={Paper}
+                    elevation={0}
+                    sx={leaveTableContainerSx}
+                  >
+                    <Table className={leaveTableClassName} sx={leaveTableSx}>
                       <TableHead>
-                        <TableRow className="bg-gray-100">
-                          <TableCell className="!font-semibold text-gray-800">Leave Type</TableCell>
-                          <TableCell className="!font-semibold text-gray-800">From Date</TableCell>
-                          <TableCell className="!font-semibold text-gray-800">To Date</TableCell>
-                          <TableCell className="!font-semibold text-gray-800">Days</TableCell>
-                          <TableCell className="!font-semibold text-gray-800">Status</TableCell>
-                          <TableCell className="!font-semibold text-gray-800">Approver</TableCell>
-                          <TableCell className="!font-semibold text-gray-800 text-center">
+                        <TableRow sx={leaveTableHeaderRowSx}>
+                          <TableCell className={leaveTableHeaderCellClassName}>Leave Type</TableCell>
+                          <TableCell className={leaveTableHeaderCellClassName}>From Date</TableCell>
+                          <TableCell className={leaveTableHeaderCellClassName}>To Date</TableCell>
+                          <TableCell className={leaveTableHeaderCellClassName}>Days</TableCell>
+                          <TableCell className={leaveTableHeaderCellClassName}>Status</TableCell>
+                          <TableCell className={leaveTableHeaderCellClassName}>Approver</TableCell>
+                          <TableCell className={leaveTableActionHeaderCellClassName}>
                             Actions
                           </TableCell>
                         </TableRow>
                       </TableHead>
-                      <TableBody className="bg-white">
+                      <TableBody className={leaveTableBodyClassName}>
                         {requests.map((request) => (
                           <TableRow key={request.id} hover>
                             <TableCell className="text-gray-800 font-medium">
@@ -443,11 +326,7 @@ export default function MyLeaveDashboard() {
                             </TableCell>
                             <TableCell className="text-gray-800">{request.days}</TableCell>
                             <TableCell>
-                              <Chip
-                                size="small"
-                                label={statusLabels[request.status]}
-                                className={statusClasses[request.status]}
-                              />
+                              <LeaveStatusBadge status={request.status} />
                             </TableCell>
                             <TableCell className="text-gray-800">
                               {request.managerName}
@@ -464,19 +343,24 @@ export default function MyLeaveDashboard() {
                             </TableCell>
                           </TableRow>
                         ))}
+                        {requests.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7}>
+                              <DataState
+                                compact
+                                type="empty"
+                                title="No recent leave requests found."
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </TableBody>
                     </Table>
-                    {requests.length === 0 && (
-                      <EmptyState message="No recent leave requests found." />
-                    )}
                   </TableContainer>
                 </div>
               </div>
             </>
           )}
-        </div>
-      </Paper>
-
       <Dialog
         open={Boolean(selectedRequest)}
         onClose={() => setSelectedRequest(null)}
@@ -511,11 +395,7 @@ export default function MyLeaveDashboard() {
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-gray-500">Status</span>
-                <Chip
-                  size="small"
-                  label={statusLabels[selectedRequest.status]}
-                  className={statusClasses[selectedRequest.status]}
-                />
+                <LeaveStatusBadge status={selectedRequest.status} />
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-gray-500">Approver</span>
@@ -540,6 +420,6 @@ export default function MyLeaveDashboard() {
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </LeavePageShell>
   );
 }

@@ -123,9 +123,36 @@ export const validationRules: Record<string, ValidationRule> = {
   }
 };
 
+// Helper function to normalize keys (handling snake_case and specific aliases)
+const normalizeKey = (key: string): string => {
+  const aliases: Record<string, string> = {
+    pan: "panNo",
+    pan_no: "panNo",
+    tan: "tanNo",
+    pf: "pfNo",
+    esi: "esiNo",
+    registration: "registrationCertificateNo",
+    registration_no: "registrationCertificateNo",
+    registrationNo: "registrationCertificateNo",
+    registration_certificate_no: "registrationCertificateNo",
+  };
+
+  if (aliases[key]) {
+    return aliases[key];
+  }
+
+  const camelized = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  if (validationRules[camelized]) {
+    return camelized;
+  }
+
+  return key;
+};
+
 // Helper function to validate a field
 export const validateField = (key: string, value: string): string => {  
-  const rule = validationRules[key];
+  const normalizedKey = normalizeKey(key);
+  const rule = validationRules[normalizedKey];
   if (!rule) return '';
   
   if (!value || value.trim() === '') return '';

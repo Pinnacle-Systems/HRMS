@@ -57,7 +57,7 @@ export default function BranchSettings() {
 
   // Employee list for branch head dropdown
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const selectedEmployee = employees.find(emp => emp.id === formData.branchHeadId) || null;
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -113,18 +113,11 @@ export default function BranchSettings() {
   };
 
   useEffect(() => {
-    getBranches();
-    getActiveEmployees();
+    Promise.resolve().then(() => {
+      getBranches();
+      getActiveEmployees();
+    });
   }, [page, limit, sortBy, sortOrder, searchTerm]);
-
-  useEffect(() => {
-    if (formData.branchHeadId && employees.length > 0) {
-      const employee = employees.find(emp => emp.id === formData.branchHeadId);
-      setSelectedEmployee(employee || null);
-    } else {
-      setSelectedEmployee(null);
-    }
-  }, [formData.branchHeadId, employees]);
 
   const generateMapFromAddress = async (address: string) => {
     const encodedAddress = encodeURIComponent(address);
@@ -208,7 +201,6 @@ export default function BranchSettings() {
         branchHeadId: "",
         active: true,
       });
-      setSelectedEmployee(null);
     }
     setShowMap(false);
     setOpenDialog(true);
@@ -305,10 +297,14 @@ export default function BranchSettings() {
           active: formData.active,
         };
         const res: any = await branchService.updateBranch(editingBranch.id, updatedValues);
-        res.success ? showSnackbar(res.message, "success") : "";
+        if (res.success) {
+          showSnackbar(res.message, "success");
+        }
       } else {
         const res: any = await branchService.createBranch(formData);
-        res.success ? showSnackbar(res.message, "success") : "";
+        if (res.success) {
+          showSnackbar(res.message, "success");
+        }
       }
       await getBranches();
       handleCloseDialog();
@@ -605,7 +601,6 @@ export default function BranchSettings() {
                 }}
                 value={selectedEmployee}
                 onChange={(_event, newValue) => {
-                  setSelectedEmployee(newValue);
                   setFormData((prev) => ({
                     ...prev,
                     branchHeadId: newValue ? newValue.id : "",

@@ -15,8 +15,9 @@ export const useApi = () => {
         showSnackbar(successMessage, 'success');
       }
       return result;
-    } catch (error: any) {
-      showSnackbar(errorMessage || error?.message || 'Something went wrong', 'error');
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : 'Something went wrong';
+      showSnackbar(errorMessage || errMsg, 'error');
       console.error('API Error:', error);
       return undefined;
     } finally {

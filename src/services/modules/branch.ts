@@ -14,27 +14,27 @@ class BranchService {
     return apiService.get(API_ENDPOINTS.BRANCH.BASE, { params });
   }
 
-  async deleteBranchById(id: any) {
+  async deleteBranchById(id: string | number) {
     return apiService.delete(API_ENDPOINTS.BRANCH.DELETE(id));
   }
 
-  async getBranchById(id: any) {
+  async getBranchById(id: string | number) {
     return apiService.get(API_ENDPOINTS.BRANCH.GET_BY_ID(id));
   }
 
-  async getActiveBranches(params?: any) {
+  async getActiveBranches(params?: Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.BRANCH.GET_ACTIVE, { params });
   }
 
-  async toggleBranchById(id: any) {
+  async toggleBranchById(id: string | number) {
     return apiService.patch(API_ENDPOINTS.BRANCH.PATCH(id));
   }
 
-  async createBranch(payload: any) {
+  async createBranch(payload: Record<string, unknown>) {
     return apiService.post(API_ENDPOINTS.BRANCH.CREATE, payload);
   }
 
-  async updateBranch(id: any, payload:any) {
+  async updateBranch(id: string | number, payload: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.BRANCH.UPDATE(id), payload);
   }
 }

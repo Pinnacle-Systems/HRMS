@@ -95,7 +95,7 @@ export default function DepartmentSettings() {
 
   // Employee list for branch head dropdown
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const selectedEmployee = employees.find(emp => emp.id === formData.departmentHeadId) || null;
 
   // Fetch active employees for branch head dropdown
   const getActiveEmployees = async () => {
@@ -147,19 +147,12 @@ export default function DepartmentSettings() {
   };
 
   useEffect(() => {
-    getDepartments();
-    getBranches();
-    getActiveEmployees();
+    Promise.resolve().then(() => {
+      getDepartments();
+      getBranches();
+      getActiveEmployees();
+    });
   }, [page, limit, sortBy, sortOrder, searchTerm]);
-
-   useEffect(() => {
-    if (formData.departmentHeadId && employees.length > 0) {
-      const employee = employees.find(emp => emp.id === formData.departmentHeadId);
-      setSelectedEmployee(employee || null);
-    } else {
-      setSelectedEmployee(null);
-    }
-  }, [formData.departmentHeadId, employees]);
 
 
   const handlePageChange = (newPage: number) => {
@@ -282,7 +275,9 @@ export default function DepartmentSettings() {
         showSpinner();
         try {
           const res: any = await departmentService.deleteDepartmentById(id);
-          res.success ? showSnackbar(res.message, "success") : "";
+          if (res.success) {
+            showSnackbar(res.message, "success");
+          }
           await getDepartments();
         } catch (error: any) {
           showSnackbar(error.message, "error");
@@ -565,7 +560,6 @@ export default function DepartmentSettings() {
                 }}
                 value={selectedEmployee}
                 onChange={(_event, newValue) => {
-                  setSelectedEmployee(newValue);
                   setFormData((prev) => ({
                     ...prev,
                     departmentHeadId: newValue ? newValue.id : "",

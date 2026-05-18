@@ -22,7 +22,7 @@ describe("Layout", () => {
 
     expect(screen.getByText("Admin Console")).toBeInTheDocument();
     expect(screen.getByText("Dashboard content")).toBeInTheDocument();
-    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getByText("Employees")).toBeInTheDocument();
     expect(screen.getByText("Leave / Attendance")).toBeInTheDocument();
     expect(screen.getByText("Payroll")).toBeInTheDocument();

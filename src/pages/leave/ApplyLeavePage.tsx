@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Chip,
   MenuItem,
-  Paper,
-  Tab,
-  Tabs,
   TextField,
 } from "@mui/material";
-import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import SaveOutlinedIcon from "@mui/icons-material/SaveOutlined";
 import SendOutlinedIcon from "@mui/icons-material/SendOutlined";
 import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
@@ -19,6 +15,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import type { Dayjs } from "dayjs";
 import { useAuth } from "../../auth/authContext";
+import DataState from "../../components/DataState";
 import { FileUpload } from "../../components/FileUpload";
 import { useUI } from "../../context/Snackbar";
 import { leaveService } from "../../services/modules/leave";
@@ -28,7 +25,9 @@ import type {
   LeaveRequestStatus,
   LeaveType,
 } from "../../services/modules/leaveTypes";
-import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
+import LeavePageShell from "./components/LeavePageShell";
+import { formatDate } from "./leaveFormatters";
+import { requiresLeaveAttachment } from "./leaveRules";
 
 const sessionOptions: Array<{ value: LeaveDayType; label: string }> = [
   { value: "FULL_DAY", label: "Full Day" },
@@ -60,17 +59,8 @@ const initialForm: ApplyLeaveForm = {
   attachment: "",
 };
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
 export default function ApplyLeavePage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { session } = useAuth();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [form, setForm] = useState<ApplyLeaveForm>(initialForm);
@@ -82,22 +72,16 @@ export default function ApplyLeavePage() {
   const [submitMode, setSubmitMode] = useState<"submit" | "draft" | null>(null);
   const currentEmployeeId = session?.user.userId ?? "";
 
-  const visibleRoutes = useMemo(() => {
-    const roles = session?.user.roles ?? [];
-    return leaveRoutes.filter((route) =>
-      route.roles.some((role) => roles.includes(role)),
-    );
-  }, [session?.user.roles]);
-
   const selectedLeaveType = useMemo(
     () => leaveTypes.find((leaveType) => leaveType.id === form.leaveTypeId),
     [form.leaveTypeId, leaveTypes],
   );
-  const attachmentRequired =
-    selectedLeaveType?.code === "SL" &&
-    calculation?.days !== undefined &&
-    selectedLeaveType.requiresDocumentAfterDays !== undefined &&
-    calculation.days > selectedLeaveType.requiresDocumentAfterDays;
+  const attachmentRequired = requiresLeaveAttachment({
+    leaveTypeCode: selectedLeaveType?.code,
+    leaveTypeName: selectedLeaveType?.name,
+    totalDays: calculation?.days,
+    requiresDocumentAfterDays: selectedLeaveType?.requiresDocumentAfterDays,
+  });
   const exceedsBalance =
     calculation !== null && calculation.days > calculation.availableBalance;
 
@@ -270,71 +254,25 @@ export default function ApplyLeavePage() {
   };
 
   return (
-    <div className="space-y-4 w-full min-w-0 max-w-full overflow-x-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 min-w-0">
-        <div className="text-gray-500 text-sm flex flex-wrap items-center gap-1 min-w-0">
-          Leave
-          <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-primary font-medium">
-            {leaveGroupLabels.employee}
-          </span>
-          <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-gray-800 font-medium">Apply Leave</span>
-        </div>
-      </div>
-
-      <Paper
-        elevation={0}
-        className="border border-gray-300 !bg-white w-full max-w-full overflow-x-hidden overflow-y-visible"
-        sx={{ maxWidth: "100%", overflowX: "hidden", overflowY: "visible" }}
-      >
-        <Tabs
-          value={location.pathname}
-          variant="scrollable"
-          scrollButtons="auto"
-          className="!border-b !border-gray-300"
-          sx={{
-            "& .MuiTabs-indicator": {
-              backgroundColor: "var(--color-primary)",
-              height: 3,
-            },
-          }}
+    <LeavePageShell
+      title="Apply Leave"
+      subtitle="Weekends and holidays are excluded as per policy."
+      actions={
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackOutlinedIcon />}
+          className="!text-gray-800 !border-gray-300"
+          onClick={() => navigate(-1)}
         >
-          {visibleRoutes.map((route) => (
-            <Tab
-              key={route.path}
-              value={route.path}
-              label={route.label}
-              onClick={() => navigate(route.path)}
-              className="!text-gray-900"
-            />
-          ))}
-        </Tabs>
-
-        <div className="p-3 space-y-3 w-full min-w-0 max-w-full overflow-x-hidden">
-          <div className="flex flex-wrap items-start justify-between gap-3 min-w-0">
-            <div className="min-w-0">
-              <div className="text-xl font-semibold text-gray-800">
-                Apply Leave
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                Weekends and holidays are excluded as per policy.
-              </div>
-            </div>
-            <Button
-              variant="outlined"
-              startIcon={<ArrowBackOutlinedIcon />}
-              className="!text-gray-800 !border-gray-300"
-              onClick={() => navigate(-1)}
-            >
-              Back
-            </Button>
-          </div>
+          Back
+        </Button>
+      }
+      contentClassName="p-3 space-y-3 w-full min-w-0 max-w-full overflow-x-hidden"
+      paperClassName="border border-gray-300 !bg-white w-full max-w-full overflow-x-hidden overflow-y-visible"
+    >
 
           {loading ? (
-            <div className="border border-gray-300 rounded-lg p-5 text-sm text-gray-500 bg-gray-50">
-              Loading leave form...
-            </div>
+            <DataState type="loading" title="Loading leave form..." />
           ) : (
             <div className="space-y-3 w-full min-w-0 max-w-full overflow-x-hidden">
               <div className="min-w-0 overflow-x-hidden overflow-y-visible border border-gray-300 rounded-lg p-3 bg-gray-50">
@@ -633,8 +571,6 @@ export default function ApplyLeavePage() {
               Submit Leave Request
             </Button>
           </div>
-        </div>
-      </Paper>
-    </div>
+    </LeavePageShell>
   );
 }

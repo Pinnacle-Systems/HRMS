@@ -1,28 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
   IconButton,
   Menu,
   MenuItem,
   Paper,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   TextField,
   Tooltip,
 } from "@mui/material";
-import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
-import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import MoreVertOutlinedIcon from "@mui/icons-material/MoreVertOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
@@ -31,6 +23,8 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import type { Dayjs } from "dayjs";
 import { useAuth } from "../../auth/authContext";
+import DataState from "../../components/DataState";
+import DetailsDialog from "../../components/DetailsDialog";
 import { GlobalPagination } from "../../components/GlobalPagination";
 import { useUI } from "../../context/Snackbar";
 import { leaveService } from "../../services/modules/leave";
@@ -41,57 +35,27 @@ import type {
   LeaveRequestStatus,
   LeaveType,
 } from "../../services/modules/leaveTypes";
-import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
-
-const statusLabels: Record<LeaveRequestStatus, string> = {
-  DRAFT: "Draft",
-  PENDING: "Pending Manager Approval",
-  PENDING_HR_VERIFICATION: "Pending HR Verification",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  WITHDRAWN: "Withdrawn",
-  CANCEL_REQUESTED: "Cancellation Requested",
-  CANCELLED: "Cancelled",
-  CONVERTED_TO_LOP: "Converted to LOP",
-};
-
-const statusClasses: Record<LeaveRequestStatus, string> = {
-  DRAFT: "!bg-gray-100 !text-gray-800",
-  PENDING: "!bg-primary-50 !text-primary",
-  PENDING_HR_VERIFICATION: "!bg-blue-50 !text-blue-700",
-  APPROVED: "!bg-green-50 !text-green-700",
-  REJECTED: "!bg-red-50 !text-red-700",
-  WITHDRAWN: "!bg-gray-100 !text-gray-700",
-  CANCEL_REQUESTED: "!bg-yellow-50 !text-yellow-700",
-  CANCELLED: "!bg-gray-100 !text-gray-700",
-  CONVERTED_TO_LOP: "!bg-red-50 !text-red-700",
-};
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function isFutureLeave(request: LeaveRequest) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return new Date(request.fromDate) >= today;
-}
-
-function EmptyState() {
-  return (
-    <div className="bg-white text-center py-8 text-gray-500 text-sm">
-      No leave requests found.
-    </div>
-  );
-}
+import LeaveFilterBar from "./components/LeaveFilterBar";
+import LeavePageShell from "./components/LeavePageShell";
+import { formatDate } from "./leaveFormatters";
+import LeaveStatusBadge from "./components/LeaveStatusBadge";
+import {
+  leaveTableActionHeaderCellClassName,
+  leaveTableBodyClassName,
+  leaveTableClassName,
+  leaveTableContainerSx,
+  leaveTableHeaderCellClassName,
+  leaveTableHeaderRowSx,
+  leaveTableSx,
+} from "./components/leaveTableStyles";
+import {
+  getLeaveStatusMeta,
+  leaveRequestStatusOptions,
+} from "./leaveStatusMeta";
+import { canRequestCancellation, canWithdrawLeave } from "./leaveRules";
 
 export default function MyLeaveRequestsPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { session } = useAuth();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -111,13 +75,6 @@ export default function MyLeaveRequestsPage() {
   const [actionAnchorEl, setActionAnchorEl] = useState<HTMLElement | null>(null);
   const [actionRequest, setActionRequest] = useState<LeaveRequest | null>(null);
   const currentEmployeeId = session?.user.userId ?? "";
-
-  const visibleRoutes = useMemo(() => {
-    const roles = session?.user.roles ?? [];
-    return leaveRoutes.filter((route) =>
-      route.roles.some((role) => roles.includes(role)),
-    );
-  }, [session?.user.roles]);
 
   const loadRequests = async () => {
     setLoading(true);
@@ -274,74 +231,36 @@ export default function MyLeaveRequestsPage() {
     });
   };
 
-  const canWithdraw = actionRequest?.status === "PENDING";
-  const canCancel =
-    actionRequest?.status === "APPROVED" &&
-    actionRequest !== null &&
-    isFutureLeave(actionRequest);
+  const canWithdraw = canWithdrawLeave(actionRequest);
+  const canCancel = canRequestCancellation(actionRequest);
+
+  const resetFilters = () => {
+    setStatus("");
+    setLeaveTypeId("");
+    setFromDate(null);
+    setToDate(null);
+    setPage(1);
+  };
 
   return (
-    <div className="space-y-4 w-full min-w-0 max-w-full overflow-x-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 min-w-0">
-        <div className="text-gray-500 text-sm flex flex-wrap items-center gap-1 min-w-0">
-          Leave
-          <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-primary font-medium">
-            {leaveGroupLabels.employee}
-          </span>
-          <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-gray-800 font-medium">My Requests</span>
-        </div>
-      </div>
-
-      <Paper
-        elevation={0}
-        className="border border-gray-300 !bg-white w-full max-w-full overflow-hidden"
-      >
-        <Tabs
-          value={location.pathname}
-          variant="scrollable"
-          scrollButtons="auto"
-          className="!border-b !border-gray-300"
-          sx={{
-            "& .MuiTabs-indicator": {
-              backgroundColor: "var(--color-primary)",
-              height: 3,
-            },
-          }}
+    <LeavePageShell
+      title="My Leave Requests"
+      breadcrumbLabel="My Requests"
+      subtitle="Track submitted requests, approvals, and cancellation actions"
+      actions={
+        <Button
+          variant="contained"
+          className="!bg-primary"
+          onClick={() => navigate("/leaves/apply")}
         >
-          {visibleRoutes.map((route) => (
-            <Tab
-              key={route.path}
-              value={route.path}
-              label={route.label}
-              onClick={() => navigate(route.path)}
-              className="!text-gray-900"
-            />
-          ))}
-        </Tabs>
-
-        <div className="p-3 space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-xl font-semibold text-gray-800">
-                My Leave Requests
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                Track submitted requests, approvals, and cancellation actions
-              </div>
-            </div>
-            <Button
-              variant="contained"
-              className="!bg-primary"
-              onClick={() => navigate("/leaves/apply")}
-            >
-              Apply Leave
-            </Button>
-          </div>
+          Apply Leave
+        </Button>
+      }
+      paperClassName="border border-gray-300 !bg-white w-full max-w-full overflow-hidden"
+    >
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 border border-gray-300 rounded-lg p-3 bg-gray-50">
+            <LeaveFilterBar gridClassName="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3" onReset={resetFilters}>
               <TextField
                 select
                 label="Status"
@@ -352,7 +271,7 @@ export default function MyLeaveRequestsPage() {
                     displayEmpty: true,
                     renderValue: (value: unknown) =>
                       value
-                        ? statusLabels[value as LeaveRequestStatus]
+                        ? getLeaveStatusMeta(value as LeaveRequestStatus).label
                         : "All Statuses",
                   },
                 }}
@@ -362,9 +281,9 @@ export default function MyLeaveRequestsPage() {
                 }}
               >
                 <MenuItem value="">All Statuses</MenuItem>
-                {Object.entries(statusLabels).map(([value, label]) => (
+                {leaveRequestStatusOptions.map((value) => (
                   <MenuItem key={value} value={value}>
-                    {label}
+                    {getLeaveStatusMeta(value).label}
                   </MenuItem>
                 ))}
               </TextField>
@@ -432,29 +351,30 @@ export default function MyLeaveRequestsPage() {
                   },
                 }}
               />
-            </div>
+            </LeaveFilterBar>
           </LocalizationProvider>
 
           <TableContainer
             component={Paper}
             elevation={0}
             className="max-w-full overflow-auto"
+            sx={leaveTableContainerSx}
           >
-            <Table className="border" size="small">
+            <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
               <TableHead>
-                <TableRow className="bg-gray-100">
-                  <TableCell className="!font-semibold text-gray-800">Request No</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">Leave Type</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">From Date</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">To Date</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">Days</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">Status</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">Submitted On</TableCell>
-                  <TableCell className="!font-semibold text-gray-800">Current Approver</TableCell>
-                  <TableCell className="!font-semibold text-gray-800 text-center">Actions</TableCell>
+                <TableRow sx={leaveTableHeaderRowSx}>
+                  <TableCell className={leaveTableHeaderCellClassName}>Request No</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Leave Type</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>From Date</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>To Date</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Days</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Status</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Submitted On</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Current Approver</TableCell>
+                  <TableCell className={leaveTableActionHeaderCellClassName}>Actions</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody className="bg-white">
+              <TableBody className={leaveTableBodyClassName}>
                 {!loading &&
                   requests.map((request) => (
                     <TableRow key={request.id} hover>
@@ -474,11 +394,7 @@ export default function MyLeaveRequestsPage() {
                       </TableCell>
                       <TableCell className="text-gray-800">{request.days}</TableCell>
                       <TableCell>
-                        <Chip
-                          size="small"
-                          label={statusLabels[request.status]}
-                          className={statusClasses[request.status]}
-                        />
+                        <LeaveStatusBadge status={request.status} />
                       </TableCell>
                       <TableCell className="text-gray-800">
                         {formatDate(request.appliedOn)}
@@ -501,14 +417,30 @@ export default function MyLeaveRequestsPage() {
                       </TableCell>
                     </TableRow>
                   ))}
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={9}>
+                      <DataState
+                        compact
+                        type="loading"
+                        title="Loading leave requests..."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && requests.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9}>
+                      <DataState
+                        compact
+                        type="empty"
+                        title="No leave requests found."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
-            {loading && (
-              <div className="bg-white text-center py-8 text-gray-500 text-sm">
-                Loading leave requests...
-              </div>
-            )}
-            {!loading && requests.length === 0 && <EmptyState />}
           </TableContainer>
 
           {total > 0 && (
@@ -522,9 +454,6 @@ export default function MyLeaveRequestsPage() {
               showTotal
             />
           )}
-        </div>
-      </Paper>
-
       <Menu
         anchorEl={actionAnchorEl}
         open={Boolean(actionAnchorEl)}
@@ -554,109 +483,12 @@ export default function MyLeaveRequestsPage() {
         )}
       </Menu>
 
-      <Dialog
+      <DetailsDialog
         open={Boolean(selectedRequest)}
+        title="Leave Request Details"
         onClose={() => setSelectedRequest(null)}
         maxWidth="md"
-        fullWidth
-      >
-        <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">Leave Request Details</div>
-          <IconButton onClick={() => setSelectedRequest(null)}>
-            <CloseOutlinedIcon />
-          </IconButton>
-        </div>
-        <DialogContent className="!p-4">
-          {selectedRequest && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Request Summary</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Request No</span>
-                    <span className="text-gray-800 font-medium">{selectedRequest.id}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Leave Type</span>
-                    <span className="text-gray-800">{selectedRequest.leaveTypeName}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Dates</span>
-                    <span className="text-gray-800">
-                      {formatDate(selectedRequest.fromDate)} - {formatDate(selectedRequest.toDate)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Status</span>
-                    <Chip
-                      size="small"
-                      label={statusLabels[selectedRequest.status]}
-                      className={statusClasses[selectedRequest.status]}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Day-wise Breakup</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Working Days</span>
-                    <span className="text-gray-800">{detailCalculation?.workingDays ?? selectedRequest.days}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Excluded Weekends</span>
-                    <span className="text-gray-800">{detailCalculation?.weeklyOffs.length ?? 0}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Excluded Holidays</span>
-                    <span className="text-gray-800">{detailCalculation?.holidays.length ?? 0}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Approval Timeline</div>
-                <div className="space-y-2 text-gray-800">
-                  <div>Submitted on {formatDate(selectedRequest.appliedOn)}</div>
-                  <div>Pending with {selectedRequest.managerName}</div>
-                  {selectedRequest.approverRemarks && (
-                    <div>Remarks: {selectedRequest.approverRemarks}</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Attachments</div>
-                <div className="text-gray-500">No attachments uploaded.</div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Balance Impact</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Available Balance</span>
-                    <span className="text-gray-800">{detailBalance?.balance ?? "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Requested Days</span>
-                    <span className="text-gray-800">{selectedRequest.days}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Potential LOP</span>
-                    <span className="text-gray-800">{detailCalculation?.lopDays ?? 0}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Comments / History</div>
-                <div className="text-gray-800">{selectedRequest.reason}</div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-        <DialogActions className="!p-4 !border-t !border-gray-300">
+        actions={
           <Button
             variant="outlined"
             className="!text-gray-800 !border-gray-300"
@@ -664,8 +496,93 @@ export default function MyLeaveRequestsPage() {
           >
             Close
           </Button>
-        </DialogActions>
-      </Dialog>
-    </div>
+        }
+      >
+        {selectedRequest && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Request Summary</div>
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Request No</span>
+                  <span className="text-gray-800 font-medium">{selectedRequest.id}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Leave Type</span>
+                  <span className="text-gray-800">{selectedRequest.leaveTypeName}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Dates</span>
+                  <span className="text-gray-800">
+                    {formatDate(selectedRequest.fromDate)} - {formatDate(selectedRequest.toDate)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Status</span>
+                  <LeaveStatusBadge status={selectedRequest.status} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Day-wise Breakup</div>
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Working Days</span>
+                  <span className="text-gray-800">{detailCalculation?.workingDays ?? selectedRequest.days}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Excluded Weekends</span>
+                  <span className="text-gray-800">{detailCalculation?.weeklyOffs.length ?? 0}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Excluded Holidays</span>
+                  <span className="text-gray-800">{detailCalculation?.holidays.length ?? 0}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Approval Timeline</div>
+              <div className="space-y-2 text-gray-800">
+                <div>Submitted on {formatDate(selectedRequest.appliedOn)}</div>
+                <div>Pending with {selectedRequest.managerName}</div>
+                {selectedRequest.approverRemarks && (
+                  <div>Remarks: {selectedRequest.approverRemarks}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Attachments</div>
+              <div className="text-gray-500">No attachments uploaded.</div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Balance Impact</div>
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Available Balance</span>
+                  <span className="text-gray-800">{detailBalance?.balance ?? "N/A"}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Requested Days</span>
+                  <span className="text-gray-800">{selectedRequest.days}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Potential LOP</span>
+                  <span className="text-gray-800">{detailCalculation?.lopDays ?? 0}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Comments / History</div>
+              <div className="text-gray-800">{selectedRequest.reason}</div>
+            </div>
+          </div>
+        )}
+      </DetailsDialog>
+    </LeavePageShell>
   );
 }

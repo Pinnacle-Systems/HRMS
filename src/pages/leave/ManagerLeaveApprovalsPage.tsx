@@ -1,38 +1,35 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   IconButton,
   MenuItem,
   Paper,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutlineOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
-import HelpOutlineOutlinedIcon from "@mui/icons-material/HelpOutlineOutlined";
-import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import type { Dayjs } from "dayjs";
-import { useAuth } from "../../auth/authContext";
+import ApprovalActionBar from "../../components/ApprovalActionBar";
+import DataState from "../../components/DataState";
+import DetailsDialog from "../../components/DetailsDialog";
 import { GlobalPagination } from "../../components/GlobalPagination";
 import { useUI } from "../../context/Snackbar";
+import { useAuth } from "../../auth/authContext";
+import { resolveEmployeeIdFromSession } from "../../auth/sessionIdentity";
 import { leaveService } from "../../services/modules/leave";
 import type {
   LeaveBalance,
@@ -41,63 +38,26 @@ import type {
   LeaveRequestStatus,
   LeaveType,
 } from "../../services/modules/leaveTypes";
-import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
-
-const MOCK_MANAGER_ID = "emp-200";
-
-const statusLabels: Record<LeaveRequestStatus, string> = {
-  DRAFT: "Draft",
-  PENDING: "Pending Manager Approval",
-  PENDING_HR_VERIFICATION: "Pending HR Verification",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  WITHDRAWN: "Withdrawn",
-  CANCEL_REQUESTED: "Cancellation Requested",
-  CANCELLED: "Cancelled",
-  CONVERTED_TO_LOP: "Converted to LOP",
-};
-
-const statusClasses: Record<LeaveRequestStatus, string> = {
-  DRAFT: "!bg-gray-100 !text-gray-800",
-  PENDING: "!bg-primary-50 !text-primary",
-  PENDING_HR_VERIFICATION: "!bg-blue-50 !text-blue-700",
-  APPROVED: "!bg-green-50 !text-green-700",
-  REJECTED: "!bg-red-50 !text-red-700",
-  WITHDRAWN: "!bg-gray-100 !text-gray-700",
-  CANCEL_REQUESTED: "!bg-yellow-50 !text-yellow-700",
-  CANCELLED: "!bg-gray-100 !text-gray-700",
-  CONVERTED_TO_LOP: "!bg-red-50 !text-red-700",
-};
-
-const tableTextCellSx = {
-  color: "var(--text-primary)",
-  fontSize: "0.875rem",
-};
-
-const tableContainerSx = {
-  backgroundColor: "var(--bg-primary)",
-  borderColor: "var(--border-color)",
-};
-
-const tableSx = {
-  backgroundColor: "var(--bg-primary)",
-  borderColor: "var(--border-color)",
-};
-
-const tableHeaderRowSx = {
-  backgroundColor: "var(--bg-secondary)",
-  "& .MuiTableCell-root": {
-    borderColor: "var(--border-color)",
-    color: "var(--text-primary)",
-  },
-};
-
-const tableRowSx = {
-  backgroundColor: "var(--bg-primary)",
-  "& .MuiTableCell-root": {
-    borderColor: "var(--border-color)",
-  },
-};
+import LeaveFilterBar from "./components/LeaveFilterBar";
+import LeavePageShell from "./components/LeavePageShell";
+import { formatDate } from "./leaveFormatters";
+import LeaveStatusBadge from "./components/LeaveStatusBadge";
+import {
+  leaveTableActionCellSx,
+  leaveTableActionHeaderCellClassName,
+  leaveTableBodyCellSx,
+  leaveTableClassName,
+  leaveTableContainerSx,
+  leaveTableHeaderCellClassName,
+  leaveTableHeaderRowSx,
+  leaveTableRowSx,
+  leaveTableSx,
+} from "./components/leaveTableStyles";
+import {
+  getLeaveStatusMeta,
+  leaveRequestStatusOptions,
+} from "./leaveStatusMeta";
+import { getTeamOverlap } from "./leaveRules";
 
 type ActionKind = "approve" | "reject" | "clarify";
 
@@ -106,21 +66,7 @@ type ActionDialogState = {
   request: LeaveRequest;
 } | null;
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function overlaps(left: LeaveRequest, right: LeaveRequest) {
-  return left.fromDate <= right.toDate && left.toDate >= right.fromDate;
-}
-
 export default function ManagerLeaveApprovalsPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const { session } = useAuth();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -143,13 +89,7 @@ export default function ManagerLeaveApprovalsPage() {
   const [actionDialog, setActionDialog] = useState<ActionDialogState>(null);
   const [actionComments, setActionComments] = useState("");
   const [actionError, setActionError] = useState("");
-
-  const visibleRoutes = useMemo(() => {
-    const roles = session?.user.roles ?? [];
-    return leaveRoutes.filter((route) =>
-      route.roles.some((role) => roles.includes(role)),
-    );
-  }, [session?.user.roles]);
+  const currentManagerEmployeeId = resolveEmployeeIdFromSession(session);
 
   const departmentOptions = useMemo(
     () =>
@@ -163,17 +103,19 @@ export default function ManagerLeaveApprovalsPage() {
     setLoading(true);
     showSpinner();
     try {
-      const response = await leaveService.getManagerLeaveApprovals({
-        page: page - 1,
-        size: limit,
-        sort: "createdAt,DESC",
-        managerId: MOCK_MANAGER_ID,
-        status: status || undefined,
-        department: department || undefined,
-        leaveTypeId: leaveTypeId || undefined,
-        fromDate: fromDate?.format("YYYY-MM-DD"),
-        toDate: toDate?.format("YYYY-MM-DD"),
-      });
+      const response = await leaveService.getMyManagerLeaveApprovals(
+        {
+          page: page - 1,
+          size: limit,
+          sort: "createdAt,DESC",
+          status: status || undefined,
+          department: department || undefined,
+          leaveTypeId: leaveTypeId || undefined,
+          fromDate: fromDate?.format("YYYY-MM-DD"),
+          toDate: toDate?.format("YYYY-MM-DD"),
+        },
+        currentManagerEmployeeId,
+      );
       setRequests(response.data?.content ?? []);
       setTotal(response.data?.totalElements ?? 0);
     } catch (err: any) {
@@ -188,12 +130,14 @@ export default function ManagerLeaveApprovalsPage() {
     try {
       const [typeResponse, managerResponse] = await Promise.all([
         leaveService.getLeaveTypes({ page: 0, size: 50, sort: "name,ASC" }),
-        leaveService.getManagerLeaveApprovals({
-          page: 0,
-          size: 100,
-          managerId: MOCK_MANAGER_ID,
-          sort: "createdAt,DESC",
-        }),
+        leaveService.getMyManagerLeaveApprovals(
+          {
+            page: 0,
+            size: 100,
+            sort: "createdAt,DESC",
+          },
+          currentManagerEmployeeId,
+        ),
       ]);
       setLeaveTypes(typeResponse.data?.content ?? []);
       setAllManagerRequests(managerResponse.data?.content ?? []);
@@ -204,11 +148,20 @@ export default function ManagerLeaveApprovalsPage() {
 
   useEffect(() => {
     loadLookups();
-  }, []);
+  }, [currentManagerEmployeeId]);
 
   useEffect(() => {
     loadRequests();
-  }, [page, limit, status, department, leaveTypeId, fromDate, toDate]);
+  }, [
+    page,
+    limit,
+    status,
+    department,
+    leaveTypeId,
+    fromDate,
+    toDate,
+    currentManagerEmployeeId,
+  ]);
 
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit);
@@ -217,14 +170,7 @@ export default function ManagerLeaveApprovalsPage() {
 
   const openDetail = async (request: LeaveRequest) => {
     setSelectedRequest(request);
-    const overlapsForRequest = allManagerRequests.filter(
-      (item) =>
-        item.id !== request.id &&
-        item.status !== "REJECTED" &&
-        item.status !== "CANCELLED" &&
-        overlaps(item, request),
-    );
-    setTeamOverlap(overlapsForRequest);
+    setTeamOverlap(getTeamOverlap(request, allManagerRequests));
 
     try {
       const [balanceResponse, calculationResponse] = await Promise.all([
@@ -304,6 +250,15 @@ export default function ManagerLeaveApprovalsPage() {
     }
   };
 
+  const resetFilters = () => {
+    setStatus("PENDING");
+    setDepartment("");
+    setLeaveTypeId("");
+    setFromDate(null);
+    setToDate(null);
+    setPage(1);
+  };
+
   const selectedPending = selectedRequest?.status === "PENDING";
   const actionTitle =
     actionDialog?.kind === "approve"
@@ -319,46 +274,15 @@ export default function ManagerLeaveApprovalsPage() {
         : "Request Clarification";
 
   return (
-    <div className="space-y-4 w-full min-w-0 max-w-full overflow-x-hidden">
-      <div className="text-gray-500 text-sm flex flex-wrap items-center gap-1">
-        Leave
-        <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-        <span className="text-primary font-medium">{leaveGroupLabels.manager}</span>
-        <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-        <span className="text-gray-800 font-medium">Approvals</span>
-      </div>
-
-      <Paper elevation={0} className="border border-gray-300 !bg-white overflow-hidden">
-        <Tabs
-          value={location.pathname}
-          variant="scrollable"
-          scrollButtons="auto"
-          className="!border-b !border-gray-300"
-          sx={{ "& .MuiTabs-indicator": { backgroundColor: "var(--color-primary)", height: 3 } }}
-        >
-          {visibleRoutes.map((route) => (
-            <Tab
-              key={route.path}
-              value={route.path}
-              label={route.label}
-              onClick={() => navigate(route.path)}
-              className="!text-gray-900"
-            />
-          ))}
-        </Tabs>
-
-        <div className="p-3 space-y-3">
-          <div>
-            <div className="text-xl font-semibold text-gray-800">
-              Leave Approval Inbox
-            </div>
-            <div className="text-sm text-gray-500 mt-1">
-              Review team leave requests, overlaps, balances, and policy warnings
-            </div>
-          </div>
+    <LeavePageShell
+      group="manager"
+      title="Leave Approval Inbox"
+      breadcrumbLabel="Approvals"
+      subtitle="Review team leave requests, overlaps, balances, and policy warnings"
+    >
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border border-gray-300 rounded-lg p-3 bg-gray-50">
+            <LeaveFilterBar onReset={resetFilters}>
               <TextField
                 select
                 label="Status"
@@ -369,7 +293,7 @@ export default function ManagerLeaveApprovalsPage() {
                     displayEmpty: true,
                     renderValue: (value: unknown) =>
                       value
-                        ? statusLabels[value as LeaveRequestStatus]
+                        ? getLeaveStatusMeta(value as LeaveRequestStatus).label
                         : "All Statuses",
                   },
                 }}
@@ -379,9 +303,9 @@ export default function ManagerLeaveApprovalsPage() {
                 }}
               >
                 <MenuItem value="">All Statuses</MenuItem>
-                {Object.entries(statusLabels).map(([value, label]) => (
+                {leaveRequestStatusOptions.map((value) => (
                   <MenuItem key={value} value={value}>
-                    {label}
+                    {getLeaveStatusMeta(value).label}
                   </MenuItem>
                 ))}
               </TextField>
@@ -455,101 +379,90 @@ export default function ManagerLeaveApprovalsPage() {
                 }}
                 slotProps={{ textField: { fullWidth: true } }}
               />
-            </div>
+            </LeaveFilterBar>
           </LocalizationProvider>
 
           <TableContainer
             component={Paper}
             elevation={0}
             className="max-w-full overflow-auto"
-            sx={tableContainerSx}
+            sx={leaveTableContainerSx}
           >
-            <Table className="border" size="small" sx={tableSx}>
+            <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
               <TableHead>
-                <TableRow sx={tableHeaderRowSx}>
-                  <TableCell className="!font-semibold">Employee</TableCell>
-                  <TableCell className="!font-semibold">Department</TableCell>
-                  <TableCell className="!font-semibold">Leave Type</TableCell>
-                  <TableCell className="!font-semibold">From Date</TableCell>
-                  <TableCell className="!font-semibold">To Date</TableCell>
-                  <TableCell className="!font-semibold">Days</TableCell>
-                  <TableCell className="!font-semibold">Submitted On</TableCell>
-                  <TableCell className="!font-semibold">Status</TableCell>
-                  <TableCell className="!font-semibold text-center">Actions</TableCell>
+                <TableRow sx={leaveTableHeaderRowSx}>
+                  <TableCell className={leaveTableHeaderCellClassName}>Employee</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Department</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Leave Type</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>From Date</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>To Date</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Days</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Submitted On</TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName}>Status</TableCell>
+                  <TableCell className={leaveTableActionHeaderCellClassName}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!loading &&
                   requests.map((request) => (
-                    <TableRow key={request.id} hover sx={tableRowSx}>
-                      <TableCell sx={tableTextCellSx}>
+                    <TableRow key={request.id} hover sx={leaveTableRowSx}>
+                      <TableCell sx={leaveTableBodyCellSx}>
                         <div className="font-medium">{request.employeeName}</div>
                         <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                           {request.employeeCode}
                         </div>
                       </TableCell>
-                      <TableCell sx={tableTextCellSx}>{request.department}</TableCell>
-                      <TableCell sx={tableTextCellSx}>{request.leaveTypeName}</TableCell>
-                      <TableCell sx={tableTextCellSx}>{formatDate(request.fromDate)}</TableCell>
-                      <TableCell sx={tableTextCellSx}>{formatDate(request.toDate)}</TableCell>
-                      <TableCell sx={tableTextCellSx}>{request.days}</TableCell>
-                      <TableCell sx={tableTextCellSx}>{formatDate(request.appliedOn)}</TableCell>
-                      <TableCell sx={tableTextCellSx}>
-                        <Chip
-                          size="small"
-                          label={statusLabels[request.status]}
-                          className={statusClasses[request.status]}
-                        />
+                      <TableCell sx={leaveTableBodyCellSx}>{request.department}</TableCell>
+                      <TableCell sx={leaveTableBodyCellSx}>{request.leaveTypeName}</TableCell>
+                      <TableCell sx={leaveTableBodyCellSx}>{formatDate(request.fromDate)}</TableCell>
+                      <TableCell sx={leaveTableBodyCellSx}>{formatDate(request.toDate)}</TableCell>
+                      <TableCell sx={leaveTableBodyCellSx}>{request.days}</TableCell>
+                      <TableCell sx={leaveTableBodyCellSx}>{formatDate(request.appliedOn)}</TableCell>
+                      <TableCell sx={leaveTableBodyCellSx}>
+                        <LeaveStatusBadge status={request.status} />
                       </TableCell>
-                      <TableCell className="text-center" sx={tableTextCellSx}>
+                      <TableCell sx={leaveTableActionCellSx}>
                         <Tooltip title="View">
                           <IconButton size="small" onClick={() => openDetail(request)}>
                             <VisibilityOutlinedIcon className="!w-4 !h-4 text-primary" />
                           </IconButton>
                         </Tooltip>
                         {request.status === "PENDING" && (
-                          <>
-                            <Tooltip title="Approve">
-                              <IconButton
-                                size="small"
-                                onClick={() => openActionDialog("approve", request)}
-                              >
-                                <CheckCircleOutlineOutlinedIcon className="!w-4 !h-4 !text-green-600" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Reject">
-                              <IconButton
-                                size="small"
-                                onClick={() => openActionDialog("reject", request)}
-                              >
-                                <CloseOutlinedIcon className="!w-4 !h-4 !text-red-600" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Request Clarification">
-                              <IconButton
-                                size="small"
-                                onClick={() => openActionDialog("clarify", request)}
-                              >
-                                <HelpOutlineOutlinedIcon className="!w-4 !h-4 text-primary" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
+                          <ApprovalActionBar
+                            variant="icons"
+                            size="small"
+                            onApprove={() => openActionDialog("approve", request)}
+                            onReject={() => openActionDialog("reject", request)}
+                            onClarify={() => openActionDialog("clarify", request)}
+                          />
                         )}
                       </TableCell>
                     </TableRow>
                   ))}
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={9}>
+                      <DataState
+                        compact
+                        type="loading"
+                        title="Loading approval inbox..."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && requests.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={9}>
+                      <DataState
+                        compact
+                        type="empty"
+                        title="No leave requests found."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
-            {loading && (
-              <Typography color="text.secondary" className="text-center py-8">
-                Loading approval inbox...
-              </Typography>
-            )}
-            {!loading && requests.length === 0 && (
-              <Typography color="text.secondary" className="text-center py-8">
-                No leave requests found.
-              </Typography>
-            )}
           </TableContainer>
 
           {total > 0 && (
@@ -563,181 +476,153 @@ export default function ManagerLeaveApprovalsPage() {
               showTotal
             />
           )}
-        </div>
-      </Paper>
-
-      <Dialog
+      <DetailsDialog
         open={Boolean(selectedRequest)}
+        title="Leave Approval Details"
         onClose={() => setSelectedRequest(null)}
         maxWidth="lg"
-        fullWidth
+        actions={
+          <ApprovalActionBar
+            onClarify={
+              selectedPending && selectedRequest
+                ? () => openActionDialog("clarify", selectedRequest)
+                : undefined
+            }
+            onReject={
+              selectedPending && selectedRequest
+                ? () => openActionDialog("reject", selectedRequest)
+                : undefined
+            }
+            onApprove={
+              selectedPending && selectedRequest
+                ? () => openActionDialog("approve", selectedRequest)
+                : undefined
+            }
+            onClose={() => setSelectedRequest(null)}
+          />
+        }
       >
-        <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">Leave Approval Details</div>
-          <IconButton onClick={() => setSelectedRequest(null)}>
-            <CloseOutlinedIcon />
-          </IconButton>
-        </div>
-        <DialogContent className="!p-4">
-          {selectedRequest && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Employee Summary</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Employee</span>
-                    <span className="text-gray-800 font-medium">
-                      {selectedRequest.employeeName}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Code</span>
-                    <span className="text-gray-800">{selectedRequest.employeeCode}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Department</span>
-                    <span className="text-gray-800">{selectedRequest.department}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Location</span>
-                    <span className="text-gray-800">{selectedRequest.location}</span>
-                  </div>
+        {selectedRequest && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Employee Summary</div>
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Employee</span>
+                  <span className="text-gray-800 font-medium">
+                    {selectedRequest.employeeName}
+                  </span>
                 </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Leave Request Details</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Leave Type</span>
-                    <span className="text-gray-800">{selectedRequest.leaveTypeName}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Dates</span>
-                    <span className="text-gray-800">
-                      {formatDate(selectedRequest.fromDate)} - {formatDate(selectedRequest.toDate)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Days</span>
-                    <span className="text-gray-800">{selectedRequest.days}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Status</span>
-                    <Chip
-                      size="small"
-                      label={statusLabels[selectedRequest.status]}
-                      className={statusClasses[selectedRequest.status]}
-                    />
-                  </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Code</span>
+                  <span className="text-gray-800">{selectedRequest.employeeCode}</span>
                 </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Available Leave Balance</div>
-                <div className="space-y-2">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Available</span>
-                    <span className="text-gray-800">{detailBalance?.balance ?? "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Pending</span>
-                    <span className="text-gray-800">{detailBalance?.pending ?? "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-500">Potential LOP</span>
-                    <span className="text-gray-800">{detailCalculation?.lopDays ?? 0}</span>
-                  </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Department</span>
+                  <span className="text-gray-800">{selectedRequest.department}</span>
                 </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Team Overlap</div>
-                {teamOverlap.length > 0 ? (
-                  <div className="space-y-2 text-gray-800">
-                    {teamOverlap.map((item) => (
-                      <div key={item.id}>
-                        {item.employeeName} - {item.leaveTypeCode} ({formatDate(item.fromDate)} to {formatDate(item.toDate)})
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-gray-500">No overlapping team leave found.</div>
-                )}
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Reason</div>
-                <div className="text-gray-800">{selectedRequest.reason}</div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Attachments</div>
-                <div className="text-gray-500">No attachments uploaded.</div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Approval Timeline</div>
-                <div className="space-y-2 text-gray-800">
-                  <div>Submitted on {formatDate(selectedRequest.appliedOn)}</div>
-                  <div>Pending with {selectedRequest.managerName}</div>
-                  {selectedRequest.approverRemarks && (
-                    <div>Remarks: {selectedRequest.approverRemarks}</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-                <div className="font-semibold text-primary mb-3">Policy Warnings</div>
-                <div className="space-y-2 text-gray-800">
-                  {(detailCalculation?.lopDays ?? 0) > 0 && (
-                    <div>Insufficient balance may convert to LOP.</div>
-                  )}
-                  {teamOverlap.length > 0 && (
-                    <div>Team coverage risk due to overlapping leave.</div>
-                  )}
-                  {(detailCalculation?.lopDays ?? 0) === 0 && teamOverlap.length === 0 && (
-                    <div>No policy warnings for this mock request.</div>
-                  )}
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Location</span>
+                  <span className="text-gray-800">{selectedRequest.location}</span>
                 </div>
               </div>
             </div>
-          )}
-        </DialogContent>
-        <DialogActions className="!p-4 !border-t !border-gray-300">
-          {selectedPending && selectedRequest && (
-            <>
-              <Button
-                variant="outlined"
-                onClick={() => openActionDialog("clarify", selectedRequest)}
-              >
-                Request Clarification
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={() => openActionDialog("reject", selectedRequest)}
-              >
-                Reject
-              </Button>
-              <Button
-                variant="contained"
-                className="!bg-primary"
-                onClick={() => openActionDialog("approve", selectedRequest)}
-              >
-                Approve
-              </Button>
-            </>
-          )}
-          <Button
-            variant="outlined"
-            className="!text-gray-800 !border-gray-300"
-            onClick={() => setSelectedRequest(null)}
-          >
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Leave Request Details</div>
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Leave Type</span>
+                  <span className="text-gray-800">{selectedRequest.leaveTypeName}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Dates</span>
+                  <span className="text-gray-800">
+                    {formatDate(selectedRequest.fromDate)} - {formatDate(selectedRequest.toDate)}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Days</span>
+                  <span className="text-gray-800">{selectedRequest.days}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Status</span>
+                  <LeaveStatusBadge status={selectedRequest.status} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Available Leave Balance</div>
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Available</span>
+                  <span className="text-gray-800">{detailBalance?.balance ?? "N/A"}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Pending</span>
+                  <span className="text-gray-800">{detailBalance?.pending ?? "N/A"}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-gray-500">Potential LOP</span>
+                  <span className="text-gray-800">{detailCalculation?.lopDays ?? 0}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Team Overlap</div>
+              {teamOverlap.length > 0 ? (
+                <div className="space-y-2 text-gray-800">
+                  {teamOverlap.map((item) => (
+                    <div key={item.id}>
+                      {item.employeeName} - {item.leaveTypeCode} ({formatDate(item.fromDate)} to {formatDate(item.toDate)})
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-gray-500">No overlapping team leave found.</div>
+              )}
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Reason</div>
+              <div className="text-gray-800">{selectedRequest.reason}</div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Attachments</div>
+              <div className="text-gray-500">No attachments uploaded.</div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Approval Timeline</div>
+              <div className="space-y-2 text-gray-800">
+                <div>Submitted on {formatDate(selectedRequest.appliedOn)}</div>
+                <div>Pending with {selectedRequest.managerName}</div>
+                {selectedRequest.approverRemarks && (
+                  <div>Remarks: {selectedRequest.approverRemarks}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+              <div className="font-semibold text-primary mb-3">Policy Warnings</div>
+              <div className="space-y-2 text-gray-800">
+                {(detailCalculation?.lopDays ?? 0) > 0 && (
+                  <div>Insufficient balance may convert to LOP.</div>
+                )}
+                {teamOverlap.length > 0 && (
+                  <div>Team coverage risk due to overlapping leave.</div>
+                )}
+                {(detailCalculation?.lopDays ?? 0) === 0 && teamOverlap.length === 0 && (
+                  <div>No policy warnings for this mock request.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </DetailsDialog>
 
       <Dialog open={Boolean(actionDialog)} onClose={closeActionDialog} maxWidth="sm" fullWidth>
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
@@ -795,6 +680,6 @@ export default function ManagerLeaveApprovalsPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </LeavePageShell>
   );
 }

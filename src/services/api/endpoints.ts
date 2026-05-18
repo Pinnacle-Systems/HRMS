@@ -162,6 +162,7 @@ export const API_ENDPOINTS = {
 
   LEAVE: {
     BASE: "/leaves",
+    MY_APPROVALS: "/leaves/approvals/my",
     BY_ID: (id: string) => `/leaves/${id}`,
     GET_BY_ID: (id: string) => `/leaves/${id}`,
     CALCULATE: "/leaves/calculate",

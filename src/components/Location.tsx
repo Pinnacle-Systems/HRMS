@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Fix for default marker icons in Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
@@ -28,6 +28,20 @@ const reverseGeocode = async (lat: number, lng: number) => {
   return response.json();
 };
 
+// Map click handler component
+interface MapClickHandlerProps {
+  onMapClick: (lat: number, lng: number) => void;
+}
+
+const MapClickHandler: React.FC<MapClickHandlerProps> = ({ onMapClick }) => {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
+
 interface LocationMapProps {
   address: string;
   latitude: number;
@@ -42,7 +56,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   onLocationChange,
 }) => {
   const [searchAddress, setSearchAddress] = useState(address);
-  const [predictions, setPredictions] = useState<any[]>([]);
+  const [predictions, setPredictions] = useState<Record<string, unknown>[]>([]);
   const [showPredictions, setShowPredictions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState<[number, number]>([latitude || 20.5937, longitude || 78.9629]);
@@ -72,13 +86,13 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     }
   };
 
-  const handlePlaceSelect = async (place: any) => {
+  const handlePlaceSelect = async (place: Record<string, unknown>) => {
     setShowPredictions(false);
-    setSearchAddress(place.display_name);
-    const lat = parseFloat(place.lat);
-    const lng = parseFloat(place.lon);
+    setSearchAddress(place.display_name as string);
+    const lat = parseFloat(place.lat as string);
+    const lng = parseFloat(place.lon as string);
     setPosition([lat, lng]);
-    onLocationChange(lat, lng, place.display_name);
+    onLocationChange(lat, lng, (place.display_name as string) || '');
   };
 
   const handleMapClick = (lat: number, lng: number) => {
@@ -114,15 +128,6 @@ export const LocationMap: React.FC<LocationMapProps> = ({
     }
   };
 
-  // Map click handler component
-  const MapClickHandler = () => {
-    useMapEvents({
-      click: (e) => {
-        handleMapClick(e.latlng.lat, e.latlng.lng);
-      },
-    });
-    return null;
-  };
 
   return (
     <Box className="space-y-3">
@@ -146,13 +151,13 @@ export const LocationMap: React.FC<LocationMapProps> = ({
                 <List dense>
                   {predictions.map((prediction) => (
                     <ListItem
-                      key={prediction.place_id}
+                      key={prediction.place_id as string}
                       onClick={() => handlePlaceSelect(prediction)}
                       className="hover:bg-gray-100 cursor-pointer"
                     >
                       <ListItemText
-                        primary={<span className="font-medium text-sm">{prediction.display_name.split(',')[0]}</span>}
-                        secondary={<span className="text-xs text-gray-500">{prediction.display_name.split(',').slice(1).join(',')}</span>}
+                        primary={<span className="font-medium text-sm">{(prediction.display_name as string).split(',')[0]}</span>}
+                        secondary={<span className="text-xs text-gray-500">{(prediction.display_name as string).split(',').slice(1).join(',')}</span>}
                       />
                     </ListItem>
                   ))}
@@ -191,7 +196,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({
             handleMapClick(latLng.lat, latLng.lng);
           }
         }} />
-        <MapClickHandler />
+        <MapClickHandler onMapClick={handleMapClick} />
       </MapContainer>
 
       <div className="flex justify-between items-center text-xs text-gray-500">

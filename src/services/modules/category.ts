@@ -23,11 +23,11 @@ export const categoryService = {
     return apiService.get(API_ENDPOINTS.CATEGORY.GET_BY_CATID(id));
   },
 
-  async createCategory(data: any) {
+  async createCategory(data: Record<string, unknown>) {
     return apiService.post(API_ENDPOINTS.CATEGORY.CREATECAT, data);
   },
 
-  async updateCategory(id: string, data: any) {
+  async updateCategory(id: string, data: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.CATEGORY.UPDATECAT(id), data);
   },
 
@@ -48,11 +48,11 @@ export const categoryService = {
     return apiService.get(API_ENDPOINTS.CATEGORY.GET_BY_CATITEMID(id, cid));
   },
 
-  async createCategoryItem(cid: string, data: any) {
+  async createCategoryItem(cid: string, data: Record<string, unknown>) {
     return apiService.post(API_ENDPOINTS.CATEGORY.CREATECATITEM(cid), data);
   },
 
-  async updateCategoryItem(id: string, cid: string, data: any) {
+  async updateCategoryItem(id: string, cid: string, data: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.CATEGORY.UPDATECATITEM(id, cid), data);
   },
 

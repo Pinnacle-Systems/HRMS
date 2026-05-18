@@ -1,38 +1,35 @@
 import { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import {
-  AppBar,
-  Box,
-  CssBaseline,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Avatar,
-  Menu,
-  MenuItem,
-  Divider,
-  Badge,
-  Tooltip,
-  Popover,
-} from "@mui/material";
-import {
-  Menu as MenuIcon,
-  DashboardOutlined as DashboardOutlinedIcon,
-  PeopleAltOutlined as PeopleAltOutlinedIcon,
-  AssignmentOutlined as AssignmentOutlinedIcon,
-  AttachMoneyOutlined as AttachMoneyOutlinedIcon,
-  SettingsOutlined as SettingsOutlinedIcon,
-  NotificationsNoneOutlined as NotificationsNoneOutlinedIcon,
-  Person4Outlined as Person4OutlinedIcon,
-  LogoutOutlined as LogoutOutlinedIcon,
-  ContrastOutlined as ContrastOutlinedIcon,
-  HelpOutlineTwoTone,
-} from "@mui/icons-material";
+import AppBar from "@mui/material/AppBar";
+import Box from "@mui/material/Box";
+import CssBaseline from "@mui/material/CssBaseline";
+import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Toolbar from "@mui/material/Toolbar";
+import Avatar from "@mui/material/Avatar";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Divider from "@mui/material/Divider";
+import Badge from "@mui/material/Badge";
+import Tooltip from "@mui/material/Tooltip";
+import Popover from "@mui/material/Popover";
+
+import MenuIcon from "@mui/icons-material/Menu";
+import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
+import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
+import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
+import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
+import Person4OutlinedIcon from "@mui/icons-material/Person4Outlined";
+import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
+import ContrastOutlinedIcon from "@mui/icons-material/ContrastOutlined";
+import HelpOutlineTwoTone from "@mui/icons-material/HelpOutlineTwoTone";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { useAuth } from "../auth/authContext";
 import {
@@ -74,7 +71,9 @@ export default function Layout() {
       // if (response.success) {
       navigate("/login");
       // }
-    } catch (err: any) { }
+    } catch {
+      // intentional
+    }
   };
 
   const handleConMenuOpen = (event: React.MouseEvent<HTMLElement>) => {

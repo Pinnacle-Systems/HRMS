@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useUI } from "../../../context/Snackbar";
 import { forgotPassword } from "../../../auth/authApi";
@@ -11,7 +11,7 @@ function ForgotPassword() {
   const [submitted, setSubmitted] = useState(false);
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
     showSpinner();
@@ -21,8 +21,8 @@ function ForgotPassword() {
         // navigate("/home");
         // showSnackbar(response.message, "success");
       }
-    } catch (err: any) {
-      showSnackbar(err.message, "error");
+    } catch (err: unknown) {
+      showSnackbar(err instanceof Error ? err.message : 'An error occurred', "error");
     } finally {
       hideSpinner();
     }

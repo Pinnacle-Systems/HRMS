@@ -20,7 +20,9 @@ import LocationMap from "../../../components/Map";
 import dayjs from "dayjs";
 
 const CompanySettings = () => {
-  const [companyInfo, setCompanyInfo] = useState<Partial<any>>({});
+  const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
+    companyType: "Head Office",
+  });
   const [logoFile, setLogoFile] = useState<any>("");
   const [signatureFile, setSignatureFile] = useState<File | string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -171,15 +173,18 @@ const CompanySettings = () => {
       try {
         const companyId = "3ddb07c5-45ab-4ab5-ba45-e3f3f6874e14";
         const response: any = await companyService.getCompanyById(companyId);
-        setCompanyInfo(response.data);
+        setCompanyInfo({
+          companyType: "Head Office",
+          ...response.data,
+        });
         if (response.data?.logoUrl) setLogoFile(response.data.logoUrl.replace(/([^:]\/)\/+/g, "$1"));
         if (response.data?.signatureUrl) setSignatureFile(response.data.signatureUrl);
-      } catch (error) {
-        showSnackbar("Failed to fetch company info:", 'error');
+      } catch (err: any) {
+        showSnackbar(err.message || "Failed to fetch company info", 'error');
       }
     };
     fetchCompanyInfo();
-  }, []);
+  }, [showSnackbar]);
 
   const handleSave = async () => {
     const newErrors: Record<string, string> = {};
@@ -344,7 +349,6 @@ const CompanySettings = () => {
     const { key, label, multiline, rows, placeholder, type, required, disabled } = field;
     const hasError = !!errors[key];
     const rules = validationRules[key as keyof typeof validationRules];
-    companyInfo['companyType'] = 'Head Office';
     const value = companyInfo[key];
 
 

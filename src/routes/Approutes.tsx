@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import type { ReactElement } from "react";
 import { AuthProvider } from "../auth/AuthProvider";
 import { useAuth } from "../auth/authContext";
 import { getDefaultRoute } from "../auth/authMapper";
@@ -15,7 +16,12 @@ import LeavePlaceholderPage from "../pages/leave/LeavePlaceholderPage";
 import ManagerLeaveApprovalsPage from "../pages/leave/ManagerLeaveApprovalsPage";
 import MyLeaveDashboard from "../pages/leave/MyLeaveDashboard";
 import MyLeaveRequestsPage from "../pages/leave/MyLeaveRequestsPage";
-import { leaveRoutes } from "../pages/leave/leaveRoutes";
+import {
+  getLeaveRouteGroupAllowedRoles,
+  getLeaveRoutesByGroup,
+  type LeaveRouteConfig,
+  type LeaveRouteId,
+} from "../pages/leave/leaveRoutes";
 import Login from "../pages/auth/Login/Login";
 import MfaPage from "../pages/auth/MfaPage";
 import Payroll from "../pages/payroll/payroll";
@@ -34,6 +40,19 @@ import CategorySettings from "../pages/settings/employee/otherCategory";
 import EmployeeDetails from "../pages/employees/employeeDetails";
 import OnBoardingProcess from "../pages/settings/employee/onBoardingProcess/onboard";
 import Documentation from "../pages/Documentation/doc";
+
+const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
+  myDashboard: <MyLeaveDashboard />,
+  apply: <ApplyLeavePage />,
+  myRequests: <MyLeaveRequestsPage />,
+  holidayCalendar: <HolidayCalendarPage />,
+  compOffs: <CompOffsPage />,
+  managerApprovals: <ManagerLeaveApprovalsPage />,
+};
+
+function getLeaveRouteElement(route: LeaveRouteConfig) {
+  return leaveRouteElements[route.id] ?? <LeavePlaceholderPage route={route} />;
+}
 
 function RootRedirect() {
   const { session, isLoading } = useAuth();
@@ -58,16 +77,10 @@ function RootRedirect() {
 }
 
 function AppRoutesContent() {
-  const employeeLeaveRoutes = leaveRoutes.filter(
-    (route) => route.group === "employee",
-  );
-  const managerLeaveRoutes = leaveRoutes.filter(
-    (route) => route.group === "manager",
-  );
-  const hrLeaveRoutes = leaveRoutes.filter((route) => route.group === "hr");
-  const adminLeaveRoutes = leaveRoutes.filter(
-    (route) => route.group === "admin",
-  );
+  const employeeLeaveRoutes = getLeaveRoutesByGroup("employee");
+  const managerLeaveRoutes = getLeaveRoutesByGroup("manager");
+  const hrLeaveRoutes = getLeaveRoutesByGroup("hr");
+  const adminLeaveRoutes = getLeaveRoutesByGroup("admin");
 
   return (
     <BrowserRouter>
@@ -99,7 +112,7 @@ function AppRoutesContent() {
             <Route
               element={
                 <ProtectedRoute
-                  allowedRoles={["ADMIN", "HR", "MANAGER", "EMPLOYEE"]}
+                  allowedRoles={getLeaveRouteGroupAllowedRoles("employee")}
                 />
               }
             >
@@ -107,59 +120,55 @@ function AppRoutesContent() {
                 <Route
                   key={route.path}
                   path={route.path.replace(/^\//, "")}
-                  element={
-                    route.path === "/leaves/my-dashboard" ? (
-                      <MyLeaveDashboard />
-                    ) : route.path === "/leaves/apply" ? (
-                      <ApplyLeavePage />
-                    ) : route.path === "/leaves/my-requests" ? (
-                      <MyLeaveRequestsPage />
-                    ) : route.path === "/leaves/holiday-calendar" ? (
-                      <HolidayCalendarPage />
-                    ) : route.path === "/leaves/comp-offs" ? (
-                      <CompOffsPage />
-                    ) : (
-                      <LeavePlaceholderPage route={route} />
-                    )
-                  }
+                  element={getLeaveRouteElement(route)}
                 />
               ))}
             </Route>
 
             <Route
-              element={<ProtectedRoute allowedRoles={["ADMIN", "MANAGER"]} />}
+              element={
+                <ProtectedRoute
+                  allowedRoles={getLeaveRouteGroupAllowedRoles("manager")}
+                />
+              }
             >
               {managerLeaveRoutes.map((route) => (
                 <Route
                   key={route.path}
                   path={route.path.replace(/^\//, "")}
-                  element={
-                    route.path === "/leaves/approvals" ? (
-                      <ManagerLeaveApprovalsPage />
-                    ) : (
-                      <LeavePlaceholderPage route={route} />
-                    )
-                  }
+                  element={getLeaveRouteElement(route)}
                 />
               ))}
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "HR"]} />}>
+            <Route
+              element={
+                <ProtectedRoute
+                  allowedRoles={getLeaveRouteGroupAllowedRoles("hr")}
+                />
+              }
+            >
               {hrLeaveRoutes.map((route) => (
                 <Route
                   key={route.path}
                   path={route.path.replace(/^\//, "")}
-                  element={<LeavePlaceholderPage route={route} />}
+                  element={getLeaveRouteElement(route)}
                 />
               ))}
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+            <Route
+              element={
+                <ProtectedRoute
+                  allowedRoles={getLeaveRouteGroupAllowedRoles("admin")}
+                />
+              }
+            >
               {adminLeaveRoutes.map((route) => (
                 <Route
                   key={route.path}
                   path={route.path.replace(/^\//, "")}
-                  element={<LeavePlaceholderPage route={route} />}
+                  element={getLeaveRouteElement(route)}
                 />
               ))}
             </Route>

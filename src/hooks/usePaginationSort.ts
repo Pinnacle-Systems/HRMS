@@ -18,11 +18,11 @@ interface PaginationResponse<T> {
 }
 
 interface UsePaginationSortOptions {
-  fetchFunction: (params: PaginationParams) => Promise<PaginationResponse<any>>;
+  fetchFunction: (params: PaginationParams) => Promise<PaginationResponse<unknown>>;
   defaultLimit?: number;
   defaultSortBy?: string;
   defaultSortOrder?: 'asc' | 'desc';
-  onError?: (error: any) => void;
+  onError?: (error: unknown) => void;
 }
 
 export const usePaginationSort = (options: UsePaginationSortOptions) => {
@@ -36,7 +36,7 @@ export const usePaginationSort = (options: UsePaginationSortOptions) => {
 
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<unknown[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(defaultLimit);
@@ -66,12 +66,13 @@ export const usePaginationSort = (options: UsePaginationSortOptions) => {
       setData(response.data);
       setTotal(response.total);
       setTotalPages(response.totalPages);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching data:', error);
       if (onError) {
         onError(error);
       } else {
-        showSnackbar(error.message || 'Failed to fetch data', 'error');
+        const errMsg = error instanceof Error ? error.message : 'Failed to fetch data';
+        showSnackbar(errMsg, 'error');
       }
     } finally {
       setLoading(false);
@@ -80,7 +81,7 @@ export const usePaginationSort = (options: UsePaginationSortOptions) => {
   }, [page, limit, sortBy, sortOrder, search, fetchFunction, showSpinner, hideSpinner, showSnackbar, onError]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => { await fetchData(); })();
   }, [fetchData]);
 
   const handlePageChange = (newPage: number) => {

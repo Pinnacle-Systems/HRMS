@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
@@ -37,7 +37,7 @@ export default function ResetPassword() {
   //   }
   // }, [newPassword, confirmPassword]);
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPasswordValid) {
       showSnackbar("Please meet all password requirements", "warning");
@@ -61,8 +61,8 @@ export default function ResetPassword() {
       //   // navigate("/home");
       //   showSnackbar(response.message, "success");
       // }
-    } catch (err: any) {
-      showSnackbar(err.message, "error");
+    } catch (err: unknown) {
+      showSnackbar(err instanceof Error ? err.message : 'An error occurred', "error");
     } finally {
       hideSpinner();
     }

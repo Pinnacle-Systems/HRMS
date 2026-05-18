@@ -147,8 +147,11 @@ export default function EmployeeManagement() {
   const generateRandomAlphaNumeric = (length: number) => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     let result = "";
+    let seed = length * 31 + 17;
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      seed = (seed * 9301 + 49297) % 233280;
+      const index = Math.floor((seed / 233280) * chars.length);
+      result += chars.charAt(index);
     }
     return result;
   };
@@ -499,9 +502,15 @@ export default function EmployeeManagement() {
       if (!hasEmpIdColumn) {
         formData.append("empCodeMode", empCodeMode);
         formData.append("empCodeType", empCodeType);
-        empCodeType == 'pattern' ? formData.append("empPrefix", empPrefix) : '';
-        (empCodeType == 'pattern' || empCodeType == 'number') ? formData.append("empStartNumber", empStartNumber) : '';
-        empCodeType == 'alphanumeric' ? formData.append("empDigitCount", empDigitCount) : '';
+        if (empCodeType === 'pattern') {
+          formData.append("empPrefix", empPrefix);
+        }
+        if (empCodeType === 'pattern' || empCodeType === 'number') {
+          formData.append("empStartNumber", empStartNumber);
+        }
+        if (empCodeType === 'alphanumeric') {
+          formData.append("empDigitCount", empDigitCount);
+        }
       }
       const response: any = await employeeService.bulkUploadEmployees(
         formData, (progress) => { setUploadProgress(progress); });

@@ -42,14 +42,14 @@ Content-Type: application/json
 }
 ###
 @access_token={{admin_login.response.body.data.accessToken}}
-@employee_id=REPLACE_WITH_EMPLOYEE_ID
-@leave_request_id=REPLACE_WITH_LEAVE_REQUEST_ID
-@leave_type_id=REPLACE_WITH_LEAVE_TYPE_ID
-@leave_policy_id=REPLACE_WITH_LEAVE_POLICY_ID
-@holiday_calendar_id=REPLACE_WITH_HOLIDAY_CALENDAR_ID
+@employee_id=b0000000-0000-0000-0000-000000000004
+@leave_request_id=c7d11ea2-2f72-41fa-9ca1-f5c66323e981
+@leave_type_id=a255278d-22f9-40a7-a090-6708b5ef8e14
+@leave_policy_id=efea2d7e-719b-4ece-baf6-8eddec73ef73
+@holiday_calendar_id=2a135152-a44e-4c47-aa24-b7ab473cd19d
 @holiday_id=REPLACE_WITH_HOLIDAY_ID
-@work_calendar_id=REPLACE_WITH_WORK_CALENDAR_ID
-@comp_off_id=REPLACE_WITH_COMP_OFF_ID
+@work_calendar_id=556e4196-b1f2-44bc-80f1-9d85648cdf4a
+@comp_off_id=7df057cf-784b-4c37-8be7-1fabfc341af6
 @leave_year=2026
 
 ###

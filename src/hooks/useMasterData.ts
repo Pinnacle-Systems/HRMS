@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { masterService } from "../services/modules/masters";
 
+type ApiListResponse = { data?: { content?: unknown[] } | unknown[] };
+
 export const useMasterData = (enabled = true) => {
-  const [countries, setCountries] = useState<any[]>([]);
-  const [states, setStates] = useState<any[]>([]);
-  const [cities, setCities] = useState<any[]>([]);
+  const [countries, setCountries] = useState<unknown[]>([]);
+  const [states, setStates] = useState<unknown[]>([]);
+  const [cities, setCities] = useState<unknown[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Initial load
@@ -12,7 +14,7 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response: any = await masterService.getCountries({ size: 200 });
+      const response = await masterService.getCountries({ size: 200 }) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCountries(data);
     } catch (error) {
@@ -26,7 +28,7 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response: any = await masterService.getStates({ size: 200 });
+      const response = await masterService.getStates({ size: 200 }) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setStates(data);
     } catch (error) {
@@ -40,7 +42,7 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response: any = await masterService.getCities({ size: 200 });
+      const response = await masterService.getCities({ size: 200 }) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCities(data);
     } catch (error) {
@@ -56,7 +58,7 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response: any = await masterService.getStatesByCountry(countryId);
+      const response = await masterService.getStatesByCountry(countryId) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setStates(data);
       return data;
@@ -73,7 +75,7 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response: any = await masterService.getCitiesByCountry(countryId);
+      const response = await masterService.getCitiesByCountry(countryId) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCities(data);
       return data;
@@ -90,7 +92,7 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response: any = await masterService.getCitiesByState(stateId);
+      const response = await masterService.getCitiesByState(stateId) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCities(data);
       return data;
@@ -103,9 +105,11 @@ export const useMasterData = (enabled = true) => {
   }, [enabled]);
 
   useEffect(() => {
-    fetchCountries();
-    fetchStates();
-    fetchCities();
+    void (async () => {
+      await fetchCountries();
+      await fetchStates();
+      await fetchCities();
+    })();
   }, [enabled,fetchCountries, fetchStates, fetchCities]);
 
   return {

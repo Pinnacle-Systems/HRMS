@@ -17,7 +17,7 @@ class AuthService {
     return authApi.refreshSession();
   }
 
-  async resetPassword(payload: any) {
+  async resetPassword(payload: Record<string, unknown>) {
     return await apiService.post(API_ENDPOINTS.AUTH.SET_PASSWORD, payload);
   }
 
@@ -29,11 +29,11 @@ class AuthService {
     return Boolean(loadSession());
   }
 
-  async getProfile(params?: any) {
+  async getProfile(params?: Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.AUTH.PROFILE, { params });
   }
 
-  async updateProfile(payload: any) {
+  async updateProfile(payload: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload);
   }
 
@@ -44,7 +44,7 @@ class AuthService {
     return apiService.post(API_ENDPOINTS.AUTH.PHOTO, formData);
   }
 
-  async changePassword(payload: any) {
+  async changePassword(payload: Record<string, unknown>) {
     const response = await apiService.post(
       API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
       payload,
@@ -52,25 +52,25 @@ class AuthService {
     return response;
   }
 
-  async getLoginHistory(params?: any) {
+  async getLoginHistory(params?: Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.BASE, { params });
   }
 
-  async getLoginHistoryByUser(id?: any) {
+  async getLoginHistoryByUser(id?: string | number) {
     return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_USERID(id));
   }
 
-  async getLoginHistoryByTenant(params?: any) {
+  async getLoginHistoryByTenant(params?: Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_TENANTID, {
       params,
     });
   }
 
-  async clearLoginHistory(params?: any) {
+  async clearLoginHistory(params?: Record<string, unknown>) {
     return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.DELETE, { params });
   }
 
-  async clearLoginHistoryOlderThan(days: any) {
+  async clearLoginHistoryOlderThan(days: string | number) {
     return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.CLEAR_OLDER(days));
   }
 }

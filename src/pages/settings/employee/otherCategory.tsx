@@ -103,10 +103,14 @@ export default function CategorySettings() {
           editingCategory.id,
           updatedValues,
         );
-        res.success ? showSnackbar(res.message, "success") : "";
+        if (res.success) {
+          showSnackbar(res.message, "success");
+        }
       } else {
         const res: any = await categoryService.createCategory(formData);
-        res.success ? showSnackbar(res.message, "success") : "";
+        if (res.success) {
+          showSnackbar(res.message, "success");
+        }
       }
       await getCategories();
       setDialogOpen(false);

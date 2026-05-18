@@ -52,6 +52,7 @@ import type {
 export const USE_MOCK_LEAVE_SERVICE =
   import.meta.env.VITE_USE_MOCK_LEAVE_SERVICE === "true";
 const MOCK_EMPLOYEE_ID = "emp-100";
+export const DEFAULT_MOCK_MANAGER_ID = "emp-200";
 
 type CreateLeaveRequestPayload = Partial<LeaveRequest>;
 type LeaveActionPayload = {
@@ -498,7 +499,48 @@ class LeaveService {
   }
 
   async getManagerLeaveApprovals(params?: LeaveListParams) {
-    return this.getLeaves({ ...params, managerId: params?.managerId ?? "emp-200" });
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      return this.getLeaves(params);
+    }
+
+    return this.getLeaves({
+      ...params,
+      managerId: params?.managerId ?? DEFAULT_MOCK_MANAGER_ID,
+    });
+  }
+
+  async getMyManagerLeaveApprovals(
+    params?: LeaveListParams,
+    managerEmployeeId?: string,
+  ) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      if (managerEmployeeId) {
+        return this.getLeaves({ ...params, managerId: managerEmployeeId });
+      }
+
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<LeaveRequestResponse> | LeaveRequestResponse[]>>(
+        API_ENDPOINTS.LEAVE.MY_APPROVALS,
+        { params: buildLeaveRequestApiParams(params) },
+      );
+      return apiMappedPageResponse(
+        response,
+        mapLeaveRequestResponseToViewModel,
+        "Leave approvals loaded",
+      );
+    }
+
+    const managerId = managerEmployeeId ?? params?.managerId;
+    if (managerId) {
+      const response = await this.getLeaves({ ...params, managerId });
+      if (response.data?.content.length) {
+        return response;
+      }
+    }
+
+    return this.getLeaves({
+      ...params,
+      managerId: DEFAULT_MOCK_MANAGER_ID,
+    });
   }
 
   async createLeave(
@@ -537,7 +579,7 @@ class LeaveService {
       employeeName: payload.employeeName ?? "Aarav Menon",
       department: payload.department ?? "Engineering",
       location: payload.location ?? "Bengaluru",
-      managerId: payload.managerId ?? "emp-200",
+      managerId: payload.managerId ?? DEFAULT_MOCK_MANAGER_ID,
       managerName: payload.managerName ?? "Nisha Rao",
       leaveTypeId: leaveType.id,
       leaveTypeCode: leaveType.code,
@@ -1013,6 +1055,10 @@ class LeaveService {
   }
 
   async selectOptionalHoliday(holidayId: string) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      throw new Error("selectOptionalHoliday: real API not implemented");
+    }
+
     const holiday = mockHolidayCalendars
       .flatMap((calendar) => calendar.holidays)
       .find((item) => item.id === holidayId);
@@ -1107,6 +1153,10 @@ class LeaveService {
   }
 
   async getTeamCalendar(params?: LeaveListParams) {
+    if (!USE_MOCK_LEAVE_SERVICE) {
+      throw new Error("getTeamCalendar: real API not implemented");
+    }
+
     return mockResponse(paginate(mockTeamCalendar, params), "Team calendar loaded");
   }
 
