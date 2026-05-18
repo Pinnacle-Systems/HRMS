@@ -31,7 +31,6 @@ import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
 type HolidayGridRow = Holiday & {
   day: string;
   displayDate: string;
-  locationOptions: string[];
 };
 
 const holidayTypeLabels: Record<Holiday["type"], string> = {
@@ -96,17 +95,6 @@ function formatDay(value: string) {
   );
 }
 
-function splitLocations(value?: string) {
-  return (value ?? "")
-    .split(",")
-    .map((location) => location.trim())
-    .filter(Boolean);
-}
-
-function uniqueLocations(values: string[]) {
-  return Array.from(new Set(values.filter(Boolean)));
-}
-
 export default function HolidayCalendarPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -118,7 +106,6 @@ export default function HolidayCalendarPage() {
   const [dayFilter, setDayFilter] = useState("");
   const [nameFilter, setNameFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<Holiday["type"] | "">("");
-  const [locationFilter, setLocationFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
   const visibleRoutes = useMemo(() => {
@@ -134,10 +121,7 @@ export default function HolidayCalendarPage() {
       setLoading(true);
       showSpinner();
       try {
-        const response = await leaveService.getHolidayCalendars({
-          page: 0,
-          size: 20,
-        });
+        const response = await leaveService.getHolidayCalendars();
         if (isMounted) {
           setCalendars(response.data?.content ?? []);
         }
@@ -164,18 +148,10 @@ export default function HolidayCalendarPage() {
       calendars
         .filter((calendar) => calendar.year === year)
         .flatMap((calendar) =>
-          calendar.holidays.map((holiday) => {
-            const locationOptions = uniqueLocations([
-              ...splitLocations(holiday.location),
-              ...(calendar.locations ?? []),
-              calendar.branchName ?? "",
-            ]);
-            return {
-              ...holiday,
-              location: locationOptions.join(", "),
-              locationOptions,
-            };
-          }),
+          calendar.holidays.map((holiday) => ({
+            ...holiday,
+            location: holiday.location || "All Locations",
+          })),
         )
         .sort((left, right) => left.date.localeCompare(right.date))
         .map((holiday) => ({
@@ -185,39 +161,21 @@ export default function HolidayCalendarPage() {
         })),
     [calendars, year],
   );
-  const locationOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          allHolidays.flatMap((holiday) =>
-            holiday.locationOptions,
-          ),
-        ),
-      ).sort((left, right) => left.localeCompare(right)),
-    [allHolidays],
-  );
   const holidays = useMemo(
     () =>
       allHolidays.filter((holiday) => {
         const nameMatches = holiday.name
           .toLowerCase()
           .includes(nameFilter.trim().toLowerCase());
-        const locationMatches =
-          !locationFilter ||
-          holiday.locationOptions.some(
-            (location) =>
-              location.toLowerCase() === locationFilter.toLowerCase(),
-          );
 
         return (
           (!dateFilter || holiday.date === dateFilter) &&
           (!dayFilter || holiday.day === dayFilter) &&
           (!typeFilter || holiday.type === typeFilter) &&
-          nameMatches &&
-          locationMatches
+          nameMatches
         );
       }),
-    [allHolidays, dateFilter, dayFilter, locationFilter, nameFilter, typeFilter],
+    [allHolidays, dateFilter, dayFilter, nameFilter, typeFilter],
   );
   const optionalHolidays = holidays.filter((holiday) => holiday.type === "OPTIONAL");
   const standardHolidays = holidays.filter((holiday) => holiday.type !== "OPTIONAL");
@@ -350,7 +308,7 @@ export default function HolidayCalendarPage() {
             </TextField>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border border-gray-300 rounded-lg px-3 pb-3 pt-4 bg-gray-50">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 border border-gray-300 rounded-lg px-3 pb-3 pt-4 bg-gray-50">
             <DatePicker
               label="Date"
               value={dateFilterValue}
@@ -428,27 +386,6 @@ export default function HolidayCalendarPage() {
                 ),
               )}
             </TextField>
-            <TextField
-              select
-              label="Location/Branch"
-              value={locationFilter}
-              onChange={(event) => setLocationFilter(event.target.value)}
-              slotProps={{
-                inputLabel: { shrink: true },
-                select: {
-                  displayEmpty: true,
-                  renderValue: (value: unknown) =>
-                    value ? String(value) : "All Locations",
-                },
-              }}
-            >
-              <MenuItem value="">All Locations</MenuItem>
-              {locationOptions.map((location) => (
-                <MenuItem key={location} value={location}>
-                  {location}
-                </MenuItem>
-              ))}
-            </TextField>
           </div>
 
           <TableContainer
@@ -464,7 +401,7 @@ export default function HolidayCalendarPage() {
                   <TableCell className="!font-semibold">Day</TableCell>
                   <TableCell className="!font-semibold">Holiday Name</TableCell>
                   <TableCell className="!font-semibold">Type</TableCell>
-                  <TableCell className="!font-semibold">Location/Branch</TableCell>
+                  <TableCell className="!font-semibold">Location</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>{!loading && renderHolidayRows(standardHolidays)}</TableBody>
@@ -495,7 +432,7 @@ export default function HolidayCalendarPage() {
                   <TableCell className="!font-semibold">Day</TableCell>
                   <TableCell className="!font-semibold">Holiday Name</TableCell>
                   <TableCell className="!font-semibold">Type</TableCell>
-                  <TableCell className="!font-semibold">Location/Branch</TableCell>
+                  <TableCell className="!font-semibold">Location</TableCell>
                   <TableCell className="!font-semibold text-center">Optional Action</TableCell>
                 </TableRow>
               </TableHead>

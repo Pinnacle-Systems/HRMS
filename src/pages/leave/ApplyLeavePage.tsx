@@ -20,17 +20,12 @@ import type { Dayjs } from "dayjs";
 import { useAuth } from "../../auth/authContext";
 import { FileUpload } from "../../components/FileUpload";
 import { useUI } from "../../context/Snackbar";
-import { authService } from "../../services/modules/auth";
 import { leaveService } from "../../services/modules/leave";
 import type {
-  LeaveBalance,
   LeaveCalculationResult,
   LeaveDayType,
-  Holiday,
-  HolidayCalendar,
   LeaveRequestStatus,
   LeaveType,
-  WorkCalendar,
 } from "../../services/modules/leaveTypes";
 import { leaveGroupLabels, leaveRoutes } from "./leaveRoutes";
 
@@ -72,141 +67,6 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-const weekdayNames = [
-  "SUNDAY",
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-];
-
-function getEffectiveHolidays(
-  holidaysSource: Holiday[],
-  holidayCalendarId?: string,
-) {
-  const holidaysForSelectedCalendar = holidaysSource.filter(
-    (holiday) => !holidayCalendarId || holiday.calendarId === holidayCalendarId,
-  );
-  return holidayCalendarId && holidaysForSelectedCalendar.length > 0
-    ? holidaysForSelectedCalendar
-    : holidaysSource;
-}
-
-function calculateLeaveLocally(
-  form: ApplyLeaveForm,
-  availableBalance: number,
-  holidaysSource: Holiday[],
-  holidayCalendarId?: string,
-  workCalendar?: WorkCalendar,
-): LeaveCalculationResult {
-  if (!form.fromDate || !form.toDate) {
-    return {
-      days: 0,
-      workingDays: 0,
-      holidays: [],
-      weeklyOffs: [],
-      availableBalance,
-      lopDays: 0,
-    };
-  }
-
-  const weeklyOffSet = new Set(
-    (workCalendar?.weeklyOffs?.length
-      ? workCalendar.weeklyOffs
-      : ["SATURDAY", "SUNDAY"]
-    ).map((day) => day.toUpperCase()),
-  );
-  const effectiveHolidays = getEffectiveHolidays(
-    holidaysSource,
-    holidayCalendarId,
-  );
-  const holidayDateSet = new Set(
-    effectiveHolidays
-      .filter((holiday) => holiday.active !== false)
-      .filter((holiday) => holiday.type !== "OPTIONAL")
-      .map((holiday) => holiday.date),
-  );
-  const holidays: string[] = [];
-  const weeklyOffs: string[] = [];
-  let days = 0;
-  let cursor = form.fromDate.startOf("day");
-  const endDate = form.toDate.startOf("day");
-
-  while (cursor.isBefore(endDate, "day") || cursor.isSame(endDate, "day")) {
-    const isoDate = cursor.format("YYYY-MM-DD");
-    const weekday = weekdayNames[cursor.day()];
-    const isWeeklyOff = weeklyOffSet.has(weekday);
-    const isHoliday = holidayDateSet.has(isoDate);
-
-    if (isHoliday) {
-      holidays.push(isoDate);
-    }
-    if (isWeeklyOff) {
-      weeklyOffs.push(isoDate);
-    }
-    if (!isWeeklyOff && !isHoliday) {
-      let dayValue = 1;
-      const isSameDay = form.fromDate.isSame(form.toDate, "day");
-      const isFirstDay = cursor.isSame(form.fromDate, "day");
-      const isLastDay = cursor.isSame(form.toDate, "day");
-
-      if (isSameDay) {
-        dayValue = form.fromSession === "FULL_DAY" ? 1 : 0.5;
-      } else {
-        if (isFirstDay && form.fromSession !== "FULL_DAY") {
-          dayValue -= 0.5;
-        }
-        if (isLastDay && form.toSession !== "FULL_DAY") {
-          dayValue -= 0.5;
-        }
-      }
-      days += Math.max(0, dayValue);
-    }
-
-    cursor = cursor.add(1, "day");
-  }
-
-  return {
-    days,
-    workingDays: days,
-    holidays,
-    weeklyOffs,
-    availableBalance,
-    lopDays: Math.max(0, days - availableBalance),
-  };
-}
-
-type ProfileResponse = {
-  data?: {
-    id?: string;
-    employeeId?: string;
-    userId?: string;
-    employee?: {
-      id?: string;
-      employeeId?: string;
-      userId?: string;
-    };
-  };
-};
-
-function uniqueValues(values: Array<string | undefined>) {
-  return Array.from(new Set(values.filter(Boolean))) as string[];
-}
-
-function uniqueHolidays(holidays: Holiday[]) {
-  const seen = new Set<string>();
-  return holidays.filter((holiday) => {
-    const key = holiday.id || `${holiday.calendarId ?? ""}-${holiday.date}-${holiday.name}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
 export default function ApplyLeavePage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,12 +75,6 @@ export default function ApplyLeavePage() {
   const [form, setForm] = useState<ApplyLeaveForm>(initialForm);
   const [errors, setErrors] = useState<FormErrors>({});
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
-  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
-  const [leaveEmployeeId, setLeaveEmployeeId] = useState("");
-  const [holidayCalendarId, setHolidayCalendarId] = useState("");
-  const [workCalendarId, setWorkCalendarId] = useState("");
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [selectedWorkCalendar, setSelectedWorkCalendar] = useState<WorkCalendar>();
   const [calculation, setCalculation] = useState<LeaveCalculationResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
@@ -238,56 +92,13 @@ export default function ApplyLeavePage() {
     () => leaveTypes.find((leaveType) => leaveType.id === form.leaveTypeId),
     [form.leaveTypeId, leaveTypes],
   );
-  const selectedLeaveBalance = useMemo(
-    () =>
-      leaveBalances.find(
-        (balance) => balance.leaveTypeId === form.leaveTypeId,
-      ),
-    [form.leaveTypeId, leaveBalances],
-  );
-  const selectedAvailableBalance = selectedLeaveBalance?.balance ?? 0;
-  const previewAvailableBalance =
-    selectedLeaveBalance?.balance ?? calculation?.availableBalance ?? 0;
-  const previewLopDays = calculation
-    ? Math.max(0, calculation.days - previewAvailableBalance)
-    : 0;
   const attachmentRequired =
     selectedLeaveType?.code === "SL" &&
     calculation?.days !== undefined &&
     selectedLeaveType.requiresDocumentAfterDays !== undefined &&
     calculation.days > selectedLeaveType.requiresDocumentAfterDays;
   const exceedsBalance =
-    calculation !== null && calculation.days > previewAvailableBalance;
-  const excludedHolidayRows = useMemo(() => {
-    if (!form.fromDate || !form.toDate) {
-      return [];
-    }
-
-    const fromDate = form.fromDate.format("YYYY-MM-DD");
-    const toDate = form.toDate.format("YYYY-MM-DD");
-    const calculationHolidayDates = new Set(calculation?.holidays ?? []);
-    const effectiveHolidays = getEffectiveHolidays(
-      holidays,
-      holidayCalendarId || undefined,
-    );
-
-    return effectiveHolidays
-      .filter((holiday) => holiday.active !== false)
-      .filter((holiday) => holiday.type !== "OPTIONAL")
-      .filter((holiday) => holiday.date >= fromDate && holiday.date <= toDate)
-      .filter(
-        (holiday) =>
-          calculationHolidayDates.size === 0 ||
-          calculationHolidayDates.has(holiday.date),
-      )
-      .sort((left, right) => left.date.localeCompare(right.date));
-  }, [
-    calculation?.holidays,
-    form.fromDate,
-    form.toDate,
-    holidayCalendarId,
-    holidays,
-  ]);
+    calculation !== null && calculation.days > calculation.availableBalance;
 
   useEffect(() => {
     let isMounted = true;
@@ -295,104 +106,14 @@ export default function ApplyLeavePage() {
     const loadLeaveFormData = async () => {
       setLoading(true);
       try {
-        if (!currentEmployeeId) {
-          throw new Error("Current employee id is unavailable");
-        }
-
-        let employeeIds = [currentEmployeeId];
-        try {
-          const profileResponse = await authService.getProfile() as ProfileResponse;
-          employeeIds = uniqueValues([
-            profileResponse?.data?.employeeId ||
-              profileResponse?.data?.employee?.employeeId,
-            profileResponse?.data?.employee?.id,
-            profileResponse?.data?.id,
-            profileResponse?.data?.userId,
-            profileResponse?.data?.employee?.userId,
-            currentEmployeeId,
-          ]);
-        } catch {
-          employeeIds = [currentEmployeeId];
-        }
-
-        const [
-          leaveTypeResult,
-          holidayCalendarResult,
-          holidayResult,
-          workCalendarResult,
-        ] =
-          await Promise.allSettled([
-            leaveService.getLeaveTypes({
-              page: 0,
-              size: 50,
-              sort: "name,ASC",
-            }),
-            leaveService.getHolidayCalendars(),
-            leaveService.getHolidays(),
-            leaveService.getWorkCalendars(),
-          ]);
+        const leaveTypeResult = await leaveService.getLeaveTypes({
+          page: 0,
+          size: 50,
+          sort: "name,ASC",
+        });
 
         if (isMounted) {
-          let balanceContent: LeaveBalance[] = [];
-          let resolvedEmployeeId = employeeIds[0] ?? currentEmployeeId;
-
-          for (const candidateEmployeeId of employeeIds) {
-            try {
-              const balanceResult = await leaveService.getEmployeeLeaveBalances(
-                candidateEmployeeId,
-                {
-                  page: 0,
-                  size: 20,
-                  sort: "leaveTypeName,ASC",
-                  leaveYear: new Date().getFullYear(),
-                },
-              );
-              balanceContent = balanceResult.data?.content ?? [];
-              resolvedEmployeeId = candidateEmployeeId;
-              break;
-            } catch {
-              balanceContent = [];
-            }
-          }
-
-          setLeaveEmployeeId(resolvedEmployeeId);
-          setLeaveBalances(balanceContent);
-
-          if (leaveTypeResult.status === "fulfilled") {
-            setLeaveTypes(leaveTypeResult.value.data?.content ?? []);
-          } else {
-            throw leaveTypeResult.reason;
-          }
-
-          if (holidayCalendarResult.status === "fulfilled") {
-            const calendars: HolidayCalendar[] =
-              holidayCalendarResult.value.data?.content ?? [];
-            const selectedCalendar =
-              calendars.find((calendar) => calendar.active !== false) ??
-              calendars[0];
-            setHolidayCalendarId(selectedCalendar?.id ?? "");
-            const calendarHolidays = calendars.flatMap((calendar) =>
-              calendar.holidays.map((holiday) => ({
-                ...holiday,
-                calendarId: holiday.calendarId ?? calendar.id,
-              })),
-            );
-            const directHolidays =
-              holidayResult.status === "fulfilled"
-                ? holidayResult.value.data?.content ?? []
-                : [];
-            setHolidays(uniqueHolidays([...calendarHolidays, ...directHolidays]));
-          }
-
-          if (workCalendarResult.status === "fulfilled") {
-            const calendars: WorkCalendar[] =
-              workCalendarResult.value.data?.content ?? [];
-            const selectedCalendar =
-              calendars.find((calendar) => calendar.active !== false) ??
-              calendars[0];
-            setWorkCalendarId(selectedCalendar?.id ?? "");
-            setSelectedWorkCalendar(selectedCalendar);
-          }
+          setLeaveTypes(leaveTypeResult.data?.content ?? []);
         }
       } catch (err: any) {
         if (isMounted) {
@@ -428,55 +149,25 @@ export default function ApplyLeavePage() {
 
       setCalculating(true);
       try {
-        const employeeId = leaveEmployeeId || currentEmployeeId;
-        if (!employeeId) {
+        if (!currentEmployeeId) {
           throw new Error("Current employee id is unavailable");
         }
 
         const response = await leaveService.calculateLeaveDays({
-          employeeId,
+          employeeId: currentEmployeeId,
           leaveTypeId: form.leaveTypeId,
           fromDate: form.fromDate.format("YYYY-MM-DD"),
           toDate: form.toDate.format("YYYY-MM-DD"),
           fromSession: form.fromSession,
           toSession: form.toSession,
-          holidayCalendarId: holidayCalendarId || undefined,
-          workCalendarId: workCalendarId || undefined,
         });
         if (isMounted) {
-          const localCalculation = calculateLeaveLocally(
-            form,
-            selectedAvailableBalance,
-            holidays,
-            holidayCalendarId || undefined,
-            selectedWorkCalendar,
-          );
-          const apiCalculation = response.data ?? null;
-          setCalculation(
-            apiCalculation
-              ? {
-                  ...apiCalculation,
-                  holidays: apiCalculation.holidays.length
-                    ? apiCalculation.holidays
-                    : localCalculation.holidays,
-                  weeklyOffs: apiCalculation.weeklyOffs.length
-                    ? apiCalculation.weeklyOffs
-                    : localCalculation.weeklyOffs,
-                }
-              : localCalculation,
-          );
+          setCalculation(response.data ?? null);
         }
       } catch (err: any) {
         if (isMounted) {
-          setCalculation(
-            calculateLeaveLocally(
-              form,
-              selectedAvailableBalance,
-              holidays,
-              holidayCalendarId || undefined,
-              selectedWorkCalendar,
-            ),
-          );
+          setCalculation(null);
+          showSnackbar(err?.message || "Failed to calculate leave days", "error");
         }
       } finally {
         if (isMounted) {
@@ -496,13 +187,7 @@ export default function ApplyLeavePage() {
     form.fromSession,
     form.toDate,
     form.toSession,
-    holidayCalendarId,
-    workCalendarId,
-    holidays,
-    selectedWorkCalendar,
-    selectedAvailableBalance,
     currentEmployeeId,
-    leaveEmployeeId,
   ]);
 
   const handleChange = <TKey extends keyof ApplyLeaveForm>(
@@ -564,8 +249,6 @@ export default function ApplyLeavePage() {
         days: calculation?.days ?? 0,
         reason: form.reason,
         emergencyContactNumber: form.emergencyContact.trim() || undefined,
-        holidayCalendarId: holidayCalendarId || undefined,
-        workCalendarId: workCalendarId || undefined,
         status,
       });
 
@@ -853,13 +536,13 @@ export default function ApplyLeavePage() {
                       <div className="flex flex-wrap justify-between gap-2">
                         <span className="text-gray-500">Available Balance</span>
                         <span className="font-semibold text-gray-800">
-                          {previewAvailableBalance}
+                          {calculation.availableBalance}
                         </span>
                       </div>
                       <div className="flex flex-wrap justify-between gap-2">
                         <span className="text-gray-500">Potential LOP</span>
                         <span className={exceedsBalance ? "font-semibold text-error" : "text-gray-800"}>
-                          {previewLopDays}
+                          {calculation.lopDays}
                         </span>
                       </div>
                       {exceedsBalance && (
@@ -886,18 +569,18 @@ export default function ApplyLeavePage() {
                     Excluded Days
                   </div>
                   {calculation &&
-                  (excludedHolidayRows.length || calculation.weeklyOffs.length) ? (
+                  (calculation.holidays.length || calculation.weeklyOffs.length) ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="min-w-0">
                         <div className="text-sm text-gray-500 mb-2">Holidays</div>
                         <div className="flex flex-wrap gap-2">
-                          {excludedHolidayRows.length ? (
-                            excludedHolidayRows.map((holiday) => (
+                          {calculation.holidays.length ? (
+                            calculation.holidays.map((date) => (
                               <div
-                                key={`${holiday.id}-${holiday.date}`}
+                                key={date}
                                 className="rounded-md bg-primary-50 border border-primary-100 px-2 py-1 text-xs text-gray-800"
                               >
-                                {formatDate(holiday.date)} - {holiday.name}
+                                {formatDate(date)}
                               </div>
                             ))
                           ) : (

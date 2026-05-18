@@ -337,7 +337,7 @@ export default function MyLeaveDashboard() {
                   <div className="text-2xl font-semibold text-gray-800 mt-1">
                     {requests.length}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">mock requests loaded</div>
+                  <div className="text-xs text-gray-500 mt-1">requests loaded</div>
                 </div>
               </div>
 

@@ -41,7 +41,7 @@ Content-Type: application/json
     "password": "password"
 }
 ###
-@access_token={{admin_login.response.body.data.accessToken}}
+@access_token={{employee_login.response.body.data.accessToken}}
 @employee_id=REPLACE_WITH_EMPLOYEE_ID
 @leave_request_id=REPLACE_WITH_LEAVE_REQUEST_ID
 @leave_type_id=REPLACE_WITH_LEAVE_TYPE_ID
@@ -54,7 +54,7 @@ Content-Type: application/json
 
 ###
 # @name get_leaves
-GET {{api_base_url}}/leaves?page=0&size=20&sort=createdAt,DESC
+GET {{api_base_url}}/leaves?page=0&size=20&sort=submittedAt,DESC
 Authorization: Bearer {{access_token}}
 
 ###

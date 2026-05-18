@@ -697,7 +697,7 @@ export default function ManagerLeaveApprovalsPage() {
                     <div>Team coverage risk due to overlapping leave.</div>
                   )}
                   {(detailCalculation?.lopDays ?? 0) === 0 && teamOverlap.length === 0 && (
-                    <div>No policy warnings for this mock request.</div>
+                    <div>No policy warnings for this request.</div>
                   )}
                 </div>
               </div>
