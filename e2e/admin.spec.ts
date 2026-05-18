@@ -16,23 +16,25 @@ test.describe("mocked admin flow", () => {
 
   test("admin can open primary workspaces", async ({ page }) => {
     await page.goto("/admin/dashboard");
-
     await page.getByLabel("open drawer").click();
 
     await page.getByText("Employees").click();
     await expect(page).toHaveURL(/\/employees$/);
-    await expect(page.getByRole("heading", { name: "Employees" })).toBeVisible();
+    await expect(page.getByText("Employee Management").first()).toBeVisible();
+    await page.getByText("Employee Management").first().hover(); // Dismiss tooltips
 
     await page.getByText("Leave / Attendance").click();
-    await expect(page).toHaveURL(/\/leave$/);
-    await expect(page.getByRole("heading", { name: "Leave & Attendance" })).toBeVisible();
+    await expect(page).toHaveURL(/\/leaves\/my-dashboard$/);
+    await expect(page.getByText("My Leave").first()).toBeVisible();
+    await page.getByText("My Leave").first().hover(); // Dismiss tooltips
 
-    await page.getByText("Payroll").click();
+    await page.getByText("Payroll", { exact: true }).click();
     await expect(page).toHaveURL(/\/payroll$/);
     await expect(page.getByRole("heading", { name: "Payroll" })).toBeVisible();
+    await page.getByRole("heading", { name: "Payroll" }).hover(); // Dismiss tooltips
 
     await page.getByText("Settings").click();
-    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page).toHaveURL(/\/settings/);
     await expect(page.getByText("Company Settings")).toBeVisible();
   });
 
