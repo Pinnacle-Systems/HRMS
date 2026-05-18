@@ -515,6 +515,8 @@ class LeaveService {
         emergencyContactNumber: payload.emergencyContactNumber,
         draft: payload.status === "DRAFT",
         approverId: payload.approverId,
+        holidayCalendarId: payload.holidayCalendarId,
+        workCalendarId: payload.workCalendarId,
       };
       const response = await apiService.post(
         API_ENDPOINTS.LEAVE.BASE,
@@ -583,11 +585,14 @@ class LeaveService {
       const response = await apiService.post(
         API_ENDPOINTS.LEAVE.CALCULATE,
         {
+          employeeId: payload.employeeId,
           leaveTypeId: payload.leaveTypeId,
           fromDate: payload.fromDate,
           toDate: payload.toDate,
           fromSession: payload.fromSession ?? payload.dayType ?? "FULL_DAY",
           toSession: payload.toSession ?? payload.dayType ?? "FULL_DAY",
+          holidayCalendarId: payload.holidayCalendarId,
+          workCalendarId: payload.workCalendarId,
         },
       ) as ApiEnvelope<LeaveCalculationResponse>;
       return apiMappedResponse(
@@ -1112,9 +1117,9 @@ class LeaveService {
 
   async getWorkCalendars(params?: LeaveListParams) {
     if (!USE_MOCK_LEAVE_SERVICE) {
-      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<WorkCalendarResponse>>>(
+      const response = await apiService.get<ApiEnvelope<SwaggerPageResponse<WorkCalendarResponse> | WorkCalendarResponse[]>>(
         API_ENDPOINTS.WORK_CALENDAR.BASE,
-        { params },
+        params ? { params } : undefined,
       );
       return apiMappedPageResponse(
         response,

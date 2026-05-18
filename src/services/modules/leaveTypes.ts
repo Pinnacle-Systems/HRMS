@@ -48,6 +48,8 @@ export type LeaveRequest = {
   reason: string;
   appliedReason?: string;
   emergencyContactNumber?: string;
+  holidayCalendarId?: string;
+  workCalendarId?: string;
   status: LeaveRequestStatus;
   appliedOn: string;
   approverId?: string;
@@ -104,6 +106,8 @@ export type LeaveCalculationRequest = {
   dayType?: LeaveDayType;
   fromSession?: LeaveDayType;
   toSession?: LeaveDayType;
+  holidayCalendarId?: string;
+  workCalendarId?: string;
 };
 
 export type LeaveCalculationResult = {
