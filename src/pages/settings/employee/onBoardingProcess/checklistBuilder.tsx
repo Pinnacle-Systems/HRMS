@@ -5,7 +5,10 @@ import {
   IconButton, Chip, Select, MenuItem, FormControl, InputLabel, Switch,
   FormControlLabel
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, ArrowBackOutlined, CloseOutlined } from '@mui/icons-material';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
+import CloseOutlined from '@mui/icons-material/CloseOutlined';
 import { onBoardService } from '../../../../services/modules/onBoard';
 import { useUI } from '../../../../context/Snackbar';
 

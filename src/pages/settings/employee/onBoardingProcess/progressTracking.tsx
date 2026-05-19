@@ -5,10 +5,15 @@ import {
   Dialog, DialogContent, DialogTitle, Button,
   Accordion, AccordionSummary, AccordionDetails, Avatar
 } from '@mui/material';
-import { 
-  ExpandMore as ExpandMoreIcon, CheckCircle, Pending, Warning, 
-  Visibility, TaskAlt, Schedule, Cancel, TrendingUp 
-} from '@mui/icons-material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import CheckCircle from '@mui/icons-material/CheckCircle';
+import Pending from '@mui/icons-material/Pending';
+import Warning from '@mui/icons-material/Warning';
+import Visibility from '@mui/icons-material/Visibility';
+import TaskAlt from '@mui/icons-material/TaskAlt';
+import Schedule from '@mui/icons-material/Schedule';
+import Cancel from '@mui/icons-material/Cancel';
+import TrendingUp from '@mui/icons-material/TrendingUp';
 import { onBoardService } from '../../../../services/modules/onBoard';
 import { useUI } from '../../../../context/Snackbar';
 import dayjs from 'dayjs';
