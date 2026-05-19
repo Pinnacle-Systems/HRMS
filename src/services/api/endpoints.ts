@@ -255,7 +255,9 @@ export const API_ENDPOINTS = {
     GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
     BASE: "/onboarding/checklist",
     GET_BY_ID: (id: string,cid:string) => `/onboarding/${id}/checklist/${cid}/tasks`,
-    GET_PROGRESS: (id: string) => `/onboarding/progress/${id}`,
+    GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
+    GET_DOCUMENTS: (onboardingId: string) => `/onboarding/${onboardingId}/documents`,
+    EMPLOYEE_ONBOARDINGS: "/onboarding/employee-onboardings",
 
     PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
     PATCH_REORDER: (id: string) => `/onboarding/checklist/${id}/tasks/reorder`,

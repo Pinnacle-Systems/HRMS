@@ -90,12 +90,14 @@ export const AssignOnboarding = () => {
   };
 
   const handleSendWelcome = async (assignment: any) => {
+    if (!assignment.employeeId) {
+      showSnackbar('Cannot send welcome message: employee id is missing.', 'error');
+      return;
+    }
+
     try {
       showSpinner();
-      await onBoardService.sendWelcomeMessage({
-        employeeId: assignment.employeeId,
-        onboardingId: assignment.id
-      });
+      await onBoardService.sendWelcomeMessage(assignment.employeeId);
       showSnackbar('Welcome message sent successfully!', 'success');
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -107,9 +109,14 @@ export const AssignOnboarding = () => {
   const handleViewDetails = async (assignment: any) => {
     setSelectedAssignment(assignment);
     setIsDetailsOpen(true);
+    if (!assignment.employeeId) {
+      showSnackbar('Cannot load progress: employee id is missing.', 'error');
+      return;
+    }
+
     try {
       showSpinner();
-      const progressRes:any = await onBoardService.getProgress(assignment.id);
+      const progressRes:any = await onBoardService.getProgress(assignment.employeeId);
       setSelectedAssignment({ ...assignment, progress: progressRes.data });
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -232,13 +239,13 @@ export const AssignOnboarding = () => {
                 </TableCell>
                 <TableCell align="center">
                   <div className="flex gap-1 justify-center">
-                    <IconButton size="small" onClick={() => handleViewDetails(assignment)} color="primary">
+                    <IconButton size="small" aria-label={`View progress for ${assignment.employeeName || 'employee'}`} onClick={() => handleViewDetails(assignment)} color="primary">
                       <ViewIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => handleSendWelcome(assignment)} color="secondary">
+                    <IconButton size="small" aria-label={`Send welcome to ${assignment.employeeName || 'employee'}`} onClick={() => handleSendWelcome(assignment)} color="secondary">
                       <SendIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" onClick={() => handleDeleteAssignment(assignment.id)} color="error">
+                    <IconButton size="small" aria-label={`Delete assignment for ${assignment.employeeName || 'employee'}`} onClick={() => handleDeleteAssignment(assignment.id)} color="error">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </div>

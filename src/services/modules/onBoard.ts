@@ -1,6 +1,91 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+export type AssignOnboardingForm = {
+    employeeId: string;
+    checklistId?: string;
+    checklistIds?: string[];
+    dueDate?: string;
+    startDate?: string;
+    notes?: string;
+};
+
+export type AssignOnboardingRequest = {
+    employeeId: string;
+    checklistIds: string[];
+    dueDate?: string;
+    notes?: string;
+};
+
+export type SendWelcomeRequest = {
+    employeeIds: string[];
+};
+
+export type ChecklistTaskForm = {
+    id?: string;
+    taskName?: string;
+    title?: string;
+    description?: string;
+    documentName?: string;
+    taskType?: string;
+    sortOrder?: number;
+    required?: boolean;
+};
+
+export type ChecklistTaskRequest = {
+    title: string;
+    description: string;
+    taskType: string;
+    documentName: string;
+    sortOrder: number;
+    required: boolean;
+};
+
+const compactString = (value?: string) => value?.trim();
+
+export const buildAssignOnboardingPayload = (
+    form: AssignOnboardingForm,
+): AssignOnboardingRequest => {
+    const checklistIds = form.checklistIds?.length
+        ? form.checklistIds
+        : form.checklistId
+            ? [form.checklistId]
+            : [];
+
+    const payload: AssignOnboardingRequest = {
+        employeeId: form.employeeId,
+        checklistIds,
+    };
+
+    if (form.dueDate) {
+        payload.dueDate = form.dueDate;
+    }
+
+    if (compactString(form.notes)) {
+        payload.notes = compactString(form.notes);
+    }
+
+    // The assignment UI currently captures startDate, but Swagger accepts dueDate.
+    // Do not send startDate unless the UI is changed to capture a true due date.
+    return payload;
+};
+
+export const buildSendWelcomePayload = (employeeId: string): SendWelcomeRequest => ({
+    employeeIds: [employeeId],
+});
+
+export const buildChecklistTaskPayload = (
+    form: ChecklistTaskForm,
+    fallbackSortOrder = 0,
+): ChecklistTaskRequest => ({
+    title: compactString(form.title) || compactString(form.taskName) || "",
+    description: form.description ?? "",
+    taskType: form.taskType ?? "GENERAL",
+    documentName: form.documentName ?? "",
+    sortOrder: form.sortOrder ?? fallbackSortOrder,
+    required: form.required ?? true,
+});
+
 export const onBoardService = {
 
     async createChecklist(data: any) {
@@ -28,13 +113,19 @@ export const onBoardService = {
         return response;
     },
 
-    async createTask(checklistId: string, data: any) {
-        const response = await apiService.post(API_ENDPOINTS.ONBOARDING.CREATE_TASK(checklistId), data);
+    async createTask(checklistId: string, data: ChecklistTaskForm, sortOrder?: number) {
+        const response = await apiService.post(
+            API_ENDPOINTS.ONBOARDING.CREATE_TASK(checklistId),
+            buildChecklistTaskPayload(data, sortOrder),
+        );
         return response;
     },
 
-    async updateTask(checklistId: string, taskId: string, data: any) {
-        const response = await apiService.put(API_ENDPOINTS.ONBOARDING.UPDATE_TASK(checklistId, taskId), data);
+    async updateTask(checklistId: string, taskId: string, data: ChecklistTaskForm, sortOrder?: number) {
+        const response = await apiService.put(
+            API_ENDPOINTS.ONBOARDING.UPDATE_TASK(checklistId, taskId),
+            buildChecklistTaskPayload(data, sortOrder),
+        );
         return response;
     },
 
@@ -58,8 +149,11 @@ export const onBoardService = {
         return response;
     },
 
-    async assignOnboarding(data: any) {
-        const response = await apiService.post(API_ENDPOINTS.ONBOARDING.ASSIGN, data);
+    async assignOnboarding(data: AssignOnboardingForm) {
+        const response = await apiService.post(
+            API_ENDPOINTS.ONBOARDING.ASSIGN,
+            buildAssignOnboardingPayload(data),
+        );
         return response;
     },
 
@@ -68,8 +162,8 @@ export const onBoardService = {
         return response;
     },
 
-    async getProgress(onboardingId: string) {
-        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_PROGRESS(onboardingId));
+    async getProgress(employeeId: string) {
+        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_PROGRESS(employeeId));
         return response;
     },
 
@@ -83,7 +177,7 @@ export const onBoardService = {
     },
 
     async getDocuments(onboardingId: string) {
-        const response = await apiService.get(`/onboarding/${onboardingId}/documents`);
+        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_DOCUMENTS(onboardingId));
         return response;
     },
 
@@ -92,14 +186,16 @@ export const onBoardService = {
         return response;
     },
 
-    async sendWelcomeMessage(data: { employeeId: string; onboardingId: string }) {
-        const response = await apiService.post(API_ENDPOINTS.ONBOARDING.SEND_WELCOME, data);
+    async sendWelcomeMessage(employeeId: string) {
+        const response = await apiService.post(
+            API_ENDPOINTS.ONBOARDING.SEND_WELCOME,
+            buildSendWelcomePayload(employeeId),
+        );
         return response;
     },
 
-    // Add to onBoardService
     getEmployeeOnboardings: async (params?: any) => {
-        const response = await apiService.get('/onboarding/employee-onboardings', { params });
+        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.EMPLOYEE_ONBOARDINGS, { params });
         return response;
     },
 };

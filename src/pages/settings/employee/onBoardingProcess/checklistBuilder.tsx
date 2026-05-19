@@ -17,7 +17,7 @@ export const ChecklistBuilder = () => {
   const [newChecklist, setNewChecklist] = useState({ name: '', description: '', active: true });
   const [tasks, setTasks] = useState<any[]>([]);
   const [isEditingTask, setIsEditingTask] = useState(false);
-  const [editTask, setEditTask] = useState<any>({ taskName: '', description: '', priority: 'Medium', dueDays: 7 });
+  const [editTask, setEditTask] = useState<any>({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
   const [activeTab, setActiveTab] = useState(0);
 
   const fetchChecklists = async () => {
@@ -89,10 +89,10 @@ export const ChecklistBuilder = () => {
     }
     try {
       showSpinner();
-      const response: any = await onBoardService.createTask(selectedChecklist.id, editTask);
+      const response: any = await onBoardService.createTask(selectedChecklist.id, editTask, tasks.length + 1);
       setTasks([...tasks, response.data]);
       setIsEditingTask(false);
-      setEditTask({ taskName: '', description: '', priority: 'Medium', dueDays: 7 });
+      setEditTask({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
       showSnackbar('Task added successfully!', 'success');
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -104,10 +104,10 @@ export const ChecklistBuilder = () => {
   const handleUpdateTask = async () => {
     try {
       showSpinner();
-      await onBoardService.updateTask(selectedChecklist.id, editTask.id, editTask);
+      await onBoardService.updateTask(selectedChecklist.id, editTask.id, editTask, editTask.sortOrder);
       setTasks(tasks.map(t => t.id === editTask.id ? editTask : t));
       setIsEditingTask(false);
-      setEditTask({ taskName: '', description: '', priority: 'Medium', dueDays: 7 });
+      setEditTask({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
       showSnackbar('Task updated successfully!', 'success');
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -222,7 +222,7 @@ export const ChecklistBuilder = () => {
                 variant="contained"
                 onClick={() => {
                   setIsEditingTask(true);
-                  setEditTask({ taskName: '', description: '', priority: 'Medium', dueDays: 7 });
+                  setEditTask({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
                 }}
                 className="!bg-primary"
               >
@@ -275,7 +275,10 @@ export const ChecklistBuilder = () => {
                       <TableCell className='!flex'>
                         <IconButton
                           onClick={() => {
-                            setEditTask(task);
+                            setEditTask({
+                              ...task,
+                              taskName: task.taskName || task.title || '',
+                            });
                             setIsEditingTask(true);
                           }}
                           color="primary"
@@ -345,23 +348,31 @@ export const ChecklistBuilder = () => {
               onChange={(e) => setEditTask({ ...editTask, description: e.target.value })}
             />
             <FormControl fullWidth>
-              <InputLabel>Priority</InputLabel>
+              <InputLabel>Task Type</InputLabel>
               <Select
-                value={editTask.priority}
-                label="Priority"
-                onChange={(e) => setEditTask({ ...editTask, priority: e.target.value })}
+                value={editTask.taskType || 'GENERAL'}
+                label="Task Type"
+                onChange={(e) => setEditTask({ ...editTask, taskType: e.target.value })}
               >
-                <MenuItem value="High">High</MenuItem>
-                <MenuItem value="Medium">Medium</MenuItem>
-                <MenuItem value="Low">Low</MenuItem>
+                <MenuItem value="GENERAL">General</MenuItem>
+                <MenuItem value="DOCUMENT">Document</MenuItem>
+                <MenuItem value="ACTION">Action</MenuItem>
               </Select>
             </FormControl>
             <TextField
               fullWidth
-              type="number"
-              label="Due Days (from start)"
-              value={editTask.dueDays}
-              onChange={(e) => setEditTask({ ...editTask, dueDays: parseInt(e.target.value) })}
+              label="Document Name"
+              value={editTask.documentName || ''}
+              onChange={(e) => setEditTask({ ...editTask, documentName: e.target.value })}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editTask.required ?? true}
+                  onChange={(e) => setEditTask({ ...editTask, required: e.target.checked })}
+                />
+              }
+              label="Required"
             />
           </div>
         </DialogContent>

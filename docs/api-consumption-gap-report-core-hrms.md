@@ -21,7 +21,7 @@ This report summarizes frontend consumption gaps found during the module-specifi
 
 The frontend has a central API client and generally uses the Swagger path family for most core HRMS modules. Bearer-token attachment is centralized, and the audit did not find active password/email/roles/permissions query-string leakage in current routed flows.
 
-The largest integration risks are around Employees and Onboarding. Employee list UI assumes server pagination even though Swagger says `GET /api/employees` returns all employees. Employee creation/bulk upload messaging assumes welcome/onboarding side effects that are not guaranteed by the employee APIs. Onboarding screens call several endpoints that are not in the expected Swagger contract, and onboarding progress is called with an onboarding id even though Swagger expects `employeeId`.
+The largest integration risks are around Employees and Onboarding. Employee list UI assumes server pagination even though Swagger says `GET /api/employees` returns all employees. Employee creation/bulk upload messaging assumes welcome/onboarding side effects that are not guaranteed by the employee APIs. Onboarding screens still call several endpoints that are not in the expected Swagger contract, but the frontend-only onboarding assignment, welcome-message, progress-id, and checklist-task payload mismatches have been addressed in the onboarding service adapters.
 
 Several setup modules are mostly aligned on paths, but delete behavior needs backend clarification because Swagger exposes `DELETE` while requested behavior expects linked-record blocking and/or soft deactivate semantics. Master Data dropdowns work against Swagger paths but should use active-list endpoints where available.
 
@@ -29,7 +29,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 
 | Module | Finding | Impact | Recommended Fix |
 |---|---|---|---|
-| Onboarding | Progress screen calls `/api/onboarding/progress/{id}` with `onboarding.id`, but Swagger defines `GET /api/onboarding/progress/{employeeId}`. | Current progress lookup can fetch the wrong record or fail. | Change frontend adapter/screen to pass `employeeId`; keep display id and assignment id separate. |
+| Onboarding | Frontend now calls `/api/onboarding/progress/{employeeId}` with `employeeId`; screens guard missing employee ids. | Fixed frontend id semantics. | Keep assignment/onboarding id separate from employee id in future UI changes. |
 | Onboarding | Frontend uses unsupported onboarding endpoints such as `/api/onboarding/employee-onboardings`, `/api/onboarding/{id}/checklist/{checklistId}/tasks`, `/api/onboarding/{id}/documents`, and `DELETE /api/onboarding/{id}`. | Assignment/progress/document screens may not work against Swagger-only backend. | Replace with Swagger APIs or request backend aliases for the current frontend endpoints. |
 | Employees | Employee list screen sends `page`, `size`, and `sort` to `GET /api/employees`, while Swagger says the endpoint returns all employees with no pagination parameters. | List pagination/count behavior can be incorrect in production. | Fetch all employees and paginate client-side, or ask backend to add paginated contract to Swagger. |
 
@@ -57,6 +57,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Login History | Table omits `createdAt` and `failureReason`. | Add date/time and failure reason columns or tooltips. |
 | Login History | Serial number uses row index and resets per page. | Calculate `page * limit + index + 1`. |
 | Onboarding | Checklist task reorder service exists, but UI affordance/usage needs confirmation. | Add drag/drop reorder or remove dead adapter method. |
+| Onboarding | A mocked Playwright regression spec now covers assign and welcome payload shapes. Local execution was blocked in this sandbox by dev-server startup restrictions. | Run `pnpm test:e2e e2e/onboarding.spec.ts` in a local environment that can start/reuse Vite. |
 | Company | `currencyId` is commented out and no currency dropdown is wired. | Add `GET /api/master/currencies/active` if company currency is required. |
 | Auth | `getProfile(params?)` accepts arbitrary params though current callers pass none. | Remove generic params from secured auth context endpoints. |
 
@@ -87,12 +88,16 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Area | Finding | Priority | Recommendation |
 |---|---|---|---|
 | Checklist CRUD | Checklist create/list/get/update/delete and task create/update/delete/reorder paths mostly match expected Swagger. | P2 | Keep central endpoint constants. |
-| Progress | Frontend passes onboarding id to `/onboarding/progress/{id}`; Swagger expects employee id. | P0 | Pass `employeeId` and rename adapter argument. |
+| Assignment payload | Frontend assignment adapter now sends `{ employeeId, checklistIds, dueDate?, notes? }`; legacy `startDate` is not sent because the UI field is not a Swagger due date. | Fixed | Add a real due-date control if due dates are required during assignment. |
+| Send welcome payload | Frontend now sends `{ employeeIds: [employeeId] }` and does not send onboarding id. | Fixed | Keep using onboarding welcome endpoint rather than employee resend aliases. |
+| Progress | Frontend now passes employee id to `/onboarding/progress/{employeeId}` and avoids calling the API when employee id is absent. | Fixed | Keep adapter argument named `employeeId`. |
+| Checklist task payload | Task create/update now maps `taskName` to `title`, preserves `description`, and sends Swagger fields for `taskType`, `documentName`, `sortOrder`, and `required`. | Partially fixed | Confirm backend enum/default expectations for `taskType` and whether all tasks should default to required. |
 | Employee onboardings list | Frontend calls `/onboarding/employee-onboardings`, which is not in expected Swagger. | P0 | Replace with Swagger-supported progress/assignment APIs or request backend endpoint. |
 | Assignment delete | Frontend calls `DELETE /onboarding/{id}` for assignment deletion; expected Swagger does not list it. | P0 | Remove or confirm backend support. |
 | Employee tasks | Frontend calls `/onboarding/{onboardingId}/checklist/{checklistId}/tasks`; expected Swagger does not list it. | P0 | Use checklist task APIs plus progress response, or ask backend to document endpoint. |
 | Documents | Frontend calls `/onboarding/{onboardingId}/documents`; expected Swagger only lists `POST /onboarding/documents` and `DELETE /onboarding/documents/{taskId}`. | P0 | Align documents list/delete semantics with Swagger. |
 | Bulk upload welcome assumption | Employee bulk upload UI implies welcome emails are automatic. | P1 | Explicitly call assign/send-welcome or confirm backend side effect. |
+| Invite activation flow | The post-welcome invite verification / activation flow is not yet wired as an onboarding flow. | P1 | Confirm backend invite activation contract and add the frontend flow in a separate pass. |
 
 Flow expectation:
 
@@ -196,7 +201,7 @@ Employee create/bulk upload
 | Employees | `GET /api/employees/id-pattern` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `POST /api/employees/id-sequence/increment` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `GET /api/employees/sample-template` | Not present | Frontend-only | P1 | Add sample/template endpoint or hide action. |
-| Onboarding | `GET /api/onboarding/progress/{onboardingId}` | `GET /api/onboarding/progress/{employeeId}` | Wrong id semantics | P0 | Pass employee id. |
+| Onboarding | `GET /api/onboarding/progress/{employeeId}` | `GET /api/onboarding/progress/{employeeId}` | Fixed | P2 | Keep employee id guard in screens. |
 | Onboarding | `GET /api/onboarding/employee-onboardings` | Not present | Frontend-only | P0 | Replace or document backend endpoint. |
 | Onboarding | `GET /api/onboarding/{id}/checklist/{checklistId}/tasks` | Not present | Frontend-only | P0 | Replace or document backend endpoint. |
 | Onboarding | `GET /api/onboarding/{id}/documents` | Not present | Frontend-only | P0 | Replace or document backend endpoint. |
@@ -240,7 +245,7 @@ Employee create/bulk upload
 3. Will backend provide a bulk upload sample/template download endpoint?
 4. Does `DELETE /api/employees/{id}` soft delete, hard delete, or block when linked to payroll/attendance/onboarding?
 5. Should employee creation or bulk upload automatically assign onboarding and send welcome emails, or must frontend call `/api/onboarding/assign` and `/api/onboarding/send-welcome`?
-6. Is `/api/onboarding/progress/{employeeId}` the only progress endpoint, or should onboarding assignment id also be supported?
+6. Are checklist task `taskType` values free-form strings, or should frontend restrict them to a backend-defined enum such as `GENERAL`, `DOCUMENT`, and `ACTION`?
 7. Are `/api/onboarding/employee-onboardings`, `/api/onboarding/{id}/checklist/{checklistId}/tasks`, and `/api/onboarding/{id}/documents` supported aliases that need Swagger coverage?
 8. What is the exact multipart schema for `POST /api/onboarding/documents`: file field name, `taskId`, `employeeId`, `notes`, and accepted content types?
 9. Should `DELETE /api/onboarding/documents/{taskId}` delete by task id or document id?
@@ -253,7 +258,7 @@ Employee create/bulk upload
 
 ## 10. Recommended Implementation Order for Frontend Fixes
 
-1. Fix Onboarding P0 path/id mismatches: progress by `employeeId`, remove or replace unsupported onboarding assignment/task/document endpoints.
+1. Replace or document unsupported onboarding assignment/task/document endpoints that remain outside Swagger: `/onboarding/employee-onboardings`, `/onboarding/{id}/checklist/{checklistId}/tasks`, `/onboarding/{id}/documents`, and `DELETE /onboarding/{id}`.
 2. Fix Employee list pagination contract: either client-side paginate all employees or align with a backend paginated endpoint.
 3. Resolve employee creation/bulk-upload onboarding orchestration: explicit assign/send-welcome calls or confirmed backend side effects.
 4. Remove or guard frontend-only employee endpoints for code generation, sample/template download, and resend-welcome until backend contract exists.

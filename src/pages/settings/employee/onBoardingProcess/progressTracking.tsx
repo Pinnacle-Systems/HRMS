@@ -64,9 +64,15 @@ export const ProgressTracking = () => {
   const handleViewProgress = async (onboarding: any) => {
     setSelectedOnboarding(onboarding);
     setIsDetailsOpen(true);
+    if (!onboarding.employeeId) {
+      setProgress(null);
+      showSnackbar('Cannot load progress: employee id is missing.', 'error');
+      return;
+    }
+
     try {
       showSpinner();
-      const progressRes:any = await onBoardService.getProgress(onboarding.id);
+      const progressRes:any = await onBoardService.getProgress(onboarding.employeeId);
       setProgress(progressRes.data);
     } catch (error: any) {
       showSnackbar(error.message, 'error');
