@@ -13,6 +13,7 @@ import {
   updateAccessToken,
 } from "../../auth/authSession";
 import { logger } from "../../utils/logger";
+import { assertSafeQueryParams } from "../../utils/apiGuards";
 
 declare module "axios" {
   export interface InternalAxiosRequestConfig {
@@ -83,6 +84,7 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         delete config.headers["Content-Type"];
       }
 
+      assertSafeQueryParams(config.params);
       logger.debug("API request started", {
         method: config.method?.toUpperCase(),
         url: config.url,

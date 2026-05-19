@@ -35,8 +35,8 @@ class AuthService {
     return Boolean(loadSession());
   }
 
-  async getProfile(params?: Record<string, unknown>) {
-    return apiService.get(API_ENDPOINTS.AUTH.PROFILE, { params });
+  async getProfile() {
+    return apiService.get(API_ENDPOINTS.AUTH.PROFILE);
   }
 
   async updateProfile(payload: Record<string, unknown>) {
@@ -66,13 +66,13 @@ class AuthService {
     return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_USERID(id));
   }
 
-  async getLoginHistoryByTenant(params?: Record<string, unknown>) {
+  async getLoginHistoryByTenant(params?: LoginHistoryParams) {
     return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_TENANTID, {
       params,
     });
   }
 
-  async clearLoginHistory(params?: Record<string, unknown>) {
+  async clearLoginHistory(params?: LoginHistoryParams) {
     return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.DELETE, { params });
   }
 

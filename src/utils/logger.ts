@@ -3,13 +3,13 @@ type LogLevel = "debug" | "info" | "warn" | "error";
 type LogContext = Record<string, unknown>;
 
 const SENSITIVE_KEY_PATTERN =
-  /token|password|authorization|otp|secret|credential/i;
+  /token|password|authorization|otp|secret|credential|email|userid|tenantid|roles|permissions/i;
 
 const isLoggingEnabled = () => import.meta.env.DEV;
 
-function sanitizeValue(value: unknown): unknown {
+export function redactSensitiveParams(value: unknown): unknown {
   if (Array.isArray(value)) {
-    return value.map(sanitizeValue);
+    return value.map(redactSensitiveParams);
   }
 
   if (!value || typeof value !== "object") {
@@ -19,7 +19,7 @@ function sanitizeValue(value: unknown): unknown {
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, item]) => [
       key,
-      SENSITIVE_KEY_PATTERN.test(key) ? "[REDACTED]" : sanitizeValue(item),
+      SENSITIVE_KEY_PATTERN.test(key) ? "[REDACTED]" : redactSensitiveParams(item),
     ]),
   );
 }
@@ -29,7 +29,7 @@ function writeLog(level: LogLevel, message: string, context?: LogContext) {
     return;
   }
 
-  const sanitizedContext = context ? sanitizeValue(context) : undefined;
+  const sanitizedContext = context ? redactSensitiveParams(context) : undefined;
   const payload = sanitizedContext
     ? [`[HRMS] ${message}`, sanitizedContext]
     : [`[HRMS] ${message}`];

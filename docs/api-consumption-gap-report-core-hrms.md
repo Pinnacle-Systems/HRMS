@@ -45,21 +45,21 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Company | Update must use `/api/org/company/{id}`. Frontend service supports this, but screen must always have `companyInfo.id` before update. | Update can fall back to create/missing action if id is absent. | Ensure company load/hydration always stores id before enabling save. |
 | Branches / Departments / Categories | Delete actions are wired, but linked-record blocking behavior is not confirmed in Swagger. | Users may attempt destructive deletes for linked records. | Treat delete as risky until backend confirms blocking semantics. |
 | Employee Categories | Category list is treated like paginated in places via `{ size: 100 }`, while Swagger category list is not paginated; category items are paginated. | Dropdown completeness/shape issues. | Normalize category list as array and category items as page-or-array tolerant. |
-| Login History | Swagger includes auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) on secured endpoints. Current frontend does not send them, but service signatures allow generic params. | Future leakage/noisy contract coupling. | **Fixed:** `getLoginHistory` now typed as `LoginHistoryParams { page?, size?, sort? }`. |
+| Login History | Swagger includes auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) on secured endpoints. Current frontend does not send them, but service signatures allow generic params. | Future leakage/noisy contract coupling. | **Fixed:** `getLoginHistory`, `getLoginHistoryByTenant`, and `clearLoginHistory` all now typed as `LoginHistoryParams { page?, size?, sort? }`. Generic `Record<string, unknown>` removed from all login-history methods. |
 | Password Policy | Password screens hardcode validation rules and admin password policy screen is local state only. | Frontend can conflict with backend password rules. | Fetch `GET /api/password-policy` where passwords are created/changed. |
 
 ## 4. P2 Cleanup Items
 
 | Area | Finding | Recommended Cleanup |
 |---|---|---|
-| API logging | Request interceptor logs `config.params` unredacted. | Redact sensitive keys before logging. |
+| API logging | Request interceptor logs `config.params` unredacted. | **Fixed:** `logger.ts` `SENSITIVE_KEY_PATTERN` expanded to cover `email`, `userId`, `tenantId`, `roles`, `permissions` in addition to existing keys. `redactSensitiveParams` exported for reuse. `assertSafeQueryParams` guard added to interceptor request path (warns in dev/test on forbidden keys). |
 | Master Data | Country/city/state dropdown hook loads full lists with `{ size: 200 }` even when active/cascade endpoints exist. | Use active countries and cascade endpoints for dropdowns; avoid full state/city preloads. |
 | Login History | Table omits `createdAt` and `failureReason`. | **Fixed:** `createdAt` column added (formatted via `formatDateTime`); `failureReason` shown as tooltip on failed-login status icon. |
 | Login History | Serial number uses row index and resets per page. | **Fixed:** Serial number now uses `page * limit + index + 1`. |
 | Onboarding | Checklist task reorder service exists, but UI affordance/usage needs confirmation. | Add drag/drop reorder or remove dead adapter method. |
 | Onboarding | A mocked Playwright regression spec now covers assign and welcome payload shapes. Local execution was blocked in this sandbox by dev-server startup restrictions. | Run `pnpm test:e2e e2e/onboarding.spec.ts` in a local environment that can start/reuse Vite. |
 | Company | `currencyId` is commented out and no currency dropdown is wired. | Add `GET /api/master/currencies/active` if company currency is required. |
-| Auth | `getProfile(params?)` accepts arbitrary params though current callers pass none. | Remove generic params from secured auth context endpoints. |
+| Auth | `getProfile(params?)` accepts arbitrary params though current callers pass none. | **Fixed:** `params?` removed; `getProfile()` now takes no arguments. |
 
 ## 5. Module-by-Module Findings
 
@@ -71,7 +71,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Tenant selection | `POST /api/auth/login/select-tenant` is used with session token in the Authorization header. | P2 | Keep request body/header semantics; do not move tenant id to query params. |
 | Refresh | Refresh handling uses a retry guard/queue and avoids obvious infinite 401 loops. | P2 | Keep refresh endpoint out of auth retry recursion. |
 | Logout | Logout clears local auth state in `finally`, even if backend logout fails. | P2 | Good pattern; keep. |
-| Secured query params | No current frontend calls send `password`, `email`, `roles`, `permissions`, `userId`, or `tenantId` as query params. | P2 | Add API client guardrails so future code cannot do this accidentally. |
+| Secured query params | No current frontend calls send `password`, `email`, `roles`, `permissions`, `userId`, or `tenantId` as query params. | P2 | **Fixed:** `assertSafeQueryParams` guard wired into the request interceptor. `redactSensitiveParams` in the logger covers all forbidden keys. Backend Swagger auth-context noise on secured endpoints remains open pending backend clarification (see item 12 in Backend Clarification List). |
 | Mobile OTP | OTP UI exists, but mobile OTP login appears incomplete/assumed. | P1 | Confirm intended mobile OTP flow and wire `/api/auth/verify-otp` if in scope. |
 
 ### Password Policy
