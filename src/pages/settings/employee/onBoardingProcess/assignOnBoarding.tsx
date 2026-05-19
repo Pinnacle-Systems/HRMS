@@ -263,8 +263,10 @@ export const AssignOnboarding = () => {
         <DialogContent>
           <div className="space-y-4 pt-4">
             <FormControl fullWidth>
-              <InputLabel>Select Employee</InputLabel>
+              <InputLabel id="assign-onboarding-employee-label">Select Employee</InputLabel>
               <Select
+                labelId="assign-onboarding-employee-label"
+                id="assign-onboarding-employee"
                 value={formData.employeeId}
                 label="Select Employee"
                 onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
@@ -284,8 +286,10 @@ export const AssignOnboarding = () => {
             )}
 
             <FormControl fullWidth>
-              <InputLabel>Select Checklist</InputLabel>
+              <InputLabel id="assign-onboarding-checklist-label">Select Checklist</InputLabel>
               <Select
+                labelId="assign-onboarding-checklist-label"
+                id="assign-onboarding-checklist"
                 value={formData.checklistId}
                 label="Select Checklist"
                 onChange={(e) => setFormData({ ...formData, checklistId: e.target.value })}

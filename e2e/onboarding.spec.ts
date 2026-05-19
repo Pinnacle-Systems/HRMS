@@ -100,9 +100,9 @@ test.describe("mocked onboarding contract flow", () => {
     await expect(page.getByText("Assign Onboarding").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Assign New Onboarding" }).click();
-    await page.getByLabel("Select Employee").click();
+    await page.getByRole("combobox", { name: "Select Employee" }).click();
     await page.getByRole("option", { name: /Ava Patel/ }).click();
-    await page.getByLabel("Select Checklist").click();
+    await page.getByRole("combobox", { name: "Select Checklist" }).click();
     await page.getByRole("option", { name: /Engineering onboarding/ }).click();
     await page.getByRole("button", { name: "Assign" }).click();
 
