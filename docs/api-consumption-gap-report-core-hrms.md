@@ -45,7 +45,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Company | Update must use `/api/org/company/{id}`. Frontend service supports this, but screen must always have `companyInfo.id` before update. | Update can fall back to create/missing action if id is absent. | Ensure company load/hydration always stores id before enabling save. |
 | Branches / Departments / Categories | Delete actions are wired, but linked-record blocking behavior is not confirmed in Swagger. | Users may attempt destructive deletes for linked records. | Treat delete as risky until backend confirms blocking semantics. |
 | Employee Categories | Category list is treated like paginated in places via `{ size: 100 }`, while Swagger category list is not paginated; category items are paginated. | Dropdown completeness/shape issues. | Normalize category list as array and category items as page-or-array tolerant. |
-| Login History | Swagger includes auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) on secured endpoints. Current frontend does not send them, but service signatures allow generic params. | Future leakage/noisy contract coupling. | Type login-history params as `{ page, size, sort }` only. |
+| Login History | Swagger includes auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) on secured endpoints. Current frontend does not send them, but service signatures allow generic params. | Future leakage/noisy contract coupling. | **Fixed:** `getLoginHistory` now typed as `LoginHistoryParams { page?, size?, sort? }`. |
 | Password Policy | Password screens hardcode validation rules and admin password policy screen is local state only. | Frontend can conflict with backend password rules. | Fetch `GET /api/password-policy` where passwords are created/changed. |
 
 ## 4. P2 Cleanup Items
@@ -54,8 +54,8 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 |---|---|---|
 | API logging | Request interceptor logs `config.params` unredacted. | Redact sensitive keys before logging. |
 | Master Data | Country/city/state dropdown hook loads full lists with `{ size: 200 }` even when active/cascade endpoints exist. | Use active countries and cascade endpoints for dropdowns; avoid full state/city preloads. |
-| Login History | Table omits `createdAt` and `failureReason`. | Add date/time and failure reason columns or tooltips. |
-| Login History | Serial number uses row index and resets per page. | Calculate `page * limit + index + 1`. |
+| Login History | Table omits `createdAt` and `failureReason`. | **Fixed:** `createdAt` column added (formatted via `formatDateTime`); `failureReason` shown as tooltip on failed-login status icon. |
+| Login History | Serial number uses row index and resets per page. | **Fixed:** Serial number now uses `page * limit + index + 1`. |
 | Onboarding | Checklist task reorder service exists, but UI affordance/usage needs confirmation. | Add drag/drop reorder or remove dead adapter method. |
 | Onboarding | A mocked Playwright regression spec now covers assign and welcome payload shapes. Local execution was blocked in this sandbox by dev-server startup restrictions. | Run `pnpm test:e2e e2e/onboarding.spec.ts` in a local environment that can start/reuse Vite. |
 | Company | `currencyId` is commented out and no currency dropdown is wired. | Add `GET /api/master/currencies/active` if company currency is required. |
@@ -130,7 +130,7 @@ Employee create/bulk upload
 |---|---|---|---|
 | Path | Frontend uses `/login-history`, not `/auth/login-history`; Swagger uses `/api/login-history`. | P2 | Keep Swagger path. |
 | Pagination | Frontend sends `page` and `size`, matching Swagger. | P2 | Add `sort` if backend default order is not guaranteed. |
-| Fields | UI displays browser, OS, IP, device type, user agent, status. It omits `createdAt` and `failureReason`. | P2 | Add created time and failure reason. |
+| Fields | UI displays browser, OS, IP, device type, user agent, status. It omits `createdAt` and `failureReason`. | P2 | **Fixed:** `createdAt` column and `failureReason` tooltip added; nullable fields show `-`. |
 | Location | Frontend login-history table does not expect location. | P2 | Do not add location unless backend provides it. |
 | Admin usage | Service has tenant/user methods, but no routed admin screen was found. | P2 | Wire only if admin audit screen is required. |
 
@@ -219,7 +219,7 @@ Employee create/bulk upload
 | Onboarding | `POST /api/onboarding/send-welcome` after employee create/bulk upload | Not explicitly called in employee flows | P1 | Add explicit send welcome step or confirm backend side effect. |
 | Onboarding | `PATCH /api/onboarding/checklist/{id}/tasks/reorder` | Service exists; UI usage unclear | P2 | Add reorder UI if checklist task order is editable. |
 | Employees | Section PATCH APIs | Service exists; not consistently preferred by screens | P1 | Use section PATCH for partial edits. |
-| Login History | `createdAt`, `failureReason` display | Not shown in table | P2 | Add columns/tooltips. |
+| Login History | `createdAt`, `failureReason` display | **Fixed:** `createdAt` column and `failureReason` tooltip added; nullable fields have `-` fallbacks; serial number is page-aware; query params typed. | P2 | Done. |
 | Login History | Admin user/tenant screens | Service methods exist; routed screens not found | P2 | Add admin screen only if required. |
 | Master Data | `GET /api/master/countries/active` | Not consumed | P2 | Use for dropdowns. |
 | Master Data | `GET /api/master/currencies/active` | Not consumed | P2 | Add currency dropdown where needed. |

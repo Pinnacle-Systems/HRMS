@@ -39,7 +39,7 @@ import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
 import { getRowColor } from "../../const";
 import type { Employee } from "../general/type";
-import { employeeService } from "../../../services/modules/employees";
+import { employeeService, normalizeEmployeesResponse } from "../../../services/modules/employees";
 
 interface Department {
   id: string;
@@ -101,7 +101,7 @@ export default function DepartmentSettings() {
   const getActiveEmployees = async () => {
     try {
       const response: any = await employeeService.getEmployees({ size: 100 });
-      setEmployees(response.data.content || response.data || []);
+      setEmployees(normalizeEmployeesResponse(response) as Employee[]);
     } catch (error: any) {
       showSnackbar(error.message, error);
     }

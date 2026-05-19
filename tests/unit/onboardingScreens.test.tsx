@@ -17,11 +17,17 @@ vi.mock("../../src/services/modules/onBoard", () => ({
   },
 }));
 
-vi.mock("../../src/services/modules/employees", () => ({
-  employeeService: {
-    getEmployees: vi.fn(),
-  },
-}));
+vi.mock("../../src/services/modules/employees", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../src/services/modules/employees")>();
+
+  return {
+    ...actual,
+    employeeService: {
+      getEmployees: vi.fn(),
+    },
+  };
+});
 
 const mockedOnboardingService = vi.mocked(onBoardService);
 
@@ -75,6 +81,42 @@ describe("onboarding screens contract calls", () => {
     expect(mockedOnboardingService.sendWelcomeMessage).toHaveBeenCalledWith(
       "employee-1",
     );
+  });
+
+  it("employee select renders employees from a non-paginated firstName/lastName response", async () => {
+    const { employeeService } = await import(
+      "../../src/services/modules/employees"
+    );
+    vi.mocked(employeeService.getEmployees).mockResolvedValue({
+      data: [
+        {
+          id: "employee-2",
+          employeeId: "E-002",
+          firstName: "Mira",
+          lastName: "Shah",
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<AssignOnboarding />);
+
+    await user.click(screen.getByRole("button", { name: "Assign New Onboarding" }));
+    await user.click(await screen.findByRole("combobox", { name: "Select Employee" }));
+
+    expect(await screen.findByRole("option", { name: "Mira Shah (E-002)" })).toBeInTheDocument();
+  });
+
+  it("employee select still renders when assignments lookup fails", async () => {
+    mockedOnboardingService.getEmployeeOnboardings.mockRejectedValue(
+      new Error("Employee onboardings endpoint unavailable"),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<AssignOnboarding />);
+
+    await user.click(screen.getByRole("button", { name: "Assign New Onboarding" }));
+    await user.click(await screen.findByRole("combobox", { name: "Select Employee" }));
+
+    expect(await screen.findByRole("option", { name: "Ava Patel (E-001)" })).toBeInTheDocument();
   });
 
   it("assignment details request progress with employeeId", async () => {

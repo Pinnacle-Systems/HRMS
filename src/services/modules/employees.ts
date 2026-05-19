@@ -1,6 +1,45 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+type EmployeeLike = Record<string, any>;
+
+export const normalizeEmployeesResponse = (response: any): EmployeeLike[] => {
+  const payload = response?.data ?? response;
+  const candidates = [
+    payload?.content,
+    payload?.employees,
+    payload?.items,
+    payload?.records,
+    payload?.data?.content,
+    payload?.data,
+    payload,
+  ];
+  const employees = candidates.find(Array.isArray) ?? [];
+
+  return employees.map((employee: EmployeeLike) => {
+    const name =
+      employee.name ||
+      employee.fullName ||
+      employee.employeeName ||
+      [employee.firstName, employee.middleName, employee.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      employee.emailAddress ||
+      employee.email ||
+      employee.employeeId ||
+      employee.id ||
+      "";
+
+    return {
+      ...employee,
+      id: employee.id || employee.employeeId,
+      employeeId: employee.employeeId || employee.employeeCode || employee.code || "",
+      name,
+    };
+  });
+};
+
 export const employeeService = {
   // ==================== MAIN CRUD OPERATIONS ====================
   

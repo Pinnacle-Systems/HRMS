@@ -37,6 +37,7 @@ import {
   CalendarMonthOutlined,
 } from "@mui/icons-material";
 import { authService } from "../../services/modules/auth";
+import { formatDateTime } from "../../utils/dateFormatter";
 import React from "react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -620,6 +621,9 @@ export default function Profile() {
                       User Agent
                     </TableCell>
                     <TableCell className="!font-semibold text-gray-800">
+                      Created At
+                    </TableCell>
+                    <TableCell className="!font-semibold text-gray-800">
                       Status
                     </TableCell>
                   </TableRow>
@@ -628,40 +632,44 @@ export default function Profile() {
                   {loginHistory.map((history, index) => (
                     <TableRow key={history.id} hover sx={getRowColor(index)}>
                       <TableCell className="text-gray-800">
-                        {index + 1}
+                        {page * limit + index + 1}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        {history.browser}
+                        {history.browser ?? "-"}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        {history.os}
+                        {history.os ?? "-"}
                       </TableCell>
                       <TableCell className="text-gray-800">
-                        {/* <code className="bg-gray-100 px-2 py-1 rounded"> */}
-                          {history.ipAddress}
-                        {/* </code> */}
+                        {history.ipAddress ?? "-"}
                       </TableCell>
                       <TableCell className="text-gray-800">
                         <div className="flex items-center gap-1">
                           <DevicesOutlinedIcon className="!w-4 !h-4 text-gray-400" />
                           <span className="!capitalize">
-                            {history.deviceType}
+                            {history.deviceType ?? "-"}
                           </span>
                         </div>
                       </TableCell>
+                      <TableCell className="text-gray-800 max-w-[180px]">
+                        <Tooltip title={history.userAgent ?? ""}>
+                          <span className="block truncate">
+                            {history.userAgent ?? "-"}
+                          </span>
+                        </Tooltip>
+                      </TableCell>
                       <TableCell className="text-gray-800">
-                        <div className="flex items-center gap-1">
-                          {/* <LocationCityOutlinedIcon className="!w-4 !h-4 text-gray-400" /> */}
-                          <span className="">{history.userAgent}</span>
-                        </div>
+                        {formatDateTime(history.createdAt)}
                       </TableCell>
                       <TableCell>
                         <Tooltip
                           title={
-                            history.status === "SUCCESS" ? "success" : "failed"
+                            history.status === "SUCCESS"
+                              ? "Successful login"
+                              : history.failureReason ?? "Login failed"
                           }
                         >
-                          <IconButton size="small" color="error">
+                          <IconButton size="small">
                             {history.status === "SUCCESS" ? (
                               <CheckCircleRoundedIcon
                                 className="!w-4"

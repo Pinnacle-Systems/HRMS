@@ -4,6 +4,12 @@ import type { LoginRequest } from "../../auth/authTypes";
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+export interface LoginHistoryParams {
+  page?: number;
+  size?: number;
+  sort?: string | string[];
+}
+
 class AuthService {
   async login(credentials: LoginRequest) {
     return authApi.login(credentials);
@@ -52,7 +58,7 @@ class AuthService {
     return response;
   }
 
-  async getLoginHistory(params?: Record<string, unknown>) {
+  async getLoginHistory(params?: LoginHistoryParams) {
     return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.BASE, { params });
   }
 

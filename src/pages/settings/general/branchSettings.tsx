@@ -36,7 +36,7 @@ import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
 import { sortOptions, type Branch, type Employee } from "./type";
 import { getRowColor } from "../../const";
-import { employeeService } from "../../../services/modules/employees";
+import { employeeService, normalizeEmployeesResponse } from "../../../services/modules/employees";
 // import { LocationMap } from "../../../components/Location";
 import LocationMap from "../../../components/Map";
 
@@ -77,7 +77,7 @@ export default function BranchSettings() {
   const getActiveEmployees = async () => {
     try {
       const response: any = await employeeService.getEmployees({ size: 100 });
-      setEmployees(response.data.content || response.data || []);
+      setEmployees(normalizeEmployeesResponse(response) as Employee[]);
     } catch (error: any) {
       showSnackbar(error.message, error);
     }

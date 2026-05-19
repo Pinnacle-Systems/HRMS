@@ -332,7 +332,7 @@ export default function Layout() {
           mt: "64px",
           backgroundColor: "var(--bg-primary)",
           minHeight: "calc(100vh - 64px)",
-          overflow:"auto",
+          overflowY:"auto",
           transition: (theme) =>
             theme.transitions.create("padding", {
               easing: theme.transitions.easing.sharp,

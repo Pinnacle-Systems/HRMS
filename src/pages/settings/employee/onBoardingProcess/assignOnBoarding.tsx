@@ -13,7 +13,7 @@ import ViewIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
 import { onBoardService } from '../../../../services/modules/onBoard';
-import { employeeService } from '../../../../services/modules/employees';
+import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 
 export const AssignOnboarding = () => {
@@ -33,14 +33,27 @@ export const AssignOnboarding = () => {
   const fetchData = async () => {
     try {
       showSpinner();
-      const [checklistsRes, employeesRes, assignmentsRes]:any = await Promise.all([
+      const [checklistsResult, employeesResult, assignmentsResult] = await Promise.allSettled([
         onBoardService.getChecklists({ isActive: true, size: 100 }),
         employeeService.getEmployees({ size: 100 }),
         onBoardService.getEmployeeOnboardings?.({ size: 100 }) || Promise.resolve({ data: { content: [] } })
       ]);
-      setChecklists(checklistsRes.data.content || checklistsRes.data || []);
-      setEmployees(employeesRes.data.content || employeesRes.data || []);
-      setAssignments(assignmentsRes.data?.content || assignmentsRes.data || []);
+
+      if (checklistsResult.status === 'fulfilled') {
+        const checklistsRes: any = checklistsResult.value;
+        setChecklists(checklistsRes.data?.content || checklistsRes.data || []);
+      }
+
+      if (employeesResult.status === 'fulfilled') {
+        setEmployees(normalizeEmployeesResponse(employeesResult.value));
+      } else {
+        showSnackbar(employeesResult.reason?.message || 'Failed to load employees', 'error');
+      }
+
+      if (assignmentsResult.status === 'fulfilled') {
+        const assignmentsRes: any = assignmentsResult.value;
+        setAssignments(assignmentsRes.data?.content || assignmentsRes.data || []);
+      }
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     } finally {

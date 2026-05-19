@@ -10,7 +10,7 @@ import {
   Visibility as ViewIcon, AttachFile as AttachmentIcon,
 } from '@mui/icons-material';
 import { onBoardService } from '../../../../services/modules/onBoard';
-import { employeeService } from '../../../../services/modules/employees';
+import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 import dayjs from 'dayjs';
 
@@ -34,7 +34,7 @@ export const DocumentsUpload = () => {
     try {
       showSpinner();
       const response:any = await employeeService.getEmployees({ size: 100 });
-      setEmployees(response.data.content || response.data || []);
+      setEmployees(normalizeEmployeesResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     } finally {
