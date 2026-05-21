@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import EmployeeManagement from "../../src/pages/employees/employeeManagement";
@@ -13,12 +13,15 @@ vi.mock("react-router-dom", () => ({
   useNavigate: () => vi.fn(),
 }));
 
+const mockShowSnackbar = vi.fn();
+const mockShowConfirmDialog = vi.fn();
+
 vi.mock("../../src/context/Snackbar", () => ({
   useUI: () => ({
-    showSnackbar: vi.fn(),
+    showSnackbar: mockShowSnackbar,
     showSpinner: vi.fn(),
     hideSpinner: vi.fn(),
-    showConfirmDialog: vi.fn(),
+    showConfirmDialog: mockShowConfirmDialog,
   }),
 }));
 
@@ -55,7 +58,6 @@ vi.mock("../../src/components/GlobalPagination", () => ({
 }));
 
 vi.mock("../../src/materialModule", () => {
-  const Passthrough = ({ children }: any) => <>{children}</>;
   const Element =
     (tag: string) =>
     ({ children, ...props }: any) => {
@@ -81,6 +83,20 @@ vi.mock("../../src/materialModule", () => {
           onChange={onChange}
         />
       ),
+      Switch: ({ checked, onChange }: any) => (
+        <input
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          onChange={onChange}
+        />
+      ),
+      FormControlLabel: ({ control, label }: any) => (
+        <label>
+          {control}
+          {label}
+        </label>
+      ),
       Chip: ({ label }: any) => <span>{label}</span>,
       Box: Element("div"),
       Typography: Element("span"),
@@ -91,7 +107,9 @@ vi.mock("../../src/materialModule", () => {
       TableRow: Element("tr"),
       TableCell: Element("td"),
       TableBody: Element("tbody"),
-      Tooltip: Passthrough,
+      Tooltip: ({ title, children }: any) => (
+        <span title={title}>{children}</span>
+      ),
       IconButton: Element("button"),
       Dialog: ({ open, children }: any) =>
         open ? <div role="dialog">{children}</div> : null,
@@ -101,6 +119,8 @@ vi.mock("../../src/materialModule", () => {
       FileUploadIcon: Icon,
       VisibilityOutlined: Icon,
       DeleteIcon: Icon,
+      NoAccountsIcon: Icon,
+      HowToRegIcon: Icon,
       ArrowUpward: Icon,
       ArrowDownward: Icon,
     },
@@ -120,6 +140,8 @@ vi.mock("../../src/services/modules/employees", async (importOriginal) => {
       createEmployee: vi.fn(),
       updateEmployee: vi.fn(),
       deleteEmployee: vi.fn(),
+      deactivateEmployee: vi.fn(),
+      reactivateEmployee: vi.fn(),
       bulkUploadEmployees: vi.fn(),
     },
   };
@@ -173,6 +195,8 @@ const employeePage = (overrides: Record<string, unknown> = {}) => ({
 
 describe("EmployeeManagement", () => {
   beforeEach(() => {
+    mockShowSnackbar.mockReset();
+    mockShowConfirmDialog.mockReset();
     vi.mocked(employeeService.getEmployees).mockResolvedValue(
       employeePage() as any,
     );
@@ -226,6 +250,92 @@ describe("EmployeeManagement", () => {
       expect(employeeService.getEmployees).toHaveBeenCalledWith(
         expect.objectContaining({ search: "mira" }),
       );
+    });
+  });
+
+  it("active row shows Deactivate tooltip, not Reactivate", async () => {
+    render(<EmployeeManagement />);
+    await screen.findByText("Ava Patel");
+
+    expect(screen.getByTitle("Deactivate")).toBeInTheDocument();
+    expect(screen.queryByTitle("Reactivate")).not.toBeInTheDocument();
+  });
+
+  it("inactive row (employeeStatus=INACTIVE) shows Reactivate tooltip, not Deactivate", async () => {
+    vi.mocked(employeeService.getEmployees).mockResolvedValue(
+      employeePage({ content: [{ id: "employee-2", employeeId: "E-002", name: "Bo Rao", emailAddress: "bo@example.com", mobileNumber: "", department: "", designation: "", branch: "", joiningDate: "", employeeStatus: "INACTIVE" }] }) as any,
+    );
+    render(<EmployeeManagement />);
+    await screen.findByText("Bo Rao");
+
+    expect(screen.getByTitle("Reactivate")).toBeInTheDocument();
+    expect(screen.queryByTitle("Deactivate")).not.toBeInTheDocument();
+  });
+
+  it("includeInactive toggle sends includeInactive=true to getEmployees", async () => {
+    const user = userEvent.setup();
+    render(<EmployeeManagement />);
+    await screen.findByText("Ava Patel");
+
+    const toggle = screen.getByRole("switch");
+    await user.click(toggle);
+
+    await waitFor(() => {
+      expect(employeeService.getEmployees).toHaveBeenCalledWith(
+        expect.objectContaining({ includeInactive: true }),
+      );
+    });
+  });
+
+  it("confirmation dialog for deactivate uses deactivate wording, not delete", async () => {
+    render(<EmployeeManagement />);
+    await screen.findByText("Ava Patel");
+
+    await userEvent.setup().click(
+      within(screen.getByTitle("Deactivate")).getByRole("button"),
+    );
+
+    expect(mockShowConfirmDialog).toHaveBeenCalledOnce();
+    const opts = mockShowConfirmDialog.mock.calls[0][0];
+    expect(opts.title).not.toMatch(/delete/i);
+    expect(opts.message).not.toMatch(/delete/i);
+    expect(opts.confirmText).not.toMatch(/delete/i);
+    expect(opts.title).toMatch(/deactivate/i);
+    expect(opts.confirmText).toMatch(/deactivate/i);
+  });
+
+  it("deactivate action calls deactivateEmployee service method", async () => {
+    mockShowConfirmDialog.mockImplementation((opts: any) => opts.onConfirm());
+    vi.mocked(employeeService.deactivateEmployee).mockResolvedValue(undefined as any);
+
+    render(<EmployeeManagement />);
+    await screen.findByText("Ava Patel");
+
+    await userEvent.setup().click(
+      within(screen.getByTitle("Deactivate")).getByRole("button"),
+    );
+
+    await waitFor(() => {
+      expect(employeeService.deactivateEmployee).toHaveBeenCalledWith("employee-1");
+    });
+  });
+
+  it("reactivate action calls reactivateEmployee service method", async () => {
+    vi.mocked(employeeService.getEmployees).mockResolvedValue(
+      employeePage({ content: [{ id: "emp-inactive", employeeId: "E-003", name: "Cy Lin", emailAddress: "cy@example.com", mobileNumber: "", department: "", designation: "", branch: "", joiningDate: "", employeeStatus: "INACTIVE" }] }) as any,
+    );
+    mockShowConfirmDialog.mockImplementation((opts: any) => opts.onConfirm());
+    vi.mocked(employeeService.reactivateEmployee).mockResolvedValue({ name: "Cy Lin" } as any);
+
+    render(<EmployeeManagement />);
+    await screen.findByText("Cy Lin");
+
+    await userEvent.setup().click(
+      within(screen.getByTitle("Reactivate")).getByRole("button"),
+    );
+
+    await waitFor(() => {
+      expect(employeeService.reactivateEmployee).toHaveBeenCalledWith("emp-inactive");
     });
   });
 });

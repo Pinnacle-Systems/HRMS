@@ -6,6 +6,7 @@ import {
   normalizeBulkUploadResponse,
   type EmployeeListQuery,
   type BulkUploadResponse,
+  type EmployeeSummaryResponse,
 } from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
@@ -47,6 +48,7 @@ export default function EmployeeManagement() {
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
+  const [includeInactive, setIncludeInactive] = useState(false);
 
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -335,6 +337,7 @@ export default function EmployeeManagement() {
         ...buildServerFilterParams(activeFilters),
       };
       if (searchTerm) params.search = searchTerm;
+      if (includeInactive) params.includeInactive = true;
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);
       const employeeData = employeePage.content as Employee[];
@@ -371,7 +374,7 @@ export default function EmployeeManagement() {
   useEffect(() => {
     getEmployees();
     getMasterData();
-  }, [page, limit, sortBy, sortOrder, searchTerm, activeFilters]);
+  }, [page, limit, sortBy, sortOrder, searchTerm, activeFilters, includeInactive]);
 
   // Update filter fields when master data changes
   useEffect(() => {
@@ -527,21 +530,51 @@ export default function EmployeeManagement() {
     }
   };
 
-  // Handle Delete Employee
-  const handleDeleteEmployee = async (id: string, name: string) => {
+  const isInactiveEmployee = (employee: Employee): boolean =>
+    employee.employeeStatus === "INACTIVE" ||
+    employee.isActive === false ||
+    !!employee.deactivatedAt;
+
+  // Handle Deactivate Employee
+  const handleDeactivateEmployee = async (id: string, name: string) => {
     showConfirmDialog({
-      title: "Delete Employee",
-      message: `Are you sure you want to delete "${name}"?`,
-      confirmText: "Delete",
+      title: "Deactivate Employee",
+      message: `Deactivate "${name}"? The employee will be marked inactive. All history (leave, payroll, onboarding) is retained and the employee can be reactivated later.`,
+      confirmText: "Deactivate",
       cancelText: "Cancel",
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteEmployee(id);
-          showSnackbar("Employee deleted successfully!", "success");
+          await employeeService.deactivateEmployee(id);
+          showSnackbar(`"${name}" has been deactivated.`, "success");
           getEmployees();
         } catch (error: any) {
-          showSnackbar(error.message, "error");
+          showSnackbar(error.message || "Failed to deactivate employee.", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  // Handle Reactivate Employee
+  const handleReactivateEmployee = async (id: string, name: string) => {
+    showConfirmDialog({
+      title: "Reactivate Employee",
+      message: `Reactivate "${name}"? The employee will be restored to active status.`,
+      confirmText: "Reactivate",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const updated: EmployeeSummaryResponse = await employeeService.reactivateEmployee(id);
+          showSnackbar(
+            `"${updated?.name ?? name}" has been reactivated.`,
+            "success",
+          );
+          getEmployees();
+        } catch (error: any) {
+          showSnackbar(error.message || "Failed to reactivate employee.", "error");
         } finally {
           hideSpinner();
         }
@@ -617,7 +650,17 @@ export default function EmployeeManagement() {
             Manage employees, send welcome emails, and track onboarding
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <MaterialModule.FormControlLabel
+            control={
+              <MaterialModule.Switch
+                checked={includeInactive}
+                onChange={(e) => { setIncludeInactive(e.target.checked); setPage(0); }}
+                size="small"
+              />
+            }
+            label={<span className="text-[12px] text-gray-600">Include inactive</span>}
+          />
           <MaterialModule.Button
             variant="outlined"
             startIcon={<MaterialModule.FileUploadIcon />}
@@ -913,25 +956,29 @@ export default function EmployeeManagement() {
                         />
                       </MaterialModule.IconButton>
                     </MaterialModule.Tooltip>
-                    {/* <MaterialModule.Tooltip title="Edit">
-                      <MaterialModule.IconButton
-                        size="small"
-                        className="!mr-1"
-                        onClick={() => handleOpenEditDialog(employee)}
-                      >
-                        <MaterialModule.EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
-                      </MaterialModule.IconButton>
-                    </MaterialModule.Tooltip> */}
-                    <MaterialModule.Tooltip title="Delete">
-                      <MaterialModule.IconButton
-                        size="small"
-                        onClick={() =>
-                          handleDeleteEmployee(employee.id, employee.name)
-                        }
-                      >
-                        <MaterialModule.DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                      </MaterialModule.IconButton>
-                    </MaterialModule.Tooltip>
+                    {isInactiveEmployee(employee) ? (
+                      <MaterialModule.Tooltip title="Reactivate">
+                        <MaterialModule.IconButton
+                          size="small"
+                          onClick={() =>
+                            handleReactivateEmployee(employee.id, employee.name)
+                          }
+                        >
+                          <MaterialModule.HowToRegIcon className="!w-4" sx={{ color: "#16a34a" }} />
+                        </MaterialModule.IconButton>
+                      </MaterialModule.Tooltip>
+                    ) : (
+                      <MaterialModule.Tooltip title="Deactivate">
+                        <MaterialModule.IconButton
+                          size="small"
+                          onClick={() =>
+                            handleDeactivateEmployee(employee.id, employee.name)
+                          }
+                        >
+                          <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                        </MaterialModule.IconButton>
+                      </MaterialModule.Tooltip>
+                    )}
                   </div>
                 </MaterialModule.TableCell>
               </MaterialModule.TableRow>

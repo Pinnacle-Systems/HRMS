@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiGet = vi.fn();
 const apiPost = vi.fn();
+const apiDelete = vi.fn();
+const apiPatch = vi.fn();
 
 vi.mock("../../src/services/api/api.config", () => ({
   apiService: {
     get: apiGet,
     post: apiPost,
     put: vi.fn(),
-    patch: vi.fn(),
-    delete: vi.fn(),
+    patch: apiPatch,
+    delete: apiDelete,
   },
 }));
 
@@ -238,5 +240,45 @@ describe("normalizeBulkUploadResponse", () => {
 
     const result = normalizeBulkUploadResponse({ data: {} });
     expect(result.errors).toEqual([]);
+  });
+});
+
+describe("deactivateEmployee", () => {
+  beforeEach(() => {
+    apiDelete.mockReset();
+  });
+
+  it("calls DELETE /employees/{id}", async () => {
+    apiDelete.mockResolvedValue({});
+    const { employeeService } = await import("../../src/services/modules/employees");
+
+    await employeeService.deactivateEmployee("emp-42");
+
+    expect(apiDelete).toHaveBeenCalledWith("/employees/emp-42");
+  });
+});
+
+describe("reactivateEmployee", () => {
+  beforeEach(() => {
+    apiPatch.mockReset();
+  });
+
+  it("calls PATCH /employees/{id}/reactivate", async () => {
+    apiPatch.mockResolvedValue({ data: { id: "emp-42", name: "Ava Patel", isActive: true } });
+    const { employeeService } = await import("../../src/services/modules/employees");
+
+    const result = await employeeService.reactivateEmployee("emp-42");
+
+    expect(apiPatch).toHaveBeenCalledWith("/employees/emp-42/reactivate", {});
+    expect(result).toMatchObject({ id: "emp-42", name: "Ava Patel", isActive: true });
+  });
+
+  it("returns the response data envelope", async () => {
+    apiPatch.mockResolvedValue({ data: { id: "emp-7", isActive: true } });
+    const { employeeService } = await import("../../src/services/modules/employees");
+
+    const result = await employeeService.reactivateEmployee("emp-7");
+
+    expect(result.isActive).toBe(true);
   });
 });

@@ -33,6 +33,8 @@ import Download from "@mui/icons-material/Download";
 import CloudUpload from "@mui/icons-material/CloudUpload";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import ArrowDownward from "@mui/icons-material/ArrowDownward";
+import NoAccounts from "@mui/icons-material/NoAccounts";
+import HowToReg from "@mui/icons-material/HowToReg";
 
 const MaterialModule = {
   ...Mui,
@@ -72,6 +74,8 @@ const MaterialModule = {
   WorkHistoryOutlined,
   CameraAlt,
   VisibilityOutlined,
+  NoAccountsIcon: NoAccounts,
+  HowToRegIcon: HowToReg,
 };
 
 export default MaterialModule;

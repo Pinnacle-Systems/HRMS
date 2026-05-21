@@ -50,6 +50,9 @@ vi.mock("../../src/materialModule", () => {
       MenuItem: ({ children, value }: any) => <option value={value}>{children}</option>,
       FormControl: El("div"),
       FormControlLabel: ({ label, control }: any) => <label>{control}{label}</label>,
+      Switch: ({ checked, onChange }: any) => (
+        <input type="checkbox" role="switch" checked={!!checked} onChange={onChange} />
+      ),
       Checkbox: ({ checked, onChange }: any) => (
         <input type="checkbox" checked={!!checked} onChange={onChange} />
       ),
@@ -78,6 +81,8 @@ vi.mock("../../src/materialModule", () => {
       VisibilityOutlined: Noop,
       ArrowUpward: Noop,
       ArrowDownward: Noop,
+      NoAccountsIcon: Noop,
+      HowToRegIcon: Noop,
     },
   };
 });
@@ -96,6 +101,8 @@ vi.mock("../../src/services/modules/employees", async (importOriginal) => {
       bulkUploadEmployees: mockBulkUploadEmployees,
       downloadBulkUploadTemplate: mockDownloadBulkUploadTemplate,
       deleteEmployee: vi.fn(),
+      deactivateEmployee: vi.fn(),
+      reactivateEmployee: vi.fn(),
     },
   };
 });

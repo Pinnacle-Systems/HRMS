@@ -83,6 +83,7 @@ export const API_ENDPOINTS = {
 
   EMPLOYEE: {
     DELETE: (id: string) => `/employees/${id}`,
+    REACTIVATE: (id: string) => `/employees/${id}/reactivate`,
     DELETE_TRAINING: (id: string, tid: string) =>
       `/employees/${id}/training-details/${tid}`,
     DELETE_QUALIFICATION: (id: string, qid: string) =>

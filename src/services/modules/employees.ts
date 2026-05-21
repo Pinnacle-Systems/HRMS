@@ -42,6 +42,8 @@ export interface EmployeeSummaryResponse {
   joiningDate?: string;
   employeeStatus?: string;
   employeeStatusId?: string;
+  isActive?: boolean;
+  deactivatedAt?: string;
   createdAt?: string;
   [key: string]: any;
 }
@@ -244,7 +246,17 @@ export const employeeService = {
     return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE(id), data);
   },
 
-  async deleteEmployee(id: any) {
+  async deactivateEmployee(id: string) {
+    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id));
+  },
+
+  async reactivateEmployee(id: string): Promise<EmployeeSummaryResponse> {
+    const response: any = await apiService.patch(API_ENDPOINTS.EMPLOYEE.REACTIVATE(id), {});
+    return (response?.data ?? response) as EmployeeSummaryResponse;
+  },
+
+  /** @deprecated Use deactivateEmployee instead */
+  async deleteEmployee(id: string) {
     return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id));
   },
 
