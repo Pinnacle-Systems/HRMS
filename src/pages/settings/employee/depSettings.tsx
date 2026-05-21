@@ -21,15 +21,12 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Autocomplete,
 } from "@mui/material";
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  CloseOutlined,
-  ArrowUpward,
-  ArrowDownward,
-} from "@mui/icons-material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import CloseOutlined from "@mui/icons-material/CloseOutlined";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import { getCurrentRouteLabel } from "../const";
 import { departmentService } from "../../../services/modules/department";
@@ -38,8 +35,8 @@ import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
 import { getRowColor } from "../../const";
-import type { Employee } from "../general/type";
-import { employeeService, normalizeEmployeesResponse } from "../../../services/modules/employees";
+import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
+import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 
 interface Department {
   id: string;
@@ -92,25 +89,8 @@ export default function DepartmentSettings() {
     branchId: "",
     active: true,
   });
-
-  // Employee list for branch head dropdown
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const selectedEmployee = employees.find(emp => emp.id === formData.departmentHeadId) || null;
-
-  // Fetch active employees for branch head dropdown
-  const getActiveEmployees = async () => {
-    try {
-      const response: any = await employeeService.getEmployees({
-        page: 0,
-        size: 20,
-        sort: "name,ASC",
-        includeInactive: false,
-      });
-      setEmployees(normalizeEmployeesResponse(response) as Employee[]);
-    } catch (error: any) {
-      showSnackbar(error.message, error);
-    }
-  };
+  const [selectedDepartmentHead, setSelectedDepartmentHead] =
+    useState<EmployeeSummaryResponse | null>(null);
 
   // Fetch departments
   const getDepartments = async () => {
@@ -155,7 +135,6 @@ export default function DepartmentSettings() {
     Promise.resolve().then(() => {
       getDepartments();
       getBranches();
-      getActiveEmployees();
     });
   }, [page, limit, sortBy, sortOrder, searchTerm]);
 
@@ -187,8 +166,19 @@ export default function DepartmentSettings() {
     if (department) {
       setEditingDepartment(department);
       setFormData(department);
+      setSelectedDepartmentHead(
+        department.departmentHeadId
+          ? {
+              id: department.departmentHeadId,
+              name: String(
+                department.departmentHeadName || department.departmentHeadId,
+              ),
+            }
+          : null,
+      );
     } else {
       setEditingDepartment(null);
+      setSelectedDepartmentHead(null);
       setFormData({
         departmentName: "",
         departmentCode: "",
@@ -203,6 +193,7 @@ export default function DepartmentSettings() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingDepartment(null);
+    setSelectedDepartmentHead(null);
     setFormData({});
   };
 
@@ -557,54 +548,18 @@ export default function DepartmentSettings() {
             </div>
             {/* Department Head Autocomplete */}
             <div>
-              <Autocomplete
-                options={employees}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return `${option.name} (${option.employeeId})`;
-                }}
-                value={selectedEmployee}
-                onChange={(_event, newValue) => {
+              <EmployeeAsyncCombobox
+                value={formData.departmentHeadId || null}
+                selectedEmployee={selectedDepartmentHead}
+                label="Assign Department Head"
+                placeholder="Search employee by name or ID..."
+                onChange={(employeeId, employee) => {
+                  setSelectedDepartmentHead(employee || null);
                   setFormData((prev) => ({
                     ...prev,
-                    departmentHeadId: newValue ? newValue.id : "",
+                    departmentHeadId: employeeId || "",
+                    departmentHeadName: employee?.name || "",
                   }));
-                }}
-                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                renderOption={(props, option) => {
-                  const { key, ...restProps } = props;
-                  return (
-                    <li key={key} {...restProps}>
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{option.name}</span>
-                            <span className="text-xs text-gray-400">({option.employeeId})</span>
-                          </div>
-                          <div className="text-xs text-gray-500">{option.designation || "Employee"}</div>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Assign Department Head"
-                    placeholder="Search employee by name or ID..."
-                  />
-                )}
-                loading={employees.length === 0}
-                loadingText="Loading employees..."
-                noOptionsText="No employees found"
-                filterOptions={(options, state) => {
-                  const searchLower = state.inputValue.toLowerCase();
-                  return options.filter(option =>
-                    option.name?.toLowerCase().includes(searchLower) ||
-                    option.employeeId?.toLowerCase().includes(searchLower) ||
-                    option.emailAddress?.toLowerCase().includes(searchLower) ||
-                    option.designation?.toLowerCase().includes(searchLower)
-                  );
                 }}
               />
             </div>

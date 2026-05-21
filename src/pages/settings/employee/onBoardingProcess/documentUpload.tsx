@@ -1,28 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Card, CardContent, Grid, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Button,
   Dialog, DialogContent, DialogActions, TextField, Select, MenuItem,
-  FormControl, InputLabel, Chip, LinearProgress, Avatar, Tooltip,
+  FormControl, InputLabel, Chip, LinearProgress, Tooltip,
 } from '@mui/material';
-import { 
-  CloudUpload as UploadIcon, Delete as DeleteIcon, 
-  Visibility as ViewIcon, AttachFile as AttachmentIcon,
-} from '@mui/icons-material';
+import UploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ViewIcon from '@mui/icons-material/Visibility';
+import AttachmentIcon from '@mui/icons-material/AttachFile';
 import {
   normalizeAssignedTasksResponse,
   normalizeDocumentsResponse,
   normalizeOnboardingAssignmentsResponse,
   onBoardService,
 } from '../../../../services/modules/onBoard';
-import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
+import type { EmployeeSummaryResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 import dayjs from 'dayjs';
+import EmployeeAsyncCombobox from '../../../../components/employees/EmployeeAsyncCombobox';
 
 export const DocumentsUpload = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummaryResponse | null>(null);
   const [onboardings, setOnboardings] = useState<any[]>([]);
   const [selectedOnboarding, setSelectedOnboarding] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
@@ -34,23 +34,6 @@ export const DocumentsUpload = () => {
     remarks: ''
   });
   const [tasks, setTasks] = useState<any[]>([]);
-
-  const fetchEmployees = async () => {
-    try {
-      showSpinner();
-      const response:any = await employeeService.getEmployees({
-        page: 0,
-        size: 20,
-        sort: "name,ASC",
-        includeInactive: false,
-      });
-      setEmployees(normalizeEmployeesResponse(response));
-    } catch (error: any) {
-      showSnackbar(error.message, 'error');
-    } finally {
-      hideSpinner();
-    }
-  };
 
   const fetchEmployeeOnboardings = async (employeeId: string) => {
     try {
@@ -88,15 +71,14 @@ export const DocumentsUpload = () => {
     }
   };
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  const handleEmployeeSelect = async (employee: any) => {
+  const handleEmployeeSelect = async (employee: EmployeeSummaryResponse | null) => {
     setSelectedEmployee(employee);
     setSelectedOnboarding(null);
     setDocuments([]);
-    await fetchEmployeeOnboardings(employee.id);
+    setOnboardings([]);
+    if (employee?.id) {
+      await fetchEmployeeOnboardings(employee.id);
+    }
   };
 
   const handleOnboardingSelect = async (onboarding: any) => {
@@ -189,28 +171,16 @@ export const DocumentsUpload = () => {
         <Grid>
           <Card>
             <CardContent>
-              <Typography variant="subtitle1" className="font-semibold mb-3">Employees</Typography>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {employees.map((employee) => (
-                  <div
-                    key={employee.id}
-                    onClick={() => handleEmployeeSelect(employee)}
-                    className={`p-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${
-                      selectedEmployee?.id === employee.id 
-                        ? 'bg-primary text-white' 
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <Avatar className="!w-8 !h-8">
-                      {employee.name?.charAt(0)}
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{employee.name}</div>
-                      <div className="text-xs truncate">{employee.employeeId}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Typography variant="subtitle1" className="font-semibold mb-3">Employee</Typography>
+              <EmployeeAsyncCombobox
+                value={selectedEmployee?.id || null}
+                selectedEmployee={selectedEmployee}
+                label="Select Employee"
+                placeholder="Search employee by name or ID..."
+                onChange={(_employeeId, employee) => {
+                  void handleEmployeeSelect(employee || null);
+                }}
+              />
             </CardContent>
           </Card>
         </Grid>

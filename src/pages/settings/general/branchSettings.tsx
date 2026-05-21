@@ -17,28 +17,26 @@ import {
   FormControlLabel,
   Chip,
   Tooltip,
-  Autocomplete,
 } from "@mui/material";
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  LocationOn as LocationIcon,
-  MyLocation as MyLocationIcon,
-  CloseOutlined,
-  ArrowUpward,
-  ArrowDownward,
-} from "@mui/icons-material";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import LocationIcon from "@mui/icons-material/LocationOn";
+import MyLocationIcon from "@mui/icons-material/MyLocation";
+import CloseOutlined from "@mui/icons-material/CloseOutlined";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
 import { getCurrentRouteLabel } from "../const";
 import { branchService } from "../../../services/modules/branch";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
-import { sortOptions, type Branch, type Employee } from "./type";
+import { sortOptions, type Branch } from "./type";
 import { getRowColor } from "../../const";
-import { employeeService, normalizeEmployeesResponse } from "../../../services/modules/employees";
 // import { LocationMap } from "../../../components/Location";
 import LocationMap from "../../../components/Map";
+import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
+import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 
 
 export default function BranchSettings() {
@@ -54,6 +52,8 @@ export default function BranchSettings() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [mapUrl, setMapUrl] = useState("");
   const [googleMapLink, setGoogleMapLink] = useState("");
+  const [selectedBranchHead, setSelectedBranchHead] =
+    useState<EmployeeSummaryResponse | null>(null);
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -68,25 +68,6 @@ export default function BranchSettings() {
     branchHeadId: "",
     active: true,
   });
-
-  // Employee list for branch head dropdown
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const selectedEmployee = employees.find(emp => emp.id === formData.branchHeadId) || null;
-
-  // Fetch active employees for branch head dropdown
-  const getActiveEmployees = async () => {
-    try {
-      const response: any = await employeeService.getEmployees({
-        page: 0,
-        size: 20,
-        sort: "name,ASC",
-        includeInactive: false,
-      });
-      setEmployees(normalizeEmployeesResponse(response) as Employee[]);
-    } catch (error: any) {
-      showSnackbar(error.message, error);
-    }
-  };
 
   // Fetch branches with pagination, sorting, and search
   const getBranches = async () => {
@@ -120,7 +101,6 @@ export default function BranchSettings() {
   useEffect(() => {
     Promise.resolve().then(() => {
       getBranches();
-      getActiveEmployees();
     });
   }, [page, limit, sortBy, sortOrder, searchTerm]);
 
@@ -194,8 +174,17 @@ export default function BranchSettings() {
     if (branch) {
       setEditingBranch(branch);
       setFormData(branch);
+      setSelectedBranchHead(
+        branch.branchHeadId
+          ? {
+              id: branch.branchHeadId,
+              name: String(branch.branchHeadName || branch.branchHeadId),
+            }
+          : null,
+      );
     } else {
       setEditingBranch(null);
+      setSelectedBranchHead(null);
       setFormData({
         branchName: "",
         branchCode: "",
@@ -214,6 +203,7 @@ export default function BranchSettings() {
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingBranch(null);
+    setSelectedBranchHead(null);
     setFormData({});
     setShowMap(false);
   };
@@ -598,55 +588,18 @@ export default function BranchSettings() {
 
             {/* Branch Head Autocomplete */}
             <div className="w-[50%]">
-              <Autocomplete
-                options={employees}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return `${option.name} (${option.employeeId})`;
-                }}
-                value={selectedEmployee}
-                onChange={(_event, newValue) => {
+              <EmployeeAsyncCombobox
+                value={formData.branchHeadId || null}
+                selectedEmployee={selectedBranchHead}
+                label="Assign Branch Head"
+                placeholder="Search employee by name or ID..."
+                onChange={(employeeId, employee) => {
+                  setSelectedBranchHead(employee || null);
                   setFormData((prev) => ({
                     ...prev,
-                    branchHeadId: newValue ? newValue.id : "",
-                    // branchHeadName: newValue ? `${newValue.name} (${newValue.employeeId})` : "",
+                    branchHeadId: employeeId || "",
+                    branchHeadName: employee?.name || "",
                   }));
-                }}
-                isOptionEqualToValue={(option, value) => option.id === value?.id}
-                renderOption={(props, option) => {
-                  const { key, ...restProps } = props;
-                  return (
-                    <li key={key} {...restProps}>
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{option.name}</span>
-                            <span className="text-xs text-gray-400">({option.employeeId})</span>
-                          </div>
-                          <div className="text-xs text-gray-500">{option.designation || "Employee"}</div>
-                        </div>
-                      </div>
-                    </li>
-                  );
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Assign Branch Head"
-                    placeholder="Search employee by name or ID..."
-                  />
-                )}
-                loading={employees.length === 0}
-                loadingText="Loading employees..."
-                noOptionsText="No employees found"
-                filterOptions={(options, state) => {
-                  const searchLower = state.inputValue.toLowerCase();
-                  return options.filter(option =>
-                    option.name?.toLowerCase().includes(searchLower) ||
-                    option.employeeId?.toLowerCase().includes(searchLower) ||
-                    option.emailAddress?.toLowerCase().includes(searchLower) ||
-                    option.designation?.toLowerCase().includes(searchLower)
-                  );
                 }}
               />
             </div>

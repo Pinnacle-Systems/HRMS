@@ -21,7 +21,7 @@ This report summarizes frontend consumption gaps found during the module-specifi
 
 The frontend has a central API client and generally uses the Swagger path family for most core HRMS modules. Bearer-token attachment is centralized, and the audit did not find active password/email/roles/permissions query-string leakage in current routed flows.
 
-The largest remaining integration risks are around Employees and Onboarding orchestration. Employee list pagination/filtering is now aligned with the updated Swagger contract for `GET /api/employees`, which returns `ApiResponsePageEmployeeSummaryResponse` and supports `page`, `size`, `sort`, `search`, `dept`, `branch`, `designationId`, `empTypeId`, `employeeStatusId`, `managerId`, `joinedFrom`, `joinedTo`, and `includeInactive`. Onboarding assignment list, assigned task list, document list/upload/delete, assignment deactivate/reactivate, progress, welcome-message, and checklist-task payloads are now aligned with the updated onboarding Swagger contract. Employee creation/bulk upload messaging still assumes welcome/onboarding side effects that are not guaranteed by the employee APIs.
+The largest remaining integration risks are around Employees and Onboarding orchestration. Employee list pagination/filtering is now aligned with the updated Swagger contract for `GET /api/employees`, which returns `ApiResponsePageEmployeeSummaryResponse` and supports `page`, `size`, `sort`, `search`, `dept`, `branch`, `designationId`, `empTypeId`, `employeeStatusId`, `managerId`, `joinedFrom`, `joinedTo`, and `includeInactive`. Employee Management consumes the Spring Page response, and the high-traffic employee selectors in Branch Settings, Department Settings, Assign Onboarding, and Onboarding Document Upload now use an async employee combobox/typeahead backed by the same paginated endpoint. Onboarding assignment list, assigned task list, document list/upload/delete, assignment deactivate/reactivate, progress, welcome-message, and checklist-task payloads are now aligned with the updated onboarding Swagger contract. Employee creation/bulk upload messaging still assumes welcome/onboarding side effects that are not guaranteed by the employee APIs.
 
 Several setup modules are mostly aligned on paths, but delete behavior needs backend clarification because Swagger exposes `DELETE` while requested behavior expects linked-record blocking and/or soft deactivate semantics. Master Data dropdowns work against Swagger paths but should use active-list endpoints where available.
 
@@ -31,7 +31,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 |---|---|---|---|
 | Onboarding | Frontend now calls `/api/onboarding/progress/{employeeId}` with `employeeId`; screens guard missing employee ids. | Fixed frontend id semantics. | Keep assignment/onboarding id separate from employee id in future UI changes. |
 | Onboarding | Assignment list, assigned task list, document list/delete, and assignment deactivate endpoints are now Swagger-backed. | Fixed frontend/backend onboarding screen contract. | Keep document actions keyed by `taskInstanceId`, not checklist template task id. |
-| Employees | `GET /api/employees` now supports server-side pagination, filtering, and sorting, and Employee Management consumes `data.content`/`data.totalElements`. | Fixed frontend/backend list contract. | Keep employee list and select/typeahead usage on the paginated contract. |
+| Employees | `GET /api/employees` now supports server-side pagination, filtering, and sorting; Employee Management consumes `data.content`/`data.totalElements`, and migrated employee selectors use the async combobox/typeahead. | Fixed frontend/backend list/select contract. | Keep future employee selectors on the paginated contract. |
 
 ## 3. P1 Integration Risks
 
@@ -116,7 +116,8 @@ Employee create/bulk upload
 
 | Area | Finding | Priority | Recommendation |
 |---|---|---|---|
-| List | Frontend uses `GET /employees` with supported paginated query params and reads Spring Page fields from `data.content`, `data.totalElements`, `data.totalPages`, `data.number`, `data.size`, `data.first`, `data.last`, and `data.empty`. | Fixed | Backend gap closed; frontend consumption implemented. This endpoint also supports future async employee combobox/typeahead selects. |
+| List | Frontend uses `GET /employees` with supported paginated query params and reads Spring Page fields from `data.content`, `data.totalElements`, `data.totalPages`, `data.number`, `data.size`, `data.first`, `data.last`, and `data.empty`. | Fixed | Backend gap closed; frontend consumption implemented. |
+| Employee selectors | Branch Head, Department Head, Assign Onboarding employee, and Onboarding Document Upload employee selectors use the shared async employee combobox/typeahead with search, first-page loading, and load-more pagination. | Fixed for migrated screens | Use this shared combobox for any remaining/future employee selectors instead of full-list dropdowns. |
 | Paths | Employee detail/update/delete paths use plural `/employees/{id}`. | P2 | Good; avoid old singular `/employee/{id}`. |
 | Create/update | Frontend sends employee payloads from screen forms; exact schema alignment still needs typed adapter cleanup. | P1 | Add request/response adapters and field-level schema tests. |
 | Section updates | Frontend has PATCH section service methods, but some screens still use broader PUT/update flows. | P1 | Prefer PATCH for personal/identity/bank/background/admin/PF section edits where available. |
@@ -197,7 +198,7 @@ Employee create/bulk upload
 
 | Module | Frontend Usage | Swagger Endpoint | Status | Risk | Recommended Fix |
 |---|---|---|---|---|---|
-| Employees | `GET /api/employees?page=&size=&sort=&search=&dept=&branch=&designationId=&empTypeId=&employeeStatusId=&managerId=&joinedFrom=&joinedTo=&includeInactive=` | `GET /api/employees` returns `ApiResponsePageEmployeeSummaryResponse` | Fixed | Employee Management and current first-page select consumers now use the paginated contract. |
+| Employees | `GET /api/employees?page=&size=&sort=&search=&dept=&branch=&designationId=&empTypeId=&employeeStatusId=&managerId=&joinedFrom=&joinedTo=&includeInactive=` | `GET /api/employees` returns `ApiResponsePageEmployeeSummaryResponse` | Fixed | Employee Management and migrated employee combobox/typeahead consumers now use the paginated contract. |
 | Employees | `GET /api/employees/id-pattern` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `POST /api/employees/id-sequence/increment` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `GET /api/employees/sample-template` | Not present | Frontend-only | P1 | Add sample/template endpoint or hide action. |
