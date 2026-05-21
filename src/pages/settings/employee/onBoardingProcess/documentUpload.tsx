@@ -9,7 +9,12 @@ import {
   CloudUpload as UploadIcon, Delete as DeleteIcon, 
   Visibility as ViewIcon, AttachFile as AttachmentIcon,
 } from '@mui/icons-material';
-import { onBoardService } from '../../../../services/modules/onBoard';
+import {
+  normalizeAssignedTasksResponse,
+  normalizeDocumentsResponse,
+  normalizeOnboardingAssignmentsResponse,
+  onBoardService,
+} from '../../../../services/modules/onBoard';
 import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 import dayjs from 'dayjs';
@@ -24,7 +29,7 @@ export const DocumentsUpload = () => {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadData, setUploadData] = useState({
-    taskId: '',
+    taskInstanceId: '',
     documentType: '',
     remarks: ''
   });
@@ -33,7 +38,12 @@ export const DocumentsUpload = () => {
   const fetchEmployees = async () => {
     try {
       showSpinner();
-      const response:any = await employeeService.getEmployees({ size: 100 });
+      const response:any = await employeeService.getEmployees({
+        page: 0,
+        size: 20,
+        sort: "name,ASC",
+        includeInactive: false,
+      });
       setEmployees(normalizeEmployeesResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -45,12 +55,11 @@ export const DocumentsUpload = () => {
   const fetchEmployeeOnboardings = async (employeeId: string) => {
     try {
       showSpinner();
-      const response:any = await onBoardService.getEmployeeOnboardings?.({ 
+      const response:any = await onBoardService.getAssignments({ 
         employeeId,
         size: 100 
       });
-      const data = response?.data?.content || response?.data || [];
-      setOnboardings(data);
+      setOnboardings(normalizeOnboardingAssignmentsResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     } finally {
@@ -62,7 +71,7 @@ export const DocumentsUpload = () => {
     try {
       showSpinner();
       const response:any = await onBoardService.getEmployeeTasks(onboardingId, checklistId);
-      setTasks(response.data?.tasks || response.data || []);
+      setTasks(normalizeAssignedTasksResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     } finally {
@@ -73,7 +82,7 @@ export const DocumentsUpload = () => {
   const fetchDocuments = async (onboardingId: string) => {
     try {
       const response:any = await onBoardService.getDocuments(onboardingId);
-      setDocuments(response.data?.content || response.data || []);
+      setDocuments(normalizeDocumentsResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     }
@@ -98,23 +107,26 @@ export const DocumentsUpload = () => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !uploadData.taskId || !uploadData.documentType) {
+    if (!selectedFile || !uploadData.taskInstanceId || !uploadData.documentType) {
       showSnackbar('Please select a file, task, and document type', 'error');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('documentType', uploadData.documentType);
-    formData.append('remarks', uploadData.remarks);
-    formData.append('taskId', uploadData.taskId);
+    if (!selectedEmployee?.id) {
+      showSnackbar('Cannot upload document: employee id is missing.', 'error');
+      return;
+    }
 
     try {
       showSpinner();
-      await onBoardService.createDocument(formData);
+      await onBoardService.createDocument({
+        file: selectedFile,
+        taskInstanceId: uploadData.taskInstanceId,
+        employeeId: selectedEmployee.id,
+        notes: uploadData.remarks,
+      });
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
-      setUploadData({ taskId: '', documentType: '', remarks: '' });
+      setUploadData({ taskInstanceId: '', documentType: '', remarks: '' });
       await fetchDocuments(selectedOnboarding.id);
       showSnackbar('Document uploaded successfully!', 'success');
     } catch (error: any) {
@@ -124,7 +136,12 @@ export const DocumentsUpload = () => {
     }
   };
 
-  const handleDeleteDocument = async (documentId: string) => {
+  const handleDeleteDocument = async (taskInstanceId?: string) => {
+    if (!taskInstanceId) {
+      showSnackbar('Cannot delete document: task instance id is missing.', 'error');
+      return;
+    }
+
     showConfirmDialog({
       title: 'Delete Document',
       message: 'Are you sure you want to delete this document?',
@@ -132,7 +149,7 @@ export const DocumentsUpload = () => {
       onConfirm: async () => {
         try {
           showSpinner();
-          await onBoardService.deleteDocument(documentId);
+          await onBoardService.deleteDocument(taskInstanceId);
           await fetchDocuments(selectedOnboarding.id);
           showSnackbar('Document deleted successfully!', 'success');
         } catch (error: any) {
@@ -157,9 +174,11 @@ export const DocumentsUpload = () => {
   // };
 
   const getTaskName = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    return task?.taskName || taskId;
+    const task = tasks.find(t => getTaskInstanceId(t) === taskId || t.taskId === taskId);
+    return task?.taskName || task?.title || taskId;
   };
+
+  const getTaskInstanceId = (task: any) => task.taskInstanceId || task.id || task.taskId || '';
 
   return (
     <div className="p-4">
@@ -287,7 +306,7 @@ export const DocumentsUpload = () => {
                               />
                             </TableCell>
                             <TableCell className="text-sm">
-                              {getTaskName(doc.taskId)}
+                              {getTaskName(doc.taskInstanceId || doc.taskId)}
                             </TableCell>
                             <TableCell className="text-sm">{doc.documentName}</TableCell>
                             <TableCell className="text-sm">
@@ -310,7 +329,7 @@ export const DocumentsUpload = () => {
                                   <IconButton 
                                     size="small" 
                                     color="error"
-                                    onClick={() => handleDeleteDocument(doc.id)}
+                                    onClick={() => handleDeleteDocument(doc.taskInstanceId || doc.taskId)}
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
@@ -361,13 +380,13 @@ export const DocumentsUpload = () => {
             <FormControl fullWidth>
               <InputLabel>Select Task</InputLabel>
               <Select
-                value={uploadData.taskId}
+                value={uploadData.taskInstanceId}
                 label="Select Task"
-                onChange={(e) => setUploadData({ ...uploadData, taskId: e.target.value })}
+                onChange={(e) => setUploadData({ ...uploadData, taskInstanceId: e.target.value })}
               >
                 {tasks.filter(t => t.status !== 'Completed').map((task) => (
-                  <MenuItem key={task.id} value={task.id}>
-                    {task.taskName} ({task.status})
+                  <MenuItem key={getTaskInstanceId(task)} value={getTaskInstanceId(task)}>
+                    {task.taskName || task.title} ({task.status})
                   </MenuItem>
                 ))}
               </Select>
@@ -439,7 +458,7 @@ export const DocumentsUpload = () => {
             onClick={handleUpload} 
             variant="contained" 
             className="!bg-primary"
-            disabled={!selectedFile || !uploadData.taskId || !uploadData.documentType}
+            disabled={!selectedFile || !uploadData.taskInstanceId || !uploadData.documentType}
           >
             Upload
           </Button>

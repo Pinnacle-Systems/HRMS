@@ -21,7 +21,7 @@ This report summarizes frontend consumption gaps found during the module-specifi
 
 The frontend has a central API client and generally uses the Swagger path family for most core HRMS modules. Bearer-token attachment is centralized, and the audit did not find active password/email/roles/permissions query-string leakage in current routed flows.
 
-The largest integration risks are around Employees and Onboarding. Employee list UI assumes server pagination even though Swagger says `GET /api/employees` returns all employees. Employee creation/bulk upload messaging assumes welcome/onboarding side effects that are not guaranteed by the employee APIs. Onboarding screens still call several endpoints that are not in the expected Swagger contract, but the frontend-only onboarding assignment, welcome-message, progress-id, and checklist-task payload mismatches have been addressed in the onboarding service adapters.
+The largest remaining integration risks are around Employees and Onboarding orchestration. Employee list pagination/filtering is now aligned with the updated Swagger contract for `GET /api/employees`, which returns `ApiResponsePageEmployeeSummaryResponse` and supports `page`, `size`, `sort`, `search`, `dept`, `branch`, `designationId`, `empTypeId`, `employeeStatusId`, `managerId`, `joinedFrom`, `joinedTo`, and `includeInactive`. Onboarding assignment list, assigned task list, document list/upload/delete, assignment deactivate/reactivate, progress, welcome-message, and checklist-task payloads are now aligned with the updated onboarding Swagger contract. Employee creation/bulk upload messaging still assumes welcome/onboarding side effects that are not guaranteed by the employee APIs.
 
 Several setup modules are mostly aligned on paths, but delete behavior needs backend clarification because Swagger exposes `DELETE` while requested behavior expects linked-record blocking and/or soft deactivate semantics. Master Data dropdowns work against Swagger paths but should use active-list endpoints where available.
 
@@ -30,8 +30,8 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Module | Finding | Impact | Recommended Fix |
 |---|---|---|---|
 | Onboarding | Frontend now calls `/api/onboarding/progress/{employeeId}` with `employeeId`; screens guard missing employee ids. | Fixed frontend id semantics. | Keep assignment/onboarding id separate from employee id in future UI changes. |
-| Onboarding | Frontend uses unsupported onboarding endpoints such as `/api/onboarding/employee-onboardings`, `/api/onboarding/{id}/checklist/{checklistId}/tasks`, `/api/onboarding/{id}/documents`, and `DELETE /api/onboarding/{id}`. | Assignment/progress/document screens may not work against Swagger-only backend. | Replace with Swagger APIs or request backend aliases for the current frontend endpoints. |
-| Employees | Employee list screen sends `page`, `size`, and `sort` to `GET /api/employees`, while Swagger says the endpoint returns all employees with no pagination parameters. | List pagination/count behavior can be incorrect in production. | Fetch all employees and paginate client-side, or ask backend to add paginated contract to Swagger. |
+| Onboarding | Assignment list, assigned task list, document list/delete, and assignment deactivate endpoints are now Swagger-backed. | Fixed frontend/backend onboarding screen contract. | Keep document actions keyed by `taskInstanceId`, not checklist template task id. |
+| Employees | `GET /api/employees` now supports server-side pagination, filtering, and sorting, and Employee Management consumes `data.content`/`data.totalElements`. | Fixed frontend/backend list contract. | Keep employee list and select/typeahead usage on the paginated contract. |
 
 ## 3. P1 Integration Risks
 
@@ -41,7 +41,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Employees | Bulk upload sample/template uses `/api/employees/sample-template`, not present in expected Swagger. | Bulk upload UI may expose a broken download action. | Add Swagger-backed template/sample endpoint or hide the action. |
 | Employees | Delete UI is wired to `DELETE /api/employees/{id}`; requested behavior expects soft delete/block-if-linked, while Swagger wording may imply hard delete. | Risk of destructive deletion or inconsistent UX. | Confirm backend semantics; adjust label and confirmation copy. |
 | Onboarding | Employee create/bulk upload UI says welcome emails are sent automatically but does not explicitly call `/api/onboarding/assign` or `/api/onboarding/send-welcome` after employee create/bulk upload. | New employees may not receive onboarding assignment/invite. | Add explicit post-create orchestration or confirm backend side effects. |
-| Onboarding | Document upload uses multipart but assumes frontend field names and task/onboarding id semantics. Swagger expects `POST /api/onboarding/documents` and document delete by `{taskId}`. | Upload/delete can fail if field names or ids differ. | Align adapter with Swagger request schema and clarify file field name. |
+| Onboarding | Document upload now sends `taskInstanceId`, `employeeId`, and optional `notes` as query params with multipart `file`; delete uses `/api/onboarding/documents/{taskInstanceId}`. | Mostly fixed; depends on backend accepting the documented multipart file field. | Keep a formal OpenAPI multipart requestBody model if backend docs are still schema-light. |
 | Company | Update must use `/api/org/company/{id}`. Frontend service supports this, but screen must always have `companyInfo.id` before update. | Update can fall back to create/missing action if id is absent. | Ensure company load/hydration always stores id before enabling save. |
 | Branches / Departments / Categories | Delete actions are wired, but linked-record blocking behavior is not confirmed in Swagger. | Users may attempt destructive deletes for linked records. | Treat delete as risky until backend confirms blocking semantics. |
 | Employee Categories | Category list is treated like paginated in places via `{ size: 100 }`, while Swagger category list is not paginated; category items are paginated. | Dropdown completeness/shape issues. | Normalize category list as array and category items as page-or-array tolerant. |
@@ -91,11 +91,11 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Assignment payload | Frontend assignment adapter now sends `{ employeeId, checklistIds, dueDate?, notes? }`; legacy `startDate` is not sent because the UI field is not a Swagger due date. | Fixed | Add a real due-date control if due dates are required during assignment. |
 | Send welcome payload | Frontend now sends `{ employeeIds: [employeeId] }` and does not send onboarding id. | Fixed | Keep using onboarding welcome endpoint rather than employee resend aliases. |
 | Progress | Frontend now passes employee id to `/onboarding/progress/{employeeId}` and avoids calling the API when employee id is absent. | Fixed | Keep adapter argument named `employeeId`. |
-| Checklist task payload | Task create/update now maps `taskName` to `title`, preserves `description`, and sends Swagger fields for `taskType`, `documentName`, `sortOrder`, and `required`. | Partially fixed | Confirm backend enum/default expectations for `taskType` and whether all tasks should default to required. |
-| Employee onboardings list | Frontend calls `/onboarding/employee-onboardings`, which is not in expected Swagger. | P0 | Replace with Swagger-supported progress/assignment APIs or request backend endpoint. |
-| Assignment delete | Frontend calls `DELETE /onboarding/{id}` for assignment deletion; expected Swagger does not list it. | P0 | Remove or confirm backend support. |
-| Employee tasks | Frontend calls `/onboarding/{onboardingId}/checklist/{checklistId}/tasks`; expected Swagger does not list it. | P0 | Use checklist task APIs plus progress response, or ask backend to document endpoint. |
-| Documents | Frontend calls `/onboarding/{onboardingId}/documents`; expected Swagger only lists `POST /onboarding/documents` and `DELETE /onboarding/documents/{taskId}`. | P0 | Align documents list/delete semantics with Swagger. |
+| Checklist task payload | Task create/update now maps `taskName` to `title`, preserves `description`, and sends enum values `DOCUMENT`, `FORM`, `VIDEO`, `TRAINING`, or `CUSTOM`. | Fixed | Keep unsupported legacy values out of the builder. |
+| Assignment list | Frontend now calls `/onboarding/assignments` instead of `/onboarding/employee-onboardings`. | Fixed | Keep current assignment screens on the Swagger-backed endpoint. |
+| Assignment deactivate/reactivate | Frontend service supports `DELETE /onboarding/{onboardingId}` and `PATCH /onboarding/{onboardingId}/reactivate`; UI wording says deactivate. | Fixed | Add reactivate UI only where inactive assignments are displayed. |
+| Employee tasks | Frontend calls Swagger-backed `/onboarding/{onboardingId}/checklist/{checklistId}/tasks` and treats returned task ids as per-employee task instances for document actions. | Fixed | Preserve the distinction between template task id and `taskInstanceId`. |
+| Documents | Frontend calls Swagger-backed `/onboarding/{onboardingId}/documents`; upload/delete use `taskInstanceId`. | Mostly fixed | Keep only a multipart requestBody modeling note open if OpenAPI still lacks the file schema. |
 | Bulk upload welcome assumption | Employee bulk upload UI implies welcome emails are automatic. | P1 | Explicitly call assign/send-welcome or confirm backend side effect. |
 | Invite activation flow | The post-welcome invite verification / activation flow is not yet wired as an onboarding flow. | P1 | Confirm backend invite activation contract and add the frontend flow in a separate pass. |
 
@@ -116,7 +116,7 @@ Employee create/bulk upload
 
 | Area | Finding | Priority | Recommendation |
 |---|---|---|---|
-| List | Frontend uses `GET /employees` with `page`, `size`, `sort`, `search`; Swagger says `GET /api/employees` returns all employees with no pagination. | P0 | Client-side paginate or request backend paginated API. |
+| List | Frontend uses `GET /employees` with supported paginated query params and reads Spring Page fields from `data.content`, `data.totalElements`, `data.totalPages`, `data.number`, `data.size`, `data.first`, `data.last`, and `data.empty`. | Fixed | Backend gap closed; frontend consumption implemented. This endpoint also supports future async employee combobox/typeahead selects. |
 | Paths | Employee detail/update/delete paths use plural `/employees/{id}`. | P2 | Good; avoid old singular `/employee/{id}`. |
 | Create/update | Frontend sends employee payloads from screen forms; exact schema alignment still needs typed adapter cleanup. | P1 | Add request/response adapters and field-level schema tests. |
 | Section updates | Frontend has PATCH section service methods, but some screens still use broader PUT/update flows. | P1 | Prefer PATCH for personal/identity/bank/background/admin/PF section edits where available. |
@@ -197,15 +197,18 @@ Employee create/bulk upload
 
 | Module | Frontend Usage | Swagger Endpoint | Status | Risk | Recommended Fix |
 |---|---|---|---|---|---|
-| Employees | `GET /api/employees?page=&size=&sort=&search=` | `GET /api/employees` with no pagination in Swagger | Mismatch | P0 | Client-side paginate or add backend paginated contract. |
+| Employees | `GET /api/employees?page=&size=&sort=&search=&dept=&branch=&designationId=&empTypeId=&employeeStatusId=&managerId=&joinedFrom=&joinedTo=&includeInactive=` | `GET /api/employees` returns `ApiResponsePageEmployeeSummaryResponse` | Fixed | Employee Management and current first-page select consumers now use the paginated contract. |
 | Employees | `GET /api/employees/id-pattern` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `POST /api/employees/id-sequence/increment` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `GET /api/employees/sample-template` | Not present | Frontend-only | P1 | Add sample/template endpoint or hide action. |
 | Onboarding | `GET /api/onboarding/progress/{employeeId}` | `GET /api/onboarding/progress/{employeeId}` | Fixed | P2 | Keep employee id guard in screens. |
-| Onboarding | `GET /api/onboarding/employee-onboardings` | Not present | Frontend-only | P0 | Replace or document backend endpoint. |
-| Onboarding | `GET /api/onboarding/{id}/checklist/{checklistId}/tasks` | Not present | Frontend-only | P0 | Replace or document backend endpoint. |
-| Onboarding | `GET /api/onboarding/{id}/documents` | Not present | Frontend-only | P0 | Replace or document backend endpoint. |
-| Onboarding | `DELETE /api/onboarding/{id}` | Not present | Frontend-only | P0 | Remove or document assignment delete API. |
+| Onboarding | `GET /api/onboarding/assignments` | `GET /api/onboarding/assignments` | Fixed | P2 | Assignment and progress/document screens use this list endpoint. |
+| Onboarding | `GET /api/onboarding/{onboardingId}/checklist/{checklistId}/tasks` | Same | Fixed | P2 | Use per-employee task instance id for completion/document actions. |
+| Onboarding | `GET /api/onboarding/{onboardingId}/documents` | Same | Fixed | P2 | Document screen renders from this endpoint. |
+| Onboarding | `POST /api/onboarding/documents?taskInstanceId=&employeeId=&notes=` | Same | Mostly fixed | P2 | File is sent as multipart field `file`; keep OpenAPI requestBody modeling note if absent. |
+| Onboarding | `DELETE /api/onboarding/documents/{taskInstanceId}` | Same | Fixed | P2 | Delete by task instance id. |
+| Onboarding | `DELETE /api/onboarding/{onboardingId}` | Same | Fixed | P2 | Treated as deactivate/soft delete in UI wording. |
+| Onboarding | `PATCH /api/onboarding/{onboardingId}/reactivate` | Same | Fixed service | P2 | UI action deferred until inactive assignment state is surfaced. |
 | Login History | Requested doc said `/api/auth/login-history`; frontend uses `/api/login-history` | Swagger uses `/api/login-history` | Frontend correct | P2 | Keep Swagger path. |
 | Company | Screen must update using `/api/org/company/{id}` | `PUT /api/org/company/{id}` | Service correct; screen depends on id | P1 | Ensure id loaded before save. |
 
@@ -233,38 +236,28 @@ Employee create/bulk upload
 | Employees | `/api/employees/id-sequence/increment` | Employee code/id sequence increment | Missing | P1 | Add backend endpoint or generate server-side during create. |
 | Employees | `/api/employees/sample-template` | Bulk upload sample/template download | Missing | P1 | Add backend template endpoint or hide UI. |
 | Employees | `/api/employees/{id}/resend-welcome` | Resend welcome action | Not in expected employee Swagger | P1 | Prefer `/api/onboarding/send-welcome` or document alias. |
-| Onboarding | `/api/onboarding/employee-onboardings` | Assignment/progress/document screens | Missing | P0 | Replace with Swagger-backed APIs. |
-| Onboarding | `/api/onboarding/{id}/checklist/{checklistId}/tasks` | Fetch assigned employee tasks | Missing | P0 | Replace or request backend contract. |
-| Onboarding | `/api/onboarding/{id}/documents` | Fetch onboarding documents | Missing | P0 | Replace or request backend contract. |
-| Onboarding | `DELETE /api/onboarding/{id}` | Delete assignment | Missing | P0 | Remove or request backend contract. |
 
 ## 9. Backend Clarification List
 
-1. Should `GET /api/employees` support pagination/sort/search, or is the frontend expected to paginate the full list client-side?
-2. Is employee code generated automatically by `POST /api/employees`, or will backend provide explicit code-generation endpoints?
-3. Will backend provide a bulk upload sample/template download endpoint?
-4. Does `DELETE /api/employees/{id}` soft delete, hard delete, or block when linked to payroll/attendance/onboarding?
-5. Should employee creation or bulk upload automatically assign onboarding and send welcome emails, or must frontend call `/api/onboarding/assign` and `/api/onboarding/send-welcome`?
-6. Are checklist task `taskType` values free-form strings, or should frontend restrict them to a backend-defined enum such as `GENERAL`, `DOCUMENT`, and `ACTION`?
-7. Are `/api/onboarding/employee-onboardings`, `/api/onboarding/{id}/checklist/{checklistId}/tasks`, and `/api/onboarding/{id}/documents` supported aliases that need Swagger coverage?
-8. What is the exact multipart schema for `POST /api/onboarding/documents`: file field name, `taskId`, `employeeId`, `notes`, and accepted content types?
-9. Should `DELETE /api/onboarding/documents/{taskId}` delete by task id or document id?
-10. Should branch, department, category, and category item deletes be blocked when linked anywhere?
-11. Should Master Data delete labels say Deactivate for all country/state/city/currency entities?
-12. Are Swagger auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) generation noise and safe to ignore on secured endpoints?
-13. Is `/api/auth/login-history` an unsupported requested-doc path, with `/api/login-history` as the only correct path?
-14. Is company currency required in the company request schema, and should frontend source it from `/api/master/currencies/active`?
-15. Should fiscal year activation be the only way to set the active fiscal year?
+1. Is employee code generated automatically by `POST /api/employees`, or will backend provide explicit code-generation endpoints?
+2. Will backend provide a bulk upload sample/template download endpoint?
+3. Does `DELETE /api/employees/{id}` soft delete, hard delete, or block when linked to payroll/attendance/onboarding?
+4. Should employee creation or bulk upload automatically assign onboarding and send welcome emails, or must frontend call `/api/onboarding/assign` and `/api/onboarding/send-welcome`?
+5. Is the multipart requestBody for `POST /api/onboarding/documents` formally modeled with file field name `file`, `taskInstanceId`, `employeeId`, `notes`, and accepted content types?
+6. Should branch, department, category, and category item deletes be blocked when linked anywhere?
+7. Should Master Data delete labels say Deactivate for all country/state/city/currency entities?
+8. Are Swagger auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) generation noise and safe to ignore on secured endpoints?
+9. Is `/api/auth/login-history` an unsupported requested-doc path, with `/api/login-history` as the only correct path?
+10. Is company currency required in the company request schema, and should frontend source it from `/api/master/currencies/active`?
+11. Should fiscal year activation be the only way to set the active fiscal year?
 
 ## 10. Recommended Implementation Order for Frontend Fixes
 
-1. Replace or document unsupported onboarding assignment/task/document endpoints that remain outside Swagger: `/onboarding/employee-onboardings`, `/onboarding/{id}/checklist/{checklistId}/tasks`, `/onboarding/{id}/documents`, and `DELETE /onboarding/{id}`.
-2. Fix Employee list pagination contract: either client-side paginate all employees or align with a backend paginated endpoint.
-3. Resolve employee creation/bulk-upload onboarding orchestration: explicit assign/send-welcome calls or confirmed backend side effects.
-4. Remove or guard frontend-only employee endpoints for code generation, sample/template download, and resend-welcome until backend contract exists.
-5. Wire Password Policy `GET`/`PUT` and replace hardcoded password validation with policy-driven validation.
-6. Add fiscal year service/screen wiring, especially active fiscal year and activate endpoint usage.
-7. Tighten delete UX for employees, branches, departments, categories, and category items after backend confirms soft delete / linked blocking behavior.
-8. Improve Login History table fields and type query params to pagination-only.
-9. Update Master Data dropdown adapters to use active/cascade endpoints and add currency consumption if required.
-10. Harden the central API client: reject unsafe auth-context query params where possible and redact logged params.
+1. Resolve employee creation/bulk-upload onboarding orchestration: explicit assign/send-welcome calls or confirmed backend side effects.
+2. Remove or guard frontend-only employee endpoints for code generation, sample/template download, and resend-welcome until backend contract exists.
+3. Wire Password Policy `GET`/`PUT` and replace hardcoded password validation with policy-driven validation.
+4. Add fiscal year service/screen wiring, especially active fiscal year and activate endpoint usage.
+5. Tighten delete UX for employees, branches, departments, categories, and category items after backend confirms soft delete / linked blocking behavior.
+6. Improve Login History table fields and type query params to pagination-only.
+7. Update Master Data dropdown adapters to use active/cascade endpoints and add currency consumption if required.
+8. Harden the central API client: reject unsafe auth-context query params where possible and redact logged params.

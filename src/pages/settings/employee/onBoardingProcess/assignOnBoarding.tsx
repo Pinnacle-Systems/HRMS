@@ -12,7 +12,7 @@ import dayjs from 'dayjs';
 import ViewIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
-import { onBoardService } from '../../../../services/modules/onBoard';
+import { normalizeOnboardingAssignmentsResponse, onBoardService } from '../../../../services/modules/onBoard';
 import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 
@@ -35,8 +35,13 @@ export const AssignOnboarding = () => {
       showSpinner();
       const [checklistsResult, employeesResult, assignmentsResult] = await Promise.allSettled([
         onBoardService.getChecklists({ isActive: true, size: 100 }),
-        employeeService.getEmployees({ size: 100 }),
-        onBoardService.getEmployeeOnboardings?.({ size: 100 }) || Promise.resolve({ data: { content: [] } })
+        employeeService.getEmployees({
+          page: 0,
+          size: 20,
+          sort: "name,ASC",
+          includeInactive: false,
+        }),
+        onBoardService.getAssignments({ size: 100 })
       ]);
 
       if (checklistsResult.status === 'fulfilled') {
@@ -51,8 +56,7 @@ export const AssignOnboarding = () => {
       }
 
       if (assignmentsResult.status === 'fulfilled') {
-        const assignmentsRes: any = assignmentsResult.value;
-        setAssignments(assignmentsRes.data?.content || assignmentsRes.data || []);
+        setAssignments(normalizeOnboardingAssignmentsResponse(assignmentsResult.value));
       }
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -86,15 +90,15 @@ export const AssignOnboarding = () => {
 
   const handleDeleteAssignment = async (id: string) => {
     showConfirmDialog({
-      title: 'Delete Onboarding Assignment',
-      message: 'Are you sure you want to delete this onboarding assignment?',
-      confirmText: 'Delete',
+      title: 'Deactivate Onboarding Assignment',
+      message: 'Are you sure you want to deactivate this onboarding assignment?',
+      confirmText: 'Deactivate',
       onConfirm: async () => {
         try {
           showSpinner();
           await onBoardService.deleteEmployeeOnboarding(id);
           fetchData();
-          showSnackbar('Onboarding assignment deleted successfully!', 'success');
+          showSnackbar('Onboarding assignment deactivated successfully!', 'success');
         } catch (error: any) {
           showSnackbar(error.message, 'error');
         } finally {
@@ -260,7 +264,7 @@ export const AssignOnboarding = () => {
                     <IconButton size="small" aria-label={`Send welcome to ${assignment.employeeName || 'employee'}`} onClick={() => handleSendWelcome(assignment)} color="secondary">
                       <SendIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" aria-label={`Delete assignment for ${assignment.employeeName || 'employee'}`} onClick={() => handleDeleteAssignment(assignment.id)} color="error">
+                    <IconButton size="small" aria-label={`Deactivate assignment for ${assignment.employeeName || 'employee'}`} onClick={() => handleDeleteAssignment(assignment.id)} color="error">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </div>

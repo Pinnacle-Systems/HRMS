@@ -76,7 +76,12 @@ export default function BranchSettings() {
   // Fetch active employees for branch head dropdown
   const getActiveEmployees = async () => {
     try {
-      const response: any = await employeeService.getEmployees({ size: 100 });
+      const response: any = await employeeService.getEmployees({
+        page: 0,
+        size: 20,
+        sort: "name,ASC",
+        includeInactive: false,
+      });
       setEmployees(normalizeEmployeesResponse(response) as Employee[]);
     } catch (error: any) {
       showSnackbar(error.message, error);

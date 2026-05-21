@@ -14,7 +14,7 @@ import TaskAlt from '@mui/icons-material/TaskAlt';
 import Schedule from '@mui/icons-material/Schedule';
 import Cancel from '@mui/icons-material/Cancel';
 import TrendingUp from '@mui/icons-material/TrendingUp';
-import { onBoardService } from '../../../../services/modules/onBoard';
+import { normalizeOnboardingAssignmentsResponse, onBoardService } from '../../../../services/modules/onBoard';
 import { useUI } from '../../../../context/Snackbar';
 import dayjs from 'dayjs';
 
@@ -35,8 +35,8 @@ export const ProgressTracking = () => {
   const fetchOnboardings = async () => {
     try {
       showSpinner();
-      const response:any = await onBoardService.getEmployeeOnboardings?.({ size: 100 });
-      const data = response?.data?.content || response?.data || [];
+      const response:any = await onBoardService.getAssignments({ size: 100 });
+      const data = normalizeOnboardingAssignmentsResponse(response);
       setOnboardings(data);
       
       // Calculate stats

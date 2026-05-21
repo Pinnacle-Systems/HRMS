@@ -9,7 +9,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackOutlined from '@mui/icons-material/ArrowBackOutlined';
 import CloseOutlined from '@mui/icons-material/CloseOutlined';
-import { onBoardService } from '../../../../services/modules/onBoard';
+import { CHECKLIST_TASK_TYPES, onBoardService } from '../../../../services/modules/onBoard';
 import { useUI } from '../../../../context/Snackbar';
 
 export const ChecklistBuilder = () => {
@@ -20,7 +20,7 @@ export const ChecklistBuilder = () => {
   const [newChecklist, setNewChecklist] = useState({ name: '', description: '', active: true });
   const [tasks, setTasks] = useState<any[]>([]);
   const [isEditingTask, setIsEditingTask] = useState(false);
-  const [editTask, setEditTask] = useState<any>({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
+  const [editTask, setEditTask] = useState<any>({ taskName: '', description: '', taskType: 'CUSTOM', documentName: '', required: true });
   const [activeTab, setActiveTab] = useState(0);
 
   const fetchChecklists = async () => {
@@ -95,7 +95,7 @@ export const ChecklistBuilder = () => {
       const response: any = await onBoardService.createTask(selectedChecklist.id, editTask, tasks.length + 1);
       setTasks([...tasks, response.data]);
       setIsEditingTask(false);
-      setEditTask({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
+      setEditTask({ taskName: '', description: '', taskType: 'CUSTOM', documentName: '', required: true });
       showSnackbar('Task added successfully!', 'success');
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -110,7 +110,7 @@ export const ChecklistBuilder = () => {
       await onBoardService.updateTask(selectedChecklist.id, editTask.id, editTask, editTask.sortOrder);
       setTasks(tasks.map(t => t.id === editTask.id ? editTask : t));
       setIsEditingTask(false);
-      setEditTask({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
+      setEditTask({ taskName: '', description: '', taskType: 'CUSTOM', documentName: '', required: true });
       showSnackbar('Task updated successfully!', 'success');
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -225,7 +225,7 @@ export const ChecklistBuilder = () => {
                 variant="contained"
                 onClick={() => {
                   setIsEditingTask(true);
-                  setEditTask({ taskName: '', description: '', taskType: 'GENERAL', documentName: '', required: true });
+                  setEditTask({ taskName: '', description: '', taskType: 'CUSTOM', documentName: '', required: true });
                 }}
                 className="!bg-primary"
               >
@@ -353,13 +353,15 @@ export const ChecklistBuilder = () => {
             <FormControl fullWidth>
               <InputLabel>Task Type</InputLabel>
               <Select
-                value={editTask.taskType || 'GENERAL'}
+                value={editTask.taskType || 'CUSTOM'}
                 label="Task Type"
                 onChange={(e) => setEditTask({ ...editTask, taskType: e.target.value })}
               >
-                <MenuItem value="GENERAL">General</MenuItem>
-                <MenuItem value="DOCUMENT">Document</MenuItem>
-                <MenuItem value="ACTION">Action</MenuItem>
+                {CHECKLIST_TASK_TYPES.map((taskType) => (
+                  <MenuItem key={taskType} value={taskType}>
+                    {taskType}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             <TextField

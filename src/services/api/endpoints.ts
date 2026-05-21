@@ -252,16 +252,16 @@ export const API_ENDPOINTS = {
     DELETE_TASK: (id: string, tid: string) =>
       `/onboarding/checklist/${id}/tasks/${tid}`,
     DELETE_EMP: (id: string) => `/onboarding/${id}`,
-    DELETE_DOC: (id: string) => `/onboarding/documents/${id}`,
+    REACTIVATE_EMP: (id: string) => `/onboarding/${id}/reactivate`,
+    DELETE_DOC: (taskInstanceId: string) => `/onboarding/documents/${taskInstanceId}`,
 
     GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
     BASE: "/onboarding/checklist",
     GET_BY_ID: (id: string, cid: string) =>
       `/onboarding/${id}/checklist/${cid}/tasks`,
     GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
-    GET_DOCUMENTS: (onboardingId: string) =>
-      `/onboarding/${onboardingId}/documents`,
-    EMPLOYEE_ONBOARDINGS: "/onboarding/employee-onboardings",
+    GET_DOCUMENTS: (onboardingId: string) => `/onboarding/${onboardingId}/documents`,
+    ASSIGNMENTS: "/onboarding/assignments",
 
     PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
     PATCH_REORDER: (id: string) => `/onboarding/checklist/${id}/tasks/reorder`,

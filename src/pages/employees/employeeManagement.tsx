@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import MaterialModule from "../../materialModule";
-import { employeeService } from "../../services/modules/employees";
+import {
+  employeeService,
+  normalizeEmployeePageResponse,
+  type EmployeeListQuery,
+} from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
 import { useUI } from "../../context/Snackbar";
@@ -24,7 +28,7 @@ import { formatDate } from "../../utils/dateFormatter";
 import { stickyHeaderLeftSx, stickyHeaderRightSx } from "./const";
 import type { FilterConfig, FilterField } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
-import { FilterAltOutlined, FilterListAlt, FilterListOutlined } from "@mui/icons-material";
+import { FilterAltOutlined } from "@mui/icons-material";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -32,7 +36,6 @@ export default function EmployeeManagement() {
 
   // State for employees
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [originalEmployees, setOriginalEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
@@ -43,7 +46,6 @@ export default function EmployeeManagement() {
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
-  // const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
 
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -98,13 +100,13 @@ export default function EmployeeManagement() {
       placeholder: 'Enter mobile number',
     },
     {
-      id: 'designation',
+      id: 'designationId',
       label: 'Designation',
       type: 'select',
-      options: designations.map(d => ({ value: d.name, label: d.name })),
+      options: designations.map(d => ({ value: d.id, label: d.name })),
     },
     {
-      id: 'department',
+      id: 'dept',
       label: 'Department',
       type: 'select',
       options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })),
@@ -116,12 +118,12 @@ export default function EmployeeManagement() {
       options: branches.map(b => ({ value: b.branchName, label: b.branchName })),
     },
     {
-      id: 'joiningDate',
+      id: 'joinedFrom',
       label: 'Joining Date',
       type: 'date',
     },
     {
-      id: 'employeeStatus',
+      id: 'employeeStatusId',
       label: 'Employee Status',
       type: 'select',
       options: [
@@ -165,7 +167,11 @@ export default function EmployeeManagement() {
 
   // Evaluate a single filter rule
   const evaluateRule = (item: any, rule: any): boolean => {
-    const fieldValue = item[rule.field];
+    const localFieldMap: Record<string, string> = {
+      dept: "department",
+      joinedFrom: "joiningDate",
+    };
+    const fieldValue = item[localFieldMap[rule.field] || rule.field];
     const ruleValue = rule.value;
 
     switch (rule.operator) {
@@ -212,8 +218,6 @@ export default function EmployeeManagement() {
     if (!filters || filters.rules.length === 0) return data;
 
     return data.filter((item) => {
-      let result = evaluateRule(item, filters.rules[0]);
-
       const results = filters.rules.map(rule =>
         evaluateRule(item, rule)
       );
@@ -227,77 +231,128 @@ export default function EmployeeManagement() {
     });
   };
 
-  // Handle filter application
- const handleApplyFilters = (filters: FilterConfig) => {
-  setActiveFilters(filters);
-  const filtered = applyFiltersToData(originalEmployees, filters);
-  setEmployees(filtered);
-  setTotal(filtered.length);
-  setPage(0);
-};
+  const handleApplyFilters = (filters: FilterConfig) => {
+    setActiveFilters(filters);
+    setPage(0);
+  };
 
   // Remove a specific filter
   const removeFilter = (ruleId: string) => {
-  if (activeFilters) {
-    const newRules = activeFilters.rules.filter(
-      (rule) => rule.id !== ruleId
-    );
-
-    if (newRules.length > 0) {
-      const newFilters = {
-        ...activeFilters,
-        rules: newRules,
-      };
-
-      setActiveFilters(newFilters);
-
-      const filtered = applyFiltersToData(
-        originalEmployees,
-        newFilters
-      );
-
-      setEmployees(filtered);
-      setTotal(filtered.length);
-    } else {
-      clearAllFilters();
+    if (activeFilters) {
+      const newRules = activeFilters.rules.filter(rule => rule.id !== ruleId);
+      if (newRules.length > 0) {
+        const newFilters = { ...activeFilters, rules: newRules };
+        setActiveFilters(newFilters);
+      } else {
+        // Clear all filters if no rules left
+        clearAllFilters();
+      }
+      setPage(0);
     }
-
-    setPage(0);
-  }
-};
+  };
 
   // Clear all filters
- const clearAllFilters = () => {
-  setActiveFilters(null);
-  setEmployees(originalEmployees);
-  setTotal(originalEmployees.length);
-  setPage(0);
-};
+  const clearAllFilters = () => {
+    setActiveFilters(null);
+    setPage(0);
+  };
 
   // Get active filter count
   const getActiveFilterCount = (): number => {
     return activeFilters?.rules.length || 0;
   };
 
+  const buildServerFilterParams = (filters: FilterConfig | null): EmployeeListQuery => {
+    if (!filters?.rules.length || filters.condition !== "AND") return {};
+
+    return filters.rules.reduce<EmployeeListQuery>((params, rule) => {
+      if (rule.operator !== "equals" && rule.operator !== "between") return params;
+
+      switch (rule.field) {
+        case "dept":
+          params.dept = String(rule.value);
+          break;
+        case "branch":
+          params.branch = String(rule.value);
+          break;
+        case "designationId":
+          params.designationId = String(rule.value);
+          break;
+        case "employeeStatusId":
+          params.employeeStatusId = String(rule.value);
+          break;
+        case "managerId":
+          params.managerId = String(rule.value);
+          break;
+        case "joinedFrom":
+          if (rule.operator === "between") {
+            params.joinedFrom = String(rule.value);
+            params.joinedTo = String(rule.value2);
+          } else {
+            params.joinedFrom = String(rule.value);
+          }
+          break;
+        case "employeeId":
+        case "name":
+        case "emailAddress":
+        case "mobileNumber":
+          if (!params.search) params.search = String(rule.value);
+          break;
+        default:
+          break;
+      }
+
+      return params;
+    }, {});
+  };
+
+  const isServerSupportedFilter = (filters: FilterConfig | null): boolean => {
+    if (!filters?.rules.length) return true;
+    if (filters.condition !== "AND") return false;
+
+    return filters.rules.every((rule) => {
+      const simpleFields = [
+        "dept",
+        "branch",
+        "designationId",
+        "employeeStatusId",
+        "managerId",
+        "employeeId",
+        "name",
+        "emailAddress",
+        "mobileNumber",
+      ];
+
+      return (
+        (simpleFields.includes(rule.field) && rule.operator === "equals") ||
+        (rule.field === "joinedFrom" && (rule.operator === "equals" || rule.operator === "between"))
+      );
+    });
+  };
+
   // Fetch employees
   const getEmployees = async () => {
     showSpinner();
     try {
-      const params: any = { page, size: limit, sort: `${sortBy},${sortOrder}` };
+      const params: EmployeeListQuery = {
+        page,
+        size: limit,
+        sort: `${sortBy},${sortOrder}`,
+        ...buildServerFilterParams(activeFilters),
+      };
       if (searchTerm) params.search = searchTerm;
-      const response: any = await employeeService.getEmployees(params);
-      const employeeData = response.data.content || response.data || [];
-      setEmployees(employeeData);
-      setOriginalEmployees(employeeData);
-      // setFilteredEmployees(employeeData);
-      setTotal(response.data.totalElements || response.data.total || response.data.length || 0);
+      const response = await employeeService.getEmployees(params);
+      const employeePage = normalizeEmployeePageResponse(response);
+      const employeeData = employeePage.content as Employee[];
+      let visibleEmployees = employeeData;
 
-      // Re-apply filters if any exist
-      if (activeFilters && activeFilters.rules.length > 0) {
-        const filtered = applyFiltersToData(employeeData, activeFilters);
-        setEmployees(filtered);
-        setTotal(filtered.length);
+      setTotal(employeePage.totalElements);
+
+      // Operators outside the backend query contract are applied to the current page only.
+      if (activeFilters && activeFilters.rules.length > 0 && !isServerSupportedFilter(activeFilters)) {
+        visibleEmployees = applyFiltersToData(employeeData, activeFilters);
       }
+      setEmployees(visibleEmployees);
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employees", "error");
     } finally {
@@ -322,16 +377,16 @@ export default function EmployeeManagement() {
   useEffect(() => {
     getEmployees();
     getMasterData();
-  }, [page, limit, sortBy, sortOrder, searchTerm]);
+  }, [page, limit, sortBy, sortOrder, searchTerm, activeFilters]);
 
   // Update filter fields when master data changes
   useEffect(() => {
     // This will update the filter fields options when departments/designations/branches change
     filterFields.map(field => {
-      if (field.id === 'designation') {
-        return { ...field, options: designations.map(d => ({ value: d.name, label: d.name })) };
+      if (field.id === 'designationId') {
+        return { ...field, options: designations.map(d => ({ value: d.id, label: d.name })) };
       }
-      if (field.id === 'department') {
+      if (field.id === 'dept') {
         return { ...field, options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })) };
       }
       if (field.id === 'branch') {
