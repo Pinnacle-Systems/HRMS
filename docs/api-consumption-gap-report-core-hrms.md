@@ -38,7 +38,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Module | Finding | Risk | Recommended Fix |
 |---|---|---|---|
 | Employees | Employee code generation uses `/api/employees/id-pattern` and `/api/employees/id-sequence/increment`, but expected Swagger does not include employee code generation. | Employee creation flow may fail or rely on non-contract endpoints. | Confirm/add backend code-generation endpoints or remove frontend dependency. |
-| Employees | Bulk upload sample/template uses `/api/employees/sample-template`, not present in expected Swagger. | Bulk upload UI may expose a broken download action. | Add Swagger-backed template/sample endpoint or hide the action. |
+| Employees | **Fixed:** Bulk upload contract aligned with Swagger. `POST /employees/bulk-upload` now sends only `file` in multipart/form-data (no extra fields). Template download uses `GET /employees/bulk-upload/template`. UI validates file type (CSV/XLSX) and size (≤ 10 MB) client-side. Result summary displays `successCount`, `failureCount`, row errors, and welcome email counts. Employee code generation UI is removed from the bulk upload dialog (server controls employee codes). | Closed for bulk upload. | Employee code generation gap remains open (see above row). |
 | Employees | Delete UI is wired to `DELETE /api/employees/{id}`; requested behavior expects soft delete/block-if-linked, while Swagger wording may imply hard delete. | Risk of destructive deletion or inconsistent UX. | Confirm backend semantics; adjust label and confirmation copy. |
 | Onboarding | Employee create/bulk upload UI says welcome emails are sent automatically but does not explicitly call `/api/onboarding/assign` or `/api/onboarding/send-welcome` after employee create/bulk upload. | New employees may not receive onboarding assignment/invite. | Add explicit post-create orchestration or confirm backend side effects. |
 | Onboarding | Document upload now sends `taskInstanceId`, `employeeId`, and optional `notes` as query params with multipart `file`; delete uses `/api/onboarding/documents/{taskInstanceId}`. | Mostly fixed; depends on backend accepting the documented multipart file field. | Keep a formal OpenAPI multipart requestBody model if backend docs are still schema-light. |
@@ -125,7 +125,7 @@ Employee create/bulk upload
 | Create/update | Frontend sends employee payloads from screen forms; exact schema alignment still needs typed adapter cleanup. | P1 | Add request/response adapters and field-level schema tests. |
 | Section updates | Frontend has PATCH section service methods, but some screens still use broader PUT/update flows. | P1 | Prefer PATCH for personal/identity/bank/background/admin/PF section edits where available. |
 | Code generation | Frontend uses `/employees/id-pattern` and `/employees/id-sequence/increment`, missing from expected Swagger. | P1 | Clarify/add backend contract or remove flow dependency. |
-| Bulk upload | `POST /employees/bulk-upload` is supported, but sample/template download endpoint is frontend-only. | P1 | Add documented backend sample/template endpoint or hide UI. |
+| Bulk upload | **Fixed:** `POST /employees/bulk-upload` sends only `file` in multipart/form-data. `GET /employees/bulk-upload/template` used for template download. UI validates CSV/XLSX, ≤ 10 MB. Result shows success/failure counts, row errors, and welcome email counts. No extra form fields (no `hasEmpIdColumn`, `empCodeMode`, tenant, user metadata). Backend sends welcome emails on import; UI reflects this. | Closed | Employee code generation from the bulk upload dialog is removed; that gap remains open at the employee create level. |
 | Delete | Delete UI is wired. Soft/hard delete behavior is unclear. | P1 | Confirm soft delete and linked-record blocking before enabling broadly. |
 
 ### Login History
@@ -204,7 +204,7 @@ Employee create/bulk upload
 | Employees | `GET /api/employees?page=&size=&sort=&search=&dept=&branch=&designationId=&empTypeId=&employeeStatusId=&managerId=&joinedFrom=&joinedTo=&includeInactive=` | `GET /api/employees` returns `ApiResponsePageEmployeeSummaryResponse` | Fixed | Employee Management and migrated employee combobox/typeahead consumers now use the paginated contract. |
 | Employees | `GET /api/employees/id-pattern` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
 | Employees | `POST /api/employees/id-sequence/increment` | Not present | Frontend-only | P1 | Add Swagger endpoint or remove dependency. |
-| Employees | `GET /api/employees/sample-template` | Not present | Frontend-only | P1 | Add sample/template endpoint or hide action. |
+| Employees | `GET /api/employees/bulk-upload/template` | `GET /api/employees/bulk-upload/template` | **Fixed** | Closed | `downloadBulkUploadTemplate()` uses the Swagger-backed endpoint. Old `/employees/sample-template` removed. |
 | Onboarding | `GET /api/onboarding/progress/{employeeId}` | `GET /api/onboarding/progress/{employeeId}` | Fixed | P2 | Keep employee id guard in screens. |
 | Onboarding | `GET /api/onboarding/assignments` | `GET /api/onboarding/assignments` | Fixed | P2 | Assignment and progress/document screens use this list endpoint. |
 | Onboarding | `GET /api/onboarding/{onboardingId}/checklist/{checklistId}/tasks` | Same | Fixed | P2 | Use per-employee task instance id for completion/document actions. |
@@ -240,13 +240,13 @@ Employee create/bulk upload
 |---|---|---|---|---|---|
 | Employees | `/api/employees/id-pattern` | Employee code/id pattern lookup | Missing | P1 | Add backend endpoint or remove UI dependency. |
 | Employees | `/api/employees/id-sequence/increment` | Employee code/id sequence increment | Missing | P1 | Add backend endpoint or generate server-side during create. |
-| Employees | `/api/employees/sample-template` | Bulk upload sample/template download | Missing | P1 | Add backend template endpoint or hide UI. |
+| Employees | `/api/employees/bulk-upload/template` | Bulk upload template download | **Fixed** | Closed | Frontend now uses Swagger-backed `/employees/bulk-upload/template`. Old `/employees/sample-template` call removed. Frontend sends only `file` in multipart/form-data; no extra fields sent. |
 | Employees | `/api/employees/{id}/resend-welcome` | Resend welcome action | Not in expected employee Swagger | P1 | Prefer `/api/onboarding/send-welcome` or document alias. |
 
 ## 9. Backend Clarification List
 
 1. Is employee code generated automatically by `POST /api/employees`, or will backend provide explicit code-generation endpoints?
-2. Will backend provide a bulk upload sample/template download endpoint?
+2. **Closed:** Backend provides `GET /api/employees/bulk-upload/template`; frontend now uses it.
 3. Does `DELETE /api/employees/{id}` soft delete, hard delete, or block when linked to payroll/attendance/onboarding?
 4. Should employee creation or bulk upload automatically assign onboarding and send welcome emails, or must frontend call `/api/onboarding/assign` and `/api/onboarding/send-welcome`?
 5. Is the multipart requestBody for `POST /api/onboarding/documents` formally modeled with file field name `file`, `taskInstanceId`, `employeeId`, `notes`, and accepted content types?

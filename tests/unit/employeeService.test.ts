@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiGet = vi.fn();
+const apiPost = vi.fn();
 
 vi.mock("../../src/services/api/api.config", () => ({
   apiService: {
     get: apiGet,
-    post: vi.fn(),
+    post: apiPost,
     put: vi.fn(),
     patch: vi.fn(),
     delete: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("../../src/services/api/api.config", () => ({
 describe("employeeService", () => {
   beforeEach(() => {
     apiGet.mockReset();
+    apiPost.mockReset();
   });
 
   it("sends only supported employee list query params", async () => {
@@ -101,5 +103,140 @@ describe("employeeService", () => {
     expect(page.first).toBe(false);
     expect(page.last).toBe(false);
     expect(page.empty).toBe(false);
+  });
+});
+
+describe("bulkUploadEmployees", () => {
+  beforeEach(() => {
+    apiPost.mockReset();
+  });
+
+  it("sends FormData with only the file field", async () => {
+    apiPost.mockResolvedValue({ data: { successCount: 2, errors: [] } });
+    const appendSpy = vi.spyOn(FormData.prototype, "append");
+
+    const file = new File(["a,b\n1,2"], "employees.csv", { type: "text/csv" });
+    const { employeeService } = await import("../../src/services/modules/employees");
+    await employeeService.bulkUploadEmployees(file);
+
+    const appendedKeys = appendSpy.mock.calls.map((c) => c[0]);
+    expect(appendedKeys).toEqual(["file"]);
+    expect(appendSpy.mock.calls[0][1]).toBe(file);
+
+    appendSpy.mockRestore();
+  });
+
+  it("does not send extra legacy fields", async () => {
+    apiPost.mockResolvedValue({ data: { successCount: 1, errors: [] } });
+    const appendSpy = vi.spyOn(FormData.prototype, "append");
+
+    const file = new File(["a,b\n1,2"], "employees.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const { employeeService } = await import("../../src/services/modules/employees");
+    await employeeService.bulkUploadEmployees(file);
+
+    const appendedKeys = appendSpy.mock.calls.map((c) => c[0]);
+    const disallowed = [
+      "hasEmpIdColumn",
+      "empCodeMode",
+      "empCodeType",
+      "empPrefix",
+      "empStartNumber",
+      "empDigitCount",
+      "tenant",
+      "userId",
+      "uploadedBy",
+    ];
+    for (const key of disallowed) {
+      expect(appendedKeys).not.toContain(key);
+    }
+
+    appendSpy.mockRestore();
+  });
+
+  it("posts to /employees/bulk-upload", async () => {
+    apiPost.mockResolvedValue({ data: { successCount: 0, errors: [] } });
+
+    const file = new File([""], "emp.csv", { type: "text/csv" });
+    const { employeeService } = await import("../../src/services/modules/employees");
+    await employeeService.bulkUploadEmployees(file);
+
+    expect(apiPost).toHaveBeenCalledWith(
+      "/employees/bulk-upload",
+      expect.any(FormData),
+      expect.any(Object),
+    );
+  });
+});
+
+describe("downloadBulkUploadTemplate", () => {
+  it("fetches /employees/bulk-upload/template", async () => {
+    const blob = new Blob(["col1,col2"], { type: "text/csv" });
+    apiGet.mockResolvedValue({ data: blob });
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:fake");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(window, "URL", {
+      value: { createObjectURL, revokeObjectURL },
+      writable: true,
+    });
+
+    const clickSpy = vi.fn();
+    const linkEl = {
+      href: "",
+      setAttribute: vi.fn(),
+      click: clickSpy,
+      remove: vi.fn(),
+    } as unknown as HTMLAnchorElement;
+    vi.spyOn(document, "createElement").mockReturnValueOnce(linkEl);
+    vi.spyOn(document.body, "appendChild").mockImplementationOnce(() => linkEl);
+
+    const { employeeService } = await import("../../src/services/modules/employees");
+    await employeeService.downloadBulkUploadTemplate();
+
+    expect(apiGet).toHaveBeenCalledWith(
+      "/employees/bulk-upload/template",
+      expect.objectContaining({ responseType: "blob" }),
+    );
+    expect(clickSpy).toHaveBeenCalled();
+  });
+});
+
+describe("normalizeBulkUploadResponse", () => {
+  it("maps successCount and errors from data envelope", async () => {
+    const { normalizeBulkUploadResponse } = await import("../../src/services/modules/employees");
+
+    const result = normalizeBulkUploadResponse({
+      data: {
+        successCount: 5,
+        failureCount: 2,
+        errors: [{ row: 3, field: "email", message: "Invalid email" }],
+        welcomeEmailsSent: 5,
+        welcomeEmailsFailed: 0,
+        welcomeEmailFailures: [],
+      },
+    });
+
+    expect(result.successCount).toBe(5);
+    expect(result.failureCount).toBe(2);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors![0]).toEqual({ row: 3, field: "email", message: "Invalid email" });
+    expect(result.welcomeEmailsSent).toBe(5);
+    expect(result.welcomeEmailsFailed).toBe(0);
+  });
+
+  it("falls back to importedCount when successCount absent", async () => {
+    const { normalizeBulkUploadResponse } = await import("../../src/services/modules/employees");
+
+    const result = normalizeBulkUploadResponse({ data: { importedCount: 3 } });
+    expect(result.successCount).toBe(3);
+  });
+
+  it("returns empty errors array when absent", async () => {
+    const { normalizeBulkUploadResponse } = await import("../../src/services/modules/employees");
+
+    const result = normalizeBulkUploadResponse({ data: {} });
+    expect(result.errors).toEqual([]);
   });
 });

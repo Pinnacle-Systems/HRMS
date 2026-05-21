@@ -3,7 +3,9 @@ import MaterialModule from "../../materialModule";
 import {
   employeeService,
   normalizeEmployeePageResponse,
+  normalizeBulkUploadResponse,
   type EmployeeListQuery,
+  type BulkUploadResponse,
 } from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
@@ -23,7 +25,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { getRowColor, getStickyLeftSx, getStickyRightSx } from "../const";
 import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
-import { logger } from "../../utils/logger";
 import { formatDate } from "../../utils/dateFormatter";
 import { stickyHeaderLeftSx, stickyHeaderRightSx } from "./const";
 import type { FilterConfig, FilterField } from "../../types/filter.ts";
@@ -58,19 +59,18 @@ export default function EmployeeManagement() {
   // Bulk upload
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
 
-  // Code Generation
+  // Code Generation (used by Add Employee dialog)
   const [hasManualEmpId, setHasManualEmpId] = useState(false);
-  const [empCodeMode, setEmpCodeMode] = useState("auto");
   const [empCodeType, setEmpCodeType] = useState("pattern");
   const [empGenerationFlow, setEmpGenerationFlow] = useState<"new" | "continue">("new");
   const [empPrefix, setEmpPrefix] = useState("EMP");
   const [empStartNumber, setEmpStartNumber] = useState("001");
   const [manualEmployeeId, setManualEmployeeId] = useState("");
-  const [hasEmpIdColumn, setHasEmpIdColumn] = useState(true);
   const [empDigitCount, setEmpDigitCount] = useState("4");
 
   // Define filter fields for employee management
@@ -134,12 +134,6 @@ export default function EmployeeManagement() {
       ],
     },
   ];
-
-  useEffect(() => {
-    if (hasEmpIdColumn) {
-      setEmpCodeMode("auto");
-    }
-  }, [hasEmpIdColumn]);
 
   const generateRandomAlphaNumeric = (length: number) => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -555,42 +549,56 @@ export default function EmployeeManagement() {
     });
   };
 
+  const BULK_UPLOAD_ACCEPTED = [".csv", ".xlsx"];
+  const BULK_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+  const handleCloseBulkUploadDialog = () => {
+    setBulkUploadDialogOpen(false);
+    setUploadFile(null);
+    setUploadProgress(0);
+    setUploadResult(null);
+  };
+
   // Handle Bulk Upload
   const handleBulkUpload = async () => {
     if (!uploadFile) {
       showSnackbar("Please select a file to upload", "error");
       return;
     }
+
+    const ext = uploadFile.name.toLowerCase().slice(uploadFile.name.lastIndexOf("."));
+    if (!BULK_UPLOAD_ACCEPTED.includes(ext)) {
+      showSnackbar("Invalid file type. Please upload a CSV or XLSX file.", "error");
+      return;
+    }
+
+    if (uploadFile.size > BULK_UPLOAD_MAX_BYTES) {
+      showSnackbar("File exceeds the 10 MB limit. Please upload a smaller file.", "error");
+      return;
+    }
+
+    setUploadResult(null);
     showSpinner();
     try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("hasEmpIdColumn", String(hasEmpIdColumn));
-      if (!hasEmpIdColumn) {
-        formData.append("empCodeMode", empCodeMode);
-        formData.append("empCodeType", empCodeType);
-        if (empCodeType === 'pattern') {
-          formData.append("empPrefix", empPrefix);
-        }
-        if (empCodeType === 'pattern' || empCodeType === 'number') {
-          formData.append("empStartNumber", empStartNumber);
-        }
-        if (empCodeType === 'alphanumeric') {
-          formData.append("empDigitCount", empDigitCount);
-        }
-      }
       const response: any = await employeeService.bulkUploadEmployees(
-        formData, (progress) => { setUploadProgress(progress); });
-      if (response.success && response.data.errors.length == 0) {
-        showSnackbar("Upload successful!", "success");
-        setBulkUploadDialogOpen(false);
-        setUploadFile(null);
-        setUploadProgress(0);
-        getEmployees();
-      } else if (response.data.errors.length > 0) {
-        logger.info("Bulk upload Error", response.data.errors);
-        showSnackbar(response.data.status + " Check the error in console", "error");
+        uploadFile,
+        (progress) => { setUploadProgress(progress); },
+      );
+      const result = normalizeBulkUploadResponse(response);
+      setUploadResult(result);
+      const errorCount = result.failureCount ?? result.errors?.length ?? 0;
+      if (errorCount === 0) {
+        showSnackbar(
+          `Upload successful! ${result.successCount ?? 0} employees imported.`,
+          "success",
+        );
+      } else {
+        showSnackbar(
+          `Upload completed with ${errorCount} row error(s). See details below.`,
+          "warning",
+        );
       }
+      getEmployees();
     } catch (error: any) {
       showSnackbar(error.message || "Failed to upload", "error");
     } finally {
@@ -1271,196 +1279,54 @@ export default function EmployeeManagement() {
       {/* Bulk Upload Dialog */}
       <MaterialModule.Dialog
         open={bulkUploadDialogOpen}
-        onClose={() => setBulkUploadDialogOpen(false)}
+        onClose={handleCloseBulkUploadDialog}
         maxWidth="md"
         fullWidth
       >
-        {/* ... (keep your existing bulk upload dialog code) ... */}
         <div className="flex items-center justify-between p-2 border-b !border-gray-300">
           <div className="text-primary ml-4">Bulk Upload Employees</div>
-          <MaterialModule.IconButton onClick={() => setBulkUploadDialogOpen(false)}>
+          <MaterialModule.IconButton onClick={handleCloseBulkUploadDialog}>
             <MaterialModule.CloseOutlined />
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
           <MaterialModule.Alert severity="info" className="mb-4">
-            Download the sample template, fill in employee details, and upload.
-            Welcome emails will be sent automatically.
+            Download the template, fill in employee details, and upload the file.
+            Backend sends invite / welcome emails to newly imported employees automatically.
           </MaterialModule.Alert>
-          <div className="text-center">
+
+          <div className="text-center mb-4">
             <MaterialModule.Button
               variant="outlined"
               startIcon={<MaterialModule.DownloadIcon />}
-            // onClick={downloadSampleTemplate}
+              onClick={() => employeeService.downloadBulkUploadTemplate()}
             >
-              Download Sample Template
+              Download Template
             </MaterialModule.Button>
           </div>
-
-          <MaterialModule.FormControlLabel
-            control={
-              <MaterialModule.Checkbox
-                checked={hasEmpIdColumn}
-                onChange={(e) =>
-                  setHasEmpIdColumn(e.target.checked)
-                }
-                sx={{
-                  "& .MuiSvgIcon-root": {
-                    color: "red !important",
-                  },
-                }}
-              />
-            }
-            className="text-red-500 mb-2"
-            label="Excel already contains Employee ID column"
-          />
-          {hasEmpIdColumn && (
-            <MaterialModule.Alert
-              severity="info"
-              className="mb-3"
-            >
-              Employee IDs will be
-              validated from uploaded
-              Excel.
-            </MaterialModule.Alert>
-          )}
-          {!hasEmpIdColumn && (
-            <div className="border rounded-lg p-4 !mb-4">
-              <div className="font-semibold text-gray-800">Employee ID Generation</div>
-              <div className="!mt-6">
-                <MaterialModule.FormControl fullWidth className="">
-                  <MaterialModule.InputLabel>Generation Flow</MaterialModule.InputLabel>
-                  <MaterialModule.Select
-                    value={empGenerationFlow}
-                    label="Generation Flow"
-                    className="!text-[12px]"
-                    onChange={(e) =>
-                      setEmpGenerationFlow(
-                        e.target.value as "new" | "continue"
-                      )
-                    }
-                  >
-                    <MaterialModule.MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MaterialModule.MenuItem>
-                    <MaterialModule.MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MaterialModule.MenuItem>
-                  </MaterialModule.Select>
-                </MaterialModule.FormControl>
-                {empGenerationFlow == 'new' && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                    <MaterialModule.FormControl style={{ minWidth: 200 }}>
-                      <MaterialModule.InputLabel>Format Type</MaterialModule.InputLabel>
-                      <MaterialModule.Select
-                        value={empCodeType}
-                        label="Format Type"
-                        className="!text-[12px] !text-gray-800"
-                        onChange={(e) =>
-                          setEmpCodeType(e.target.value)
-                        }
-                      >
-                        <MaterialModule.MenuItem value="pattern" className="!text-[12px]">Pattern</MaterialModule.MenuItem>
-                        <MaterialModule.MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MaterialModule.MenuItem>
-                        <MaterialModule.MenuItem value="number" className="!text-[12px]">Number</MaterialModule.MenuItem>
-                      </MaterialModule.Select>
-                    </MaterialModule.FormControl>
-                    {empCodeType === "pattern" && (
-                      <>
-                        <MaterialModule.TextField
-                          label="Prefix"
-                          value={empPrefix}
-                          required
-                          className="!text-[12px]"
-                          onChange={(e) =>
-                            setEmpPrefix(e.target.value)
-                          }
-                        />
-                        <MaterialModule.TextField
-                          label="Starting Number"
-                          className="!text-[12px]"
-                          value={empStartNumber}
-                          required
-                          onChange={(e) =>
-                            setEmpStartNumber(e.target.value)
-                          }
-                        />
-                      </>
-                    )}
-                    {empCodeType === "alphanumeric" && (
-                      <MaterialModule.TextField
-                        type="number"
-                        label="Number Of Digits"
-                        className="!text-[12px]"
-                        required
-                        value={empDigitCount}
-                        onChange={(e) =>
-                          setEmpDigitCount(e.target.value)
-                        }
-                      />
-                    )}
-                    {empCodeType === "number" && (
-                      <MaterialModule.TextField
-                        type="number"
-                        label="Starting Number"
-                        className="!text-[12px]"
-                        value={empStartNumber}
-                        required
-                        onChange={(e) =>
-                          setEmpStartNumber(e.target.value)
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-                <MaterialModule.Alert severity="info" className="mt-4">
-                  <div className="flex flex-col gap-1">
-                    {empGenerationFlow === "continue" && (
-                      <>
-                        <div>
-                          Last Generated ID:&nbsp;
-                          <strong>
-                            {employees?.[0]?.employeeId || "No Employees"}
-                          </strong>
-                        </div>
-
-                        <div>
-                          Next Sequence:&nbsp;
-                          <strong>
-                            {generateEmployeeIdPreview()}
-                          </strong>
-                        </div>
-                      </>
-                    )}
-
-                    {empGenerationFlow === "new" && (
-                      <div>
-                        Generated Preview:&nbsp;
-                        <strong>
-                          {generateEmployeeIdPreview()}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                </MaterialModule.Alert>
-              </div>
-            </div>
-          )}
 
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"
               id="file-upload"
               className="hidden"
-              accept=".xlsx,.xls,.csv"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              accept=".csv,.xlsx"
+              onChange={(e) => {
+                setUploadFile(e.target.files?.[0] || null);
+                setUploadResult(null);
+              }}
             />
             <label htmlFor="file-upload" className="cursor-pointer">
               <MaterialModule.CloudUploadIcon className="text-6xl text-gray-400 mb-2" />
               <MaterialModule.Typography variant="body1" className="text-gray-600">
-                {uploadFile ? uploadFile.name : "Click or drag file to upload"}
+                {uploadFile ? uploadFile.name : "Click to select a file"}
               </MaterialModule.Typography>
               <MaterialModule.Typography variant="caption" className="text-gray-400">
-                Supported formats: .xlsx, .xls, .csv
+                Accepted formats: CSV, XLSX &nbsp;·&nbsp; Max size: 10 MB
               </MaterialModule.Typography>
             </label>
           </div>
+
           {uploadProgress > 0 && uploadProgress < 100 && (
             <MaterialModule.Box className="mt-4">
               <MaterialModule.LinearProgress variant="determinate" value={uploadProgress} />
@@ -1469,14 +1335,56 @@ export default function EmployeeManagement() {
               </MaterialModule.Typography>
             </MaterialModule.Box>
           )}
+
+          {uploadResult && (
+            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+              <div className="font-semibold text-gray-800 mb-2">Upload Result</div>
+              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                {uploadResult.successCount !== undefined && (
+                  <div className="text-green-700">
+                    Imported: <strong>{uploadResult.successCount}</strong>
+                  </div>
+                )}
+                {(uploadResult.failureCount ?? 0) > 0 && (
+                  <div className="text-red-700">
+                    Failed rows: <strong>{uploadResult.failureCount}</strong>
+                  </div>
+                )}
+                {uploadResult.welcomeEmailsSent !== undefined && (
+                  <div className="text-blue-700">
+                    Welcome emails sent: <strong>{uploadResult.welcomeEmailsSent}</strong>
+                  </div>
+                )}
+                {(uploadResult.welcomeEmailsFailed ?? 0) > 0 && (
+                  <div className="text-orange-700">
+                    Welcome emails failed: <strong>{uploadResult.welcomeEmailsFailed}</strong>
+                  </div>
+                )}
+              </div>
+              {(uploadResult.errors?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-sm font-semibold text-red-700 mb-1">Row Errors:</div>
+                  <div className="max-h-32 overflow-auto text-xs space-y-1">
+                    {uploadResult.errors!.map((err, i) => (
+                      <div key={i} className="text-red-600">
+                        {err.row !== undefined ? `Row ${err.row}: ` : ""}
+                        {err.field ? `[${err.field}] ` : ""}
+                        {err.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button
-            onClick={() => setBulkUploadDialogOpen(false)}
+            onClick={handleCloseBulkUploadDialog}
             variant="outlined"
             className="!text-gray-800 !border-gray-300"
           >
-            Cancel
+            Close
           </MaterialModule.Button>
           <MaterialModule.Button
             onClick={handleBulkUpload}

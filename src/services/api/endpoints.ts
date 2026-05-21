@@ -136,6 +136,7 @@ export const API_ENDPOINTS = {
     POST_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
     LEAVE_ADJUSTMENTS: (id: string) => `/employees/${id}/leave-adjustments`,
     BULK_UPLOAD: "/employees/bulk-upload",
+    BULK_UPLOAD_TEMPLATE: "/employees/bulk-upload/template",
 
     UPDATE: (id: string) => `/employees/${id}`,
     UPDATE_TRAINING: (id: string, tid: string) =>

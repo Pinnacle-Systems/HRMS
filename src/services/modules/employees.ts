@@ -65,6 +65,36 @@ export interface ApiResponsePageEmployeeSummaryResponse {
   data: SpringPage<EmployeeSummaryResponse>;
 }
 
+export interface BulkUploadRowError {
+  row?: number;
+  field?: string;
+  message?: string;
+}
+
+export interface BulkUploadResponse {
+  status?: string;
+  successCount?: number;
+  failureCount?: number;
+  errors?: BulkUploadRowError[];
+  welcomeEmailsSent?: number;
+  welcomeEmailsFailed?: number;
+  welcomeEmailFailures?: string[];
+}
+
+export const normalizeBulkUploadResponse = (response: unknown): BulkUploadResponse => {
+  const r = response as Record<string, any>;
+  const data: Record<string, any> = r?.data ?? r ?? {};
+  return {
+    status: data.status,
+    successCount: data.successCount ?? data.importedCount,
+    failureCount: data.failureCount,
+    errors: Array.isArray(data.errors) ? data.errors : Array.isArray(data.rowErrors) ? data.rowErrors : [],
+    welcomeEmailsSent: data.welcomeEmailsSent,
+    welcomeEmailsFailed: data.welcomeEmailsFailed,
+    welcomeEmailFailures: Array.isArray(data.welcomeEmailFailures) ? data.welcomeEmailFailures : [],
+  };
+};
+
 const EMPTY_EMPLOYEE_PAGE: SpringPage<EmployeeSummaryResponse> = {
   content: [],
   totalElements: 0,
@@ -415,10 +445,11 @@ export const employeeService = {
   },
 
   // ==================== BULK UPLOAD ====================
-  
-  async bulkUploadEmployees(formData: FormData, onProgress?: (progress: number) => void) {
+
+  async bulkUploadEmployees(file: File, onProgress?: (progress: number) => void) {
+    const formData = new FormData();
+    formData.append("file", file);
     return apiService.post(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD, formData, {
-      // headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -444,16 +475,16 @@ export const employeeService = {
     return apiService.post(`/employees/${id}/resend-welcome`);
   },
 
-  // ==================== SAMPLE TEMPLATE ====================
-  
-  async downloadSampleTemplate() {
-    const response:any = await apiService.get("/employees/sample-template", {
+  // ==================== BULK UPLOAD TEMPLATE ====================
+
+  async downloadBulkUploadTemplate() {
+    const response: any = await apiService.get(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD_TEMPLATE, {
       responseType: "blob",
     });
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "employee_sample_template.xlsx");
+    link.setAttribute("download", "employee_bulk_upload_template.xlsx");
     document.body.appendChild(link);
     link.click();
     link.remove();
