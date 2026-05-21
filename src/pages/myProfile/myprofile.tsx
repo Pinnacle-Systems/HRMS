@@ -37,6 +37,10 @@ import {
   CalendarMonthOutlined,
 } from "@mui/icons-material";
 import { authService } from "../../services/modules/auth";
+import {
+  passwordPolicyService,
+  type PasswordPolicyResponse,
+} from "../../services/modules/passwordPolicy";
 import { formatDateTime } from "../../utils/dateFormatter";
 import React from "react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -49,6 +53,10 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
 import dayjs from "dayjs";
 import { getRowColor } from "../const";
+import {
+  FALLBACK_PASSWORD_POLICY,
+  validatePasswordAgainstPolicy,
+} from "../../utils/passwordPolicyValidation";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -86,6 +94,9 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [clearDaysDialogOpen, setClearDaysDialogOpen] = useState(false);
   const [daysToKeep, setDaysToKeep] = useState(30);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicyResponse>(
+    FALLBACK_PASSWORD_POLICY,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [userData, setUserData] = useState<any>({
@@ -245,13 +256,42 @@ export default function Profile() {
     setPasswordDialogOpen(false);
   };
 
+  useEffect(() => {
+    if (!passwordDialogOpen) {
+      return;
+    }
+
+    let isMounted = true;
+
+    passwordPolicyService
+      .getPasswordPolicy()
+      .then((policy) => {
+        if (isMounted) {
+          setPasswordPolicy(policy);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setPasswordPolicy(FALLBACK_PASSWORD_POLICY);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [passwordDialogOpen]);
+
   const handlePasswordChange = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       showSnackbar("New passwords do not match!", "warning");
       return;
     }
-    if (passwordData.newPassword.length < 9) {
-      showSnackbar("Password must be at least 8 characters long!", "warning");
+    const passwordValidationMessages = validatePasswordAgainstPolicy(
+      passwordData.newPassword,
+      passwordPolicy,
+    );
+    if (passwordValidationMessages.length > 0) {
+      showSnackbar(passwordValidationMessages[0], "warning");
       return;
     }
     try {
@@ -443,6 +483,10 @@ export default function Profile() {
       maxWidth: "400px",
     },
   };
+
+  const passwordValidationMessages = passwordData.newPassword
+    ? validatePasswordAgainstPolicy(passwordData.newPassword, passwordPolicy)
+    : [];
 
   return (
     <div className="">
@@ -830,6 +874,13 @@ export default function Profile() {
             >
               {!showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
             </IconButton>
+            {passwordValidationMessages.length > 0 && (
+              <div className="mt-2 text-[11px] text-gray-500">
+                {passwordValidationMessages.map((message) => (
+                  <div key={message}>{message}</div>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <TextField

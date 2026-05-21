@@ -25,6 +25,10 @@ export const API_ENDPOINTS = {
     GET_BY_TENANTID: "/login-history/tenant",
   },
 
+  PASSWORD_POLICY: {
+    BASE: "/password-policy",
+  },
+
   BRANCH: {
     BASE: "/org/branches",
     GET_BY_ID: (id: string) => `/org/branches/${id}`,

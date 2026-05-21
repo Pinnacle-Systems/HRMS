@@ -46,7 +46,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Branches / Departments / Categories | Delete actions are wired, but linked-record blocking behavior is not confirmed in Swagger. | Users may attempt destructive deletes for linked records. | Treat delete as risky until backend confirms blocking semantics. |
 | Employee Categories | Category list is treated like paginated in places via `{ size: 100 }`, while Swagger category list is not paginated; category items are paginated. | Dropdown completeness/shape issues. | Normalize category list as array and category items as page-or-array tolerant. |
 | Login History | Swagger includes auth-context query params (`userId`, `tenantId`, `email`, `password`, `active`, `roles`, `permissions`) on secured endpoints. Current frontend does not send them, but service signatures allow generic params. | Future leakage/noisy contract coupling. | **Fixed:** `getLoginHistory`, `getLoginHistoryByTenant`, and `clearLoginHistory` all now typed as `LoginHistoryParams { page?, size?, sort? }`. Generic `Record<string, unknown>` removed from all login-history methods. |
-| Password Policy | Password screens hardcode validation rules and admin password policy screen is local state only. | Frontend can conflict with backend password rules. | Fetch `GET /api/password-policy` where passwords are created/changed. |
+| Password Policy | Password policy `GET`/`PUT` is now consumed, the admin Password Config screen persists Swagger-supported policy fields, and reset/change password validation uses the shared policy helper with a safe fallback. | Fixed frontend/backend password policy alignment. | Keep MFA setup/verification as a separate auth flow; `requireMfa` is stored as policy only. |
 
 ## 4. P2 Cleanup Items
 
@@ -60,6 +60,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Onboarding | A mocked Playwright regression spec now covers assign and welcome payload shapes. Local execution was blocked in this sandbox by dev-server startup restrictions. | Run `pnpm test:e2e e2e/onboarding.spec.ts` in a local environment that can start/reuse Vite. |
 | Company | `currencyId` is commented out and no currency dropdown is wired. | Add `GET /api/master/currencies/active` if company currency is required. |
 | Auth | `getProfile(params?)` accepts arbitrary params though current callers pass none. | **Fixed:** `params?` removed; `getProfile()` now takes no arguments. |
+| Auth | Change-password validation had a hardcoded length mismatch (`< 9` with an 8-character message). | **Fixed:** change-password validation now uses the password policy helper and accepts policy-compliant 8-character passwords when allowed. |
 
 ## 5. Module-by-Module Findings
 
@@ -78,10 +79,12 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 
 | Area | Finding | Priority | Recommendation |
 |---|---|---|---|
-| API consumption | Expected `GET /api/password-policy` and `PUT /api/password-policy` are not consumed by password screens. | P1 | Add password policy service and hook. |
-| Set/reset/change password | Password validation is hardcoded in screens such as reset/change password. | P1 | Fetch policy before validating and render messages from backend policy fields. |
-| Admin setup | Password config screen is local state only and does not persist via `PUT /api/password-policy`. | P1 | Wire admin policy screen to `GET`/`PUT`. |
-| Query params | No unsafe password policy query params found. | P2 | Keep policy endpoints body/header only. |
+| API consumption | `GET /api/password-policy` and `PUT /api/password-policy` are consumed through the centralized password policy service. | Fixed | Service paths use frontend-relative `/password-policy` and rely on the Bearer-token interceptor. |
+| Complexity fields | Updated Swagger supports `requireUppercase`, `requireLowercase`, `requireDigit`, and `requireSpecialChar`; frontend now stores and validates against these fields. | Fixed | Keep password string validation separate from MFA policy. |
+| Set/reset/change password | Reset/change password validation now uses the shared password policy helper where practical and falls back to a safe minimum if policy fetch fails. | Fixed | Backend remains final authority for password validation. |
+| Admin setup | Password Config screen fetches current policy and persists Swagger-supported policy fields with `PUT /api/password-policy`. | Fixed | Local-state-only admin gap closed. |
+| MFA policy | `requireMfa` is stored/displayed with the password policy when the admin 2FA toggle is present. Actual MFA setup/verification flow is separate. | Open | Do not treat `requireMfa` as password string validation. |
+| Query params | No unsafe password policy query params found or sent. | P2 | Keep policy endpoints body/header only. |
 
 ### Onboarding
 
@@ -212,13 +215,15 @@ Employee create/bulk upload
 | Onboarding | `PATCH /api/onboarding/{onboardingId}/reactivate` | Same | Fixed service | P2 | UI action deferred until inactive assignment state is surfaced. |
 | Login History | Requested doc said `/api/auth/login-history`; frontend uses `/api/login-history` | Swagger uses `/api/login-history` | Frontend correct | P2 | Keep Swagger path. |
 | Company | Screen must update using `/api/org/company/{id}` | `PUT /api/org/company/{id}` | Service correct; screen depends on id | P1 | Ensure id loaded before save. |
+| Password Policy | `GET /api/password-policy` | Same | Fixed | P2 | Admin config and password reset/change validation consume the centralized service. |
+| Password Policy | `PUT /api/password-policy` | Same | Fixed | P2 | Admin config persists only Swagger-supported body fields. |
 
 ## 7. Missing Frontend Consumption Table
 
 | Module | Swagger Endpoint / Capability | Current Frontend Status | Priority | Recommendation |
 |---|---|---|---|---|
-| Password Policy | `GET /api/password-policy` | Not consumed by password screens | P1 | Fetch policy for set/reset/change password. |
-| Password Policy | `PUT /api/password-policy` | Admin config screen not wired | P1 | Persist admin policy settings. |
+| Password Policy | `GET /api/password-policy` | **Fixed:** consumed by password policy service and password screens where practical. | P1 | Done. |
+| Password Policy | `PUT /api/password-policy` | **Fixed:** admin Password Config screen persists policy settings. | P1 | Done. |
 | Onboarding | `POST /api/onboarding/assign` after employee create/bulk upload | Not explicitly called in employee flows | P1 | Add explicit assign step or confirm backend side effect. |
 | Onboarding | `POST /api/onboarding/send-welcome` after employee create/bulk upload | Not explicitly called in employee flows | P1 | Add explicit send welcome step or confirm backend side effect. |
 | Onboarding | `PATCH /api/onboarding/checklist/{id}/tasks/reorder` | Service exists; UI usage unclear | P2 | Add reorder UI if checklist task order is editable. |
@@ -256,7 +261,7 @@ Employee create/bulk upload
 
 1. Resolve employee creation/bulk-upload onboarding orchestration: explicit assign/send-welcome calls or confirmed backend side effects.
 2. Remove or guard frontend-only employee endpoints for code generation, sample/template download, and resend-welcome until backend contract exists.
-3. Wire Password Policy `GET`/`PUT` and replace hardcoded password validation with policy-driven validation.
+3. Password Policy `GET`/`PUT` and policy-driven reset/change password validation are implemented; keep future password entry points on the shared helper.
 4. Add fiscal year service/screen wiring, especially active fiscal year and activate endpoint usage.
 5. Tighten delete UX for employees, branches, departments, categories, and category items after backend confirms soft delete / linked blocking behavior.
 6. Improve Login History table fields and type query params to pagination-only.
