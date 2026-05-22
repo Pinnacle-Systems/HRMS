@@ -33,7 +33,6 @@ class CompanyService {
   async uploadLogo (id: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
-    
     const response = await apiService.post(API_ENDPOINTS.COMPANY.UPLOAD_LOGO(id), formData);
     return response;
   }
@@ -41,19 +40,26 @@ class CompanyService {
   async uploadSignature (id: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
-    
     const response = await apiService.post(API_ENDPOINTS.COMPANY.UPLOAD_SIGNATURE(id), formData);
     return response;
   }
 
   async deleteLogo(id: string){
-    const response = await apiService.delete(API_ENDPOINTS.COMPANY.UPLOAD_LOGO(id));
+    const response = await apiService.delete(API_ENDPOINTS.COMPANY.DELETE_LOGO(id));
     return response;
   }
 
   async deleteSignature (id: string){
-    const response = await apiService.delete(API_ENDPOINTS.COMPANY.UPLOAD_SIGNATURE(id));
+    const response = await apiService.delete(API_ENDPOINTS.COMPANY.DELETE_SIGNATURE(id));
     return response;
+  }
+
+  async getPasswordConfig(params?: any) {
+    return apiService.get(API_ENDPOINTS.PASSWORD_CONFIG.BASE, { params });
+  }
+
+  async updatePasswordConfig(data: any) {
+    return apiService.put(API_ENDPOINTS.PASSWORD_CONFIG.BASE,data);
   }
 }
 export const companyService = new CompanyService();

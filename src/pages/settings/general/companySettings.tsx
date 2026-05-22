@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { TextField, Box, Button, Select, FormControl, InputLabel, MenuItem, FormHelperText } from "@mui/material";
+import { useEffect, useRef, useState } from "react";
+import { TextField, Box, Button, Select, FormControl, InputLabel, MenuItem, FormHelperText, Paper } from "@mui/material";
 import {
   companyFieldsWithSections,
   fileUploadFields,
@@ -26,11 +26,12 @@ const CompanySettings = () => {
   const [logoFile, setLogoFile] = useState<any>("");
   const [signatureFile, setSignatureFile] = useState<File | string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const {
     countries,
     states,
     cities,
+    currencies,
     loading,
     fetchStatesByCountry,
     fetchCitiesByCountry,
@@ -42,11 +43,9 @@ const CompanySettings = () => {
 
   const generateMapFromAddress = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
-
     setMapUrl(
       `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`
     );
-
     setGoogleMapLink(
       `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
     );
@@ -56,7 +55,6 @@ const CompanySettings = () => {
     key: string,
     value: string
   ) => {
-
     setCompanyInfo((prev: any) => ({
       ...prev,
       [key]: value,
@@ -64,17 +62,13 @@ const CompanySettings = () => {
 
     // Country selected
     if (key === "countryId") {
-
       setCompanyInfo((prev: any) => ({
         ...prev,
         countryId: value,
         stateId: "",
         cityId: "",
       }));
-
       await fetchStatesByCountry(value);
-
-      // OPTIONAL
       await fetchCitiesByCountry(value);
     }
 
@@ -85,7 +79,6 @@ const CompanySettings = () => {
         stateId: value,
         cityId: "",
       }));
-
       await fetchCitiesByState(value);
     }
   };
@@ -115,7 +108,8 @@ const CompanySettings = () => {
     try {
       const response: any = await companyService.uploadLogo(companyId, file);
       if (response.success) {
-        const logoUrl = response.data?.logoUrl || response.data?.url;
+        const rawUrl = response.data?.logoUrl || response.data?.url;
+        const logoUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
         setLogoFile(logoUrl);
         setCompanyInfo((prev: any) => ({ ...prev, logoUrl }));
         showSnackbar("Logo uploaded successfully!", "success");
@@ -140,7 +134,8 @@ const CompanySettings = () => {
     try {
       const response: any = await companyService.uploadSignature(companyId, file);
       if (response.success) {
-        const signatureUrl = response.data?.signatureUrl || response.data?.url;
+        const rawUrl = response.data?.signatureUrl || response.data?.url;
+        const signatureUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
         setSignatureFile(signatureUrl);
         setCompanyInfo((prev: any) => ({ ...prev, signatureUrl }));
         showSnackbar("Signature uploaded successfully!", "success");
@@ -156,35 +151,51 @@ const CompanySettings = () => {
 
   const handleFileChange = async (key: string, file: File | string) => {
     if (typeof file === "string") {
-      setCompanyInfo({ ...companyInfo, [key]: file });
-      if (key === "logo") setLogoFile(file);
-      if (key === "signature") setSignatureFile(file);
+      if (key === "logoUrl") {
+        setCompanyInfo((prev: any) => ({ ...prev, logoUrl: "" }));
+        setLogoFile("");
+      } else {
+        setCompanyInfo((prev: any) => ({ ...prev, signatureUrl: "" }));
+        setSignatureFile("");
+      }
       return;
     }
-    if (key === "logo") {
+    if (key === "logoUrl") {
       await handleLogoUpload(file);
-    } else if (key === "signature") {
+    } else if (key === "signatureUrl") {
       await handleSignatureUpload(file);
     }
   };
 
-  useEffect(() => {
-    const fetchCompanyInfo = async () => {
-      try {
-        const companyId = "3ddb07c5-45ab-4ab5-ba45-e3f3f6874e14";
+  const fetchCompanyInfo = async () => {
+    try {
+      const companyData: any = await companyService.getCompany();
+      const companyId = companyData.data.length ? companyData.data?.[0].id : '';
+      if (companyId) {
         const response: any = await companyService.getCompanyById(companyId);
         setCompanyInfo({
           companyType: "Head Office",
           ...response.data,
         });
-        if (response.data?.logoUrl) setLogoFile(response.data.logoUrl.replace(/([^:]\/)\/+/g, "$1"));
-        if (response.data?.signatureUrl) setSignatureFile(response.data.signatureUrl);
-      } catch (err: any) {
-        showSnackbar(err.message || "Failed to fetch company info", 'error');
+        if (response.data?.logoUrl) {
+          const logoUrl = `${response.data.logoUrl}?v=${Date.now()}`;
+          setLogoFile(logoUrl);
+          setCompanyInfo((prev: any) => ({ ...prev, logoUrl }));
+        }
+        if (response.data?.signatureUrl) {
+          const signatureUrl = `${response.data.signatureUrl}?v=${Date.now()}`;
+          setSignatureFile(signatureUrl);
+          setCompanyInfo((prev: any) => ({ ...prev, signatureUrl }));
+        }
       }
-    };
+    } catch (err: any) {
+      showSnackbar(err.message || "Failed to fetch company info", 'error');
+    }
+  };
+
+  useEffect(() => {
     fetchCompanyInfo();
-  }, [showSnackbar]);
+  }, []);
 
   const handleSave = async () => {
     const newErrors: Record<string, string> = {};
@@ -211,6 +222,7 @@ const CompanySettings = () => {
       return;
     }
     showSpinner();
+    console.log(companyInfo);
     if (companyInfo.id) {
       try {
         const updatedValue = {
@@ -225,7 +237,7 @@ const CompanySettings = () => {
           "cityId": companyInfo.cityId,
           "pincode": companyInfo.pincode,
           // "timeZone": companyInfo.company,
-          // "currencyId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "currencyId": companyInfo.currencyId,
           "email": companyInfo.email,
           "phone": companyInfo.phone,
           "website": companyInfo.website,
@@ -258,7 +270,7 @@ const CompanySettings = () => {
           "facebookUrl": companyInfo.facebookUrl,
           "instagramHandle": companyInfo.instagramHandle,
           "signatoryName": companyInfo.signatoryName,
-          "signatoryDesignation": companyInfo.signatoryDesignation
+          "signatoryDesignation": companyInfo.signatoryDesignation,
         }
         const res: any = await companyService.updateCompany(companyInfo.id, updatedValue);
         if (res.success) {
@@ -271,41 +283,54 @@ const CompanySettings = () => {
       }
     } else {
       try {
+        delete companyInfo['currency'];
         const res: any = await companyService.createCompany(companyInfo);
         if (res.success) {
           showSnackbar(res.message, "success");
         }
+        await fetchCompanyInfo();
       } catch (error: any) {
         showSnackbar(error.message, "error");
       } finally {
         hideSpinner();
       }
     }
-
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     setLogoFile("");
     setSignatureFile("");
     setErrors({});
+    showConfirmDialog({
+      title: "Delete Branch",
+      message: `Are you sure you want to delete "${companyInfo.companyName}"?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const res: any = await companyService.deleteCompanyById(companyInfo.id);
+          if (res.success) {
+            showSnackbar(res.message, "success");
+            await fetchCompanyInfo();
+          }
+        } catch (error: any) {
+          showSnackbar(error.message, "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   // Common sx styles for all fields
   const commonSx = {
-    width: "max-content",
-    minWidth: "194px",
-    maxWidth: "100%",
+    width: "100%",
+    minWidth: 0,
     background: "var(--bg-primary)",
-    "& .MuiPickersOutlinedInput-root": {
-      width: "194px"
-    },
     "& .MuiFormHelperText-root": {
       fontSize: "10px",
       marginLeft: 0,
-    },
-    "& textarea": {
-      width: "max-content !important",
-      minWidth: "382px",
     },
   };
 
@@ -351,7 +376,6 @@ const CompanySettings = () => {
     const rules = validationRules[key as keyof typeof validationRules];
     const value = companyInfo[key];
 
-
     return (
       <div key={key}>
         {type === "text" && (
@@ -372,7 +396,6 @@ const CompanySettings = () => {
             helperText={hasError ? errors[key] : ""}
             onChange={(e) => handleChange(key, e.target.value)}
             sx={commonSx}
-            className={`${key == "contact_email" ? "!w-[230px]" : ""}`}
           />
         )}
 
@@ -387,7 +410,6 @@ const CompanySettings = () => {
             helperText={hasError ? errors[key] : ""}
             onChange={(e) => handleChange(key, e.target.value)}
             sx={commonSx}
-            className={`${key == "contact_email" ? "!w-[230px]" : ""}`}
           />
         )}
 
@@ -423,7 +445,7 @@ const CompanySettings = () => {
                 ? countries
                 : key === "stateId"
                   ? states
-                  : cities
+                  : key === "currencyId" ? currencies : cities
             }
             error={hasError}
             helperText={hasError ? errors[key] : ""}
@@ -433,6 +455,7 @@ const CompanySettings = () => {
             sx={commonSx}
           />
         )}
+
         {type === "select" && (
           <FormControl
             fullWidth
@@ -440,7 +463,15 @@ const CompanySettings = () => {
             error={hasError}
             required={required}
             disabled={disabled}
-            sx={commonSx}
+            sx={{
+              ...commonSx,
+              "& .MuiInputLabel-root": {
+                top: '2px',
+              },
+              "& .MuiInputLabel-shrink": {
+                top: '2px',
+              },
+            }}
           >
             <InputLabel>{label}</InputLabel>
             <Select
@@ -461,14 +492,39 @@ const CompanySettings = () => {
             {hasError && <FormHelperText>{errors[key]}</FormHelperText>}
           </FormControl>
         )}
+
+        {/* {type === "add-select" && (
+          <DynamicSelectWithAdd
+            label={label}
+            value={companyInfo[key] || ""}
+            required={required}
+            onChange={(value) => {
+              const selected = currencyOptions.find(
+                (opt: any) => opt.name === value
+              );
+
+              setCompanyInfo((prev: any) => ({
+                ...prev,
+                currency: value,
+                currencyId: selected?.id || "",
+              }));
+            }}
+            options={currencyOptions.map(
+              (opt: any) => opt.name
+            )}
+            onAddOption={(newOption) =>
+              handleAddOption(newOption)
+            }
+            showAddButton={true}
+            sx={commonSx}
+          />
+        )} */}
+
         {type === "map" && (
           <LocationMap
             mapUrl={mapUrl}
             googleMapLink={googleMapLink}
-            style={{
-              height: "137px",
-              width: "400px",
-            }}
+            style={{ height: "100px", width: "100%" }}
           />
         )}
       </div>
@@ -486,13 +542,15 @@ const CompanySettings = () => {
         </div>
         {/* Action Buttons */}
         <div className="flex gap-3">
-          <Button
-            variant="outlined"
-            className="!text-gray-800 !border-gray-300"
-            onClick={handleCancel}
-          >
-            Cancel
-          </Button>
+          {(companyInfo && companyInfo.id) &&
+            <Button
+              variant="outlined"
+              className="!text-gray-800 !border-gray-300"
+              onClick={handleCancel}
+            >
+              Delete
+            </Button>
+          }
           <Button
             variant="contained"
             color="primary"
@@ -504,57 +562,97 @@ const CompanySettings = () => {
         </div>
       </div>
       <div className="overflow-auto h-[calc(100vh-200px)]">
-        <div className="space-y-4 ">
-          {groupedSections.map((section, sectionIndex) => (
-            <div
-              key={section.id || sectionIndex}
-              className="space-y-2 mb-2  border p-5 rounded-lg bg-gray-50"
-            >
-              <div className="flex flex-wrap">
-                {section.fields.length > 0 && (
-                  <>
-                    <div className="flex flex-wrap items-center gap-y-5 gap-x-4">
-                      {section.fields.map((field: any) => renderField(field))}
-                      {section.subSections.length > 0 && (
-                        <>
-                          {section.subSections.map(
-                            (subSection: any, subIdx: number) => (
-                              <div
-                                key={subSection.id || subIdx}
-                                className="grid grid-cols-3 gap-4"
-                              >
-                                {subSection.fields.map((field: any) =>
-                                  renderField(field),
-                                )}
-                              </div>
-                            ),
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </>
-                )}
+        <div className="space-y-4">
+          {groupedSections.map((section, sectionIndex) => {
+            const renderGridFields = (fields: any[], gridClass: string) => (
+              <div className={`grid gap-x-3 gap-y-6 ${gridClass}`}>
+                {fields.map((field: any) => (
+                  <div key={field.key}
+                    className={`min-w-0 ${field.key === "contactEmail" ? "md:col-span-2" : ""}`}
+                  >
+                    {renderField(field)}
+                  </div>
+                ))}
               </div>
-            </div>
-          ))}
+            );
+
+            const hasSubSections = section.subSections.length > 0;
+
+            if (hasSubSections) {
+              const isSpecial = (f: any) =>
+                f.type === "map" || (f.multiline && f.rows && f.rows > 1);
+              const regularFields = section.fields.filter((f: any) => !isSpecial(f));
+              const specialFields = section.fields.filter(isSpecial); // address + map
+              return (
+                <div key={section.id || sectionIndex} className="border p-4 pt-6 rounded-lg bg-gray-50 space-y-4">
+                  {/* Top row: companyName, aliasName, code, costCode, companyType */}
+                  {regularFields.length > 0 && renderGridFields(regularFields, "grid-cols-2 md:grid-cols-3 lg:grid-cols-[2fr_2fr_1fr_1fr_1fr]")}
+                  {/* Bottom: left = Address + Map stacked, right = subsection fields */}
+                  <div className="grid md:flex items-center gap-4">
+                    {/* Left column: Address + Map stacked, each full width */}
+                    {specialFields.length > 0 && (
+                      <div className="flex gap-4 md:w-1/2 w-full min-w-0">
+                        {specialFields.map((field: any) => (
+                          <div key={field.key} className="w-full min-w-0">
+                            {renderField(field)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* Right column: Country, State, City, Pincode, Phone, Fax, Email */}
+                    <div className="flex-1 min-w-0">
+                      {section.subSections.map((sub: any, subIdx: number) => (
+                        <div key={sub.id || subIdx} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-2 gap-y-5">
+                          {sub.fields.map((field: any) => (
+                            <div
+                              key={field.key}
+                              className={`min-w-0 ${field.key === "email" ? "md:col-span-2" : ""}`}
+                            >
+                              {renderField(field)}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            const fieldCount = section.fields.length;
+            const gridClass =
+              // fieldCount % 7 === 0 ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-7" :
+              // fieldCount % 9 === 0 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-7" :
+              // fieldCount % 3 === 0 ? "grid-cols-2 sm:grid-cols-3" :
+              "grid-cols-2 sm:grid-cols-4 md:grid-cols-7";
+
+            return (
+              <div key={section.id || sectionIndex} className="border py-6 px-4 rounded-lg bg-gray-50">
+                {renderGridFields(section.fields, gridClass)}
+              </div>
+            );
+          })}
         </div>
 
-        <Box className="mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {fileUploadFields.map((field) => (
-              <FileUpload
-                key={field.key}
-                label={field.label}
-                value={field.key === "logo" ? logoFile : signatureFile}
-                onChange={(file) => handleFileChange(field.key, file)}
-                accept={field.accept}
-                maxSize={field.maxSize}
-                description={field.description}
-                companyId={companyInfo.id ? companyInfo.id : ''}
-              />
-            ))}
-          </div>
-        </Box>
+        {
+          companyInfo.id &&
+          <Box className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fileUploadFields.map((field) => (
+                <FileUpload
+                  key={field.key}
+                  label={field.label}
+                  value={field.key === "logoUrl" ? logoFile : signatureFile}
+                  onChange={(file) => handleFileChange(field.key, file)}
+                  accept={field.accept}
+                  maxSize={field.maxSize}
+                  description={field.description}
+                  companyId={companyInfo.id}
+                />
+              ))}
+            </div>
+          </Box>
+        }
       </div>
     </>
   );

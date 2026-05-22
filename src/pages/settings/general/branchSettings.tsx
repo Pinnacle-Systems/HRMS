@@ -55,10 +55,6 @@ export default function BranchSettings() {
   const [mapUrl, setMapUrl] = useState("");
   const [googleMapLink, setGoogleMapLink] = useState("");
 
-  // Employee list for branch head dropdown
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const selectedEmployee = employees.find(emp => emp.id === formData.branchHeadId) || null;
-
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
@@ -72,6 +68,10 @@ export default function BranchSettings() {
     branchHeadId: "",
     active: true,
   });
+
+  // Employee list for branch head dropdown
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const selectedEmployee = employees.find(emp => emp.id === formData.branchHeadId) || null;
 
   // Fetch active employees for branch head dropdown
   const getActiveEmployees = async () => {

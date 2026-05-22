@@ -1,26 +1,26 @@
-export type FilterOperator = 
-  | 'equals' 
-  | 'notEquals' 
-  | 'contains' 
-  | 'notContains' 
-  | 'startsWith' 
-  | 'endsWith'
-  | 'greaterThan' 
-  | 'greaterThanOrEqual' 
-  | 'lessThan' 
-  | 'lessThanOrEqual'
-  | 'between'
-  | 'in'
-  | 'notIn'
-  | 'isEmpty'
-  | 'isNotEmpty';
+export type FilterOperator =
+  | "equals"
+  | "notEquals"
+  | "contains"
+  | "notContains"
+  | "startsWith"
+  | "endsWith"
+  | "greaterThan"
+  | "greaterThanOrEqual"
+  | "lessThan"
+  | "lessThanOrEqual"
+  | "between"
+  | "in"
+  | "notIn"
+  | "isEmpty"
+  | "isNotEmpty";
 
-export type FilterCondition = 'AND' | 'OR';
+export type FilterCondition = "AND" | "OR";
 
 export interface FilterField {
   id: string;
   label: string;
-  type: 'text' | 'number' | 'date' | 'boolean' | 'select' | 'multiSelect';
+  type: "text" | "number" | "date" | "boolean" | "select" | "multiSelect";
   options?: Array<{ value: string; label: string }>;
   placeholder?: string;
 }
@@ -30,11 +30,11 @@ export interface FilterRule {
   field: string;
   operator: FilterOperator;
   value: any;
-  value2?: any; // For between operator
+  value2?: any;
 }
 
 export interface FilterConfig {
-  condition: FilterCondition;
+  condition: "AND" | "OR";
   rules: FilterRule[];
 }
 

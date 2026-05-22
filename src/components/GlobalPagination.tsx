@@ -42,7 +42,7 @@ export const GlobalPagination = ({
             </Select>
           </FormControl>
         )}
-        
+
         <Pagination
           count={totalPages}
           page={page}
@@ -51,13 +51,18 @@ export const GlobalPagination = ({
           size="medium"
           showFirstButton
           showLastButton
+          sx={{
+            "& .MuiPaginationItem-root": {
+              color: "var(--text-primary)",
+            },
+          }}
         />
-        
-        {showTotal && (
-          <span className="text-sm text-gray-600">
-            Total: {total} items
-          </span>
-        )}
+
+            { showTotal && (
+              <span className="text-sm text-gray-600">
+                Total: {total} items
+              </span>
+            )}
       </Box>
     );
   }

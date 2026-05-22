@@ -47,6 +47,7 @@ import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
+import { AttachFileOutlined, Visibility } from "@mui/icons-material";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -71,13 +72,20 @@ const EditableGroup = ({
   onSave,
   icon,
   categoryOptions,
-  refreshCategoryOptions
+  categories,
+  refreshCategoryOptions,
+  document
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [department, setDepartments] = useState<Department[]>([]);
   const [branch, setBranches] = useState<Branches[]>([]);
+  const [attachmentDialogOpen, setAttachmentDialogOpen] = useState(false);
+  const [attachmentData, setAttachmentData] = useState<any>({});
+  const [attachments, setAttachments] = useState<any>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { id } = useParams();
 
   const handleSave = async () => {
     try {
@@ -105,7 +113,7 @@ const EditableGroup = ({
         label: opt.branchName,
       }))
     } else {
-      const categoryName = getCategoryName(fieldKey, fieldLabel);
+      const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
       const category = Object.keys(categoryOptions).find(
         (catName) =>
           catName.toLowerCase() === categoryName.toLowerCase() ||
@@ -124,19 +132,26 @@ const EditableGroup = ({
   const getSelectOptions = (fieldKey: string, fieldLabel: string) => {
     if (fieldKey == 'department') {
       return department.map((opt: any) => opt.departmentName)
-    } else if (fieldKey == 'branch') {
-      return branch.map((opt: any) => opt.branchName)
-    } else {
-      const categoryName = getCategoryName(fieldKey, fieldLabel);
-      const category = Object.keys(categoryOptions).find(
-        (catName) =>
-          catName.toLowerCase() === categoryName.toLowerCase() ||
-          catName.toLowerCase() === fieldKey.toLowerCase() ||
-          catName.toLowerCase() === fieldLabel.toLowerCase(),
-      );
-      const options = category ? categoryOptions[category] : [];
-      return options.map((opt: any) => opt.name);
     }
+    if (fieldKey == 'branch') {
+      return branch.map((opt: any) => opt.branchName)
+    }
+    const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
+    const category = Object.keys(categoryOptions).find(
+      (catName) =>
+        catName.toLowerCase() === categoryName.toLowerCase() ||
+        catName.toLowerCase() === fieldKey.toLowerCase() ||
+        catName.toLowerCase() === fieldLabel.toLowerCase(),
+    );
+    let options = category ? categoryOptions[category] : [];
+    if (fieldKey === "documentType") {
+      if (document) {
+        options = options.filter((opt: any) =>
+          opt.name.toLowerCase().includes(document.toLowerCase())
+        );
+      }
+    }
+    return options.map((opt: any) => opt.name);
   };
 
   const getOptionIdFromName = (
@@ -153,9 +168,9 @@ const EditableGroup = ({
   const handleAddOption = async (fieldKey: string, newOption: string) => {
     try {
       showSpinner();
-      const categoryName = getCategoryName(fieldKey, "");
       const categoriesResponse: any = await categoryService.getCategories();
-      const categories = categoriesResponse.data || [];
+      const categories = categoriesResponse.data.content || categoriesResponse.data || [];
+      const categoryName = getCategoryName(fieldKey, "", categories);
       const category = categories.find(
         (cat: any) =>
           cat.categoryName.toLowerCase() === categoryName.toLowerCase(),
@@ -194,11 +209,59 @@ const EditableGroup = ({
     }
   };
 
+  const getDocuments = async () => {
+    showSpinner();
+    try {
+      const response: any = await employeeService.getAttachments(id);
+      setAttachments(response.data || []);
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+    
   useEffect(() => {
     if (title === 'Employee Details') {
       getMasterData();
     }
+    getDocuments();
   }, []);
+
+  const matchedDocs = attachments.filter((opt: any) => {
+    const normalizedTitle = title.toLowerCase().replace("details", "").trim();
+    const normalizedDocType = opt.documentType?.toLowerCase().trim();
+    return normalizedDocType.includes(normalizedTitle);
+  })
+  console.log(matchedDocs,title);
+  
+
+  const handleUploadAttachment = () => {
+    const initialData: any = {};
+    attachmentAddFields.forEach((field: any) => {
+      initialData[field.key] = "";
+    });
+    setAttachmentData(initialData);
+    setSelectedFile(null);
+    setAttachmentDialogOpen(true);
+  };
+
+  const handleAddAttachment = async (newItem: any) => {
+    showSpinner();
+    try {
+      if (!newItem.documentType) {
+        showSnackbar('Document Type is Mandatory', 'warning')
+        return
+      };
+      await employeeService.addAttachment(id, newItem);
+      await getDocuments();
+      showSnackbar("Attachment added successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to add attachment", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
 
   return (
     <div className="mb-6 p-4 border rounded-lg mt-3 shadow-sm border-gray-300">
@@ -206,14 +269,45 @@ const EditableGroup = ({
         <div className="flex justify-between items-center mb-3">
           <div className="font-semibold flex items-center gap-2">
             <div className="bg-primary-50 p-1 rounded-lg !text-primary"> {icon} </div>
-            <div className="text-primary-dark "> {title} </div>
+            <div className="text-primary-dark "> {title}</div>
+            <div>
+              {matchedDocs.map((item: any) => (
+                  <a
+                    key={item.id}
+                    href={item.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-blue-500 text-[12px] underline"
+                  >
+                    {item.documentType}
+                  </a>
+                ))}
+            </div>
           </div>
           {!isEditing ? (
-            <MaterialModule.IconButton size="small" onClick={() => setIsEditing(true)}>
-              <MaterialModule.EditIcon fontSize="small" className="text-gray-800" />
-            </MaterialModule.IconButton>
+            <div className="flex items-center gap-1">
+              {document &&
+                <MaterialModule.Tooltip title="Add Attachments">
+                  <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
+                    <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                  </MaterialModule.IconButton>
+                </MaterialModule.Tooltip>
+              }
+              <MaterialModule.Tooltip title="Edit">
+                <MaterialModule.IconButton size="small" onClick={() => setIsEditing(true)}>
+                  <MaterialModule.EditIcon fontSize="small" className="text-gray-800 !w-4" />
+                </MaterialModule.IconButton>
+              </MaterialModule.Tooltip>
+            </div>
           ) : (
             <div className="flex gap-1">
+              {document &&
+                <MaterialModule.Tooltip title="Add Attachments">
+                  <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
+                    <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                  </MaterialModule.IconButton>
+                </MaterialModule.Tooltip>
+              }
               <MaterialModule.Tooltip title="Save Changes">
                 <MaterialModule.IconButton size="small" onClick={handleSave} color="success">
                   <MaterialModule.SaveIcon fontSize="small" />
@@ -224,6 +318,7 @@ const EditableGroup = ({
                   <MaterialModule.CancelIcon fontSize="small" />
                 </MaterialModule.IconButton>
               </MaterialModule.Tooltip>
+
             </div>
           )}
         </div>
@@ -347,6 +442,139 @@ const EditableGroup = ({
           })}
         </div>
       </div>
+      <MaterialModule.Dialog
+        open={attachmentDialogOpen}
+        onClose={() => {
+          setAttachmentDialogOpen(false);
+          setAttachmentData({});
+          setSelectedFile(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <div className="flex items-center justify-between border-b p-1">
+          <div className="text-primary font-medium pl-5">
+            Upload Attachment
+          </div>
+          <MaterialModule.IconButton
+            onClick={() => {
+              setAttachmentDialogOpen(false);
+              setAttachmentData({});
+              setSelectedFile(null);
+            }}
+          >
+            <MaterialModule.CloseOutlined />
+          </MaterialModule.IconButton>
+        </div>
+
+        <MaterialModule.DialogContent>
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            {attachmentAddFields.map((field: any) => (
+              <div key={field.key}>
+                {field.type === "file" ? (
+                  <>
+                    <input
+                      hidden
+                      id="attachment-upload"
+                      type="file"
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setSelectedFile(file);
+                          setAttachmentData((prev: any) => ({
+                            ...prev,
+                            [field.key]: file,
+                            documentName: file.name,
+                          }));
+                        }
+                      }}
+                    />
+
+                    <label htmlFor="attachment-upload">
+                      <MaterialModule.Button
+                        component="span"
+                        variant="outlined"
+                        startIcon={<MaterialModule.AttachmentIcon />}
+                      >
+                        {selectedFile
+                          ? selectedFile.name
+                          : "Choose File"}
+                      </MaterialModule.Button>
+                    </label>
+
+                    {selectedFile && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        {(selectedFile.size / 1024).toFixed(2)} KB
+                      </div>
+                    )}
+                  </>
+                ) : field.type === "select" ? (
+                  <DynamicSelectWithAdd
+                    label={field.label}
+                    title={field.label}
+                    value={attachmentData[field.key] || ""}
+
+                    onChange={(value) => {
+                      const id = getOptionIdFromName(
+                        field.key,
+                        field.label,
+                        value as string,
+                      );
+
+                      setAttachmentData((prev: any) => ({
+                        ...prev,
+                        [field.key]: value,
+                        [`${field.key}Id`]: id,
+                      }));
+                    }}
+                    options={getSelectOptions(field.key, field.label)}
+                    onAddOption={(newOption) =>
+                      handleAddOption(field.key, newOption)
+                    }
+                    showAddButton={true}
+                  />) : (
+                  <MaterialModule.TextField
+                    label={field.label}
+                    value={attachmentData[field.key] || ""}
+                    onChange={(e) =>
+                      setAttachmentData((prev: any) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="border-t !p-4">
+          <MaterialModule.Button
+            variant="outlined"
+            className="!border-gray-300 !text-gray-800"
+            onClick={() => {
+              setAttachmentDialogOpen(false);
+              setAttachmentData({});
+              setSelectedFile(null);
+            }}
+          >
+            Cancel
+          </MaterialModule.Button>
+
+          <MaterialModule.Button
+            variant="contained"
+            className="!bg-primary"
+            onClick={() => {
+              console.log(attachmentData);
+              handleAddAttachment(attachmentData)
+              setAttachmentDialogOpen(false);
+            }}
+          >
+            Upload
+          </MaterialModule.Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
     </div>
   );
 };
@@ -362,6 +590,9 @@ const EditableTableGroup = ({
   icon,
   addDialogFields,
   categoryOptions,
+  categories,
+  refreshCategoryOptions,
+  document
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -369,8 +600,14 @@ const EditableTableGroup = ({
   const [newItemData, setNewItemData] = useState<any>({});
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isEdit, setIsEdit] = useState(false);
+  // const [isEdit, setIsEdit] = useState(false);
+  // const [isDoc, setIsDoc] = useState(false);
   const isMasterTab = title === "Addresses";
+  const [dialogFields, setDialogFields] = useState(addDialogFields);
+  const { id } = useParams();
+  const [dialogType, setDialogType] = useState<
+    "add" | "edit" | "attachment"
+  >("add");
 
   const handleSave = () => {
     onSave(editData);
@@ -411,6 +648,9 @@ const EditableTableGroup = ({
   }, [data]);
 
   const handleAddClick = () => {
+    setDialogType("add");
+
+    setDialogFields(addDialogFields);
     const initialData: any = {};
     addDialogFields.forEach((field: any) => {
       initialData[field.key] = "";
@@ -419,7 +659,21 @@ const EditableTableGroup = ({
     setAddDialogOpen(true);
   };
 
+  const handleUploadAttachment = () => {
+    setDialogType("attachment");
+    setDialogFields(attachmentAddFields);
+    const initialData: any = {};
+    attachmentAddFields.forEach((field: any) => {
+      initialData[field.key] = "";
+    });
+    setDialogFields(attachmentAddFields);
+    setNewItemData(initialData);
+    setAddDialogOpen(true);
+  };
+
   const handleEditClick = (row: any) => {
+    setDialogType("edit");
+    setDialogFields(addDialogFields);
     setNewItemData({
       documentType: row.documentType,
       documentName: row.documentName,
@@ -435,7 +689,7 @@ const EditableTableGroup = ({
   };
 
   const getFieldOptions = (fieldKey: string, fieldLabel: string) => {
-    const categoryName = getCategoryName(fieldKey, fieldLabel);
+    const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
     const category = Object.keys(categoryOptions).find(
       (catName) =>
         catName.toLowerCase() === categoryName.toLowerCase() ||
@@ -451,15 +705,21 @@ const EditableTableGroup = ({
   };
 
   const getSelectOptions = (fieldKey: string, fieldLabel: string) => {
-    const categoryName = getCategoryName(fieldKey, fieldLabel);
-
+    const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
     const category = Object.keys(categoryOptions).find(
       (catName) =>
         catName.toLowerCase() === categoryName.toLowerCase() ||
         catName.toLowerCase() === fieldKey.toLowerCase() ||
         catName.toLowerCase() === fieldLabel.toLowerCase(),
     );
-    const options = category ? categoryOptions[category] : [];
+    let options = category ? categoryOptions[category] : [];
+    if (fieldKey === "documentType") {
+      if (document) {
+        options = options.filter((opt: any) =>
+          opt.name.toLowerCase().includes(document)
+        );
+      }
+    }
     return options.map((opt: any) => opt.name);
   };
 
@@ -500,9 +760,9 @@ const EditableTableGroup = ({
   const handleAddOption = async (fieldKey: string, newOption: string) => {
     try {
       showSpinner();
-      const categoryName = getCategoryName(fieldKey, "");
       const categoriesResponse: any = await categoryService.getCategories();
       const categories = categoriesResponse.data.content || categoriesResponse.data || [];
+      const categoryName = getCategoryName(fieldKey, "", categories);
       const category = categories.find(
         (cat: any) =>
           cat.categoryName.toLowerCase() === categoryName.toLowerCase(),
@@ -513,14 +773,14 @@ const EditableTableGroup = ({
       }
       const payload = {
         name: newOption,
-        code: newOption.toUpperCase().replace(/\s/g, "_"),
+        code: newOption.substring(0, 3).toUpperCase().replace(/\s/g, "_"),
         active: true,
       };
       await categoryService.createCategoryItem(category.id, payload);
-      await categoryService.getCategoryItems(category.id);
+      await refreshCategoryOptions();
       showSnackbar(`"${newOption}" added successfully!`, "success");
     } catch (error: any) {
-      showSnackbar(error.message || "Failed to add option", "error");
+      showSnackbar(error.message, "error");
     } finally {
       hideSpinner();
     }
@@ -663,6 +923,24 @@ const EditableTableGroup = ({
     }
   };
 
+  const handleAddAttachment = async (newItem: any) => {
+    setAddDialogOpen(false);
+    setSelectedFile(null)
+    showSpinner();
+    try {
+      if (!newItem.documentType) {
+        showSnackbar('Document Type is Mandatory', 'warning')
+        return
+      };
+      await employeeService.addAttachment(id, newItem);
+      showSnackbar("Attachment added successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to add attachment", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
   const tablesx = {
     padding: !isEditing ? "8px 16px !important" : "2px 2px 2px 16px !important",
   }
@@ -707,39 +985,69 @@ const EditableTableGroup = ({
               {!isEditing ? (
                 <>
                   <div className="flex items-center gap-1 border border-gray-300 rounded">
-                    <MaterialModule.Button
-                      size="small"
-                      onClick={handleAddClick}
-                      className="!min-w-0"
-                    >
-                      <MaterialModule.AddIcon fontSize="small" className="text-gray-800" />
-                    </MaterialModule.Button>
+                    {document &&
+                      <>
+                        <MaterialModule.Tooltip title="Add Attachments">
+                          <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
+                            <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                          </MaterialModule.IconButton>
+                        </MaterialModule.Tooltip>
+                        <div className="border-l border-gray-300 h-5" />
+                      </>
+                    }
+                    <MaterialModule.Tooltip title="Add">
+                      <MaterialModule.Button
+                        size="small"
+                        onClick={handleAddClick}
+                        className="!min-w-0"
+                      >
+                        <MaterialModule.AddIcon fontSize="small" className="text-gray-800" />
+                      </MaterialModule.Button>
+                    </MaterialModule.Tooltip>
+
                     {
                       title != 'Attachments' &&
                       <>
                         <div className="border-l border-gray-300 h-5" />
-                        <MaterialModule.Button
-                          size="small"
-                          onClick={() => setIsEditing(true)}
-                          className="!min-w-0"
-                        >
-                          <MaterialModule.EditIcon
-                            fontSize="small"
-                            className="text-gray-800 !w-3.5"
-                          />
-                        </MaterialModule.Button>
+                        <MaterialModule.Tooltip title="Edit">
+                          <MaterialModule.Button
+                            size="small"
+                            onClick={() => setIsEditing(true)}
+                            className="!min-w-0"
+                          >
+                            <MaterialModule.EditIcon
+                              fontSize="small"
+                              className="text-gray-800 !w-3.5"
+                            />
+                          </MaterialModule.Button>
+                        </MaterialModule.Tooltip>
+
                       </>
                     }
                   </div>
                 </>
               ) : (
                 <>
-                  <MaterialModule.IconButton size="small" onClick={handleSave} color="primary">
-                    <MaterialModule.SaveIcon fontSize="small" />
-                  </MaterialModule.IconButton>
-                  <MaterialModule.IconButton size="small" onClick={handleCancel} color="error">
-                    <MaterialModule.CancelIcon fontSize="small" />
-                  </MaterialModule.IconButton>
+                  {document &&
+                    <MaterialModule.Tooltip title="Add Attachments">
+                      <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
+                        <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                      </MaterialModule.IconButton>
+                    </MaterialModule.Tooltip>
+
+                  }
+                  <MaterialModule.Tooltip title="Save Changes">
+                    <MaterialModule.IconButton size="small" onClick={handleSave} color="primary">
+                      <MaterialModule.SaveIcon fontSize="small" />
+                    </MaterialModule.IconButton>
+                  </MaterialModule.Tooltip>
+
+                  <MaterialModule.Tooltip title="Cancel">
+                    <MaterialModule.IconButton size="small" onClick={handleCancel} color="error">
+                      <MaterialModule.CancelIcon fontSize="small" />
+                    </MaterialModule.IconButton>
+                  </MaterialModule.Tooltip>
+
                 </>
               )}
             </div>
@@ -787,6 +1095,7 @@ const EditableTableGroup = ({
                             col.type === "select" ? (
                               <DynamicSelectWithAdd
                                 label=""
+                                title={col.label}
                                 value={
                                   col.options ? col.options.find(
                                     (opt: string) =>
@@ -959,7 +1268,7 @@ const EditableTableGroup = ({
                         }}>
                           <MaterialModule.IconButton
                             size="small"
-                            onClick={() => { handleEditClick(row); setIsEdit(true) }}
+                            onClick={() => { handleEditClick(row); }}
                             color="primary"
                           >
                             <MaterialModule.EditIcon fontSize="small" />
@@ -990,7 +1299,13 @@ const EditableTableGroup = ({
         sx={commonsx}
       >
         <div className="text-primary !border-b !p-2 flex items-center justify-between !border-gray-200">
-          <span className="ml-4">{isEdit ? 'Edit' : 'Add'} {title}</span>
+          <span className="ml-4">
+            {dialogType === "attachment"
+              ? "Upload Document"
+              : dialogType === "edit"
+                ? `Edit ${title}`
+                : `Add ${title}`}
+          </span>
           <MaterialModule.IconButton onClick={() => {
             setAddDialogOpen(false);
             setSelectedFile(null);
@@ -1001,7 +1316,7 @@ const EditableTableGroup = ({
         </div>
         <MaterialModule.DialogContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {addDialogFields.map((field: any) => (
+            {dialogFields.map((field: any) => (
               <div key={field.key} className="w-[220px]">
                 {field.type === "date" ? (
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1055,7 +1370,6 @@ const EditableTableGroup = ({
                           field.label,
                           value as string,
                         );
-
                         setNewItemData({
                           ...newItemData,
                           [field.key]: id,
@@ -1113,7 +1427,7 @@ const EditableTableGroup = ({
                     <input
                       accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
                       style={{ display: 'none' }}
-                      id="file-upload"
+                      id={`file-upload-${field.key}`}
                       type="file"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -1127,7 +1441,7 @@ const EditableTableGroup = ({
                         }
                       }}
                     />
-                    <label htmlFor="file-upload">
+                    <label htmlFor={`file-upload-${field.key}`}>
                       <MaterialModule.Button
                         variant="outlined"
                         component="span"
@@ -1171,7 +1485,7 @@ const EditableTableGroup = ({
           <MaterialModule.Button
             onClick={() => {
               setAddDialogOpen(false); setSelectedFile(null);
-              setNewItemData({})
+              setNewItemData({});
             }}
             variant="outlined"
             className="!text-gray-800 !border-gray-300"
@@ -1179,11 +1493,23 @@ const EditableTableGroup = ({
             Cancel
           </MaterialModule.Button>
           <MaterialModule.Button
-            onClick={handleAddConfirm}
+            onClick={() => {
+              if (dialogType === "attachment") {
+                handleAddAttachment(newItemData);
+              } else {
+                handleAddConfirm();
+              }
+            }}
             variant="contained"
             className="!bg-primary"
           >
-            {isEdit ? 'Update' : 'Add'}
+            {
+              dialogType === "attachment"
+                ? "Upload"
+                : dialogType === "edit"
+                  ? "Update"
+                  : "Add"
+            }
           </MaterialModule.Button>
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
@@ -1200,6 +1526,7 @@ export default function EmployeeDetails() {
   const [categoryOptions, setCategoryOptions] = useState<Record<string, any[]>>(
     {},
   );
+  const [categories, setCategories] = useState<Record<string, any[]>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
@@ -1229,8 +1556,9 @@ export default function EmployeeDetails() {
 
   const fetchCategoryOptions = async () => {
     try {
-      const response: any = await categoryService.getCategories({ size: 100 });
+      const response: any = await categoryService.getCategories();
       const categories = response.data.content || response.data || [];
+      setCategories(categories);
       const optionsMap: Record<string, any[]> = {};
       for (const category of categories) {
         const itemsResponse: any = await categoryService.getCategoryItems(
@@ -1287,7 +1615,7 @@ export default function EmployeeDetails() {
         internationalEmployee: updatedData.internationalEmployee
       };
       if (Object.keys(payload).length) {
-        await employeeService.updatePersonalInfo(id!, payload);
+        await employeeService.updatePersonalInfo(id, payload);
         await fetchEmployeeDetails();
         showSnackbar("Personal information updated successfully!", "success");
       }
@@ -1336,7 +1664,7 @@ export default function EmployeeDetails() {
             primary: item.primary,
           };
           await employeeService.updateEmergencyContact(
-            id!,
+            id,
             item.id,
             updatedItem,
           );
@@ -1356,7 +1684,7 @@ export default function EmployeeDetails() {
     try {
       newItem["relationshipId"] = newItem.relationship;
       delete newItem.relationship;
-      await employeeService.addEmergencyContact(id!, newItem);
+      await employeeService.addEmergencyContact(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Emergency contact added successfully!", "success");
     } catch (error: any) {
@@ -1374,7 +1702,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteEmergencyContact(id!, itemId);
+          await employeeService.deleteEmergencyContact(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Emergency contact deleted successfully!", "success");
         } catch (error: any) {
@@ -1407,7 +1735,7 @@ export default function EmployeeDetails() {
             pincode: item.pincode,
             primary: item.primary,
           };
-          await employeeService.updateAddress(id!, item.id, updatedItem);
+          await employeeService.updateAddress(id, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -1422,7 +1750,7 @@ export default function EmployeeDetails() {
   const handleAddAddress = async (newItem: any) => {
     showSpinner();
     try {
-      await employeeService.addAddress(id!, newItem);
+      await employeeService.addAddress(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Address added successfully!", "success");
     } catch (error: any) {
@@ -1440,7 +1768,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteAddress(id!, itemId);
+          await employeeService.deleteAddress(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Address deleted successfully!", "success");
         } catch (error: any) {
@@ -1476,7 +1804,7 @@ export default function EmployeeDetails() {
             percentage: Number(item.percentage),
             grade: item.grade,
           };
-          await employeeService.updateQualification(id!, item.id, updatedItem);
+          await employeeService.updateQualification(id, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -1499,7 +1827,7 @@ export default function EmployeeDetails() {
       delete newItem.qualificationType;
       delete newItem.qualificationArea;
 
-      await employeeService.addQualification(id!, newItem);
+      await employeeService.addQualification(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Qualification added successfully!", "success");
     } catch (error: any) {
@@ -1517,7 +1845,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteQualification(id!, itemId);
+          await employeeService.deleteQualification(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Qualification deleted successfully!", "success");
         } catch (error: any) {
@@ -1564,7 +1892,7 @@ export default function EmployeeDetails() {
         oldIdNo: updatedData.oldIdNo
       }
       if (Object.keys(payload).length) {
-        await employeeService.updateAdminInfo(id!, payload);
+        await employeeService.updateAdminInfo(id, payload);
         await fetchEmployeeDetails();
         showSnackbar("Employee details updated successfully!", "success");
       }
@@ -1587,7 +1915,7 @@ export default function EmployeeDetails() {
         esiEligible: updatedData.esiEligible,
         lwfCovered: updatedData.lwfCovered,
       };
-      await employeeService.updateEligibilityInfo(id!, payload);
+      await employeeService.updateEligibilityInfo(id, payload);
       await fetchEmployeeDetails();
       showSnackbar("Eligibility information updated successfully!", "success");
     } catch (error: any) {
@@ -1602,17 +1930,18 @@ export default function EmployeeDetails() {
     showSpinner();
     try {
       const payload = {
-        // loginUsername: updatedData.loginUsername,
-        // loginIpAddress: updatedData.loginIpAddress,
         backgroundCheckStatus: updatedData.backgroundCheckStatus,
-        backgroundVerificationCompletedOn:
-          updatedData.backgroundVerificationCompletedOn,
-        backgroundVerificationIndicator:
-          updatedData.backgroundVerificationIndicator,
+       backgroundVerificationCompletedOn:
+        updatedData.backgroundVerificationCompletedOn
+          ? new Date(
+              updatedData.backgroundVerificationCompletedOn
+            ).toISOString()
+          : null,
+        backgroundVerificationIndicator: updatedData.backgroundVerificationIndicator,
         agencyName: updatedData.agencyName,
         backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
       };
-      await employeeService.updateBackgroundInfo(id!, payload);
+      await employeeService.updateBackgroundInfo(id, payload);
       await fetchEmployeeDetails();
       showSnackbar("Background information updated successfully!", "success");
     } catch (error: any) {
@@ -1643,7 +1972,7 @@ export default function EmployeeDetails() {
             durationHours: Number(item.durationHours),
             conductedBy: item.conductedBy
           };
-          await employeeService.updateTrainingDetail(id!, item.id, updatedItem);
+          await employeeService.updateTrainingDetail(id, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -1661,7 +1990,7 @@ export default function EmployeeDetails() {
   const handleAddTrainingDetail = async (newItem: any) => {
     showSpinner();
     try {
-      await employeeService.addTrainingDetail(id!, newItem);
+      await employeeService.addTrainingDetail(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Training detail added successfully!", "success");
     } catch (error: any) {
@@ -1679,7 +2008,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteTrainingDetail(id!, itemId);
+          await employeeService.deleteTrainingDetail(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Training detail deleted successfully!", "success");
         } catch (error: any) {
@@ -1719,7 +2048,7 @@ export default function EmployeeDetails() {
             // "referenceContact": item.referenceContact
           };
           await employeeService.updatePreviousEmployment(
-            id!,
+            id,
             item.id,
             updatedItem,
           );
@@ -1741,7 +2070,7 @@ export default function EmployeeDetails() {
     showSpinner();
     try {
       await employeeService.addPreviousEmployment(
-        id!,
+        id,
         newItem,
       );
       await fetchEmployeeDetails();
@@ -1764,7 +2093,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deletePreviousEmployment(id!, itemId);
+          await employeeService.deletePreviousEmployment(id, itemId);
           showSnackbar("Previous employment deleted successfully!", "success");
           await fetchEmployeeDetails();
         } catch (error: any) {
@@ -1796,7 +2125,7 @@ export default function EmployeeDetails() {
         iban: updatedData.iban,
       };
       if (Object.keys(payload).length) {
-        await employeeService.updateBankDetails(id!, payload);
+        await employeeService.updateBankDetails(id, payload);
         await fetchEmployeeDetails();
         showSnackbar("Bank details updated successfully!", "success");
       }
@@ -1826,7 +2155,7 @@ export default function EmployeeDetails() {
             "remarks": item.remarks,
             "current": item.current
           };
-          await employeeService.updatePfAccount(id!, item.id, updatedItem);
+          await employeeService.updatePfAccount(id, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -1843,7 +2172,7 @@ export default function EmployeeDetails() {
     try {
       newItem["pfSchemeId"] = newItem.pfScheme;
       delete newItem.pfScheme;
-      await employeeService.addPfAccount(id!, newItem);
+      await employeeService.addPfAccount(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("PF added successfully!", "success");
     } catch (error: any) {
@@ -1861,7 +2190,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deletePfAccount(id!, itemId);
+          await employeeService.deletePfAccount(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Pf Account deleted successfully!", "success");
         } catch (error: any) {
@@ -1900,7 +2229,7 @@ export default function EmployeeDetails() {
         insuranceValidFrom: updatedData.insuranceValidFrom,
         insuranceValidTo: updatedData.insuranceValidTo,
       };
-      await employeeService.updateIdentityInfo(id!, payload);
+      await employeeService.updateIdentityInfo(id, payload);
       await fetchEmployeeDetails();
       showSnackbar("Identification details updated successfully!", "success");
     } catch (error: any) {
@@ -1919,7 +2248,7 @@ export default function EmployeeDetails() {
         esiJoiningDate: updatedData.esiJoiningDate,
         esiRelievingDate: updatedData.esiRelievingDate,
       };
-      await employeeService.updateEligibilityInfo(id!, payload);
+      await employeeService.updateEligibilityInfo(id, payload);
       await fetchEmployeeDetails()
       showSnackbar("Bank details updated successfully!", "success");
     } catch (error: any) {
@@ -1954,7 +2283,7 @@ export default function EmployeeDetails() {
             age: item.age,
             mobileNumber: item.mobileNumber,
           };
-          await employeeService.updateFamilyMember(id!, item.id, updatedItem);
+          await employeeService.updateFamilyMember(id, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -1977,7 +2306,7 @@ export default function EmployeeDetails() {
       delete newItem.gender;
       delete newItem.relationship;
 
-      await employeeService.addFamilyMember(id!, newItem);
+      await employeeService.addFamilyMember(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Family member added successfully!", "success");
     } catch (error: any) {
@@ -1995,7 +2324,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteFamilyMember(id!, itemId);
+          await employeeService.deleteFamilyMember(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Family member deleted successfully!", "success");
         } catch (error: any) {
@@ -2029,7 +2358,7 @@ export default function EmployeeDetails() {
 
   const fetchFamilyMembers = async () => {
     try {
-      const response: any = await employeeService.getFamilyMembers(id!);
+      const response: any = await employeeService.getFamilyMembers(id);
       setFamilyMembers(response.data || []);
     } catch (error) {
       console.error(error);
@@ -2045,6 +2374,12 @@ export default function EmployeeDetails() {
   useEffect(() => {
     if (tabValue === 8) {
       fetchFamilyMembers();
+    }
+  }, [tabValue])
+
+  useEffect(() => {
+    if (tabValue === 9) {
+      fetchEmployeeDetails();
     }
   }, [tabValue])
 
@@ -2082,7 +2417,7 @@ export default function EmployeeDetails() {
             "sharePercentage": Number(item.sharePercentage),
             "nominationType": item.nominationType
           }
-          await employeeService.updateNomination(id!, item.id, payload);
+          await employeeService.updateNomination(id, item.id, payload);
           await fetchEmployeeDetails();
         }
       }
@@ -2110,7 +2445,7 @@ export default function EmployeeDetails() {
         );
         return;
       }
-      await employeeService.addNomination(id!, newItem);
+      await employeeService.addNomination(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Nomination added successfully!", "success");
     } catch (error: any) {
@@ -2128,7 +2463,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteNomination(id!, itemId);
+          await employeeService.deleteNomination(id, itemId);
           await fetchEmployeeDetails()
           showSnackbar("Nomination deleted successfully!", "success");
         } catch (error: any) {
@@ -2148,7 +2483,7 @@ export default function EmployeeDetails() {
         showSnackbar('Document Type is Mandatory', 'warning')
         return
       };
-      await employeeService.addAttachment(id!, newItem);
+      await employeeService.addAttachment(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
@@ -2166,7 +2501,7 @@ export default function EmployeeDetails() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteAttachment(id!, itemId);
+          await employeeService.deleteAttachment(id, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Attachment deleted successfully!", "success");
         } catch (error: any) {
@@ -2296,6 +2631,7 @@ export default function EmployeeDetails() {
               data={employee}
               onSave={updatePersonalInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableTableGroup
@@ -2308,6 +2644,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteEmergencyContact}
               addDialogFields={emergencyColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
             />
           </TabPanel>
@@ -2324,6 +2661,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteAddress}
               addDialogFields={addressColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
           </TabPanel>
 
@@ -2339,6 +2677,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteQualification}
               addDialogFields={qualificationColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
             />
           </TabPanel>
@@ -2352,6 +2691,7 @@ export default function EmployeeDetails() {
               data={employee}
               onSave={updateAdminInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
@@ -2361,6 +2701,7 @@ export default function EmployeeDetails() {
               data={employee}
               onSave={updateEligibilityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
             <EditableGroup
               title="Verification"
@@ -2369,6 +2710,7 @@ export default function EmployeeDetails() {
               data={employee}
               onSave={updateBackgroundInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
           </TabPanel>
 
@@ -2384,6 +2726,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteTrainingDetail}
               addDialogFields={trainingDetailsColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
           </TabPanel>
 
@@ -2399,6 +2742,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeletePreviousEmployment}
               addDialogFields={employmentColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
           </TabPanel>
 
@@ -2408,68 +2752,92 @@ export default function EmployeeDetails() {
               title="Bank Details"
               icon={<MaterialModule.AccountBalanceIcon />}
               fields={bankColumns}
+              document="bank"
               data={employee}
               onSave={updateBankInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableTableGroup
               title="PF Details"
               icon={<MaterialModule.Person2Outlined />}
               data={employee.pfAccounts || []}
               columns={pfColumns}
+              document="pf"
               onSave={handleUpdatePf}
               onAdd={handleAddPf}
               onDelete={handleDeletePf}
               addDialogFields={pfColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="PAN Details"
               icon={<MaterialModule.Person2Outlined />}
               fields={panColumns}
+              document="pan"
               data={employee}
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="Aadhaar Details"
               icon={<MaterialModule.Person2Outlined />}
               fields={aadhaarColumns}
+              document="aadhaar"
               data={employee}
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="Passport Details"
               icon={<MaterialModule.FlightLandOutlined />}
               fields={passportVisaColumns}
+              document="passport"
               data={employee}
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="Insurance Details"
               icon={<MaterialModule.Person2Outlined />}
               fields={insuranceColumns}
+              document="insurance"
               data={employee}
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="ESI Details"
               icon={<MaterialModule.Person2Outlined />}
               fields={esiColumns}
+              document="esi"
               data={employee}
               onSave={updateESIInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="PRAN Details"
               icon={<MaterialModule.Person2Outlined />}
               fields={pranColumns}
               data={employee}
+              document="pran"
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
+              refreshCategoryOptions={fetchCategoryOptions}
             />
             <EditableGroup
               title="Login"
@@ -2478,6 +2846,7 @@ export default function EmployeeDetails() {
               data={employee}
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
           </TabPanel>
 
@@ -2493,6 +2862,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteFamilyMember}
               addDialogFields={familyColumns}
               categoryOptions={categoryOptions}
+              categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
             />
           </TabPanel>
@@ -2516,6 +2886,7 @@ export default function EmployeeDetails() {
                 }
                 onDelete={handleDeleteNomination}
                 addDialogFields={nominationConfigs[type].columns}
+                categories={categories}
                 categoryOptions={{
                   ...categoryOptions,
                   nomineeName: familyMemberOptions,
@@ -2535,6 +2906,7 @@ export default function EmployeeDetails() {
               onDelete={handleDeleteAttachment}
               addDialogFields={attachmentAddFields}
               categoryOptions={categoryOptions}
+              categories={categories}
             />
           </TabPanel>
         </div>

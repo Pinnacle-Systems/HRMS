@@ -216,10 +216,6 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
               textTransform: "none",
               borderColor: "#cbd5e1",
               color: "var(--text-primary)",
-              "&:hover": {
-                borderColor: "#94a3b8",
-                backgroundColor: "#f8fafc",
-              },
             }}
           >
             {state.confirmDialog.cancelText}

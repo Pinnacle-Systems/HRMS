@@ -58,7 +58,7 @@ export default function CategorySettings() {
   const getCategories = async () => {
     showSpinner();
     try {
-      const response: any = await categoryService.getCategories({size:100});
+      const response: any = await categoryService.getCategories();
       if (response.success) {
         setCategories(response.data.content || response.data || []);
       }

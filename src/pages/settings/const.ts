@@ -1,13 +1,13 @@
 export const companyFieldsWithSections = [
   // Section 1: Basic Information
   { section: 'Basic Information', isSection: true },
-  { key: 'companyName', label: 'Company Name', type: 'text', required:true, multiline: true, placeholder: '(e.g., VibeHR Solutions)' },
-  { key: 'aliasName', label: 'Alias Name', type: 'text', placeholder: '(e.g., VibeHR)', multiline: true },
+  { key: 'companyName', label: 'Company Name', type: 'text', required:true,placeholder: '(e.g., VibeHR Solutions)' },
+  { key: 'aliasName', label: 'Alias Name', type: 'text', placeholder: '(e.g., VibeHR)'},
   { key: 'code', label: 'Company Code', type: 'text', placeholder: '(e.g., VHR001)' },
   { key: 'costCode', label: 'Cost Code', type: 'text', placeholder: '(e.g., CC-2024-001)' },
   { key: 'companyType', label: 'Company Type', type: 'text', placeholder: '(e.g., Head Office)',disabled:true},
-  { key: 'companyAddress', label: 'Address', type: 'text', required:true, multiline: true, rows: 6 },
-  { key: 'location', label: 'Location', type: 'map', multiline: true, rows: 6 },
+  { key: 'companyAddress', label: 'Address', type: 'text', required:true, multiline: true, rows: 4 },
+  { key: 'location', label: 'Location', type: 'map', multiline: true, rows: 4 },
 
   // Sub Section: Address Information
   { subSection: 'Address Information', isSubSection: true, parentSection: 'Basic Information' },
@@ -71,7 +71,7 @@ export const companyFieldsWithSections = [
     { value: 11, label: 'November' },
     { value: 12, label: 'December' }
   ]},
-
+  { key: 'currencyId', label: 'Currency', type: 'master-select', placeholder: 'Select Currency',required:true},
   { key: 'signatoryName', label: 'Signatory Name', type: 'text', placeholder: '(e.g., Jane Smith)' },
   { key: 'signatoryDesignation', label: 'Signatory Designation', type: 'text', placeholder: '(e.g., Director)' }
 
@@ -80,14 +80,14 @@ export const companyFieldsWithSections = [
 // Separate file upload fields
 export const fileUploadFields = [
      {
-      key: "logo",
+      key: "logoUrl",
       label: "Company Logo",
       accept: "image/jpeg,image/png,image/jpg,image/svg+xml",
       maxSize: 2,
       description: "Recommended size: 200x200px. Max size: 2MB",
     },
     {
-      key: "signature",
+      key: "signatureUrl",
       label: "Signature",
       accept: "image/jpeg,image/png,image/jpg",
       maxSize: 1,
@@ -106,7 +106,7 @@ export const tabs = [
                 path: "/settings/general/company-settings",
             },
             {
-                id: "branch",
+                id: "branch-settings",
                 label: "Branch Settings",
                 path: "/settings/general/branch-settings",
             },
@@ -173,3 +173,4 @@ export const getCurrentRouteLabel = () => {
     }
     return "Company Settings";
   };
+  

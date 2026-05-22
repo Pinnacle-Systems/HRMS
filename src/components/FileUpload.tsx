@@ -4,6 +4,7 @@ import Close from "@mui/icons-material/Close";
 import CloudUpload from "@mui/icons-material/CloudUpload";
 import PictureAsPdf from "@mui/icons-material/PictureAsPdf";
 import { companyService } from '../services/modules/company';
+import { useUI } from '../context/Snackbar';
 
 interface FileUploadProps {
   label: string;
@@ -13,7 +14,7 @@ interface FileUploadProps {
   maxSize?: number;
   compact?: boolean;
   description?: string;
-  companyId?: number
+  companyId: string
 }
 
 export const FileUpload = ({
@@ -27,18 +28,29 @@ export const FileUpload = ({
   companyId
 }: FileUploadProps) => {
   const [preview, setPreview] = useState<string>('');
+  const { showSnackbar, hideSpinner, showSpinner } = useUI();
 
   useEffect(() => {
-    void (async () => {
-      if (typeof value === 'string') {
-        setPreview(value);
-      } else if (value instanceof File) {
-        setPreview(URL.createObjectURL(value));
-      } else {
-        setPreview('');
+    if (!value) {
+      setPreview('');
+      return;
+    }
+    if (typeof value === 'string') {
+      // const cacheBustedUrl = `${value}${value.includes("?") ? "&" : "?"}t=${Date.now()}`;
+      let processedUrl = value;
+      if (!value.includes('v=') && !value.includes('t=')) {
+        processedUrl = `${value}${value.includes("?") ? "&" : "?"}v=${Date.now()}`;
       }
-    })();
+      setPreview(processedUrl);
+      return;
+    }
+    if (value instanceof File) {
+      const objectUrl = URL.createObjectURL(value);
+      setPreview(objectUrl);
+      return () => URL.revokeObjectURL(objectUrl);
+    }
   }, [value]);
+
   const [error, setError] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,11 +75,12 @@ export const FileUpload = ({
 
     // Create preview for images
     if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // const reader = new FileReader();
+      // reader.onloadend = () => {
+      //   setPreview(reader.result as string);
+      // };
+      // reader.readAsDataURL(file);
+      setPreview(URL.createObjectURL(file));
     }
 
     onChange(file);
@@ -75,24 +88,42 @@ export const FileUpload = ({
 
   const handleRemove = async () => {
     setPreview('');
-    onChange('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    onChange('');
+    showSpinner()
     if (label == 'Signature') {
-      await companyService.updateCompany(companyId, { signatureUrl: '' });
+      try {
+        await companyService.deleteSignature(companyId);
+        setPreview("");
+        onChange("");
+        showSnackbar("Signature deleted", 'success')
+      } catch (error: any) {
+        showSnackbar(error.message, 'error')
+      } finally {
+        hideSpinner()
+      }
     } else {
-      await companyService.updateCompany(companyId, { logoUrl: '' });
+      try {
+        await companyService.deleteLogo(companyId);
+        setPreview("");
+        onChange("");
+        showSnackbar("Logo deleted", 'success')
+      } catch (error: any) {
+        showSnackbar(error.message, 'error')
+      } finally {
+        hideSpinner()
+      }
     }
-
   };
 
-  const isImage =
-    typeof preview === "string" &&
-    (
-      preview.startsWith("data:image") ||
-      /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(preview)
-    );
+  const isImage = typeof preview === "string" && (
+    preview.startsWith("data:image") ||
+    preview.match(/\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i) !== null ||
+    (preview.includes('blob:') && preview.includes('image'))
+  );
+
   return (
     <Paper variant="outlined" className={`${compact ? "p-3" : "p-4"} bg-white`}>
       <Typography variant="subtitle2" className={`font-semibold !text-gray-800 ${compact ? "!mb-1" : "!mb-2"}`}>
@@ -100,26 +131,28 @@ export const FileUpload = ({
       </Typography>
 
       {preview ? (
-        <Box className="relative inline-block">
-          {isImage ? (
-            <img
-              src={preview}
-              alt={label}
-              className={`${compact ? "w-24 h-24" : "w-32 h-32"} object-cover rounded-lg border border-gray-200`}
-            />
-          ) : (
-            <Box className={`${compact ? "w-24 h-24" : "w-32 h-32"} flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
-              <PictureAsPdf className="!w-12 !h-12 text-red-500" />
-            </Box>
-          )}
-          <IconButton
-            size="small"
-            className="!absolute !top-[1px] -right-[27px] bg-white shadow-md"
-            onClick={handleRemove}
-          >
-            <Close className="!w-4 !h-4 text-red-500" />
-          </IconButton>
-        </Box>
+        <>
+          <Box className="relative inline-block">
+            {isImage ? (
+              <img
+                src={preview}
+                alt={label}
+                className={`${compact ? "w-24 h-24" : label == 'Signature' ? "w-40" : 'w-16'} object-cover rounded-lg border border-gray-200`}
+              />
+            ) : (
+              <Box className={`${compact ? "w-24 h-24" : "w-32"} flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
+                <PictureAsPdf className="!w-12 !h-12 text-red-500" />
+              </Box>
+            )}
+            <IconButton
+              size="small"
+              className="!absolute !top-[1px] -right-[27px] bg-white shadow-md"
+              onClick={handleRemove}
+            >
+              <Close className="!w-4 !h-4 text-red-500" />
+            </IconButton>
+          </Box>
+        </>
       ) : (
         <Button
           variant="outlined"

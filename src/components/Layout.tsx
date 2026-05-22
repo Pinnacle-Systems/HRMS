@@ -38,7 +38,7 @@ import {
   getWorkspaceLabel,
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
-
+import logo from "../assets/logo.jpg"
 const drawerWidth = 180;
 
 export default function Layout() {
@@ -165,9 +165,11 @@ export default function Layout() {
               className="text-primary"
             >
               <MenuIcon />
+              {/* <img src={logo} alt=""  width="20px"/> */}
             </IconButton>
             <Box className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
+              {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div> */}
+              <img src={logo} alt=""  width="20px"/>
               <div className="font-bold text-gray-700">
                 Vibe<span className="text-primary">HR</span>
               </div>

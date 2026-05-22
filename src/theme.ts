@@ -339,6 +339,9 @@ const theme = createTheme({
 
     MuiOutlinedInput: {
       styleOverrides: {
+        input: {
+          color: "var(--text-primary)",
+        },
         root: {
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
             borderColor: "#02afff !important",
@@ -386,16 +389,32 @@ const theme = createTheme({
       styleOverrides: {
         select: {
           padding: "10px",
+          color: "var(--text-primary)",
         },
 
         outlined: {
           padding: "10px",
         },
 
+        icon: {
+          color: "var(--text-primary)",
+        },
+
         root: {
           "&:hover .MuiOutlinedInput-notchedOutline": {
             borderColor: "#02afff",
           },
+        },
+      },
+    },
+
+    MuiNativeSelect: {
+      styleOverrides: {
+        icon: {
+          color: "var(--text-primary)",
+        },
+        select: {
+          color: "var(--text-primary)",
         },
       },
     },
@@ -427,15 +446,25 @@ const theme = createTheme({
     },
 
     MuiTableRow: {
-    styleOverrides: {
-      root: {
-        "&.MuiTableRow-hover:hover": {
-          // backgroundColor: "#4b556354",
-          cursor:'pointer'
+      styleOverrides: {
+        root: {
+          "&.MuiTableRow-hover:hover": {
+            // backgroundColor: "#4b556354",
+            cursor: "pointer",
+          },
         },
       },
     },
-  },
+
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          "&.Mui-disabled": {
+            color: "gray",
+          },
+        },
+      },
+    },
   },
 });
 

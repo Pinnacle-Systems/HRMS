@@ -21,9 +21,10 @@ import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
 import { logger } from "../../utils/logger";
 import { formatDate } from "../../utils/dateFormatter";
-import { stickyHeaderLeftSx, stickyHeaderRightSx} from "./const";
+import { stickyHeaderLeftSx, stickyHeaderRightSx } from "./const";
 import type { FilterConfig, FilterField } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
+import { FilterAltOutlined, FilterListAlt, FilterListOutlined } from "@mui/icons-material";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -42,18 +43,12 @@ export default function EmployeeManagement() {
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
-  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  // const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
 
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [bulkUploadDialogOpen, setBulkUploadDialogOpen] = useState(false);
-
-  // ID Generation
-  // const [idGenerationMethod, setIdGenerationMethod] = useState<"auto" | "manual">("auto");
-  // const [employeeIdPattern, setEmployeeIdPattern] = useState("EMP");
-  // const [employeeIdSequence, setEmployeeIdSequence] = useState(1001);
-  // const [manualEmployeeId, setManualEmployeeId] = useState("");
 
   // Form data
   const [formData, setFormData] = useState<Partial<Employee>>({});
@@ -172,7 +167,7 @@ export default function EmployeeManagement() {
   const evaluateRule = (item: any, rule: any): boolean => {
     const fieldValue = item[rule.field];
     const ruleValue = rule.value;
-    
+
     switch (rule.operator) {
       case 'equals':
         return String(fieldValue).toLowerCase() === String(ruleValue).toLowerCase();
@@ -210,57 +205,74 @@ export default function EmployeeManagement() {
   };
 
   // Apply filters to data
-  const applyFiltersToData = (data: Employee[], filters: FilterConfig): Employee[] => {
+  const applyFiltersToData = (
+    data: Employee[],
+    filters: FilterConfig
+  ): Employee[] => {
     if (!filters || filters.rules.length === 0) return data;
-    
-    return data.filter(item => {
-      const ruleResults = filters.rules.map(rule => evaluateRule(item, rule));
-      
-      if (filters.condition === 'AND') {
-        return ruleResults.every(result => result === true);
-      } else {
-        return ruleResults.some(result => result === true);
+
+    return data.filter((item) => {
+      let result = evaluateRule(item, filters.rules[0]);
+
+      const results = filters.rules.map(rule =>
+        evaluateRule(item, rule)
+      );
+
+      if (filters.condition === "AND") {
+        return results.every(Boolean);
       }
+
+      return results.some(Boolean);
+
     });
   };
 
   // Handle filter application
-  const handleApplyFilters = (filters: FilterConfig) => {
-    setActiveFilters(filters);
-    const filtered = applyFiltersToData(originalEmployees, filters);
-    setFilteredEmployees(filtered);
-    setEmployees(filtered);
-    setTotal(filtered.length);
-    setPage(0); // Reset to first page
-  };
+ const handleApplyFilters = (filters: FilterConfig) => {
+  setActiveFilters(filters);
+  const filtered = applyFiltersToData(originalEmployees, filters);
+  setEmployees(filtered);
+  setTotal(filtered.length);
+  setPage(0);
+};
 
   // Remove a specific filter
   const removeFilter = (ruleId: string) => {
-    if (activeFilters) {
-      const newRules = activeFilters.rules.filter(rule => rule.id !== ruleId);
-      if (newRules.length > 0) {
-        const newFilters = { ...activeFilters, rules: newRules };
-        setActiveFilters(newFilters);
-        const filtered = applyFiltersToData(originalEmployees, newFilters);
-        setFilteredEmployees(filtered);
-        setEmployees(filtered);
-        setTotal(filtered.length);
-      } else {
-        // Clear all filters if no rules left
-        clearAllFilters();
-      }
-      setPage(0);
+  if (activeFilters) {
+    const newRules = activeFilters.rules.filter(
+      (rule) => rule.id !== ruleId
+    );
+
+    if (newRules.length > 0) {
+      const newFilters = {
+        ...activeFilters,
+        rules: newRules,
+      };
+
+      setActiveFilters(newFilters);
+
+      const filtered = applyFiltersToData(
+        originalEmployees,
+        newFilters
+      );
+
+      setEmployees(filtered);
+      setTotal(filtered.length);
+    } else {
+      clearAllFilters();
     }
-  };
+
+    setPage(0);
+  }
+};
 
   // Clear all filters
-  const clearAllFilters = () => {
-    setActiveFilters(null);
-    setFilteredEmployees(originalEmployees);
-    setEmployees(originalEmployees);
-    setTotal(originalEmployees.length);
-    setPage(0);
-  };
+ const clearAllFilters = () => {
+  setActiveFilters(null);
+  setEmployees(originalEmployees);
+  setTotal(originalEmployees.length);
+  setPage(0);
+};
 
   // Get active filter count
   const getActiveFilterCount = (): number => {
@@ -277,9 +289,9 @@ export default function EmployeeManagement() {
       const employeeData = response.data.content || response.data || [];
       setEmployees(employeeData);
       setOriginalEmployees(employeeData);
-      setFilteredEmployees(employeeData);
-      setTotal(response.data.totalElements || response.data.total ||  response.data.length || 0);
-      
+      // setFilteredEmployees(employeeData);
+      setTotal(response.data.totalElements || response.data.total || response.data.length || 0);
+
       // Re-apply filters if any exist
       if (activeFilters && activeFilters.rules.length > 0) {
         const filtered = applyFiltersToData(employeeData, activeFilters);
@@ -533,7 +545,7 @@ export default function EmployeeManagement() {
 
   return (
     <div className="">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <div className="font-semibold text-gray-800">
             Employee Management
@@ -543,22 +555,6 @@ export default function EmployeeManagement() {
           </div>
         </div>
         <div className="flex gap-3">
-          <MaterialModule.Button
-            variant="outlined"
-            // startIcon={<MaterialModule.FilterListIcon />}
-            onClick={() => setFilterOpen(true)}
-            sx={{ position: 'relative' }}
-          >
-            Filters
-            {getActiveFilterCount() > 0 && (
-              <MaterialModule.Chip
-                label={getActiveFilterCount()}
-                size="small"
-                color="primary"
-                sx={{ ml: 1 }}
-              />
-            )}
-          </MaterialModule.Button>
           <MaterialModule.Button
             variant="outlined"
             startIcon={<MaterialModule.FileUploadIcon />}
@@ -578,9 +574,9 @@ export default function EmployeeManagement() {
 
       {/* Active Filters Display */}
       {activeFilters && activeFilters.rules.length > 0 && (
-        <MaterialModule.Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+        <MaterialModule.Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center', p: 1, bgcolor: 'grey.100', borderRadius: 1, overflow: 'auto' }}>
           <MaterialModule.Typography variant="caption" color="textSecondary">
-            Active filters ({activeFilters.condition}):
+            Filters ({activeFilters.condition}):
           </MaterialModule.Typography>
           {activeFilters.rules.map((rule) => {
             const field = filterFields.find(f => f.id === rule.field);
@@ -628,14 +624,31 @@ export default function EmployeeManagement() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-cemter gap-2">
         <MaterialModule.TextField
           fullWidth
           variant="outlined"
-          placeholder="Search by name, email, or employee ID..."
+          placeholder="Search by name, email, firstName, lastName, mobileNumber  or employee ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+        <MaterialModule.Button
+          variant="outlined"
+          startIcon={<FilterAltOutlined />}
+          onClick={() => setFilterOpen(true)}
+          sx={{ position: 'relative' }}
+        >
+          <div>Filters</div>
+          {getActiveFilterCount() > 0 && (
+            // <MaterialModule.Chip
+            //   label={getActiveFilterCount()}
+            //   size="small"
+            //   color="warning"
+            //   sx={{ ml: 1, p:"5px", }}
+            // />
+            <div className="h-[18px] w-[30px] text-[10px] ml-2 bg-blue-700 text-white font-bold rounded-[50%]">{getActiveFilterCount()}</div>
+          )}
+        </MaterialModule.Button>
       </div>
 
       {/* Employees Table */}
@@ -714,44 +727,44 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  handleSortChange(
-                    "designation",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
-                }
+                // onClick={() =>
+                //   handleSortChange(
+                //     "designation",
+                //     sortOrder === "ASC" ? "DESC" : "ASC",
+                //   )
+                // }
               >
                 <div className="flex items-center gap-1">
                   Designation
-                  {getSortIcon("designation")}
+                  {/* {getSortIcon("designation")} */}
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  handleSortChange(
-                    "department",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
-                }
+                // onClick={() =>
+                //   handleSortChange(
+                //     "department",
+                //     sortOrder === "ASC" ? "DESC" : "ASC",
+                //   )
+                // }
               >
                 <div className="flex items-center gap-1">
                   Department
-                  {getSortIcon("department")}
+                  {/* {getSortIcon("department")} */}
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  handleSortChange(
-                    "branch",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
-                }
+                // onClick={() =>
+                //   handleSortChange(
+                //     "branch",
+                //     sortOrder === "ASC" ? "DESC" : "ASC",
+                //   )
+                // }
               >
                 <div className="flex items-center gap-1">
                   Branch
-                  {getSortIcon("branch")}
+                  {/* {getSortIcon("branch")} */}
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
@@ -769,15 +782,16 @@ export default function EmployeeManagement() {
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  handleSortChange(
-                    "employeeStatus",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
-                }>
+                // onClick={() =>
+                //   handleSortChange(
+                //     "employeeStatus",
+                //     sortOrder === "ASC" ? "DESC" : "ASC",
+                //   )
+                // }
+                >
                 <div className="flex items-center gap-1">
                   Status
-                  {getSortIcon("employeeStatus")}
+                  {/* {getSortIcon("employeeStatus")} */}
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell className="!font-semibold text-gray-800 text-center" sx={{
@@ -789,7 +803,7 @@ export default function EmployeeManagement() {
             </MaterialModule.TableRow>
           </MaterialModule.TableHead>
           <MaterialModule.TableBody>
-            {filteredEmployees.map((employee, index) => (
+            {employees.map((employee, index) => (
               <MaterialModule.TableRow key={employee.id} hover sx={getRowColor(index)}>
                 <MaterialModule.TableCell sx={{
                   ...getStickyLeftSx(index),
@@ -808,7 +822,7 @@ export default function EmployeeManagement() {
                 <MaterialModule.TableCell>{employee.branch || "-"}</MaterialModule.TableCell>
                 <MaterialModule.TableCell>{employee.joiningDate ? formatDate(employee.joiningDate) : "-"}</MaterialModule.TableCell>
                 <MaterialModule.TableCell>{employee.employeeStatus || "-"}
-                 
+
                   {/* <MaterialModule.Chip
                     label={employee.employeeStatus || "-"}
                     color={

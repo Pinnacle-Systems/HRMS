@@ -67,6 +67,8 @@ export const API_ENDPOINTS = {
 
   COMPANY: {
     DELETE: (id: string) => `/org/company/${id}`,
+    DELETE_LOGO: (id: string) => `/org/company/${id}/logo`,
+    DELETE_SIGNATURE: (id: string) => `/org/company/${id}/signature`,
     GET_BY_ID: (id: string) => `/org/company/${id}`,
     BASE: "/org/company",
     CREATE: "/org/company",
@@ -254,9 +256,11 @@ export const API_ENDPOINTS = {
 
     GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
     BASE: "/onboarding/checklist",
-    GET_BY_ID: (id: string,cid:string) => `/onboarding/${id}/checklist/${cid}/tasks`,
+    GET_BY_ID: (id: string, cid: string) =>
+      `/onboarding/${id}/checklist/${cid}/tasks`,
     GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
-    GET_DOCUMENTS: (onboardingId: string) => `/onboarding/${onboardingId}/documents`,
+    GET_DOCUMENTS: (onboardingId: string) =>
+      `/onboarding/${onboardingId}/documents`,
     EMPLOYEE_ONBOARDINGS: "/onboarding/employee-onboardings",
 
     PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
@@ -265,10 +269,15 @@ export const API_ENDPOINTS = {
     SEND_WELCOME: "/onboarding/send-welcome",
     CREATE_DOC: "/onboarding/documents",
     CREATE: "/onboarding/checklist",
-    CREATE_TASK:(id: string) => `/onboarding/checklist/${id}/tasks`,
+    CREATE_TASK: (id: string) => `/onboarding/checklist/${id}/tasks`,
     ASSIGN: "/onboarding/assign",
 
     UPDATE: (id: string) => `/onboarding/checklist/${id}`,
-    UPDATE_TASK: (id: string,tid:string) => `/onboarding/checklist/${id}/tasks/${tid}`,
+    UPDATE_TASK: (id: string, tid: string) =>
+      `/onboarding/checklist/${id}/tasks/${tid}`,
+  },
+
+  PASSWORD_CONFIG: {
+    BASE: "/password-policy",
   },
 };

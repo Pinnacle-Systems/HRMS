@@ -7,6 +7,8 @@ export const useMasterData = (enabled = true) => {
   const [countries, setCountries] = useState<unknown[]>([]);
   const [states, setStates] = useState<unknown[]>([]);
   const [cities, setCities] = useState<unknown[]>([]);
+  const [currencies, setCurrencies] = useState<unknown[]>([]);
+
   const [loading, setLoading] = useState(false);
 
   // Initial load
@@ -14,7 +16,9 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = await masterService.getCountries({ size: 200 }) as ApiListResponse;
+      const response = (await masterService.getCountries({
+        size: 200,
+      })) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCountries(data);
     } catch (error) {
@@ -28,7 +32,9 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = await masterService.getStates({ size: 200 }) as ApiListResponse;
+      const response = (await masterService.getStates({
+        size: 200,
+      })) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setStates(data);
     } catch (error) {
@@ -42,7 +48,9 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = await masterService.getCities({ size: 200 }) as ApiListResponse;
+      const response = (await masterService.getCities({
+        size: 200,
+      })) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCities(data);
     } catch (error) {
@@ -52,70 +60,103 @@ export const useMasterData = (enabled = true) => {
     }
   }, [enabled]);
 
-  // States by country
-  const fetchStatesByCountry = useCallback(async (countryId: string) => {
-    if (!countryId) return [];
+  const fetchCurrencies = useCallback(async () => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = await masterService.getStatesByCountry(countryId) as ApiListResponse;
+      const response = (await masterService.getCurrencies({
+        size: 200,
+      })) as ApiListResponse;
       const data = response.data?.content || response.data || [];
-      setStates(data);
-      return data;
+      setCurrencies(data);
     } catch (error) {
-      console.error("Error fetching states", error);
-      return [];
+      console.error("Error fetching countries", error);
     } finally {
       setLoading(false);
     }
   }, [enabled]);
+
+  // States by country
+  const fetchStatesByCountry = useCallback(
+    async (countryId: string) => {
+      if (!countryId) return [];
+      if (!enabled) return;
+      try {
+        setLoading(true);
+        const response = (await masterService.getStatesByCountry(
+          countryId,
+        )) as ApiListResponse;
+        const data = response.data?.content || response.data || [];
+        setStates(data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching states", error);
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [enabled],
+  );
 
   // Cities by country
-  const fetchCitiesByCountry = useCallback(async (countryId: string) => {
-    if (!enabled) return;
-    try {
-      setLoading(true);
-      const response = await masterService.getCitiesByCountry(countryId) as ApiListResponse;
-      const data = response.data?.content || response.data || [];
-      setCities(data);
-      return data;
-    } catch (error) {
-      console.error("Error fetching cities by country", error);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled]);
+  const fetchCitiesByCountry = useCallback(
+    async (countryId: string) => {
+      if (!enabled) return;
+      try {
+        setLoading(true);
+        const response = (await masterService.getCitiesByCountry(
+          countryId,
+        )) as ApiListResponse;
+        const data = response.data?.content || response.data || [];
+        setCities(data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching cities by country", error);
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [enabled],
+  );
 
   // Cities by state
-  const fetchCitiesByState = useCallback(async (stateId: string) => {
-    if (!enabled) return;
-    try {
-      setLoading(true);
-      const response = await masterService.getCitiesByState(stateId) as ApiListResponse;
-      const data = response.data?.content || response.data || [];
-      setCities(data);
-      return data;
-    } catch (error) {
-      console.error("Error fetching cities", error);
-      return [];
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled]);
+  const fetchCitiesByState = useCallback(
+    async (stateId: string) => {
+      if (!enabled) return;
+      try {
+        setLoading(true);
+        const response = (await masterService.getCitiesByState(
+          stateId,
+        )) as ApiListResponse;
+        const data = response.data?.content || response.data || [];
+        setCities(data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching cities", error);
+        return [];
+      } finally {
+        setLoading(false);
+      }
+    },
+    [enabled],
+  );
 
   useEffect(() => {
     void (async () => {
       await fetchCountries();
       await fetchStates();
       await fetchCities();
+      await fetchCurrencies();
     })();
-  }, [enabled,fetchCountries, fetchStates, fetchCities]);
+  }, [enabled, fetchCountries, fetchStates, fetchCities]);
 
   return {
     countries,
     states,
     cities,
+    currencies,
     loading,
     fetchStatesByCountry,
     fetchCitiesByCountry,
