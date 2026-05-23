@@ -165,10 +165,10 @@ Employee create/bulk upload
 
 | Area | Finding | Priority | Recommendation |
 |---|---|---|---|
-| CRUD | Service supports `/org/company`, `/org/company/{id}` create/get/update/delete. | P2 | Paths align. |
-| Update | Update must include id in path. Frontend service does this, screen depends on `companyInfo.id`. | P1 | Disable update until id is loaded. |
-| Logo/signature | Service supports upload/delete logo/signature paths. | P2 | Confirm file field names if upload fails. |
-| Currency | `currencyId` is commented out; currency active endpoint not consumed. | P2 | Add currency dropdown if required by backend schema. |
+| CRUD | Service supports `/org/company`, `/org/company/{id}` create/get/update/delete. | Fixed | Paths align, frontend uses dynamic company ID. |
+| Update | Update must include id in path. Frontend service does this, screen depends on `companyInfo.id`. | Fixed | Save logic properly validates/creates/updates using dynamic id. |
+| Logo/signature | Service supports upload/delete logo/signature paths. | Fixed | Frontend `companySettings.tsx` uses DELETE endpoints for removing logo/signature. |
+| Currency | `currencyId` is populated with active currencies. | Fixed | Active currency endpoint `/master/currencies/active` wired and consumed in `companySettings`. |
 
 ### Fiscal Years
 

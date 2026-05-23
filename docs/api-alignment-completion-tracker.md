@@ -26,7 +26,7 @@
 
 | Priority | Item | Area | Why next | Dependencies | Suggested prompt/status |
 |---|---|---|---|---|---|
-| **1** | Company cleanup | Company | Removes hardcoded ID, aligns logo/signature delete endpoints | None | *Next recommended item* |
+| **1** | Company cleanup | Company | ✅ Completed | None | Done |
 | 2 | Master Data dropdown optimization | Master Data | Performance and correctness improvement (active/cascade endpoints) | None | - |
 | 3 | Branch/Department/Category toggle cleanup | Organization | Align with Swagger endpoints (use PATCH) | None | - |
 | 4 | Invite activation flow | Auth / Onboarding | Essential flow for new user onboarding | Backend contract | - |

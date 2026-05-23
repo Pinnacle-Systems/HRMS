@@ -506,7 +506,7 @@ export const employeeService = {
       try {
         const json = JSON.parse(text);
         if (json.message) errMsg = json.message;
-      } catch (e) {
+      } catch {
         if (text) errMsg = text;
       }
       throw new Error(errMsg);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { masterService } from "../services/modules/masters";
 
-type ApiListResponse = { data?: { content?: unknown[] } | unknown[] };
+type ApiListResponse = any;
 
 export const useMasterData = (enabled = true) => {
   const [countries, setCountries] = useState<unknown[]>([]);
@@ -64,13 +64,11 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = (await masterService.getCurrencies({
-        size: 200,
-      })) as ApiListResponse;
+      const response = (await masterService.getActiveCurrencies()) as ApiListResponse;
       const data = response.data?.content || response.data || [];
       setCurrencies(data);
     } catch (error) {
-      console.error("Error fetching countries", error);
+      console.error("Error fetching currencies", error);
     } finally {
       setLoading(false);
     }

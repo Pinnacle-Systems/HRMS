@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { TextField, Box, Button, Select, FormControl, InputLabel, MenuItem, FormHelperText, Paper } from "@mui/material";
+import { useEffect, useState } from "react";
+import { TextField, Box, Button, Select, FormControl, InputLabel, MenuItem, FormHelperText } from "@mui/material";
 import {
   companyFieldsWithSections,
   fileUploadFields,
@@ -109,7 +109,8 @@ const CompanySettings = () => {
       const response: any = await companyService.uploadLogo(companyId, file);
       if (response.success) {
         const rawUrl = response.data?.logoUrl || response.data?.url;
-        const logoUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+        const ts = new Date().getTime();
+        const logoUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${ts}`;
         setLogoFile(logoUrl);
         setCompanyInfo((prev: any) => ({ ...prev, logoUrl }));
         showSnackbar("Logo uploaded successfully!", "success");
@@ -135,7 +136,8 @@ const CompanySettings = () => {
       const response: any = await companyService.uploadSignature(companyId, file);
       if (response.success) {
         const rawUrl = response.data?.signatureUrl || response.data?.url;
-        const signatureUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+        const ts = new Date().getTime();
+        const signatureUrl = `${rawUrl}${rawUrl.includes("?") ? "&" : "?"}v=${ts}`;
         setSignatureFile(signatureUrl);
         setCompanyInfo((prev: any) => ({ ...prev, signatureUrl }));
         showSnackbar("Signature uploaded successfully!", "success");
@@ -151,12 +153,41 @@ const CompanySettings = () => {
 
   const handleFileChange = async (key: string, file: File | string) => {
     if (typeof file === "string") {
+      const companyId = companyInfo.id;
       if (key === "logoUrl") {
-        setCompanyInfo((prev: any) => ({ ...prev, logoUrl: "" }));
-        setLogoFile("");
-      } else {
-        setCompanyInfo((prev: any) => ({ ...prev, signatureUrl: "" }));
-        setSignatureFile("");
+        if (companyId) {
+          showSpinner();
+          try {
+            await companyService.deleteLogo(companyId);
+            setCompanyInfo((prev: any) => ({ ...prev, logoUrl: "" }));
+            setLogoFile("");
+            showSnackbar("Logo removed successfully!", "success");
+          } catch (error: any) {
+            showSnackbar(error.message || "Failed to remove logo", "error");
+          } finally {
+            hideSpinner();
+          }
+        } else {
+          setCompanyInfo((prev: any) => ({ ...prev, logoUrl: "" }));
+          setLogoFile("");
+        }
+      } else if (key === "signatureUrl") {
+        if (companyId) {
+          showSpinner();
+          try {
+            await companyService.deleteSignature(companyId);
+            setCompanyInfo((prev: any) => ({ ...prev, signatureUrl: "" }));
+            setSignatureFile("");
+            showSnackbar("Signature removed successfully!", "success");
+          } catch (error: any) {
+            showSnackbar(error.message || "Failed to remove signature", "error");
+          } finally {
+            hideSpinner();
+          }
+        } else {
+          setCompanyInfo((prev: any) => ({ ...prev, signatureUrl: "" }));
+          setSignatureFile("");
+        }
       }
       return;
     }
@@ -283,8 +314,9 @@ const CompanySettings = () => {
       }
     } else {
       try {
-        delete companyInfo['currency'];
-        const res: any = await companyService.createCompany(companyInfo);
+        const payload = { ...companyInfo };
+        delete payload['currency'];
+        const res: any = await companyService.createCompany(payload);
         if (res.success) {
           showSnackbar(res.message, "success");
         }
@@ -619,7 +651,6 @@ const CompanySettings = () => {
               );
             }
 
-            const fieldCount = section.fields.length;
             const gridClass =
               // fieldCount % 7 === 0 ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-7" :
               // fieldCount % 9 === 0 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-7" :

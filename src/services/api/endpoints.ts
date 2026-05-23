@@ -163,6 +163,7 @@ export const API_ENDPOINTS = {
     GET_COUNTRY: "/master/countries",
     GET_STATES: "/master/states",
     GET_CURRENCIES: "/master/currencies",
+    GET_ACTIVE_CURRENCIES: "/master/currencies/active",
     GET_STATES_BY_COUNTRY: (cid: any) => `/master/states/by-country/${cid}`,
     GET_CITIES_BY_COUNTRY: (cid: any) => `/master/cities/by-country/${cid}`,
     GET_CITIES_BY_STATE: (sid: any) => `/master/cities/by-state/${sid}`,

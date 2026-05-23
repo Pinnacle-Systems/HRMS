@@ -13,12 +13,8 @@ import {
   TextField,
   Box,
   Typography,
-  RadioGroup,
-  Radio,
-  FormControlLabel,
   Autocomplete,
   FormHelperText,
-  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -501,7 +497,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                 </Typography>
               </Box>
             ) : (
-              rules.map((rule, index) => {
+              rules.map((rule) => {
                 const operators = getAvailableOperators(rule.field);
                 return (
                   <Box key={rule.id}>

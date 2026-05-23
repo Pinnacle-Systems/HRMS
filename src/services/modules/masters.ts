@@ -18,6 +18,10 @@ export const masterService = {
     return apiService.get(API_ENDPOINTS.MASTER.GET_CURRENCIES, { params });
   },
 
+  async getActiveCurrencies(params?: any) {
+    return apiService.get(API_ENDPOINTS.MASTER.GET_ACTIVE_CURRENCIES, { params });
+  },
+
   async getStatesByCountry(countryId: string) {
     return apiService.get(
       API_ENDPOINTS.MASTER.GET_STATES_BY_COUNTRY(countryId),
