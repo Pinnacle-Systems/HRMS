@@ -1,22 +1,18 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
-export interface GetCategoriesParams {
-  page?: number;
-  size?: number;
-  search?: string;
-}
-
 export interface GetCategoryItemsParams {
   page?: number;
   size?: number;
+  sort?: string;
   search?: string;
+  isActive?: boolean;
 }
 
 export const categoryService = {
   // Category CRUD
-  async getCategories(params?: GetCategoriesParams) {
-    return apiService.get(API_ENDPOINTS.CATEGORY.BASECAT, { params });
+  async getCategories() {
+    return apiService.get(API_ENDPOINTS.CATEGORY.BASECAT);
   },
 
   async getCategoryById(id: string) {

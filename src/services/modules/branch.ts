@@ -1,16 +1,17 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
-interface GetBranchesParams {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+export interface GetBranchesParams {
+  page?: number;
+  size?: number;
+  sort?: string;
   search?: string;
+  isActive?: boolean;
+  branchHeadId?: string;
 }
 
 class BranchService {
-  async getBranches(params?: GetBranchesParams) {
+  async getBranches(params?: GetBranchesParams | Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.BRANCH.BASE, { params });
   }
 
