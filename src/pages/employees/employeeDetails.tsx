@@ -47,7 +47,7 @@ import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
-import { AttachFileOutlined, Visibility } from "@mui/icons-material";
+import { AttachFileOutlined } from "@mui/icons-material";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;

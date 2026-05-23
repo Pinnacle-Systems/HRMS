@@ -12,17 +12,18 @@ import dayjs from 'dayjs';
 import ViewIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
-import { onBoardService } from '../../../../services/modules/onBoard';
-import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
+import { normalizeOnboardingAssignmentsResponse, onBoardService } from '../../../../services/modules/onBoard';
+import type { EmployeeSummaryResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
+import EmployeeAsyncCombobox from '../../../../components/employees/EmployeeAsyncCombobox';
 
 export const AssignOnboarding = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [checklists, setChecklists] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummaryResponse | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -33,10 +34,9 @@ export const AssignOnboarding = () => {
   const fetchData = async () => {
     try {
       showSpinner();
-      const [checklistsResult, employeesResult, assignmentsResult] = await Promise.allSettled([
+      const [checklistsResult, assignmentsResult] = await Promise.allSettled([
         onBoardService.getChecklists({ isActive: true, size: 100 }),
-        employeeService.getEmployees({ size: 100 }),
-        onBoardService.getEmployeeOnboardings?.({ size: 100 }) || Promise.resolve({ data: { content: [] } })
+        onBoardService.getAssignments({ size: 100 })
       ]);
 
       if (checklistsResult.status === 'fulfilled') {
@@ -44,15 +44,8 @@ export const AssignOnboarding = () => {
         setChecklists(checklistsRes.data?.content || checklistsRes.data || []);
       }
 
-      if (employeesResult.status === 'fulfilled') {
-        setEmployees(normalizeEmployeesResponse(employeesResult.value));
-      } else {
-        showSnackbar(employeesResult.reason?.message || 'Failed to load employees', 'error');
-      }
-
       if (assignmentsResult.status === 'fulfilled') {
-        const assignmentsRes: any = assignmentsResult.value;
-        setAssignments(assignmentsRes.data?.content || assignmentsRes.data || []);
+        setAssignments(normalizeOnboardingAssignmentsResponse(assignmentsResult.value));
       }
     } catch (error: any) {
       showSnackbar(error.message, 'error');
@@ -75,6 +68,7 @@ export const AssignOnboarding = () => {
       await onBoardService.assignOnboarding(formData);
       setIsDialogOpen(false);
       setFormData({ employeeId: '', checklistId: '', startDate: dayjs().format('YYYY-MM-DD') });
+      setSelectedEmployee(null);
       fetchData();
       showSnackbar('Onboarding assigned successfully!', 'success');
     } catch (error: any) {
@@ -86,15 +80,15 @@ export const AssignOnboarding = () => {
 
   const handleDeleteAssignment = async (id: string) => {
     showConfirmDialog({
-      title: 'Delete Onboarding Assignment',
-      message: 'Are you sure you want to delete this onboarding assignment?',
-      confirmText: 'Delete',
+      title: 'Deactivate Onboarding Assignment',
+      message: 'Are you sure you want to deactivate this onboarding assignment?',
+      confirmText: 'Deactivate',
       onConfirm: async () => {
         try {
           showSpinner();
           await onBoardService.deleteEmployeeOnboarding(id);
           fetchData();
-          showSnackbar('Onboarding assignment deleted successfully!', 'success');
+          showSnackbar('Onboarding assignment deactivated successfully!', 'success');
         } catch (error: any) {
           showSnackbar(error.message, 'error');
         } finally {
@@ -154,7 +148,7 @@ export const AssignOnboarding = () => {
   };
 
   const getSelectedEmployee = () => {
-    return employees.find(e => e.id === formData.employeeId);
+    return selectedEmployee;
   };
 
   return (
@@ -260,7 +254,7 @@ export const AssignOnboarding = () => {
                     <IconButton size="small" aria-label={`Send welcome to ${assignment.employeeName || 'employee'}`} onClick={() => handleSendWelcome(assignment)} color="secondary">
                       <SendIcon fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" aria-label={`Delete assignment for ${assignment.employeeName || 'employee'}`} onClick={() => handleDeleteAssignment(assignment.id)} color="error">
+                    <IconButton size="small" aria-label={`Deactivate assignment for ${assignment.employeeName || 'employee'}`} onClick={() => handleDeleteAssignment(assignment.id)} color="error">
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   </div>
@@ -276,20 +270,16 @@ export const AssignOnboarding = () => {
         <DialogContent>
           <div className="space-y-4 pt-4">
             <FormControl fullWidth>
-              <InputLabel id="assign-onboarding-employee-label">Select Employee</InputLabel>
-              <Select
-                labelId="assign-onboarding-employee-label"
-                id="assign-onboarding-employee"
+              <EmployeeAsyncCombobox
                 value={formData.employeeId}
+                selectedEmployee={selectedEmployee}
                 label="Select Employee"
-                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-              >
-                {employees.map((emp) => (
-                  <MenuItem key={emp.id} value={emp.id}>
-                    {emp.name} ({emp.employeeId})
-                  </MenuItem>
-                ))}
-              </Select>
+                onChange={(employeeId, employee) => {
+                  setFormData({ ...formData, employeeId: employeeId || '' });
+                  setSelectedEmployee(employee || null);
+                }}
+                required
+              />
             </FormControl>
             
             {getSelectedEmployee() && (

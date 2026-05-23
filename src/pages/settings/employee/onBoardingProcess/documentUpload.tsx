@@ -1,56 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Card, CardContent, Grid, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Button,
   Dialog, DialogContent, DialogActions, TextField, Select, MenuItem,
-  FormControl, InputLabel, Chip, LinearProgress, Avatar, Tooltip,
+  FormControl, InputLabel, Chip, LinearProgress, Tooltip,
 } from '@mui/material';
-import { 
-  CloudUpload as UploadIcon, Delete as DeleteIcon, 
-  Visibility as ViewIcon, AttachFile as AttachmentIcon,
-} from '@mui/icons-material';
-import { onBoardService } from '../../../../services/modules/onBoard';
-import { employeeService, normalizeEmployeesResponse } from '../../../../services/modules/employees';
+import UploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ViewIcon from '@mui/icons-material/Visibility';
+import AttachmentIcon from '@mui/icons-material/AttachFile';
+import {
+  normalizeAssignedTasksResponse,
+  normalizeDocumentsResponse,
+  normalizeOnboardingAssignmentsResponse,
+  onBoardService,
+} from '../../../../services/modules/onBoard';
+import type { EmployeeSummaryResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 import dayjs from 'dayjs';
+import EmployeeAsyncCombobox from '../../../../components/employees/EmployeeAsyncCombobox';
 
 export const DocumentsUpload = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeSummaryResponse | null>(null);
   const [onboardings, setOnboardings] = useState<any[]>([]);
   const [selectedOnboarding, setSelectedOnboarding] = useState<any>(null);
   const [documents, setDocuments] = useState<any[]>([]);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadData, setUploadData] = useState({
-    taskId: '',
+    taskInstanceId: '',
     documentType: '',
     remarks: ''
   });
   const [tasks, setTasks] = useState<any[]>([]);
 
-  const fetchEmployees = async () => {
-    try {
-      showSpinner();
-      const response:any = await employeeService.getEmployees({ size: 100 });
-      setEmployees(normalizeEmployeesResponse(response));
-    } catch (error: any) {
-      showSnackbar(error.message, 'error');
-    } finally {
-      hideSpinner();
-    }
-  };
-
   const fetchEmployeeOnboardings = async (employeeId: string) => {
     try {
       showSpinner();
-      const response:any = await onBoardService.getEmployeeOnboardings?.({ 
+      const response:any = await onBoardService.getAssignments({ 
         employeeId,
         size: 100 
       });
-      const data = response?.data?.content || response?.data || [];
-      setOnboardings(data);
+      setOnboardings(normalizeOnboardingAssignmentsResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     } finally {
@@ -62,7 +54,7 @@ export const DocumentsUpload = () => {
     try {
       showSpinner();
       const response:any = await onBoardService.getEmployeeTasks(onboardingId, checklistId);
-      setTasks(response.data?.tasks || response.data || []);
+      setTasks(normalizeAssignedTasksResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     } finally {
@@ -73,21 +65,20 @@ export const DocumentsUpload = () => {
   const fetchDocuments = async (onboardingId: string) => {
     try {
       const response:any = await onBoardService.getDocuments(onboardingId);
-      setDocuments(response.data?.content || response.data || []);
+      setDocuments(normalizeDocumentsResponse(response));
     } catch (error: any) {
       showSnackbar(error.message, 'error');
     }
   };
 
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  const handleEmployeeSelect = async (employee: any) => {
+  const handleEmployeeSelect = async (employee: EmployeeSummaryResponse | null) => {
     setSelectedEmployee(employee);
     setSelectedOnboarding(null);
     setDocuments([]);
-    await fetchEmployeeOnboardings(employee.id);
+    setOnboardings([]);
+    if (employee?.id) {
+      await fetchEmployeeOnboardings(employee.id);
+    }
   };
 
   const handleOnboardingSelect = async (onboarding: any) => {
@@ -98,23 +89,26 @@ export const DocumentsUpload = () => {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !uploadData.taskId || !uploadData.documentType) {
+    if (!selectedFile || !uploadData.taskInstanceId || !uploadData.documentType) {
       showSnackbar('Please select a file, task, and document type', 'error');
       return;
     }
-
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('documentType', uploadData.documentType);
-    formData.append('remarks', uploadData.remarks);
-    formData.append('taskId', uploadData.taskId);
+    if (!selectedEmployee?.id) {
+      showSnackbar('Cannot upload document: employee id is missing.', 'error');
+      return;
+    }
 
     try {
       showSpinner();
-      await onBoardService.createDocument(formData);
+      await onBoardService.createDocument({
+        file: selectedFile,
+        taskInstanceId: uploadData.taskInstanceId,
+        employeeId: selectedEmployee.id,
+        notes: uploadData.remarks,
+      });
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
-      setUploadData({ taskId: '', documentType: '', remarks: '' });
+      setUploadData({ taskInstanceId: '', documentType: '', remarks: '' });
       await fetchDocuments(selectedOnboarding.id);
       showSnackbar('Document uploaded successfully!', 'success');
     } catch (error: any) {
@@ -124,7 +118,12 @@ export const DocumentsUpload = () => {
     }
   };
 
-  const handleDeleteDocument = async (documentId: string) => {
+  const handleDeleteDocument = async (taskInstanceId?: string) => {
+    if (!taskInstanceId) {
+      showSnackbar('Cannot delete document: task instance id is missing.', 'error');
+      return;
+    }
+
     showConfirmDialog({
       title: 'Delete Document',
       message: 'Are you sure you want to delete this document?',
@@ -132,7 +131,7 @@ export const DocumentsUpload = () => {
       onConfirm: async () => {
         try {
           showSpinner();
-          await onBoardService.deleteDocument(documentId);
+          await onBoardService.deleteDocument(taskInstanceId);
           await fetchDocuments(selectedOnboarding.id);
           showSnackbar('Document deleted successfully!', 'success');
         } catch (error: any) {
@@ -157,9 +156,11 @@ export const DocumentsUpload = () => {
   // };
 
   const getTaskName = (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
-    return task?.taskName || taskId;
+    const task = tasks.find(t => getTaskInstanceId(t) === taskId || t.taskId === taskId);
+    return task?.taskName || task?.title || taskId;
   };
+
+  const getTaskInstanceId = (task: any) => task.taskInstanceId || task.id || task.taskId || '';
 
   return (
     <div className="p-4">
@@ -170,28 +171,16 @@ export const DocumentsUpload = () => {
         <Grid>
           <Card>
             <CardContent>
-              <Typography variant="subtitle1" className="font-semibold mb-3">Employees</Typography>
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {employees.map((employee) => (
-                  <div
-                    key={employee.id}
-                    onClick={() => handleEmployeeSelect(employee)}
-                    className={`p-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${
-                      selectedEmployee?.id === employee.id 
-                        ? 'bg-primary text-white' 
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <Avatar className="!w-8 !h-8">
-                      {employee.name?.charAt(0)}
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{employee.name}</div>
-                      <div className="text-xs truncate">{employee.employeeId}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Typography variant="subtitle1" className="font-semibold mb-3">Employee</Typography>
+              <EmployeeAsyncCombobox
+                value={selectedEmployee?.id || null}
+                selectedEmployee={selectedEmployee}
+                label="Select Employee"
+                placeholder="Search employee by name or ID..."
+                onChange={(_employeeId, employee) => {
+                  void handleEmployeeSelect(employee || null);
+                }}
+              />
             </CardContent>
           </Card>
         </Grid>
@@ -287,7 +276,7 @@ export const DocumentsUpload = () => {
                               />
                             </TableCell>
                             <TableCell className="text-sm">
-                              {getTaskName(doc.taskId)}
+                              {getTaskName(doc.taskInstanceId || doc.taskId)}
                             </TableCell>
                             <TableCell className="text-sm">{doc.documentName}</TableCell>
                             <TableCell className="text-sm">
@@ -310,7 +299,7 @@ export const DocumentsUpload = () => {
                                   <IconButton 
                                     size="small" 
                                     color="error"
-                                    onClick={() => handleDeleteDocument(doc.id)}
+                                    onClick={() => handleDeleteDocument(doc.taskInstanceId || doc.taskId)}
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
@@ -361,13 +350,13 @@ export const DocumentsUpload = () => {
             <FormControl fullWidth>
               <InputLabel>Select Task</InputLabel>
               <Select
-                value={uploadData.taskId}
+                value={uploadData.taskInstanceId}
                 label="Select Task"
-                onChange={(e) => setUploadData({ ...uploadData, taskId: e.target.value })}
+                onChange={(e) => setUploadData({ ...uploadData, taskInstanceId: e.target.value })}
               >
                 {tasks.filter(t => t.status !== 'Completed').map((task) => (
-                  <MenuItem key={task.id} value={task.id}>
-                    {task.taskName} ({task.status})
+                  <MenuItem key={getTaskInstanceId(task)} value={getTaskInstanceId(task)}>
+                    {task.taskName || task.title} ({task.status})
                   </MenuItem>
                 ))}
               </Select>
@@ -439,7 +428,7 @@ export const DocumentsUpload = () => {
             onClick={handleUpload} 
             variant="contained" 
             className="!bg-primary"
-            disabled={!selectedFile || !uploadData.taskId || !uploadData.documentType}
+            disabled={!selectedFile || !uploadData.taskInstanceId || !uploadData.documentType}
           >
             Upload
           </Button>

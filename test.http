@@ -136,3 +136,11 @@ Authorization: Bearer {{access_token}}
 # @name get_payroll_leave_summary
 GET {{api_base_url}}/payroll/leave-summary
 Authorization: Bearer {{access_token}}
+
+###
+# @name download_template
+GET {{api_base_url}}/employees/bulk-upload/template
+Authorization: Bearer {{access_token}}
+Accept: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+
+###

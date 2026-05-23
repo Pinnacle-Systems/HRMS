@@ -1,10 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
 import reset from '../../../assets/reset.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
+import { passwordPolicyService, type PasswordPolicyResponse } from "../../../services/modules/passwordPolicy";
+import {
+  FALLBACK_PASSWORD_POLICY,
+  validatePasswordAgainstPolicy,
+} from "../../../utils/passwordPolicyValidation";
 
 export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
@@ -12,22 +17,40 @@ export default function ResetPassword() {
   const [visible1, setVisible1] = useState(false);
   const [visible2, setVisible2] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicyResponse>(
+    FALLBACK_PASSWORD_POLICY,
+  );
   // const [passwordMatch, setPasswordMatch] = useState(true);
   // const navigate = useNavigate();
   const token = localStorage.getItem("resetToken");
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
-  const validation = {
-    length: newPassword.length >= 8,
-    uppercase: /[A-Z]/.test(newPassword),
-    lowercase: /[a-z]/.test(newPassword),
-    number: /[0-9]/.test(newPassword),
-  };
+  const passwordValidationMessages = validatePasswordAgainstPolicy(
+    newPassword,
+    passwordPolicy,
+  );
   const passwordMatch = confirmPassword === "" || newPassword === confirmPassword;
-  const isPasswordValid =
-    validation.length &&
-    validation.uppercase &&
-    validation.lowercase &&
-    validation.number;
+  const isPasswordValid = passwordValidationMessages.length === 0;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    passwordPolicyService
+      .getPasswordPolicy()
+      .then((policy) => {
+        if (isMounted) {
+          setPasswordPolicy(policy);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setPasswordPolicy(FALLBACK_PASSWORD_POLICY);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // useEffect(() => {
   //   if (confirmPassword !== "") {
@@ -154,23 +177,10 @@ export default function ResetPassword() {
                     <div className="text-[12px]  text-gray-600 mb-2">
                       Password strength:
                     </div>
-                    <div className="text-[11px] grid grid-cols-2 text-gray-500 mb-8">
-                      <p className={validation.length ? "text-green-600" : ""}>
-                        ✓ At least 8 characters
-                      </p>
-                      <p
-                        className={validation.uppercase ? "text-green-600" : ""}
-                      >
-                        ✓ At least one uppercase letter
-                      </p>
-                      <p
-                        className={validation.lowercase ? "text-green-600" : ""}
-                      >
-                        ✓ At least one lowercase letter
-                      </p>
-                      <p className={validation.number ? "text-green-600" : ""}>
-                        ✓ At least one number
-                      </p>
+                    <div className="text-[11px] grid grid-cols-1 text-gray-500 mb-8">
+                      {passwordValidationMessages.map((message) => (
+                        <p key={message}>{message}</p>
+                      ))}
                     </div>
                   </>
                 )}

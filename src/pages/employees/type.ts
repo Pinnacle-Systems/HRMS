@@ -20,6 +20,8 @@ export interface Employee {
   designation?: string;
   employeeStatus?:string;
   employeeStatusId?:string;
+  isActive?: boolean;
+  deactivatedAt?: string;
   //   status: "PENDING" | "ACTIVE" | "INACTIVE" | "ONBOARDING";
   //   isWelcomeEmailSent: boolean;
   //   welcomeEmailSentAt?: string;

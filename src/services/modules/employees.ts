@@ -3,8 +3,213 @@ import { API_ENDPOINTS } from "../api/endpoints";
 
 type EmployeeLike = Record<string, any>;
 
-export const normalizeEmployeesResponse = (response: any): EmployeeLike[] => {
+export interface EmployeeListQuery {
+  page?: number;
+  size?: number;
+  sort?: string | string[];
+  search?: string;
+  dept?: string;
+  branch?: string;
+  designationId?: string;
+  empTypeId?: string;
+  employeeStatusId?: string;
+  managerId?: string;
+  joinedFrom?: string;
+  joinedTo?: string;
+  includeInactive?: boolean;
+}
+
+export interface EmployeeSummaryResponse {
+  id?: string;
+  employeeId?: string;
+  employeeCode?: string;
+  code?: string;
+  name?: string;
+  fullName?: string;
+  employeeName?: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  emailAddress?: string;
+  email?: string;
+  mobileNumber?: string;
+  department?: string;
+  departmentId?: string;
+  designation?: string;
+  designationId?: string;
+  branch?: string;
+  branchId?: string;
+  joiningDate?: string;
+  employeeStatus?: string;
+  employeeStatusId?: string;
+  isActive?: boolean;
+  deactivatedAt?: string;
+  createdAt?: string;
+  [key: string]: any;
+}
+
+export interface SpringPage<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  numberOfElements: number;
+  first: boolean;
+  last: boolean;
+  empty: boolean;
+  pageable?: unknown;
+}
+
+export interface ApiResponsePageEmployeeSummaryResponse {
+  success?: boolean;
+  message?: string;
+  data: SpringPage<EmployeeSummaryResponse>;
+}
+
+export interface BulkUploadRowError {
+  row?: number;
+  field?: string;
+  message?: string;
+}
+
+export interface BulkUploadResponse {
+  status?: string;
+  successCount?: number;
+  failureCount?: number;
+  errors?: BulkUploadRowError[];
+  welcomeEmailsSent?: number;
+  welcomeEmailsFailed?: number;
+  welcomeEmailFailures?: string[];
+}
+
+export const normalizeBulkUploadResponse = (response: unknown): BulkUploadResponse => {
+  const r = response as Record<string, any>;
+  const data: Record<string, any> = r?.data ?? r ?? {};
+  return {
+    status: data.status,
+    successCount: data.successCount ?? data.importedCount,
+    failureCount: data.failureCount,
+    errors: Array.isArray(data.errors) ? data.errors : Array.isArray(data.rowErrors) ? data.rowErrors : [],
+    welcomeEmailsSent: data.welcomeEmailsSent,
+    welcomeEmailsFailed: data.welcomeEmailsFailed,
+    welcomeEmailFailures: Array.isArray(data.welcomeEmailFailures) ? data.welcomeEmailFailures : [],
+  };
+};
+
+const EMPTY_EMPLOYEE_PAGE: SpringPage<EmployeeSummaryResponse> = {
+  content: [],
+  totalElements: 0,
+  totalPages: 0,
+  size: 0,
+  number: 0,
+  numberOfElements: 0,
+  first: true,
+  last: true,
+  empty: true,
+};
+
+export const buildEmployeeListParams = (
+  query: EmployeeListQuery = {},
+): EmployeeListQuery => {
+  const params: EmployeeListQuery = {};
+  const supportedKeys: Array<keyof EmployeeListQuery> = [
+    "page",
+    "size",
+    "sort",
+    "search",
+    "dept",
+    "branch",
+    "designationId",
+    "empTypeId",
+    "employeeStatusId",
+    "managerId",
+    "joinedFrom",
+    "joinedTo",
+    "includeInactive",
+  ];
+
+  supportedKeys.forEach((key) => {
+    const value = query[key];
+    if (value !== undefined && value !== null && value !== "") {
+      (params as Record<keyof EmployeeListQuery, unknown>)[key] = value;
+    }
+  });
+
+  return params;
+};
+
+const normalizeEmployee = (employee: EmployeeLike): EmployeeSummaryResponse => {
+  const name =
+    employee.name ||
+    employee.fullName ||
+    employee.employeeName ||
+    [employee.firstName, employee.middleName, employee.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    employee.emailAddress ||
+    employee.email ||
+    employee.employeeId ||
+    employee.id ||
+    "";
+
+  return {
+    ...employee,
+    id: employee.id || employee.employeeId,
+    employeeId: employee.employeeId || employee.employeeCode || employee.code || "",
+    name,
+  };
+};
+
+export const normalizeEmployeePageResponse = (
+  response: any,
+): SpringPage<EmployeeSummaryResponse> => {
   const payload = response?.data ?? response;
+  const page = payload?.content
+    ? payload
+    : payload?.data?.content
+      ? payload.data
+      : null;
+
+  if (page) {
+    const content = Array.isArray(page.content)
+      ? page.content.map(normalizeEmployee)
+      : [];
+
+    return {
+      ...EMPTY_EMPLOYEE_PAGE,
+      ...page,
+      content,
+      totalElements: Number(page.totalElements ?? content.length),
+      totalPages: Number(page.totalPages ?? 0),
+      size: Number(page.size ?? content.length),
+      number: Number(page.number ?? 0),
+      numberOfElements: Number(page.numberOfElements ?? content.length),
+      first: Boolean(page.first ?? page.number === 0),
+      last: Boolean(page.last ?? true),
+      empty: Boolean(page.empty ?? content.length === 0),
+    };
+  }
+
+  const content = normalizeEmployeesResponse(response);
+  return {
+    ...EMPTY_EMPLOYEE_PAGE,
+    content,
+    totalElements: content.length,
+    totalPages: content.length > 0 ? 1 : 0,
+    size: content.length,
+    numberOfElements: content.length,
+    empty: content.length === 0,
+  };
+};
+
+export const normalizeEmployeesResponse = (
+  response: any,
+): EmployeeSummaryResponse[] => {
+  const payload = response?.data?.content
+    ? response.data
+    : response?.data ?? response;
   const candidates = [
     payload?.content,
     payload?.employees,
@@ -16,35 +221,17 @@ export const normalizeEmployeesResponse = (response: any): EmployeeLike[] => {
   ];
   const employees = candidates.find(Array.isArray) ?? [];
 
-  return employees.map((employee: EmployeeLike) => {
-    const name =
-      employee.name ||
-      employee.fullName ||
-      employee.employeeName ||
-      [employee.firstName, employee.middleName, employee.lastName]
-        .filter(Boolean)
-        .join(" ")
-        .trim() ||
-      employee.emailAddress ||
-      employee.email ||
-      employee.employeeId ||
-      employee.id ||
-      "";
-
-    return {
-      ...employee,
-      id: employee.id || employee.employeeId,
-      employeeId: employee.employeeId || employee.employeeCode || employee.code || "",
-      name,
-    };
-  });
+  return employees.map(normalizeEmployee);
 };
 
 export const employeeService = {
   // ==================== MAIN CRUD OPERATIONS ====================
   
-  async getEmployees(params?: any) {
-    return apiService.get(API_ENDPOINTS.EMPLOYEE.BASE, { params });
+  async getEmployees(params?: EmployeeListQuery) {
+    return apiService.get<ApiResponsePageEmployeeSummaryResponse>(
+      API_ENDPOINTS.EMPLOYEE.BASE,
+      { params: buildEmployeeListParams(params) },
+    );
   },
 
   async getEmployeeById(id: any) {
@@ -59,7 +246,17 @@ export const employeeService = {
     return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE(id), data);
   },
 
-  async deleteEmployee(id: any) {
+  async deactivateEmployee(id: string) {
+    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id));
+  },
+
+  async reactivateEmployee(id: string): Promise<EmployeeSummaryResponse> {
+    const response: any = await apiService.patch(API_ENDPOINTS.EMPLOYEE.REACTIVATE(id), {});
+    return (response?.data ?? response) as EmployeeSummaryResponse;
+  },
+
+  /** @deprecated Use deactivateEmployee instead */
+  async deleteEmployee(id: string) {
     return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id));
   },
 
@@ -260,10 +457,11 @@ export const employeeService = {
   },
 
   // ==================== BULK UPLOAD ====================
-  
-  async bulkUploadEmployees(formData: FormData, onProgress?: (progress: number) => void) {
+
+  async bulkUploadEmployees(file: File, onProgress?: (progress: number) => void) {
+    const formData = new FormData();
+    formData.append("file", file);
     return apiService.post(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD, formData, {
-      // headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -289,16 +487,45 @@ export const employeeService = {
     return apiService.post(`/employees/${id}/resend-welcome`);
   },
 
-  // ==================== SAMPLE TEMPLATE ====================
-  
-  async downloadSampleTemplate() {
-    const response:any = await apiService.get("/employees/sample-template", {
+  // ==================== BULK UPLOAD TEMPLATE ====================
+
+  async downloadBulkUploadTemplate() {
+    const response = await apiService.axiosInstance.get(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD_TEMPLATE, {
       responseType: "blob",
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+
+    const blob = response.data;
+
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded file is empty.");
+    }
+
+    if (blob.type === "application/json" || blob.type === "text/plain") {
+      const text = await blob.text();
+      let errMsg = "Failed to download template.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errMsg = json.message;
+      } catch {
+        if (text) errMsg = text;
+      }
+      throw new Error(errMsg);
+    }
+
+    let filename = "employee_bulk_upload_template.xlsx";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.indexOf("attachment") !== -1) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "employee_sample_template.xlsx");
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     link.remove();

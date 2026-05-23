@@ -25,6 +25,10 @@ export const API_ENDPOINTS = {
     GET_BY_TENANTID: "/login-history/tenant",
   },
 
+  PASSWORD_POLICY: {
+    BASE: "/password-policy",
+  },
+
   BRANCH: {
     BASE: "/org/branches",
     GET_BY_ID: (id: string) => `/org/branches/${id}`,
@@ -79,6 +83,7 @@ export const API_ENDPOINTS = {
 
   EMPLOYEE: {
     DELETE: (id: string) => `/employees/${id}`,
+    REACTIVATE: (id: string) => `/employees/${id}/reactivate`,
     DELETE_TRAINING: (id: string, tid: string) =>
       `/employees/${id}/training-details/${tid}`,
     DELETE_QUALIFICATION: (id: string, qid: string) =>
@@ -132,6 +137,7 @@ export const API_ENDPOINTS = {
     POST_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
     LEAVE_ADJUSTMENTS: (id: string) => `/employees/${id}/leave-adjustments`,
     BULK_UPLOAD: "/employees/bulk-upload",
+    BULK_UPLOAD_TEMPLATE: "/employees/bulk-upload/template",
 
     UPDATE: (id: string) => `/employees/${id}`,
     UPDATE_TRAINING: (id: string, tid: string) =>
@@ -157,6 +163,7 @@ export const API_ENDPOINTS = {
     GET_COUNTRY: "/master/countries",
     GET_STATES: "/master/states",
     GET_CURRENCIES: "/master/currencies",
+    GET_ACTIVE_CURRENCIES: "/master/currencies/active",
     GET_STATES_BY_COUNTRY: (cid: any) => `/master/states/by-country/${cid}`,
     GET_CITIES_BY_COUNTRY: (cid: any) => `/master/cities/by-country/${cid}`,
     GET_CITIES_BY_STATE: (sid: any) => `/master/cities/by-state/${sid}`,
@@ -252,16 +259,16 @@ export const API_ENDPOINTS = {
     DELETE_TASK: (id: string, tid: string) =>
       `/onboarding/checklist/${id}/tasks/${tid}`,
     DELETE_EMP: (id: string) => `/onboarding/${id}`,
-    DELETE_DOC: (id: string) => `/onboarding/documents/${id}`,
+    REACTIVATE_EMP: (id: string) => `/onboarding/${id}/reactivate`,
+    DELETE_DOC: (taskInstanceId: string) => `/onboarding/documents/${taskInstanceId}`,
 
     GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
     BASE: "/onboarding/checklist",
     GET_BY_ID: (id: string, cid: string) =>
       `/onboarding/${id}/checklist/${cid}/tasks`,
     GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
-    GET_DOCUMENTS: (onboardingId: string) =>
-      `/onboarding/${onboardingId}/documents`,
-    EMPLOYEE_ONBOARDINGS: "/onboarding/employee-onboardings",
+    GET_DOCUMENTS: (onboardingId: string) => `/onboarding/${onboardingId}/documents`,
+    ASSIGNMENTS: "/onboarding/assignments",
 
     PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
     PATCH_REORDER: (id: string) => `/onboarding/checklist/${id}/tasks/reorder`,

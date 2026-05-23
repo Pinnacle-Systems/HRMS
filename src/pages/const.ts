@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-import { categoryService } from "../services/modules/category";
 
 export const getRowColor = (index: number) => ({
   backgroundColor:

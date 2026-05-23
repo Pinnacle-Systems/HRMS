@@ -54,7 +54,7 @@ test.describe("mocked onboarding contract flow", () => {
       });
     });
 
-    await page.route("**/api/onboarding/employee-onboardings**", async (route) => {
+    await page.route("**/api/onboarding/assignments**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",

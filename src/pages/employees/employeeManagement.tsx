@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import MaterialModule from "../../materialModule";
-import { employeeService } from "../../services/modules/employees";
+import {
+  employeeService,
+  normalizeEmployeePageResponse,
+  normalizeBulkUploadResponse,
+  type EmployeeListQuery,
+  type BulkUploadResponse,
+  type EmployeeSummaryResponse,
+} from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
 import { useUI } from "../../context/Snackbar";
@@ -19,12 +26,11 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { getRowColor, getStickyLeftSx, getStickyRightSx } from "../const";
 import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
-import { logger } from "../../utils/logger";
 import { formatDate } from "../../utils/dateFormatter";
 import { stickyHeaderLeftSx, stickyHeaderRightSx } from "./const";
 import type { FilterConfig, FilterField } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
-import { FilterAltOutlined, FilterListAlt, FilterListOutlined } from "@mui/icons-material";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -32,7 +38,6 @@ export default function EmployeeManagement() {
 
   // State for employees
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [originalEmployees, setOriginalEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
@@ -43,7 +48,7 @@ export default function EmployeeManagement() {
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
-  // const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const [includeInactive, setIncludeInactive] = useState(false);
 
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,19 +61,18 @@ export default function EmployeeManagement() {
   // Bulk upload
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
 
-  // Code Generation
+  // Code Generation (used by Add Employee dialog)
   const [hasManualEmpId, setHasManualEmpId] = useState(false);
-  const [empCodeMode, setEmpCodeMode] = useState("auto");
   const [empCodeType, setEmpCodeType] = useState("pattern");
   const [empGenerationFlow, setEmpGenerationFlow] = useState<"new" | "continue">("new");
   const [empPrefix, setEmpPrefix] = useState("EMP");
   const [empStartNumber, setEmpStartNumber] = useState("001");
   const [manualEmployeeId, setManualEmployeeId] = useState("");
-  const [hasEmpIdColumn, setHasEmpIdColumn] = useState(true);
   const [empDigitCount, setEmpDigitCount] = useState("4");
 
   // Define filter fields for employee management
@@ -98,13 +102,13 @@ export default function EmployeeManagement() {
       placeholder: 'Enter mobile number',
     },
     {
-      id: 'designation',
+      id: 'designationId',
       label: 'Designation',
       type: 'select',
-      options: designations.map(d => ({ value: d.name, label: d.name })),
+      options: designations.map(d => ({ value: d.id, label: d.name })),
     },
     {
-      id: 'department',
+      id: 'dept',
       label: 'Department',
       type: 'select',
       options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })),
@@ -116,12 +120,12 @@ export default function EmployeeManagement() {
       options: branches.map(b => ({ value: b.branchName, label: b.branchName })),
     },
     {
-      id: 'joiningDate',
+      id: 'joinedFrom',
       label: 'Joining Date',
       type: 'date',
     },
     {
-      id: 'employeeStatus',
+      id: 'employeeStatusId',
       label: 'Employee Status',
       type: 'select',
       options: [
@@ -132,12 +136,6 @@ export default function EmployeeManagement() {
       ],
     },
   ];
-
-  useEffect(() => {
-    if (hasEmpIdColumn) {
-      setEmpCodeMode("auto");
-    }
-  }, [hasEmpIdColumn]);
 
   const generateRandomAlphaNumeric = (length: number) => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -165,7 +163,11 @@ export default function EmployeeManagement() {
 
   // Evaluate a single filter rule
   const evaluateRule = (item: any, rule: any): boolean => {
-    const fieldValue = item[rule.field];
+    const localFieldMap: Record<string, string> = {
+      dept: "department",
+      joinedFrom: "joiningDate",
+    };
+    const fieldValue = item[localFieldMap[rule.field] || rule.field];
     const ruleValue = rule.value;
 
     switch (rule.operator) {
@@ -212,8 +214,6 @@ export default function EmployeeManagement() {
     if (!filters || filters.rules.length === 0) return data;
 
     return data.filter((item) => {
-      let result = evaluateRule(item, filters.rules[0]);
-
       const results = filters.rules.map(rule =>
         evaluateRule(item, rule)
       );
@@ -227,77 +227,129 @@ export default function EmployeeManagement() {
     });
   };
 
-  // Handle filter application
- const handleApplyFilters = (filters: FilterConfig) => {
-  setActiveFilters(filters);
-  const filtered = applyFiltersToData(originalEmployees, filters);
-  setEmployees(filtered);
-  setTotal(filtered.length);
-  setPage(0);
-};
+  const handleApplyFilters = (filters: FilterConfig) => {
+    setActiveFilters(filters);
+    setPage(0);
+  };
 
   // Remove a specific filter
   const removeFilter = (ruleId: string) => {
-  if (activeFilters) {
-    const newRules = activeFilters.rules.filter(
-      (rule) => rule.id !== ruleId
-    );
-
-    if (newRules.length > 0) {
-      const newFilters = {
-        ...activeFilters,
-        rules: newRules,
-      };
-
-      setActiveFilters(newFilters);
-
-      const filtered = applyFiltersToData(
-        originalEmployees,
-        newFilters
-      );
-
-      setEmployees(filtered);
-      setTotal(filtered.length);
-    } else {
-      clearAllFilters();
+    if (activeFilters) {
+      const newRules = activeFilters.rules.filter(rule => rule.id !== ruleId);
+      if (newRules.length > 0) {
+        const newFilters = { ...activeFilters, rules: newRules };
+        setActiveFilters(newFilters);
+      } else {
+        // Clear all filters if no rules left
+        clearAllFilters();
+      }
+      setPage(0);
     }
-
-    setPage(0);
-  }
-};
+  };
 
   // Clear all filters
- const clearAllFilters = () => {
-  setActiveFilters(null);
-  setEmployees(originalEmployees);
-  setTotal(originalEmployees.length);
-  setPage(0);
-};
+  const clearAllFilters = () => {
+    setActiveFilters(null);
+    setPage(0);
+  };
 
   // Get active filter count
   const getActiveFilterCount = (): number => {
     return activeFilters?.rules.length || 0;
   };
 
+  const buildServerFilterParams = (filters: FilterConfig | null): EmployeeListQuery => {
+    if (!filters?.rules.length || filters.condition !== "AND") return {};
+
+    return filters.rules.reduce<EmployeeListQuery>((params, rule) => {
+      if (rule.operator !== "equals" && rule.operator !== "between") return params;
+
+      switch (rule.field) {
+        case "dept":
+          params.dept = String(rule.value);
+          break;
+        case "branch":
+          params.branch = String(rule.value);
+          break;
+        case "designationId":
+          params.designationId = String(rule.value);
+          break;
+        case "employeeStatusId":
+          params.employeeStatusId = String(rule.value);
+          break;
+        case "managerId":
+          params.managerId = String(rule.value);
+          break;
+        case "joinedFrom":
+          if (rule.operator === "between") {
+            params.joinedFrom = String(rule.value);
+            params.joinedTo = String(rule.value2);
+          } else {
+            params.joinedFrom = String(rule.value);
+          }
+          break;
+        case "employeeId":
+        case "name":
+        case "emailAddress":
+        case "mobileNumber":
+          if (!params.search) params.search = String(rule.value);
+          break;
+        default:
+          break;
+      }
+
+      return params;
+    }, {});
+  };
+
+  const isServerSupportedFilter = (filters: FilterConfig | null): boolean => {
+    if (!filters?.rules.length) return true;
+    if (filters.condition !== "AND") return false;
+
+    return filters.rules.every((rule) => {
+      const simpleFields = [
+        "dept",
+        "branch",
+        "designationId",
+        "employeeStatusId",
+        "managerId",
+        "employeeId",
+        "name",
+        "emailAddress",
+        "mobileNumber",
+      ];
+
+      return (
+        (simpleFields.includes(rule.field) && rule.operator === "equals") ||
+        (rule.field === "joinedFrom" && (rule.operator === "equals" || rule.operator === "between"))
+      );
+    });
+  };
+
   // Fetch employees
   const getEmployees = async () => {
     showSpinner();
     try {
-      const params: any = { page, size: limit, sort: `${sortBy},${sortOrder}` };
+      const params: EmployeeListQuery = {
+        page,
+        size: limit,
+        sort: `${sortBy},${sortOrder}`,
+        ...buildServerFilterParams(activeFilters),
+      };
       if (searchTerm) params.search = searchTerm;
-      const response: any = await employeeService.getEmployees(params);
-      const employeeData = response.data.content || response.data || [];
-      setEmployees(employeeData);
-      setOriginalEmployees(employeeData);
-      // setFilteredEmployees(employeeData);
-      setTotal(response.data.totalElements || response.data.total || response.data.length || 0);
+      if (includeInactive) params.includeInactive = true;
+      const response = await employeeService.getEmployees(params);
+      const employeePage = normalizeEmployeePageResponse(response);
+      const employeeData = employeePage.content as Employee[];
+      let visibleEmployees = employeeData;
 
-      // Re-apply filters if any exist
-      if (activeFilters && activeFilters.rules.length > 0) {
-        const filtered = applyFiltersToData(employeeData, activeFilters);
-        setEmployees(filtered);
-        setTotal(filtered.length);
+      setTotal(employeePage.totalElements);
+
+      // Operators outside the backend query contract are applied to the current page only.
+      if (activeFilters && activeFilters.rules.length > 0 && !isServerSupportedFilter(activeFilters)) {
+        visibleEmployees = applyFiltersToData(employeeData, activeFilters);
       }
+      setEmployees(visibleEmployees);
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employees", "error");
     } finally {
@@ -322,16 +374,16 @@ export default function EmployeeManagement() {
   useEffect(() => {
     getEmployees();
     getMasterData();
-  }, [page, limit, sortBy, sortOrder, searchTerm]);
+  }, [page, limit, sortBy, sortOrder, searchTerm, activeFilters, includeInactive]);
 
   // Update filter fields when master data changes
   useEffect(() => {
     // This will update the filter fields options when departments/designations/branches change
     filterFields.map(field => {
-      if (field.id === 'designation') {
-        return { ...field, options: designations.map(d => ({ value: d.name, label: d.name })) };
+      if (field.id === 'designationId') {
+        return { ...field, options: designations.map(d => ({ value: d.id, label: d.name })) };
       }
-      if (field.id === 'department') {
+      if (field.id === 'dept') {
         return { ...field, options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })) };
       }
       if (field.id === 'branch') {
@@ -478,26 +530,66 @@ export default function EmployeeManagement() {
     }
   };
 
-  // Handle Delete Employee
-  const handleDeleteEmployee = async (id: string, name: string) => {
+  const isInactiveEmployee = (employee: Employee): boolean =>
+    employee.employeeStatus === "INACTIVE" ||
+    employee.isActive === false ||
+    !!employee.deactivatedAt;
+
+  // Handle Deactivate Employee
+  const handleDeactivateEmployee = async (id: string, name: string) => {
     showConfirmDialog({
-      title: "Delete Employee",
-      message: `Are you sure you want to delete "${name}"?`,
-      confirmText: "Delete",
+      title: "Deactivate Employee",
+      message: `Deactivate "${name}"? The employee will be marked inactive. All history (leave, payroll, onboarding) is retained and the employee can be reactivated later.`,
+      confirmText: "Deactivate",
       cancelText: "Cancel",
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteEmployee(id);
-          showSnackbar("Employee deleted successfully!", "success");
+          await employeeService.deactivateEmployee(id);
+          showSnackbar(`"${name}" has been deactivated.`, "success");
           getEmployees();
         } catch (error: any) {
-          showSnackbar(error.message, "error");
+          showSnackbar(error.message || "Failed to deactivate employee.", "error");
         } finally {
           hideSpinner();
         }
       },
     });
+  };
+
+  // Handle Reactivate Employee
+  const handleReactivateEmployee = async (id: string, name: string) => {
+    showConfirmDialog({
+      title: "Reactivate Employee",
+      message: `Reactivate "${name}"? The employee will be restored to active status.`,
+      confirmText: "Reactivate",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const updated: EmployeeSummaryResponse = await employeeService.reactivateEmployee(id);
+          showSnackbar(
+            `"${updated?.name ?? name}" has been reactivated.`,
+            "success",
+          );
+          getEmployees();
+        } catch (error: any) {
+          showSnackbar(error.message || "Failed to reactivate employee.", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  const BULK_UPLOAD_ACCEPTED = [".csv", ".xlsx"];
+  const BULK_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+  const handleCloseBulkUploadDialog = () => {
+    setBulkUploadDialogOpen(false);
+    setUploadFile(null);
+    setUploadProgress(0);
+    setUploadResult(null);
   };
 
   // Handle Bulk Upload
@@ -506,36 +598,40 @@ export default function EmployeeManagement() {
       showSnackbar("Please select a file to upload", "error");
       return;
     }
+
+    const ext = uploadFile.name.toLowerCase().slice(uploadFile.name.lastIndexOf("."));
+    if (!BULK_UPLOAD_ACCEPTED.includes(ext)) {
+      showSnackbar("Invalid file type. Please upload a CSV or XLSX file.", "error");
+      return;
+    }
+
+    if (uploadFile.size > BULK_UPLOAD_MAX_BYTES) {
+      showSnackbar("File exceeds the 10 MB limit. Please upload a smaller file.", "error");
+      return;
+    }
+
+    setUploadResult(null);
     showSpinner();
     try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("hasEmpIdColumn", String(hasEmpIdColumn));
-      if (!hasEmpIdColumn) {
-        formData.append("empCodeMode", empCodeMode);
-        formData.append("empCodeType", empCodeType);
-        if (empCodeType === 'pattern') {
-          formData.append("empPrefix", empPrefix);
-        }
-        if (empCodeType === 'pattern' || empCodeType === 'number') {
-          formData.append("empStartNumber", empStartNumber);
-        }
-        if (empCodeType === 'alphanumeric') {
-          formData.append("empDigitCount", empDigitCount);
-        }
-      }
       const response: any = await employeeService.bulkUploadEmployees(
-        formData, (progress) => { setUploadProgress(progress); });
-      if (response.success && response.data.errors.length == 0) {
-        showSnackbar("Upload successful!", "success");
-        setBulkUploadDialogOpen(false);
-        setUploadFile(null);
-        setUploadProgress(0);
-        getEmployees();
-      } else if (response.data.errors.length > 0) {
-        logger.info("Bulk upload Error", response.data.errors);
-        showSnackbar(response.data.status + " Check the error in console", "error");
+        uploadFile,
+        (progress) => { setUploadProgress(progress); },
+      );
+      const result = normalizeBulkUploadResponse(response);
+      setUploadResult(result);
+      const errorCount = result.failureCount ?? result.errors?.length ?? 0;
+      if (errorCount === 0) {
+        showSnackbar(
+          `Upload successful! ${result.successCount ?? 0} employees imported.`,
+          "success",
+        );
+      } else {
+        showSnackbar(
+          `Upload completed with ${errorCount} row error(s). See details below.`,
+          "warning",
+        );
       }
+      getEmployees();
     } catch (error: any) {
       showSnackbar(error.message || "Failed to upload", "error");
     } finally {
@@ -554,7 +650,17 @@ export default function EmployeeManagement() {
             Manage employees, send welcome emails, and track onboarding
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <MaterialModule.FormControlLabel
+            control={
+              <MaterialModule.Switch
+                checked={includeInactive}
+                onChange={(e) => { setIncludeInactive(e.target.checked); setPage(0); }}
+                size="small"
+              />
+            }
+            label={<span className="text-[12px] text-gray-600">Include inactive</span>}
+          />
           <MaterialModule.Button
             variant="outlined"
             startIcon={<MaterialModule.FileUploadIcon />}
@@ -634,7 +740,7 @@ export default function EmployeeManagement() {
         />
         <MaterialModule.Button
           variant="outlined"
-          startIcon={<FilterAltOutlined />}
+          startIcon={<FilterAltOutlinedIcon />}
           onClick={() => setFilterOpen(true)}
           sx={{ position: 'relative' }}
         >
@@ -727,12 +833,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "designation",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "designation",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Designation
@@ -741,12 +847,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "department",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "department",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Department
@@ -755,12 +861,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "branch",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "branch",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Branch
@@ -782,13 +888,13 @@ export default function EmployeeManagement() {
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "employeeStatus",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
-                >
+              // onClick={() =>
+              //   handleSortChange(
+              //     "employeeStatus",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
+              >
                 <div className="flex items-center gap-1">
                   Status
                   {/* {getSortIcon("employeeStatus")} */}
@@ -850,25 +956,29 @@ export default function EmployeeManagement() {
                         />
                       </MaterialModule.IconButton>
                     </MaterialModule.Tooltip>
-                    {/* <MaterialModule.Tooltip title="Edit">
-                      <MaterialModule.IconButton
-                        size="small"
-                        className="!mr-1"
-                        onClick={() => handleOpenEditDialog(employee)}
-                      >
-                        <MaterialModule.EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
-                      </MaterialModule.IconButton>
-                    </MaterialModule.Tooltip> */}
-                    <MaterialModule.Tooltip title="Delete">
-                      <MaterialModule.IconButton
-                        size="small"
-                        onClick={() =>
-                          handleDeleteEmployee(employee.id, employee.name)
-                        }
-                      >
-                        <MaterialModule.DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                      </MaterialModule.IconButton>
-                    </MaterialModule.Tooltip>
+                    {isInactiveEmployee(employee) ? (
+                      <MaterialModule.Tooltip title="Reactivate">
+                        <MaterialModule.IconButton
+                          size="small"
+                          onClick={() =>
+                            handleReactivateEmployee(employee.id, employee.name)
+                          }
+                        >
+                          <MaterialModule.HowToRegIcon className="!w-4" sx={{ color: "#16a34a" }} />
+                        </MaterialModule.IconButton>
+                      </MaterialModule.Tooltip>
+                    ) : (
+                      <MaterialModule.Tooltip title="Deactivate">
+                        <MaterialModule.IconButton
+                          size="small"
+                          onClick={() =>
+                            handleDeactivateEmployee(employee.id, employee.name)
+                          }
+                        >
+                          <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                        </MaterialModule.IconButton>
+                      </MaterialModule.Tooltip>
+                    )}
                   </div>
                 </MaterialModule.TableCell>
               </MaterialModule.TableRow>
@@ -1216,196 +1326,60 @@ export default function EmployeeManagement() {
       {/* Bulk Upload Dialog */}
       <MaterialModule.Dialog
         open={bulkUploadDialogOpen}
-        onClose={() => setBulkUploadDialogOpen(false)}
+        onClose={handleCloseBulkUploadDialog}
         maxWidth="md"
         fullWidth
       >
-        {/* ... (keep your existing bulk upload dialog code) ... */}
         <div className="flex items-center justify-between p-2 border-b !border-gray-300">
           <div className="text-primary ml-4">Bulk Upload Employees</div>
-          <MaterialModule.IconButton onClick={() => setBulkUploadDialogOpen(false)}>
+          <MaterialModule.IconButton onClick={handleCloseBulkUploadDialog}>
             <MaterialModule.CloseOutlined />
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
           <MaterialModule.Alert severity="info" className="mb-4">
-            Download the sample template, fill in employee details, and upload.
-            Welcome emails will be sent automatically.
+            Download the template, fill in employee details, and upload the file.
+            Backend sends invite / welcome emails to newly imported employees automatically.
           </MaterialModule.Alert>
-          <div className="text-center">
+
+          <div className="text-center mb-4">
             <MaterialModule.Button
               variant="outlined"
               startIcon={<MaterialModule.DownloadIcon />}
-            // onClick={downloadSampleTemplate}
+              onClick={async () => {
+                try {
+                  await employeeService.downloadBulkUploadTemplate();
+                } catch (error: any) {
+                  showSnackbar(error.message || "Failed to download template.", "error");
+                }
+              }}
             >
-              Download Sample Template
+              Download Template
             </MaterialModule.Button>
           </div>
-
-          <MaterialModule.FormControlLabel
-            control={
-              <MaterialModule.Checkbox
-                checked={hasEmpIdColumn}
-                onChange={(e) =>
-                  setHasEmpIdColumn(e.target.checked)
-                }
-                sx={{
-                  "& .MuiSvgIcon-root": {
-                    color: "red !important",
-                  },
-                }}
-              />
-            }
-            className="text-red-500 mb-2"
-            label="Excel already contains Employee ID column"
-          />
-          {hasEmpIdColumn && (
-            <MaterialModule.Alert
-              severity="info"
-              className="mb-3"
-            >
-              Employee IDs will be
-              validated from uploaded
-              Excel.
-            </MaterialModule.Alert>
-          )}
-          {!hasEmpIdColumn && (
-            <div className="border rounded-lg p-4 !mb-4">
-              <div className="font-semibold text-gray-800">Employee ID Generation</div>
-              <div className="!mt-6">
-                <MaterialModule.FormControl fullWidth className="">
-                  <MaterialModule.InputLabel>Generation Flow</MaterialModule.InputLabel>
-                  <MaterialModule.Select
-                    value={empGenerationFlow}
-                    label="Generation Flow"
-                    className="!text-[12px]"
-                    onChange={(e) =>
-                      setEmpGenerationFlow(
-                        e.target.value as "new" | "continue"
-                      )
-                    }
-                  >
-                    <MaterialModule.MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MaterialModule.MenuItem>
-                    <MaterialModule.MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MaterialModule.MenuItem>
-                  </MaterialModule.Select>
-                </MaterialModule.FormControl>
-                {empGenerationFlow == 'new' && (
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-                    <MaterialModule.FormControl style={{ minWidth: 200 }}>
-                      <MaterialModule.InputLabel>Format Type</MaterialModule.InputLabel>
-                      <MaterialModule.Select
-                        value={empCodeType}
-                        label="Format Type"
-                        className="!text-[12px] !text-gray-800"
-                        onChange={(e) =>
-                          setEmpCodeType(e.target.value)
-                        }
-                      >
-                        <MaterialModule.MenuItem value="pattern" className="!text-[12px]">Pattern</MaterialModule.MenuItem>
-                        <MaterialModule.MenuItem value="alphanumeric" className="!text-[12px]">Alphanumeric</MaterialModule.MenuItem>
-                        <MaterialModule.MenuItem value="number" className="!text-[12px]">Number</MaterialModule.MenuItem>
-                      </MaterialModule.Select>
-                    </MaterialModule.FormControl>
-                    {empCodeType === "pattern" && (
-                      <>
-                        <MaterialModule.TextField
-                          label="Prefix"
-                          value={empPrefix}
-                          required
-                          className="!text-[12px]"
-                          onChange={(e) =>
-                            setEmpPrefix(e.target.value)
-                          }
-                        />
-                        <MaterialModule.TextField
-                          label="Starting Number"
-                          className="!text-[12px]"
-                          value={empStartNumber}
-                          required
-                          onChange={(e) =>
-                            setEmpStartNumber(e.target.value)
-                          }
-                        />
-                      </>
-                    )}
-                    {empCodeType === "alphanumeric" && (
-                      <MaterialModule.TextField
-                        type="number"
-                        label="Number Of Digits"
-                        className="!text-[12px]"
-                        required
-                        value={empDigitCount}
-                        onChange={(e) =>
-                          setEmpDigitCount(e.target.value)
-                        }
-                      />
-                    )}
-                    {empCodeType === "number" && (
-                      <MaterialModule.TextField
-                        type="number"
-                        label="Starting Number"
-                        className="!text-[12px]"
-                        value={empStartNumber}
-                        required
-                        onChange={(e) =>
-                          setEmpStartNumber(e.target.value)
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-                <MaterialModule.Alert severity="info" className="mt-4">
-                  <div className="flex flex-col gap-1">
-                    {empGenerationFlow === "continue" && (
-                      <>
-                        <div>
-                          Last Generated ID:&nbsp;
-                          <strong>
-                            {employees?.[0]?.employeeId || "No Employees"}
-                          </strong>
-                        </div>
-
-                        <div>
-                          Next Sequence:&nbsp;
-                          <strong>
-                            {generateEmployeeIdPreview()}
-                          </strong>
-                        </div>
-                      </>
-                    )}
-
-                    {empGenerationFlow === "new" && (
-                      <div>
-                        Generated Preview:&nbsp;
-                        <strong>
-                          {generateEmployeeIdPreview()}
-                        </strong>
-                      </div>
-                    )}
-                  </div>
-                </MaterialModule.Alert>
-              </div>
-            </div>
-          )}
 
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"
               id="file-upload"
               className="hidden"
-              accept=".xlsx,.xls,.csv"
-              onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              accept=".csv,.xlsx"
+              onChange={(e) => {
+                setUploadFile(e.target.files?.[0] || null);
+                setUploadResult(null);
+              }}
             />
             <label htmlFor="file-upload" className="cursor-pointer">
               <MaterialModule.CloudUploadIcon className="text-6xl text-gray-400 mb-2" />
               <MaterialModule.Typography variant="body1" className="text-gray-600">
-                {uploadFile ? uploadFile.name : "Click or drag file to upload"}
+                {uploadFile ? uploadFile.name : "Click to select a file"}
               </MaterialModule.Typography>
               <MaterialModule.Typography variant="caption" className="text-gray-400">
-                Supported formats: .xlsx, .xls, .csv
+                Accepted formats: CSV, XLSX &nbsp;·&nbsp; Max size: 10 MB
               </MaterialModule.Typography>
             </label>
           </div>
+
           {uploadProgress > 0 && uploadProgress < 100 && (
             <MaterialModule.Box className="mt-4">
               <MaterialModule.LinearProgress variant="determinate" value={uploadProgress} />
@@ -1414,14 +1388,56 @@ export default function EmployeeManagement() {
               </MaterialModule.Typography>
             </MaterialModule.Box>
           )}
+
+          {uploadResult && (
+            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+              <div className="font-semibold text-gray-800 mb-2">Upload Result</div>
+              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                {uploadResult.successCount !== undefined && (
+                  <div className="text-green-700">
+                    Imported: <strong>{uploadResult.successCount}</strong>
+                  </div>
+                )}
+                {(uploadResult.failureCount ?? 0) > 0 && (
+                  <div className="text-red-700">
+                    Failed rows: <strong>{uploadResult.failureCount}</strong>
+                  </div>
+                )}
+                {uploadResult.welcomeEmailsSent !== undefined && (
+                  <div className="text-blue-700">
+                    Welcome emails sent: <strong>{uploadResult.welcomeEmailsSent}</strong>
+                  </div>
+                )}
+                {(uploadResult.welcomeEmailsFailed ?? 0) > 0 && (
+                  <div className="text-orange-700">
+                    Welcome emails failed: <strong>{uploadResult.welcomeEmailsFailed}</strong>
+                  </div>
+                )}
+              </div>
+              {(uploadResult.errors?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-sm font-semibold text-red-700 mb-1">Row Errors:</div>
+                  <div className="max-h-32 overflow-auto text-xs space-y-1">
+                    {uploadResult.errors!.map((err, i) => (
+                      <div key={i} className="text-red-600">
+                        {err.row !== undefined ? `Row ${err.row}: ` : ""}
+                        {err.field ? `[${err.field}] ` : ""}
+                        {err.message}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button
-            onClick={() => setBulkUploadDialogOpen(false)}
+            onClick={handleCloseBulkUploadDialog}
             variant="outlined"
             className="!text-gray-800 !border-gray-300"
           >
-            Cancel
+            Close
           </MaterialModule.Button>
           <MaterialModule.Button
             onClick={handleBulkUpload}

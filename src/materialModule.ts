@@ -15,27 +15,26 @@ import WorkHistory from "@mui/icons-material/WorkHistory";
 import FamilyRestroom from "@mui/icons-material/FamilyRestroom";
 import AttachFile from "@mui/icons-material/AttachFile";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-
-import {
-  CameraAlt,
-  CloseOutlined,
-  ContactEmergencyOutlined,
-  Diversity3Outlined,
-  FlightLandOutlined,
-  LocalLibraryOutlined,
-  LocationOnOutlined,
-  LoginOutlined,
-  PeopleOutlineOutlined,
-  SchoolOutlined,
-  VerifiedUserOutlined,
-  WorkHistoryOutlined,
-  VisibilityOutlined,
-  FileUpload,
-  Download,
-  CloudUpload,
-  ArrowUpward,
-  ArrowDownward,
-} from "@mui/icons-material";
+import CameraAlt from "@mui/icons-material/CameraAlt";
+import CloseOutlined from "@mui/icons-material/CloseOutlined";
+import ContactEmergencyOutlined from "@mui/icons-material/ContactEmergencyOutlined";
+import Diversity3Outlined from "@mui/icons-material/Diversity3Outlined";
+import FlightLandOutlined from "@mui/icons-material/FlightLandOutlined";
+import LocalLibraryOutlined from "@mui/icons-material/LocalLibraryOutlined";
+import LocationOnOutlined from "@mui/icons-material/LocationOnOutlined";
+import LoginOutlined from "@mui/icons-material/LoginOutlined";
+import PeopleOutlineOutlined from "@mui/icons-material/PeopleOutlineOutlined";
+import SchoolOutlined from "@mui/icons-material/SchoolOutlined";
+import VerifiedUserOutlined from "@mui/icons-material/VerifiedUserOutlined";
+import WorkHistoryOutlined from "@mui/icons-material/WorkHistoryOutlined";
+import VisibilityOutlined from "@mui/icons-material/VisibilityOutlined";
+import FileUpload from "@mui/icons-material/FileUpload";
+import Download from "@mui/icons-material/Download";
+import CloudUpload from "@mui/icons-material/CloudUpload";
+import ArrowUpward from "@mui/icons-material/ArrowUpward";
+import ArrowDownward from "@mui/icons-material/ArrowDownward";
+import NoAccounts from "@mui/icons-material/NoAccounts";
+import HowToReg from "@mui/icons-material/HowToReg";
 
 const MaterialModule = {
   ...Mui,
@@ -75,6 +74,8 @@ const MaterialModule = {
   WorkHistoryOutlined,
   CameraAlt,
   VisibilityOutlined,
+  NoAccountsIcon: NoAccounts,
+  HowToRegIcon: HowToReg,
 };
 
 export default MaterialModule;

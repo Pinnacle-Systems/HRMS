@@ -20,23 +20,25 @@ import {
   ListItemIcon,
   Tooltip,
 } from "@mui/material";
-import {
-  EmailOutlined as EmailOutlinedIcon,
-  PhoneOutlined as PhoneOutlinedIcon,
-  CakeOutlined as CakeOutlinedIcon,
-  WorkOutlineOutlined as WorkOutlineOutlinedIcon,
-  CalendarTodayOutlined as CalendarTodayOutlinedIcon,
-  DevicesOutlined as DevicesOutlinedIcon,
-  Business as BusinessIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  DescriptionOutlined as DescriptionOutlinedIcon,
-  Person2Outlined,
-  PhotoCameraOutlined,
-  CloseOutlined,
-  CalendarMonthOutlined,
-} from "@mui/icons-material";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import PhoneOutlinedIcon from "@mui/icons-material/PhoneOutlined";
+import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
+import WorkOutlineOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
+import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
+import DevicesOutlinedIcon from "@mui/icons-material/DevicesOutlined";
+import BusinessIcon from "@mui/icons-material/Business";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import Person2Outlined from "@mui/icons-material/Person2Outlined";
+import PhotoCameraOutlined from "@mui/icons-material/PhotoCameraOutlined";
+import CloseOutlined from "@mui/icons-material/CloseOutlined";
+import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import { authService } from "../../services/modules/auth";
+import {
+  passwordPolicyService,
+  type PasswordPolicyResponse,
+} from "../../services/modules/passwordPolicy";
 import { formatDateTime } from "../../utils/dateFormatter";
 import React from "react";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -49,6 +51,10 @@ import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import ErrorRoundedIcon from "@mui/icons-material/ErrorRounded";
 import dayjs from "dayjs";
 import { getRowColor } from "../const";
+import {
+  FALLBACK_PASSWORD_POLICY,
+  validatePasswordAgainstPolicy,
+} from "../../utils/passwordPolicyValidation";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -86,6 +92,9 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [clearDaysDialogOpen, setClearDaysDialogOpen] = useState(false);
   const [daysToKeep, setDaysToKeep] = useState(30);
+  const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicyResponse>(
+    FALLBACK_PASSWORD_POLICY,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [userData, setUserData] = useState<any>({
@@ -245,13 +254,42 @@ export default function Profile() {
     setPasswordDialogOpen(false);
   };
 
+  useEffect(() => {
+    if (!passwordDialogOpen) {
+      return;
+    }
+
+    let isMounted = true;
+
+    passwordPolicyService
+      .getPasswordPolicy()
+      .then((policy) => {
+        if (isMounted) {
+          setPasswordPolicy(policy);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setPasswordPolicy(FALLBACK_PASSWORD_POLICY);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [passwordDialogOpen]);
+
   const handlePasswordChange = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       showSnackbar("New passwords do not match!", "warning");
       return;
     }
-    if (passwordData.newPassword.length < 9) {
-      showSnackbar("Password must be at least 8 characters long!", "warning");
+    const passwordValidationMessages = validatePasswordAgainstPolicy(
+      passwordData.newPassword,
+      passwordPolicy,
+    );
+    if (passwordValidationMessages.length > 0) {
+      showSnackbar(passwordValidationMessages[0], "warning");
       return;
     }
     try {
@@ -444,6 +482,10 @@ export default function Profile() {
     },
   };
 
+  const passwordValidationMessages = passwordData.newPassword
+    ? validatePasswordAgainstPolicy(passwordData.newPassword, passwordPolicy)
+    : [];
+
   return (
     <div className="">
       {/* Tabs */}
@@ -480,7 +522,7 @@ export default function Profile() {
                     src={userData.profilePicUrl}
                     className="!w-24 !h-24 text-2xl cursor-pointer"
                   >
-                   {getInitials() || 'U'}
+                    {getInitials() || 'U'}
                   </Avatar>
 
                   {/* Hover Overlay */}
@@ -830,6 +872,13 @@ export default function Profile() {
             >
               {!showNewPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
             </IconButton>
+            {passwordValidationMessages.length > 0 && (
+              <div className="mt-2 text-[11px] text-gray-500">
+                {passwordValidationMessages.map((message) => (
+                  <div key={message}>{message}</div>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <TextField

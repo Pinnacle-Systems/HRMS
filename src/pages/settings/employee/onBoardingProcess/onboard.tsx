@@ -9,14 +9,12 @@ import {
     IconButton,
     Tooltip,
 } from "@mui/material";
-import {
-    LibraryBooks as ChecklistIcon,
-    AssignmentInd as AssignIcon,
-    TrendingUp as ProgressIcon,
-    AttachFile as DocumentIcon,
-    Refresh as RefreshIcon,
-    HelpOutlined as HelpIcon,
-} from "@mui/icons-material";
+import ChecklistIcon from "@mui/icons-material/LibraryBooks";
+import AssignIcon from "@mui/icons-material/AssignmentInd";
+import ProgressIcon from "@mui/icons-material/TrendingUp";
+import DocumentIcon from "@mui/icons-material/AttachFile";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import HelpIcon from "@mui/icons-material/HelpOutlined";
 import { ChecklistBuilder } from "./checklistBuilder";
 import { AssignOnboarding } from "./assignOnBoarding";
 import { ProgressTracking } from "./progressTracking";
