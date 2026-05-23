@@ -15,6 +15,8 @@ Scope:
 - Employee Categories
 - Departments
 
+> **Note**: For progress tracking and implementation order, please refer to the [API Alignment Completion Tracker](file:///home/ajay/workspace/HRMS/docs/api-alignment-completion-tracker.md).
+
 This report summarizes frontend consumption gaps found during the module-specific API audits. It focuses on contract alignment, missing frontend consumption, frontend calls to unsupported endpoints, and flow risks.
 
 ## 1. Executive Summary

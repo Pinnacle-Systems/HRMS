@@ -20,22 +20,20 @@ import {
   ListItemIcon,
   Tooltip,
 } from "@mui/material";
-import {
-  EmailOutlined as EmailOutlinedIcon,
-  PhoneOutlined as PhoneOutlinedIcon,
-  CakeOutlined as CakeOutlinedIcon,
-  WorkOutlineOutlined as WorkOutlineOutlinedIcon,
-  CalendarTodayOutlined as CalendarTodayOutlinedIcon,
-  DevicesOutlined as DevicesOutlinedIcon,
-  Business as BusinessIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  DescriptionOutlined as DescriptionOutlinedIcon,
-  Person2Outlined,
-  PhotoCameraOutlined,
-  CloseOutlined,
-  CalendarMonthOutlined,
-} from "@mui/icons-material";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import PhoneOutlinedIcon from "@mui/icons-material/PhoneOutlined";
+import CakeOutlinedIcon from "@mui/icons-material/CakeOutlined";
+import WorkOutlineOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
+import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
+import DevicesOutlinedIcon from "@mui/icons-material/DevicesOutlined";
+import BusinessIcon from "@mui/icons-material/Business";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import Person2Outlined from "@mui/icons-material/Person2Outlined";
+import PhotoCameraOutlined from "@mui/icons-material/PhotoCameraOutlined";
+import CloseOutlined from "@mui/icons-material/CloseOutlined";
+import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import { authService } from "../../services/modules/auth";
 import {
   passwordPolicyService,
@@ -524,7 +522,7 @@ export default function Profile() {
                     src={userData.profilePicUrl}
                     className="!w-24 !h-24 text-2xl cursor-pointer"
                   >
-                   {getInitials() || 'U'}
+                    {getInitials() || 'U'}
                   </Avatar>
 
                   {/* Hover Overlay */}

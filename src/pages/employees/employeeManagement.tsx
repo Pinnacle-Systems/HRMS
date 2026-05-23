@@ -30,7 +30,7 @@ import { formatDate } from "../../utils/dateFormatter";
 import { stickyHeaderLeftSx, stickyHeaderRightSx } from "./const";
 import type { FilterConfig, FilterField } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
-import { FilterAltOutlined } from "@mui/icons-material";
+import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -740,7 +740,7 @@ export default function EmployeeManagement() {
         />
         <MaterialModule.Button
           variant="outlined"
-          startIcon={<FilterAltOutlined />}
+          startIcon={<FilterAltOutlinedIcon />}
           onClick={() => setFilterOpen(true)}
           sx={{ position: 'relative' }}
         >
@@ -833,12 +833,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "designation",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "designation",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Designation
@@ -847,12 +847,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "department",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "department",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Department
@@ -861,12 +861,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "branch",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "branch",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Branch
@@ -888,13 +888,13 @@ export default function EmployeeManagement() {
                 </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "employeeStatus",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
-                >
+              // onClick={() =>
+              //   handleSortChange(
+              //     "employeeStatus",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
+              >
                 <div className="flex items-center gap-1">
                   Status
                   {/* {getSortIcon("employeeStatus")} */}
@@ -1346,7 +1346,13 @@ export default function EmployeeManagement() {
             <MaterialModule.Button
               variant="outlined"
               startIcon={<MaterialModule.DownloadIcon />}
-              onClick={() => employeeService.downloadBulkUploadTemplate()}
+              onClick={async () => {
+                try {
+                  await employeeService.downloadBulkUploadTemplate();
+                } catch (error: any) {
+                  showSnackbar(error.message || "Failed to download template.", "error");
+                }
+              }}
             >
               Download Template
             </MaterialModule.Button>

@@ -4,6 +4,7 @@ const apiGet = vi.fn();
 const apiPost = vi.fn();
 const apiDelete = vi.fn();
 const apiPatch = vi.fn();
+const apiAxiosGet = vi.fn();
 
 vi.mock("../../src/services/api/api.config", () => ({
   apiService: {
@@ -12,6 +13,9 @@ vi.mock("../../src/services/api/api.config", () => ({
     put: vi.fn(),
     patch: apiPatch,
     delete: apiDelete,
+    axiosInstance: {
+      get: apiAxiosGet,
+    },
   },
 }));
 
@@ -173,9 +177,16 @@ describe("bulkUploadEmployees", () => {
 });
 
 describe("downloadBulkUploadTemplate", () => {
+  beforeEach(() => {
+    apiAxiosGet.mockReset();
+  });
+
   it("fetches /employees/bulk-upload/template", async () => {
-    const blob = new Blob(["col1,col2"], { type: "text/csv" });
-    apiGet.mockResolvedValue({ data: blob });
+    const blob = new Blob(["PK\x03\x04"], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    apiAxiosGet.mockResolvedValue({ 
+      data: blob,
+      headers: { "content-disposition": "attachment; filename=custom_template.xlsx" }
+    });
 
     const createObjectURL = vi.fn().mockReturnValue("blob:fake");
     const revokeObjectURL = vi.fn();
@@ -197,11 +208,29 @@ describe("downloadBulkUploadTemplate", () => {
     const { employeeService } = await import("../../src/services/modules/employees");
     await employeeService.downloadBulkUploadTemplate();
 
-    expect(apiGet).toHaveBeenCalledWith(
+    expect(apiAxiosGet).toHaveBeenCalledWith(
       "/employees/bulk-upload/template",
       expect.objectContaining({ responseType: "blob" }),
     );
+    expect(linkEl.setAttribute).toHaveBeenCalledWith("download", "custom_template.xlsx");
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it("rejects empty blob", async () => {
+    const blob = new Blob([], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    apiAxiosGet.mockResolvedValue({ data: blob, headers: {} });
+
+    const { employeeService } = await import("../../src/services/modules/employees");
+    await expect(employeeService.downloadBulkUploadTemplate()).rejects.toThrow("Downloaded file is empty");
+  });
+
+  it("rejects application/json blob with error message", async () => {
+    const blob = new Blob(['{"message": "Internal Server Error"}'], { type: "application/json" });
+    blob.text = vi.fn().mockResolvedValue('{"message": "Internal Server Error"}');
+    apiAxiosGet.mockResolvedValue({ data: blob, headers: {} });
+
+    const { employeeService } = await import("../../src/services/modules/employees");
+    await expect(employeeService.downloadBulkUploadTemplate()).rejects.toThrow("Internal Server Error");
   });
 });
 

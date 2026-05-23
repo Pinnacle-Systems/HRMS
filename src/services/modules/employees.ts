@@ -490,13 +490,42 @@ export const employeeService = {
   // ==================== BULK UPLOAD TEMPLATE ====================
 
   async downloadBulkUploadTemplate() {
-    const response: any = await apiService.get(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD_TEMPLATE, {
+    const response = await apiService.axiosInstance.get(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD_TEMPLATE, {
       responseType: "blob",
     });
-    const url = window.URL.createObjectURL(new Blob([response.data]));
+
+    const blob = response.data;
+
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded file is empty.");
+    }
+
+    if (blob.type === "application/json" || blob.type === "text/plain") {
+      const text = await blob.text();
+      let errMsg = "Failed to download template.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errMsg = json.message;
+      } catch (e) {
+        if (text) errMsg = text;
+      }
+      throw new Error(errMsg);
+    }
+
+    let filename = "employee_bulk_upload_template.xlsx";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.indexOf("attachment") !== -1) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "employee_bulk_upload_template.xlsx");
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     link.remove();

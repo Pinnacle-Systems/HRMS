@@ -242,7 +242,7 @@ describe("EmployeeManagement", () => {
 
     await screen.findByText("Ava Patel");
     await user.type(
-      screen.getByPlaceholderText("Search by name, email, or employee ID..."),
+      screen.getByPlaceholderText(/Search by name/i),
       "mira",
     );
 

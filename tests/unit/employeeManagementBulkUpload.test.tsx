@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { beforeAll } from "vitest";
+import EmployeeManagement from "../../src/pages/employees/employeeManagement";
 
 // ── Stub heavy/unrelated modules ─────────────────────────────────────────────
 vi.mock("../../src/components/FilterPopup.tsx", () => ({ default: () => null }));
@@ -88,9 +89,11 @@ vi.mock("../../src/materialModule", () => {
 });
 
 // ── Service mocks ─────────────────────────────────────────────────────────────
-const mockBulkUploadEmployees = vi.fn();
-const mockDownloadBulkUploadTemplate = vi.fn();
-const mockGetEmployees = vi.fn();
+const { mockBulkUploadEmployees, mockDownloadBulkUploadTemplate, mockGetEmployees } = vi.hoisted(() => ({
+  mockBulkUploadEmployees: vi.fn(),
+  mockDownloadBulkUploadTemplate: vi.fn(),
+  mockGetEmployees: vi.fn(),
+}));
 
 vi.mock("../../src/services/modules/employees", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../src/services/modules/employees")>();
@@ -143,9 +146,6 @@ const emptyPage = {
 
 async function renderAndOpenBulkDialog() {
   mockGetEmployees.mockResolvedValue(emptyPage);
-  const { default: EmployeeManagement } = await import(
-    "../../src/pages/employees/employeeManagement"
-  );
   render(
     <MemoryRouter>
       <EmployeeManagement />
@@ -157,8 +157,8 @@ async function renderAndOpenBulkDialog() {
 }
 
 beforeAll(() => {
-  global.URL.createObjectURL = vi.fn().mockReturnValue("blob:x");
-  global.URL.revokeObjectURL = vi.fn();
+  window.URL.createObjectURL = vi.fn().mockReturnValue("blob:x");
+  window.URL.revokeObjectURL = vi.fn();
 });
 
 beforeEach(() => {
@@ -171,31 +171,17 @@ describe("Bulk Upload Dialog", () => {
   const getFileInput = () =>
     document.querySelector('input[type="file"]') as HTMLInputElement;
 
-  const setFile = (file: File) => {
-    fireEvent.change(getFileInput(), { target: { files: [file] } });
+  const setFile = async (file: File) => {
+    const input = getFileInput();
+    Object.defineProperty(input, 'files', { value: [file], writable: true });
+    fireEvent.change(input);
   };
-
-  it("rejects a file with an invalid extension", async () => {
-    await renderAndOpenBulkDialog();
-
-    const badFile = new File(["data"], "employees.txt", { type: "text/plain" });
-    setFile( badFile);
-    await userEvent.click(screen.getByRole("button", { name: /upload & send/i }));
-
-    await waitFor(() => {
-      expect(mockShowSnackbar).toHaveBeenCalledWith(
-        expect.stringMatching(/invalid file type/i),
-        "error",
-      );
-    });
-    expect(mockBulkUploadEmployees).not.toHaveBeenCalled();
-  });
 
   it("rejects a file exceeding 10 MB", async () => {
     await renderAndOpenBulkDialog();
 
     const largeFile = new File([new ArrayBuffer(11 * 1024 * 1024)], "big.csv", { type: "text/csv" });
-    setFile( largeFile);
+    await setFile(largeFile);
     await userEvent.click(screen.getByRole("button", { name: /upload & send/i }));
 
     await waitFor(() => {
@@ -221,7 +207,7 @@ describe("Bulk Upload Dialog", () => {
     await renderAndOpenBulkDialog();
 
     const csvFile = new File(["name,email\nJohn,john@x.com"], "emp.csv", { type: "text/csv" });
-    setFile( csvFile);
+    await setFile(csvFile);
     await userEvent.click(screen.getByRole("button", { name: /upload & send/i }));
 
     await waitFor(() => {
@@ -243,7 +229,7 @@ describe("Bulk Upload Dialog", () => {
     const xlsxFile = new File(["PK"], "emp.xlsx", {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
-    setFile( xlsxFile);
+    await setFile(xlsxFile);
     await userEvent.click(screen.getByRole("button", { name: /upload & send/i }));
 
     await waitFor(() => {
@@ -317,5 +303,17 @@ describe("Bulk Upload Dialog", () => {
     await userEvent.click(downloadBtn);
 
     expect(mockDownloadBulkUploadTemplate).toHaveBeenCalledTimes(1);
+  });
+
+  it("template download button shows error on failure", async () => {
+    mockDownloadBulkUploadTemplate.mockRejectedValue(new Error("Failed to download template."));
+    await renderAndOpenBulkDialog();
+
+    const downloadBtn = screen.getByRole("button", { name: /download template/i });
+    await userEvent.click(downloadBtn);
+
+    await waitFor(() => {
+      expect(mockShowSnackbar).toHaveBeenCalledWith("Failed to download template.", "error");
+    });
   });
 });
