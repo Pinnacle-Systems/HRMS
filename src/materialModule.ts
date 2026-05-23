@@ -36,7 +36,7 @@ import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import NoAccounts from "@mui/icons-material/NoAccounts";
 import HowToReg from "@mui/icons-material/HowToReg";
 
-const MaterialModule = {
+const MaterialModule: typeof Mui & Record<string, any> = {
   ...Mui,
 
   // ICONS

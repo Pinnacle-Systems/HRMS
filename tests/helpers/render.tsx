@@ -13,7 +13,7 @@ type RenderWithProvidersOptions = RenderOptions & {
 export function renderWithProviders(
   ui: ReactElement,
   { route = "/", ...options }: RenderWithProvidersOptions = {},
-) {
+): ReturnType<typeof render> {
   window.history.pushState({}, "Test page", route);
 
   return render(

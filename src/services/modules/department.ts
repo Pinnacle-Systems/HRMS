@@ -1,16 +1,18 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
-interface GetDepartmentParams {
-  page: number;
-  limit: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+export interface GetDepartmentParams {
+  page?: number;
+  size?: number;
+  sort?: string;
   search?: string;
+  isActive?: boolean;
+  branchId?: string;
+  departmentHeadId?: string;
 }
 
 class DepartmentService {
-  async getDepartments(params?: GetDepartmentParams) {
+  async getDepartments(params?: GetDepartmentParams | Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.DEPARTMENT.BASE, { params });
   }
 

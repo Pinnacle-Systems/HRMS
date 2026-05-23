@@ -333,6 +333,21 @@ export default function BranchSettings() {
     });
   };
 
+  const handleToggleStatus = async (branch: Branch) => {
+    showSpinner();
+    try {
+      const res: any = await branchService.toggleBranchById(branch.id);
+      if (res.success) {
+        showSnackbar(`Branch ${!branch.active ? "activated" : "deactivated"} successfully!`, "success");
+        await getBranches();
+      }
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
   const commonsx = {
     "& .MuiDialog-paper": {
       width: "700px",
@@ -425,7 +440,13 @@ export default function BranchSettings() {
                   <TableCell className="text-gray-800">{branch.branchHeadName}</TableCell>
                   <TableCell className="text-gray-800">{branch.radius} km</TableCell>
                   <TableCell>
-                    <Chip label={branch.active ? "Active" : "Inactive"} color={branch.active ? "success" : "error"} size="small" />
+                    <Chip 
+                      label={branch.active ? "Active" : "Inactive"} 
+                      color={branch.active ? "success" : "error"} 
+                      size="small" 
+                      onClick={() => handleToggleStatus(branch)}
+                      className="cursor-pointer"
+                    />
                   </TableCell>
                   <TableCell className="!flex">
                     <Tooltip title="Edit">

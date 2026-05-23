@@ -4,8 +4,8 @@
 
 | Status | Count | Notes |
 |---|---:|---|
-| Completed | 8 | Core hardening, employee pagination/bulk upload, onboarding |
-| Frontend Pending | 6 | Includes MFA and master data optimizations |
+| Completed | 9 | Core hardening, employee pagination/bulk upload, onboarding, toggles |
+| Frontend Pending | 5 | Includes MFA and master data optimizations |
 | Backend/API Pending | 5 | Swagger contract gaps and missing endpoints |
 | Deferred / Product Decision | 0 | None explicitly deferred yet |
 
@@ -21,14 +21,14 @@
 | Password Policy integration | Auth / Policy | ✅ Completed | `GET/PUT /password-policy` wired, complexity/mfa flags wired, shared helper used | Passing | Updated in gap report |
 | Employee Bulk Upload alignment | Employees | ✅ Completed | `POST /employees/bulk-upload` (only file), `/template` endpoint, client-side validation | Passing | Updated in gap report |
 | Employee Deactivate / Reactivate UX | Employees | ✅ Completed | `deactivateEmployee`/`reactivateEmployee` service methods, Deactivate/Reactivate UI wording, `includeInactive` toggle | Needs latest run | Updated in gap report |
+| Branch/Department/Category toggle cleanup | Organization | ✅ Completed | Active/inactive toggles now use dedicated PATCH endpoints | Needs latest run | Updated in gap report |
 
 ## Pending Frontend Items
 
 | Priority | Item | Area | Why next | Dependencies | Suggested prompt/status |
 |---|---|---|---|---|---|
 | **1** | Company cleanup | Company | ✅ Completed | None | Done |
-| 2 | Master Data dropdown optimization | Master Data | Performance and correctness improvement (active/cascade endpoints) | None | - |
-| 3 | Branch/Department/Category toggle cleanup | Organization | Align with Swagger endpoints (use PATCH) | None | - |
+| **2** | Master Data dropdown optimization | Master Data | ✅ Completed | None | Done |
 | 4 | Invite activation flow | Auth / Onboarding | Essential flow for new user onboarding | Backend contract | - |
 | 5 | MFA setup/verification flow | Auth | Security requirement | Password policy flag | - |
 | 6 | Employee create onboarding/welcome orchestration | Employees | Closes the loop on employee creation | Clarification on backend side-effects | - |
@@ -58,9 +58,9 @@
 
 ## Next Recommended Implementation Order
 
-1. Company cleanup
-2. Master Data dropdown optimization
-3. Branch/Department/Category toggle cleanup
+1. Company cleanup (Done)
+2. Master Data dropdown optimization (Done)
+3. Branch/Department/Category toggle cleanup (Done)
 4. Invite activation flow
 5. MFA setup/verification flow
 6. Employee create onboarding/welcome orchestration

@@ -14,7 +14,7 @@ interface FileUploadProps {
   maxSize?: number;
   compact?: boolean;
   description?: string;
-  companyId: string
+  companyId?: string
 }
 
 export const FileUpload = ({
@@ -25,7 +25,7 @@ export const FileUpload = ({
   maxSize = 2,
   compact = false,
   description,
-  companyId
+  companyId = ""
 }: FileUploadProps) => {
   const [preview, setPreview] = useState<string>('');
   const { showSnackbar, hideSpinner, showSpinner } = useUI();
