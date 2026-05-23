@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { masterService } from "../services/modules/masters";
-
-type ApiListResponse = any;
+import { masterService, normalizeMasterData } from "../services/modules/masters";
 
 export const useMasterData = (enabled = true) => {
   const [countries, setCountries] = useState<unknown[]>([]);
@@ -11,48 +9,13 @@ export const useMasterData = (enabled = true) => {
 
   const [loading, setLoading] = useState(false);
 
-  // Initial load
+  // Initial load uses active countries
   const fetchCountries = useCallback(async () => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = (await masterService.getCountries({
-        size: 200,
-      })) as ApiListResponse;
-      const data = response.data?.content || response.data || [];
-      setCountries(data);
-    } catch (error) {
-      console.error("Error fetching countries", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled]);
-
-  const fetchStates = useCallback(async () => {
-    if (!enabled) return;
-    try {
-      setLoading(true);
-      const response = (await masterService.getStates({
-        size: 200,
-      })) as ApiListResponse;
-      const data = response.data?.content || response.data || [];
-      setStates(data);
-    } catch (error) {
-      console.error("Error fetching countries", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled]);
-
-  const fetchCities = useCallback(async () => {
-    if (!enabled) return;
-    try {
-      setLoading(true);
-      const response = (await masterService.getCities({
-        size: 200,
-      })) as ApiListResponse;
-      const data = response.data?.content || response.data || [];
-      setCities(data);
+      const response = await masterService.getActiveCountries();
+      setCountries(normalizeMasterData(response));
     } catch (error) {
       console.error("Error fetching countries", error);
     } finally {
@@ -64,9 +27,8 @@ export const useMasterData = (enabled = true) => {
     if (!enabled) return;
     try {
       setLoading(true);
-      const response = (await masterService.getActiveCurrencies()) as ApiListResponse;
-      const data = response.data?.content || response.data || [];
-      setCurrencies(data);
+      const response = await masterService.getActiveCurrencies();
+      setCurrencies(normalizeMasterData(response));
     } catch (error) {
       console.error("Error fetching currencies", error);
     } finally {
@@ -81,10 +43,8 @@ export const useMasterData = (enabled = true) => {
       if (!enabled) return;
       try {
         setLoading(true);
-        const response = (await masterService.getStatesByCountry(
-          countryId,
-        )) as ApiListResponse;
-        const data = response.data?.content || response.data || [];
+        const response = await masterService.getStatesByCountry(countryId);
+        const data = normalizeMasterData(response);
         setStates(data);
         return data;
       } catch (error) {
@@ -103,10 +63,8 @@ export const useMasterData = (enabled = true) => {
       if (!enabled) return;
       try {
         setLoading(true);
-        const response = (await masterService.getCitiesByCountry(
-          countryId,
-        )) as ApiListResponse;
-        const data = response.data?.content || response.data || [];
+        const response = await masterService.getCitiesByCountry(countryId);
+        const data = normalizeMasterData(response);
         setCities(data);
         return data;
       } catch (error) {
@@ -125,10 +83,8 @@ export const useMasterData = (enabled = true) => {
       if (!enabled) return;
       try {
         setLoading(true);
-        const response = (await masterService.getCitiesByState(
-          stateId,
-        )) as ApiListResponse;
-        const data = response.data?.content || response.data || [];
+        const response = await masterService.getCitiesByState(stateId);
+        const data = normalizeMasterData(response);
         setCities(data);
         return data;
       } catch (error) {
@@ -142,13 +98,11 @@ export const useMasterData = (enabled = true) => {
   );
 
   useEffect(() => {
-    void (async () => {
-      await fetchCountries();
-      await fetchStates();
-      await fetchCities();
-      await fetchCurrencies();
-    })();
-  }, [enabled, fetchCountries, fetchStates, fetchCities]);
+    if (enabled) {
+      void fetchCountries();
+      void fetchCurrencies();
+    }
+  }, [enabled, fetchCountries, fetchCurrencies]);
 
   return {
     countries,

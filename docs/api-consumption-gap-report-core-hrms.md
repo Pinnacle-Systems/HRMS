@@ -55,7 +55,7 @@ Several setup modules are mostly aligned on paths, but delete behavior needs bac
 | Area | Finding | Recommended Cleanup |
 |---|---|---|
 | API logging | Request interceptor logs `config.params` unredacted. | **Fixed:** `logger.ts` `SENSITIVE_KEY_PATTERN` expanded to cover `email`, `userId`, `tenantId`, `roles`, `permissions` in addition to existing keys. `redactSensitiveParams` exported for reuse. `assertSafeQueryParams` guard added to interceptor request path (warns in dev/test on forbidden keys). |
-| Master Data | Country/city/state dropdown hook loads full lists with `{ size: 200 }` even when active/cascade endpoints exist. | Use active countries and cascade endpoints for dropdowns; avoid full state/city preloads. |
+| Master Data | Country/city/state dropdown hook loads full lists with `{ size: 200 }` even when active/cascade endpoints exist. | **Fixed:** `useMasterData` no longer preloads states and cities. It consumes `/master/countries/active` directly, and endpoints rely on cascading IDs. |
 | Login History | Table omits `createdAt` and `failureReason`. | **Fixed:** `createdAt` column added (formatted via `formatDateTime`); `failureReason` shown as tooltip on failed-login status icon. |
 | Login History | Serial number uses row index and resets per page. | **Fixed:** Serial number now uses `page * limit + index + 1`. |
 | Onboarding | Checklist task reorder service exists, but UI affordance/usage needs confirmation. | Add drag/drop reorder or remove dead adapter method. |
