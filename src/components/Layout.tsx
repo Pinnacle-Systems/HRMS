@@ -119,7 +119,7 @@ export default function Layout() {
       text: "Attendance",
       icon: <TrackChangesOutlined />,
       path: "/attendance/shifts",
-      roles: ["MANAGER", "HR", "ADMIN"],
+      roles: ["HR", "ADMIN"],
       children: [
         {
           text: "Shift Management",

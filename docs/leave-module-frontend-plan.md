@@ -32,7 +32,8 @@
 - The drawer is role-aware and currently includes:
   - Home
   - Employees
-  - Leave / Attendance
+  - Leave 
+  - Attendance
   - Payroll
   - Settings
 - The main content area is rendered through `<Outlet />` with drawer-aware left padding.
@@ -194,5 +195,5 @@ Suggested mock service methods:
 - Pagination params and response shapes vary between existing services and screens. The mock adapter should mimic the most common backend-looking shape used by Branch Settings: `content` and `totalElements`.
 - Existing `src/pages/leave/leave.tsx` is only a placeholder and uses a card-like layout. The final Leave UI should follow the denser settings/profile table style for consistency.
 - No shared error or empty-state component exists. Use inline empty rows/text and snackbar errors like current pages.
-- Existing layout nav label says `Leave / Attendance`; if this module initially covers leave only, either keep the label for future attendance or defer nav text changes until scope is confirmed.
+- Existing layout nav label says `Leave`; if this module initially covers leave only, either keep the label for future attendance or defer nav text changes until scope is confirmed.
 - The app mixes Tailwind classes with MUI `sx` overrides. Leave screens should follow this mix and avoid introducing another UI library or styling system.

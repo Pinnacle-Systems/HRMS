@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { createMockSession, seedAuthSession, type E2ERole } from "./helpers/auth";
+import {
+  createMockSession,
+  seedAuthSession,
+  type E2ERole,
+} from "./helpers/auth";
 
 type RoleScenario = {
   name: string;
@@ -15,112 +19,197 @@ const roleScenarios: RoleScenario[] = [
     roles: ["ADMIN"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "HR",
     roles: ["HR"],
     expectedDashboard: /\/hr\/dashboard$/,
     workspaceLabel: "HR Workspace",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "MANAGER",
     roles: ["MANAGER"],
     expectedDashboard: /\/manager\/dashboard$/,
     workspaceLabel: "Manager Workspace",
-    visibleNav: ["Home", "Leave / Attendance"],
+    visibleNav: ["Home", "Leave"],
   },
   {
     name: "EMPLOYEE",
     roles: ["EMPLOYEE"],
     expectedDashboard: /\/employee\/dashboard$/,
     workspaceLabel: "Employee Portal",
-    visibleNav: ["Home", "Leave / Attendance"],
+    visibleNav: ["Home", "Leave"],
   },
   {
     name: "ADMIN_HR",
     roles: ["ADMIN", "HR"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "ADMIN_MANAGER",
     roles: ["ADMIN", "MANAGER"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "ADMIN_EMPLOYEE",
     roles: ["ADMIN", "EMPLOYEE"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "HR_MANAGER",
     roles: ["HR", "MANAGER"],
     expectedDashboard: /\/hr\/dashboard$/,
     workspaceLabel: "HR Workspace",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "HR_EMPLOYEE",
     roles: ["HR", "EMPLOYEE"],
     expectedDashboard: /\/hr\/dashboard$/,
     workspaceLabel: "HR Workspace",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "MANAGER_EMPLOYEE",
     roles: ["MANAGER", "EMPLOYEE"],
     expectedDashboard: /\/manager\/dashboard$/,
     workspaceLabel: "Manager Workspace",
-    visibleNav: ["Home", "Leave / Attendance"],
+    visibleNav: ["Home", "Leave"],
   },
   {
     name: "ADMIN_HR_MANAGER",
     roles: ["ADMIN", "HR", "MANAGER"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "ADMIN_HR_EMPLOYEE",
     roles: ["ADMIN", "HR", "EMPLOYEE"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "ADMIN_MANAGER_EMPLOYEE",
     roles: ["ADMIN", "MANAGER", "EMPLOYEE"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "HR_MANAGER_EMPLOYEE",
     roles: ["HR", "MANAGER", "EMPLOYEE"],
     expectedDashboard: /\/hr\/dashboard$/,
     workspaceLabel: "HR Workspace",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
   {
     name: "ADMIN_HR_MANAGER_EMPLOYEE",
     roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
     expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav: ["Home", "Employees", "Leave / Attendance", "Payroll", "Settings"],
+    visibleNav: [
+      "Home",
+      "Employees",
+      "Leave",
+      "Attendance",
+      "Payroll",
+      "Settings",
+    ],
   },
 ];
 
 const allNavItems = [
   "Home",
   "Employees",
-  "Leave / Attendance",
+  "Leave",
+  "Attendance",
   "Payroll",
   "Settings",
 ];
@@ -163,6 +252,12 @@ const protectedRoutes = [
     requiredPermissions: [] as string[],
   },
   {
+    path: "/attendance/shifts",
+    content: "Shift Management",
+    allowedRoles: ["ADMIN", "HR"] as E2ERole[],
+    requiredPermissions: [] as string[],
+  },
+  {
     path: "/payroll",
     content: "Payroll",
     allowedRoles: ["ADMIN", "HR"] as E2ERole[],
@@ -180,7 +275,10 @@ function hasAnyRole(userRoles: E2ERole[], allowedRoles: E2ERole[]) {
   return allowedRoles.some((role) => userRoles.includes(role));
 }
 
-function hasPermissions(userPermissions: string[], requiredPermissions: string[]) {
+function hasPermissions(
+  userPermissions: string[],
+  requiredPermissions: string[],
+) {
   return requiredPermissions.every((permission) =>
     userPermissions.includes(permission),
   );
@@ -188,7 +286,9 @@ function hasPermissions(userPermissions: string[], requiredPermissions: string[]
 
 test.describe("role and permission access matrix", () => {
   for (const scenario of roleScenarios) {
-    test(`${scenario.name} uses highest-priority dashboard and combined nav`, async ({ page }) => {
+    test(`${scenario.name} uses highest-priority dashboard and combined nav`, async ({
+      page,
+    }) => {
       await seedAuthSession(
         page,
         createMockSession({
@@ -243,13 +343,17 @@ test.describe("role and permission access matrix", () => {
           ).toBeVisible();
         } else {
           await expect(page).toHaveURL(/\/unauthorized$/);
-          await expect(page.getByText("Unable to determine access")).toBeVisible();
+          await expect(
+            page.getByText("Unable to determine access"),
+          ).toBeVisible();
         }
       });
     }
   }
 
-  test("HR without employee permission cannot see or open employees", async ({ page }) => {
+  test("HR without employee permission cannot see or open employees", async ({
+    page,
+  }) => {
     await seedAuthSession(
       page,
       createMockSession({

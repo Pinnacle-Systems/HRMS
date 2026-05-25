@@ -24,7 +24,8 @@ describe("Layout", () => {
     expect(screen.getByText("Dashboard content")).toBeInTheDocument();
     expect(screen.getByText("Home")).toBeInTheDocument();
     expect(screen.getByText("Employees")).toBeInTheDocument();
-    expect(screen.getByText("Leave / Attendance")).toBeInTheDocument();
+    expect(screen.getByText("Leave")).toBeInTheDocument();
+    expect(screen.getByText("Attendance")).toBeInTheDocument();
     expect(screen.getByText("Payroll")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
   });

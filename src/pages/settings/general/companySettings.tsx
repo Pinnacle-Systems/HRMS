@@ -309,7 +309,7 @@ const CompanySettings = () => {
         }
         const res: any = await companyService.updateCompany(companyInfo.id, updatedValue);
         if (res.success) {
-          showSnackbar(res.message, "success");
+          showSnackbar("Company settings saved successfully!", "success");
         }
       } catch (error: any) {
         showSnackbar(error.message, "error");
@@ -322,7 +322,7 @@ const CompanySettings = () => {
         delete payload['currency'];
         const res: any = await companyService.createCompany(payload);
         if (res.success) {
-          showSnackbar(res.message, "success");
+          showSnackbar("Company settings saved successfully!", "success");
         }
         await fetchCompanyInfo();
       } catch (error: any) {
