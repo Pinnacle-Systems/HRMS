@@ -212,18 +212,14 @@ export default function EmployeeManagement() {
     filters: FilterConfig
   ): Employee[] => {
     if (!filters || filters.rules.length === 0) return data;
-
     return data.filter((item) => {
       const results = filters.rules.map(rule =>
         evaluateRule(item, rule)
       );
-
       if (filters.condition === "AND") {
         return results.every(Boolean);
       }
-
       return results.some(Boolean);
-
     });
   };
 
@@ -761,7 +757,7 @@ export default function EmployeeManagement() {
       <MaterialModule.TableContainer
         component={MaterialModule.Paper}
         elevation={0}
-        className={`${activeFilters && activeFilters.rules.length > 0 ? 'h-[calc(100vh-400px)]' : 'h-[calc(100vh-340px)]'} overflow-auto !bg-white-50`}
+        className={`${activeFilters && activeFilters.rules.length > 0 ? 'h-[calc(100vh-392px)]' : 'h-[calc(100vh-332px)]'} overflow-auto !bg-white-50`}
       >
         <MaterialModule.Table stickyHeader className="border">
           <MaterialModule.TableHead>
@@ -1304,6 +1300,7 @@ export default function EmployeeManagement() {
               </div>
             </>
           )}
+          <div className="text-[12px] text-gray-500 mt-2">On saving, onboarding will begin and the employee will receive a password setup email.</div>
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button

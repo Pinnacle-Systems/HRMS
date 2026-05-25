@@ -87,6 +87,11 @@ export type NavItem = {
   icon: ReactNode;
   roles: AppRole[];
   permissions?: string[];
+  children?: {
+    text: string;
+    // icon: React.ReactNode;
+    path: string;
+  }[];
 };
 
 export type ProtectedRouteProps = {

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm test *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Anu-Projects\\\\HRMS\\\\src\\\\components\\\\\" -Recurse -Force | Select-Object FullName, Extension | Sort-Object FullName)"
+    ]
+  }
+}

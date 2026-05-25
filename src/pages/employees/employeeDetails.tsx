@@ -264,7 +264,7 @@ const EditableGroup = ({
   };
 
   return (
-    <div className="mb-6 p-4 border rounded-lg mt-3 shadow-sm border-gray-300">
+    <div className="mb-6 p-4 bg-white border rounded-lg mt-3 shadow-sm border-gray-300">
       <div>
         <div className="flex justify-between items-center mb-3">
           <div className="font-semibold flex items-center gap-2">

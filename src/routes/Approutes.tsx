@@ -39,7 +39,10 @@ import CategoryItems from "../pages/settings/employee/categoryItems";
 import CategorySettings from "../pages/settings/employee/otherCategory";
 import EmployeeDetails from "../pages/employees/employeeDetails";
 import OnBoardingProcess from "../pages/settings/employee/onBoardingProcess/onboard";
-import Documentation from "../pages/Documentation/doc";
+import Documentation from "../pages/documentation/doc";
+import ShiftSettings from "../pages/attendance/shiftSettings/shiftSettings";
+import { AttendanceReports } from "../pages/attendance/attendanceReport";
+import { AttendanceList } from "../pages/attendance/attendanceList";
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -202,6 +205,12 @@ function AppRoutesContent() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>
+              {/* <Route path="attendance" element={<AttendanceLayout />}> */}
+                {/* <Route index element={<Navigate to="schedule" replace />} /> */}
+                <Route path="attendance/list" element={<AttendanceList />} />
+                <Route path="attendance/reports" element={<AttendanceReports />} />
+                <Route path="attendance/shifts" element={<ShiftSettings />} />
+               {/* </Route> */}
               <Route path="payroll" element={<Payroll />} />
               <Route path="settings" element={<Settings />}>
                 <Route
@@ -212,6 +221,10 @@ function AppRoutesContent() {
                 <Route
                   path="general/branch-settings"
                   element={<BranchSettings />}
+                />
+                 <Route
+                  path="general/shift-settings"
+                  element={<ShiftSettings />}
                 />
                 <Route
                   path="general/password-config"

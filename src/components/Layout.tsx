@@ -39,6 +39,10 @@ import {
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
 import logo from "../assets/logo.jpg"
+import { TrackChangesOutlined } from "@mui/icons-material";
+import Collapse from "@mui/material/Collapse";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 const drawerWidth = 180;
 
 export default function Layout() {
@@ -51,7 +55,9 @@ export default function Layout() {
   const location = useLocation();
   const { session, logout } = useAuth();
   const user = session?.user;
-
+  const [attendanceOpen, setAttendanceOpen] = useState(
+    location.pathname.startsWith("/attendance")
+  );
   const handleDrawerToggle = () => {
     setOpen(!open);
   };
@@ -104,10 +110,30 @@ export default function Layout() {
       permissions: ["EMPLOYEE_READ"],
     },
     {
-      text: "Leave / Attendance",
+      text: "Leave",
       icon: <AssignmentOutlinedIcon />,
       path: "/leaves/my-dashboard",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "Attendance",
+      icon: <TrackChangesOutlined />,
+      path: "/attendance/shifts",
+      roles: ["MANAGER", "HR", "ADMIN"],
+      children: [
+        {
+          text: "Shift Management",
+          path: "/attendance/shifts",
+        },
+        {
+          text: "Attendance List",
+          path: "/attendance/list",
+        },
+        {
+          text: "Reports",
+          path: "/attendance/reports",
+        },
+      ],
     },
     {
       text: "Payroll",
@@ -119,7 +145,6 @@ export default function Layout() {
       text: "Settings",
       icon: <SettingsOutlinedIcon />,
       path: "/settings/general/company-settings",
-      // path: `/settings/general/company-settings/${user?.tenantId}`,
       roles: ["HR", "ADMIN"],
     },
     {
@@ -169,7 +194,7 @@ export default function Layout() {
             </IconButton>
             <Box className="flex items-center gap-2">
               {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div> */}
-              <img src={logo} alt=""  width="20px"/>
+              <img src={logo} alt="" width="20px" />
               <div className="font-bold text-gray-700">
                 Vibe<span className="text-primary">HR</span>
               </div>
@@ -287,7 +312,7 @@ export default function Layout() {
         open={open}
       >
         <List>
-          {visibleMenuItems.map((item, index) => (
+          {/* {visibleMenuItems.map((item, index) => (
             <Tooltip
               key={`item-${index}-${item.text}`}
               title={item.text}
@@ -295,9 +320,9 @@ export default function Layout() {
               <ListItem disablePadding className="block whitespace-nowrap">
                 <ListItemButton
                   className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
-                      location.pathname.startsWith(`${item.path}/`)
-                      ? "text-primary !bg-primary-50"
-                      : "text-gray-400"
+                    location.pathname.startsWith(`${item.path}/`)
+                    ? "text-primary !bg-primary-50"
+                    : "text-gray-400"
                     } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
                   onClick={() => navigate(item.path)}
                 >
@@ -319,6 +344,95 @@ export default function Layout() {
                 </ListItemButton>
               </ListItem>
             </Tooltip>
+          ))} */}
+          {visibleMenuItems.map((item: any, index) => (
+            <Box key={`item-${index}-${item.text}`}>
+              <Tooltip title={!open ? item.text : ""}>
+                <ListItem disablePadding className="block whitespace-nowrap">
+                  <ListItemButton
+                    className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
+                      location.pathname.startsWith(`${item.path}/`)
+                      ? "text-primary !bg-primary-50"
+                      : "text-gray-400"
+                      } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                    onClick={() => {
+                      if (item.children) {
+                        setAttendanceOpen(!attendanceOpen);
+                      }
+                      navigate(item.path);
+                    }}
+                  >
+                    <ListItemIcon
+                      className={`!min-w-0 ml-2 dark:text-primary ${open ? "mr-5" : "mr-0"
+                        } w-2 justify-center`}
+                      sx={{ "& svg": { fontSize: 20 } }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+
+                    <ListItemText
+                      primary={item.text}
+                      className={open ? "opacity-100 text-gray-800" : "opacity-0"}
+                      sx={{
+                        "& .MuiTypography-root": {
+                          fontSize: "12px",
+                        },
+                      }}
+                    />
+
+                    {item.children &&
+                      open &&
+                      (attendanceOpen ? (
+                        <ExpandLess fontSize="small" className="text-gray-800" />
+                      ) : (
+                        <ExpandMore fontSize="small" className="text-gray-800" />
+                      ))}
+                  </ListItemButton>
+                </ListItem>
+              </Tooltip>
+
+              {/* Sub Menu */}
+              {item.children && (
+                <Collapse in={attendanceOpen && open} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.children.map((child: any) => (
+                      <ListItemButton
+                        key={child.path}
+                        sx={{ pl: 2 }}
+                        className={`min-h-[40px] text-sm ${location.pathname === child.path
+                          ? "text-primary !bg-primary-50"
+                          : "text-gray-400"
+                          }`}
+                        onClick={() => navigate(child.path)}
+                      >
+                        <ListItemIcon
+
+                          sx={{
+                            minWidth: 30,
+                            color:
+                              location.pathname === child.path
+                                ? "#2563eb"
+                                : "#9ca3af",
+                          }}
+                        >
+                          {child.icon}
+                        </ListItemIcon>
+
+                        <ListItemText
+                          primary={child.text}
+                          className="text-gray-800"
+                          sx={{
+                            "& .MuiTypography-root": {
+                              fontSize: "12px",
+                            },
+                          }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              )}
+            </Box>
           ))}
         </List>
       </Drawer>
@@ -330,11 +444,11 @@ export default function Layout() {
         sx={{
           flexGrow: 1,
           p: "15px",
-          pb:0,
+          pb: 0,
           mt: "64px",
-          backgroundColor: "var(--bg-primary)",
+          backgroundColor: "var(--bg-gray-50)",
           minHeight: "calc(100vh - 64px)",
-          overflowY:"auto",
+          overflowY: "auto",
           transition: (theme) =>
             theme.transitions.create("padding", {
               easing: theme.transitions.easing.sharp,

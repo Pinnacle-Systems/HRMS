@@ -110,6 +110,11 @@ export const tabs = [
                 label: "Branch Settings",
                 path: "/settings/general/branch-settings",
             },
+            // {
+            //     id: "shift-settings",
+            //     label: "Shift Settings",
+            //     path: "/settings/general/shift-settings",
+            // },
             {
                 id: "password-config",
                 label: "Password Config",
