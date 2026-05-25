@@ -17,7 +17,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Tooltip,
   Paper
 } from '@mui/material';
 import {
@@ -43,7 +42,7 @@ const rotationApi = {
     return { data: { id, ...data } };
   },
   deleteRotation: async (id: string) => {
-    return { data: {} };
+    return { data: {id} };
   }
 };
 

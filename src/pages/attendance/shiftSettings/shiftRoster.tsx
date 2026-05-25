@@ -1,5 +1,4 @@
-// src/pages/attendance/shifts/ShiftRoster.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -8,36 +7,22 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  IconButton,
   Chip,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Grid,
-  TextField,
-  Badge,
   Tooltip,
   Alert,
   Avatar
 } from '@mui/material';
 import {
-  DateRange as DateRangeIcon,
   ContentCopy as CopyIcon,
   GroupAdd as BulkAssignIcon,
   Publish as PublishIcon,
-  CheckCircle as CheckIcon,
   Warning as WarningIcon,
-  AccessTime as TimeIcon,
-  SwapHoriz as SwapIcon,
-  Notifications as NotificationIcon,
-  PictureAsPdf as PdfIcon,
-  GetApp as ExcelIcon,
-  Edit as EditIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';

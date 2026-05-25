@@ -30,18 +30,18 @@ const textFields: FilterField[] = [
   { id: "email", label: "Email", type: "text" },
 ];
 
-const mixedFields: FilterField[] = [
-  { id: "name", label: "Name", type: "text" },
-  {
-    id: "status",
-    label: "Status",
-    type: "select",
-    options: [
-      { value: "ACTIVE", label: "Active" },
-      { value: "INACTIVE", label: "Inactive" },
-    ],
-  },
-];
+// const mixedFields: FilterField[] = [
+//   { id: "name", label: "Name", type: "text" },
+//   {
+//     id: "status",
+//     label: "Status",
+//     type: "select",
+//     options: [
+//       { value: "ACTIVE", label: "Active" },
+//       { value: "INACTIVE", label: "Inactive" },
+//     ],
+//   },
+// ];
 
 describe("FilterPopup — rendering", () => {
   it("does not render when open=false", () => {

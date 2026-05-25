@@ -47,7 +47,7 @@ import { days, getShiftTypeClass, shiftTypes } from './const';
 
 // Mock API service
 const shiftApi = {
-  getShifts: async (params?: any) => {
+  getShifts: async () => {
     // Replace with actual API call
     return {
       data: [
@@ -125,7 +125,7 @@ const shiftApi = {
     return { data: { id, ...data } };
   },
   deleteShift: async (id: string) => {
-    return { data: {} };
+    return { data: {id} };
   }
 };
 
