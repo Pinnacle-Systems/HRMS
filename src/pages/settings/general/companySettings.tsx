@@ -34,7 +34,6 @@ const CompanySettings = () => {
     currencies,
     loading,
     fetchStatesByCountry,
-    fetchCitiesByCountry,
     fetchCitiesByState,
   } = useMasterData();
   const [mapUrl, setMapUrl] = useState("");
@@ -69,7 +68,6 @@ const CompanySettings = () => {
         cityId: "",
       }));
       await fetchStatesByCountry(value);
-      await fetchCitiesByCountry(value);
     }
 
     // State selected
@@ -208,6 +206,12 @@ const CompanySettings = () => {
           companyType: "Head Office",
           ...response.data,
         });
+        if (response.data.countryId) {
+          void fetchStatesByCountry(response.data.countryId);
+        }
+        if (response.data.stateId) {
+          void fetchCitiesByState(response.data.stateId);
+        }
         if (response.data?.logoUrl) {
           const logoUrl = `${response.data.logoUrl}?v=${Date.now()}`;
           setLogoFile(logoUrl);

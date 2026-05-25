@@ -1,6 +1,10 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+export const normalizeMasterData = <T>(response: any): T[] => {
+  return response?.data?.content || response?.data || response || [];
+};
+
 export const masterService = {
   async getCities(params?: Record<string, unknown>) {
     return apiService.get(API_ENDPOINTS.MASTER.GET_CITY, { params });
@@ -8,6 +12,10 @@ export const masterService = {
 
   async getCountries(params?: any) {
     return apiService.get(API_ENDPOINTS.MASTER.GET_COUNTRY, { params });
+  },
+
+  async getActiveCountries(params?: any) {
+    return apiService.get(API_ENDPOINTS.MASTER.GET_ACTIVE_COUNTRIES, { params });
   },
 
   async getStates(params?: any) {

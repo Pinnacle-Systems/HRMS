@@ -1,4 +1,4 @@
-export const AttendanceReports = () => {
+const AttendanceReports = () => {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-semibold">Attendance Reports</h1>
@@ -6,3 +6,5 @@ export const AttendanceReports = () => {
     </div>
   );
 };
+
+export default AttendanceReports;

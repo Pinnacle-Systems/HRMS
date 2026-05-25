@@ -284,6 +284,21 @@ export default function DepartmentSettings() {
     });
   };
 
+  const handleToggleStatus = async (department: Department) => {
+    showSpinner();
+    try {
+      const res: any = await departmentService.toggleDepartmentById(department.id);
+      if (res.success) {
+        showSnackbar(`Department ${!department.active ? "activated" : "deactivated"} successfully!`, "success");
+        await getDepartments();
+      }
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
   const getSortIcon = (column: string) => {
     if (sortBy !== column) return null;
     return sortOrder === "ASC" ? (
@@ -441,6 +456,8 @@ export default function DepartmentSettings() {
                       label={department.active ? "Active" : "Inactive"}
                       color={department.active ? "success" : "error"}
                       size="small"
+                      onClick={() => handleToggleStatus(department)}
+                      className="cursor-pointer"
                     />
                   </TableCell>
                   <TableCell className="text-center">

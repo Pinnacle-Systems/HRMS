@@ -59,9 +59,10 @@ export const MasterSelect = ({
       label={label || ""}
       value={selectedLabel}
       options={optionsArray.map((item) => item?.name || item?.label || "")}
-      onChange={(selectedName: string) => {
+      onChange={(selectedName: string | string[]) => {
+        const name = Array.isArray(selectedName) ? selectedName[0] : selectedName;
         const selected = optionsArray.find(
-          (item) => (item?.name || item?.label) === selectedName
+          (item) => (item?.name || item?.label) === name
         );
         onChange(selected?.id || selected?.value || "");
       }}

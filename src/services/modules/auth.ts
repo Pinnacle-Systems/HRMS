@@ -63,7 +63,7 @@ class AuthService {
   }
 
   async getLoginHistoryByUser(id?: string | number) {
-    return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_USERID(id));
+    return apiService.get(API_ENDPOINTS.LOGIN_HISTORY.GET_BY_USERID(String(id)));
   }
 
   async getLoginHistoryByTenant(params?: LoginHistoryParams) {
@@ -77,7 +77,7 @@ class AuthService {
   }
 
   async clearLoginHistoryOlderThan(days: string | number) {
-    return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.CLEAR_OLDER(days));
+    return apiService.delete(API_ENDPOINTS.LOGIN_HISTORY.CLEAR_OLDER(String(days)));
   }
 }
 
