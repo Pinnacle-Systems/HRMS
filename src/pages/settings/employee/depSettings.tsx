@@ -120,11 +120,7 @@ export default function DepartmentSettings() {
   // Fetch branches for dropdown
   const getBranches = async () => {
     try {
-      const response: any = await branchService.getBranches({
-        page: 0,
-        limit: 100,
-        sortBy: "branchName,ASC",
-      });
+      const response: any = await branchService.getDropdownBranches();
       setBranches(response.data.content || response.data || []);
     } catch (error: any) {
       console.error("Failed to load branches:", error.message);

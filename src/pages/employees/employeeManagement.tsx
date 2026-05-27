@@ -23,11 +23,10 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { getRowColor, getStickyLeftSx, getStickyRightSx } from "../const";
+import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from "../const";
 import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
-import { stickyHeaderLeftSx, stickyHeaderRightSx } from "./const";
 import type { FilterConfig, FilterField } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
@@ -74,6 +73,14 @@ export default function EmployeeManagement() {
   const [empStartNumber, setEmpStartNumber] = useState("001");
   const [manualEmployeeId, setManualEmployeeId] = useState("");
   const [empDigitCount, setEmpDigitCount] = useState("4");
+  const [employeeIdConfig, setEmployeeIdConfig] = useState<any>(null);
+  const [nextIdPreview, setNextIdPreview] = useState<string>("");
+
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedEmployeeForExport, setSelectedEmployeeForExport] = useState<string | null>(null);
+
+  const [isDeactivate, setIsDeactivate] = useState(false);
+  const [deactivateEmployeeId, setDeactivateEmployeeId] = useState("");
 
   // Define filter fields for employee management
   const filterFields: FilterField[] = [
@@ -137,29 +144,106 @@ export default function EmployeeManagement() {
     },
   ];
 
-  const generateRandomAlphaNumeric = (length: number) => {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    let seed = length * 31 + 17;
-    for (let i = 0; i < length; i++) {
-      seed = (seed * 9301 + 49297) % 233280;
-      const index = Math.floor((seed / 233280) * chars.length);
-      result += chars.charAt(index);
+
+
+  const loadEmployeeIdConfig = async () => {
+    try {
+      const config: any = await employeeService.getEmployeeId();
+      setEmployeeIdConfig(config);
+      if (config.configured) {
+        // Populate form with existing configuration
+        setEmpCodeType(config.formatType.toLowerCase());
+        if (config.prefix) setEmpPrefix(config.prefix);
+        if (config.startingNumber) setEmpStartNumber(String(config.startingNumber));
+        if (config.numberOfDigits) setEmpDigitCount(String(config.numberOfDigits));
+
+        // If there's a last generated ID, suggest continuing from it
+        if (config.lastGeneratedId) {
+          setEmpGenerationFlow("continue");
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to load employee ID config:", error);
+      // Don't show error to user as this is not critical
     }
-    return result;
   };
 
-  const getNextEmployeeId = () => {
-    if (employees.length === 0) {
-      return `${empPrefix}${empStartNumber}`;
+  useEffect(() => {
+    loadEmployeeIdConfig();
+  }, []);
+  const generatePreview = async () => {
+    showSpinner();
+    try {
+      let payload: any = {};
+
+      if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
+        // Use the existing configuration to generate next ID
+        payload = {
+          formatType: employeeIdConfig.formatType,
+          prefix: employeeIdConfig.prefix,
+          startingNumber: employeeIdConfig.startingNumber,
+          numberOfDigits: employeeIdConfig.numberOfDigits,
+        };
+      } else {
+        // Use current form values
+        payload = {
+          formatType: empCodeType.toUpperCase(),
+          prefix: empCodeType === "pattern" ? empPrefix : undefined,
+          startingNumber: (empCodeType === "pattern" || empCodeType === "number")
+            ? parseInt(empStartNumber)
+            : undefined,
+          numberOfDigits: empCodeType === "alphanumeric"
+            ? parseInt(empDigitCount)
+            : undefined,
+        };
+      }
+
+      const response: any = await employeeService.getNextId(payload);
+      setNextIdPreview(response.previewId);
+    } catch (error: any) {
+      console.error("Failed to generate preview:", error);
+      setNextIdPreview("Error generating preview");
+    } finally {
+      hideSpinner();
     }
-    const employeeIds = employees.map((emp) => emp.employeeId).filter(Boolean);
-    const lastId = employeeIds[0];
-    const numericPart = lastId.replace(/\D/g, "");
-    const nextNumber = String(Number(numericPart) + 1).padStart(numericPart.length, "0");
-    const prefix = lastId.replace(/[0-9]/g, "");
-    return `${prefix}${nextNumber}`;
   };
+
+  // Generate preview whenever relevant fields change
+  useEffect(() => {
+    if (!hasManualEmpId && employeeDialogOpen) {
+      const timer = setTimeout(() => {
+        if (empCodeType === "pattern" && (!empPrefix || !empStartNumber)) {
+          return;
+        }
+        generatePreview();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [empCodeType, empPrefix, empStartNumber, empDigitCount, empGenerationFlow, employeeDialogOpen, hasManualEmpId, employeeIdConfig]);
+
+  // const generateRandomAlphaNumeric = (length: number) => {
+  //   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  //   let result = "";
+  //   let seed = length * 31 + 17;
+  //   for (let i = 0; i < length; i++) {
+  //     seed = (seed * 9301 + 49297) % 233280;
+  //     const index = Math.floor((seed / 233280) * chars.length);
+  //     result += chars.charAt(index);
+  //   }
+  //   return result;
+  // };
+
+  // const getNextEmployeeId = () => {
+  //   if (employees.length === 0) {
+  //     return `${empPrefix}${empStartNumber}`;
+  //   }
+  //   const employeeIds = employees.map((emp) => emp.employeeId).filter(Boolean);
+  //   const lastId = employeeIds[0];
+  //   const numericPart = lastId.replace(/\D/g, "");
+  //   const nextNumber = String(Number(numericPart) + 1).padStart(numericPart.length, "0");
+  //   const prefix = lastId.replace(/[0-9]/g, "");
+  //   return `${prefix}${nextNumber}`;
+  // };
 
   // Evaluate a single filter rule
   const evaluateRule = (item: any, rule: any): boolean => {
@@ -169,38 +253,40 @@ export default function EmployeeManagement() {
     };
     const fieldValue = item[localFieldMap[rule.field] || rule.field];
     const ruleValue = rule.value;
+    const safeFieldValue = fieldValue ?? "";
+    const safeRuleValue = ruleValue ?? "";
 
     switch (rule.operator) {
       case 'equals':
-        return String(fieldValue).toLowerCase() === String(ruleValue).toLowerCase();
+        return String(safeFieldValue).toLowerCase() === String(safeRuleValue).toLowerCase();
       case 'notEquals':
-        return String(fieldValue).toLowerCase() !== String(ruleValue).toLowerCase();
+        return String(safeFieldValue).toLowerCase() !== String(safeRuleValue).toLowerCase();
       case 'contains':
-        return String(fieldValue).toLowerCase().includes(String(ruleValue).toLowerCase());
+        return String(safeFieldValue).toLowerCase().includes(String(safeRuleValue).toLowerCase());
       case 'notContains':
-        return !String(fieldValue).toLowerCase().includes(String(ruleValue).toLowerCase());
+        return !String(safeFieldValue).toLowerCase().includes(String(safeRuleValue).toLowerCase());
       case 'startsWith':
-        return String(fieldValue).toLowerCase().startsWith(String(ruleValue).toLowerCase());
+        return String(safeFieldValue).toLowerCase().startsWith(String(safeRuleValue).toLowerCase());
       case 'endsWith':
-        return String(fieldValue).toLowerCase().endsWith(String(ruleValue).toLowerCase());
+        return String(safeFieldValue).toLowerCase().endsWith(String(safeRuleValue).toLowerCase());
       case 'greaterThan':
-        return new Date(fieldValue) > new Date(ruleValue);
+        return new Date(safeFieldValue) > new Date(safeRuleValue);
       case 'greaterThanOrEqual':
-        return new Date(fieldValue) >= new Date(ruleValue);
+        return new Date(safeFieldValue) >= new Date(safeRuleValue);
       case 'lessThan':
-        return new Date(fieldValue) < new Date(ruleValue);
+        return new Date(safeFieldValue) < new Date(safeRuleValue);
       case 'lessThanOrEqual':
-        return new Date(fieldValue) <= new Date(ruleValue);
+        return new Date(safeFieldValue) <= new Date(safeRuleValue);
       case 'between':
-        return new Date(fieldValue) >= new Date(ruleValue) && new Date(fieldValue) <= new Date(rule.value2);
+        return new Date(safeFieldValue) >= new Date(safeRuleValue) && new Date(safeFieldValue) <= new Date(rule.value2);
       case 'in':
-        return Array.isArray(ruleValue) && ruleValue.includes(fieldValue);
+        return Array.isArray(safeRuleValue) && safeRuleValue.includes(safeFieldValue);
       case 'notIn':
-        return Array.isArray(ruleValue) && !ruleValue.includes(fieldValue);
+        return Array.isArray(safeRuleValue) && !safeRuleValue.includes(safeFieldValue);
       case 'isEmpty':
-        return !fieldValue || fieldValue === '' || (Array.isArray(fieldValue) && fieldValue.length === 0);
+        return !safeFieldValue || safeFieldValue === '' || (Array.isArray(safeFieldValue) && safeFieldValue.length === 0);
       case 'isNotEmpty':
-        return fieldValue && fieldValue !== '' && (!Array.isArray(fieldValue) || fieldValue.length > 0);
+        return safeFieldValue && safeFieldValue !== '' && (!Array.isArray(safeFieldValue) || safeFieldValue.length > 0);
       default:
         return true;
     }
@@ -358,7 +444,7 @@ export default function EmployeeManagement() {
     try {
       const deptRes: any = await departmentService.getDepartments();
       setDepartments(deptRes.data.content || deptRes.data || []);
-      const branchRes: any = await branchService.getBranches();
+      const branchRes: any = await branchService.getDropdownBranches();
       setBranches(branchRes.data.content || branchRes.data || []);
       const desigRes: any = await categoryService.getCategoryItems("00c4fd3c-4fb6-4d33-932e-80a615a90825");
       setDesignations(desigRes.data.content || desigRes.data || []);
@@ -373,22 +459,22 @@ export default function EmployeeManagement() {
   }, [page, limit, sortBy, sortOrder, searchTerm, activeFilters, includeInactive]);
 
   // Update filter fields when master data changes
-  useEffect(() => {
-    // This will update the filter fields options when departments/designations/branches change
-    filterFields.map(field => {
-      if (field.id === 'designationId') {
-        return { ...field, options: designations.map(d => ({ value: d.id, label: d.name })) };
-      }
-      if (field.id === 'dept') {
-        return { ...field, options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })) };
-      }
-      if (field.id === 'branch') {
-        return { ...field, options: branches.map(b => ({ value: b.branchName, label: b.branchName })) };
-      }
-      return field;
-    });
-    // Update filterFields state if needed
-  }, [departments, designations, branches]);
+  // useEffect(() => {
+  //   // This will update the filter fields options when departments/designations/branches change
+  //   filterFields.map(field => {
+  //     if (field.id === 'designationId') {
+  //       return { ...field, options: designations.map(d => ({ value: d.id, label: d.name })) };
+  //     }
+  //     if (field.id === 'dept') {
+  //       return { ...field, options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })) };
+  //     }
+  //     if (field.id === 'branch') {
+  //       return { ...field, options: branches.map(b => ({ value: b.branchName, label: b.branchName })) };
+  //     }
+  //     return field;
+  //   });
+  //   // Update filterFields state if needed
+  // }, [departments, designations, branches]);
 
   const handleSortChange = (newSortBy: string, newSortOrder?: "ASC" | "DESC") => {
     setSortBy(newSortBy);
@@ -409,17 +495,80 @@ export default function EmployeeManagement() {
     if (hasManualEmpId) {
       return manualEmployeeId || "Manual Entry";
     }
-    if (empGenerationFlow === "continue") {
-      return getNextEmployeeId();
+    if (empGenerationFlow === "continue" && employeeIdConfig?.nextSequencePreview) {
+      return employeeIdConfig.nextSequencePreview;
     }
-    if (empCodeType === "pattern") {
-      return `${empPrefix}${empStartNumber}`;
-    }
-    if (empCodeType === "alphanumeric") {
-      return generateRandomAlphaNumeric(Number(empDigitCount));
-    }
-    return empStartNumber;
+    return nextIdPreview || "Enter details to preview";
   };
+
+  const getEmployeeIdForCreation = async (): Promise<string> => {
+    if (hasManualEmpId) {
+      return manualEmployeeId;
+    }
+
+    let payload: any = {};
+
+    if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
+      payload = {
+        formatType: employeeIdConfig.formatType,
+        prefix: employeeIdConfig.prefix,
+        startingNumber: employeeIdConfig.startingNumber,
+        numberOfDigits: employeeIdConfig.numberOfDigits,
+      };
+    } else {
+      payload = {
+        formatType: empCodeType.toUpperCase(),
+      };
+
+      if (empCodeType === "pattern") {
+        payload.prefix = empPrefix;
+        payload.startingNumber = parseInt(empStartNumber);
+      }
+
+      if (empCodeType === "number") {
+        payload.startingNumber = parseInt(empStartNumber);
+      }
+
+      if (empCodeType === "alphanumeric") {
+        payload.numberOfDigits = parseInt(empDigitCount);
+      }
+
+      await employeeService.updateEmployeeId(payload);
+    }
+
+    const preview: any = await employeeService.getNextId(payload);
+
+    return preview.previewId;
+  };
+
+  const validateEmployeeIdConfig = () => {
+    if (hasManualEmpId) return true;
+
+    if (empCodeType === "pattern") {
+      if (!empPrefix.trim()) {
+        showSnackbar("Prefix is required", "error");
+        return false;
+      }
+
+      if (!empStartNumber) {
+        showSnackbar("Starting number is required", "error");
+        return false;
+      }
+    }
+
+    if (empCodeType === "number" && !empStartNumber) {
+      showSnackbar("Starting number is required", "error");
+      return false;
+    }
+
+    if (empCodeType === "alphanumeric" && !empDigitCount) {
+      showSnackbar("Number of digits is required", "error");
+      return false;
+    }
+
+    return true;
+  };
+
 
   // Reset form
   const resetForm = () => {
@@ -441,6 +590,9 @@ export default function EmployeeManagement() {
     setEmpDigitCount("4");
     setManualEmployeeId("");
     setSelectedEmployee(null);
+    setEmpGenerationFlow(
+      employeeIdConfig?.configured ? "continue" : "new"
+    );
   };
 
   // Handle Add Employee
@@ -448,6 +600,7 @@ export default function EmployeeManagement() {
     setIsEditing(false);
     resetForm();
     setEmployeeDialogOpen(true);
+    loadEmployeeIdConfig();
   };
 
   // Handle Edit Employee - Open Edit Dialog
@@ -483,6 +636,7 @@ export default function EmployeeManagement() {
       showSnackbar("Please enter a valid email address", "error");
       return;
     }
+    if (!validateEmployeeIdConfig()) return;
     showSpinner();
     try {
       if (isEditing) {
@@ -498,9 +652,8 @@ export default function EmployeeManagement() {
         await employeeService.updateEmployee(selectedEmployee!.id, payload);
         showSnackbar("Employee updated successfully!", "success");
       } else {
-        const employeeId = hasManualEmpId
-          ? manualEmployeeId
-          : generateEmployeeIdPreview();
+        const employeeId = await getEmployeeIdForCreation();
+
         const payload = {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
@@ -515,6 +668,8 @@ export default function EmployeeManagement() {
           `Employee Created! ID: ${employeeId}. Welcome email sent to ${formData.emailAddress}`,
           "success",
         );
+        await loadEmployeeIdConfig();
+
       }
       setEmployeeDialogOpen(false);
       resetForm();
@@ -635,6 +790,73 @@ export default function EmployeeManagement() {
     }
   };
 
+  const openExportMenu = (event: React.MouseEvent<HTMLElement>, employeeId?: string) => {
+    setSelectedEmployeeForExport(employeeId || null);
+    setExportAnchorEl(event.currentTarget);
+  };
+
+  const closeExportMenu = () => {
+    setExportAnchorEl(null);
+    setSelectedEmployeeForExport(null);
+  };
+
+
+  const handleExport = async (format: "csv" | "xlsx" | "pdf") => {
+    try {
+      showSpinner();
+
+      if (selectedEmployeeForExport) {
+        // Single employee export
+        await employeeService.downloadEmployeeByIdExport(
+          selectedEmployeeForExport,
+          format
+        );
+
+        showSnackbar(
+          `Employee exported as ${format.toUpperCase()}`,
+          "success"
+        );
+      } else {
+        // Export all employees
+        const params: any = {
+          search: searchTerm || undefined,
+          sort: `${sortBy},${sortOrder}`,
+          ...buildServerFilterParams(activeFilters),
+        };
+
+        await employeeService.downloadEmployeeExport(
+          params,
+          format
+        );
+
+        showSnackbar(
+          `Employees exported as ${format.toUpperCase()}`,
+          "success"
+        );
+      }
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to export", "error");
+    } finally {
+      hideSpinner();
+      closeExportMenu();
+    }
+  };
+
+  const updateReleivingDate = async (emp: any, value: any) => {
+    handleDeactivateEmployee(emp.id, emp.name);
+    setIsDeactivate(false);
+    showSpinner();
+    try {
+      await employeeService.updateEmployee(emp.id, { relievingDate: value })
+      handleDeactivateEmployee(emp.id, emp.name);
+      setIsDeactivate(false);
+    } catch (error: any) {
+      showSnackbar(error.message, 'error')
+    } finally {
+      hideSpinner();
+    }
+  }
+
   return (
     <div className="">
       <div className="flex justify-between items-center mb-4">
@@ -711,12 +933,12 @@ export default function EmployeeManagement() {
             {employees.filter(e => e.employeeStatus === 'ONBOARDING').length}
           </div>
         </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
+        {/* <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
           <div className="text-gray-500">Active Employees</div>
           <div className="font-bold">
-            {employees.filter(e => e.employeeStatus === 'Active').length}
+            {employees.filter(e => e.isActive === true).length}
           </div>
-        </div>
+        </div> */}
         <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
           <div className="text-gray-500">Onboarding</div>
           <div className="font-bold">
@@ -726,7 +948,7 @@ export default function EmployeeManagement() {
       </div>
 
       {/* Search Bar */}
-      <div className="mb-4 flex items-cemter gap-2">
+      <div className="mb-4 flex items-center gap-2">
         <MaterialModule.TextField
           fullWidth
           variant="outlined"
@@ -751,6 +973,31 @@ export default function EmployeeManagement() {
             <div className="h-[18px] w-[30px] text-[10px] ml-2 bg-blue-700 text-white font-bold rounded-[50%]">{getActiveFilterCount()}</div>
           )}
         </MaterialModule.Button>
+
+        <MaterialModule.Button
+          variant="outlined"
+          startIcon={<MaterialModule.DownloadIcon />}
+          onClick={(e) => openExportMenu(e)}
+        >
+          Export
+        </MaterialModule.Button>
+
+        {/* Shared Export Menu */}
+        <MaterialModule.Menu
+          anchorEl={exportAnchorEl}
+          open={Boolean(exportAnchorEl)}
+          onClose={closeExportMenu}
+        >
+          <MaterialModule.MenuItem className="!text-[12px]" onClick={() => handleExport("csv")}>
+            Export as CSV
+          </MaterialModule.MenuItem>
+          <MaterialModule.MenuItem className="!text-[12px]" onClick={() => handleExport("xlsx")}>
+            Export as Excel
+          </MaterialModule.MenuItem>
+          <MaterialModule.MenuItem className="!text-[12px]" onClick={() => handleExport("pdf")}>
+            Export as PDF
+          </MaterialModule.MenuItem>
+        </MaterialModule.Menu>
       </div>
 
       {/* Employees Table */}
@@ -768,14 +1015,8 @@ export default function EmployeeManagement() {
               }}>
                 S No
               </MaterialModule.TableCell>
-              <MaterialModule.TableCell sx={{
-                position: "sticky",
-                left: "70px",
-                zIndex: 5,
-                backgroundColor: "white",
-                minWidth: "100px",
-              }}
-                className="!font-semibold text-gray-800 cursor-pointer"
+              <MaterialModule.TableCell
+                className="nth-c !font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   handleSortChange(
                     "employeeId",
@@ -924,16 +1165,6 @@ export default function EmployeeManagement() {
                 <MaterialModule.TableCell>{employee.branch || "-"}</MaterialModule.TableCell>
                 <MaterialModule.TableCell>{employee.joiningDate ? formatDate(employee.joiningDate) : "-"}</MaterialModule.TableCell>
                 <MaterialModule.TableCell>{employee.employeeStatus || "-"}
-
-                  {/* <MaterialModule.Chip
-                    label={employee.employeeStatus || "-"}
-                    color={
-                      employee.employeeStatus === 'Active' ? 'success' : 'deafult'
-                      // employee.employeeStatus === 'INACTIVE' ? 'default' :
-                      // employee.employeeStatus === 'ONBOARDING' ? 'warning' : 'error'
-                    }
-                    size="small"
-                  /> */}
                 </MaterialModule.TableCell>
                 <MaterialModule.TableCell className="text-center" sx={{
                   ...getStickyRightSx(index),
@@ -952,6 +1183,14 @@ export default function EmployeeManagement() {
                         />
                       </MaterialModule.IconButton>
                     </MaterialModule.Tooltip>
+                    <MaterialModule.Tooltip title="Export Employee">
+                      <MaterialModule.IconButton
+                        size="small"
+                        onClick={(e) => openExportMenu(e, employee.id)}
+                      >
+                        <MaterialModule.DownloadIcon className="!w-4" color="primary" />
+                      </MaterialModule.IconButton>
+                    </MaterialModule.Tooltip>
                     {isInactiveEmployee(employee) ? (
                       <MaterialModule.Tooltip title="Reactivate">
                         <MaterialModule.IconButton
@@ -964,16 +1203,41 @@ export default function EmployeeManagement() {
                         </MaterialModule.IconButton>
                       </MaterialModule.Tooltip>
                     ) : (
-                      <MaterialModule.Tooltip title="Deactivate">
-                        <MaterialModule.IconButton
-                          size="small"
-                          onClick={() =>
-                            handleDeactivateEmployee(employee.id, employee.name)
-                          }
-                        >
-                          <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                        </MaterialModule.IconButton>
-                      </MaterialModule.Tooltip>
+                      <>
+                        <MaterialModule.Tooltip title="Deactivate">
+                          <MaterialModule.IconButton
+                            size="small"
+                            onClick={() => {
+                              setIsDeactivate(true); setDeactivateEmployeeId(employee.id)
+                            }
+                              // handleDeactivateEmployee(employee.id, employee.name)
+                            }
+                          >
+                            <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                          </MaterialModule.IconButton>
+                        </MaterialModule.Tooltip>
+                        {
+                          isDeactivate && employee.id === deactivateEmployeeId &&
+                          <LocalizationProvider dateAdapter={AdapterDayjs}>
+                            <DatePicker
+                              label="Relieving Date"
+                              className="!bg-white"
+                              value={employee.relievingDate ? dayjs(employee.relievingDate) : null}
+                              onChange={(newValue) =>
+                                updateReleivingDate(employee,
+                                  newValue ? newValue.format("YYYY-MM-DD") : ""
+                                )
+                              }
+                              slotProps={{
+                                textField: {
+                                  className: "!w-[150px]",
+                                },
+                              }}
+                            />
+                          </LocalizationProvider>
+                        }
+
+                      </>
                     )}
                   </div>
                 </MaterialModule.TableCell>
@@ -1021,7 +1285,6 @@ export default function EmployeeManagement() {
         maxWidth="md"
         fullWidth
       >
-        {/* ... (keep your existing dialog code) ... */}
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
           <div className="text-primary ml-4">
             {isEditing ? "Edit Employee" : "Add New Employee"}
@@ -1181,7 +1444,7 @@ export default function EmployeeManagement() {
                         }
                       >
                         <MaterialModule.MenuItem value="new" className="!text-[12px]">Generate With New Pattern</MaterialModule.MenuItem>
-                        <MaterialModule.MenuItem value="continue" className="!text-[12px]">Continue Last Generated ID</MaterialModule.MenuItem>
+                        <MaterialModule.MenuItem value="continue" disabled={!employeeIdConfig?.configured} className="!text-[12px]">Continue Last Generated ID</MaterialModule.MenuItem>
                       </MaterialModule.Select>
                     </MaterialModule.FormControl>
 
@@ -1259,7 +1522,7 @@ export default function EmployeeManagement() {
                             <div>
                               Last Generated ID:&nbsp;
                               <strong>
-                                {employees?.[0]?.employeeId || "No Employees"}
+                                {employeeIdConfig?.lastGeneratedId || "No Employees"}
                               </strong>
                             </div>
 

@@ -90,17 +90,17 @@ export const employeeColumns = [
   { key: "noticePeriod", label: "Notice Period (days)" },
   { key: "department", label: "Department", type: "select" },
   { key: "designation", label: "Designation", type: "select" },
-  { key: "grade", label: "Grade", type: "select" },
-  { key: "band", label: "Band / Pay Category", type: "select" },
+  { key: "grade", label: "Grade", type: "select", categoryKey: "GRADE", isPolicy: false },
+  { key: "band", label: "Band / Pay Category", type: "select", categoryKey: "BAND", isPolicy: false },
   { key: "manager", label: "Reporting Manager", type: "user" },
   { key: "empType", label: "Employee Type", type: "select" },
   // { key: "employmentStatus", label: "Employment Status" },
   { key: "branch", label: "Branch", type: "select" },
-  { key: "attendanceSchema", label: "Attendance Schema", type: "select" },
-  { key: "bonusPolicy", label: "Bonus Policy", type: "select" },
-  { key: "otPolicy", label: "OT Policy", type: "select" },
+  // { key: "attendanceSchema", label: "Attendance Schema", type: "select" },
+  { key: "bonusPolicy", label: "Bonus Policy", type: "select", categoryKey: "BONUS_POLICY", isPolicy: true },
+  { key: "otPolicy", label: "OT Policy", type: "select", categoryKey: "OT_POLICY", isPolicy: true },
   { key: "otAmount", label: "OT Amount" },
-  { key: "vehicleType", label: "Vehicle Type", type: "select" },
+  { key: "vehicleType", label: "Vehicle Type", type: "select", categoryKey: "VEHICLE_TYPE", isPolicy: false },
   // { key: "firstAidTrainee", label: "First Aid Trainee" },
   // { key: "employeeIdentity", label: "Employee Identity" },
   // { key: "employeeReferenceNumber", label: "Employee Reference Number" },
@@ -325,30 +325,13 @@ export const commonsx = {
   },
 };
 
-export const stickyLeftSx = {
-  position: "sticky",
-  left: 0,
-  zIndex: 3,
-  background: "#fff",
-};
-
-export const stickyRightSx = {
-  position: "sticky",
-  right: 0,
-  zIndex: 3,
-  background: "#fff",
-};
-
-export const stickyHeaderLeftSx = {
-  position: "sticky",
-  left: 0,
-  zIndex: 4,
-  background: "#f3f4f6",
-};
-
-export const stickyHeaderRightSx = {
-  position: "sticky",
-  right: 0,
-  zIndex: 4,
-  background: "#f3f4f6",
-};
+export const lockableFields = [
+    "name",
+    "dateOfBirth",
+    "gender",
+    "fathersName",
+    "address1",
+    "city",
+    "state",
+    "pincode"
+  ]

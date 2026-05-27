@@ -32,7 +32,7 @@ import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
 import { sortOptions, type Branch } from "./type";
-import { getRowColor } from "../../const";
+import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from "../../const";
 // import { LocationMap } from "../../../components/Location";
 import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
@@ -67,6 +67,12 @@ export default function BranchSettings() {
     radius: 5,
     branchHeadId: "",
     active: true,
+    pfCode: "",
+    pfLocation: "",
+    esiCode: "",
+    esiLocation: "",
+    contactEmail: "",
+    contactNumber: ""
   });
 
   // Fetch branches with pagination, sorting, and search
@@ -98,9 +104,18 @@ export default function BranchSettings() {
     }
   };
 
+  const createDefaultBranch = async () => {
+    try {
+      await branchService.createDefaultBranch();
+    } catch (error: any) {
+      showSnackbar(error.message, 'error');
+    }
+  }
+
   useEffect(() => {
     Promise.resolve().then(() => {
       getBranches();
+      createDefaultBranch();
     });
   }, [page, limit, sortBy, sortOrder, searchTerm]);
 
@@ -177,9 +192,9 @@ export default function BranchSettings() {
       setSelectedBranchHead(
         branch.branchHeadId
           ? {
-              id: branch.branchHeadId,
-              name: String(branch.branchHeadName || branch.branchHeadId),
-            }
+            id: branch.branchHeadId,
+            name: String(branch.branchHeadName || branch.branchHeadId),
+          }
           : null,
       );
     } else {
@@ -194,6 +209,12 @@ export default function BranchSettings() {
         radius: 5,
         branchHeadId: "",
         active: true,
+        pfCode: "",
+        pfLocation: "",
+        esiCode: "",
+        esiLocation: "",
+        contactEmail: "",
+        contactNumber: ""
       });
     }
     setShowMap(false);
@@ -277,7 +298,6 @@ export default function BranchSettings() {
       showSnackbar("Please fill all required fields", "error");
       return;
     }
-
     showSpinner();
     try {
       if (editingBranch) {
@@ -290,13 +310,35 @@ export default function BranchSettings() {
           radius: formData.radius,
           branchHeadId: formData.branchHeadId,
           active: formData.active,
+          pfCode: formData.pfCode,
+          esiCode: formData.esiCode,
+          pfLocation: formData.pfLocation,
+          esiLocation: formData.esiLocation,
+          contactEmail: formData.contactEmail,
+          contactNumber: formData.contactNumber,
         };
         const res: any = await branchService.updateBranch(editingBranch.id, updatedValues);
         if (res.success) {
           showSnackbar(res.message, "success");
         }
       } else {
-        const res: any = await branchService.createBranch(formData);
+        const payload = {
+          "branchName": formData.branchName,
+          "branchAddress": formData.branchAddress,
+          "latitude": formData.latitude,
+          "longitude": formData.longitude,
+          "radius": formData.radius,
+          "branchHeadId": formData.branchHeadId,
+          "branchCode": formData.branchCode,
+          "active": formData.active,
+          pfCode: formData.pfCode,
+          esiCode: formData.esiCode,
+          pfLocation: formData.pfLocation,
+          esiLocation: formData.esiLocation,
+          contactEmail: formData.contactEmail,
+          contactNumber: formData.contactNumber,
+        }
+        const res: any = await branchService.createBranch(payload);
         if (res.success) {
           showSnackbar(res.message, "success");
         }
@@ -408,12 +450,15 @@ export default function BranchSettings() {
           <Table stickyHeader className="border">
             <TableHead className="bg-gray-100">
               <TableRow className="bg-gray-100 !text-primary">
-                <TableCell className="!font-semibold text-gray-800">S No</TableCell>
+                <TableCell className="!font-semibold text-gray-800" sx={{
+                  ...stickyHeaderLeftSx,
+                  minWidth: "70px",
+                }}>S No</TableCell>
+                <TableCell className="nth-c !font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchName", sortOrder === "ASC" ? "DESC" : "ASC")}>
+                  <div className="flex items-center gap-1">Branch Name {getSortIcon("branchName")}</div>
+                </TableCell>
                 <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchCode", sortOrder === "ASC" ? "DESC" : "ASC")}>
                   <div className="flex items-center gap-1">Branch Code {getSortIcon("branchCode")}</div>
-                </TableCell>
-                <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchName", sortOrder === "ASC" ? "DESC" : "ASC")}>
-                  <div className="flex items-center gap-1">Branch Name {getSortIcon("branchName")}</div>
                 </TableCell>
                 <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchAddress", sortOrder === "ASC" ? "DESC" : "ASC")}>
                   <div className="flex items-center gap-1">Address {getSortIcon("branchAddress")}</div>
@@ -421,34 +466,75 @@ export default function BranchSettings() {
                 <TableCell className="!font-semibold text-gray-800">
                   <div className="flex items-center gap-1">Branch Head</div>
                 </TableCell>
+                <TableCell className="!font-semibold text-gray-800">
+                  <div className="flex items-center gap-1">Contact Email</div>
+                </TableCell>
+                <TableCell className="!font-semibold text-gray-800">
+                  <div className="flex items-center gap-1">Contact Number</div>
+                </TableCell>
+                <TableCell className="!font-semibold text-gray-800">
+                  <div className="flex items-center gap-1">PF Code</div>
+                </TableCell>
+                <TableCell className="!font-semibold text-gray-800">
+                  <div className="flex items-center gap-1">PF Location</div>
+                </TableCell>
+                <TableCell className="!font-semibold text-gray-800">
+                  <div className="flex items-center gap-1">ESI Code</div>
+                </TableCell>
+                <TableCell className="!font-semibold text-gray-800">
+                  <div className="flex items-center gap-1">ESI Location</div>
+                </TableCell>
                 <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("radius", sortOrder === "ASC" ? "DESC" : "ASC")}>
                   <div className="flex items-center gap-1">Radius (km) {getSortIcon("radius")}</div>
                 </TableCell>
-                <TableCell className="!font-semibold text-gray-800">Status</TableCell>
-                <TableCell className="!font-semibold text-gray-800 text-center">Actions</TableCell>
+                <TableCell className="nth-d !font-semibold text-gray-800">Status</TableCell>
+                <TableCell className="!font-semibold text-gray-800 text-center" sx={{
+                  ...stickyHeaderRightSx,
+                  minWidth: "70px",
+                }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {branches.map((branch, index) => (
                 <TableRow key={branch.id} hover sx={getRowColor(index)}>
-                  <TableCell className="font-medium text-gray-800">{page * limit + index + 1}</TableCell>
-                  <TableCell>{branch.branchCode}</TableCell>
-                  <TableCell className="font-medium text-gray-800">{branch.branchName}</TableCell>
+                  <TableCell className="font-medium text-gray-800" sx={{
+                    ...getStickyLeftSx(index),
+                    minWidth: "70px",
+                  }}>{page * limit + index + 1}</TableCell>
+                  <TableCell sx={{
+                    ...getStickyLeftSx(index),
+                    left: "70px",
+                    minWidth: "100px",
+                  }}>{branch.branchName}</TableCell>
+                  <TableCell className="font-medium text-gray-800">{branch.branchCode}</TableCell>
                   <TableCell className="max-w-xs truncate text-gray-800" title={branch.branchAddress}>
                     {branch.branchAddress}
                   </TableCell>
                   <TableCell className="text-gray-800">{branch.branchHeadName}</TableCell>
+                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
+                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
+                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
+                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
+                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
+                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
                   <TableCell className="text-gray-800">{branch.radius} km</TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={branch.active ? "Active" : "Inactive"} 
-                      color={branch.active ? "success" : "error"} 
-                      size="small" 
+                  <TableCell sx={{
+                    ...getStickyRightSx(index),
+                    right: "75px",
+                    minWidth: "70px",
+                  }}>
+                    <Chip
+                      label={branch.active ? "Active" : "Inactive"}
+                      color={branch.active ? "success" : "error"}
+                      size="small"
                       onClick={() => handleToggleStatus(branch)}
                       className="cursor-pointer"
                     />
                   </TableCell>
-                  <TableCell className="!flex">
+                  <TableCell className="!flex" sx={{
+                    ...getStickyRightSx(index),
+                    minWidth: "50px",
+                  }}>
                     <Tooltip title="Edit">
                       <IconButton size="small" color="primary" className="!mr-2" onClick={() => handleOpenDialog(branch)}>
                         <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
@@ -547,25 +633,6 @@ export default function BranchSettings() {
                 </Button>
               </div>
 
-              {/* Integrated Map */}
-              {/* {showMap && (
-                <div className="mt-3">
-                  <LocationMap
-                    address={formData.branchAddress || ""}
-                    latitude={formData.latitude || 0}
-                    longitude={formData.longitude || 0}
-                    onLocationChange={handleLocationFromMap}
-                  />
-                  <Button
-                    variant="text"
-                    size="small"
-                    onClick={() => setShowMap(false)}
-                    className="mt-2"
-                  >
-                    Close Map
-                  </Button>
-                </div>
-              )} */}
               {
                 showMap &&
                 <LocationMap
@@ -608,7 +675,7 @@ export default function BranchSettings() {
             </div>
 
             {/* Branch Head Autocomplete */}
-            <div className="w-[50%]">
+            <div className="grid grid-cols-3 gap-4">
               <EmployeeAsyncCombobox
                 value={formData.branchHeadId || null}
                 selectedEmployee={selectedBranchHead}
@@ -623,6 +690,74 @@ export default function BranchSettings() {
                   }));
                 }}
               />
+              <TextField
+                fullWidth
+                label="Contact Email"
+                // name="radius"
+                type="text"
+                value={selectedBranchHead?.emailAddress || ""}
+                disabled={true}
+              />
+              <TextField
+                fullWidth
+                label="Contact Number"
+                // name="radius"
+                type="number"
+                value={selectedBranchHead?.mobileNumber || ""}
+                disabled={true}
+              />
+            </div>
+
+            {/* PF Code & Location */}
+            <div className="flex gap-3">
+              <div className="w-full">
+                <TextField
+                  fullWidth
+                  label="PF Code"
+                  name="pfCode"
+                  value={formData.pfCode || ""}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              <div className="w-full">
+                <TextField
+                  fullWidth
+                  label="ESI Code"
+                  name="esiCode"
+                  value={formData.esiCode || ""}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+
+            </div>
+
+            {/* ESI Code & Location */}
+            <div className="flex gap-3">
+              <div className="w-full">
+                <TextField
+                  fullWidth
+                  label="PF Location"
+                  name="pfLocation"
+                  multiline
+                  rows={3}
+                  value={formData.pfLocation || ""}
+                  onChange={handleInputChange}
+                />
+              </div>
+
+              <div className="w-full">
+                <TextField
+                  fullWidth
+                  label="ESI Location"
+                  name="esiLocation"
+                  multiline
+                  rows={3}
+                  value={formData.esiLocation || ""}
+                  onChange={handleInputChange}
+                />
+              </div>
             </div>
 
             <div>

@@ -54,6 +54,9 @@ export default function CategorySettings() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(
     null,
   );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+
 
   const getCategories = async () => {
     showSpinner();
@@ -61,6 +64,7 @@ export default function CategorySettings() {
       const response: any = await categoryService.getCategories();
       if (response.success) {
         setCategories(response.data.content || response.data || []);
+        setAllCategories(response.data.content || response.data || []);
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -72,6 +76,24 @@ export default function CategorySettings() {
   useEffect(() => {
     getCategories();
   }, []);
+
+  useEffect(() => {
+  if (!searchTerm.trim()) {
+    setCategories(allCategories);
+    return;
+  }
+
+  const filtered = allCategories.filter((item: any) =>
+    item?.categoryName
+      ?.toLowerCase()
+      ?.includes(searchTerm.toLowerCase()) ||
+    item?.categoryCode
+      ?.toLowerCase()
+      ?.includes(searchTerm.toLowerCase())
+  );
+
+  setCategories(filtered);
+}, [searchTerm, allCategories]);
 
   const handleOpenDialog = (category?: Category) => {
     if (category) {
@@ -206,9 +228,19 @@ export default function CategorySettings() {
         </Button>
       </div>
 
+      {/* Search Bar */}
+      <TextField
+        fullWidth
+        variant="outlined"
+        placeholder={`Search category name...`}
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="!mb-4"
+      />
+
       {/* Categories Grid View */}
-      <div className="h-[calc(100vh-200px)] overflow-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="h-[calc(100vh-250px)] overflow-auto">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {categories.map((category) => (
             <Card
               key={category.id}

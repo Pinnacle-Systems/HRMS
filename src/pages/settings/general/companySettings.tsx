@@ -257,7 +257,6 @@ const CompanySettings = () => {
       return;
     }
     showSpinner();
-    console.log(companyInfo);
     if (companyInfo.id) {
       try {
         const updatedValue = {

@@ -28,12 +28,9 @@ import {
   nominationTypes,
   nominationConfigs,
   attachmentAddFields,
-  stickyHeaderLeftSx,
-  stickyHeaderRightSx,
-  stickyLeftSx,
   commonSx,
-  stickyRightSx,
   commonsx,
+  lockableFields,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -41,7 +38,7 @@ import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { categoryService } from "../../services/modules/category";
 import { DynamicSelectWithAdd } from "../../components/SelectField";
-import { getCategoryName } from "../const";
+import { getCategoryName, stickyHeaderLeftSx, stickyHeaderRightSx, stickyLeftSx, stickyRightSx } from "../const";
 import { useMasterData } from "../../hooks/useMasterData";
 import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
@@ -202,7 +199,7 @@ const EditableGroup = ({
     try {
       const deptRes: any = await departmentService.getDepartments();
       setDepartments(deptRes.data.content || deptRes.data || []);
-      const branchRes: any = await branchService.getBranches();
+      const branchRes: any = await branchService.getDropdownBranches();
       setBranches(branchRes.data.content || branchRes.data || []);
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -220,7 +217,7 @@ const EditableGroup = ({
       hideSpinner();
     }
   };
-    
+
   useEffect(() => {
     if (title === 'Employee Details') {
       getMasterData();
@@ -233,8 +230,6 @@ const EditableGroup = ({
     const normalizedDocType = opt.documentType?.toLowerCase().trim();
     return normalizedDocType.includes(normalizedTitle);
   })
-  console.log(matchedDocs,title);
-  
 
   const handleUploadAttachment = () => {
     const initialData: any = {};
@@ -250,16 +245,56 @@ const EditableGroup = ({
     showSpinner();
     try {
       if (!newItem.documentType) {
-        showSnackbar('Document Type is Mandatory', 'warning')
-        return
-      };
+        showSnackbar("Document Type is Mandatory", "warning");
+        return;
+      }
       await employeeService.addAttachment(id, newItem);
+      if (newItem.documentType === "Aadhaar Card") {
+        try {
+          const formData = new FormData();
+          formData.append("file", newItem.file);
+          await employeeService.getAadhaarDetailsByDoc(formData);
+        } catch (error: any) {
+          // if (error?.success) {
+          // getAadhaar()
+          showSnackbar(
+            error.message || "OCR unavailable. Please enter Aadhaar number manually.",
+            "info"
+          );
+          // } else {
+          //   showSnackbar(
+          //     error?.response?.data?.message ||
+          //     "Failed to extract Aadhaar details",
+          //     "error"
+          //   );
+          // }
+        }
+      }
       await getDocuments();
-      showSnackbar("Attachment added successfully!", "success");
+      showSnackbar("Attachment added successfully!", "success"
+      );
     } catch (error: any) {
       showSnackbar(error.message || "Failed to add attachment", "error");
     } finally {
       hideSpinner();
+    }
+  };
+
+  const getAadhaar = async (value: string) => {
+    const aadhaarNumber = value.replace(/\D/g, "");
+    setEditData((prev: any) => ({ ...prev, aadhaarNumber }));
+    if (aadhaarNumber.length !== 12) return;
+    try {
+      const payload = {
+        aadhaarNumber,
+        consent: true,
+        // consentGiven: true,
+        employeeId: editData?.id || null,
+      };
+      const response: any = await employeeService.getAadhaarDetails(payload);
+      showSnackbar(response.message, 'success');
+    } catch (error: any) {
+      showSnackbar(error.message || "Unable to fetch Aadhaar details", 'error');
     }
   };
 
@@ -272,16 +307,16 @@ const EditableGroup = ({
             <div className="text-primary-dark "> {title}</div>
             <div>
               {matchedDocs.map((item: any) => (
-                  <a
-                    key={item.id}
-                    href={item.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-blue-500 text-[12px] underline"
-                  >
-                    {item.documentType}
-                  </a>
-                ))}
+                <a
+                  key={item.id}
+                  href={item.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-blue-500 text-[12px] underline"
+                >
+                  {item.documentType}
+                </a>
+              ))}
             </div>
           </div>
           {!isEditing ? (
@@ -322,7 +357,7 @@ const EditableGroup = ({
             </div>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4">
           {fields.map((field: any) => {
             return (
               <div key={field.key} className="">
@@ -344,6 +379,10 @@ const EditableGroup = ({
                               [field.key]: e ? e.format("YYYY-MM-DD") : "",
                             })
                           }
+                          disabled={field.disabled || (
+                            editData?.aadhaarNumber &&
+                            lockableFields.includes(field.key)
+                          )}
                           slotProps={{
                             textField: {
                               fullWidth: true,
@@ -374,6 +413,10 @@ const EditableGroup = ({
                         value={
                           editData[field.key] || ""
                         }
+                        disabled={field.disabled || (
+                          editData?.aadhaarNumber &&
+                          lockableFields.includes(field.key)
+                        )}
                         onChange={(value) => {
                           const id = getOptionIdFromName(
                             field.key,
@@ -413,13 +456,21 @@ const EditableGroup = ({
                           value={editData[field.key] || ""}
                           multiline={field.multiline || false}
                           rows={field.multiline ? 3 : 1}
-                          disabled={field.disabled}
-                          onChange={(e) =>
-                            setEditData({
+                          disabled={field.disabled || (
+                            editData?.aadhaarNumber &&
+                            lockableFields.includes(field.key)
+                          )}
+                          slotProps={{
+                            htmlInput: {
+                              maxLength: field.key === "aadhaarNumber" ? 12 : undefined,
+                            },
+                          }}
+                          onChange={(e) => {
+                            field.key != 'aadhaarNumber' ? setEditData({
                               ...editData,
                               [field.key]: e.target.value,
-                            })
-                          }
+                            }) : getAadhaar(e.target.value)
+                          }}
                           fullWidth
                         />
                       )}
@@ -566,7 +617,6 @@ const EditableGroup = ({
             variant="contained"
             className="!bg-primary"
             onClick={() => {
-              console.log(attachmentData);
               handleAddAttachment(attachmentData)
               setAttachmentDialogOpen(false);
             }}
@@ -1931,12 +1981,12 @@ export default function EmployeeDetails() {
     try {
       const payload = {
         backgroundCheckStatus: updatedData.backgroundCheckStatus,
-       backgroundVerificationCompletedOn:
-        updatedData.backgroundVerificationCompletedOn
-          ? new Date(
+        backgroundVerificationCompletedOn:
+          updatedData.backgroundVerificationCompletedOn
+            ? new Date(
               updatedData.backgroundVerificationCompletedOn
             ).toISOString()
-          : null,
+            : null,
         backgroundVerificationIndicator: updatedData.backgroundVerificationIndicator,
         agencyName: updatedData.agencyName,
         backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
@@ -2204,6 +2254,11 @@ export default function EmployeeDetails() {
 
   //IDENTITY INFO
   const updateIdentityInfo = async (updatedData: any) => {
+    // const aadhaarNumber = updatedData.aadhaarNumber.replace(/\D/g, "");
+    // if (aadhaarNumber.length !== 12) {
+    //   showSnackbar('Aadhaar Number should be in 12 digits','info');
+    //   return;
+    // };
     showSpinner();
     try {
       const payload = {

@@ -465,6 +465,16 @@ const theme = createTheme({
         },
       },
     },
+
+    MuiAutocomplete: {
+      styleOverrides: {
+        inputRoot: {
+          "& .MuiAutocomplete-input": {
+            padding: "1px !important",
+          },
+        },
+      },
+    },
   },
 });
 

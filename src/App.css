@@ -1,9 +1,9 @@
 :root {
-  --p: 17 73% 56%;       /* #e16a3d */
-  --p-dark: 17 73% 46%;  /* darker */
+  --p: 17 73% 56%; /* #e16a3d */
+  --p-dark: 17 73% 46%; /* darker */
   --p-light: 17 73% 66%; /* lighter */
-  --p-100: 17 73% 90%;  /* very light */
-  --p-50: 17 73% 95%;   /* nearly white */
+  --p-100: 17 73% 90%; /* very light */
+  --p-50: 17 73% 95%; /* nearly white */
 }
 
 /* Base styles for dark mode */
@@ -30,4 +30,20 @@
 
 .MuiPickersOutlinedInput-root .MuiOutlinedInput-notchedOutline {
   border-color: var(--border-color) !important;
+}
+
+.nth-c {
+  position: sticky !important;
+  left: 70px !important;
+  z-index: 5 !important;
+  background-color: white !important;
+  min-width: 100px !important;
+}
+
+.nth-d {
+  position: sticky !important;
+  right: 75px !important;
+  z-index: 5 !important;
+  background-color: white !important;
+  min-width: 80px !important;
 }

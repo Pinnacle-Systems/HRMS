@@ -37,6 +37,9 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/org/branches/${id}`,
     DELETE: (id: string) => `/org/branches/${id}`,
     PATCH: (id: string) => `/org/branches/${id}/toggle-active`,
+    GET_USAGE: (id: string) => `/org/branches/${id}/usage`,
+    GET_DROPDOWN: "/org/branches/dropdown",
+    DEFAULT_CREATE: "/org/branches/ensure-default",
   },
 
   DEPARTMENT: {
@@ -156,6 +159,12 @@ export const API_ENDPOINTS = {
       `/employees/${id}/emergency-contacts/${eid}`,
     UPDATE_ADDRESS: (id: string, aid: string) =>
       `/employees/${id}/addresses/${aid}`,
+
+    POST_AADHAAR: "/aadhaar/lookup",
+    POST_AADHAR_DOC: "/aadhaar/extract",
+
+    EXPORT: "/employees/export",
+    EXPORT_BY_ID: (id: string) => `/employees/${id}/export`,
   },
 
   MASTER: {
@@ -261,14 +270,16 @@ export const API_ENDPOINTS = {
       `/onboarding/checklist/${id}/tasks/${tid}`,
     DELETE_EMP: (id: string) => `/onboarding/${id}`,
     REACTIVATE_EMP: (id: string) => `/onboarding/${id}/reactivate`,
-    DELETE_DOC: (taskInstanceId: string) => `/onboarding/documents/${taskInstanceId}`,
+    DELETE_DOC: (taskInstanceId: string) =>
+      `/onboarding/documents/${taskInstanceId}`,
 
     GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
     BASE: "/onboarding/checklist",
     GET_BY_ID: (id: string, cid: string) =>
       `/onboarding/${id}/checklist/${cid}/tasks`,
     GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
-    GET_DOCUMENTS: (onboardingId: string) => `/onboarding/${onboardingId}/documents`,
+    GET_DOCUMENTS: (onboardingId: string) =>
+      `/onboarding/${onboardingId}/documents`,
     ASSIGNMENTS: "/onboarding/assignments",
 
     PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
@@ -287,5 +298,116 @@ export const API_ENDPOINTS = {
 
   PASSWORD_CONFIG: {
     BASE: "/password-policy",
+  },
+
+  SHIFTS: {
+    DELETE: (id: string) => `/shifts/${id}`,
+    GET_BY_ID: (id: string) => `/shifts/${id}`,
+    BASE: "/shifts",
+    VALIDATE_SHIFT: "/shifts/validate-code",
+    GET_SHIFT_TYPES: "/shifts/types",
+    GET_STATS: "/shifts/stats",
+    GET_DROPDOWN: "/shifts/dropdown",
+    GET_ACTIVE: "/shifts/active",
+    CREATE: "/shifts",
+    UPDATE: (id: string) => `/shifts/${id}`,
+    UPDATE_ACTIVE: (id: string) => `/shifts/${id}/status`,
+
+    GET_SWAP_REQUEST: "/shift-swap-requests",
+    GET_SWAP_REQUEST_BYID: (id: string) => `/shift-swap-requests/${id}`,
+    CREATE_SWAP_REQUEST: "/shift-swap-requests",
+    UPDATE_SWAP_REQUEST: (id: string) => `/shift-swap-requests/${id}/status`,
+
+    DELETE_ROTATION: (id: string) => `/shift-rotations/${id}`,
+    GET_ROTATION_BY_ID: (id: string) => `/shift-rotations/${id}`,
+    BASE_ROTATION: "/shift-rotations",
+    CREATE_ROTATION: "/shift-rotations",
+    UPDATE_APPLY: (id: string) => `/shift-rotations/${id}/apply`,
+    UPDATE_ROTATION: (id: string) => `/shift-rotations/${id}`,
+
+    GET_ROSTER: "/shift-roster",
+    EXPORT_PDF: "/shift-roster/export/pdf",
+    EXPORT_EXCEL: "/shift-roster/export/excel",
+    GET_ALERTS: "/shift-roster/alerts",
+    PUBLISH: "/shift-roster/publish",
+    COPT_PRE_WEEK: "/shift-roster/copy-previous-week",
+    BULK_ASSIGN: "/shift-roster/bulk-assign",
+    UPDATE_EMP_ROSTER: (eid: string) => `/shift-roster/${eid}`,
+
+    GET_SCHEDULE: "/shift-schedule",
+    GET_UPCOMING: "/shift-schedule/upcoming",
+    GET_SCHEDULE_STATS: "/shift-schedule/stats",
+    EXPORT_SCHEDULE_PDF: "/shift-schedule/export/pdf",
+    EXPORT_SCHEDULE_Excel: "/shift-schedule/export/excel",
+    GET_COUNT: "/shift-schedule/distribution",
+    SEND_NOTIFY: "/shift-schedule/send-notifications",
+  },
+
+  POLICY: {
+    BASE: "/policies",
+    TEMPLATES: {
+      BASE: "/policies/templates",
+      GET_BY_ID: (id: string) => `/policies/templates/${id}`,
+      CREATE: "/policies/templates",
+      UPDATE: (id: string) => `/policies/templates/${id}`,
+      DELETE: (id: string) => `/policies/templates/${id}`,
+      CLONE: (id: string) => `/policies/templates/${id}/clone`,
+      TOGGLE_STATUS: (id: string) => `/policies/templates/${id}/toggle-status`,
+      LIST: "/policies/templates",
+      BULK_DELETE: "/policies/templates/bulk-delete",
+      BULK_STATUS: "/policies/templates/bulk-status",
+      VERSIONS: (id: string) => `/policies/templates/${id}/versions`,
+      VERSION_BY_ID: (id: string, versionId: string) =>
+        `/policies/templates/${id}/versions/${versionId}`,
+      ROLLBACK: (id: string, versionId: string) =>
+        `/policies/templates/${id}/versions/${versionId}/rollback`,
+    },
+    ASSIGNMENT: {
+      EMPLOYEE_POLICIES: (employeeId: string) =>
+        `/employees/${employeeId}/policies`,
+      EMPLOYEE_POLICY_BY_ID: (employeeId: string, assignmentId: string) =>
+        `/employees/${employeeId}/policies/${assignmentId}`,
+      ASSIGN: (employeeId: string) => `/employees/${employeeId}/policies`,
+      UPDATE: (employeeId: string, assignmentId: string) =>
+        `/employees/${employeeId}/policies/${assignmentId}`,
+      REMOVE: (employeeId: string, assignmentId: string) =>
+        `/employees/${employeeId}/policies/${assignmentId}`,
+      BULK_ASSIGN: "/employees/policies/bulk-assign",
+      APPLICABLE: (employeeId: string) =>
+        `/employees/${employeeId}/policies/applicable`,
+      SIMULATE_CHANGE: (employeeId: string) =>
+        `/employees/${employeeId}/policies/simulate-change`,
+      VALIDATE: (employeeId: string) =>
+        `/employees/${employeeId}/policies/validate`,
+      CONFLICTS: (employeeId: string) =>
+        `/employees/${employeeId}/policies/conflicts`,
+    },
+    CALCULATION: {
+      CALCULATE: "/policies/calculate",
+      CALCULATE_OT: "/policies/calculate-ot",
+      CALCULATE_BONUS: "/policies/calculate-bonus",
+      PREVIEW: "/policies/preview",
+    },
+    LOGS: {
+      EMPLOYEE_LOGS: (employeeId: string) =>
+        `/employees/${employeeId}/policy-logs`,
+      LOG_BY_ID: (logId: string) => `/policies/execution-logs/${logId}`,
+      EXPORT: (employeeId: string) =>
+        `/employees/${employeeId}/policy-logs/export`,
+    },
+    REPORTS: {
+      STATISTICS: "/policies/statistics",
+      IMPACT_REPORT: "/policies/impact-report",
+      COMPARE: "/policies/compare",
+    },
+    RULES: {
+      BY_TYPE: "/policies/rules",
+    },
+  },
+
+  ID_GENERATION: {
+    GET_ID: "/employees/id-config",
+    POST: "/employees/id-config/preview",
+    PUT: "/employees/id-config",
   },
 };

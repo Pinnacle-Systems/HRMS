@@ -30,8 +30,8 @@ export interface CompanyInfo {
   esic_code: string;
   linNo: string;
   estd_code: string;
-//   logo: string | File;
-//   signature: string | File;
+  //   logo: string | File;
+  //   signature: string | File;
 }
 
 export interface Branch {
@@ -43,9 +43,14 @@ export interface Branch {
   longitude: number;
   radius: number;
   branchHeadId: string;
-  branchHeadName:any;
+  branchHeadName: any;
   active: boolean;
-  location?: string;
+  pfCode: string;
+  pfLocation: string;
+  esiCode: string;
+  esiLocation: string;
+  contactEmail: string;
+  contactNumber: string;
 }
 
 export interface Employee {

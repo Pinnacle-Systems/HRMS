@@ -38,5 +38,17 @@ class BranchService {
   async updateBranch(id: string | number, payload: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.BRANCH.UPDATE(String(id)), payload);
   }
+
+  async getBranchesUsage(id: string | number) {
+    return apiService.get(API_ENDPOINTS.BRANCH.GET_USAGE(String(id)));
+  }
+
+  async getDropdownBranches() {
+    return apiService.get(API_ENDPOINTS.BRANCH.GET_DROPDOWN);
+  }
+
+  async createDefaultBranch() {
+    return apiService.post(API_ENDPOINTS.BRANCH.DEFAULT_CREATE);
+  }
 }
 export const branchService = new BranchService();

@@ -20,34 +20,6 @@ export const getStickyRightSx = (index: number) => ({
     index % 2 === 0 ? "var(--bg-primary)" : "var(--bg-secondary)",
 });
 
-// export const categoryMapping: Record<string, string> = {
-//   gender: "Gender",
-//   bloodGroup: "Blood Group",
-//   nationality: "Nationality",
-//   religion: "Religion",
-//   maritalStatus: "Marital Status",
-//   disabilityType: "Disability Type",
-//   languages: "Languages",
-//   department: "Department",
-//   designation: "Designation",
-//   grade: "Grade",
-//   band: "Band / Pay Category",
-//   empType: "Employee Type",
-//   branch: "Branch",
-//   attendanceSchema: "Attendance Schema",
-//   employeeStatus: "Employee Status",
-//   manager: "Reporting Manager",
-//   relationship: "Relationship",
-//   qualificationType: "Qualification Type",
-//   qualificationArea: "Qualification Area",
-//   accountType: "Bank Account Type",
-//   salaryPaymentMode: "Salary Payment Mode",
-//   salaryType: "Salary Type",
-//   pfScheme: "PF Scheme",
-//   nominationType: "Nomination Type",
-//   documentType: "Document Type",
-// };
-
 export const getCategoryName = (
   fieldKey: string,
   fieldLabel: string,
@@ -74,4 +46,32 @@ export const getCategoryName = (
   }
 
   return fieldLabel;
+};
+
+export const stickyLeftSx = {
+  position: "sticky",
+  left: 0,
+  zIndex: 3,
+  background: "#fff",
+};
+
+export const stickyRightSx = {
+  position: "sticky",
+  right: 0,
+  zIndex: 3,
+  background: "#fff",
+};
+
+export const stickyHeaderLeftSx = {
+  position: "sticky",
+  left: 0,
+  zIndex: 4,
+  background: "#f3f4f6",
+};
+
+export const stickyHeaderRightSx = {
+  position: "sticky",
+  right: 0,
+  zIndex: 4,
+  background: "#f3f4f6",
 };

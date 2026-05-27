@@ -116,11 +116,11 @@ export const validationRules: Record<string, ValidationRule> = {
   //   message: 'Invalid company code',
   //   formatExample: 'VHR001'
   // },
-  costCode: {
-    pattern: /^[A-Z]{2}-\d{4}-\d{3}$/,
-    message: 'Invalid cost code format',
-    formatExample: 'CC-2024-001'
-  }
+  // costCode: {
+  //   pattern: /^[A-Z]{2}-\d{4}-\d{3}$/,
+  //   message: 'Invalid cost code format',
+  //   formatExample: 'CC-2024-001'
+  // }
 };
 
 // Helper function to normalize keys (handling snake_case and specific aliases)

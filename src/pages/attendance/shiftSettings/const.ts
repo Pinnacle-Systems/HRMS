@@ -1,25 +1,43 @@
-export const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-export const shiftTypes = ['General', 'Night', 'Flexible', 'Rotational'];
+export const shiftTypes = [];
 
 export const getShiftTypeClass = (type: string) => {
-  switch (type) {
-    case 'Night':
-      return '!bg-indigo-100 !text-indigo-700';
-
-    case 'Flexible':
-      return '!bg-green-100 !text-green-700';
-
-    case 'Rotational':
-      return '!bg-orange-100 !text-orange-700';
-
-    case 'Morning':
-      return '!bg-yellow-100 !text-yellow-700';
-
-    case 'Evening':
-      return '!bg-purple-100 !text-purple-700';
-
+  switch (type?.toLowerCase()) {
+    case "night":
+      return "!bg-indigo-100 !text-indigo-700";
+    case "flexible":
+      return "!bg-green-100 !text-green-700";
+    case "rotational":
+      return "!bg-orange-100 !text-orange-700";
+    case "morning":
+      return "!bg-yellow-100 !text-yellow-700";
+    case "evening":
+      return "!bg-purple-100 !text-purple-700";
     default:
-      return '!bg-blue-100 !text-blue-700';
+      return "!bg-blue-100 !text-blue-700";
   }
+};
+
+export const colorClasses = {
+  red: {
+    border: "border-red-500",
+    text: "text-red-700",
+    icon: "text-red-500",
+  },
+  green: {
+    border: "border-green-500",
+    text: "text-green-700",
+    icon: "text-green-500",
+  },
+  blue: {
+    border: "border-blue-500",
+    text: "text-blue-700",
+    icon: "text-blue-500",
+  },
+  yellow: {
+    border: "border-yellow-500",
+    text: "text-yellow-700",
+    icon: "text-yellow-500",
+  },
 };

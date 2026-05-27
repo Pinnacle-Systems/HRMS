@@ -83,17 +83,25 @@ export interface BulkUploadResponse {
   welcomeEmailFailures?: string[];
 }
 
-export const normalizeBulkUploadResponse = (response: unknown): BulkUploadResponse => {
+export const normalizeBulkUploadResponse = (
+  response: unknown,
+): BulkUploadResponse => {
   const r = response as Record<string, any>;
   const data: Record<string, any> = r?.data ?? r ?? {};
   return {
     status: data.status,
     successCount: data.successCount ?? data.importedCount,
     failureCount: data.failureCount,
-    errors: Array.isArray(data.errors) ? data.errors : Array.isArray(data.rowErrors) ? data.rowErrors : [],
+    errors: Array.isArray(data.errors)
+      ? data.errors
+      : Array.isArray(data.rowErrors)
+        ? data.rowErrors
+        : [],
     welcomeEmailsSent: data.welcomeEmailsSent,
     welcomeEmailsFailed: data.welcomeEmailsFailed,
-    welcomeEmailFailures: Array.isArray(data.welcomeEmailFailures) ? data.welcomeEmailFailures : [],
+    welcomeEmailFailures: Array.isArray(data.welcomeEmailFailures)
+      ? data.welcomeEmailFailures
+      : [],
   };
 };
 
@@ -157,7 +165,8 @@ const normalizeEmployee = (employee: EmployeeLike): EmployeeSummaryResponse => {
   return {
     ...employee,
     id: employee.id || employee.employeeId,
-    employeeId: employee.employeeId || employee.employeeCode || employee.code || "",
+    employeeId:
+      employee.employeeId || employee.employeeCode || employee.code || "",
     name,
   };
 };
@@ -209,7 +218,7 @@ export const normalizeEmployeesResponse = (
 ): EmployeeSummaryResponse[] => {
   const payload = response?.data?.content
     ? response.data
-    : response?.data ?? response;
+    : (response?.data ?? response);
   const candidates = [
     payload?.content,
     payload?.employees,
@@ -226,7 +235,7 @@ export const normalizeEmployeesResponse = (
 
 export const employeeService = {
   // ==================== MAIN CRUD OPERATIONS ====================
-  
+
   async getEmployees(params?: EmployeeListQuery) {
     return apiService.get<ApiResponsePageEmployeeSummaryResponse>(
       API_ENDPOINTS.EMPLOYEE.BASE,
@@ -251,7 +260,10 @@ export const employeeService = {
   },
 
   async reactivateEmployee(id: string): Promise<EmployeeSummaryResponse> {
-    const response: any = await apiService.patch(API_ENDPOINTS.EMPLOYEE.REACTIVATE(id), {});
+    const response: any = await apiService.patch(
+      API_ENDPOINTS.EMPLOYEE.REACTIVATE(id),
+      {},
+    );
     return (response?.data ?? response) as EmployeeSummaryResponse;
   },
 
@@ -261,7 +273,7 @@ export const employeeService = {
   },
 
   // ==================== PATCH OPERATIONS (Specific Sections) ====================
-  
+
   async updatePersonalInfo(id: any, data: any) {
     return apiService.patch(API_ENDPOINTS.EMPLOYEE.PATCH_PERSONAL(id), data);
   },
@@ -287,7 +299,7 @@ export const employeeService = {
   },
 
   // ==================== TRAINING DETAILS ====================
-  
+
   async getTrainingDetails(id: any, params?: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_TRAINING(id), { params });
   },
@@ -297,17 +309,24 @@ export const employeeService = {
   },
 
   async updateTrainingDetail(id: any, trainingId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_TRAINING(id, trainingId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_TRAINING(id, trainingId),
+      data,
+    );
   },
 
   async deleteTrainingDetail(id: any, trainingId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_TRAINING(id, trainingId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_TRAINING(id, trainingId),
+    );
   },
 
   // ==================== QUALIFICATIONS ====================
-  
+
   async getQualifications(id: any, params?: any) {
-    return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_QUALIFICATION(id), { params });
+    return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_QUALIFICATION(id), {
+      params,
+    });
   },
 
   async addQualification(id: any, data: any) {
@@ -315,15 +334,20 @@ export const employeeService = {
   },
 
   async updateQualification(id: any, qualificationId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_QUALIFICATION(id, qualificationId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_QUALIFICATION(id, qualificationId),
+      data,
+    );
   },
 
   async deleteQualification(id: any, qualificationId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_QUALIFICATION(id, qualificationId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_QUALIFICATION(id, qualificationId),
+    );
   },
 
   // ==================== PREVIOUS EMPLOYMENTS ====================
-  
+
   async getPreviousEmployments(id: any, params?: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_PRE_EMP(id), { params });
   },
@@ -333,15 +357,20 @@ export const employeeService = {
   },
 
   async updatePreviousEmployment(id: any, employmentId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_PRE_EMP(id, employmentId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_PRE_EMP(id, employmentId),
+      data,
+    );
   },
 
   async deletePreviousEmployment(id: any, employmentId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_PRE_EMP(id, employmentId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_PRE_EMP(id, employmentId),
+    );
   },
 
   // ==================== PF ACCOUNTS ====================
-  
+
   async getPfAccounts(id: any, params?: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_PF(id), { params });
   },
@@ -359,9 +388,11 @@ export const employeeService = {
   },
 
   // ==================== NOMINATIONS ====================
-  
+
   async getNominations(id: any, params?: any) {
-    return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_NOMINATION(id), { params });
+    return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_NOMINATION(id), {
+      params,
+    });
   },
 
   async addNomination(id: any, data: any) {
@@ -369,15 +400,20 @@ export const employeeService = {
   },
 
   async updateNomination(id: any, nominationId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_NOMINATION(id, nominationId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_NOMINATION(id, nominationId),
+      data,
+    );
   },
 
   async deleteNomination(id: any, nominationId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_NOMINATION(id, nominationId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_NOMINATION(id, nominationId),
+    );
   },
 
   // ==================== FAMILY MEMBERS ====================
-  
+
   async getFamilyMembers(id: any, params?: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_FAMILY(id), { params });
   },
@@ -387,15 +423,20 @@ export const employeeService = {
   },
 
   async updateFamilyMember(id: any, familyId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_FAMILY(id, familyId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_FAMILY(id, familyId),
+      data,
+    );
   },
 
   async deleteFamilyMember(id: any, familyId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_FAMILY(id, familyId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_FAMILY(id, familyId),
+    );
   },
 
   // ==================== EMERGENCY CONTACTS ====================
-  
+
   async getEmergencyContacts(id: any, params?: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_EMERGENCY(id), { params });
   },
@@ -405,15 +446,20 @@ export const employeeService = {
   },
 
   async updateEmergencyContact(id: any, contactId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_EMERGENCY(id, contactId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_EMERGENCY(id, contactId),
+      data,
+    );
   },
 
   async deleteEmergencyContact(id: any, contactId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_EMERGENCY(id, contactId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_EMERGENCY(id, contactId),
+    );
   },
 
   // ==================== ADDRESSES ====================
-  
+
   async getAddresses(id: any, params?: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_ADDRESS(id), { params });
   },
@@ -423,17 +469,24 @@ export const employeeService = {
   },
 
   async updateAddress(id: any, addressId: any, data: any) {
-    return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE_ADDRESS(id, addressId), data);
+    return apiService.put(
+      API_ENDPOINTS.EMPLOYEE.UPDATE_ADDRESS(id, addressId),
+      data,
+    );
   },
 
   async deleteAddress(id: any, addressId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_ADDRESS(id, addressId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_ADDRESS(id, addressId),
+    );
   },
 
   // ==================== ATTACHMENTS ====================
-  
+
   async getAttachments(id: any, params?: any) {
-    return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_ATTACHMENT(id), { params });
+    return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_ATTACHMENT(id), {
+      params,
+    });
   },
 
   async addAttachment(id: any, file: any) {
@@ -441,15 +494,20 @@ export const employeeService = {
     formData.append("file", file.file);
     formData.append("documentName ", file.documentName);
     formData.append("documentType ", file.documentType);
-    return apiService.post(API_ENDPOINTS.EMPLOYEE.POST_ATTACHMENT(id), formData);
+    return apiService.post(
+      API_ENDPOINTS.EMPLOYEE.POST_ATTACHMENT(id),
+      formData,
+    );
   },
 
   async deleteAttachment(id: any, attachmentId: any) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE_ATTACHMENT(id, attachmentId));
+    return apiService.delete(
+      API_ENDPOINTS.EMPLOYEE.DELETE_ATTACHMENT(id, attachmentId),
+    );
   },
 
   // ==================== PHOTO UPLOAD ====================
-  
+
   async uploadPhoto(id: any, file: File) {
     const formData = new FormData();
     formData.append("file", file);
@@ -458,13 +516,18 @@ export const employeeService = {
 
   // ==================== BULK UPLOAD ====================
 
-  async bulkUploadEmployees(file: File, onProgress?: (progress: number) => void) {
+  async bulkUploadEmployees(
+    file: File,
+    onProgress?: (progress: number) => void,
+  ) {
     const formData = new FormData();
     formData.append("file", file);
     return apiService.post(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD, formData, {
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          const progress = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total,
+          );
           onProgress(progress);
         }
       },
@@ -472,17 +535,21 @@ export const employeeService = {
   },
 
   // ==================== EMPLOYEE ID PATTERN ====================
-  
-  async getEmployeeIdPattern() {
-    return apiService.get("/employees/id-pattern");
+
+  async getEmployeeId() {
+    return apiService.get(API_ENDPOINTS.ID_GENERATION.GET_ID);
   },
 
-  async incrementIdSequence(pattern: string) {
-    return apiService.post("/employees/id-sequence/increment", { pattern });
+  async getNextId(payload: any) {
+    return apiService.post(API_ENDPOINTS.ID_GENERATION.POST, payload);
+  },
+
+  async updateEmployeeId(payload: any) {
+    return apiService.put(API_ENDPOINTS.ID_GENERATION.PUT, payload);
   },
 
   // ==================== WELCOME EMAIL ====================
-  
+
   async resendWelcomeEmail(id: any) {
     return apiService.post(`/employees/${id}/resend-welcome`);
   },
@@ -490,9 +557,12 @@ export const employeeService = {
   // ==================== BULK UPLOAD TEMPLATE ====================
 
   async downloadBulkUploadTemplate() {
-    const response = await apiService.axiosInstance.get(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD_TEMPLATE, {
-      responseType: "blob",
-    });
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD_TEMPLATE,
+      {
+        responseType: "blob",
+      },
+    );
 
     const blob = response.data;
 
@@ -529,6 +599,169 @@ export const employeeService = {
     document.body.appendChild(link);
     link.click();
     link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // ==================== GET AADHAR DETAILS ====================
+  async getAadhaarDetails(data: any) {
+    return apiService.post(API_ENDPOINTS.EMPLOYEE.POST_AADHAAR, data);
+  },
+
+  async getAadhaarDetailsByDoc(formData: FormData) {
+    return apiService.post(
+      `${API_ENDPOINTS.EMPLOYEE.POST_AADHAR_DOC}?consent=true`,
+      formData,
+      {
+        // headers: {
+        //   "Content-Type": "multipart/form-data",
+        // },
+      },
+    );
+  },
+
+  // ==================== EXPORT PDF/CSV/EXCEL ====================
+  // async exportData(params: any) {
+  //   return apiService.get(API_ENDPOINTS.EMPLOYEE.EXPORT, {
+  //     params,
+  //     responseType: "blob",
+  //   });
+  // },
+
+  // async exportDataById(id: string, format: "csv" | "xlsx" | "pdf") {
+  //   return apiService.get(
+  //     `${API_ENDPOINTS.EMPLOYEE.EXPORT_BY_ID(id)}?format=${format}`,
+  //     {
+  //       responseType: "blob",
+  //     },
+  //   );
+  // },
+
+  async downloadEmployeeExport(params: any, format: any) {
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.EMPLOYEE.EXPORT,
+      {
+        params: {
+          ...params,
+          format,
+        },
+        responseType: "blob",
+      },
+    );
+
+    const blob = response.data;
+
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded export file is empty.");
+    }
+
+    if (
+      blob.type?.includes("application/json") ||
+      blob.type?.includes("text/plain")
+    ) {
+      const text = await blob.text();
+
+      let errMsg = "Failed to export employees.";
+
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errMsg = json.message;
+      } catch {
+        if (text) errMsg = text;
+      }
+
+      throw new Error(errMsg);
+    }
+
+    let filename = `employees_export.${format}`;
+
+    const disposition = response.headers["content-disposition"];
+
+    if (disposition && disposition.includes("attachment")) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+
+      const matches = filenameRegex.exec(disposition);
+
+      if (matches?.[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+
+    link.setAttribute("download", filename);
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+  },
+
+  async downloadEmployeeByIdExport(id: string, format: "csv" | "xlsx" | "pdf") {
+    const response = await apiService.axiosInstance.get(
+      `${API_ENDPOINTS.EMPLOYEE.EXPORT_BY_ID(id)}?format=${format}`,
+      {
+        responseType: "blob",
+      },
+    );
+
+    const blob = response.data;
+
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded export file is empty.");
+    }
+
+    if (
+      blob.type?.includes("application/json") ||
+      blob.type?.includes("text/plain")
+    ) {
+      const text = await blob.text();
+
+      let errMsg = "Failed to export employee.";
+
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errMsg = json.message;
+      } catch {
+        if (text) errMsg = text;
+      }
+
+      throw new Error(errMsg);
+    }
+
+    let filename = `employee_${id}.${format}`;
+
+    const disposition = response.headers["content-disposition"];
+
+    if (disposition && disposition.includes("attachment")) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+
+      const matches = filenameRegex.exec(disposition);
+
+      if (matches?.[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+
+    link.setAttribute("download", filename);
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
     window.URL.revokeObjectURL(url);
   },
 };

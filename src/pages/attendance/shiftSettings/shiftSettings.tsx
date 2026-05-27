@@ -5,11 +5,13 @@ import {
   GroupOutlined,
   SettingsOutlined,
   ScheduleOutlined,
+  Rotate90DegreesCwOutlined,
 } from "@mui/icons-material";
 
 import { ShiftList } from "./shiftList";
 import { ShiftRoster } from "./shiftRoster";
 import { ShiftScheduleView } from "./shiftScheduleView";
+import { ShiftRotation } from "./shiftRotation";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -23,7 +25,7 @@ function TabPanel(props: TabPanelProps) {
   return (
     <div hidden={value !== index}>
       {value === index && (
-        <Box sx={{ py: 2 }}>
+        <Box sx={{ py: 0 }}>
           {children}
         </Box>
       )}
@@ -40,11 +42,11 @@ const ShiftSettings = () => {
       icon: <SettingsOutlined fontSize="small" />,
       component: <ShiftList />,
     },
-    // {
-    //   label: "Shift Rotation",
-    //   icon: <RotationIcon fontSize="small" />,
-    //   component: <ShiftRotation />,
-    // },
+    {
+      label: "Shift Rotation",
+      icon: <Rotate90DegreesCwOutlined fontSize="small" />,
+      component: <ShiftRotation />,
+    },
     {
       label: "Shift Roster",
       icon: <GroupOutlined fontSize="small" />,
@@ -70,7 +72,7 @@ const ShiftSettings = () => {
       </div>
 
       {/* Button Navigation */}
-      <div className="flex items-center gap-2 ">
+      <div className="flex items-center gap-2 mb-4">
         <div className="flex flex-wrap gap-2">
           {tabs.map((tab, index) => {
             const active = activeTab === index;
@@ -95,7 +97,7 @@ const ShiftSettings = () => {
       </div>
 
       {/* Content */}
-      <div className="mt-4">
+      <div className="">
         {tabs.map((tab, index) => (
           <TabPanel
             key={index}

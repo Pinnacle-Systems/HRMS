@@ -22,6 +22,7 @@ export interface Employee {
   employeeStatusId?:string;
   isActive?: boolean;
   deactivatedAt?: string;
+  relievingDate:string;
   //   status: "PENDING" | "ACTIVE" | "INACTIVE" | "ONBOARDING";
   //   isWelcomeEmailSent: boolean;
   //   welcomeEmailSentAt?: string;
