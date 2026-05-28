@@ -33,7 +33,7 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
-const ShiftSettings = () => {
+export default function ShiftSettings() {
   const [activeTab, setActiveTab] = useState(0);
 
   const tabs = [
@@ -111,5 +111,3 @@ const ShiftSettings = () => {
     </div>
   );
 };
-
-export default ShiftSettings;

@@ -31,7 +31,7 @@ import {
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useUI } from '../../../context/Snackbar';
-import type { Shift, ShiftRotationData, ApiResponse, PaginatedResponse } from '../../../services/modules/shifts';
+import type { Shift, ShiftRotationData, PaginatedResponse } from '../../../services/modules/shifts';
 import { shiftService } from '../../../services/modules/shifts';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';

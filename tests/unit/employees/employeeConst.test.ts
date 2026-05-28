@@ -21,12 +21,9 @@ import {
   nominationTypes,
   nominationConfigs,
   attachmentColumns,
-  stickyHeaderLeftSx,
-  stickyHeaderRightSx,
-  stickyLeftSx,
-  stickyRightSx,
   commonSx,
 } from "../../../src/pages/employees/const";
+import { stickyHeaderLeftSx, stickyHeaderRightSx, stickyLeftSx, stickyRightSx } from "../../../src/pages/const";
 
 type FieldDef = { key: string; label: string; type?: string };
 
