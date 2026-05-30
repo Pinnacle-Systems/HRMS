@@ -69,7 +69,7 @@ export const GlobalSort = ({
               gap: 2,
             }}
           >
-            <span className='!text-[12px]'>{option.label}</span>
+            <span>{option.label}</span>
             {/* {currentSortBy === option.value && (
               currentSortOrder === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />
             )} */}

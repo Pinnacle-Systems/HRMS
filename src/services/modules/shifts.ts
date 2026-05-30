@@ -106,6 +106,92 @@ export interface ShiftInfo {
   color: string;
 }
 
+export interface ShiftSchedule {
+  id: string;
+  employeeName: string;
+  employeeId: string;
+  startTime: string;
+  endTime: string;
+  shiftCode: string;
+  status: "Scheduled" | "Completed" | "Absent" | "On Leave" | "Late";
+  department?: string;
+  branch?: string;
+  color: string;
+}
+
+export type SwapRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELLED";
+
+export interface SwapRequest {
+  id: string;
+  requesterEmployeeId: string;
+  requesterEmployeeName: string;
+  requesterDate: string;
+  requesterShiftCode: string;
+  targetEmployeeId: string;
+  targetEmployeeName: string;
+  targetDate: string;
+  targetShiftCode: string;
+  reason: string;
+  status: SwapRequestStatus;
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionReason?: string;
+  createdAt: string;
+}
+
+export interface ScheduleStats {
+  totalScheduled: number;
+  inProgress: number;
+  completed: number;
+  weeklyOff: number;
+  unassigned: number;
+  byStatus: Record<string, number>;
+}
+
+export interface ShiftDistribution {
+  shiftCode: string;
+  shiftName: string;
+  color: string;
+  employeeCount: number;
+}
+
+export interface ShiftDistributionData {
+  from: string;
+  to: string;
+  buckets: ShiftDistribution[];
+}
+
+export interface ShiftDistributionApiResponse {
+  success: boolean;
+  message: string;
+  data: ShiftDistributionData;
+  timestamp: string;
+}
+
+export interface CreateSwapRequestDto {
+  requesterEmployeeId: string;
+  requesterDate: string;
+  targetEmployeeId: string;
+  targetDate: string;
+  reason: string;
+}
+
+export type UpdateSwapRequestStatusDto = {
+  status: "APPROVED" | "REJECTED" | "CANCELLED";
+  reason?: string;
+};
+
+export type ScheduleApiResponse = ApiResponse<ShiftSchedule[]>;
+export type SwapRequestApiResponse = ApiResponse<
+  PaginatedResponse<SwapRequest>
+>;
+export type SingleSwapRequestApiResponse = ApiResponse<SwapRequest>;
+export type ScheduleStatsApiResponse = ApiResponse<ScheduleStats>;
+
 class ShiftService {
   async getShiftById(id: string, params?: any) {
     return apiService.get(API_ENDPOINTS.SHIFTS.GET_BY_ID(id), { params });
@@ -160,22 +246,38 @@ class ShiftService {
   }
 
   // Shift Swap Requests
-  async getSwapRequests(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_SWAP_REQUEST, { params });
+  async getSwapRequests(params?: any): Promise<PaginatedResponse<SwapRequest>> {
+    const response = await apiService.get<SwapRequestApiResponse>(
+      API_ENDPOINTS.SHIFTS.GET_SWAP_REQUEST,
+      { params },
+    );
+
+    return response.data;
   }
 
-  async getSwapRequestById(id: string, params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_SWAP_REQUEST_BYID(id), {
-      params,
-    });
+  async getSwapRequestById(id: string, params?: any): Promise<SwapRequest> {
+    const response = await apiService.get<SingleSwapRequestApiResponse>(
+      API_ENDPOINTS.SHIFTS.GET_SWAP_REQUEST_BYID(id),
+      { params },
+    );
+
+    return response.data;
   }
 
-  async createSwapRequest(data: any) {
-    return apiService.post(API_ENDPOINTS.SHIFTS.CREATE_SWAP_REQUEST, data);
-  }
+  // async createSwapRequest(data: CreateSwapRequestDto): Promise<SwapRequest> {
+  //   const response = await apiService.post(API_ENDPOINTS.SHIFTS.CREATE_SWAP_REQUEST,data);
+  //   return response.data;
+  // }
 
-  async updateSwapRequestStatus(id: string, data: any) {
-    return apiService.put(API_ENDPOINTS.SHIFTS.UPDATE_SWAP_REQUEST(id), data);
+  async updateSwapRequestStatus(
+    id: string,
+    data: UpdateSwapRequestStatusDto,
+  ): Promise<SwapRequest> {
+    const response = (await apiService.put(
+      API_ENDPOINTS.SHIFTS.UPDATE_SWAP_REQUEST(id),
+      data,
+    )) as SingleSwapRequestApiResponse;
+    return response.data;
   }
 
   // Shift Rotations
@@ -213,17 +315,102 @@ class ShiftService {
   }
 
   async exportRosterToPDF(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.EXPORT_PDF, {
-      params,
-      responseType: "blob",
-    });
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.SHIFTS.EXPORT_PDF,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
+    const blob = response.data;
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded PDF file is empty.");
+    }
+    if (
+      blob.type?.includes("application/json") ||
+      blob.type?.includes("text/plain")
+    ) {
+      const text = await blob.text();
+      let errMsg = "Failed to export PDF.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) {
+          errMsg = json.message;
+        }
+      } catch {
+        if (text) {
+          errMsg = text;
+        }
+      }
+      throw new Error(errMsg);
+    }
+
+    let filename = "shift_roster.pdf";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.includes("attachment")) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches?.[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   async exportRosterToExcel(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.EXPORT_EXCEL, {
-      params,
-      responseType: "blob",
-    });
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.SHIFTS.EXPORT_EXCEL,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
+    const blob = response.data;
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded Excel file is empty.");
+    }
+    if (
+      blob.type?.includes("application/json") ||
+      blob.type?.includes("text/plain")
+    ) {
+      const text = await blob.text();
+      let errMsg = "Failed to export Excel.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) {
+          errMsg = json.message;
+        }
+      } catch {
+        if (text) {
+          errMsg = text;
+        }
+      }
+      throw new Error(errMsg);
+    }
+    let filename = "shift_roster.xlsx";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.includes("attachment")) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches?.[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   async getRosterAlerts(params?: any) {
@@ -235,7 +422,7 @@ class ShiftService {
   }
 
   async copyPreviousWeekToRoster(data: any) {
-    return apiService.post(API_ENDPOINTS.SHIFTS.COPT_PRE_WEEK, data);
+    return apiService.post(API_ENDPOINTS.SHIFTS.COPY_PREV_WEEK, data);
   }
 
   async bulkAssignShifts(data: any) {
@@ -247,34 +434,132 @@ class ShiftService {
   }
 
   // Shift Schedule
-  async getSchedule(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_SCHEDULE, { params });
+  async getSchedule(params?: any): Promise<ScheduleApiResponse> {
+    return apiService.get<ScheduleApiResponse>(
+      API_ENDPOINTS.SHIFTS.GET_SCHEDULE,
+      { params },
+    );
   }
 
-  async getUpcomingShifts(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_UPCOMING, { params });
+  async getUpcomingShifts(params?: any): Promise<ScheduleApiResponse> {
+    return apiService.get<ScheduleApiResponse>(
+      API_ENDPOINTS.SHIFTS.GET_UPCOMING,
+      { params },
+    );
   }
 
-  async getScheduleStats(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_SCHEDULE_STATS, { params });
+  async getScheduleStats(params?: any): Promise<ScheduleStatsApiResponse> {
+    return apiService.get<ScheduleStatsApiResponse>(
+      API_ENDPOINTS.SHIFTS.GET_SCHEDULE_STATS,
+      { params },
+    );
   }
 
   async exportScheduleToPDF(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.EXPORT_SCHEDULE_PDF, {
-      params,
-      responseType: "blob",
-    });
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.SHIFTS.EXPORT_SCHEDULE_PDF,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
+    const blob = response.data;
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded PDF file is empty.");
+    }
+    if (
+      blob.type?.includes("application/json") ||
+      blob.type?.includes("text/plain")
+    ) {
+      const text = await blob.text();
+      let errMsg = "Failed to export PDF.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) {
+          errMsg = json.message;
+        }
+      } catch {
+        if (text) {
+          errMsg = text;
+        }
+      }
+      throw new Error(errMsg);
+    }
+    let filename = "shift_schedule.pdf";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.includes("attachment")) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches?.[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   async exportScheduleToExcel(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.EXPORT_SCHEDULE_Excel, {
-      params,
-      responseType: "blob",
-    });
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.SHIFTS.EXPORT_SCHEDULE_Excel,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
+    const blob = response.data;
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded Excel file is empty.");
+    }
+    if (
+      blob.type?.includes("application/json") ||
+      blob.type?.includes("text/plain")
+    ) {
+      const text = await blob.text();
+      let errMsg = "Failed to export Excel.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) {
+          errMsg = json.message;
+        }
+      } catch {
+        if (text) {
+          errMsg = text;
+        }
+      }
+      throw new Error(errMsg);
+    }
+    let filename = "shift_schedule.xlsx";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.includes("attachment")) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches?.[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 
-  async getShiftDistribution(params?: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_COUNT, { params });
+  async getShiftDistribution(
+    params?: any,
+  ): Promise<ShiftDistributionApiResponse> {
+    return apiService.get<ShiftDistributionApiResponse>(
+      API_ENDPOINTS.SHIFTS.GET_COUNT,
+      { params },
+    );
   }
 
   async sendShiftNotifications(data: any) {

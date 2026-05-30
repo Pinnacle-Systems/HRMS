@@ -372,7 +372,7 @@ export default function CategorySettings() {
             {editingCategory ? "Edit Category" : "Add New Category"}
           </div>
           <IconButton onClick={() => setDialogOpen(false)}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent>

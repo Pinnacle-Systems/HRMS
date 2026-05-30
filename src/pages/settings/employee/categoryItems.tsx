@@ -195,7 +195,7 @@ export default function CategoryItems() {
             onClick={() => navigate("/settings/employee/category-settings")}
             className="!bg-gray-100"
           >
-            <ArrowBackIcon />
+            <ArrowBackIcon className="!text-gray-800"/>
           </IconButton>
           <div>
             <Typography
@@ -239,7 +239,7 @@ export default function CategoryItems() {
         elevation={0}
         className="h-[calc(100vh-295px)] overflow-auto bg-white-50"
       >
-        <Table stickyHeader className="border ">
+        <Table stickyHeader className="border border-gray-200">
           <TableHead className="bg-gray-100">
             <TableRow>
               <TableCell className="!font-semibold text-gray-800">
@@ -340,7 +340,7 @@ export default function CategoryItems() {
               : `Add New ${category.categoryName}`}
           </div>
           <IconButton onClick={() => setDialogOpen(false)}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent>

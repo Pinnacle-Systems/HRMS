@@ -463,6 +463,10 @@ const CompanySettings = () => {
                   helperText: hasError ? errors[key] : "",
                   sx: commonSx,
                 },
+                openPickerButton: {
+                  color: "primary",
+                  edge: "end",
+                },
               }}
             />
           </LocalizationProvider>
@@ -513,13 +517,12 @@ const CompanySettings = () => {
               label={label}
               value={value || ''}
               onChange={(e) => handleChange(key, e.target.value)}
-              className="!text-[12px]"
             >
               <MenuItem value="">
                 <em>{placeholder || `Select ${label}`}</em>
               </MenuItem>
               {(field.options || []).map((option: any) => (
-                <MenuItem key={option.value} value={option.value} className="!text-[12px]">
+                <MenuItem key={option.value} value={option.value}>
                   {option.label}
                 </MenuItem>
               ))}
@@ -619,7 +622,7 @@ const CompanySettings = () => {
               const regularFields = section.fields.filter((f: any) => !isSpecial(f));
               const specialFields = section.fields.filter(isSpecial); // address + map
               return (
-                <div key={section.id || sectionIndex} className="border p-4 pt-6 rounded-lg bg-white space-y-4">
+                <div key={section.id || sectionIndex} className="border p-4 pt-6 rounded-lg bg-white dark:bg-white-50 border-gray-300 space-y-4">
                   {/* Top row: companyName, aliasName, code, costCode, companyType */}
                   {regularFields.length > 0 && renderGridFields(regularFields, "grid-cols-2 md:grid-cols-3 lg:grid-cols-[2fr_2fr_1fr_1fr_1fr]")}
                   {/* Bottom: left = Address + Map stacked, right = subsection fields */}
@@ -661,7 +664,7 @@ const CompanySettings = () => {
               "grid-cols-2 sm:grid-cols-4 md:grid-cols-7";
 
             return (
-              <div key={section.id || sectionIndex} className="border py-6 px-4 rounded-lg bg-white">
+              <div key={section.id || sectionIndex} className="border py-6 px-4 rounded-lg bg-white dark:bg-white-50 border-gray-300">
                 {renderGridFields(section.fields, gridClass)}
               </div>
             );

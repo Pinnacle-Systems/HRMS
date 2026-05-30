@@ -174,6 +174,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                         "& .MuiInputLabel-shrink": {
                           top: 0,
                         },
+                        "& .MuiIconButton-root": {
+                          color: "dodgerblue",
+                        },
                       },
                     },
                   }}
@@ -198,6 +201,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                         },
                         "& .MuiInputLabel-shrink": {
                           top: 0,
+                        },
+                        "& .MuiIconButton-root": {
+                          color: "dodgerblue",
                         },
                       },
                     },
@@ -283,7 +289,25 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
             onChange={(date: Dayjs | null) => {
               updateRule(rule.id, { value: date ? date.format('YYYY-MM-DD') : '' });
             }}
-            slotProps={{ textField: { size: 'small', sx: { minWidth: 150 } } }}
+            slotProps={{
+              textField: {
+                size: 'small',
+                sx: {
+                  minWidth: 150,
+                  "& .MuiInputLabel-root": {
+                    top: 0,
+                  },
+                  "& .MuiInputLabel-shrink": {
+                    top: 0,
+                  },
+                }
+              },
+              openPickerButton: {
+                color: "primary",
+                edge: "end",
+              },
+            }}
+
           />
         </LocalizationProvider>
       );
@@ -295,14 +319,13 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
         <Select
           size="small"
           value={rule.value || ''}
-          className='!text-[12px]'
           onChange={(e) => updateRule(rule.id, { value: e.target.value })}
           displayEmpty
           sx={{ minWidth: 150 }}
         >
           <MenuItem value="">Select value</MenuItem>
           {field.options?.map(opt => (
-            <MenuItem key={opt.value} className='!text-[12px]' value={opt.value}>{opt.label}</MenuItem>
+            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
           ))}
         </Select>
       );
@@ -367,13 +390,13 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           height: "100%",
         }}
       >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle className='border-b border-gray-200 flex align-c justify-between'>
+          <div className='flex items-center'>
             <FilterAltOutlined className='bg-primary-50 rounded-sm !w-5 text-primary' />
-            <Typography variant="h6">{title}</Typography>
-          </Box>
+            <div className='text-gray-800 ml-2'>{title}</div>
+          </div>
           <IconButton onClick={onClose} size="small">
-            <CloseIcon />
+            <CloseIcon className='text-gray-800' />
           </IconButton>
         </DialogTitle>
 
@@ -522,7 +545,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                           value={rule.field}
                           label="Field"
                           size='small'
-                          className='!text-[12px]'
                           onChange={(e) => {
                             const newFieldId = e.target.value;
                             const defaultOperators =
@@ -538,7 +560,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                           }}
                         >
                           {fields.map((f) => (
-                            <MenuItem key={f.id} value={f.id} className='!text-[12px]'>
+                            <MenuItem key={f.id} value={f.id}>
                               {f.label}
                             </MenuItem>
                           ))}
@@ -595,7 +617,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           </Box>
         </DialogContent >
 
-        <DialogActions sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', justifyContent: 'space-between' }}>
+        <DialogActions className='border-t border-gray-200 flex items-center !justify-between !p-4'>
           <Box>
             <Button
               startIcon={<AddIcon />}

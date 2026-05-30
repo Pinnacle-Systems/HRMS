@@ -36,7 +36,7 @@ export default function DetailsDialog({
           {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
         </div>
         <IconButton onClick={onClose}>
-          <CloseOutlinedIcon />
+          <CloseOutlinedIcon className="!text-gray-800"/>
         </IconButton>
       </div>
       <DialogContent className="!p-4">{children}</DialogContent>

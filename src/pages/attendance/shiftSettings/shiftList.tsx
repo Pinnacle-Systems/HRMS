@@ -34,31 +34,19 @@ import {
   LightMode as MorningIcon,
   Bedtime as EveningIcon,
   CloseOutlined,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { useUI } from '../../../context/Snackbar';
 import type { Shift, ShiftStats } from '../../../services/modules/shifts';
-import { days, getShiftTypeClass, colorClasses } from './const';
+import { days, getShiftTypeClass, colorClasses, formatTimeTo12Hour } from './const';
 import { shiftService } from '../../../services/modules/shifts';
 import { GlobalPagination } from '../../../components/GlobalPagination';
-
-// Form data interface
-interface ShiftFormData {
-  shiftName: string;
-  shiftCode: string;
-  startTime: Dayjs | null;
-  endTime: Dayjs | null;
-  shiftType: string;
-  graceTime: number;
-  breakTime: number;
-  active: boolean;
-  color: string;
-  weeklyOff: string[];
-  description: string;
-  nightShift: boolean;
-}
+import { getRowColor } from '../../const';
+import type { ShiftFormData } from './types';
+import { ShiftAdvancedConfig } from './shiftAdvancedConfig';
 
 export const ShiftList = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -71,7 +59,9 @@ export const ShiftList = () => {
     flexibleShifts: 0
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAdvancedConfigOpen, setIsAdvancedConfigOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [selectedShiftForConfig, setSelectedShiftForConfig] = useState<Shift | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
@@ -99,12 +89,6 @@ export const ShiftList = () => {
     setLimit(newLimit);
     setPage(0);
   };
-
-  // const handleSortChange = (newSortBy: string, newSortOrder?: "ASC" | "DESC") => {
-  //   setSortBy(newSortBy);
-  //   setSortOrder(newSortOrder || "ASC");
-  //   setPage(0);
-  // };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -185,11 +169,11 @@ export const ShiftList = () => {
       shiftName: formData.shiftName,
       shiftCode: formData.shiftCode,
       shiftType: formData.shiftType,
-      startTime: dayjsToTimeString(formData.startTime), // Returns "09:00:00"
-      endTime: dayjsToTimeString(formData.endTime),     // Returns "18:00:00"
+      startTime: dayjsToTimeString(formData.startTime),
+      endTime: dayjsToTimeString(formData.endTime),
       breakTime: formData.breakTime,
       graceTime: formData.graceTime,
-      weeklyOff: formData.weeklyOff, // Already in correct format like ["MON", "TUE"]
+      weeklyOff: formData.weeklyOff,
       color: formData.color,
       description: formData.description,
       active: formData.active,
@@ -253,6 +237,11 @@ export const ShiftList = () => {
     setIsDialogOpen(true);
   };
 
+  const handleAdvancedConfig = (shift: Shift) => {
+    setSelectedShiftForConfig(shift);
+    setIsAdvancedConfigOpen(true);
+  };
+
   const filteredShifts = shifts.filter(shift =>
     shift.shiftName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     shift.shiftCode?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -264,22 +253,6 @@ export const ShiftList = () => {
     { label: 'Night Shifts', value: stats.nightShifts, icon: <NightIcon />, color: 'blue' },
     { label: 'Flexible', value: stats.flexibleShifts, icon: <TimeIcon />, color: 'yellow' },
   ];
-
-  // Format time string to 12-hour format
-  const formatTimeTo12Hour = (timeString?: string): string => {
-    if (!timeString) return '--:--';
-
-    try {
-      const [hours, minutes] = timeString.split(':').map(Number);
-      if (isNaN(hours) || isNaN(minutes)) return '--:--';
-
-      const period = hours >= 12 ? 'PM' : 'AM';
-      const hours12 = hours % 12 || 12;
-      return `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-    } catch (error) {
-      return '--:--';
-    }
-  };
 
   const handleToggleStatus = async (shift: Shift) => {
     showSpinner();
@@ -304,7 +277,7 @@ export const ShiftList = () => {
   };
 
   return (
-    <div>
+    <div className='bg-gray-50 p-4 !pb-0'>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 text-[12px]">
         {statsCards.map((stat, index) => {
@@ -358,8 +331,8 @@ export const ShiftList = () => {
       </div>
 
       {/* Shifts Table */}
-      <TableContainer className='h-[calc(100vh-372px)] bg-white-50'>
-        <Table className='border'>
+      <TableContainer className='h-[calc(100vh-400px)]'>
+        <Table className='border border-gray-200'>
           <TableHead className="bg-gray-100">
             <TableRow>
               <TableCell className='!font-semibold'>S No</TableCell>
@@ -377,7 +350,7 @@ export const ShiftList = () => {
           </TableHead>
           <TableBody>
             {filteredShifts.map((shift, index) => (
-              <TableRow key={shift.id} className="hover:bg-gray-50">
+              <TableRow key={shift.id} className="hover:bg-gray-50" sx={getRowColor(index)}>
                 <TableCell>{index + 1}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2 font-medium">
@@ -389,7 +362,6 @@ export const ShiftList = () => {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {/* <Chip label={shift.shiftCode} size="small" className="!font-mono" /> */}
                   <span className="!font-mono">{shift.shiftCode}</span>
                 </TableCell>
                 <TableCell>
@@ -421,34 +393,41 @@ export const ShiftList = () => {
                   />
                 </TableCell>
                 <TableCell align="center">
-                  <Tooltip title="Edit">
-                    <IconButton size="small" onClick={() => handleEdit(shift)} color="primary">
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton size="small" onClick={() => {
-                      showConfirmDialog({
-                        title: 'Delete Shift',
-                        message: `Are you sure you want to delete "${shift.shiftName}"?`,
-                        confirmText: 'Delete',
-                        onConfirm: async () => {
-                          try {
-                            showSpinner();
-                            await shiftService.deleteShift(shift.id);
-                            showSnackbar('Shift deleted successfully!', 'success');
-                            fetchData();
-                          } catch (error: any) {
-                            showSnackbar(error.message || 'Failed to delete shift', 'error');
-                          } finally {
-                            hideSpinner();
+                  <div className="flex gap-1 justify-center">
+                    <Tooltip title="Edit Basic Info">
+                      <IconButton size="small" onClick={() => handleEdit(shift)} color="primary">
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Advanced Configuration">
+                      <IconButton size="small" onClick={() => handleAdvancedConfig(shift)} color="secondary">
+                        <SettingsIcon fontSize="small" className='!text-primary' />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton size="small" onClick={() => {
+                        showConfirmDialog({
+                          title: 'Delete Shift',
+                          message: `Are you sure you want to delete "${shift.shiftName}"?`,
+                          confirmText: 'Delete',
+                          onConfirm: async () => {
+                            try {
+                              showSpinner();
+                              await shiftService.deleteShift(shift.id);
+                              showSnackbar('Shift deleted successfully!', 'success');
+                              fetchData();
+                            } catch (error: any) {
+                              showSnackbar(error.message || 'Failed to delete shift', 'error');
+                            } finally {
+                              hideSpinner();
+                            }
                           }
-                        }
-                      });
-                    }} color="error">
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                        });
+                      }} color="error">
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -479,11 +458,11 @@ export const ShiftList = () => {
             {editingShift ? 'Edit Shift' : 'Create New Shift'}
           </div>
           <IconButton onClick={() => setIsDialogOpen(false)}>
-            <CloseOutlined />
+            <CloseOutlined className='!text-gray-800' />
           </IconButton>
         </div>
         <DialogContent>
-          <div className="space-y-6 pt-4">
+          <div className="space-y-6 pt-1">
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
@@ -512,7 +491,12 @@ export const ShiftList = () => {
                     label="Start Time"
                     value={formData.startTime}
                     onChange={(value) => setFormData({ ...formData, startTime: value })}
-                    slotProps={{ textField: { fullWidth: true, required: true } }}
+                    slotProps={{
+                      textField: { fullWidth: true, required: true }, openPickerButton: {
+                        color: "primary",
+                        edge: "end",
+                      },
+                    }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -520,7 +504,12 @@ export const ShiftList = () => {
                     label="End Time"
                     value={formData.endTime}
                     onChange={(value) => setFormData({ ...formData, endTime: value })}
-                    slotProps={{ textField: { fullWidth: true, required: true } }}
+                    slotProps={{
+                      textField: { fullWidth: true, required: true }, openPickerButton: {
+                        color: "primary",
+                        edge: "end",
+                      },
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -551,13 +540,12 @@ export const ShiftList = () => {
                   <Select
                     multiple
                     value={formData.weeklyOff}
-                    className='!text-[12px]'
                     label="Weekly Off"
                     onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value as string[] })}
                     renderValue={(selected) => (selected as string[]).join(', ')}
                   >
                     {days.map(day => (
-                      <MenuItem key={day} value={day} className='!text-[12px]'>{day}</MenuItem>
+                      <MenuItem key={day} value={day}>{day}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -580,7 +568,6 @@ export const ShiftList = () => {
                   <Select
                     value={formData.shiftType}
                     label="Shift Type"
-                    className='!text-[12px]'
                     onChange={(e) => {
                       const newType = e.target.value;
                       setFormData({
@@ -591,7 +578,7 @@ export const ShiftList = () => {
                     }}
                   >
                     {shiftTypes.map((type) => (
-                      <MenuItem key={type} value={type} className='!text-[12px]'>
+                      <MenuItem key={type} value={type}>
                         {type}
                       </MenuItem>
                     ))}
@@ -629,6 +616,14 @@ export const ShiftList = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Advanced Configuration Dialog */}
+      <ShiftAdvancedConfig
+        open={isAdvancedConfigOpen}
+        onClose={() => setIsAdvancedConfigOpen(false)}
+        shift={selectedShiftForConfig}
+        onSave={fetchData}
+      />
     </div>
   );
 };

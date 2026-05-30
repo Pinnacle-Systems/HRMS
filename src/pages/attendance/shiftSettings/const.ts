@@ -1,7 +1,5 @@
 export const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
-export const shiftTypes = [];
-
 export const getShiftTypeClass = (type: string) => {
   switch (type?.toLowerCase()) {
     case "night":
@@ -40,4 +38,28 @@ export const colorClasses = {
     text: "text-yellow-700",
     icon: "text-yellow-500",
   },
+};
+
+// Format time string to 12-hour format
+ export const formatTimeTo12Hour = (timeString?: string): string => {
+    if (!timeString) return '--:--';
+
+    try {
+      const [hours, minutes] = timeString.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes)) return '--:--';
+
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const hours12 = hours % 12 || 12;
+      return `${hours12.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+    } catch (error) {
+      return '--:--';
+    }
+  };
+
+export const statusColors = {
+  Scheduled: '#3b82f6',
+  Completed: '#10b981',
+  Unassigned: '#ef4444',
+  InProgress: '#f59e0b',
+  WeeklyOff: '#f97316',
 };

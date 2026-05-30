@@ -607,8 +607,6 @@ export default function EmployeeManagement() {
   // const handleOpenEditDialog = (employee: Employee) => {
   //   setIsEditing(true);
   //   setSelectedEmployee(employee);
-  //   console.log(employee);
-
   //   setFormData({
   //     name: employee.name,
   //     emailAddress: employee.emailAddress,
@@ -723,6 +721,7 @@ export default function EmployeeManagement() {
             `"${updated?.name ?? name}" has been reactivated.`,
             "success",
           );
+          await employeeService.updateAdminInfo(id, { relievedDate: "" })
           getEmployees();
         } catch (error: any) {
           showSnackbar(error.message || "Failed to reactivate employee.", "error");
@@ -843,11 +842,9 @@ export default function EmployeeManagement() {
   };
 
   const updateReleivingDate = async (emp: any, value: any) => {
-    handleDeactivateEmployee(emp.id, emp.name);
-    setIsDeactivate(false);
     showSpinner();
     try {
-      await employeeService.updateEmployee(emp.id, { relievingDate: value })
+      await employeeService.updateAdminInfo(emp.id, { relievedDate: value })
       handleDeactivateEmployee(emp.id, emp.name);
       setIsDeactivate(false);
     } catch (error: any) {
@@ -1006,7 +1003,7 @@ export default function EmployeeManagement() {
         elevation={0}
         className={`${activeFilters && activeFilters.rules.length > 0 ? 'h-[calc(100vh-392px)]' : 'h-[calc(100vh-332px)]'} overflow-auto !bg-white-50`}
       >
-        <MaterialModule.Table stickyHeader className="border">
+        <MaterialModule.Table stickyHeader className="border border-gray-200">
           <MaterialModule.TableHead>
             <MaterialModule.TableRow>
               <MaterialModule.TableCell className="!font-semibold text-gray-800 " sx={{
@@ -1222,7 +1219,7 @@ export default function EmployeeManagement() {
                             <DatePicker
                               label="Relieving Date"
                               className="!bg-white"
-                              value={employee.relievingDate ? dayjs(employee.relievingDate) : null}
+                              value={employee.relievedDate ? dayjs(employee.relievedDate) : null}
                               onChange={(newValue) =>
                                 updateReleivingDate(employee,
                                   newValue ? newValue.format("YYYY-MM-DD") : ""
@@ -1231,6 +1228,11 @@ export default function EmployeeManagement() {
                               slotProps={{
                                 textField: {
                                   className: "!w-[150px]",
+                                },
+                              }}
+                              sx={{
+                                "& .MuiIconButton-root": {
+                                  color: "dodgerblue",
                                 },
                               }}
                             />
@@ -1290,7 +1292,7 @@ export default function EmployeeManagement() {
             {isEditing ? "Edit Employee" : "Add New Employee"}
           </div>
           <MaterialModule.IconButton onClick={() => setEmployeeDialogOpen(false)}>
-            <MaterialModule.CloseOutlined />
+            <MaterialModule.CloseOutlined className="!text-gray-800"/>
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
@@ -1331,6 +1333,10 @@ export default function EmployeeManagement() {
                 slotProps={{
                   textField: {
                     fullWidth: true,
+                  },
+                  openPickerButton: {
+                    color: "primary",
+                    edge: "end",
                   },
                 }}
               />

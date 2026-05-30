@@ -224,6 +224,8 @@ export default function Profile() {
         phone: editFormData.phone,
         dob: editFormData.dob,
         biography: editFormData.biography,
+        // designation: editFormData.designation,
+        // department: editFormData.department,
       };
 
       const response: any = await authService.updateProfile(updatedData);
@@ -413,7 +415,7 @@ export default function Profile() {
     field: any,
     editFormData: any,
     setEditFormData: any,
-    multiline: any,
+    multiline?: any,
   ) => {
     const { name, dname, type, disabled, required } = field;
     const value = editFormData?.[name] || "";
@@ -435,6 +437,11 @@ export default function Profile() {
                 required: required,
               },
             }}
+            sx={{
+                      "& .MuiIconButton-root": {
+                        color: "dodgerblue",
+                      },
+                    }}
           />
         </LocalizationProvider>
       );
@@ -467,6 +474,7 @@ export default function Profile() {
       showSpinner();
       await authService.uploadProfilePicture(file);
       showSnackbar("Profile photo uploaded successfully", "success");
+      
       fetchProfile();
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -512,7 +520,7 @@ export default function Profile() {
         <TabPanel value={tabValue} index={0}>
           <div className="space-y-6">
             {/* Personal Information */}
-            <div className="border border-gray-300 rounded-lg p-6">
+            <div className="border border-gray-300 bg-white rounded-lg p-6">
               <div className="font-semibold mb-3 text-primary">
                 Personal Information
               </div>
@@ -545,7 +553,7 @@ export default function Profile() {
                   {personalInfo.map((item, index) => (
                     <div key={item.name || index} className="flex items-start text-gray-600">
                       <ListItemIcon
-                        className="!w-3"
+                        className="!w-3 !text-gray-500"
                         sx={{ "& svg": { fontSize: 18 } }}
                       >
                         {item.icon}
@@ -580,7 +588,7 @@ export default function Profile() {
               </div>
             </div>
             {/* Employment Information */}
-            <div className="border border-gray-300 rounded-lg p-4">
+            <div className="border border-gray-300 bg-white rounded-lg p-4">
               <div className="font-semibold mb-3 text-primary">
                 Employment Information
               </div>
@@ -588,7 +596,7 @@ export default function Profile() {
                 {employementInfo.map((item, index) => (
                   <div key={item.name || index} className="flex items-start text-gray-600">
                     <ListItemIcon
-                      className="!w-3"
+                      className="!w-3 !text-gray-500"
                       sx={{ "& svg": { fontSize: 18 } }}
                     >
                       {item.icon}
@@ -762,7 +770,7 @@ export default function Profile() {
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="text-primary ml-4">Edit Profile Information</div>
           <IconButton onClick={handleEditDialogClose}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent className="mt-4">
@@ -774,7 +782,6 @@ export default function Profile() {
                     field,
                     editFormData,
                     setEditFormData,
-                    field.multiline,
                   )}
                 </div>
               </div>
@@ -809,7 +816,7 @@ export default function Profile() {
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="text-primary ml-4">Change Password</div>
           <IconButton onClick={handlePasswordDialogClose}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent className="space-y-6">

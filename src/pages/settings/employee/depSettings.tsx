@@ -359,7 +359,7 @@ export default function DepartmentSettings() {
           elevation={0}
           className="h-[calc(100vh-290px)] overflow-auto bg-white-50"
         >
-          <Table stickyHeader className="border">
+          <Table stickyHeader className="border border-gray-200">
             <TableHead className="bg-gray-100">
               <TableRow>
                 <TableCell className="!font-semibold text-gray-800">
@@ -515,7 +515,7 @@ export default function DepartmentSettings() {
             {editingDepartment ? "Edit Department" : "Add New Department"}
           </div>
           <IconButton onClick={handleCloseDialog}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent>

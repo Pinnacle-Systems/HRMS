@@ -17,6 +17,7 @@ export type AuthUser = {
   roles: AppRole[];
   rawRoles: string[];
   permissions: string[];
+  profilePic?: string;
 };
 
 export type AuthSession = {
@@ -48,6 +49,22 @@ export type SelectTenantRequest = {
   sessionToken: string;
 };
 
+export type UserProfile = {
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  dob?: string;
+  biography?: string;
+  profilePicUrl?: string;
+  mfaEnabled?: boolean;
+  emailVerified?: boolean;
+  roles?: string[];
+  permissions?: string[];
+  createdAt?: string;
+};
+
 export type AuthResponse = {
   accessToken?: string;
   refreshToken?: string;
@@ -65,6 +82,7 @@ export type AuthResponse = {
   mustChangePassword?: boolean;
   passwordExpiringSoon?: boolean;
   daysUntilPasswordExpiry?: number;
+  profile?: UserProfile;
 };
 
 export type LoginApiResponse = ApiResponse<AuthResponse>;

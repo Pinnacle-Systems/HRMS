@@ -48,30 +48,16 @@ export const getCategoryName = (
   return fieldLabel;
 };
 
-export const stickyLeftSx = {
-  position: "sticky",
-  left: 0,
-  zIndex: 3,
-  background: "#fff",
-};
-
-export const stickyRightSx = {
-  position: "sticky",
-  right: 0,
-  zIndex: 3,
-  background: "#fff",
-};
-
 export const stickyHeaderLeftSx = {
   position: "sticky",
   left: 0,
   zIndex: 4,
-  background: "#f3f4f6",
+  background: "var(--bg-primary)",
 };
 
 export const stickyHeaderRightSx = {
   position: "sticky",
   right: 0,
   zIndex: 4,
-  background: "#f3f4f6",
+  background: "var(--bg-primary)",
 };

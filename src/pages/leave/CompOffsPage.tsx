@@ -317,7 +317,7 @@ export default function CompOffsPage() {
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="text-primary ml-4">Request Comp-Off Credit</div>
           <IconButton onClick={() => setOpen(false)}>
-            <CloseOutlinedIcon />
+            <CloseOutlinedIcon className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent className="!p-4">

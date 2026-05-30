@@ -12,12 +12,7 @@ import { ShiftList } from "./shiftList";
 import { ShiftRoster } from "./shiftRoster";
 import { ShiftScheduleView } from "./shiftScheduleView";
 import { ShiftRotation } from "./shiftRotation";
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+import type { TabPanelProps } from "./types";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index } = props;
@@ -38,7 +33,7 @@ export default function ShiftSettings() {
 
   const tabs = [
     {
-      label: "Shift Settings",
+      label: "Shift List",
       icon: <SettingsOutlined fontSize="small" />,
       component: <ShiftList />,
     },
@@ -62,7 +57,7 @@ export default function ShiftSettings() {
   return (
     <div className="w-full">
       {/* Header */}
-      <div className="mb-4">
+      <div className="mb-2">
         <div className="font-semibold text-gray-800">
           Shift Management
         </div>
@@ -71,42 +66,44 @@ export default function ShiftSettings() {
         </div>
       </div>
 
-      {/* Button Navigation */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((tab, index) => {
-            const active = activeTab === index;
-            return (
-              <button
-                key={index}
-                onClick={() => setActiveTab(index)}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200
+      <div className="border border-gray-300 bg-white">
+        {/* Button Navigation */}
+        <div className="flex items-center gap-2 border-b border-gray-300 p-2">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab, index) => {
+              const active = activeTab === index;
+              return (
+                <button
+                  key={index}
+                  onClick={() => setActiveTab(index)}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200
               
               ${active
-                    ? "bg-primary-50 text-primary shadow-sm"
-                    : "bg-white text-gray-600 hover:bg-primary-50 hover:text-primary"
-                  }`}
-              >
-                {tab.icon}
+                      ? "bg-primary-50 text-primary shadow-sm"
+                      : "bg-white text-gray-600 hover:bg-primary-50 hover:text-primary"
+                    }`}
+                >
+                  {tab.icon}
 
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="">
-        {tabs.map((tab, index) => (
-          <TabPanel
-            key={index}
-            value={activeTab}
-            index={index}
-          >
-            {tab.component}
-          </TabPanel>
-        ))}
+        {/* Content */}
+        <div className="">
+          {tabs.map((tab, index) => (
+            <TabPanel
+              key={index}
+              value={activeTab}
+              index={index}
+            >
+              {tab.component}
+            </TabPanel>
+          ))}
+        </div>
       </div>
     </div>
   );

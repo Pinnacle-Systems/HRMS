@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  Typography,
   Button,
   Table,
   TableBody,
@@ -16,283 +15,891 @@ import {
   InputLabel,
   Tooltip,
   Alert,
-  Avatar
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  Menu,
+  TextField,
+  Autocomplete,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
   GroupAdd as BulkAssignIcon,
   Publish as PublishIcon,
-  Warning as WarningIcon,
+  // PictureAsPdf as PdfIcon,
+  // TableChart as ExcelIcon,
+  Close as CloseIcon,
+  Cancel as CancelIcon,
+  WarningOutlined,
+  DownloadOutlined
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
+import isoWeek from 'dayjs/plugin/isoWeek';
 import { useUI } from '../../../context/Snackbar';
+import { shiftService, type Shift } from '../../../services/modules/shifts';
+import { branchService } from '../../../services/modules/branch';
+import { getRowColor, getStickyLeftSx, stickyHeaderLeftSx } from '../../const';
+import { days } from './const';
+import type { Branch, RosterEmployee, alert } from './types';
 
-// Mock data
-const mockEmployees = [
-  { id: '1', name: 'Priya Sharma', department: 'Engineering', shiftCode: 'GEN-01', shifts: ['GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01'] },
-  { id: '2', name: 'Alisha Khan', department: 'HR', shiftCode: 'GEN-01', shifts: ['GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01'] },
-  { id: '3', name: 'Sneha Gupta', department: 'QA', shiftCode: 'MRN-01', shifts: ['MRN-01', 'MRN-01', 'MRN-01', 'MRN-01', 'MRN-01', 'MRN-01', 'MRN-01'] },
-  { id: '4', name: 'Arjun Mehta', department: 'DevOps', shiftCode: 'ROT-A', shifts: ['ROT-A', 'ROT-A', 'ROT-A', 'ROT-A', 'ROT-A', 'WO', 'WO'] },
-  { id: '5', name: 'Kavita Singh', department: 'Analytics', shiftCode: 'GEN-01', shifts: ['GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'WO', 'WO'] },
-  { id: '6', name: 'Sanjay Kumar', department: 'Management', shiftCode: 'FLX-01', shifts: ['FLX-01', 'FLX-01', 'FLX-01', 'FLX-01', 'WL', 'WL', 'WL'] },
-  { id: '7', name: 'Neha Joshi', department: 'Engineering', shiftCode: 'GEN-01', shifts: ['GEN-01', 'GEN-01', 'GEN-01', 'GEN-01', 'WO', 'WO', 'WO'] },
-  { id: '8', name: 'Vijay Reddy', department: 'Architecture', shiftCode: 'NLT-01', shifts: ['NLT-01', 'NLT-01', 'NLT-01', 'NLT-01', 'Leave', 'Leave', 'Leave'] },
-];
+dayjs.extend(isoWeek);
 
-const weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
 
 export const ShiftRoster = () => {
-  const { showSnackbar } = useUI();
-  const [selectedWeek, setSelectedWeek] = useState(dayjs());
-  const [department, setDepartment] = useState('all');
-  const [branch, setBranch] = useState('all');
-  const [employees, setEmployees] = useState(mockEmployees);
-  const [editingCell, setEditingCell] = useState<{ empId: string; day: string } | null>(null);
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const [selectedWeek, setSelectedWeek] = useState<Dayjs>(dayjs().startOf('isoWeek'));
+  const [department, setDepartment] = useState<string>('all');
+  const [branch, setBranch] = useState<string>('all');
+  const [rosterData, setRosterData] = useState<RosterEmployee[]>([]);
+  const [filteredRosterData, setFilteredRosterData] = useState<RosterEmployee[]>([]);
+  const [alerts, setAlerts] = useState<alert[]>([]);
+  const [isPublished, setIsPublished] = useState(false);
 
-  const handleCopyPrevWeek = () => {
-    showSnackbar('Previous week roster copied successfully!', 'success');
+  // Edit state
+  const [editingCell, setEditingCell] = useState<{ employeeId: string; day: string; currentShift: string } | null>(null);
+
+  // Bulk assign dialog state
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkAssignEmployees, setBulkAssignEmployees] = useState<string[]>([]);
+  const [bulkAssignShift, setBulkAssignShift] = useState('');
+  const [bulkAssignDays, setBulkAssignDays] = useState<string[]>([]);
+
+
+  // Filter state
+  // const [departments, setDepartments] = useState<Department[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+
+  const [openAlertDialog, setopenAlertDialog] = useState(false);
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+
+  // Fetch master data
+  const fetchMasterData = async () => {
+    try {
+      // const deptRes: any = await departmentService.getDepartments();
+      // const departmentsData = deptRes.data?.content || deptRes.data || [];
+      // setDepartments(departmentsData);
+
+      const branchRes: any = await branchService.getDropdownBranches();
+      const branchesData = branchRes.data?.content || branchRes.data || [];
+      setBranches(branchesData);
+
+      const shiftRes: any = await shiftService.getShiftDropdown();
+      const shiftData = shiftRes.data?.content || shiftRes.data || [];
+      setShifts(shiftData);
+
+    } catch (error: any) {
+      console.error('Failed to fetch master data:', error);
+    }
+  };
+
+  // Fetch roster data
+  const fetchRoster = async () => {
+    showSpinner();
+    try {
+      const weekStartDate = selectedWeek.format('YYYY-MM-DD');
+      const params: any = {
+        weekStartDate
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (selectedDepartmentId) params.departmentId = selectedDepartmentId;
+      if (selectedBranchId) params.branchId = selectedBranchId;
+
+      const response: any = await shiftService.getRoster(params);
+      const data = response.data?.data || response.data || [];
+      setRosterData(data);
+
+      // Apply client-side filters for department and branch names
+      let filtered = [...data];
+      if (department !== 'all') {
+        filtered = filtered.filter(emp => emp.department === department);
+      }
+      if (branch !== 'all') {
+        filtered = filtered.filter(emp => emp.branchId === branch);
+      }
+      setFilteredRosterData(filtered);
+
+      // Check if roster is published (you may need to add this field to the response)
+      setIsPublished(false); // Update based on actual response if available
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to fetch roster', 'error');
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // Fetch alerts
+  const fetchAlerts = async () => {
+    try {
+      const weekStartDate = selectedWeek.format('YYYY-MM-DD');
+      const response: any = await shiftService.getRosterAlerts({ weekStartDate });
+      const alertsData = response.data?.data || response.data || [];
+      setAlerts(alertsData);
+    } catch (error: any) {
+      console.error('Failed to fetch alerts:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  useEffect(() => {
+    fetchRoster();
+    fetchAlerts();
+  }, [selectedWeek, selectedDepartmentId, selectedBranchId, searchTerm]);
+
+  const allEmployeeIds = rosterData.map(emp => emp.employeeId);
+  const allDays = days;
+
+  useEffect(() => {
+    // Apply client-side filters when department/branch filter changes
+    let filtered = [...rosterData];
+    if (department !== 'all') {
+      filtered = filtered.filter(emp => emp.department === department);
+    }
+    if (branch !== 'all') {
+      filtered = filtered.filter(emp => emp.branchId === branch);
+    }
+    setFilteredRosterData(filtered);
+  }, [department, branch, rosterData]);
+
+  const handleCopyPrevWeek = async () => {
+    showConfirmDialog({
+      title: 'Copy Previous Week',
+      message: 'This will copy the roster from the previous week. Continue?',
+      confirmText: 'Copy',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const fromWeekStartDate = selectedWeek.subtract(1, 'week').startOf('isoWeek').format('YYYY-MM-DD');
+          const toWeekStartDate = selectedWeek.format('YYYY-MM-DD');
+
+          const payload: any = {
+            fromWeekStartDate,
+            toWeekStartDate
+          };
+          if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
+          if (selectedBranchId) payload.branchId = selectedBranchId;
+
+          await shiftService.copyPreviousWeekToRoster(payload);
+          showSnackbar('Previous week roster copied successfully!', 'success');
+          fetchRoster();
+        } catch (error: any) {
+          showSnackbar(error.message || 'Failed to copy roster', 'error');
+        } finally {
+          hideSpinner();
+        }
+      }
+    });
   };
 
   const handleBulkAssign = () => {
-    showSnackbar('Bulk assignment initiated!', 'info');
+    setBulkAssignEmployees([]);
+    setBulkAssignShift('');
+    setBulkAssignDays([]);
+    setBulkAssignOpen(true);
   };
 
-  const handlePublish = () => {
-    showSnackbar('Roster published successfully!', 'success');
+  const handleBulkAssignSubmit = async () => {
+    if (!bulkAssignShift) {
+      showSnackbar('Please select a shift', 'error');
+      return;
+    }
+    if (bulkAssignEmployees.length === 0) {
+      showSnackbar('Please select at least one employee', 'error');
+      return;
+    }
+    if (bulkAssignDays.length === 0) {
+      showSnackbar('Please select at least one day', 'error');
+      return;
+    }
+
+    showSpinner();
+    try {
+      const weekStartDate = selectedWeek.format('YYYY-MM-DD');
+      const payload = {
+        employeeIds: bulkAssignEmployees,
+        weekStartDate,
+        days: bulkAssignDays,
+        shiftCode: bulkAssignShift
+      };
+
+      await shiftService.bulkAssignShifts(payload);
+      showSnackbar('Bulk assignment completed successfully!', 'success');
+      setBulkAssignOpen(false);
+      fetchRoster();
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to assign shifts', 'error');
+    } finally {
+      hideSpinner();
+    }
   };
 
-  const handleShiftChange = (empId: string, day: string, newShift: string) => {
-    setEmployees(prev => prev.map(emp => {
-      if (emp.id === empId) {
-        const dayIndex = weekDays.indexOf(day);
-        const newShifts = [...emp.shifts];
-        newShifts[dayIndex] = newShift;
-        return { ...emp, shifts: newShifts };
+  const handlePublish = async () => {
+    showConfirmDialog({
+      title: 'Publish Roster',
+      message: 'Publishing the roster will notify all employees. Continue?',
+      confirmText: 'Publish',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const payload: any = {
+            weekStartDate: selectedWeek.format('YYYY-MM-DD')
+          };
+          if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
+          if (selectedBranchId) payload.branchId = selectedBranchId;
+
+          await shiftService.publishRoster(payload);
+          showSnackbar('Roster published successfully!', 'success');
+          setIsPublished(true);
+          fetchAlerts();
+        } catch (error: any) {
+          showSnackbar(error.message || 'Failed to publish roster', 'error');
+        } finally {
+          hideSpinner();
+        }
       }
-      return emp;
-    }));
-    setEditingCell(null);
-    showSnackbar('Shift updated successfully!', 'success');
+    });
   };
 
-  const getShiftColor = (shiftCode: string) => {
-    const colors: Record<string, string> = {
-      'GEN-01': '#3b82f6',
-      'MRN-01': '#f59e0b',
-      'ROT-A': '#8b5cf6',
-      'FLX-01': '#10b981',
-      'NLT-01': '#6366f1',
-      'WO': '#ef4444',
-      'WL': '#f97316',
-      'Leave': '#6b7280'
-    };
-    return colors[shiftCode] || '#9ca3af';
+  const handleShiftChange = async (employeeId: string, day: string, newShift: string) => {
+    showSpinner();
+    try {
+      const weekStartDate = selectedWeek.format('YYYY-MM-DD');
+      const payload = {
+        weekStartDate,
+        day,
+        shiftCode: newShift === '-' ? null : newShift
+      };
+
+      await shiftService.updateEmployeeRoster(employeeId, payload);
+      showSnackbar('Shift updated successfully!', 'success');
+
+      // Update local state
+      setRosterData(prev => prev.map(emp => {
+        if (emp.employeeId === employeeId) {
+          const updatedWeeklyRoster = emp.weeklyRoster.map(roster =>
+            roster.day === day ? { ...roster, shiftCode: newShift } : roster
+          );
+          return { ...emp, weeklyRoster: updatedWeeklyRoster };
+        }
+        return emp;
+      }));
+
+      setEditingCell(null);
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to update shift', 'error');
+    } finally {
+      hideSpinner();
+    }
   };
 
-  const shiftOptions = ['GEN-01', 'MRN-01', 'ROT-A', 'FLX-01', 'NLT-01', 'WO', 'WL', 'Leave'];
+  const openExportMenu = (event: React.MouseEvent<HTMLElement>) => {
+    setExportAnchorEl(event.currentTarget);
+  };
 
-  const filteredEmployees = employees.filter(emp => 
-    department === 'all' || emp.department === department
-  );
+  const closeExportMenu = () => {
+    setExportAnchorEl(null);
+  };
 
-  const departments = ['all', ...new Set(employees.map(e => e.department))];
+  const handleExportPDF = async () => {
+    try {
+      showSpinner();
+      const weekStartDate = selectedWeek.format("YYYY-MM-DD");
+      const params: any = { weekStartDate };
+
+      if (selectedDepartmentId) {
+        params.departmentId = selectedDepartmentId;
+      }
+      if (selectedBranchId) {
+        params.branchId = selectedBranchId;
+      }
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      await shiftService.exportRosterToPDF(params);
+      showSnackbar("PDF exported successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to export PDF", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      showSpinner();
+      const weekStartDate = selectedWeek.format("YYYY-MM-DD");
+      const params: any = { weekStartDate };
+      if (selectedDepartmentId) {
+        params.departmentId = selectedDepartmentId;
+      }
+      if (selectedBranchId) {
+        params.branchId = selectedBranchId;
+      }
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      await shiftService.exportRosterToExcel(params);
+      showSnackbar("Excel exported successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to export Excel", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const getShiftForDay = (employee: RosterEmployee, day: string): string => {
+    const roster = employee.weeklyRoster.find(r => r.day === day);
+    return roster?.shiftCode || '-';
+  };
+
+  const departmentOptions = ['all', ...new Set(rosterData.map(emp => emp.department).filter(Boolean))];
+
+  const commonsx = {
+    "& .MuiDialog-paper": {
+      width: "620px",
+      maxWidth: "620px",
+    },
+  };
 
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-6">
-        <Typography variant="h6" className="font-semibold text-gray-800 mb-1">
-          Shift Roster
-        </Typography>
-        <Typography variant="body2" className="text-gray-500">
-          Assign and publish weekly shift rosters for your team
-        </Typography>
+    <div className="bg-gray-50 p-4 !pb-0">
+      {/* Search Options */}
+      <div className="mb-4 bg-white border border-gray-200">
+        <div className='!p-4 !pt-6'>
+          <div className="grid gap-4 items-center">
+            <div className="flex items-center gap-4 justify-between">
+
+              <div className="flex gap-4 items-center">
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Week Start Date"
+                    value={selectedWeek}
+                    onChange={(date) => setSelectedWeek(date?.startOf('isoWeek') || dayjs().startOf('isoWeek'))}
+                    slotProps={{ textField: { size: 'small', className: 'w-48' } }}
+                    sx={{
+                      "& .MuiIconButton-root": {
+                        color: "dodgerblue",
+                      },
+                    }}
+                  />
+                </LocalizationProvider>
+
+                <FormControl size="small" className="w-48">
+                  <InputLabel>Department</InputLabel>
+                  <Select value={department} onChange={(e) => setDepartment(e.target.value)} label="Department">
+                    <MenuItem value="all">All Departments</MenuItem>
+                    {departmentOptions.filter(d => d !== 'all').map(dept => (
+                      <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl size="small" className="w-48">
+                  <InputLabel>Branch</InputLabel>
+                  <Select value={branch} onChange={(e) => setBranch(e.target.value)} label="Branch">
+                    <MenuItem value="all">All Branches</MenuItem>
+                    {branches.map(b => (
+                      <MenuItem key={b.id} value={b.id}>{b.branchName}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Search Employee..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <div className="flex gap-4 items-center">
+                  <Button variant="outlined" startIcon={<CopyIcon />} onClick={handleCopyPrevWeek}>
+                    Copy Prev Week
+                  </Button>
+                  <Button variant="outlined" startIcon={<BulkAssignIcon />} onClick={handleBulkAssign}>
+                    Bulk Assign
+                  </Button>
+                </div>
+
+                {
+                  alerts.length > 0 &&
+                  <Button variant="outlined" className='!text-yellow-600 !border-yellow-600' startIcon={<WarningOutlined />}
+                    onClick={() => setopenAlertDialog(true)}>
+                    Alerts
+                  </Button>
+                }
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outlined"
+                  startIcon={<DownloadOutlined />}
+                  onClick={(e) => openExportMenu(e)}
+                >
+                  Export
+                </Button>
+                <Menu
+                  anchorEl={exportAnchorEl}
+                  open={Boolean(exportAnchorEl)}
+                  onClose={closeExportMenu}
+                >
+                  <MenuItem onClick={() => handleExportPDF()}>
+                    Export as PDF
+                  </MenuItem>
+                  <MenuItem onClick={() => handleExportExcel()}>
+                    Export as Excel
+                  </MenuItem>
+                </Menu>
+                <Button
+                  variant="contained"
+                  startIcon={<PublishIcon />}
+                  onClick={handlePublish}
+                  disabled={isPublished}
+                  className="!bg-primary"
+                >
+                  {isPublished ? 'Published' : 'Publish Roster'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Search Options */}
-      <Card className="mb-6">
-        <CardContent>
-          <div className="flex flex-wrap gap-4 items-center">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <DatePicker
-                label="Week Range"
-                value={selectedWeek}
-                onChange={(date) => setSelectedWeek(date || dayjs())}
-                slotProps={{ textField: { size: 'small', className: 'w-48' } }}
-              />
-            </LocalizationProvider>
-            
-            <FormControl size="small" className="w-48">
-              <InputLabel>All Departments</InputLabel>
-              <Select value={department} onChange={(e) => setDepartment(e.target.value)} label="All Departments">
-                {departments.map(dept => (
-                  <MenuItem key={dept} value={dept}>{dept === 'all' ? 'All Departments' : dept}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+      {/* Roster Table */}
+      <div className="overflow-auto h-[calc(100vh-430px)]">
+        <Table stickyHeader className="border border-gray-200">
+          <TableHead className="bg-gray-100">
+            <TableRow className="bg-gray-100 !text-primary">
+              <TableCell className="!font-semibold text-gray-800" sx={{
+                ...stickyHeaderLeftSx,
+                minWidth: "70px",
+              }}>S No</TableCell>
+              <TableCell className="nth-c !font-semibold">
+                Employee Code
+              </TableCell>
+              <TableCell className="!font-semibold text-gray-800">
+                Employee Name
+              </TableCell>
+              {days.map(day => (
+                <TableCell key={day} align="center" className="!font-semibold" sx={{ minWidth: 100 }}>
+                  {day}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredRosterData.map((employee, index) => (
+              <TableRow key={employee.employeeId} className="hover:bg-gray-50" sx={getRowColor(index)}>
+                <TableCell className="font-medium text-gray-800" sx={{
+                  ...getStickyLeftSx(index),
+                  minWidth: "70px",
+                }}>{index + 1}</TableCell>
+                <TableCell className="" sx={{
+                  ...getStickyLeftSx(index),
+                  left: "70px",
+                  minWidth: "100px",
+                }}>
+                  {employee.employeeCode}
+                </TableCell>
+                <TableCell className="font-medium">
+                  <div>
+                    {employee.employeeName}
+                    <div className="text-gray-500 text-[10px]">
+                      {employee.department}
+                    </div>
+                  </div>
+                </TableCell>
 
-            <FormControl size="small" className="w-48">
-              <InputLabel>All Branches</InputLabel>
-              <Select value={branch} onChange={(e) => setBranch(e.target.value)} label="All Branches">
-                <MenuItem value="all">All Branches</MenuItem>
-                <MenuItem value="main">Main Branch</MenuItem>
-                <MenuItem value="east">East Branch</MenuItem>
-              </Select>
-            </FormControl>
+                {days.map((day) => {
+                  const shift = getShiftForDay(employee, day);
+                  const isEditing = editingCell?.employeeId === employee.employeeId && editingCell?.day === day;
 
-            <Button variant="outlined" startIcon={<CopyIcon />} onClick={handleCopyPrevWeek}>
-              Copy Prev Week
-            </Button>
-            <Button variant="outlined" startIcon={<BulkAssignIcon />} onClick={handleBulkAssign}>
-              Bulk Assign
-            </Button>
-            <Button variant="contained" startIcon={<PublishIcon />} onClick={handlePublish} className="!bg-primary">
-              Publish Roster
-            </Button>
+                  return (
+                    <TableCell key={day} align="center" className="p-1" sx={{ padding: '5px 16px !important' }}>
+                      {isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <Select
+                            size="small"
+                            value={shift}
+                            onChange={(e) => handleShiftChange(employee.employeeId, day, e.target.value)}
+                            autoFocus
+                            className="w-28"
+                          >
+                            {shifts.map(opt => (
+                              <MenuItem key={opt.id} value={opt.shiftCode}>
+                                {opt.shiftName}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                          <IconButton
+                            size="small"
+                            onClick={() => setEditingCell(null)}
+                            sx={{ p: 0.5 }}
+                          >
+                            <CancelIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </div>
+                      ) : (
+                        <Tooltip title="Click to edit">
+                          <Chip
+                            label={shift}
+                            onClick={() => setEditingCell({
+                              employeeId: employee.employeeId,
+                              day,
+                              currentShift: shift
+                            })}
+                            className="cursor-pointer hover:opacity-80 !font-mono !text-[10px]"
+                            sx={{
+                              backgroundColor: `${shifts.find((opt) => opt.shiftCode === shift)?.color}20` || "#e5e7eb",
+                              color: shifts.find((opt) => opt.shiftCode === shift)?.color || "#e5e7eb",
+                              fontWeight: 500,
+                              fontSize: '0.75rem',
+                              height: '28px'
+                            }}
+                          />
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Card className='!bg-white-50 my-4 !p-0'>
+        <CardContent className='!p-2 border border-gray-200'>
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div className="flex gap-4 flex-wrap">
+              {shifts.slice(0, 5).map((shift) => (
+                <div key={shift.id} className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: shift.color }} />
+                  <span className="text-xs text-gray-500">{shift.shiftName}</span>
+                  <span className="text-xs text-gray-500">
+                    ({rosterData.filter(emp =>
+                      emp.weeklyRoster.some(r => r.shiftCode === shift.shiftCode)
+                    ).length} emp)
+                  </span>
+                </div>
+              ))}
+            </div>
+            {!isPublished && (
+              <Alert severity="warning" className="text-sm !px-2 !py-0" icon={<WarningOutlined fontSize="small" />}>
+                Roster unpublished — pending approval
+              </Alert>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Employee List and Roster */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Employee List - Left Sidebar */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" className="font-semibold mb-3">EMPLOYEE</Typography>
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {filteredEmployees.map((employee) => (
-                  <div key={employee.id} className="p-2 hover:bg-gray-50 rounded-lg cursor-pointer">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Avatar className="!w-8 !h-8 !bg-primary">
-                        {employee.name.charAt(0)}
-                      </Avatar>
-                      <div>
-                        <Typography variant="body2" className="font-medium">{employee.name}</Typography>
-                        <Typography variant="caption" className="text-gray-500">{employee.department}</Typography>
+      {/* Bulk Assign Dialog */}
+      <Dialog open={bulkAssignOpen} onClose={() => setBulkAssignOpen(false)} maxWidth="md" sx={commonsx}>
+        <DialogTitle className='!p-2 border-b border-gray-200'>
+          <div className="flex justify-between items-center">
+            <span className='ml-4 text-primary'>Bulk Assign Shifts</span>
+            <IconButton onClick={() => setBulkAssignOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </div>
+        </DialogTitle>
+        <DialogContent>
+          <div className="grid grid-cols-3 gap-4 py-5">
+            <FormControl fullWidth>
+              <InputLabel>Select Shift</InputLabel>
+              <Select value={bulkAssignShift} onChange={(e) => setBulkAssignShift(e.target.value)} label="Select Shift">
+                {shifts.map((shift) => (
+                  <MenuItem key={shift.id} value={shift.shiftCode}>{shift.shiftName}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Select Days</InputLabel>
+              <Select
+                multiple
+                value={bulkAssignDays}
+                onChange={(e) => {
+                  const value = e.target.value as string[];
+
+                  if (value.includes("ALL")) {
+                    if (bulkAssignDays.length === allDays.length) {
+                      setBulkAssignDays([]);
+                    } else {
+                      setBulkAssignDays(allDays);
+                    }
+                  } else {
+                    setBulkAssignDays(value);
+                  }
+                }}
+                label="Select Days"
+                renderValue={(selected) => {
+                  const values = selected as string[];
+
+                  if (values.length === allDays.length) {
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        <Chip
+                          size="small"
+                          label="All Days"
+                          color="primary"
+                        />
                       </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      {values.map((day) => (
+                        <Chip
+                          key={day}
+                          size="small"
+                          label={day}
+                        />
+                      ))}
                     </div>
-                    <div className="grid grid-cols-7 gap-1 text-center">
-                      {weekDays.map((day, idx) => (
-                        <div key={day} className="text-xs">
-                          <div className="text-gray-400">{day}</div>
-                          <Chip 
-                            label={employee.shifts[idx]} 
-                            size="small" 
-                            className="!h-5 !text-[10px] !w-full"
-                            sx={{ backgroundColor: `${getShiftColor(employee.shifts[idx])}20`, color: getShiftColor(employee.shifts[idx]) }}
-                          />
+                  );
+                }}
+              >
+                <MenuItem value="ALL" className='!py-0'>
+                  <Checkbox
+                    checked={bulkAssignDays.length === allDays.length}
+                  />
+                  Select All
+                </MenuItem>
+
+                {days.map((day) => (
+                  <MenuItem key={day} value={day} className='!py-0'>
+                    <Checkbox
+                      checked={bulkAssignDays.includes(day)}
+                    />
+                    {day}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
+          {/* <FormControl fullWidth>
+            <InputLabel>Select Employees</InputLabel>
+            <Select
+              multiple
+              value={bulkAssignEmployees}
+              onChange={(e) => {
+                const value = e.target.value as string[];
+                if (value.includes("ALL")) {
+                  if (bulkAssignEmployees.length === allEmployeeIds.length) {
+                    setBulkAssignEmployees([]);
+                  } else {
+                    setBulkAssignEmployees(allEmployeeIds);
+                  }
+                } else {
+                  setBulkAssignEmployees(value);
+                }
+              }}
+              label="Select Employees"
+              renderValue={(selected) => {
+                const values = selected as string[];
+                if (values.length === allEmployeeIds.length) {
+                  return (
+                    <div className="flex flex-wrap gap-1">
+                      <Chip
+                        size="small"
+                        label="All Employees"
+                        color="primary"
+                      />
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-wrap gap-1">
+                    {values.map((id) => (
+                      <Chip
+                        key={id}
+                        size="small"
+                        label={
+                          rosterData.find(
+                            (emp) => emp.employeeId === id
+                          )?.employeeName || id
+                        }
+                      />
+                    ))}
+                  </div>
+                );
+              }}
+            >
+              <MenuItem value="ALL" className='!text-[12px] !py-0'>
+                <Checkbox
+                  checked={
+                    bulkAssignEmployees.length === allEmployeeIds.length
+                  }
+                />
+                Select All
+              </MenuItem>
+              {rosterData.map((employee) => (
+                <MenuItem
+                  key={employee.employeeId}
+                  value={employee.employeeId}
+                  className='!text-[12px] !py-0'
+                >
+                  <Checkbox
+                    checked={bulkAssignEmployees.includes(
+                      employee.employeeId
+                    )}
+                  />
+                  {employee.employeeName} - {employee.department}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl> */}
+          <Autocomplete
+            multiple
+            options={[
+              {
+                employeeId: "ALL",
+                employeeName: "Select All",
+                department: "",
+                employeeCode: "ALL"
+              },
+              ...rosterData,
+            ]}
+            disableCloseOnSelect
+            value={rosterData.filter((emp) =>
+              bulkAssignEmployees.includes(emp.employeeId)
+            )}
+            getOptionLabel={(option) =>
+              `${option.employeeName} ${option.department ? `- ${option.department}` : ""
+              }`
+            }
+            onChange={(_, value) => {
+              const ids = value.map((v) => v.employeeId);
+
+              if (ids.includes("ALL")) {
+                if (bulkAssignEmployees.length === allEmployeeIds.length) {
+                  setBulkAssignEmployees([]);
+                } else {
+                  setBulkAssignEmployees(allEmployeeIds);
+                }
+              } else {
+                setBulkAssignEmployees(ids);
+              }
+            }}
+            renderOption={(props, option) => {
+              const isAll = option.employeeId === "ALL";
+              return (
+                <li {...props} className='!p-2 !flex !items-start'>
+                  <Checkbox
+                    className='!grid !items-start !justify-start !py-0 '
+                    checked={
+                      isAll
+                        ? bulkAssignEmployees.length === allEmployeeIds.length
+                        : bulkAssignEmployees.includes(option.employeeId)
+                    }
+                  />
+
+                  <div className=''>
+                    <div className="text-[12px]">{option.employeeName} - {option.employeeCode}</div>
+                    <span className='text-[10px] text-gray-500'> {!isAll && `${option.department ? option.department : ''}`}</span>
+                  </div>
+                </li>
+              );
+            }}
+            renderValue={(selected) => {
+              if (selected.length === allEmployeeIds.length) {
+                return (
+                  <Chip
+                    size="small"
+                    label="All Employees"
+                    color="primary"
+                    className='mr-2'
+                  />
+                );
+              }
+
+              return (
+                <div className="flex flex-wrap gap-1">
+                  {selected.map((option) => (
+                    <Chip
+                      key={option.employeeId}
+                      size="small"
+                      label={option.employeeName}
+                      className='mr-1'
+                    />
+                  ))}
+                </div>
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select Employees"
+                placeholder="Search employee..."
+              />
+            )}
+          />
+        </DialogContent>
+        <DialogActions className='!p-4 border-t border-gray-200'>
+          <Button onClick={() => setBulkAssignOpen(false)} variant='outlined' className='!border-gray-300 !text-gray-800'>Cancel</Button>
+          <Button onClick={handleBulkAssignSubmit} variant="contained" className="!bg-primary">
+            Assign Shifts
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Alert Info Dialog */}
+      <Dialog open={openAlertDialog} onClose={() => setopenAlertDialog(false)} maxWidth="md" sx={commonsx}>
+        <DialogTitle className='!p-2 border-b border-gray-200'>
+          <div className="flex justify-between items-center">
+            <div className='flex ml-4'>
+              <WarningOutlined className="text-yellow-600" />
+              <div className="ml-2 text-yellow-800 font-semibold">Alerts</div>
+            </div>
+            <IconButton onClick={() => setopenAlertDialog(false)}>
+              <CloseIcon />
+            </IconButton>
+          </div>
+        </DialogTitle>
+        <DialogContent>
+          {/* Alerts Section */}
+          {alerts.length > 0 && (
+            <div className="mt-6 ">
+              <div>
+                <div className="grid items-start gap-3">
+
+                  <div>
+                    <div className='grid grid-cols-1 gap-3'>
+                      {alerts.map((alert, index) => (
+                        <div key={index} className="text-yellow-700 py-3  px-3 bg-yellow-50 text-[12px]">
+                          {alert.message}
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Roster Table - Right Side */}
-        <div className="lg:col-span-3">
-          <Card>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHead className="bg-gray-100">
-                    <TableRow>
-                      <TableCell className="font-semibold">EMPLOYEE</TableCell>
-                      {weekDays.map(day => (
-                        <TableCell key={day} align="center" className="font-semibold">{day}</TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredEmployees.map((employee) => (
-                      <TableRow key={employee.id} className="hover:bg-gray-50">
-                        <TableCell className="font-medium sticky left-0 bg-white">
-                          <div>
-                            {employee.name}
-                            <div className="text-gray-500">
-                              {employee.department}
-                            </div>
-                          </div>
-                        </TableCell>
-                        {employee.shifts.map((shift, idx) => (
-                          <TableCell key={idx} align="center" className="p-1">
-                            {editingCell?.empId === employee.id && editingCell?.day === weekDays[idx] ? (
-                              <Select
-                                size="small"
-                                value={shift}
-                                onChange={(e) => handleShiftChange(employee.id, weekDays[idx], e.target.value)}
-                                onBlur={() => setEditingCell(null)}
-                                autoFocus
-                                className="w-24"
-                              >
-                                {shiftOptions.map(opt => (
-                                  <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                                ))}
-                              </Select>
-                            ) : (
-                              <Tooltip title="Click to edit">
-                                <Chip
-                                  label={shift}
-                                  onClick={() => setEditingCell({ empId: employee.id, day: weekDays[idx] })}
-                                  className="cursor-pointer hover:opacity-80"
-                                  sx={{ backgroundColor: `${getShiftColor(shift)}20`, color: getShiftColor(shift), fontWeight: 500 }}
-                                />
-                              </Tooltip>
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Stats Footer */}
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-4">
-                    {shiftOptions.slice(0, 5).map(shift => (
-                      <div key={shift} className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getShiftColor(shift) }} />
-                        <span className="text-xs">{shift}</span>
-                        <span className="text-xs text-gray-500">
-                          ({employees.filter(e => e.shifts.includes(shift)).length} emp)
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <Alert severity="warning" className="text-sm">
-                    <WarningIcon fontSize="small" /> Roster unpublished — pending approval
-                  </Alert>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Alerts Section */}
-      <Card className="mt-6 bg-yellow-50">
-        <CardContent>
-          <div className="flex items-start gap-3">
-            <WarningIcon className="text-yellow-600" />
-            <div>
-              <Typography variant="subtitle2" className="text-yellow-800 font-semibold">Alerts</Typography>
-              <Typography variant="body2" className="text-yellow-700">
-                • Neha Joshi unassigned on Thu May 21<br />
-                • Ravi Patel: overtime risk (5 nights)<br />
-                • Roster unpublished pending approval
-              </Typography>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
+        </DialogContent>
+        <DialogActions className='!p-4 border-t border-gray-200'>
+          <Button onClick={() => setopenAlertDialog(false)} variant='outlined' className='!border-gray-300 !text-gray-800'>Cancel</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

@@ -140,7 +140,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
           }}
         >
           <AddIcon fontSize="small" className="!h-8" />
-          <span style={{ fontSize: "12px", fontWeight: 500 }}>Add New {label ? label : title}</span>
+          <span>Add New {label ? label : title}</span>
         </MenuItem>
       </div>
     ),

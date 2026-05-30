@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +19,12 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   Today as TodayIcon,
@@ -40,276 +45,676 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { useUI } from '../../../context/Snackbar';
-
-const mockSchedule = [
-  { id: 1, name: 'Ravi Patel', time: '22:00', shift: 'NGT-01', status: 'Scheduled' },
-  { id: 2, name: 'Arjun Mehta', time: '08:00', shift: 'ROT-A', status: 'Scheduled' },
-  { id: 3, name: 'Sneha Gupta', time: '06:00', shift: 'MRN-01', status: 'Scheduled' },
-  { id: 4, name: 'Priya Sharma', time: '09:00', shift: 'GEN-01', status: 'Completed' },
-  { id: 5, name: 'Kavita Singh', time: '09:00', shift: 'GEN-01', status: 'Absent' },
-  { id: 6, name: 'Neha Joshi', time: '09:00', shift: 'GEN-01', status: 'On Leave' },
-  { id: 7, name: 'Sanjay Kumar', time: '10:00', shift: 'FLX-01', status: 'Late' },
-];
-
-const statusColors = {
-  Scheduled: '#3b82f6',
-  Completed: '#10b981',
-  Absent: '#ef4444',
-  'On Leave': '#f59e0b',
-  Late: '#f97316'
-};
+import { shiftService } from '../../../services/modules/shifts';
+import type {
+  Shift,
+  ShiftSchedule,
+  SwapRequest,
+  ScheduleStats,
+  ShiftDistribution,
+  // SwapRequestStatus,
+} from '../../../services/modules/shifts';
+import { departmentService } from '../../../services/modules/department';
+import { branchService } from '../../../services/modules/branch';
+import type { Branch } from '../../settings/general/type';
+import type { Department } from '../../employees/type';
+import { formatTimeTo12Hour, statusColors } from './const';
+import { getRowColor } from '../../const';
 
 export const ShiftScheduleView = () => {
-  const { showSnackbar } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+
+  // State for UI
   const [view, setView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [department, setDepartment] = useState('all');
-  const [shift, setShift] = useState('all');
-  const [branch, setBranch] = useState('all');
+  const [department, setDepartment] = useState<Department[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [shift, setShift] = useState<Shift[]>([]);
+  const [selectedShift, setSelectedShift] = useState<string>('all');
+  const [branch, setBranch] = useState<Branch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+
   const [status, setStatus] = useState('all');
 
-  const stats = {
-    scheduled: 7,
-    completed: 5,
-    absent: 1,
-    onLeave: 2
-  };
+  // Data states
+  const [schedule, setSchedule] = useState<ShiftSchedule[]>([]);
+  const [swapRequests, setSwapRequests] = useState<SwapRequest[]>([]);
+  const [stats, setStats] = useState<ScheduleStats>({
+    totalScheduled: 0,
+    completed: 0,
+    inProgress: 0,
+    weeklyOff: 0,
+    unassigned: 0,
+    byStatus: {}
+  });
 
-  const handleExport = (type: 'pdf' | 'excel') => {
-    showSnackbar(`Exporting as ${type.toUpperCase()}...`, 'success');
-  };
+  const [shiftDistribution, setShiftDistribution] = useState<ShiftDistribution[]>([]);
+  const [upcomingShifts, setUpcomingShifts] = useState<ShiftSchedule[]>([]);
 
-  const handleSwapRequest = () => {
-    showSnackbar('Swap request sent!', 'info');
-  };
+  // Dialog states
+  const [swapDialogOpen, setSwapDialogOpen] = useState(false);
+  // const [selectedSwapRequest, setSelectedSwapRequest] = useState<SwapRequest | null>(null);
+  const [swapActionLoading, setSwapActionLoading] = useState(false);
+  const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [sendingNotification, setSendingNotification] = useState(false);
 
-  const handleNotification = () => {
-    showSnackbar('Notifications sent!', 'success');
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Completed': return <CheckIcon className="text-green-500" />;
-      case 'Absent': return <CancelIcon className="text-red-500" />;
-      case 'On Leave': return <AbsentIcon className="text-orange-500" />;
-      default: return <TimeIcon className="text-blue-500" />;
+  // Fetch all data
+  const fetchAllData = async () => {
+    showSpinner();
+    try {
+      await Promise.all([
+        fetchSchedule(),
+        fetchSwapRequests(),
+        fetchScheduleStats(),
+        fetchShiftDistribution(),
+        fetchUpcomingShifts(),
+      ]);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      showSnackbar('Failed to load schedule data', 'error');
+    } finally {
+      hideSpinner();
     }
   };
 
+  const fetchMasterData = async () => {
+    try {
+      const deptRes: any = await departmentService.getDepartments();
+      const departmentsData = deptRes.data?.content || deptRes.data || [];
+      setDepartment(departmentsData);
+
+      const branchRes: any = await branchService.getDropdownBranches();
+      const branchesData = branchRes.data?.content || branchRes.data || [];
+      setBranch(branchesData);
+
+      const shiftRes: any = await shiftService.getShiftDropdown();
+      const shiftData = shiftRes.data?.content || shiftRes.data || [];
+      setShift(shiftData);
+
+    } catch (error: any) {
+      showSnackbar(error.message, 'error');
+    }
+  };
+
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  // Fetch schedule based on filters
+  const fetchSchedule = async () => {
+    try {
+      const params: any = {
+        view,
+        date: selectedDate.format('YYYY-MM-DD'),
+      };
+      if (selectedDepartment !== 'all') params.departmentId = selectedDepartment;
+      if (selectedShift !== 'all') params.shiftId = selectedShift;
+      if (selectedBranch !== 'all') params.branchId = selectedBranch;
+      if (status !== 'all') params.status = status;
+
+      const response = await shiftService.getSchedule(params);
+      setSchedule(response.data || []);
+    } catch (error) {
+      showSnackbar('Failed to fetch schedule', 'error');
+    }
+  };
+
+  // Fetch swap requests
+  const fetchSwapRequests = async () => {
+    try {
+      const response = await shiftService.getSwapRequests({ status: 'PENDING' });
+      setSwapRequests(response.content || []);
+    } catch (error) {
+      console.error('Error fetching swap requests:', error);
+    }
+  };
+
+  // Fetch schedule statistics
+  const fetchScheduleStats = async () => {
+    try {
+      const params = {
+        date: selectedDate.format('YYYY-MM-DD'),
+        department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+        branch: selectedBranch !== 'all' ? selectedBranch : undefined,
+      };
+      const response = await shiftService.getScheduleStats(params);
+      setStats(response.data || {
+        scheduled: 0,
+        completed: 0,
+        absent: 0,
+        onLeave: 0,
+        late: 0,
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  // Fetch shift distribution
+  const fetchShiftDistribution = async () => {
+    try {
+      const params = {
+        date: selectedDate.format('YYYY-MM-DD'),
+        department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+      };
+      const response = await shiftService.getShiftDistribution(params);
+      setShiftDistribution(Array.isArray(response.data.buckets) ? response.data.buckets : []);
+    } catch (error) {
+      console.error('Error fetching shift distribution:', error);
+    }
+  };
+
+  // Fetch upcoming shifts
+  const fetchUpcomingShifts = async () => {
+    try {
+      const params = {
+        limit: 5,
+        date: selectedDate.format('YYYY-MM-DD'),
+      };
+      const response = await shiftService.getUpcomingShifts(params);
+      setUpcomingShifts(response.data || []);
+    } catch (error) {
+      console.error('Error fetching upcoming shifts:', error);
+    }
+  };
+
+  // Handle swap request status update
+  const handleUpdateSwapRequestStatus = async (id: string, status: "APPROVED" | "REJECTED" | "CANCELLED",) => {
+    setSwapActionLoading(true);
+    try {
+      await shiftService.updateSwapRequestStatus(id, { status });
+      showSnackbar(`Swap request ${status} successfully`, 'success');
+      setSwapDialogOpen(false);
+      await fetchSwapRequests();
+    } catch (error) {
+      console.error('Error updating swap request:', error);
+      showSnackbar('Failed to update swap request', 'error');
+    } finally {
+      setSwapActionLoading(false);
+    }
+  };
+
+  // Handle create swap request
+  // const handleCreateSwapRequest = async (data: any) => {
+  //   try {
+  //     await shiftService.createSwapRequest(data);
+  //     showSnackbar('Swap request created successfully', 'success');
+  //     await fetchSwapRequests();
+  //   } catch (error) {
+  //     console.error('Error creating swap request:', error);
+  //     showSnackbar('Failed to create swap request', 'error');
+  //   }
+  // };
+
+  // Handle send notifications
+  const handleSendNotifications = async () => {
+    setSendingNotification(true);
+    try {
+      const params = {
+        date: selectedDate.format('YYYY-MM-DD'),
+        department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+        branch: selectedBranch !== 'all' ? selectedBranch : undefined,
+        message: notificationMessage || 'Shift reminder for today',
+      };
+      await shiftService.sendShiftNotifications(params);
+      showSnackbar('Notifications sent successfully', 'success');
+      setNotificationDialogOpen(false);
+      setNotificationMessage('');
+    } catch (error) {
+      console.error('Error sending notifications:', error);
+      showSnackbar('Failed to send notifications', 'error');
+    } finally {
+      setSendingNotification(false);
+    }
+  };
+
+  // Handle export to PDF
+  const handleExportPDF = async () => {
+    try {
+      const params = {
+        view,
+        date: selectedDate.format("YYYY-MM-DD"),
+        department: selectedDepartment !== "all" ? selectedDepartment : undefined,
+        branch: selectedBranch !== "all" ? selectedBranch : undefined,
+      };
+      await shiftService.exportScheduleToPDF(params);
+      showSnackbar("PDF exported successfully", "success",);
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to export PDF", "error",);
+    }
+  };
+
+  // Handle export to Excel
+  const handleExportExcel = async () => {
+    try {
+      const params = {
+        view,
+        date: selectedDate.format("YYYY-MM-DD"),
+        department: selectedDepartment !== "all" ? selectedDepartment : undefined,
+        branch: selectedBranch !== "all" ? selectedBranch : undefined,
+      };
+      await shiftService.exportScheduleToExcel(params);
+      showSnackbar("Excel exported successfully", "success",);
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to export Excel", "error",);
+    }
+  };
+
+  // Apply filters
+  const applyFilters = async () => {
+    await Promise.all([
+      fetchSchedule(),
+      fetchScheduleStats(),
+      fetchShiftDistribution(),
+      fetchUpcomingShifts(),
+    ]);
+  };
+
+  // Handle date change
+  const handleDateChange = (date: dayjs.Dayjs | null) => {
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  // Fetch data on mount and when dependencies change
+  useEffect(() => {
+    fetchAllData();
+  }, [selectedDate, view]);
+
+  // Apply filters when filter values change
+  useEffect(() => {
+    // if (!loading) {
+    applyFilters();
+    // }
+  }, [selectedDepartment, selectedShift, selectedBranch, status]);
+
   return (
-    <div>
-      {/* Header */}
-      <div className="mb-6">
-        <Typography variant="h6" className="font-semibold text-gray-800 mb-1">
-          Shift Schedule
-        </Typography>
-        <Typography variant="body2" className="text-gray-500">
-          Monitor employee schedules and attendance integration
-        </Typography>
-      </div>
-
-      {/* Date and View Controls */}
-      <Card className="mb-6">
-        <CardContent>
-          <div className="flex flex-wrap justify-between items-center gap-4">
-            <div className="flex items-center gap-4">
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  label={view === 'daily' ? 'Today' : view === 'weekly' ? 'Week of' : 'Month'}
-                  value={selectedDate}
-                  onChange={(date) => setSelectedDate(date || dayjs())}
-                  slotProps={{ textField: { size: 'small', className: 'w-48' } }}
-                />
-              </LocalizationProvider>
-              
-              <ToggleButtonGroup
-                value={view}
-                exclusive
-                onChange={(_, val) => val && setView(val)}
-                size="small"
-              >
-                <ToggleButton value="daily"><TodayIcon className="mr-1" /> Daily</ToggleButton>
-                <ToggleButton value="weekly"><WeekIcon className="mr-1" /> Weekly</ToggleButton>
-                <ToggleButton value="monthly"><MonthIcon className="mr-1" /> Monthly</ToggleButton>
-              </ToggleButtonGroup>
-            </div>
-
-            <Button variant="outlined" startIcon={<FilterIcon />} size="small">
-              Filter
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardContent className="text-center">
-            <Typography variant="h3" className="font-bold text-blue-600">{stats.scheduled}</Typography>
-            <Typography variant="body2" className="text-gray-600">Scheduled</Typography>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center">
-            <Typography variant="h3" className="font-bold text-green-600">{stats.completed}</Typography>
-            <Typography variant="body2" className="text-gray-600">Completed</Typography>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center">
-            <Typography variant="h3" className="font-bold text-red-600">{stats.absent}</Typography>
-            <Typography variant="body2" className="text-gray-600">Absent</Typography>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="text-center">
-            <Typography variant="h3" className="font-bold text-orange-600">{stats.onLeave}</Typography>
-            <Typography variant="body2" className="text-gray-600">On Leave</Typography>
-          </CardContent>
-        </Card>
-      </div>
-
+    <div className='p-4 bg-gray-50'>
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <FormControl size="small" className="w-40">
-          <InputLabel>Department</InputLabel>
-          <Select value={department} onChange={(e) => setDepartment(e.target.value)} label="Department">
-            <MenuItem value="all">All Departments</MenuItem>
-            <MenuItem value="engineering">Engineering</MenuItem>
-            <MenuItem value="hr">HR</MenuItem>
-            <MenuItem value="qa">QA</MenuItem>
-          </Select>
-        </FormControl>
+      <div className="mb-3 bg-white border border-gray-200 p-3 pt-1">
+        <div className='flex flex-wrap mb-1'>
+          <Button startIcon={<FilterIcon />}>Apply Filters</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip
+              key="all"
+              label="All"
+              clickable
+              color="default"
+              onClick={() => setStatus("all")}
+              className={`!rounded-xl !font-medium !h-[25px] ${status == 'all' ? '!shadow-md !bg-primary !text-white' : 'bg-gray-50 text-gray-800'}`}
+            />
+            {Object.entries(stats.byStatus ?? {}).map(([key, value]) => (
+              <Chip
+                key={key}
+                label={`${key} (${value})`}
+                clickable
+                color={status === key ? 'primary' : 'default'}
+                onClick={() => setStatus(key)}
+                className={`!rounded-xl !font-medium !h-[25px] ${status === key ? '!shadow-md !bg-primary !text-white' : 'bg-gray-50 text-gray-800'}`}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div className="grid grid-cols-4 gap-3 items-center">
+            {/* Department */}
+            <FormControl size="small" className="min-w-[100px]">
+              <Select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                displayEmpty
+                className="!rounded-sm"
+              >
+                <MenuItem value="all">All Departments</MenuItem>
+                {department.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.departmentName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-        <FormControl size="small" className="w-32">
-          <InputLabel>Shift</InputLabel>
-          <Select value={shift} onChange={(e) => setShift(e.target.value)} label="Shift">
-            <MenuItem value="all">All Shifts</MenuItem>
-            <MenuItem value="GEN-01">GEN-01</MenuItem>
-            <MenuItem value="MRN-01">MRN-01</MenuItem>
-          </Select>
-        </FormControl>
+            {/* Shift */}
+            <FormControl size="small" className="min-w-[100px]">
+              <Select
+                value={selectedShift}
+                onChange={(e) => setSelectedShift(e.target.value)}
+                displayEmpty
+                className="!rounded-sm !text-[12px]"
+              >
+                <MenuItem value="all">All Shifts</MenuItem>
+                {shift.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.shiftName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-        <FormControl size="small" className="w-40">
-          <InputLabel>Branch</InputLabel>
-          <Select value={branch} onChange={(e) => setBranch(e.target.value)} label="Branch">
-            <MenuItem value="all">All Branches</MenuItem>
-            <MenuItem value="main">Main Branch</MenuItem>
-            <MenuItem value="east">East Branch</MenuItem>
-          </Select>
-        </FormControl>
+            {/* Branch */}
+            <FormControl size="small" className="min-w-[100px]">
+              <Select
+                value={selectedBranch}
+                onChange={(e) => setSelectedBranch(e.target.value)}
+                displayEmpty
+                className="!rounded-sm  !text-[12px]"
+              >
+                <MenuItem value="all">All Branches</MenuItem>
+                {branch.map((b) => (
+                  <MenuItem key={b.id} value={b.id}>
+                    {b.branchName}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </div>
 
-        <FormControl size="small" className="w-40">
-          <InputLabel>Status</InputLabel>
-          <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
-            <MenuItem value="all">All Status</MenuItem>
-            <MenuItem value="scheduled">Scheduled</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-            <MenuItem value="absent">Absent</MenuItem>
-            <MenuItem value="leave">On Leave</MenuItem>
-            <MenuItem value="late">Late</MenuItem>
-          </Select>
-        </FormControl>
+          <div className="flex items-center gap-4">
+            <ToggleButtonGroup
+              value={view}
+              exclusive
+              onChange={(_, val) => val && setView(val)}
+              size="small"
+            >
+              <ToggleButton value="daily" className='!capitalize !text-gray-800'>
+                <TodayIcon className="mr-1 !w-3" /> Daily
+              </ToggleButton>
+              <ToggleButton value="weekly" className='!capitalize !text-gray-800'>
+                <WeekIcon className="mr-1 !w-3" /> Weekly
+              </ToggleButton>
+              <ToggleButton value="monthly" className='!capitalize !text-gray-800'>
+                <MonthIcon className="mr-1 !w-3" /> Monthly
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label={view === 'daily' ? 'Today' : view === 'weekly' ? 'Week of' : 'Month'}
+                value={selectedDate}
+                onChange={handleDateChange}
+                slotProps={{ textField: { size: 'small', className: '' } }}
+                sx={{
+                    "& .MuiIconButton-root": {
+                      color: "dodgerblue",
+                    },
+                  }}
+              />
+            </LocalizationProvider>
+          </div>
+        </div>
       </div>
 
       {/* Schedule Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         <div className="lg:col-span-2">
-          <TableContainer component={Paper}>
-            <Table>
+          <TableContainer className='rounded-sm !max-h-[calc(100vh-320px)] overflow-auto' >
+            <Table stickyHeader className='border border-gray-200 '>
               <TableHead className="bg-gray-100">
                 <TableRow>
-                  <TableCell>Employee</TableCell>
+                  <TableCell>Employee Name</TableCell>
                   <TableCell>Time</TableCell>
                   <TableCell>Shift</TableCell>
+                  <TableCell>Department</TableCell>
                   <TableCell>Status</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {mockSchedule.map((item) => (
-                  <TableRow key={item.id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="!w-8 !h-8 !bg-primary">
-                          {item.name.charAt(0)}
-                        </Avatar>
-                        <span className="font-medium">{item.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.time}</TableCell>
-                    <TableCell>
-                      <Chip label={item.shift} size="small" className="!font-mono" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {getStatusIcon(item.status)}
-                        <span style={{ color: statusColors[item.status as keyof typeof statusColors] }}>
-                          {item.status}
-                        </span>
+                {schedule.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <div className="text-gray-500 text-center py-8">
+                        No Data Available
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  schedule.map((item, index) => (
+                    <TableRow key={item.id || `${item.employeeId}-${index}`} className="hover:bg-gray-50" sx={getRowColor(index)}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="!w-8 !h-8 !bg-primary">
+                            {item.employeeName?.charAt(0) || '?'}
+                          </Avatar>
+                          <span className="font-medium">{item.employeeName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatTimeTo12Hour(item.startTime)}  - {formatTimeTo12Hour(item.endTime)}</TableCell>
+                      <TableCell>
+                        <Chip label={item.shiftCode} size="small" className="!font-mono"
+                          sx={{
+                            backgroundColor: item.color ? `${item.color}20` : "#e5e7eb",
+                            color: `${item.color}` || "#e5e7eb"
+                          }} />
+
+                      </TableCell>
+                      <TableCell>{item.department || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <span style={{ color: statusColors[item.status as keyof typeof statusColors] }}>
+                            {item.status}
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </div>
 
         {/* Quick Actions Sidebar */}
-        <div className="lg:col-span-1 space-y-4">
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" className="font-semibold mb-3">UPCOMING TODAY</Typography>
-              <div className="space-y-3">
-                {mockSchedule.slice(0, 3).map((item) => (
-                  <div key={item.id} className="flex justify-between items-center">
-                    <div>
-                      <Typography variant="body2" className="font-medium">{item.name}</Typography>
-                      <Typography variant="caption" className="text-gray-500">{item.time} • {item.shift}</Typography>
-                    </div>
-                    <Chip size="small" label={item.status} style={{ backgroundColor: `${statusColors[item.status as keyof typeof statusColors]}20`, color: statusColors[item.status as keyof typeof statusColors] }} />
-                  </div>
-                ))}
+        <div className="lg:col-span-1 space-y-2">
+          <div className='bg-white border border-gray-200 rounded-sm' >
+            <div className='!p-3'>
+              <div className="font-semibold text-primary mb-2">
+                UPCOMING TODAY
               </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-3 overflow-auto h-[calc(100vh-670px)]">
+                {upcomingShifts.length === 0 ? (
+                  <Typography variant="body2" className="text-gray-500 text-center py-4">
+                    No upcoming shifts
+                  </Typography>
+                ) : (
+                  upcomingShifts.map((item, index) => (
+                    <div key={item.id || `${item.employeeId}-${index}`} className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {item.employeeName}
+                        </div>
+                        <Typography variant="caption" className="text-gray-500">
+                          ( {item.startTime}  - {item.endTime}) • {item.shiftCode}
+                        </Typography>
+                      </div>
+                      <Chip
+                        size="small"
+                        label={item.status}
+                        style={{
+                          backgroundColor: `${statusColors[item.status as keyof typeof statusColors]}20`,
+                          color: statusColors[item.status as keyof typeof statusColors],
+                        }}
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
 
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" className="font-semibold mb-3">QUICK ACTIONS</Typography>
+          <div className='bg-white border border-gray-200 rounded-sm' >
+            <div className='!p-3'>
+              <div className="font-semibold text-primary mb-2">
+                QUICK ACTIONS
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="outlined" startIcon={<SwapIcon />} onClick={handleSwapRequest} className="!normal-case">
-                  Swap Requests <Badge badgeContent={3} color="error" className="ml-2" />
+                <Button
+                  variant="outlined"
+                  startIcon={<SwapIcon />}
+                  onClick={() => setSwapDialogOpen(true)}
+                  className="!normal-case"
+                >
+                  Swap Requests{' '}
+                  {swapRequests.length > 0 && (
+                    <Badge badgeContent={swapRequests.length} color="error" className="ml-2" />
+                  )}
                 </Button>
-                <Button variant="outlined" startIcon={<NotificationIcon />} onClick={handleNotification} className="!normal-case">
-                  Notifications <Badge badgeContent={5} color="error" className="ml-2" />
+                <Button
+                  variant="outlined"
+                  startIcon={<NotificationIcon />}
+                  onClick={() => setNotificationDialogOpen(true)}
+                  className="!normal-case"
+                >
+                  Notifications
                 </Button>
-                <Button variant="outlined" startIcon={<PdfIcon />} onClick={() => handleExport('pdf')} className="!normal-case">
+                <Button
+                  variant="outlined"
+                  startIcon={<PdfIcon />}
+                  onClick={handleExportPDF}
+                  className="!normal-case"
+                >
                   Export PDF
                 </Button>
-                <Button variant="outlined" startIcon={<ExcelIcon />} onClick={() => handleExport('excel')} className="!normal-case">
+                <Button
+                  variant="outlined"
+                  startIcon={<ExcelIcon />}
+                  onClick={handleExportExcel}
+                  className="!normal-case"
+                >
                   Export Excel
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Distribution Summary */}
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" className="font-semibold mb-3">DISTRIBUTION</Typography>
-              <div className="space-y-2">
-                {['GEN-01', 'NGT-01', 'FLX-01', 'ROT-A', 'MRN-01'].map(shift => (
-                  <div key={shift} className="flex justify-between items-center">
-                    <span className="font-mono">{shift}</span>
-                    <Chip label={`${Math.floor(Math.random() * 10) + 1} emp`} size="small" />
-                  </div>
-                ))}
+          <div className='bg-white border border-gray-200 rounded-sm' >
+            <div className='!p-3'>
+              <div className="font-semibold text-primary mb-2">
+                DISTRIBUTION
               </div>
-            </CardContent>
-          </Card>
+              <div className="space-y-2">
+                {shiftDistribution.length === 0 ? (
+                  <div className="text-gray-500 text-center py-4">
+                    No data available
+                  </div>
+                ) : (
+                  shiftDistribution.map((shift) => (
+                    <div key={shift.shiftCode}
+                      className="flex items-center justify-between rounded-xl border p-2" style={{ borderColor: shift.color }}>
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: shift.color }} />
+                        <div>
+                          <div className="text-sm text-gray-800 font-mono">{shift.shiftCode}</div>
+                          <div className="text-xs text-gray-500">{shift.shiftName}</div>
+                        </div>
+                      </div>
+                      <Chip
+                        label={`${shift.employeeCount} emp`}
+                        size="small"
+                        sx={{
+                          backgroundColor: `${shift.color}20`,
+                          color: shift.color,
+                          fontWeight: 600,
+                        }}
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Swap Requests Dialog */}
+      <Dialog open={swapDialogOpen} onClose={() => setSwapDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Swap Requests</DialogTitle>
+        <DialogContent>
+          {swapRequests.length === 0 ? (
+            <Typography className="text-center py-4 text-gray-500">
+              No pending swap requests
+            </Typography>
+          ) : (
+            <div className="space-y-3 mt-2">
+              {swapRequests.map((request, index) => (
+                <Paper key={request.id || index} className="p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <Typography variant="subtitle2" className="font-semibold">
+                        {request.requesterEmployeeName}
+                      </Typography>
+                      <Typography variant="body2" className="text-gray-600">
+                        From: {request.requesterShiftCode} → To: {request.targetShiftCode}
+                      </Typography>
+                      <Typography variant="caption" className="text-gray-400">
+                        Date: {dayjs(request.requesterDate).format('MMM DD, YYYY')}
+                      </Typography>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="success"
+                        onClick={() => handleUpdateSwapRequestStatus(request.id, 'APPROVED')}
+                        disabled={swapActionLoading}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={() => handleUpdateSwapRequestStatus(request.id, 'REJECTED')}
+                        disabled={swapActionLoading}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </Paper>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSwapDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Notifications Dialog */}
+      <Dialog open={notificationDialogOpen} onClose={() => setNotificationDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Send Shift Notifications</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Custom Message (Optional)"
+            type="text"
+            fullWidth
+            variant="outlined"
+            multiline
+            rows={4}
+            value={notificationMessage}
+            onChange={(e) => setNotificationMessage(e.target.value)}
+            placeholder="Reminder: Your shift starts at 9:00 AM today..."
+          />
+          <Typography variant="caption" className="text-gray-500 mt-2 block">
+            Notifications will be sent to all employees based on the current filters
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNotificationDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleSendNotifications}
+            variant="contained"
+            disabled={sendingNotification}
+          >
+            {sendingNotification ? 'Sending...' : 'Send Notifications'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </div >
   );
 };

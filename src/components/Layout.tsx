@@ -237,9 +237,16 @@ export default function Layout() {
                 onClick={handleProfileMenuOpen}
                 color="inherit"
               >
-                <Avatar className="!w-5 !h-5 !bg-primary !text-sm">
-                  {avatarInitial}
-                </Avatar>
+                <div className="flex items-center gap-5">
+                  <div className="relative group">
+                    <Avatar
+                      src={user?.profilePic}
+                      className="!w-8 !h-8 text-2xl cursor-pointer"
+                    >
+                      {avatarInitial}
+                    </Avatar>
+                  </div>
+                </div>
               </IconButton>
             </Tooltip>
           </Box>
@@ -260,14 +267,14 @@ export default function Layout() {
           <ListItemIcon>
             <Person4OutlinedIcon className="!w-4" />
           </ListItemIcon>
-          <div className="text-sm text-gray-800 ">My Profile</div>
+          <div className="text-gray-800 ">My Profile</div>
         </MenuItem>
         <Divider className="border border-gray-200" />
         <MenuItem onClick={handleLogout} className="bg-white text-error">
           <ListItemIcon>
             <LogoutOutlinedIcon className="!w-4" />
           </ListItemIcon>
-          <div className="text-sm">Logout</div>
+          <div>Logout</div>
         </MenuItem>
       </Menu>
 
@@ -358,6 +365,9 @@ export default function Layout() {
                     onClick={() => {
                       if (item.children) {
                         setAttendanceOpen(!attendanceOpen);
+                      }
+                      if (item.text == 'Attendance') {
+                        setOpen(true);
                       }
                       navigate(item.path);
                     }}

@@ -38,7 +38,7 @@ import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { categoryService } from "../../services/modules/category";
 import { DynamicSelectWithAdd } from "../../components/SelectField";
-import { getCategoryName, stickyHeaderLeftSx, stickyHeaderRightSx, stickyLeftSx, stickyRightSx } from "../const";
+import { getCategoryName, getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from "../const";
 import { useMasterData } from "../../hooks/useMasterData";
 import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
@@ -299,7 +299,7 @@ const EditableGroup = ({
   };
 
   return (
-    <div className="mb-6 p-4 bg-white border rounded-lg mt-3 shadow-sm border-gray-300">
+    <div className="mb-6 p-4 dark:bg-white-50 bg-white border rounded-lg mt-3 shadow-sm border-gray-300">
       <div>
         <div className="flex justify-between items-center mb-3">
           <div className="font-semibold flex items-center gap-2">
@@ -386,6 +386,11 @@ const EditableGroup = ({
                           slotProps={{
                             textField: {
                               fullWidth: true,
+                            },
+                          }}
+                          sx={{
+                            "& .MuiIconButton-root": {
+                              color: "dodgerblue",
                             },
                           }}
                         />
@@ -1104,7 +1109,7 @@ const EditableTableGroup = ({
           </div>
 
           <div>
-            <MaterialModule.TableContainer component={MaterialModule.Paper} elevation={0} className="border">
+            <MaterialModule.TableContainer component={MaterialModule.Paper} elevation={0} className="border border-gray-200">
               <MaterialModule.Table>
                 <MaterialModule.TableHead className="bg-gray-100">
                   <MaterialModule.TableRow>
@@ -1126,10 +1131,10 @@ const EditableTableGroup = ({
                 </MaterialModule.TableHead>
                 <MaterialModule.TableBody className="bg-white-50">
                   {editData.map((row: any, rowIndex: number) => (
-                    <MaterialModule.TableRow key={row.id || rowIndex}>
+                    <MaterialModule.TableRow key={row.id || rowIndex} sx={getRowColor(rowIndex)}>
                       <MaterialModule.TableCell sx={{
                         ...tablesx,
-                        ...stickyLeftSx,
+                        ...getStickyLeftSx(rowIndex),
                         minWidth: "70px",
                       }}>{rowIndex + 1}</MaterialModule.TableCell>
                       {columns.map((col: any) => (
@@ -1297,7 +1302,7 @@ const EditableTableGroup = ({
                       {isEditing ? (
                         <MaterialModule.TableCell sx={{
                           ...tablesx,
-                          ...stickyRightSx,
+                          ...getStickyRightSx(rowIndex),
                           minWidth: "50px",
                         }}>
                           <MaterialModule.IconButton
@@ -1313,7 +1318,7 @@ const EditableTableGroup = ({
                         title == 'Attachments' &&
                         <MaterialModule.TableCell sx={{
                           ...tablesx,
-                          ...stickyRightSx,
+                          ...getStickyRightSx(rowIndex),
                           minWidth: "50px",
                         }}>
                           <MaterialModule.IconButton
@@ -1390,6 +1395,9 @@ const EditableTableGroup = ({
                         "& .MuiInputLabel-root": {
                           top: 0,
                         },
+                      "& .MuiIconButton-root": {
+                        color: "dodgerblue",
+                      },
                       }}
                     />
                   </LocalizationProvider>
@@ -1939,7 +1947,8 @@ export default function EmployeeDetails() {
         adminRemarks: updatedData.adminRemarks,
         idCardNo: updatedData.idCardNo,
         midNo: updatedData.midNo,
-        oldIdNo: updatedData.oldIdNo
+        oldIdNo: updatedData.oldIdNo,
+        relievedDate: updatedData.relievedDate
       }
       if (Object.keys(payload).length) {
         await employeeService.updateAdminInfo(id, payload);
@@ -2578,7 +2587,7 @@ export default function EmployeeDetails() {
       <div className="flex items-center gap-4 mb-4">
         <MaterialModule.IconButton
           onClick={() => navigate("/employees")}
-          className="!bg-gray-100"
+          className="!bg-gray-100 !text-gray-800"
         >
           <MaterialModule.ArrowBackIcon />
         </MaterialModule.IconButton>

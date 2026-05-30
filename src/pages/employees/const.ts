@@ -115,6 +115,7 @@ export const employeeColumns = [
   { key: "exService", label: "Ex-Service Personnel", type: "boolean" },
   { key: "migrant", label: "Migrant Worker", type: "boolean" },
   { key: "monthly", label: "Monthly", type: "boolean" },
+  { key: "relievedDate", label: "Relieved Date", type: "date" },
 ];
 
 // ==================== ELIGIBILITY FIELDS ====================

@@ -628,7 +628,7 @@ export default function ManagerLeaveApprovalsPage() {
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="text-primary ml-4">{actionTitle}</div>
           <IconButton onClick={closeActionDialog}>
-            <CloseOutlinedIcon />
+            <CloseOutlinedIcon className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent className="!p-4">

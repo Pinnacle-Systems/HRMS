@@ -330,7 +330,7 @@ export const API_ENDPOINTS = {
     EXPORT_EXCEL: "/shift-roster/export/excel",
     GET_ALERTS: "/shift-roster/alerts",
     PUBLISH: "/shift-roster/publish",
-    COPT_PRE_WEEK: "/shift-roster/copy-previous-week",
+    COPY_PREV_WEEK: "/shift-roster/copy-previous-week",
     BULK_ASSIGN: "/shift-roster/bulk-assign",
     UPDATE_EMP_ROSTER: (eid: string) => `/shift-roster/${eid}`,
 

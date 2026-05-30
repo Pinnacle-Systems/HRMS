@@ -80,6 +80,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     roles,
     rawRoles,
     permissions,
+    profilePic: data.profile?.profilePicUrl ?? ""
   };
 
   return {

@@ -38,15 +38,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import { employeeService } from '../../../services/modules/employees';
-
-// Form data interface
-interface RotationFormData {
-  rotationName: string;
-  description: string;
-  shiftIds: string[];
-  cycleDays: number;
-  active: boolean;
-}
+import type { RotationFormData } from './types';
 
 export const ShiftRotation = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -252,7 +244,7 @@ export const ShiftRotation = () => {
   };
 
   return (
-    <div>
+    <div className='bg-gray-50 p-4 !pb-0'>
       <div className="flex justify-between items-center mb-4">
         <div className='ml-2'>
           <Typography variant="h6" className="font-semibold text-gray-800">
@@ -276,19 +268,19 @@ export const ShiftRotation = () => {
       </div>
 
       {rotations.length === 0 ? (
-        <Paper className="p-8 text-center">
+        <Paper className="p-8 text-center bg-gray-50">
           <RotationIcon className="text-gray-400 text-5xl mb-2" />
           <Typography className="text-gray-500">No rotations created yet</Typography>
         </Paper>
       ) : (
-        <div className='h-[calc(100vh-250px)] overflow-auto'>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className='h-[calc(100vh-270px)] overflow-auto '>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {rotations.map((rotation) => (
-              <Card key={rotation.id} className="hover:shadow-lg transition-shadow">
+              <Card key={rotation.id} className="hover:shadow-lg transition-shadow !border !border-gray-200 bg-white">
                 <CardContent>
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <Typography variant="h6" className="font-semibold flex items-center gap-2">
+                      <Typography variant="h6" className="font-semibold flex text-gray-800 items-center gap-2">
                         <RotationIcon className="text-primary" />
                         {rotation.rotationName}
                       </Typography>
@@ -389,7 +381,7 @@ export const ShiftRotation = () => {
             {editingRotation ? 'Edit Rotation' : 'Create Rotation'}
           </div>
           <IconButton onClick={() => setIsDialogOpen(false)}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent>
@@ -411,18 +403,17 @@ export const ShiftRotation = () => {
                     multiple
                     value={formData.shiftIds}
                     label="Select Shifts (in order)"
-                    className='!text-[12px]'
                     onChange={(e) => setFormData({ ...formData, shiftIds: e.target.value as string[] })}
                     renderValue={(selected) => (
                       <div className="flex flex-wrap gap-1">
                         {(selected as string[]).map((id) => (
-                          <Chip key={id} label={getShiftName(id)} size="small" />
+                          <Chip key={id} label={getShiftName(id)} size="small" className='text-gray-800' />
                         ))}
                       </div>
                     )}
                   >
                     {shifts.filter(s => s.active).map((shift) => (
-                      <MenuItem key={shift.id} value={shift.id} className='!text-[12px]'>
+                      <MenuItem key={shift.id} value={shift.id}>
                         {shift.shiftName}
                         {/* ({formatTimeTo12Hour(shift.startTime)} - {formatTimeTo12Hour(shift.endTime)}) */}
                       </MenuItem>
@@ -451,7 +442,7 @@ export const ShiftRotation = () => {
             />
 
             {formData.shiftIds.length > 0 && (
-              <Paper className="p-3">
+              <Paper className="p-3 bg-white text-gray-800">
                 <Typography variant="subtitle2" className="!mb-2">Rotation Order (Drag to reorder)</Typography>
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="shifts">
@@ -519,7 +510,7 @@ export const ShiftRotation = () => {
             Apply Rotation: <span className='text-primary '>{selectedRotation?.rotationName}</span>
           </div>
           <IconButton onClick={() => setIsApplyDialogOpen(false)}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent>
@@ -527,6 +518,7 @@ export const ShiftRotation = () => {
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
                 label="Start Date"
+                className="!text-gray-800"
                 value={applyData.startDate ? dayjs(applyData.startDate) : null}
                 onChange={(e) =>
                   setApplyData({
@@ -541,6 +533,10 @@ export const ShiftRotation = () => {
                   "& .MuiInputLabel-root": {
                     top: 0,
                   },
+                  "& .MuiIconButton-root": {
+                    color: "dodgerblue",
+                  },
+
                 }}
               />
             </LocalizationProvider>
@@ -562,6 +558,9 @@ export const ShiftRotation = () => {
                   "& .MuiInputLabel-root": {
                     top: 0,
                   },
+                  "& .MuiIconButton-root": {
+                    color: "dodgerblue",
+                  },
                 }}
               />
             </LocalizationProvider>
@@ -581,6 +580,7 @@ export const ShiftRotation = () => {
                       return (
                         <Chip
                           key={id}
+                          className='text-gray-900'
                           label={employee ? `${employee.name} - ${employee.employeeId}` : id}
                           size="small"
                         />
@@ -592,7 +592,7 @@ export const ShiftRotation = () => {
                 {employees.map((employee) => (
                   <MenuItem key={employee.id} value={employee.id}>
                     <div className="grid">
-                      <div className='text-[12px]'>{employee.name} - {employee.employeeId}</div>
+                      <div>{employee.name} - {employee.employeeId}</div>
                       <div className='text-[10px] text-gray-500'>{employee.department} ({employee.designation})</div>
                     </div>
                   </MenuItem>

@@ -153,6 +153,8 @@ const theme = createTheme({
         body: {
           backgroundColor: "var(--bg-primary)",
           color: "var(--text-primary)",
+          scrollbarWidth: "thin",
+          scrollbarColor: "#929292bd var(--bg-primary)",
         },
 
         ".MuiPickersSectionList-root": {
@@ -390,6 +392,7 @@ const theme = createTheme({
         select: {
           padding: "10px",
           color: "var(--text-primary)",
+          fontSize: '12px',
         },
 
         outlined: {
@@ -441,6 +444,7 @@ const theme = createTheme({
           whiteSpace: "nowrap",
           overflow: "hidden",
           textOverflow: "ellipsis",
+          borderBottom: "none",
         },
       },
     },
@@ -471,6 +475,23 @@ const theme = createTheme({
         inputRoot: {
           "& .MuiAutocomplete-input": {
             padding: "1px !important",
+          },
+        },
+      },
+    },
+    
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          fontSize: '12px',
+        },
+      },
+    },
+    MuiMenu: {
+      styleOverrides: {
+        paper: {
+          '& .MuiMenuItem-root': {
+            fontSize: '12px',
           },
         },
       },

@@ -188,10 +188,10 @@ export default function Login() {
                   <label className="block text-sm mb-2" htmlFor="email">Email</label>
                   <input
                     id="email"
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="employee@company.com"
+                    placeholder="employee@company.com OR Emp ID"
                     className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                   />

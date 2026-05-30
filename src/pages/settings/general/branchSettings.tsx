@@ -314,8 +314,8 @@ export default function BranchSettings() {
           esiCode: formData.esiCode,
           pfLocation: formData.pfLocation,
           esiLocation: formData.esiLocation,
-          contactEmail: formData.contactEmail,
-          contactNumber: formData.contactNumber,
+          contactEmail: selectedBranchHead?.emailAddress,
+          contactNumber: selectedBranchHead?.mobileNumber,
         };
         const res: any = await branchService.updateBranch(editingBranch.id, updatedValues);
         if (res.success) {
@@ -335,8 +335,8 @@ export default function BranchSettings() {
           esiCode: formData.esiCode,
           pfLocation: formData.pfLocation,
           esiLocation: formData.esiLocation,
-          contactEmail: formData.contactEmail,
-          contactNumber: formData.contactNumber,
+          contactEmail: selectedBranchHead?.emailAddress,
+          contactNumber: selectedBranchHead?.mobileNumber,
         }
         const res: any = await branchService.createBranch(payload);
         if (res.success) {
@@ -447,7 +447,7 @@ export default function BranchSettings() {
           elevation={0}
           className="h-[calc(100vh-290px)] overflow-auto bg-white-50"
         >
-          <Table stickyHeader className="border">
+          <Table stickyHeader className="border border-gray-200">
             <TableHead className="bg-gray-100">
               <TableRow className="bg-gray-100 !text-primary">
                 <TableCell className="!font-semibold text-gray-800" sx={{
@@ -511,12 +511,12 @@ export default function BranchSettings() {
                     {branch.branchAddress}
                   </TableCell>
                   <TableCell className="text-gray-800">{branch.branchHeadName}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius}</TableCell>
+                  <TableCell className="text-gray-800">{branch.contactEmail}</TableCell>
+                  <TableCell className="text-gray-800">{branch.contactNumber}</TableCell>
+                  <TableCell className="text-gray-800">{branch.pfCode}</TableCell>
+                  <TableCell className="text-gray-800">{branch.pfLocation}</TableCell>
+                  <TableCell className="text-gray-800">{branch.esiCode}</TableCell>
+                  <TableCell className="text-gray-800">{branch.esiLocation}</TableCell>
                   <TableCell className="text-gray-800">{branch.radius} km</TableCell>
                   <TableCell sx={{
                     ...getStickyRightSx(index),
@@ -574,7 +574,7 @@ export default function BranchSettings() {
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="text-primary ml-4">{editingBranch ? "Edit Branch" : "Add New Branch"}</div>
           <IconButton onClick={handleCloseDialog}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
@@ -693,7 +693,7 @@ export default function BranchSettings() {
               <TextField
                 fullWidth
                 label="Contact Email"
-                // name="radius"
+                name="contactEmail"
                 type="text"
                 value={selectedBranchHead?.emailAddress || ""}
                 disabled={true}
@@ -701,8 +701,8 @@ export default function BranchSettings() {
               <TextField
                 fullWidth
                 label="Contact Number"
-                // name="radius"
-                type="number"
+                name="radius"
+                type="contactNumber"
                 value={selectedBranchHead?.mobileNumber || ""}
                 disabled={true}
               />

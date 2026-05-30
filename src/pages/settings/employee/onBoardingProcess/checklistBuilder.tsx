@@ -398,7 +398,7 @@ export const ChecklistBuilder = () => {
         <div className="text-primary !border-b !p-2 flex items-center justify-between !border-gray-200">
           <span className="ml-4"> Add Checklist</span>
           <IconButton onClick={() => { setIsAddingChecklist(false) }}>
-            <CloseOutlined />
+            <CloseOutlined className="!text-gray-800"/>
           </IconButton>
         </div>
         <DialogContent>
