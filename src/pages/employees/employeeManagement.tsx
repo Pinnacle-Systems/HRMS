@@ -57,7 +57,6 @@ export default function EmployeeManagement() {
   // Form data
   const [formData, setFormData] = useState<Partial<Employee>>({});
 
-  // Bulk upload
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
@@ -81,6 +80,7 @@ export default function EmployeeManagement() {
 
   const [isDeactivate, setIsDeactivate] = useState(false);
   const [deactivateEmployeeId, setDeactivateEmployeeId] = useState("");
+  const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] = useState(false);
 
   // Define filter fields for employee management
   const filterFields: FilterField[] = [
@@ -144,23 +144,34 @@ export default function EmployeeManagement() {
     },
   ];
 
-
-
   const loadEmployeeIdConfig = async () => {
     try {
       const config: any = await employeeService.getEmployeeId();
       setEmployeeIdConfig(config);
-      if (config.configured) {
-        // Populate form with existing configuration
-        setEmpCodeType(config.formatType.toLowerCase());
-        if (config.prefix) setEmpPrefix(config.prefix);
-        if (config.startingNumber) setEmpStartNumber(String(config.startingNumber));
-        if (config.numberOfDigits) setEmpDigitCount(String(config.numberOfDigits));
+      console.log(config);
+      // if (config.configured) {
+      //   setEmpCodeType(config.formatType.toLowerCase());
+      //   if (config.prefix) setEmpPrefix(config.prefix);
+      //   if (config.startingNumber) setEmpStartNumber(String(config.startingNumber));
+      //   if (config.numberOfDigits) setEmpDigitCount(String(config.numberOfDigits));
+      //   if (config.lastGeneratedId) {
+      //     setEmpGenerationFlow("continue");
+      //   }
+      // }
+      if (!config.configured) {
+        setEmployeeIdConfig(config);
+        setEmpGenerationFlow("new");
+        setExcelHasEmployeeIdColumn(true);
+        return;
+      }
 
-        // If there's a last generated ID, suggest continuing from it
-        if (config.lastGeneratedId) {
-          setEmpGenerationFlow("continue");
-        }
+      setEmpCodeType(config.formatType.toLowerCase());
+      setEmpPrefix(config.prefix || "EMP");
+      setEmpStartNumber(String(config.startingNumber || 1));
+      setEmpDigitCount(String(config.numberOfDigits || 4));
+
+      if (config.lastGeneratedId) {
+        setEmpGenerationFlow("continue");
       }
     } catch (error: any) {
       console.error("Failed to load employee ID config:", error);
@@ -171,13 +182,21 @@ export default function EmployeeManagement() {
   useEffect(() => {
     loadEmployeeIdConfig();
   }, []);
+
+  useEffect(() => {
+    if (employeeIdConfig) {
+      setExcelHasEmployeeIdColumn(
+        !employeeIdConfig.configured
+      );
+    }
+  }, [employeeIdConfig]);
+
   const generatePreview = async () => {
     showSpinner();
     try {
       let payload: any = {};
 
       if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
-        // Use the existing configuration to generate next ID
         payload = {
           formatType: employeeIdConfig.formatType,
           prefix: employeeIdConfig.prefix,
@@ -198,7 +217,7 @@ export default function EmployeeManagement() {
         };
       }
 
-      const response: any = await employeeService.getNextId(payload);
+      const response: any = await employeeService.previewEmployeeId(payload);
       setNextIdPreview(response.previewId);
     } catch (error: any) {
       console.error("Failed to generate preview:", error);
@@ -210,7 +229,7 @@ export default function EmployeeManagement() {
 
   // Generate preview whenever relevant fields change
   useEffect(() => {
-    if (!hasManualEmpId && employeeDialogOpen) {
+    if (!hasManualEmpId && employeeDialogOpen && empGenerationFlow === "new") {
       const timer = setTimeout(() => {
         if (empCodeType === "pattern" && (!empPrefix || !empStartNumber)) {
           return;
@@ -495,7 +514,7 @@ export default function EmployeeManagement() {
     if (hasManualEmpId) {
       return manualEmployeeId || "Manual Entry";
     }
-    if (empGenerationFlow === "continue" && employeeIdConfig?.nextSequencePreview) {
+    if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
       return employeeIdConfig.nextSequencePreview;
     }
     return nextIdPreview || "Enter details to preview";
@@ -505,9 +524,7 @@ export default function EmployeeManagement() {
     if (hasManualEmpId) {
       return manualEmployeeId;
     }
-
     let payload: any = {};
-
     if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
       payload = {
         formatType: employeeIdConfig.formatType,
@@ -519,25 +536,19 @@ export default function EmployeeManagement() {
       payload = {
         formatType: empCodeType.toUpperCase(),
       };
-
       if (empCodeType === "pattern") {
         payload.prefix = empPrefix;
         payload.startingNumber = parseInt(empStartNumber);
       }
-
       if (empCodeType === "number") {
         payload.startingNumber = parseInt(empStartNumber);
       }
-
       if (empCodeType === "alphanumeric") {
         payload.numberOfDigits = parseInt(empDigitCount);
       }
-
       await employeeService.updateEmployeeId(payload);
     }
-
-    const preview: any = await employeeService.getNextId(payload);
-
+    const preview: any = await employeeService.previewEmployeeId(payload);
     return preview.previewId;
   };
 
@@ -748,37 +759,47 @@ export default function EmployeeManagement() {
       showSnackbar("Please select a file to upload", "error");
       return;
     }
-
     const ext = uploadFile.name.toLowerCase().slice(uploadFile.name.lastIndexOf("."));
     if (!BULK_UPLOAD_ACCEPTED.includes(ext)) {
       showSnackbar("Invalid file type. Please upload a CSV or XLSX file.", "error");
       return;
     }
-
     if (uploadFile.size > BULK_UPLOAD_MAX_BYTES) {
       showSnackbar("File exceeds the 10 MB limit. Please upload a smaller file.", "error");
       return;
     }
-
     setUploadResult(null);
     showSpinner();
     try {
       const response: any = await employeeService.bulkUploadEmployees(
         uploadFile,
+        excelHasEmployeeIdColumn,
         (progress) => { setUploadProgress(progress); },
       );
       const result = normalizeBulkUploadResponse(response);
+      console.log(result);
       setUploadResult(result);
-      const errorCount = result.failureCount ?? result.errors?.length ?? 0;
-      if (errorCount === 0) {
+      // const errorCount = result.failureCount ?? result.errors?.length ?? 0;
+      // if (errorCount === 0) {
+      //   showSnackbar(
+      //     `Upload successful! ${result.successCount ?? 0} employees imported.`,
+      //     "success",
+      //   );
+      // } else {
+      //   showSnackbar(
+      //     `Upload completed with ${errorCount} row error(s). See details below.`,
+      //     "warning",
+      //   );
+      // }
+      if (result.failureCount === 0) {
         showSnackbar(
-          `Upload successful! ${result.successCount ?? 0} employees imported.`,
-          "success",
+          `Successfully imported ${result.successCount} employees. Welcome emails sent: ${result.welcomeEmailsSent}`,
+          "success"
         );
       } else {
         showSnackbar(
-          `Upload completed with ${errorCount} row error(s). See details below.`,
-          "warning",
+          `Upload completed with ${result.failureCount} validation errors.`,
+          "warning"
         );
       }
       getEmployees();
@@ -1222,7 +1243,7 @@ export default function EmployeeManagement() {
                               value={employee.relievedDate ? dayjs(employee.relievedDate) : null}
                               onChange={(newValue) =>
                                 updateReleivingDate(employee,
-                                  newValue ? newValue.format("YYYY-MM-DD") : ""
+                                  newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
                                 )
                               }
                               slotProps={{
@@ -1292,7 +1313,7 @@ export default function EmployeeManagement() {
             {isEditing ? "Edit Employee" : "Add New Employee"}
           </div>
           <MaterialModule.IconButton onClick={() => setEmployeeDialogOpen(false)}>
-            <MaterialModule.CloseOutlined className="!text-gray-800"/>
+            <MaterialModule.CloseOutlined className="!text-gray-800" />
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
@@ -1327,7 +1348,7 @@ export default function EmployeeManagement() {
                 onChange={(newValue) =>
                   setFormData({
                     ...formData,
-                    joiningDate: newValue ? newValue.format("YYYY-MM-DD") : "",
+                    joiningDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                   })
                 }
                 slotProps={{
@@ -1623,7 +1644,27 @@ export default function EmployeeManagement() {
               Download Template
             </MaterialModule.Button>
           </div>
-
+          <div className="flex gap-2 items-center mb-4">
+            <MaterialModule.FormControlLabel
+              control={
+                <MaterialModule.Checkbox
+                  checked={excelHasEmployeeIdColumn}
+                  onChange={(e) =>
+                    setExcelHasEmployeeIdColumn(e.target.checked)
+                  }
+                  disabled={!employeeIdConfig?.configured}
+                />
+              }
+              label="Excel already contains Employee ID column"
+            />
+            <div className="text-[12px] text-yellow-800">
+              [ Note : {!employeeIdConfig?.configured
+                ? "Employee ID generation is not configured. Your Excel file must contain an Employee ID column"
+                : excelHasEmployeeIdColumn
+                  ? "Employee IDs will be read from Excel"
+                  : `Employee IDs will be generated automatically starting from ${employeeIdConfig?.nextSequencePreview}`} ]
+            </div>
+          </div>
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"
@@ -1655,47 +1696,249 @@ export default function EmployeeManagement() {
             </MaterialModule.Box>
           )}
 
+          {/* After Upload Shows: */}
           {uploadResult && (
-            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
-              <div className="font-semibold text-gray-800 mb-2">Upload Result</div>
-              <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                {uploadResult.successCount !== undefined && (
-                  <div className="text-green-700">
-                    Imported: <strong>{uploadResult.successCount}</strong>
+            <div className="mt-4 space-y-4">
+              {/* Upload Summary */}
+              <div
+                className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
+                    ? "border-orange-200 bg-orange-50"
+                    : "border-green-200 bg-green-50"
+                  }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="font-semibold text-gray-800 text-base">
+                      Upload Result
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {uploadResult.fileName}
+                    </div>
                   </div>
-                )}
-                {(uploadResult.failureCount ?? 0) > 0 && (
-                  <div className="text-red-700">
-                    Failed rows: <strong>{uploadResult.failureCount}</strong>
+
+                  <MaterialModule.Chip
+                    label={uploadResult.status || "COMPLETED"}
+                    color={
+                      uploadResult?.failureCount && uploadResult?.failureCount > 0 ? "warning" : "success"
+                    }
+                    size="small"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="bg-white rounded-lg border p-3">
+                    <div className="text-xs text-gray-500">Total Records</div>
+                    <div className="font-bold text-lg">
+                      {uploadResult.totalRecords ?? 0}
+                    </div>
                   </div>
-                )}
-                {uploadResult.welcomeEmailsSent !== undefined && (
-                  <div className="text-blue-700">
-                    Welcome emails sent: <strong>{uploadResult.welcomeEmailsSent}</strong>
+
+                  <div className="bg-white rounded-lg border p-3">
+                    <div className="text-xs text-gray-500">Success</div>
+                    <div className="font-bold text-lg text-green-600">
+                      {uploadResult.successCount ?? 0}
+                    </div>
                   </div>
-                )}
-                {(uploadResult.welcomeEmailsFailed ?? 0) > 0 && (
-                  <div className="text-orange-700">
-                    Welcome emails failed: <strong>{uploadResult.welcomeEmailsFailed}</strong>
+
+                  <div className="bg-white rounded-lg border p-3">
+                    <div className="text-xs text-gray-500">Failed</div>
+                    <div className="font-bold text-lg text-red-600">
+                      {uploadResult.failureCount ?? 0}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg border p-3">
+                    <div className="text-xs text-gray-500">
+                      Welcome Emails Sent
+                    </div>
+                    <div className="font-bold text-lg text-blue-600">
+                      {uploadResult.welcomeEmailsSent ?? 0}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg border p-3">
+                    <div className="text-xs text-gray-500">
+                      Welcome Emails Failed
+                    </div>
+                    <div className="font-bold text-lg text-orange-600">
+                      {uploadResult.welcomeEmailsFailed ?? 0}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg border p-3">
+                    <div className="text-xs text-gray-500">Completed At</div>
+                    <div className="font-medium text-xs">
+                      {uploadResult.completedAt
+                        ? new Date(uploadResult.completedAt).toLocaleString()
+                        : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                {uploadResult.jobId && (
+                  <div className="mt-3 text-xs text-gray-500 border-t pt-2">
+                    Job ID: <span className="font-mono">{uploadResult.jobId}</span>
                   </div>
                 )}
               </div>
-              {(uploadResult.errors?.length ?? 0) > 0 && (
-                <div>
-                  <div className="text-sm font-semibold text-red-700 mb-1">Row Errors:</div>
-                  <div className="max-h-32 overflow-auto text-xs space-y-1">
-                    {uploadResult.errors!.map((err, i) => (
-                      <div key={i} className="text-red-600">
-                        {err.row !== undefined ? `Row ${err.row}: ` : ""}
-                        {err.field ? `[${err.field}] ` : ""}
-                        {err.message}
-                      </div>
-                    ))}
+
+              {/* Generated Employee IDs */}
+              {uploadResult.generatedEmployeeIds && uploadResult.generatedEmployeeIds?.length > 0 && (
+                <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MaterialModule.CheckCircleOutlineIcon
+                      fontSize="small"
+                      color="success"
+                    />
+                    <div className="font-semibold text-green-700">
+                      Generated Employee IDs
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
+                    {uploadResult.generatedEmployeeIds.map(
+                      (id: string, index: number) => (
+                        <MaterialModule.Chip
+                          key={`${id}-${index}`}
+                          label={id}
+                          color="success"
+                          variant="outlined"
+                          size="small"
+                        />
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Welcome Email Failures */}
+              {uploadResult.welcomeEmailFailures && uploadResult.welcomeEmailFailures?.length > 0 && (
+                <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                  <div className="font-semibold text-orange-700 mb-3">
+                    Welcome Email Failures
+                  </div>
+
+                  <div className="max-h-40 overflow-auto space-y-2">
+                    {uploadResult.welcomeEmailFailures.map(
+                      (failure: string, index: number) => (
+                        <div
+                          key={index}
+                          className="text-sm text-orange-700 bg-white border rounded p-2"
+                        >
+                          {failure}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Validation Errors */}
+              {uploadResult.errors && uploadResult.errors?.length > 0 && (
+                <div className="border border-red-200 rounded-lg p-4 bg-red-50">
+                  <div className="font-semibold text-red-700 mb-3">
+                    Validation Errors
+                  </div>
+
+                  <div className="max-h-72 overflow-auto space-y-3">
+                    {uploadResult.errors.map(
+                      (err: any, index: number) => (
+                        <div
+                          key={index}
+                          className="bg-white border border-red-100 rounded-lg p-3"
+                        >
+                          <div className="font-medium text-red-700">
+                            Row {err.rowNumber}
+                          </div>
+
+                          {(err.branchName || err.branchCode) && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {err.branchName}
+                              {err.branchCode &&
+                                ` (${err.branchCode})`}
+                            </div>
+                          )}
+
+                          <ul className="list-disc ml-5 mt-2 text-sm text-red-600">
+                            {err.errors?.map(
+                              (message: string, idx: number) => (
+                                <li key={idx}>{message}</li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               )}
             </div>
           )}
+
+          {/* {uploadResult?.generatedEmployeeIds && uploadResult.generatedEmployeeIds.length > 0 && (
+            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+              <div className="">
+                <div className="font-semibold text-green-700 mb-2">
+                  Generated Employee IDs
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {uploadResult.generatedEmployeeIds.map(
+                    (id: string, index: number) => (
+                      <MaterialModule.Chip
+                        key={`${id}-${index}`}
+                        label={id}
+                        color="success"
+                        size="small"
+                      />
+                    )
+                  )}
+                </div>
+              </div>
+              {uploadResult?.welcomeEmailFailures && uploadResult.welcomeEmailFailures?.length > 0 && (
+                <div className="mt-4">
+                  <div className="font-semibold text-orange-700 mb-2">
+                    Welcome Email Failures
+                  </div>
+
+                  <div className="max-h-32 mb-4 overflow-auto text-xs">
+                    {uploadResult.welcomeEmailFailures.map(
+                      (failure: string, index: number) => (
+                        <div key={index} className="text-orange-600">
+                          • {failure}
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="font-semibold text-gray-800 mb-2">Upload Result</div>
+              <div className="grid grid-cols-3 gap-2 text-sm mb-3">
+                <div>Total Records: <strong>{uploadResult?.totalRecords}</strong></div>
+                <div className="text-green-700">Success: <strong>{uploadResult?.successCount}</strong></div>
+                <div className="text-red-700">Failed: <strong>{uploadResult?.failureCount}</strong></div>
+                <div className="text-blue-700">Status: <strong>{uploadResult?.status}</strong></div>
+                <div className="text-indigo-700">Welcome Emails Sent:<strong>{uploadResult?.welcomeEmailsSent}</strong></div>
+                <div className="text-orange-700">Welcome Emails Failed:<strong>{uploadResult?.welcomeEmailsFailed}</strong></div>
+              </div>
+            </div>
+          )}
+          {uploadResult?.errors && uploadResult.errors?.length > 0 && (
+            <div className="mt-4">
+              <div className="font-semibold text-red-700 mb-2">
+                Validation Errors
+              </div>
+              <div className="max-h-48 overflow-auto space-y-1 text-xs">
+                {uploadResult.errors.map((err: any, index: number) => (
+                  <div key={index} className="text-red-600">
+                    Row {err.row}
+                    {err.branchName && ` (${err.branchName})`}
+                    : {err.message}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )} */}
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button

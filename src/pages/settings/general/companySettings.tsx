@@ -454,7 +454,7 @@ const CompanySettings = () => {
               label={label}
               value={value ? dayjs(value) : null}
               onChange={(newValue) =>
-                handleChange(key, newValue?.format("YYYY-MM-DD") || "")
+                handleChange(key, dayjs(newValue)?.format("YYYY-MM-DD") || "")
               }
               sx={commonSx}
               slotProps={{

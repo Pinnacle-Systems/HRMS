@@ -72,8 +72,8 @@ export const ShiftList = () => {
     startTime: dayjs('2000-01-01 09:00'),
     endTime: dayjs('2000-01-01 18:00'),
     shiftType: 'General',
-    graceTime: 15,
-    breakTime: 60,
+    // graceTime: 15,
+    // breakTime: 60,
     active: true,
     color: '#3b82f6',
     weeklyOff: ['MON'],
@@ -171,8 +171,8 @@ export const ShiftList = () => {
       shiftType: formData.shiftType,
       startTime: dayjsToTimeString(formData.startTime),
       endTime: dayjsToTimeString(formData.endTime),
-      breakTime: formData.breakTime,
-      graceTime: formData.graceTime,
+      // breakTime: formData.breakTime,
+      // graceTime: formData.graceTime,
       weeklyOff: formData.weeklyOff,
       color: formData.color,
       description: formData.description,
@@ -226,8 +226,8 @@ export const ShiftList = () => {
       startTime: timeStringToDayjs(shift.startTime),
       endTime: timeStringToDayjs(shift.endTime),
       shiftType: shift.shiftType,
-      graceTime: shift.graceTime,
-      breakTime: shift.breakTime,
+      // graceTime: shift.graceTime,
+      // breakTime: shift.breakTime,
       active: shift.active,
       color: shift.color,
       weeklyOff: shift.weeklyOff,
@@ -339,9 +339,9 @@ export const ShiftList = () => {
               <TableCell className='!font-semibold'>Shift Name</TableCell>
               <TableCell className='!font-semibold'>Code</TableCell>
               <TableCell className='!font-semibold'>Timing</TableCell>
-              <TableCell className='!font-semibold'>Break</TableCell>
+              {/* <TableCell className='!font-semibold'>Break</TableCell> */}
               <TableCell className='!font-semibold'>Hours</TableCell>
-              <TableCell className='!font-semibold'>Grace</TableCell>
+              {/* <TableCell className='!font-semibold'>Grace</TableCell> */}
               <TableCell className='!font-semibold'>Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
               <TableCell className='!font-semibold'>Status</TableCell>
@@ -372,9 +372,9 @@ export const ShiftList = () => {
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>{shift.breakTime} min</TableCell>
+                {/* <TableCell>{shift.breakTime} min</TableCell> */}
                 <TableCell>{shift.totalHours}h</TableCell>
-                <TableCell>{shift.graceTime} min</TableCell>
+                {/* <TableCell>{shift.graceTime} min</TableCell> */}
                 <TableCell>
                   <Chip
                     size="small"
@@ -490,7 +490,7 @@ export const ShiftList = () => {
                   <TimePicker
                     label="Start Time"
                     value={formData.startTime}
-                    onChange={(value) => setFormData({ ...formData, startTime: value })}
+                    onChange={(value) => setFormData({ ...formData, startTime: dayjs(value) })}
                     slotProps={{
                       textField: { fullWidth: true, required: true }, openPickerButton: {
                         color: "primary",
@@ -503,7 +503,7 @@ export const ShiftList = () => {
                   <TimePicker
                     label="End Time"
                     value={formData.endTime}
-                    onChange={(value) => setFormData({ ...formData, endTime: value })}
+                    onChange={(value) => setFormData({ ...formData, endTime: dayjs(value) })}
                     slotProps={{
                       textField: { fullWidth: true, required: true }, openPickerButton: {
                         color: "primary",
@@ -515,7 +515,7 @@ export const ShiftList = () => {
               </Grid>
             </LocalizationProvider>
 
-            <Grid container spacing={2}>
+            {/* <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 4 }}>
                 <TextField
                   fullWidth
@@ -550,10 +550,26 @@ export const ShiftList = () => {
                   </Select>
                 </FormControl>
               </Grid>
-            </Grid>
+            </Grid> */}
 
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Weekly Off</InputLabel>
+                  <Select
+                    multiple
+                    value={formData.weeklyOff}
+                    label="Weekly Off"
+                    onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value as string[] })}
+                    renderValue={(selected) => (selected as string[]).join(', ')}
+                  >
+                    {days.map(day => (
+                      <MenuItem key={day} value={day}>{day}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <TextField
                   fullWidth
                   type="color"
@@ -562,7 +578,7 @@ export const ShiftList = () => {
                   onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 />
               </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <FormControl fullWidth>
                   <InputLabel>Shift Type</InputLabel>
                   <Select

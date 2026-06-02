@@ -45,6 +45,11 @@ const Documentation = lazy(() => import("../pages/documentation/doc"));
 const ShiftSettings = lazy(() => import("../pages/attendance/shiftSettings/shiftSettings"));
 const AttendanceReports = lazy(() => import("../pages/attendance/attendanceReport"));
 const AttendanceList = lazy(() => import("../pages/attendance/attendanceList"));
+const PolicyDashboard = lazy(() => import("../pages/policies/PolicyDashboard"));
+const CreatePolicy = lazy(() => import("../pages/policies/CreatePolicy"));
+const EditPolicy = lazy(() => import("../pages/policies/EditPolicy"));
+const PolicyDetails = lazy(() => import("../pages/policies/PolicyDetails"));
+const PolicySimulator = lazy(() => import("../pages/policies/PolicySimulator"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -205,6 +210,21 @@ function AppRoutesContent() {
               >
                 <Route path="employees" element={<Employees />} />
                 <Route path="employees/:id" element={<EmployeeDetails />} />
+              </Route>
+
+              {/* Policy Routes - Accessible by HR and ADMIN */}
+              <Route
+                element={
+                  <ProtectedRoute
+                    allowedRoles={["HR", "ADMIN"]}
+                  />
+                }
+              >
+                <Route path="policies" element={<PolicyDashboard />} />
+                <Route path="policies/create" element={<CreatePolicy />} />
+                <Route path="policies/:id" element={<PolicyDetails />} />
+                <Route path="policies/:id/edit" element={<EditPolicy />} />
+                <Route path="policies/simulator" element={<PolicySimulator />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>

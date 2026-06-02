@@ -15,7 +15,6 @@ import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs, { type Dayjs } from "dayjs";
 import DataState from "../../components/DataState";
 import { useUI } from "../../context/Snackbar";
 import { leaveService } from "../../services/modules/leave";
@@ -37,6 +36,7 @@ import {
   leaveTableRowSx,
   leaveTableSx,
 } from "./components/leaveTableStyles";
+import dayjs from "dayjs";
 
 type HolidayGridRow = Holiday & {
   day: string;
@@ -184,8 +184,8 @@ export default function HolidayCalendarPage() {
   };
 
   const dateFilterValue = dateFilter ? dayjs(dateFilter) : null;
-  const handleDateFilterChange = (value: Dayjs | null) => {
-    setDateFilter(value ? value.format("YYYY-MM-DD") : "");
+  const handleDateFilterChange = (value: any) => {
+    setDateFilter(value ? dayjs(value).format("YYYY-MM-DD") : "");
   };
 
   const resetFilters = () => {

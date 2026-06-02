@@ -53,6 +53,7 @@ import {
   leaveRequestStatusOptions,
 } from "./leaveStatusMeta";
 import { canRequestCancellation, canWithdrawLeave } from "./leaveRules";
+import dayjs from "dayjs";
 
 export default function MyLeaveRequestsPage() {
   const navigate = useNavigate();
@@ -318,7 +319,7 @@ export default function MyLeaveRequestsPage() {
                 label="From Date"
                 value={fromDate}
                 onChange={(value) => {
-                  setFromDate(value);
+                  setFromDate(dayjs(value));
                   setPage(1);
                 }}
                 slots={{
@@ -337,7 +338,7 @@ export default function MyLeaveRequestsPage() {
                 value={toDate}
                 minDate={fromDate ?? undefined}
                 onChange={(value) => {
-                  setToDate(value);
+                  setToDate(dayjs(value));
                   setPage(1);
                 }}
                 slots={{

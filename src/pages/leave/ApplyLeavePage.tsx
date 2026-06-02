@@ -28,6 +28,7 @@ import type {
 import LeavePageShell from "./components/LeavePageShell";
 import { formatDate } from "./leaveFormatters";
 import { requiresLeaveAttachment } from "./leaveRules";
+import dayjs from "dayjs";
 
 const sessionOptions: Array<{ value: LeaveDayType; label: string }> = [
   { value: "FULL_DAY", label: "Full Day" },
@@ -315,7 +316,7 @@ export default function ApplyLeavePage() {
                       label="From Date"
                       value={form.fromDate}
                       format="DD MMM YYYY"
-                      onChange={(value) => handleChange("fromDate", value)}
+                      onChange={(value) => handleChange("fromDate", dayjs(value))}
                       slots={{
                         openPickerIcon: CalendarMonthOutlinedIcon,
                       }}
@@ -363,7 +364,7 @@ export default function ApplyLeavePage() {
                       value={form.toDate}
                       minDate={form.fromDate ?? undefined}
                       format="DD MMM YYYY"
-                      onChange={(value) => handleChange("toDate", value)}
+                      onChange={(value) => handleChange("toDate", dayjs(value))}
                       slots={{
                         openPickerIcon: CalendarMonthOutlinedIcon,
                       }}

@@ -8,7 +8,6 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
 import ViewIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
@@ -16,6 +15,7 @@ import { normalizeOnboardingAssignmentsResponse, onBoardService } from '../../..
 import type { EmployeeSummaryResponse } from '../../../../services/modules/employees';
 import { useUI } from '../../../../context/Snackbar';
 import EmployeeAsyncCombobox from '../../../../components/employees/EmployeeAsyncCombobox';
+import dayjs from 'dayjs';
 
 export const AssignOnboarding = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -315,7 +315,7 @@ export const AssignOnboarding = () => {
               <DatePicker
                 label="Start Date"
                 value={dayjs(formData.startDate)}
-                onChange={(date) => setFormData({ ...formData, startDate: date?.format('YYYY-MM-DD') || '' })}
+                onChange={(date) => setFormData({ ...formData, startDate: dayjs(date)?.format('YYYY-MM-DD') || '' })}
                 slotProps={{ textField: { fullWidth: true } }}
                 sx={{
                       "& .MuiIconButton-root": {

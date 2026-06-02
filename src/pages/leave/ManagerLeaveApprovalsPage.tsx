@@ -58,6 +58,7 @@ import {
   leaveRequestStatusOptions,
 } from "./leaveStatusMeta";
 import { getTeamOverlap } from "./leaveRules";
+import dayjs from "dayjs";
 
 type ActionKind = "approve" | "reject" | "clarify";
 
@@ -364,7 +365,7 @@ export default function ManagerLeaveApprovalsPage() {
                 label="From Date"
                 value={fromDate}
                 onChange={(value) => {
-                  setFromDate(value);
+                  setFromDate(dayjs(value));
                   setPage(1);
                 }}
                 slotProps={{ textField: { fullWidth: true } }}
@@ -374,7 +375,7 @@ export default function ManagerLeaveApprovalsPage() {
                 value={toDate}
                 minDate={fromDate ?? undefined}
                 onChange={(value) => {
-                  setToDate(value);
+                  setToDate(dayjs(value));
                   setPage(1);
                 }}
                 slotProps={{ textField: { fullWidth: true } }}

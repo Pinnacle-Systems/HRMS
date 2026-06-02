@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Card,
-  CardContent,
   Typography,
   Paper,
   Avatar,
@@ -19,7 +17,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -35,10 +32,10 @@ import {
   Notifications as NotificationIcon,
   PictureAsPdf as PdfIcon,
   GetApp as ExcelIcon,
-  AccessTime as TimeIcon,
-  CheckCircle as CheckIcon,
-  Cancel as CancelIcon,
-  EventBusy as AbsentIcon
+  // AccessTime as TimeIcon,
+  // CheckCircle as CheckIcon,
+  // Cancel as CancelIcon,
+  // EventBusy as AbsentIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -197,6 +194,8 @@ export const ShiftScheduleView = () => {
       const params = {
         date: selectedDate.format('YYYY-MM-DD'),
         department: selectedDepartment !== 'all' ? selectedDepartment : undefined,
+        from: selectedDate.format('YYYY-MM-DD'),
+        to: selectedDate.format('YYYY-MM-DD')
       };
       const response = await shiftService.getShiftDistribution(params);
       setShiftDistribution(Array.isArray(response.data.buckets) ? response.data.buckets : []);
@@ -312,9 +311,9 @@ export const ShiftScheduleView = () => {
   };
 
   // Handle date change
-  const handleDateChange = (date: dayjs.Dayjs | null) => {
+  const handleDateChange = (date: any) => {
     if (date) {
-      setSelectedDate(date);
+      setSelectedDate(dayjs(date));
     }
   };
 

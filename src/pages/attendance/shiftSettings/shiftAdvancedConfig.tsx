@@ -13,7 +13,11 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Collapse
+  Collapse,
+  Chip,
+  Typography,
+  Box,
+  Alert,
 } from '@mui/material';
 import {
   CloseOutlined,
@@ -24,65 +28,18 @@ import {
   FreeBreakfastOutlined,
   LunchDiningOutlined,
   ScheduleOutlined,
-  BedtimeOutlined
+  BedtimeOutlined,
+  CheckCircleOutlined,
+  SelectAll as SelectAllIcon,
 } from '@mui/icons-material';
 import { useUI } from '../../../context/Snackbar';
-import { shiftService } from '../../../services/modules/shifts';
-import type { Shift } from '../../../services/modules/shifts';
+import type { EmployeeCategory as EmployeeCategoryType } from '../../../types/policy';
+import type { AdvancedShiftConfig, ShiftAdvancedConfigProps, ShiftCategoryConfig } from './types';
+import { ALL_CATEGORIES, CATEGORY_COLORS, CATEGORY_DEFAULTS, CATEGORY_LABELS, CATEGORY_SUBLABELS } from './const';
 
-interface AdvancedShiftConfig {
-  shiftId: string;
-  shiftName: string;
-  // Grace/Tolerance Times
-  graceBeforeCheckIn: number;
-  graceAfterCheckIn: number;
-  graceBeforeCheckOut: number;
-  graceAfterCheckOut: number;
-
-  // Break Settings
-  breakTime: number;
-  breakAfterHours: number;
-  breakIsPaid: boolean;
-  allowMultipleBreaks: boolean;
-  maxBreaksPerShift: number;
-  minBreakInterval: number;
-
-  // Lunch Settings
-  lunchDuration: number;
-  lunchAfterHours: number;
-  lunchIsPaid: boolean;
-  lunchGraceBefore: number;
-  lunchGraceAfter: number;
-
-  // Overtime Settings
-  overtimeBeforeShift: number;
-  overtimeAfterShift: number;
-  overtimeRate: number;
-  requireOvertimeApproval: boolean;
-
-  // Rest Periods
-  minRestBetweenShifts: number;
-  maxConsecutiveDays: number;
-  nightShiftAllowance: number;
-
-  // Other Settings
-  lateArrivalThreshold: number;
-  earlyDepartureThreshold: number;
-  autoBreakDeduction: boolean;
-  roundingRule: string;
-  roundingInterval: number;
-}
-
-interface ShiftAdvancedConfigProps {
-  open: boolean;
-  onClose: () => void;
-  shift: Shift | null;
-  onSave: () => void;
-}
-
+// ─── Expandable Section ───────────────────────────────────────────────────────
 const ExpandableSection = ({ title, icon, children, defaultOpen = false }: any) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-
   return (
     <div className="border border-gray-200 rounded-lg mb-3 overflow-hidden">
       <div
@@ -96,90 +53,80 @@ const ExpandableSection = ({ title, icon, children, defaultOpen = false }: any) 
         {isOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
       </div>
       <Collapse in={isOpen}>
-        <div className="p-4 pt-0 border-t border-gray-200">
-          {children}
-        </div>
+        <div className="p-4 pt-0 border-t border-gray-200">{children}</div>
       </Collapse>
     </div>
   );
 };
 
+// ─── Main Component ───────────────────────────────────────────────────────────
 export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvancedConfigProps) => {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
-  const [config, setConfig] = useState<AdvancedShiftConfig>({
+  const [masterConfig, setMasterConfig] = useState<AdvancedShiftConfig>({
     shiftId: shift?.id || '',
     shiftName: shift?.shiftName || '',
-    graceBeforeCheckIn: 15,
-    graceAfterCheckIn: 5,
-    graceBeforeCheckOut: 5,
-    graceAfterCheckOut: 15,
-    breakTime: shift?.breakTime || 15,
-    breakAfterHours: 2,
-    breakIsPaid: true,
-    allowMultipleBreaks: false,
-    maxBreaksPerShift: 2,
-    minBreakInterval: 60,
-    lunchDuration: 30,
-    lunchAfterHours: 4,
-    lunchIsPaid: false,
-    lunchGraceBefore: 5,
-    lunchGraceAfter: 5,
-    overtimeBeforeShift: 30,
-    overtimeAfterShift: 30,
-    overtimeRate: 1.5,
-    requireOvertimeApproval: true,
-    minRestBetweenShifts: 8,
-    maxConsecutiveDays: 6,
-    nightShiftAllowance: 20,
-    lateArrivalThreshold: 10,
-    earlyDepartureThreshold: 10,
-    autoBreakDeduction: true,
-    roundingRule: 'nearest',
-    roundingInterval: 15,
+    categoryConfigs: [],
   });
+  const [selectedCategories, setSelectedCategories] = useState<EmployeeCategoryType[]>([]);
+  const [currentConfig, setCurrentConfig] = useState<ShiftCategoryConfig>(CATEGORY_DEFAULTS.STAFF);
 
   useEffect(() => {
     if (shift) {
-      setConfig({
+      setMasterConfig({
         shiftId: shift.id,
         shiftName: shift.shiftName,
-        graceBeforeCheckIn: (shift as any).graceBeforeCheckIn || 15,
-        graceAfterCheckIn: (shift as any).graceAfterCheckIn || 5,
-        graceBeforeCheckOut: (shift as any).graceBeforeCheckOut || 5,
-        graceAfterCheckOut: (shift as any).graceAfterCheckOut || 15,
-        breakTime: shift.breakTime,
-        breakAfterHours: (shift as any).breakAfterHours || 2,
-        breakIsPaid: (shift as any).breakIsPaid !== undefined ? (shift as any).breakIsPaid : true,
-        allowMultipleBreaks: (shift as any).allowMultipleBreaks || false,
-        maxBreaksPerShift: (shift as any).maxBreaksPerShift || 2,
-        minBreakInterval: (shift as any).minBreakInterval || 60,
-        lunchDuration: (shift as any).lunchDuration || 30,
-        lunchAfterHours: (shift as any).lunchAfterHours || 4,
-        lunchIsPaid: (shift as any).lunchIsPaid || false,
-        lunchGraceBefore: (shift as any).lunchGraceBefore || 5,
-        lunchGraceAfter: (shift as any).lunchGraceAfter || 5,
-        overtimeBeforeShift: (shift as any).overtimeBeforeShift || 30,
-        overtimeAfterShift: (shift as any).overtimeAfterShift || 30,
-        overtimeRate: (shift as any).overtimeRate || 1.5,
-        requireOvertimeApproval: (shift as any).requireOvertimeApproval !== undefined ? (shift as any).requireOvertimeApproval : true,
-        minRestBetweenShifts: (shift as any).minRestBetweenShifts || 8,
-        maxConsecutiveDays: (shift as any).maxConsecutiveDays || 6,
-        nightShiftAllowance: (shift as any).nightShiftAllowance || 20,
-        lateArrivalThreshold: (shift as any).lateArrivalThreshold || 10,
-        earlyDepartureThreshold: (shift as any).earlyDepartureThreshold || 10,
-        autoBreakDeduction: (shift as any).autoBreakDeduction !== undefined ? (shift as any).autoBreakDeduction : true,
-        roundingRule: (shift as any).roundingRule || 'nearest',
-        roundingInterval: (shift as any).roundingInterval || 15,
+        categoryConfigs: (shift as any).categoryConfigs || [],
       });
     }
   }, [shift]);
 
+  useEffect(() => {
+    if (selectedCategories.length === 0) return;
+    const first = selectedCategories[0];
+    const existing = masterConfig.categoryConfigs.find((c) => c.type === first);
+    setCurrentConfig(existing ?? CATEGORY_DEFAULTS[first]);
+  }, [selectedCategories]);
+
+  const toggleCategory = (cat: EmployeeCategoryType) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedCategories((prev) =>
+      prev.length === ALL_CATEGORIES.length ? [] : [...ALL_CATEGORIES],
+    );
+  };
+
+  const isConfigured = (cat: EmployeeCategoryType) =>
+    masterConfig.categoryConfigs.some((c) => c.type === cat);
+
   const handleSave = async () => {
-    console.log(config);
+    if (selectedCategories.length === 0) {
+      showSnackbar('Please select at least one employee category to configure.', 'warning');
+      return;
+    }
     try {
       showSpinner();
-      //   await shiftService.updateShiftConfig(config.shiftId, config);
-      showSnackbar('Advanced configuration saved successfully!', 'success');
+      let updatedConfigs = [...masterConfig.categoryConfigs];
+      selectedCategories.forEach((cat) => {
+        const idx = updatedConfigs.findIndex((c) => c.type === cat);
+        const entry: ShiftCategoryConfig = { ...currentConfig, type: cat };
+        if (idx >= 0) {
+          updatedConfigs[idx] = entry;
+        } else {
+          updatedConfigs.push(entry);
+        }
+      });
+      const saved: AdvancedShiftConfig = { ...masterConfig, categoryConfigs: updatedConfigs };
+      setMasterConfig(saved);
+      console.log('Saved config:', saved);
+      // await shiftService.updateShiftConfig(saved.shiftId, saved);
+      showSnackbar(
+        `Configuration saved for: ${selectedCategories.map((c) => CATEGORY_LABELS[c]).join(', ')}`,
+        'success',
+      );
       onSave();
       onClose();
     } catch (error: any) {
@@ -189,490 +136,379 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
     }
   };
 
+  const set = (fields: Partial<ShiftCategoryConfig>) =>
+    setCurrentConfig((prev) => ({ ...prev, ...fields }));
+
+  const helperSx = { '& .MuiFormHelperText-root': { color: 'var(--text-primary)' } };
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" sx={{
-      "& .MuiDialog-paper": {
-        width: "800px",
-        maxWidth: "90vw",
-        maxHeight: "90vh",
-      },
-    }}>
-      <div className="flex items-center p-2 justify-between border-b border-gray-300 sticky top-0 z-10">
-        <div className="text-primary ml-4 flex items-center gap-2">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      sx={{ '& .MuiDialog-paper': { width: '820px', maxWidth: '95vw', maxHeight: '92vh' } }}
+    >
+      {/* Header */}
+      <div className="flex items-center p-3 justify-between border-b border-gray-300 sticky top-0 bg-white z-10">
+        <div className="text-primary ml-3 flex items-center gap-2 font-semibold">
           <SettingsIcon fontSize="small" />
-          Advanced Configuration: {config.shiftName}
+          Advanced Configuration — {masterConfig.shiftName}
         </div>
-        <IconButton onClick={onClose}>
+        <IconButton onClick={onClose} size="small">
           <CloseOutlined className="!text-gray-800" />
         </IconButton>
       </div>
-      <DialogContent className="!overflow-y-auto" style={{ maxHeight: 'calc(90vh - 120px)' }}>
-        <div className="space-y-4">
-          {/* Grace & Tolerance Times Section */}
-          <ExpandableSection
-            title="Grace & Tolerance Times"
-            icon={<TimerOutlined fontSize="small" className="text-blue-600" />}
-            defaultOpen={true}
-          >
-            <Grid container spacing={4} className="mt-6">
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Grace Time Before Check-in"
-                  type="number"
-                  size="small"
-                  value={config.graceBeforeCheckIn}
-                  onChange={(e) => setConfig({ ...config, graceBeforeCheckIn: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes allowed to arrive late without penalty"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Grace Time After Check-in"
-                  type="number"
-                  size="small"
-                  value={config.graceAfterCheckIn}
-                  onChange={(e) => setConfig({ ...config, graceAfterCheckIn: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes allowed to complete check-in process"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Grace Time Before Check-out"
-                  type="number"
-                  size="small"
-                  value={config.graceBeforeCheckOut}
-                  onChange={(e) => setConfig({ ...config, graceBeforeCheckOut: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes allowed to leave early without penalty"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Grace Time After Check-out"
-                  type="number"
-                  size="small"
-                  value={config.graceAfterCheckOut}
-                  onChange={(e) => setConfig({ ...config, graceAfterCheckOut: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes allowed to delay checkout process"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </ExpandableSection>
 
-          {/* Break Settings Section */}
-          <ExpandableSection
-            title="Break Settings"
-            icon={<FreeBreakfastOutlined fontSize="small" className="text-green-600" />}
-          >
-            <Grid container spacing={4} className="mt-6">
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Break Duration"
-                  type="number"
-                  size="small"
-                  value={config.breakTime}
-                  onChange={(e) => setConfig({ ...config, breakTime: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes per break"
+      <DialogContent className="!overflow-y-auto" style={{ maxHeight: 'calc(92vh - 130px)' }}>
+
+        {/* ── Step 1: Category Selector ── */}
+        <Box sx={{ mb: 3, p: 2, border: '2px solid', borderColor: 'primary.main', borderRadius: 2, bgcolor: 'primary.50' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+            <Typography component="div" variant="subtitle1" sx={{ fontWeight: 700 }} color="primary">
+              Step 1 — Select Employee Category
+            </Typography>
+            <Button
+              size="small"
+              variant={selectedCategories.length === ALL_CATEGORIES.length ? 'contained' : 'outlined'}
+              startIcon={<SelectAllIcon />}
+              onClick={toggleSelectAll}
+            >
+              {selectedCategories.length === ALL_CATEGORIES.length ? 'Deselect All' : 'Select All'}
+            </Button>
+          </Box>
+          <Typography component="div" variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select one or more categories. The configuration below will be saved to all selected categories.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+            {ALL_CATEGORIES.map((cat) => {
+              const selected = selectedCategories.includes(cat);
+              const configured = isConfigured(cat);
+              return (
+                <Box
+                  key={cat}
+                  onClick={() => toggleCategory(cat)}
                   sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
+                    cursor: 'pointer',
+                    border: '2px solid',
+                    borderColor: selected ? CATEGORY_COLORS[cat] : 'grey.300',
+                    borderRadius: 2,
+                    p: 1,
+                    minWidth: 150,
+                    bgcolor: selected ? `${CATEGORY_COLORS[cat]}18` : 'background.paper',
+                    transition: 'all 0.15s ease',
+                    '&:hover': { borderColor: CATEGORY_COLORS[cat], bgcolor: `${CATEGORY_COLORS[cat]}10` },
                   }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Break After (Hours)"
-                  type="number"
-                  size="small"
-                  value={config.breakAfterHours}
-                  onChange={(e) => setConfig({ ...config, breakAfterHours: parseInt(e.target.value) || 0 })}
-                  helperText="Hours worked before break"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.breakIsPaid}
-                      onChange={(e) => setConfig({ ...config, breakIsPaid: e.target.checked })}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                    <Chip
+                      label={CATEGORY_LABELS[cat]}
                       size="small"
+                      sx={{
+                        bgcolor: selected ? CATEGORY_COLORS[cat] : 'grey.200',
+                        color: selected ? '#fff' : 'text.secondary',
+                        fontWeight: 600,
+                        fontSize: '0.75rem',
+                      }}
                     />
-                  }
-                  label="Paid Break"
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.allowMultipleBreaks}
-                      onChange={(e) => setConfig({ ...config, allowMultipleBreaks: e.target.checked })}
-                      size="small"
-                    />
-                  }
-                  label="Allow Multiple Breaks"
-                />
-              </Grid>
-              {config.allowMultipleBreaks && (
-                <>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Maximum Breaks per Shift"
-                      type="number"
-                      size="small"
-                      value={config.maxBreaksPerShift}
-                      onChange={(e) => setConfig({ ...config, maxBreaksPerShift: parseInt(e.target.value) || 0 })}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField
-                      fullWidth
-                      label="Minimum Break Interval"
-                      type="number"
-                      size="small"
-                      value={config.minBreakInterval}
-                      onChange={(e) => setConfig({ ...config, minBreakInterval: parseInt(e.target.value) || 0 })}
-                    />
-                  </Grid>
-                </>
+                    {configured && (
+                      <CheckCircleOutlined sx={{ fontSize: 18, color: 'success.main' }} />
+                    )}
+                  </Box>
+                  <Typography component="div" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    {CATEGORY_SUBLABELS[cat]}
+                  </Typography>
+                  {configured && (
+                    <Typography component="div" variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
+                      ✓ Configured
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+
+        {/* ── No category selected state ── */}
+        {selectedCategories.length === 0 && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Select one or more employee categories above to begin configuring their shift rules.
+          </Alert>
+        )}
+
+        {/* ── Step 2: Config sections — shown only when categories are selected ── */}
+        {selectedCategories.length > 0 && (
+          <>
+            <Box sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+              <Typography component="div" variant="body2" color="text.secondary">
+                Configuring for:{' '}
+                {selectedCategories.map((cat) => (
+                  <Chip
+                    key={cat}
+                    label={CATEGORY_LABELS[cat]}
+                    size="small"
+                    sx={{ mr: 0.5, bgcolor: CATEGORY_COLORS[cat], color: '#fff', fontWeight: 600 }}
+                  />
+                ))}
+              </Typography>
+              {selectedCategories.length > 1 && (
+                <Typography component="div" variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
+                  Settings shown are loaded from "{CATEGORY_LABELS[selectedCategories[0]]}". Saving will apply to all selected categories.
+                </Typography>
               )}
-            </Grid>
-          </ExpandableSection>
+            </Box>
 
-          {/* Lunch Settings Section */}
-          <ExpandableSection
-            title="Lunch & Meal Break Settings"
-            icon={<LunchDiningOutlined fontSize="small" className="text-orange-600" />}
-          >
-            <Grid container spacing={4} className="mt-6">
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Lunch Duration"
-                  type="number"
-                  size="small"
-                  value={config.lunchDuration}
-                  onChange={(e) => setConfig({ ...config, lunchDuration: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Lunch After (Hours)"
-                  type="number"
-                  size="small"
-                  value={config.lunchAfterHours}
-                  onChange={(e) => setConfig({ ...config, lunchAfterHours: parseInt(e.target.value) || 0 })}
-                  helperText="Hours worked before lunch"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.lunchIsPaid}
-                      onChange={(e) => setConfig({ ...config, lunchIsPaid: e.target.checked })}
-                      size="small"
+            <div className="space-y-1">
+
+              {/* Grace & Tolerance Times */}
+              <ExpandableSection
+                title="Grace & Tolerance Times"
+                icon={<TimerOutlined fontSize="small" className="text-blue-600" />}
+                defaultOpen
+              >
+                <Grid container spacing={3} className="mt-4">
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace Before Check-in" type="number" size="small"
+                      value={currentConfig.graceBeforeCheckIn}
+                      onChange={(e) => set({ graceBeforeCheckIn: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to arrive late without penalty" sx={helperSx}
                     />
-                  }
-                  label="Paid Lunch"
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Grace Time Before Lunch"
-                  type="number"
-                  size="small"
-                  value={config.lunchGraceBefore}
-                  onChange={(e) => setConfig({ ...config, lunchGraceBefore: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes allowed to start lunch early"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Grace Time After Lunch"
-                  type="number"
-                  size="small"
-                  value={config.lunchGraceAfter}
-                  onChange={(e) => setConfig({ ...config, lunchGraceAfter: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes allowed to return from lunch late"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </ExpandableSection>
-
-          {/* Overtime Settings Section */}
-          <ExpandableSection
-            title="Overtime Settings"
-            icon={<ScheduleOutlined fontSize="small" className="text-purple-600" />}
-          >
-            <Grid container spacing={4} className="mt-6">
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Overtime Before Shift"
-                  type="number"
-                  size="small"
-                  value={config.overtimeBeforeShift}
-                  onChange={(e) => setConfig({ ...config, overtimeBeforeShift: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes early arrival eligible for OT"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Overtime After Shift"
-                  type="number"
-                  size="small"
-                  value={config.overtimeAfterShift}
-                  onChange={(e) => setConfig({ ...config, overtimeAfterShift: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes late departure eligible for OT"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Overtime Rate"
-                  type="number"
-                  size="small"
-                  value={config.overtimeRate}
-                  onChange={(e) => setConfig({ ...config, overtimeRate: parseFloat(e.target.value) || 0 })}
-                  helperText="Multiplier (e.g., 1.5 = time and a half)"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.requireOvertimeApproval}
-                      onChange={(e) => setConfig({ ...config, requireOvertimeApproval: e.target.checked })}
-                      size="small"
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace After Check-in" type="number" size="small"
+                      value={currentConfig.graceAfterCheckIn}
+                      onChange={(e) => set({ graceAfterCheckIn: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to complete check-in process" sx={helperSx}
                     />
-                  }
-                  label="Require Approval for Overtime"
-                />
-              </Grid>
-            </Grid>
-          </ExpandableSection>
-
-          {/* Rest Periods Section */}
-          <ExpandableSection
-            title="Rest Periods & Shift Limits"
-            icon={<BedtimeOutlined fontSize="small" className="text-indigo-600" />}
-          >
-            <Grid container spacing={4} className="mt-6">
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Minimum Rest Between Shifts"
-                  type="number"
-                  size="small"
-                  value={config.minRestBetweenShifts}
-                  onChange={(e) => setConfig({ ...config, minRestBetweenShifts: parseInt(e.target.value) || 0 })}
-                  helperText="Hours required between shifts"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Max Consecutive Days"
-                  type="number"
-                  size="small"
-                  value={config.maxConsecutiveDays}
-                  onChange={(e) => setConfig({ ...config, maxConsecutiveDays: parseInt(e.target.value) || 0 })}
-                  helperText="Maximum days without a day off"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  label="Night Shift Allowance (%)"
-                  type="number"
-                  size="small"
-                  value={config.nightShiftAllowance}
-                  onChange={(e) => setConfig({ ...config, nightShiftAllowance: parseInt(e.target.value) || 0 })}
-                  helperText="Additional pay percentage"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </ExpandableSection>
-
-          {/* Other Settings Section */}
-          <ExpandableSection
-            title="Advanced Configuration"
-            icon={<SettingsIcon fontSize="small" className="text-gray-600" />}
-          >
-            <Grid container spacing={4} className="mt-6">
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Late Arrival Threshold"
-                  type="number"
-                  size="small"
-                  value={config.lateArrivalThreshold}
-                  onChange={(e) => setConfig({ ...config, lateArrivalThreshold: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes after grace period considered late"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Early Departure Threshold"
-                  type="number"
-                  size="small"
-                  value={config.earlyDepartureThreshold}
-                  onChange={(e) => setConfig({ ...config, earlyDepartureThreshold: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes before end considered early"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Rounding Rule</InputLabel>
-                  <Select
-                    value={config.roundingRule}
-                    label="Rounding Rule"
-                    onChange={(e) => setConfig({ ...config, roundingRule: e.target.value })}
-                  >
-                    <MenuItem value="none">No Rounding</MenuItem>
-                    <MenuItem value="up">Round Up</MenuItem>
-                    <MenuItem value="down">Round Down</MenuItem>
-                    <MenuItem value="nearest">Round to Nearest</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Rounding Interval"
-                  type="number"
-                  size="small"
-                  value={config.roundingInterval}
-                  onChange={(e) => setConfig({ ...config, roundingInterval: parseInt(e.target.value) || 0 })}
-                  helperText="Minutes to round time entries"
-                  sx={{
-                    '& .MuiFormHelperText-root': {
-                      color:'var(--text-primary)'
-                    }
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.autoBreakDeduction}
-                      onChange={(e) => setConfig({ ...config, autoBreakDeduction: e.target.checked })}
-                      size="small"
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace Before Check-out" type="number" size="small"
+                      value={currentConfig.graceBeforeCheckOut}
+                      onChange={(e) => set({ graceBeforeCheckOut: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to leave early without penalty" sx={helperSx}
                     />
-                  }
-                  label="Automatically Deduct Break Time"
-                />
-              </Grid>
-            </Grid>
-          </ExpandableSection>
-        </div>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace After Check-out" type="number" size="small"
+                      value={currentConfig.graceAfterCheckOut}
+                      onChange={(e) => set({ graceAfterCheckOut: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to delay checkout process" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Late Arrival Threshold" type="number" size="small"
+                      value={currentConfig.lateArrivalThreshold}
+                      onChange={(e) => set({ lateArrivalThreshold: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes after grace period to mark as late" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Early Departure Threshold" type="number" size="small"
+                      value={currentConfig.earlyDepartureThreshold}
+                      onChange={(e) => set({ earlyDepartureThreshold: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes before shift end to mark as early departure" sx={helperSx}
+                    />
+                  </Grid>
+                </Grid>
+              </ExpandableSection>
+
+              {/* Break Settings */}
+              <ExpandableSection
+                title="Break Settings"
+                icon={<FreeBreakfastOutlined fontSize="small" className="text-green-600" />}
+              >
+                <Grid container spacing={3} className="mt-4">
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField fullWidth label="Break Duration (min)" type="number" size="small"
+                      value={currentConfig.breakTime}
+                      onChange={(e) => set({ breakTime: parseInt(e.target.value) || 0 })}
+                      helperText="Duration per break" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField fullWidth label="Break After (hours worked)" type="number" size="small"
+                      value={currentConfig.breakAfterHours}
+                      onChange={(e) => set({ breakAfterHours: parseInt(e.target.value) || 0 })}
+                      helperText="Trigger break after these hours" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                    <FormControlLabel
+                      control={<Switch size="small" checked={currentConfig.breakIsPaid}
+                        onChange={(e) => set({ breakIsPaid: e.target.checked })} />}
+                      label="Paid Break"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <FormControlLabel
+                      control={<Switch size="small" checked={currentConfig.allowMultipleBreaks}
+                        onChange={(e) => set({ allowMultipleBreaks: e.target.checked })} />}
+                      label="Allow Multiple Breaks"
+                    />
+                  </Grid>
+                  {currentConfig.allowMultipleBreaks && (
+                    <>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField fullWidth label="Max Breaks per Shift" type="number" size="small"
+                          value={currentConfig.maxBreaksPerShift}
+                          onChange={(e) => set({ maxBreaksPerShift: parseInt(e.target.value) || 0 })} />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField fullWidth label="Min Break Interval (min)" type="number" size="small"
+                          value={currentConfig.minBreakInterval}
+                          onChange={(e) => set({ minBreakInterval: parseInt(e.target.value) || 0 })} />
+                      </Grid>
+                    </>
+                  )}
+                  <Grid size={{ xs: 12 }}>
+                    <FormControlLabel
+                      control={<Switch size="small" checked={currentConfig.autoBreakDeduction}
+                        onChange={(e) => set({ autoBreakDeduction: e.target.checked })} />}
+                      label="Auto-deduct break time from attendance"
+                    />
+                  </Grid>
+                </Grid>
+              </ExpandableSection>
+
+              {/* Lunch Settings */}
+              <ExpandableSection
+                title="Lunch & Meal Break"
+                icon={<LunchDiningOutlined fontSize="small" className="text-orange-600" />}
+              >
+                <Grid container spacing={3} className="mt-4">
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField fullWidth label="Lunch Duration (min)" type="number" size="small"
+                      value={currentConfig.lunchDuration}
+                      onChange={(e) => set({ lunchDuration: parseInt(e.target.value) || 0 })}
+                      helperText="Total lunch break duration" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField fullWidth label="Lunch After (hours worked)" type="number" size="small"
+                      value={currentConfig.lunchAfterHours}
+                      onChange={(e) => set({ lunchAfterHours: parseInt(e.target.value) || 0 })}
+                      helperText="Trigger lunch after these hours" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                    <FormControlLabel
+                      control={<Switch size="small" checked={currentConfig.lunchIsPaid}
+                        onChange={(e) => set({ lunchIsPaid: e.target.checked })} />}
+                      label="Paid Lunch"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace Before Lunch (min)" type="number" size="small"
+                      value={currentConfig.lunchGraceBefore}
+                      onChange={(e) => set({ lunchGraceBefore: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to start lunch early" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace After Lunch (min)" type="number" size="small"
+                      value={currentConfig.lunchGraceAfter}
+                      onChange={(e) => set({ lunchGraceAfter: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to return from lunch late" sx={helperSx}
+                    />
+                  </Grid>
+                </Grid>
+              </ExpandableSection>
+
+              {/* Overtime Settings */}
+              <ExpandableSection
+                title="Overtime Settings"
+                icon={<ScheduleOutlined fontSize="small" className="text-purple-600" />}
+              >
+                <Grid container spacing={3} className="mt-4">
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="OT Eligible Before Shift (min)" type="number" size="small"
+                      value={currentConfig.overtimeBeforeShift}
+                      onChange={(e) => set({ overtimeBeforeShift: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes of early arrival that count as OT" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="OT Eligible After Shift (min)" type="number" size="small"
+                      value={currentConfig.overtimeAfterShift}
+                      onChange={(e) => set({ overtimeAfterShift: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes of late departure that count as OT" sx={helperSx}
+                    />
+                  </Grid>
+                </Grid>
+                <Alert severity="info" sx={{ mt: 2 }} icon={false}>
+                  OT rate, max hours, and compensation type are governed by the <strong>Overtime Policy</strong> assigned to each employee category — not by shift config.
+                </Alert>
+              </ExpandableSection>
+
+              {/* Rest Periods */}
+              <ExpandableSection
+                title="Rest Periods & Shift Limits"
+                icon={<BedtimeOutlined fontSize="small" className="text-indigo-600" />}
+              >
+                <Grid container spacing={3} className="mt-4">
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Min Rest Between Shifts (hours)" type="number" size="small"
+                      value={currentConfig.minRestBetweenShifts}
+                      onChange={(e) => set({ minRestBetweenShifts: parseInt(e.target.value) || 0 })}
+                      helperText="Required gap before next shift starts" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Max Consecutive Working Days" type="number" size="small"
+                      value={currentConfig.maxConsecutiveDays}
+                      onChange={(e) => set({ maxConsecutiveDays: parseInt(e.target.value) || 0 })}
+                      helperText="Days before a mandatory day off" sx={helperSx}
+                    />
+                  </Grid>
+                </Grid>
+              </ExpandableSection>
+
+              {/* Advanced / Rounding */}
+              <ExpandableSection
+                title="Time Rounding"
+                icon={<SettingsIcon fontSize="small" className="text-gray-600" />}
+              >
+                <Grid container spacing={3} className="mt-4">
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Rounding Rule</InputLabel>
+                      <Select value={currentConfig.roundingRule} label="Rounding Rule"
+                        onChange={(e) => set({ roundingRule: e.target.value })}>
+                        <MenuItem value="none">No Rounding</MenuItem>
+                        <MenuItem value="up">Round Up</MenuItem>
+                        <MenuItem value="down">Round Down</MenuItem>
+                        <MenuItem value="nearest">Round to Nearest</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Rounding Interval (min)" type="number" size="small"
+                      value={currentConfig.roundingInterval}
+                      onChange={(e) => set({ roundingInterval: parseInt(e.target.value) || 0 })}
+                      helperText="Interval to round attendance time entries" sx={helperSx}
+                    />
+                  </Grid>
+                </Grid>
+              </ExpandableSection>
+
+            </div>
+          </>
+        )}
       </DialogContent>
-      <DialogActions className='!p-4 border-t border-gray-300 sticky bottom-0'>
-        <Button variant='outlined' className='!border-gray-300 !text-gray-800' onClick={onClose}>
+
+      <DialogActions className="!p-4 border-t border-gray-300 sticky bottom-0 bg-white">
+        <Button variant="outlined" className="!border-gray-300 !text-gray-800" onClick={onClose}>
           Cancel
         </Button>
-        <Button onClick={handleSave} variant="contained" className="!bg-primary">
-          Save Configuration
+        <Button
+          onClick={handleSave}
+          variant="contained"
+          className="!bg-primary"
+          disabled={selectedCategories.length === 0}
+        >
+          Save{selectedCategories.length > 0
+            ? ` for ${selectedCategories.length} Categor${selectedCategories.length > 1 ? 'ies' : 'y'}`
+            : ' Configuration'}
         </Button>
       </DialogActions>
     </Dialog>

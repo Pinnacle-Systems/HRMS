@@ -46,6 +46,7 @@ import {
   leaveTableSx,
 } from "./components/leaveTableStyles";
 import { calculateCompOffExpiryDate, formatDateForApi } from "./leaveRules";
+import dayjs from "dayjs";
 
 const sessionOptions: Array<{ value: LeaveDayType; label: string }> = [
   { value: "FULL_DAY", label: "Full Day" },
@@ -327,7 +328,7 @@ export default function CompOffsPage() {
                 label="Worked Date"
                 value={workedDate}
                 onChange={(value) => {
-                  setWorkedDate(value);
+                  setWorkedDate(dayjs(value));
                   setErrors((current) => ({ ...current, workedDate: "" }));
                 }}
                 slots={{

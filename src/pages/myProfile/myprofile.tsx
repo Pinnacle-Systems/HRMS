@@ -428,7 +428,7 @@ export default function Profile() {
             onChange={(newValue) =>
               setEditFormData({
                 ...editFormData,
-                [name]: newValue ? newValue.format("YYYY-MM-DD") : "",
+                [name]: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
               })
             }
             slotProps={{

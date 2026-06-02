@@ -45,6 +45,7 @@ import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
 import { AttachFileOutlined } from "@mui/icons-material";
+import { shiftService, type Shift } from "../../services/modules/shifts";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -78,6 +79,7 @@ const EditableGroup = ({
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [department, setDepartments] = useState<Department[]>([]);
   const [branch, setBranches] = useState<Branches[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [attachmentDialogOpen, setAttachmentDialogOpen] = useState(false);
   const [attachmentData, setAttachmentData] = useState<any>({});
   const [attachments, setAttachments] = useState<any>([]);
@@ -109,6 +111,11 @@ const EditableGroup = ({
         value: opt.id,
         label: opt.branchName,
       }))
+    } else if (fieldKey == 'attendanceSchema') {
+      return shifts.map((opt: any) => ({
+        value: opt.id,
+        label: opt.shiftName,
+      }))
     } else {
       const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
       const category = Object.keys(categoryOptions).find(
@@ -132,6 +139,9 @@ const EditableGroup = ({
     }
     if (fieldKey == 'branch') {
       return branch.map((opt: any) => opt.branchName)
+    }
+    if (fieldKey == 'attendanceSchema') {
+      return shifts.map((opt: any) => opt.shiftName)
     }
     const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
     const category = Object.keys(categoryOptions).find(
@@ -201,6 +211,8 @@ const EditableGroup = ({
       setDepartments(deptRes.data.content || deptRes.data || []);
       const branchRes: any = await branchService.getDropdownBranches();
       setBranches(branchRes.data.content || branchRes.data || []);
+      const shiftRes: any = await shiftService.getShiftDropdown();
+      setShifts(shiftRes.data.content || shiftRes.data || []);
     } catch (error: any) {
       showSnackbar(error.message, "error");
     }
@@ -376,7 +388,7 @@ const EditableGroup = ({
                           onChange={(e) =>
                             setEditData({
                               ...editData,
-                              [field.key]: e ? e.format("YYYY-MM-DD") : "",
+                              [field.key]: e ? dayjs(e).format("YYYY-MM-DD") : "",
                             })
                           }
                           disabled={field.disabled || (
@@ -438,7 +450,7 @@ const EditableGroup = ({
                         onAddOption={(newOption) =>
                           handleAddOption(field.key, newOption)
                         }
-                        showAddButton={(field.key == 'branch' || field.key == 'department') ? false : true}
+                        showAddButton={(field.key == 'branch' || field.key == 'department' || field.key == 'attendanceSchema') ? false : true}
                       />
                     )
                       // : field.type === "master-select" ? (
@@ -1385,7 +1397,7 @@ const EditableTableGroup = ({
                       onChange={(e) =>
                         setNewItemData({
                           ...newItemData,
-                          [field.key]: e ? e.format("YYYY-MM-DD") : "",
+                          [field.key]: e ? dayjs(e).format("YYYY-MM-DD") : "",
                         })
                       }
                       slotProps={{
@@ -1395,9 +1407,9 @@ const EditableTableGroup = ({
                         "& .MuiInputLabel-root": {
                           top: 0,
                         },
-                      "& .MuiIconButton-root": {
-                        color: "dodgerblue",
-                      },
+                        "& .MuiIconButton-root": {
+                          color: "dodgerblue",
+                        },
                       }}
                     />
                   </LocalizationProvider>

@@ -2,4 +2,4 @@
 
 export * from './filter';
 export * from './filterOperators';
-export * from './policies';
+export * from './policy';

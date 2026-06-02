@@ -73,35 +73,94 @@ export interface BulkUploadRowError {
   message?: string;
 }
 
+// export interface BulkUploadResponse {
+//   status?: string;
+//   successCount?: number;
+//   failureCount?: number;
+//   errors?: BulkUploadRowError[];
+//   welcomeEmailsSent?: number;
+//   welcomeEmailsFailed?: number;
+//   welcomeEmailFailures?: string[];
+// }
+
+// export const normalizeBulkUploadResponse = (
+//   response: unknown,
+// ): BulkUploadResponse => {
+//   const r = response as Record<string, any>;
+//   const data: Record<string, any> = r?.data ?? r ?? {};
+//   return {
+//     status: data.status,
+//     successCount: data.successCount ?? data.importedCount,
+//     failureCount: data.failureCount,
+//     errors: Array.isArray(data.errors)
+//       ? data.errors
+//       : Array.isArray(data.rowErrors)
+//         ? data.rowErrors
+//         : [],
+//     welcomeEmailsSent: data.welcomeEmailsSent,
+//     welcomeEmailsFailed: data.welcomeEmailsFailed,
+//     welcomeEmailFailures: Array.isArray(data.welcomeEmailFailures)
+//       ? data.welcomeEmailFailures
+//       : [],
+//   };
+// };
+
 export interface BulkUploadResponse {
+  jobId?: string;
   status?: string;
+  fileName?: string;
+
+  totalRecords?: number;
   successCount?: number;
   failureCount?: number;
-  errors?: BulkUploadRowError[];
+
+  completedAt?: string;
+
   welcomeEmailsSent?: number;
   welcomeEmailsFailed?: number;
   welcomeEmailFailures?: string[];
+
+  generatedEmployeeIds?: string[];
+
+  errors?: {
+    row?: number;
+    rowNumber?: number;
+    branchName?: string;
+    branchCode?: string;
+    field?: string;
+    message?: string;
+  }[];
 }
 
-export const normalizeBulkUploadResponse = (
-  response: unknown,
-): BulkUploadResponse => {
-  const r = response as Record<string, any>;
-  const data: Record<string, any> = r?.data ?? r ?? {};
+export const normalizeBulkUploadResponse = (response: any) => {
+  const payload = response?.data?.data || response?.data || response;
+
   return {
-    status: data.status,
-    successCount: data.successCount ?? data.importedCount,
-    failureCount: data.failureCount,
-    errors: Array.isArray(data.errors)
-      ? data.errors
-      : Array.isArray(data.rowErrors)
-        ? data.rowErrors
-        : [],
-    welcomeEmailsSent: data.welcomeEmailsSent,
-    welcomeEmailsFailed: data.welcomeEmailsFailed,
-    welcomeEmailFailures: Array.isArray(data.welcomeEmailFailures)
-      ? data.welcomeEmailFailures
-      : [],
+    jobId: payload.jobId,
+    status: payload.status,
+    fileName: payload.fileName,
+
+    totalRecords: payload.totalRecords || 0,
+    successCount: payload.successCount || 0,
+    failureCount: payload.failureCount || 0,
+
+    completedAt: payload.completedAt,
+
+    welcomeEmailsSent: payload.welcomeEmailsSent || 0,
+    welcomeEmailsFailed: payload.welcomeEmailsFailed || 0,
+    welcomeEmailFailures: payload.welcomeEmailFailures || [],
+
+    generatedEmployeeIds: payload.generatedEmployeeIds || [],
+
+    errors:
+      payload.errors?.flatMap((row: any) =>
+        row.errors.map((message: string) => ({
+          row: row.rowNumber,
+          branchName: row.branchName,
+          branchCode: row.branchCode,
+          message,
+        }))
+      ) || [],
   };
 };
 
@@ -518,10 +577,12 @@ export const employeeService = {
 
   async bulkUploadEmployees(
     file: File,
+    excelHasEmployeeIdColumn: boolean,
     onProgress?: (progress: number) => void,
   ) {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("excelHasEmployeeIdColumn", excelHasEmployeeIdColumn.toString());
     return apiService.post(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD, formData, {
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
@@ -540,7 +601,7 @@ export const employeeService = {
     return apiService.get(API_ENDPOINTS.ID_GENERATION.GET_ID);
   },
 
-  async getNextId(payload: any) {
+  async previewEmployeeId(payload: any) {
     return apiService.post(API_ENDPOINTS.ID_GENERATION.POST, payload);
   },
 

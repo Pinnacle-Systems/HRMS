@@ -96,7 +96,7 @@ export const employeeColumns = [
   { key: "empType", label: "Employee Type", type: "select" },
   // { key: "employmentStatus", label: "Employment Status" },
   { key: "branch", label: "Branch", type: "select" },
-  // { key: "attendanceSchema", label: "Attendance Schema", type: "select" },
+  // { key: "attendanceSchema", label: "Shift Schema", type: "select" },
   { key: "bonusPolicy", label: "Bonus Policy", type: "select", categoryKey: "BONUS_POLICY", isPolicy: true },
   { key: "otPolicy", label: "OT Policy", type: "select", categoryKey: "OT_POLICY", isPolicy: true },
   { key: "otAmount", label: "OT Amount" },

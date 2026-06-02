@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(pnpm test *)",
-      "Bash(Get-ChildItem -Path \"d:\\\\Anu-Projects\\\\HRMS\\\\src\\\\components\\\\\" -Recurse -Force | Select-Object FullName, Extension | Sort-Object FullName)"
+      "Bash(Get-ChildItem -Path \"d:\\\\Anu-Projects\\\\HRMS\\\\src\\\\components\\\\\" -Recurse -Force | Select-Object FullName, Extension | Sort-Object FullName)",
+      "Bash(cd /d \"d:\\\\Anu-Projects\\\\HRMS\")",
+      "Bash(npx tsc *)"
     ]
   }
 }

@@ -25,7 +25,6 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs, { Dayjs } from 'dayjs';
 import type {
   FilterRule,
   FilterCondition,
@@ -34,6 +33,7 @@ import type {
   FilterOperator,
 } from '../types/filter';
 import { operatorLabels, getOperatorsForFieldType, getInputTypeForOperator } from '../types/filterOperators';
+import dayjs from 'dayjs';
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -158,9 +158,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                 <DatePicker
                   label="From"
                   value={rule.value ? dayjs(rule.value) : null}
-                  onChange={(date: Dayjs | null) => {
+                  onChange={(date) => {
                     updateRule(rule.id, {
-                      value: date ? date.format("YYYY-MM-DD") : "",
+                      value: date ? dayjs(date).format("YYYY-MM-DD") : "",
                     });
                   }}
                   slotProps={{
@@ -186,9 +186,9 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                   label="To"
                   value={rule.value2 ? dayjs(rule.value2) : null}
                   className='!mt-1'
-                  onChange={(date: Dayjs | null) => {
+                  onChange={(date) => {
                     updateRule(rule.id, {
-                      value2: date ? date.format("YYYY-MM-DD") : "",
+                      value2: date ? dayjs(date).format("YYYY-MM-DD") : "",
                     });
                   }}
                   slotProps={{
@@ -286,8 +286,8 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           <DatePicker
             label="Select date"
             value={rule.value ? dayjs(rule.value) : null}
-            onChange={(date: Dayjs | null) => {
-              updateRule(rule.id, { value: date ? date.format('YYYY-MM-DD') : '' });
+            onChange={(d) => {
+              updateRule(rule.id, { value: d ? dayjs(d).format('YYYY-MM-DD') : '' });
             }}
             slotProps={{
               textField: {

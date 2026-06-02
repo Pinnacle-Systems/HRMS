@@ -523,7 +523,7 @@ export const ShiftRotation = () => {
                 onChange={(e) =>
                   setApplyData({
                     ...applyData,
-                    startDate: e ? e.format("YYYY-MM-DD") : "",
+                    startDate: e ? dayjs(e).format("YYYY-MM-DD") : "",
                   })
                 }
                 slotProps={{
@@ -548,7 +548,7 @@ export const ShiftRotation = () => {
                 onChange={(e) =>
                   setApplyData({
                     ...applyData,
-                    endDate: e ? e.format("YYYY-MM-DD") : "",
+                    endDate: e ? dayjs(e).format("YYYY-MM-DD") : "",
                   })
                 }
                 slotProps={{

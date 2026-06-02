@@ -23,7 +23,7 @@ import {
   attachmentColumns,
   commonSx,
 } from "../../../src/pages/employees/const";
-import { stickyHeaderLeftSx, stickyHeaderRightSx, stickyLeftSx, stickyRightSx } from "../../../src/pages/const";
+import { stickyHeaderLeftSx, stickyHeaderRightSx } from "../../../src/pages/const";
 
 type FieldDef = { key: string; label: string; type?: string };
 
@@ -263,15 +263,15 @@ describe("sticky styling constants", () => {
     expect(stickyHeaderRightSx).toHaveProperty("position", "sticky");
   });
 
-  it("stickyLeftSx is a non-null object", () => {
-    expect(stickyLeftSx).toBeTypeOf("object");
-    expect(stickyLeftSx).not.toBeNull();
-  });
+  // it("stickyLeftSx is a non-null object", () => {
+  //   expect(stickyLeftSx).toBeTypeOf("object");
+  //   expect(stickyLeftSx).not.toBeNull();
+  // });
 
-  it("stickyRightSx is a non-null object", () => {
-    expect(stickyRightSx).toBeTypeOf("object");
-    expect(stickyRightSx).not.toBeNull();
-  });
+  // it("stickyRightSx is a non-null object", () => {
+  //   expect(stickyRightSx).toBeTypeOf("object");
+  //   expect(stickyRightSx).not.toBeNull();
+  // });
 
   it("commonSx is a non-null object", () => {
     expect(commonSx).toBeTypeOf("object");

@@ -47,6 +47,8 @@ import { branchService } from '../../../services/modules/branch';
 import { getRowColor, getStickyLeftSx, stickyHeaderLeftSx } from '../../const';
 import { days } from './const';
 import type { Branch, RosterEmployee, alert } from './types';
+import type { Department } from '../../employees/type';
+import { departmentService } from '../../../services/modules/department';
 
 dayjs.extend(isoWeek);
 
@@ -58,7 +60,7 @@ export const ShiftRoster = () => {
   const [department, setDepartment] = useState<string>('all');
   const [branch, setBranch] = useState<string>('all');
   const [rosterData, setRosterData] = useState<RosterEmployee[]>([]);
-  const [filteredRosterData, setFilteredRosterData] = useState<RosterEmployee[]>([]);
+  // const [filteredRosterData, setFilteredRosterData] = useState<RosterEmployee[]>([]);
   const [alerts, setAlerts] = useState<alert[]>([]);
   const [isPublished, setIsPublished] = useState(false);
 
@@ -73,11 +75,11 @@ export const ShiftRoster = () => {
 
 
   // Filter state
-  // const [departments, setDepartments] = useState<Department[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
-  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
+  // const [selectedDepartmentId] = useState<string>('');
+  // const [selectedBranchId] = useState<string>('');
 
   const [openAlertDialog, setopenAlertDialog] = useState(false);
   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
@@ -87,18 +89,19 @@ export const ShiftRoster = () => {
   // Fetch master data
   const fetchMasterData = async () => {
     try {
-      // const deptRes: any = await departmentService.getDepartments();
-      // const departmentsData = deptRes.data?.content || deptRes.data || [];
-      // setDepartments(departmentsData);
-
       const branchRes: any = await branchService.getDropdownBranches();
       const branchesData = branchRes.data?.content || branchRes.data || [];
       setBranches(branchesData);
-
+      const depRes: any = await departmentService.getActiveDepartments();
+      const depData = depRes.data?.content || depRes.data || [];
+      setDepartments(depData);
       const shiftRes: any = await shiftService.getShiftDropdown();
       const shiftData = shiftRes.data?.content || shiftRes.data || [];
-      setShifts(shiftData);
-
+      const updatedShifts = shiftData.map((shift: any) => ({
+        ...shift,
+        weeklyOff: ["SUN"], // Mock data
+      }));
+      setShifts(updatedShifts);
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }
@@ -113,25 +116,30 @@ export const ShiftRoster = () => {
         weekStartDate
       };
       if (searchTerm) params.search = searchTerm;
-      if (selectedDepartmentId) params.departmentId = selectedDepartmentId;
-      if (selectedBranchId) params.branchId = selectedBranchId;
+      // if (selectedDepartmentId) params.departmentId = selectedDepartmentId;
+      // if (selectedBranchId) params.branchId = selectedBranchId;
+      if (department !== 'all') {
+        params.departmentId = department; // or departmentId based on API
+      }
+
+      if (branch !== 'all') {
+        params.branchId = branch;
+      }
 
       const response: any = await shiftService.getRoster(params);
       const data = response.data?.data || response.data || [];
       setRosterData(data);
 
       // Apply client-side filters for department and branch names
-      let filtered = [...data];
-      if (department !== 'all') {
-        filtered = filtered.filter(emp => emp.department === department);
-      }
-      if (branch !== 'all') {
-        filtered = filtered.filter(emp => emp.branchId === branch);
-      }
-      setFilteredRosterData(filtered);
-
-      // Check if roster is published (you may need to add this field to the response)
-      setIsPublished(false); // Update based on actual response if available
+      // let filtered = [...data];
+      // if (department !== 'all') {
+      //   filtered = filtered.filter(emp => emp.department === department);
+      // }
+      // if (branch !== 'all') {
+      //   filtered = filtered.filter(emp => emp.branchId === branch);
+      // }
+      // setFilteredRosterData(data);
+      setIsPublished(false);
     } catch (error: any) {
       showSnackbar(error.message || 'Failed to fetch roster', 'error');
     } finally {
@@ -158,22 +166,10 @@ export const ShiftRoster = () => {
   useEffect(() => {
     fetchRoster();
     fetchAlerts();
-  }, [selectedWeek, selectedDepartmentId, selectedBranchId, searchTerm]);
+  }, [selectedWeek, department, branch, searchTerm]);
 
   const allEmployeeIds = rosterData.map(emp => emp.employeeId);
-  const allDays = days;
-
-  useEffect(() => {
-    // Apply client-side filters when department/branch filter changes
-    let filtered = [...rosterData];
-    if (department !== 'all') {
-      filtered = filtered.filter(emp => emp.department === department);
-    }
-    if (branch !== 'all') {
-      filtered = filtered.filter(emp => emp.branchId === branch);
-    }
-    setFilteredRosterData(filtered);
-  }, [department, branch, rosterData]);
+  // const allDays = days;
 
   const handleCopyPrevWeek = async () => {
     showConfirmDialog({
@@ -191,8 +187,15 @@ export const ShiftRoster = () => {
             fromWeekStartDate,
             toWeekStartDate
           };
-          if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
-          if (selectedBranchId) payload.branchId = selectedBranchId;
+          // if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
+          // if (selectedBranchId) payload.branchId = selectedBranchId;
+          if (department !== 'all') {
+            payload.departmentId = department; // or departmentId based on API
+          }
+
+          if (branch !== 'all') {
+            payload.branchId = branch;
+          }
 
           await shiftService.copyPreviousWeekToRoster(payload);
           showSnackbar('Previous week roster copied successfully!', 'success');
@@ -226,7 +229,6 @@ export const ShiftRoster = () => {
       showSnackbar('Please select at least one day', 'error');
       return;
     }
-
     showSpinner();
     try {
       const weekStartDate = selectedWeek.format('YYYY-MM-DD');
@@ -236,7 +238,6 @@ export const ShiftRoster = () => {
         days: bulkAssignDays,
         shiftCode: bulkAssignShift
       };
-
       await shiftService.bulkAssignShifts(payload);
       showSnackbar('Bulk assignment completed successfully!', 'success');
       setBulkAssignOpen(false);
@@ -260,8 +261,15 @@ export const ShiftRoster = () => {
           const payload: any = {
             weekStartDate: selectedWeek.format('YYYY-MM-DD')
           };
-          if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
-          if (selectedBranchId) payload.branchId = selectedBranchId;
+          // if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
+          // if (selectedBranchId) payload.branchId = selectedBranchId;
+          if (department !== 'all') {
+            payload.departmentId = department; // or departmentId based on API
+          }
+
+          if (branch !== 'all') {
+            payload.branchId = branch;
+          }
 
           await shiftService.publishRoster(payload);
           showSnackbar('Roster published successfully!', 'success');
@@ -322,11 +330,18 @@ export const ShiftRoster = () => {
       const weekStartDate = selectedWeek.format("YYYY-MM-DD");
       const params: any = { weekStartDate };
 
-      if (selectedDepartmentId) {
-        params.departmentId = selectedDepartmentId;
+      // if (selectedDepartmentId) {
+      //   params.departmentId = selectedDepartmentId;
+      // }
+      // if (selectedBranchId) {
+      //   params.branchId = selectedBranchId;
+      // }
+      if (department !== 'all') {
+        params.departmentId = department; // or departmentId based on API
       }
-      if (selectedBranchId) {
-        params.branchId = selectedBranchId;
+
+      if (branch !== 'all') {
+        params.branchId = branch;
       }
       if (searchTerm) {
         params.search = searchTerm;
@@ -345,11 +360,18 @@ export const ShiftRoster = () => {
       showSpinner();
       const weekStartDate = selectedWeek.format("YYYY-MM-DD");
       const params: any = { weekStartDate };
-      if (selectedDepartmentId) {
-        params.departmentId = selectedDepartmentId;
+      // if (selectedDepartmentId) {
+      //   params.departmentId = selectedDepartmentId;
+      // }
+      // if (selectedBranchId) {
+      //   params.branchId = selectedBranchId;
+      // }
+      if (department !== 'all') {
+        params.departmentId = department; // or departmentId based on API
       }
-      if (selectedBranchId) {
-        params.branchId = selectedBranchId;
+
+      if (branch !== 'all') {
+        params.branchId = branch;
       }
       if (searchTerm) {
         params.search = searchTerm;
@@ -368,7 +390,11 @@ export const ShiftRoster = () => {
     return roster?.shiftCode || '-';
   };
 
-  const departmentOptions = ['all', ...new Set(rosterData.map(emp => emp.department).filter(Boolean))];
+  // const departmentOptions = ['all', ...new Set(rosterData.map(emp => emp.department).filter(Boolean))];
+  // console.log(departmentOptions,'000000');
+
+  const selectedShift: any = shifts.find((shift) => shift.shiftCode === bulkAssignShift);
+  const availableDays = days.filter((day) => !selectedShift?.weeklyOff?.includes(day));
 
   const commonsx = {
     "& .MuiDialog-paper": {
@@ -390,7 +416,7 @@ export const ShiftRoster = () => {
                   <DatePicker
                     label="Week Start Date"
                     value={selectedWeek}
-                    onChange={(date) => setSelectedWeek(date?.startOf('isoWeek') || dayjs().startOf('isoWeek'))}
+                    onChange={(date) => setSelectedWeek(dayjs(date)?.startOf('isoWeek') || dayjs().startOf('isoWeek'))}
                     slotProps={{ textField: { size: 'small', className: 'w-48' } }}
                     sx={{
                       "& .MuiIconButton-root": {
@@ -404,8 +430,8 @@ export const ShiftRoster = () => {
                   <InputLabel>Department</InputLabel>
                   <Select value={department} onChange={(e) => setDepartment(e.target.value)} label="Department">
                     <MenuItem value="all">All Departments</MenuItem>
-                    {departmentOptions.filter(d => d !== 'all').map(dept => (
-                      <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+                    {departments.map(d => (
+                      <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -506,82 +532,91 @@ export const ShiftRoster = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredRosterData.map((employee, index) => (
-              <TableRow key={employee.employeeId} className="hover:bg-gray-50" sx={getRowColor(index)}>
-                <TableCell className="font-medium text-gray-800" sx={{
-                  ...getStickyLeftSx(index),
-                  minWidth: "70px",
-                }}>{index + 1}</TableCell>
-                <TableCell className="" sx={{
-                  ...getStickyLeftSx(index),
-                  left: "70px",
-                  minWidth: "100px",
-                }}>
-                  {employee.employeeCode}
-                </TableCell>
-                <TableCell className="font-medium">
-                  <div>
-                    {employee.employeeName}
-                    <div className="text-gray-500 text-[10px]">
-                      {employee.department}
-                    </div>
+            {rosterData.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={12}>
+                  <div className="text-gray-500 text-center py-8">
+                    No Data Available
                   </div>
                 </TableCell>
-
-                {days.map((day) => {
-                  const shift = getShiftForDay(employee, day);
-                  const isEditing = editingCell?.employeeId === employee.employeeId && editingCell?.day === day;
-
-                  return (
-                    <TableCell key={day} align="center" className="p-1" sx={{ padding: '5px 16px !important' }}>
-                      {isEditing ? (
-                        <div className="flex items-center gap-1">
-                          <Select
-                            size="small"
-                            value={shift}
-                            onChange={(e) => handleShiftChange(employee.employeeId, day, e.target.value)}
-                            autoFocus
-                            className="w-28"
-                          >
-                            {shifts.map(opt => (
-                              <MenuItem key={opt.id} value={opt.shiftCode}>
-                                {opt.shiftName}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                          <IconButton
-                            size="small"
-                            onClick={() => setEditingCell(null)}
-                            sx={{ p: 0.5 }}
-                          >
-                            <CancelIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </div>
-                      ) : (
-                        <Tooltip title="Click to edit">
-                          <Chip
-                            label={shift}
-                            onClick={() => setEditingCell({
-                              employeeId: employee.employeeId,
-                              day,
-                              currentShift: shift
-                            })}
-                            className="cursor-pointer hover:opacity-80 !font-mono !text-[10px]"
-                            sx={{
-                              backgroundColor: `${shifts.find((opt) => opt.shiftCode === shift)?.color}20` || "#e5e7eb",
-                              color: shifts.find((opt) => opt.shiftCode === shift)?.color || "#e5e7eb",
-                              fontWeight: 500,
-                              fontSize: '0.75rem',
-                              height: '28px'
-                            }}
-                          />
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  );
-                })}
               </TableRow>
-            ))}
+            ) : (
+              rosterData.map((employee, index) => (
+                <TableRow key={employee.employeeId} className="hover:bg-gray-50" sx={getRowColor(index)}>
+                  <TableCell className="font-medium text-gray-800" sx={{
+                    ...getStickyLeftSx(index),
+                    minWidth: "70px",
+                  }}>{index + 1}</TableCell>
+                  <TableCell className="" sx={{
+                    ...getStickyLeftSx(index),
+                    left: "70px",
+                    minWidth: "100px",
+                  }}>
+                    {employee.employeeCode}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <div>
+                      {employee.employeeName}
+                      <div className="text-gray-500 text-[10px]">
+                        {employee.department}
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  {days.map((day) => {
+                    const shift = getShiftForDay(employee, day);
+                    const isEditing = editingCell?.employeeId === employee.employeeId && editingCell?.day === day;
+
+                    return (
+                      <TableCell key={day} align="center" className="p-1" sx={{ padding: '5px 16px !important' }}>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <Select
+                              size="small"
+                              value={shift}
+                              onChange={(e) => handleShiftChange(employee.employeeId, day, e.target.value)}
+                              autoFocus
+                              className="w-28"
+                            >
+                              {shifts.map(opt => (
+                                <MenuItem key={opt.id} value={opt.shiftCode}>
+                                  {opt.shiftName}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                            <IconButton
+                              size="small"
+                              onClick={() => setEditingCell(null)}
+                              sx={{ p: 0.5 }}
+                            >
+                              <CancelIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </div>
+                        ) : (
+                          <Tooltip title="Click to edit">
+                            <Chip
+                              label={shift}
+                              onClick={() => setEditingCell({
+                                employeeId: employee.employeeId,
+                                day,
+                                currentShift: shift
+                              })}
+                              className="cursor-pointer hover:opacity-80 !font-mono !text-[10px]"
+                              sx={{
+                                backgroundColor: `${shifts.find((opt) => opt.shiftCode === shift)?.color}20` || "#e5e7eb",
+                                color: shifts.find((opt) => opt.shiftCode === shift)?.color || "#e5e7eb",
+                                fontWeight: 500,
+                                fontSize: '0.75rem',
+                                height: '28px'
+                              }}
+                            />
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              )))}
           </TableBody>
         </Table>
       </div>
@@ -638,12 +673,11 @@ export const ShiftRoster = () => {
                 value={bulkAssignDays}
                 onChange={(e) => {
                   const value = e.target.value as string[];
-
                   if (value.includes("ALL")) {
-                    if (bulkAssignDays.length === allDays.length) {
+                    if (bulkAssignDays.length === availableDays.length) {
                       setBulkAssignDays([]);
                     } else {
-                      setBulkAssignDays(allDays);
+                      setBulkAssignDays(availableDays);
                     }
                   } else {
                     setBulkAssignDays(value);
@@ -652,8 +686,7 @@ export const ShiftRoster = () => {
                 label="Select Days"
                 renderValue={(selected) => {
                   const values = selected as string[];
-
-                  if (values.length === allDays.length) {
+                  if (values.length === availableDays.length) {
                     return (
                       <div className="flex flex-wrap gap-1">
                         <Chip
@@ -664,7 +697,6 @@ export const ShiftRoster = () => {
                       </div>
                     );
                   }
-
                   return (
                     <div className="flex flex-wrap gap-1">
                       {values.map((day) => (
@@ -680,12 +712,12 @@ export const ShiftRoster = () => {
               >
                 <MenuItem value="ALL" className='!py-0'>
                   <Checkbox
-                    checked={bulkAssignDays.length === allDays.length}
+                    checked={bulkAssignDays.length === availableDays.length}
                   />
                   Select All
                 </MenuItem>
 
-                {days.map((day) => (
+                {availableDays.map((day) => (
                   <MenuItem key={day} value={day} className='!py-0'>
                     <Checkbox
                       checked={bulkAssignDays.includes(day)}
@@ -696,78 +728,6 @@ export const ShiftRoster = () => {
               </Select>
             </FormControl>
           </div>
-          {/* <FormControl fullWidth>
-            <InputLabel>Select Employees</InputLabel>
-            <Select
-              multiple
-              value={bulkAssignEmployees}
-              onChange={(e) => {
-                const value = e.target.value as string[];
-                if (value.includes("ALL")) {
-                  if (bulkAssignEmployees.length === allEmployeeIds.length) {
-                    setBulkAssignEmployees([]);
-                  } else {
-                    setBulkAssignEmployees(allEmployeeIds);
-                  }
-                } else {
-                  setBulkAssignEmployees(value);
-                }
-              }}
-              label="Select Employees"
-              renderValue={(selected) => {
-                const values = selected as string[];
-                if (values.length === allEmployeeIds.length) {
-                  return (
-                    <div className="flex flex-wrap gap-1">
-                      <Chip
-                        size="small"
-                        label="All Employees"
-                        color="primary"
-                      />
-                    </div>
-                  );
-                }
-                return (
-                  <div className="flex flex-wrap gap-1">
-                    {values.map((id) => (
-                      <Chip
-                        key={id}
-                        size="small"
-                        label={
-                          rosterData.find(
-                            (emp) => emp.employeeId === id
-                          )?.employeeName || id
-                        }
-                      />
-                    ))}
-                  </div>
-                );
-              }}
-            >
-              <MenuItem value="ALL" className='!text-[12px] !py-0'>
-                <Checkbox
-                  checked={
-                    bulkAssignEmployees.length === allEmployeeIds.length
-                  }
-                />
-                Select All
-              </MenuItem>
-              {rosterData.map((employee) => (
-                <MenuItem
-                  key={employee.employeeId}
-                  value={employee.employeeId}
-                  className='!text-[12px] !py-0'
-                >
-                  <Checkbox
-                    checked={bulkAssignEmployees.includes(
-                      employee.employeeId
-                    )}
-                  />
-                  {employee.employeeName} - {employee.department}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl> */}
           <Autocomplete
             multiple
             options={[
@@ -801,9 +761,10 @@ export const ShiftRoster = () => {
               }
             }}
             renderOption={(props, option) => {
+              const { key, ...optionProps } = props;
               const isAll = option.employeeId === "ALL";
               return (
-                <li {...props} className='!p-2 !flex !items-start'>
+                <li key={key} {...optionProps} className='!p-2 !flex !items-start'>
                   <Checkbox
                     className='!grid !items-start !justify-start !py-0 '
                     checked={

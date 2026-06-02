@@ -39,7 +39,7 @@ import {
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
 import logo from "../assets/logo.jpg"
-import { TrackChangesOutlined } from "@mui/icons-material";
+import { PolicyOutlined, TrackChangesOutlined } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
@@ -57,6 +57,9 @@ export default function Layout() {
   const user = session?.user;
   const [attendanceOpen, setAttendanceOpen] = useState(
     location.pathname.startsWith("/attendance")
+  );
+  const [policyOpen, setPolicyOpen] = useState(
+    location.pathname.startsWith("/policies")
   );
   const handleDrawerToggle = () => {
     setOpen(!open);
@@ -140,6 +143,22 @@ export default function Layout() {
       icon: <AttachMoneyOutlinedIcon />,
       path: "/payroll",
       roles: ["HR", "ADMIN"],
+    },
+    {
+      text: "Policy Engine",
+      icon: <PolicyOutlined />,
+      path: "/policies",
+      roles: ["HR", "ADMIN"],
+      children: [
+        {
+          text: "Policy Dashboard",
+          path: "/policies",
+        },
+        {
+          text: "Policy Simulator",
+          path: "/policies/simulator",
+        },
+      ],
     },
     {
       text: "Settings",
@@ -363,12 +382,16 @@ export default function Layout() {
                       : "text-gray-400"
                       } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
                     onClick={() => {
-                      if (item.children) {
-                        setAttendanceOpen(!attendanceOpen);
+                    
+                      if (item.text === 'Policy Engine') {
+                        setPolicyOpen(!policyOpen);
+                        setOpen(true);
                       }
                       if (item.text == 'Attendance') {
                         setOpen(true);
+                        setAttendanceOpen(!attendanceOpen);
                       }
+                    
                       navigate(item.path);
                     }}
                   >
@@ -390,19 +413,24 @@ export default function Layout() {
                       }}
                     />
 
-                    {item.children &&
+                    {/* {item.children &&
                       open &&
                       (attendanceOpen ? (
                         <ExpandLess fontSize="small" className="text-gray-800" />
                       ) : (
                         <ExpandMore fontSize="small" className="text-gray-800" />
-                      ))}
+                      ))} */}
+                    {item.children &&
+                      open &&
+                      ((item.text === 'Attendance' && (attendanceOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
+                        (item.text === 'Policy Engine' && (policyOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)))}
                   </ListItemButton>
                 </ListItem>
               </Tooltip>
 
               {/* Sub Menu */}
-              {item.children && (
+              {/* Attendance Sub Menu */}
+              {item.text === 'Attendance' && item.children && (
                 <Collapse in={attendanceOpen && open} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
                     {item.children.map((child: any) => (
@@ -410,13 +438,12 @@ export default function Layout() {
                         key={child.path}
                         sx={{ pl: 2 }}
                         className={`min-h-[40px] text-sm ${location.pathname === child.path
-                          ? "text-primary !bg-primary-50"
-                          : "text-gray-400"
+                            ? "text-primary !bg-primary-50"
+                            : "text-gray-400"
                           }`}
                         onClick={() => navigate(child.path)}
                       >
                         <ListItemIcon
-
                           sx={{
                             minWidth: 30,
                             color:
@@ -427,7 +454,46 @@ export default function Layout() {
                         >
                           {child.icon}
                         </ListItemIcon>
+                        <ListItemText
+                          primary={child.text}
+                          className="text-gray-800"
+                          sx={{
+                            "& .MuiTypography-root": {
+                              fontSize: "12px",
+                            },
+                          }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              )}
 
+              {/* Policies Sub Menu */}
+              {item.text === 'Policy Engine' && item.children && (
+                <Collapse in={policyOpen && open} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.children.map((child: any) => (
+                      <ListItemButton
+                        key={child.path}
+                        sx={{ pl: 2 }}
+                        className={`min-h-[40px] text-sm ${location.pathname === child.path
+                            ? "text-primary !bg-primary-50"
+                            : "text-gray-400"
+                          }`}
+                        onClick={() => navigate(child.path)}
+                      >
+                        <ListItemIcon
+                          sx={{
+                            minWidth: 30,
+                            color:
+                              location.pathname === child.path
+                                ? "#2563eb"
+                                : "#9ca3af",
+                          }}
+                        >
+                          {child.icon}
+                        </ListItemIcon>
                         <ListItemText
                           primary={child.text}
                           className="text-gray-800"
