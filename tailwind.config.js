@@ -26,6 +26,16 @@ export default {
         success: "#10b981",
         warning: "#f59e0b",
         error: "#ef4444",
+        head: "var(--head)",
+      },
+      keyframes: {
+        blink: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" },
+        },
+      },
+      animation: {
+        blink: "blink 1s infinite",
       },
       // colors: {
       //   primary: "#e16a3d",

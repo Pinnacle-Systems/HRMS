@@ -1,11 +1,7 @@
-// src/pages/PolicyDetails.tsx
-
-import  { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Container,
   Box,
   Typography,
-  Paper,
   Tabs,
   Tab,
   Grid,
@@ -24,11 +20,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  // FormControl,
-  // InputLabel,
-  // Select,
-  // MenuItem,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -42,20 +33,25 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { policyApi } from '../../services/modules/policy';
-import type{ PolicyDefinition, PolicyVersion, PolicyAssignment } from '../../types/policy';
+import type { PolicyDefinition, PolicyVersion, PolicyAssignment } from '../../types/policy';
 import { PolicyPreviewSimulator } from '../../components/PolicyManagement/PolicyPreviewSimulator';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import dayjs from 'dayjs';
+import { useUI } from '../../context/Snackbar';
 
-export  default function PolicyDetails()  {
+export default function PolicyDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
   const [assignments, setAssignments] = useState<PolicyAssignment[]>([]);
   const [activeTab, setActiveTab] = useState(0);
-  // const [loading, setLoading] = useState(true);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
+  const { showSpinner, hideSpinner } = useUI();
 
   useEffect(() => {
     if (id) {
@@ -64,7 +60,7 @@ export  default function PolicyDetails()  {
   }, [id]);
 
   const loadPolicyData = async () => {
-    // setLoading(true);
+    showSpinner()
     try {
       const [policyData, versionsData] = await Promise.all([
         policyApi.getPolicyById(id!),
@@ -72,7 +68,7 @@ export  default function PolicyDetails()  {
       ]);
       setPolicy(policyData);
       setVersions(versionsData);
-      
+
       if (versionsData[0]) {
         const assignmentsData = await policyApi.getAssignments(versionsData[0].id);
         setAssignments(assignmentsData);
@@ -80,7 +76,7 @@ export  default function PolicyDetails()  {
     } catch (error) {
       console.error('Failed to load policy:', error);
     } finally {
-      // setLoading(false);
+      hideSpinner()
     }
   };
 
@@ -110,92 +106,87 @@ export  default function PolicyDetails()  {
       case 'DRAFT': return 'warning';
       case 'PENDING_APPROVAL': return 'info';
       case 'SCHEDULED': return 'primary';
-      case 'EXPIRED': return 'default';
-      default: return 'default';
+      case 'EXPIRED': return 'error';
+      default: return 'secondary';
     }
   };
 
   if (!policy) return null;
 
-  const activeVersion = versions.find(v => v.status === 'ACTIVE');
+  // const activeVersion = versions.find(v => v.status === 'ACTIVE');
   const currentVersion = versions[0];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <div>
       <Box className="flex items-center mb-3">
-        <IconButton onClick={() => navigate('/policies')} sx={{ mr: 2 }}>
-          <BackIcon />
+        <IconButton onClick={() => navigate('/policies')}>
+          <BackIcon className='text-gray-800' />
         </IconButton>
         <Box>
           <Typography variant="h4" component="h1">
-            {policy.name}
+            {policy.name} (View Details)
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {policy.description}
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<EditIcon />}
-          onClick={() => navigate(`/policies/${id}/edit`)}
-          sx={{ mr: 1 }}
-        >
-          Edit
-        </Button>
-        {activeVersion && (
+        {/* {!activeVersion && (
           <Button
             variant="contained"
+            className='!bg-primary'
             startIcon={<TestIcon />}
             onClick={() => setTestDialogOpen(true)}
           >
             Test Policy
           </Button>
-        )}
+        )} */}
       </Box>
 
       <Grid container spacing={3}>
-        <Grid size={{xs:12,md:8}}>
-          <Paper sx={{ mb: 3 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <div className='mb-3 bg-white text-gray-800'>
             <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-              <Tab label="Overview" />
-              <Tab label="Versions" />
-              <Tab label="Assignments" />
-              <Tab label="Audit Log" />
+              <Tab label="Overview" className='text-gray-800' />
+              <Tab label="Versions" className='text-gray-800' />
+              <Tab label="Assignments" className='text-gray-800' />
+              <Tab label="Audit Log" className='text-gray-800' />
             </Tabs>
 
             <Box>
               {activeTab === 0 && (
-                <Box>
+                <Box className="p-5">
                   <Grid container spacing={2}>
-                    <Grid size={{xs:12,sm:6}}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
                         Policy ID
                       </Typography>
                       <Typography variant="body2">{policy.id}</Typography>
                     </Grid>
-                    <Grid size={{xs:12,sm:6}}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
                         Domain
                       </Typography>
-                      <Chip label={policy.domain} size="small" />
+                      <div> <Chip label={policy.domain} size="small" className='bg-gray-100 text-gray-800' /></div>
                     </Grid>
-                    <Grid size={{xs:12,sm:6}}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
                         Status
                       </Typography>
-                      <Chip 
-                        label={policy.status} 
-                        color={getStatusColor(policy.status) as any}
-                        size="small"
-                      />
+                      <div>
+                        <Chip
+                          label={policy.status}
+                          color={getStatusColor(policy.status) as any}
+                          size="small"
+                        />
+                      </div>
                     </Grid>
-                    <Grid size={{xs:12,sm:6}}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
                         Created By
                       </Typography>
                       <Typography variant="body2">{policy.createdBy}</Typography>
                     </Grid>
-                    <Grid size={{xs:12,sm:6}}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
                         Created At
                       </Typography>
@@ -203,7 +194,7 @@ export  default function PolicyDetails()  {
                         {new Date(policy.createdAt).toLocaleString()}
                       </Typography>
                     </Grid>
-                    <Grid size={{xs:12,sm:6}}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
                         Last Updated
                       </Typography>
@@ -219,9 +210,9 @@ export  default function PolicyDetails()  {
                     Current Version: v{currentVersion?.versionNumber}
                   </Typography>
                   {currentVersion?.config && (
-                    <Box component="pre" sx={{ 
-                      bgcolor: 'action.hover', 
-                      p: 2, 
+                    <Box component="pre" className='bg-gray-100' sx={{
+                      // bgcolor: 'action.hover',
+                      p: 2,
                       borderRadius: 1,
                       overflow: 'auto',
                       fontSize: 12,
@@ -233,8 +224,8 @@ export  default function PolicyDetails()  {
               )}
 
               {activeTab === 1 && (
-                <TableContainer>
-                  <Table>
+                <TableContainer className='p-5'>
+                  <Table className='bg-white-50 border border-gray-200 rounded-lg shadow-sm'>
                     <TableHead>
                       <TableRow>
                         <TableCell>Version</TableCell>
@@ -254,8 +245,8 @@ export  default function PolicyDetails()  {
                             {version.effectiveTo ? new Date(version.effectiveTo).toLocaleDateString() : '-'}
                           </TableCell>
                           <TableCell>
-                            <Chip 
-                              label={version.status} 
+                            <Chip
+                              label={version.status}
                               color={getStatusColor(version.status) as any}
                               size="small"
                             />
@@ -286,8 +277,8 @@ export  default function PolicyDetails()  {
               )}
 
               {activeTab === 2 && (
-                <TableContainer>
-                  <Table>
+                <TableContainer className='p-5'>
+                  <Table className='bg-white-50 border border-gray-200 rounded-lg shadow-sm'>
                     <TableHead>
                       <TableRow>
                         <TableCell>Assignment Type</TableCell>
@@ -306,10 +297,10 @@ export  default function PolicyDetails()  {
                             {assignment.employeeId && 'Specific Employee'}
                           </TableCell>
                           <TableCell>
-                            {assignment.branchId || 
-                             assignment.departmentId || 
-                             assignment.designationId || 
-                             assignment.employeeId}
+                            {assignment.branchId ||
+                              assignment.departmentId ||
+                              assignment.designationId ||
+                              assignment.employeeId}
                           </TableCell>
                           <TableCell>{assignment.priority}</TableCell>
                           <TableCell>
@@ -324,17 +315,19 @@ export  default function PolicyDetails()  {
               )}
 
               {activeTab === 3 && (
-                <Alert severity="info">
-                  Audit logs will be displayed here. This includes all policy changes, approvals, and activations.
-                </Alert>
+                <div className="p-2">
+                  <Alert severity="info" className='!m-5'>
+                    Audit logs will be displayed here. This includes all policy changes, approvals, and activations.
+                  </Alert>
+                </div>
               )}
             </Box>
-          </Paper>
+          </div>
         </Grid>
 
-        <Grid size={{xs:12,md:4}}>
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="subtitle1" gutterBottom>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <div className='p-3 mb-3 bg-white'>
+            <Typography variant="subtitle1" className='!mb-3'>
               Quick Actions
             </Typography>
             <Button
@@ -359,29 +352,47 @@ export  default function PolicyDetails()  {
               fullWidth
               variant="outlined"
               startIcon={<TestIcon />}
+              sx={{ mb: 1 }}
               onClick={() => setTestDialogOpen(true)}
             >
               Test Policy
             </Button>
-          </Paper>
+            <Button
+              fullWidth
+              variant='contained'
+              className='!bg-primary'
+              startIcon={<EditIcon />}
+              onClick={() => navigate(`/policies/${id}/edit`)}
+            >
+              Edit
+            </Button>
+          </div>
 
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="subtitle1" gutterBottom>
+          <div className="p-4 bg-white">
+            <Typography variant="subtitle1" className="!mb-3 font-semibold">
               Statistics
             </Typography>
-            <Box className="flex-justify-between mb-1">
-              <Typography variant="body2" color="text.secondary">Total Versions</Typography>
-              <Typography variant="body2">{versions.length}</Typography>
+
+            <Box className="flex gap-4 flex-wrap">
+              <Chip
+                label={`Versions: ${versions.length ?? 0}`}
+                color="primary"
+                variant="outlined"
+              />
+
+              <Chip
+                label={`Assignments: ${assignments.length ?? 0}`}
+                color="success"
+                variant="outlined"
+              />
+
+              <Chip
+                label="Evaluations (30d): - 0"
+                color="warning"
+                variant="outlined"
+              />
             </Box>
-            <Box className="flex-justify-between mb-1">
-              <Typography variant="body2" color="text.secondary">Active Assignments</Typography>
-              <Typography variant="body2">{assignments.length}</Typography>
-            </Box>
-            <Box className="flex-justify-between">
-              <Typography variant="body2" color="text.secondary">Evaluations (30d)</Typography>
-              <Typography variant="body2">-</Typography>
-            </Box>
-          </Paper>
+          </div>
         </Grid>
       </Grid>
 
@@ -396,23 +407,31 @@ export  default function PolicyDetails()  {
       <Dialog open={scheduleDialogOpen} onClose={() => setScheduleDialogOpen(false)}>
         <DialogTitle>Schedule Policy Activation</DialogTitle>
         <DialogContent>
-          <TextField
-            fullWidth
-            type="datetime-local"
-            label="Activation Date & Time"
-            value={scheduleDate}
-            onChange={(e) => setScheduleDate(e.target.value)}
-            sx={{ mt: 2 }}
-            // InputLabelProps={{ shrink: true }}
-          />
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DateTimePicker
+              label="Activation Date & Time"
+              value={scheduleDate ? dayjs(scheduleDate) : null}
+              onChange={(newValue) =>
+                setScheduleDate(newValue ? dayjs(newValue).format("YYYY-MM-DDTHH:mm:ss") : "")
+              }
+              sx={{
+                mt: 2,
+              }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                },
+              }}
+            />
+          </LocalizationProvider>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setScheduleDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSchedule} variant="contained">
+        <DialogActions className='!p-4'>
+          <Button onClick={() => setScheduleDialogOpen(false)} variant='outlined' className='!border-gray-200 !text-gray-800'>Cancel</Button>
+          <Button onClick={handleSchedule} variant="contained" className='!bg-primary'>
             Schedule
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </div>
   );
 };

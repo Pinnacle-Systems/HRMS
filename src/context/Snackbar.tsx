@@ -171,7 +171,7 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
       {/* Global Snackbar */}
       <Snackbar
         open={state.snackbar.open}
-        autoHideDuration={1000}
+        autoHideDuration={2000}
         onClose={hideSnackbar}
         anchorOrigin={{ vertical: "top", horizontal: "right" }}
       >

@@ -317,11 +317,6 @@ export const AssignOnboarding = () => {
                 value={dayjs(formData.startDate)}
                 onChange={(date) => setFormData({ ...formData, startDate: dayjs(date)?.format('YYYY-MM-DD') || '' })}
                 slotProps={{ textField: { fullWidth: true } }}
-                sx={{
-                      "& .MuiIconButton-root": {
-                        color: "dodgerblue",
-                      },
-                    }}
               />
             </LocalizationProvider>
           </div>

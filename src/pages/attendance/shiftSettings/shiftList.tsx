@@ -20,7 +20,10 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Tooltip
+  Tooltip,
+  Checkbox,
+  ListItemText,
+  Box
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,18 +43,20 @@ import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { useUI } from '../../../context/Snackbar';
-import type { Shift, ShiftStats } from '../../../services/modules/shifts';
+import type { Category, Shift, ShiftStats } from '../../../services/modules/shifts';
 import { days, getShiftTypeClass, colorClasses, formatTimeTo12Hour } from './const';
 import { shiftService } from '../../../services/modules/shifts';
 import { GlobalPagination } from '../../../components/GlobalPagination';
-import { getRowColor } from '../../const';
+import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from '../../const';
 import type { ShiftFormData } from './types';
 import { ShiftAdvancedConfig } from './shiftAdvancedConfig';
+import { categoryService } from '../../../services/modules/category';
 
 export const ShiftList = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftTypes, setShiftTypes] = useState<string[]>([]);
+  const [template, setTemplate] = useState<Category[]>([]);
   const [stats, setStats] = useState<ShiftStats>({
     totalShifts: 0,
     activeShifts: 0,
@@ -72,8 +77,7 @@ export const ShiftList = () => {
     startTime: dayjs('2000-01-01 09:00'),
     endTime: dayjs('2000-01-01 18:00'),
     shiftType: 'General',
-    // graceTime: 15,
-    // breakTime: 60,
+    templateId: 'Staff',
     active: true,
     color: '#3b82f6',
     weeklyOff: ['MON'],
@@ -131,7 +135,7 @@ export const ShiftList = () => {
       const params: any = {
         page: page,
         size: limit,
-        sort: 'shiftName,asc'
+        sort: 'createdAt,desc'
       };
       if (searchTerm) {
         params.search = searchTerm;
@@ -139,7 +143,7 @@ export const ShiftList = () => {
       const [shiftsData, statsData, shiftType] = await Promise.all([
         shiftService.getShifts(params),
         shiftService.getShiftStats(),
-        shiftService.getShiftTypes()
+        shiftService.getShiftTypes(),
       ]);
       setShifts(shiftsData.content);
       setTotal(shiftsData.totalElements || 0);
@@ -152,9 +156,22 @@ export const ShiftList = () => {
     }
   };
 
+  const fetchMasterData = async () => {
+    try {
+      showSpinner();
+      const data: any = await categoryService.getCategoryItems("515d5fe8-2f41-41fe-aab3-6da80a5cfae1")
+      setTemplate(data.data.content || []);
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to fetch data', 'error');
+    } finally {
+      hideSpinner();
+    }
+  };
+
   useEffect(() => {
     Promise.resolve().then(() => {
       fetchData();
+      fetchMasterData();
     });
   }, [page, limit, searchTerm]);
 
@@ -163,23 +180,20 @@ export const ShiftList = () => {
       showSnackbar('Please fill all required fields', 'error');
       return;
     }
-
-    // Prepare API data with string time format
     const apiData = {
       shiftName: formData.shiftName,
       shiftCode: formData.shiftCode,
       shiftType: formData.shiftType,
       startTime: dayjsToTimeString(formData.startTime),
       endTime: dayjsToTimeString(formData.endTime),
-      // breakTime: formData.breakTime,
-      // graceTime: formData.graceTime,
+      templateId: formData.templateId,
       weeklyOff: formData.weeklyOff,
       color: formData.color,
       description: formData.description,
       active: formData.active,
       nightShift: formData.shiftType.toLowerCase() === 'night'
     };
-
+    console.log('API Data:', apiData);
     try {
       showSpinner();
       if (editingShift) {
@@ -214,7 +228,8 @@ export const ShiftList = () => {
       color: '#3b82f6',
       weeklyOff: ['MON'],
       description: '',
-      nightShift: false
+      nightShift: false,
+      templateId: 'Staff',
     });
   };
 
@@ -232,7 +247,8 @@ export const ShiftList = () => {
       color: shift.color,
       weeklyOff: shift.weeklyOff,
       description: shift.description || '',
-      nightShift: shift.nightShift
+      nightShift: shift.nightShift,
+      templateId: shift.templateId || 'Staff',
     });
     setIsDialogOpen(true);
   };
@@ -332,38 +348,53 @@ export const ShiftList = () => {
 
       {/* Shifts Table */}
       <TableContainer className='h-[calc(100vh-400px)]'>
-        <Table className='border border-gray-200'>
+        <Table stickyHeader className='border border-gray-200'>
           <TableHead className="bg-gray-100">
             <TableRow>
-              <TableCell className='!font-semibold'>S No</TableCell>
-              <TableCell className='!font-semibold'>Shift Name</TableCell>
-              <TableCell className='!font-semibold'>Code</TableCell>
+              <TableCell className='!font-semibold' sx={{
+                ...stickyHeaderLeftSx,
+                minWidth: "70px",
+              }}>S No</TableCell>
+              <TableCell className='nth-c !font-semibold'>Code</TableCell>
+              <TableCell className='!font-semibold '>Shift Name</TableCell>
               <TableCell className='!font-semibold'>Timing</TableCell>
-              {/* <TableCell className='!font-semibold'>Break</TableCell> */}
               <TableCell className='!font-semibold'>Hours</TableCell>
-              {/* <TableCell className='!font-semibold'>Grace</TableCell> */}
+              <TableCell className='!font-semibold'>Template</TableCell>
               <TableCell className='!font-semibold'>Type</TableCell>
+              <TableCell className='!font-semibold'>Shift Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
               <TableCell className='!font-semibold'>Status</TableCell>
-              <TableCell className='!font-semibold'>Actions</TableCell>
+              <TableCell className='!font-semibold' sx={{
+                ...stickyHeaderRightSx,
+                minWidth: "100px",
+              }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredShifts.map((shift, index) => (
               <TableRow key={shift.id} className="hover:bg-gray-50" sx={getRowColor(index)}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell>
+                <TableCell sx={{
+                  ...getStickyLeftSx(index),
+                  minWidth: "70px",
+                }}>{page * limit + index + 1}</TableCell>
+                <TableCell sx={{
+                  ...getStickyLeftSx(index),
+                  left: "70px",
+                  minWidth: "100px",
+                }}>
                   <div className="flex items-center gap-2 font-medium">
                     <div
                       className="w-3 h-3 rounded-full border border-gray-300"
                       style={{ backgroundColor: shift.color }}
                     />
-                    <span>{shift.shiftName}</span>
+                    <span className="!font-mono">{shift.shiftCode}</span>
                   </div>
+
                 </TableCell>
-                <TableCell>
-                  <span className="!font-mono">{shift.shiftCode}</span>
+                <TableCell >
+                  <span>{shift.shiftName}</span>
                 </TableCell>
+
                 <TableCell>
                   <div className="flex items-center gap-1">
                     <TimeIcon fontSize="small" className="text-gray-400" />
@@ -372,9 +403,9 @@ export const ShiftList = () => {
                     </span>
                   </div>
                 </TableCell>
-                {/* <TableCell>{shift.breakTime} min</TableCell> */}
                 <TableCell>{shift.totalHours}h</TableCell>
-                {/* <TableCell>{shift.graceTime} min</TableCell> */}
+                <TableCell>template</TableCell>
+                <TableCell>type</TableCell>
                 <TableCell>
                   <Chip
                     size="small"
@@ -392,7 +423,10 @@ export const ShiftList = () => {
                     onClick={() => handleToggleStatus(shift)}
                   />
                 </TableCell>
-                <TableCell align="center">
+                <TableCell align="center" sx={{
+                  ...getStickyRightSx(index),
+                  minWidth: "50px",
+                }}>
                   <div className="flex gap-1 justify-center">
                     <Tooltip title="Edit Basic Info">
                       <IconButton size="small" onClick={() => handleEdit(shift)} color="primary">
@@ -486,10 +520,11 @@ export const ShiftList = () => {
 
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <TimePicker
                     label="Start Time"
                     value={formData.startTime}
+                    ampm={false}
                     onChange={(value) => setFormData({ ...formData, startTime: dayjs(value) })}
                     slotProps={{
                       textField: { fullWidth: true, required: true }, openPickerButton: {
@@ -499,10 +534,11 @@ export const ShiftList = () => {
                     }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
+                <Grid size={{ xs: 12, md: 4 }}>
                   <TimePicker
                     label="End Time"
                     value={formData.endTime}
+                    ampm={false}
                     onChange={(value) => setFormData({ ...formData, endTime: dayjs(value) })}
                     slotProps={{
                       textField: { fullWidth: true, required: true }, openPickerButton: {
@@ -512,45 +548,30 @@ export const ShiftList = () => {
                     }}
                   />
                 </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Template</InputLabel>
+                    <Select
+                      value={formData.templateId}
+                      label="Template"
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        setFormData({
+                          ...formData,
+                          templateId: newType,
+                        });
+                      }}
+                    >
+                      {template.map((cat) => (
+                        <MenuItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
               </Grid>
             </LocalizationProvider>
-
-            {/* <Grid container spacing={2}>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Grace Time (minutes)"
-                  value={formData.graceTime}
-                  onChange={(e) => setFormData({ ...formData, graceTime: parseInt(e.target.value) || 0 })}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  type="number"
-                  label="Break Time (minutes)"
-                  value={formData.breakTime}
-                  onChange={(e) => setFormData({ ...formData, breakTime: parseInt(e.target.value) || 0 })}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Weekly Off</InputLabel>
-                  <Select
-                    multiple
-                    value={formData.weeklyOff}
-                    label="Weekly Off"
-                    onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value as string[] })}
-                    renderValue={(selected) => (selected as string[]).join(', ')}
-                  >
-                    {days.map(day => (
-                      <MenuItem key={day} value={day}>{day}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid> */}
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -561,10 +582,17 @@ export const ShiftList = () => {
                     value={formData.weeklyOff}
                     label="Weekly Off"
                     onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value as string[] })}
-                    renderValue={(selected) => (selected as string[]).join(', ')}
+                    renderValue={(selected) => <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {(selected as string[]).map((value) => (
+                        <Chip key={value} label={value} size="small" />
+                      ))}
+                    </Box>}
                   >
                     {days.map(day => (
-                      <MenuItem key={day} value={day}>{day}</MenuItem>
+                      <MenuItem key={day} value={day}>
+                        <Checkbox className='!p-0 !pr-2' checked={formData.weeklyOff.indexOf(day) > -1} />
+                        <ListItemText primary={day} />
+                      </MenuItem>
                     ))}
                   </Select>
                 </FormControl>

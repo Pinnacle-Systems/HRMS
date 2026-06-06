@@ -228,17 +228,14 @@ function AppRoutesContent() {
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>
-                {/* <Route path="attendance" element={<AttendanceLayout />}> */}
-                {/* <Route index element={<Navigate to="schedule" replace />} /> */}
+                <Route path="attendance/shifts" element={<ShiftSettings />} />
                 <Route path="attendance/list" element={<AttendanceList />} />
                 <Route path="attendance/reports" element={<AttendanceReports />} />
-                <Route path="attendance/shifts" element={<ShiftSettings />} />
                 {/* </Route> */}
                 <Route path="payroll" element={<Payroll />} />
                 <Route path="settings" element={<Settings />}>
                   <Route
                     path="general/company-settings"
-                    // path="general/company-settings/:id"
                     element={<CompanySettings />}
                   />
                   <Route

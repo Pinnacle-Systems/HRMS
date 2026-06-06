@@ -1,144 +1,3 @@
-// import { createTheme } from "@mui/material/styles";
-
-// const theme = createTheme({
-//   typography: {
-//     fontSize: 12,
-//   },
-//   components: {
-//     MuiTypography: {
-//       styleOverrides: {
-//         root: {
-//           fontSize: "12px",
-//         },
-//       },
-//     },
-//     MuiTextField: {
-//       styleOverrides: {
-//         root: {
-//           "& .MuiOutlinedInput-root": {
-//             backgroundColor: "var(--bg-primary)",
-//             padding: "0px",
-//             "& fieldset": {
-//               borderColor: "var(--border-color)",
-//               borderWidth: "1px",
-//             },
-//             "&:hover fieldset": {
-//               borderColor: "var(--border-color)",
-//             },
-//             "&.Mui-focused fieldset": {
-//               borderColor: "#02afff",
-//               borderWidth: "2px",
-//             },
-//           },
-//           "& .MuiInputBase-input": {
-//             fontSize: "12px",
-//             padding: "10px",
-//             color: "var(--text-primary)",
-//             "&::placeholder": {
-//               color: "var(--text-primary)",
-//             },
-//           },
-//           "& .MuiInputLabel-root": {
-//             fontSize: "13px",
-//             backgroundColor: "var(--bg-primary)",
-//             padding: "0 4px",
-//             top:"-5px",
-//             color: "var(--text-primary) !important",
-//             "&.Mui-focused": {
-//               color: "var(--text-primary) !important",
-//             },
-//           },
-//         },
-//       },
-//     },
-//     MuiInputLabel: {
-//       styleOverrides: {
-//         root: {
-//           fontSize: "12px",
-//           top:"-5px",
-//           "&.Mui-focused": {
-//             color: "var(--text-primary) !important",
-//           },
-//         },
-//       },
-//     },
-//     MuiOutlinedInput: {
-//       styleOverrides: {
-//         root: {
-//           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-//             borderColor: "#02afff !important",
-//             borderWidth: "2px",
-//           },
-//           "& .MuiPickersSectionList-root": {
-//             padding: "10px",
-//           },
-//         },
-//       },
-//     },
-//     // Add MuiStack override
-//     MuiStack: {
-//       styleOverrides: {
-//         root: {
-//           overflow: "visible !important",
-//           paddingTop: "0 !important",
-//         },
-//       },
-//     },
-//     // MuiPickersOutlinedInput: {
-//     //   styleOverrides: {
-//     //     root: {
-//     //       "&:hover .MuiPickersOutlinedInput-notchedOutline": {
-//     //         borderColor: "var(--border-color)",
-//     //       },
-//     //     },
-//     //   },
-//     // },
-//     MuiFormLabel: {
-//       styleOverrides: {
-//         root: {
-//           color: "var(--primary-color)", // Changed to primary color
-//           "&.Mui-focused": {
-//             color: "#02afff",
-//           },
-//         },
-//       },
-//     },
-//     MuiSelect: {
-//       styleOverrides: {
-//         select: {
-//           padding: '10px',
-//         },
-//         outlined: {
-//           padding: '10px',
-//         },
-//         root: {
-//           '&:hover .MuiOutlinedInput-notchedOutline': {
-//             borderColor: '#02afff',
-//           },
-//         },
-//       },
-//     },
-//   },
-// });
-
-// theme.components = {
-//   ...theme.components,
-//   MuiCssBaseline: {
-//     styleOverrides: {
-//       ".MuiPickersOutlinedInput-root.Mui-focused:not(.Mui-error) .MuiPickersOutlinedInput-notchedOutline":
-//         {
-//           borderColor: "#02afff !important",
-//           borderWidth: "2px",
-//         },
-//       ".css-lqwr9g-MuiPickersOutlinedInput-notchedOutline": {
-//         borderColor: "var(--border-color) !important",
-//       },
-//     },
-//   },
-// };
-
-// export default theme;
-
 import { createTheme } from "@mui/material/styles";
 
 const theme = createTheme({
@@ -228,6 +87,7 @@ const theme = createTheme({
         ".MuiOutlinedInput-notchedOutline": {
           borderColor: "var(--border-color) !important",
         },
+
         ".MuiPickersOutlinedInput-root .MuiOutlinedInput-notchedOutline": {
           borderColor: "var(--border-color) !important",
         },
@@ -242,6 +102,7 @@ const theme = createTheme({
             borderColor: "#02afff !important",
             borderWidth: "2px",
           },
+
         ".MuiPickersOutlinedInput-root .MuiPickersOutlinedInput-notchedOutline":
           {
             borderColor: "var(--border-color) !important",
@@ -263,6 +124,57 @@ const theme = createTheme({
           padding: "0 10px 0 2px",
         },
 
+        // DatePicker calendar day cells
+        ".MuiPickerDay-root": {
+          color: "var(--text-primary) !important",
+          backgroundColor: "transparent !important",
+        },
+        ".MuiPickerDay-root:hover": {
+          backgroundColor: "var(--head) !important",
+        },
+        ".MuiPickerDay-root.Mui-selected": {
+          backgroundColor: "var(--color-primary) !important",
+          color: "#fff !important",
+        },
+        ".MuiPickerDay-root.MuiPickerDay-today:not(.Mui-selected)": {
+          border: "1px solid !important",
+          color: "var(--color-primary) !important",
+        },
+
+        // Weekday header labels
+        ".MuiDayCalendar-weekDayLabel": {
+          color: "var(--text-primary) !important",
+        },
+        ".MuiDayCalendar-header .MuiDayCalendar-weekDayLabel:first-of-type": {
+          color: "var(--color-primary)  !important",
+        },
+        ".MuiDayCalendar-header .MuiDayCalendar-weekDayLabel:last-of-type": {
+          color: "var(--color-primary)  !important",
+        },
+
+        // Sunday day cells (1st column) and Saturday day cells (7th column)
+        ".MuiDayCalendar-weekContainer .MuiPickerDay-root:nth-child(1):not(.MuiPickerDay-fillerCell):not(.Mui-selected)": {
+          color: "var(--color-primary) !important",
+        },
+        ".MuiDayCalendar-weekContainer .MuiPickerDay-root:nth-child(7):not(.MuiPickerDay-fillerCell):not(.Mui-selected)": {
+          color: "var(--color-primary) !important",
+        },
+
+        // DatePicker input — calendar toggle icon button
+        ".MuiInputAdornment-root .MuiIconButton-root": {
+          color: "var(--color-primary) !important",
+        },
+
+        // Calendar popup — prev/next month arrow buttons
+        ".MuiPickersArrowSwitcher-previousIconButton, .MuiPickersArrowSwitcher-nextIconButton": {
+          color: "var(--text-primary) !important",
+        },
+
+        // Calendar popup — month/year switch view button
+        ".MuiPickersCalendarHeader-switchViewButton": {
+          color: "var(--text-primary) !important",
+        },
+
         // ".MuiPickersSectionList-root": {
         //   padding: "8px 0",
         // },
@@ -277,10 +189,23 @@ const theme = createTheme({
       },
     },
 
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          "&.MuiPickerPopper-paper": {
+            backgroundColor: "var(--bg-primary)",
+            color: "var(--text-primary)",
+          },
+        },
+      },
+    },
+
     MuiTextField: {
       styleOverrides: {
         root: {
-          // minWidth: "180px",
+          "& .MuiInputBase-root.Mui-disabled": {
+            // backgroundColor: "gray",
+          },
 
           "& .MuiOutlinedInput-root": {
             backgroundColor: "var(--bg-primary)",
@@ -326,6 +251,21 @@ const theme = createTheme({
       },
     },
 
+    MuiInputBase: {
+      styleOverrides: {
+        root: {
+          "&.Mui-disabled": {
+            color: "gray",
+            WebkitTextFillColor: "gray"
+          },
+          "& .MuiInputBase-input.Mui-disabled": {
+            color: "gray",
+            WebkitTextFillColor: "gray",
+          },
+        },
+      },
+    },
+
     MuiInputLabel: {
       styleOverrides: {
         root: {
@@ -334,6 +274,9 @@ const theme = createTheme({
 
           "&.Mui-focused": {
             color: "var(--text-primary) !important",
+          },
+          "&.Mui-disabled": {
+            color: "gray",
           },
         },
       },
@@ -352,6 +295,12 @@ const theme = createTheme({
 
           "& .MuiPickersSectionList-root": {
             padding: "10px",
+          },
+
+          "&.Mui-disabled": {
+            "& .MuiOutlinedInput-notchedOutline": {
+              color: "gray",
+            },
           },
           // "&:hover .MuiOutlinedInput-notchedOutline": {
           //   borderColor: "var(--border-color) !important",
@@ -392,7 +341,11 @@ const theme = createTheme({
         select: {
           padding: "10px",
           color: "var(--text-primary)",
-          fontSize: '12px',
+          fontSize: "12px",
+          "&.Mui-disabled": {
+            color: "gray",
+            WebkitTextFillColor: "gray",
+          },
         },
 
         outlined: {
@@ -406,6 +359,10 @@ const theme = createTheme({
         root: {
           "&:hover .MuiOutlinedInput-notchedOutline": {
             borderColor: "#02afff",
+          },
+          "&.Mui-disabled": {
+            color: "gray",
+            WebkitTextFillColor: "gray",
           },
         },
       },
@@ -472,26 +429,114 @@ const theme = createTheme({
 
     MuiAutocomplete: {
       styleOverrides: {
+        paper: {
+          backgroundColor: "var(--bg-primary)",
+          color: "var(--text-primary)",
+        },
+
+        listbox: {
+          backgroundColor: "var(--bg-primary)",
+          color: "var(--text-primary)",
+        },
+
+        option: {
+          fontSize: "12px",
+          color: "var(--text-primary)",
+          backgroundColor: "var(--bg-primary)",
+
+          "&:hover": {
+            backgroundColor: "var(--head) !important",
+          },
+
+          "&.Mui-focused": {
+            backgroundColor: "var(--head) !important",
+          },
+
+          "&[aria-selected='true']": {
+            backgroundColor: "var(--head) !important",
+          },
+
+          "&[aria-selected='true'].Mui-focused": {
+            backgroundColor: "var(--head) !important",
+          },
+        },
+
         inputRoot: {
           "& .MuiAutocomplete-input": {
-            padding: "1px !important",
+            padding: "2px !important",
           },
+        },
+
+        popupIndicator: {
+          color: "var(--text-primary)",
+
+          "&:hover": {
+            backgroundColor: "transparent",
+          },
+        },
+
+        clearIndicator: {
+          color: "var(--text-primary)",
+        },
+
+        tag: {
+          backgroundColor: "var(--head)",
+          color: "var(--text-primary)",
+          fontSize: "12px",
+
+          "& .MuiChip-deleteIcon": {
+            color: "var(--text-secondary)",
+          },
+
+          "& .MuiChip-deleteIcon:hover": {
+            color: "var(--color-primary)",
+          },
+        },
+
+        noOptions: {
+          color: 'var(--text-primary)',
         },
       },
     },
-    
+
     MuiMenuItem: {
       styleOverrides: {
         root: {
-          fontSize: '12px',
+          fontSize: "12px",
         },
       },
     },
     MuiMenu: {
       styleOverrides: {
         paper: {
-          '& .MuiMenuItem-root': {
-            fontSize: '12px',
+          "& .MuiMenuItem-root": {
+            fontSize: "12px",
+          },
+        },
+      },
+    },
+    MuiStepLabel: {
+      styleOverrides: {
+        label: {
+          color: "var(--text-secondary)",
+          "&.Mui-active": {
+            color: "var(--text-primary)",
+          },
+          "&.Mui-completed": {
+            color: "var(--text-primary)",
+          },
+        },
+      },
+    },
+    MuiStepIcon: {
+      styleOverrides: {
+        root: {
+          // color: "red",
+          "&.Mui-active": {
+            // color: "blue",
+          },
+          "&.Mui-completed": {
+            color: "green",
           },
         },
       },

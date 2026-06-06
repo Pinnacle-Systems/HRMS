@@ -6,15 +6,24 @@ import { renderWithProviders } from "../../helpers/render";
 import EmployeeManagement from "../../../src/pages/employees/employeeManagement";
 
 // --------------- service mocks ---------------
-vi.mock("../../../src/services/modules/employees", () => ({
-  employeeService: {
-    getEmployees: vi.fn(),
-    createEmployee: vi.fn(),
-    updateEmployee: vi.fn(),
-    deleteEmployee: vi.fn(),
-    bulkUploadEmployees: vi.fn(),
-  },
-}));
+vi.mock("../../../src/services/modules/employees", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../src/services/modules/employees")>();
+  return {
+    ...actual,
+    employeeService: {
+      getEmployees: vi.fn(),
+      createEmployee: vi.fn(),
+      updateEmployee: vi.fn(),
+      deleteEmployee: vi.fn(),
+      deactivateEmployee: vi.fn(),
+      reactivateEmployee: vi.fn(),
+      bulkUploadEmployees: vi.fn(),
+      getEmployeeId: vi.fn().mockResolvedValue({}),
+      previewEmployeeId: vi.fn().mockResolvedValue({ previewId: "EMP001" }),
+      downloadBulkUploadTemplate: vi.fn(),
+    },
+  };
+});
 
 vi.mock("../../../src/services/modules/department", () => ({
   departmentService: {
@@ -31,6 +40,7 @@ vi.mock("../../../src/services/modules/category", () => ({
 vi.mock("../../../src/services/modules/branch", () => ({
   branchService: {
     getBranches: vi.fn(),
+    getDropdownBranches: vi.fn(),
   },
 }));
 
@@ -187,7 +197,7 @@ describe("EmployeeManagement — API contract", () => {
     );
     renderWithProviders(<EmployeeManagement />);
     await waitFor(() => {
-      expect(vi.mocked(branchService.getBranches)).toHaveBeenCalled();
+      expect(vi.mocked(branchService.getDropdownBranches)).toHaveBeenCalled();
     });
   });
 
@@ -282,9 +292,9 @@ describe("EmployeeManagement — delete employee", () => {
     renderWithProviders(<EmployeeManagement />);
     await screen.findByText("Alice Johnson");
 
-    // MUI renders DeleteIcon with data-testid="DeleteIcon"
-    const deleteIcons = screen.getAllByTestId("DeleteIcon");
-    expect(deleteIcons.length).toBeGreaterThan(0);
+    // MUI renders NoAccountsIcon (deactivate) with data-testid="NoAccountsIcon"
+    const deactivateIcons = screen.getAllByTestId("NoAccountsIcon");
+    expect(deactivateIcons.length).toBeGreaterThan(0);
   });
 });
 

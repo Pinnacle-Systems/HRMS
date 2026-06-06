@@ -1,9 +1,3 @@
-// src/services/modules/policy.ts
-//
-// When USE_MOCK is true every method returns mock data immediately.
-// Flip it to false once the backend is ready — each method will then
-// hit the real API and only fall back to mock on network failure.
-
 import axios from 'axios';
 import { mockPolicyService, delay } from '../mockPolicyService';
 import type {

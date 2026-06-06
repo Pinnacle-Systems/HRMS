@@ -38,6 +38,7 @@ export interface Shift {
   active: boolean;
   nightShift: boolean;
   isActive?: boolean;
+  templateId: string;
 }
 
 // Pagination response for shifts
@@ -83,6 +84,12 @@ interface ShiftTypesResponse {
   message: string;
   data: string[];
   timestamp: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  code: string;
 }
 
 // Combined types for API responses

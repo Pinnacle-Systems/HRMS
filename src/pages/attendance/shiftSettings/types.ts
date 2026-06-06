@@ -1,6 +1,6 @@
 import type { Dayjs } from "dayjs";
 import type { Shift } from "../../../services/modules/shifts";
-import type { EmployeeCategory as EmployeeCategoryType } from '../../../types/policy';
+import type { EmployeeCategory as EmployeeCategoryType } from "../../../types/policy";
 
 // Form data interface
 export interface ShiftFormData {
@@ -16,6 +16,7 @@ export interface ShiftFormData {
   weeklyOff: string[];
   description: string;
   nightShift: boolean;
+  templateId: string;
 }
 
 export interface WeeklyRoster {
@@ -64,24 +65,30 @@ export interface ShiftCategoryConfig {
   graceAfterCheckIn: number;
   graceBeforeCheckOut: number;
   graceAfterCheckOut: number;
+
   breakTime: number;
   breakAfterHours: number;
-  breakIsPaid: boolean;
   allowMultipleBreaks: boolean;
   maxBreaksPerShift: number;
   minBreakInterval: number;
-  lunchDuration: number;
-  lunchAfterHours: number;
-  lunchIsPaid: boolean;
-  lunchGraceBefore: number;
-  lunchGraceAfter: number;
+  breakSlots?: BreakSlot[];
+  breakStartTime?: string;
+  breakEndTime?: string;
+
+  mealDuration: number;
+  mealAfterHours: number;
+  enableMealBreakGrace: boolean;
+  mealGraceBefore: number;
+  mealGraceAfter: number;
+  mealBreakStartTime?: string;
+  mealBreakEndTime?: string;
+
   overtimeBeforeShift: number;
   overtimeAfterShift: number;
+
   minRestBetweenShifts: number;
   maxConsecutiveDays: number;
-  lateArrivalThreshold: number;
-  earlyDepartureThreshold: number;
-  autoBreakDeduction: boolean;
+
   roundingRule: string;
   roundingInterval: number;
 }
@@ -89,7 +96,7 @@ export interface ShiftCategoryConfig {
 export interface AdvancedShiftConfig {
   shiftId: string;
   shiftName: string;
-  categoryConfigs: ShiftCategoryConfig[];
+  advancedConfigs: ShiftCategoryConfig[];
 }
 
 export interface ShiftAdvancedConfigProps {
@@ -97,4 +104,11 @@ export interface ShiftAdvancedConfigProps {
   onClose: () => void;
   shift: Shift | null;
   onSave: () => void;
+}
+
+export interface BreakSlot {
+  id: string;
+  startTime: string; // Format: "HH:MM"
+  endTime: string; // Format: "HH:MM"
+  duration?: number; // Optional - can be calculated or manually set
 }

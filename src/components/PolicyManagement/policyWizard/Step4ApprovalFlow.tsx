@@ -8,24 +8,9 @@ import {
   Add as AddIcon, Delete as DeleteIcon,
   ArrowUpward as ArrowUpIcon, ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material';
-import { type ApprovalFlowConfig, type ApprovalLevel, PolicyDomain } from '../../../types/policy';
-
-interface Step4ApprovalFlowProps {
-  config: ApprovalFlowConfig | null;
-  onChange: (config: ApprovalFlowConfig) => void;
-  domain?: string;
-}
-
-// Domain-aware auto-approve label / unit
-const AUTO_APPROVE_META: Record<string, { label: string; unit: string; helper: string }> = {
-  [PolicyDomain.LEAVE]:    { label: 'Auto-approve below (days)', unit: 'days', helper: 'Leave requests shorter than this are auto-approved' },
-  [PolicyDomain.EXPENSE]:  { label: 'Auto-approve below (₹)',    unit: '₹',    helper: 'Expense claims under this amount are auto-approved' },
-  [PolicyDomain.OVERTIME]: { label: 'Auto-approve below (hours)',unit: 'hrs',  helper: 'Overtime requests under this duration are auto-approved' },
-  [PolicyDomain.COMP_OFF]: { label: 'Auto-approve below (days)', unit: 'days', helper: 'Comp-off requests shorter than this are auto-approved' },
-  [PolicyDomain.WORK_FROM_HOME]: { label: 'Auto-approve below (days)', unit: 'days', helper: 'WFH requests shorter than this are auto-approved' },
-};
-
-const DEFAULT_META = { label: 'Auto-approve threshold', unit: 'units', helper: 'Requests below this threshold are auto-approved' };
+import { type ApprovalFlowConfig, type ApprovalLevel } from '../../../types/policy';
+import { APPROVER_LABELS, AUTO_APPROVE_META, DEFAULT_META, helperSx } from '../const';
+import type { Step4ApprovalFlowProps } from '../types';
 
 export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, onChange, domain }) => {
   const [localConfig, setLocalConfig] = useState<ApprovalFlowConfig>(
@@ -70,14 +55,6 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
     updateConfig({ levels: newLevels });
   };
 
-  const APPROVER_LABELS: Record<string, string> = {
-    REPORTING_MANAGER: 'Reporting Manager',
-    HR:                'HR Department',
-    DEPARTMENT_HEAD:   'Department Head',
-    ADMIN:             'System Admin',
-    SPECIFIC_USER:     'Specific User',
-  };
-
   return (
     <Box>
       <Typography variant="h6" gutterBottom>Configure Approval Workflow</Typography>
@@ -88,16 +65,16 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
       <Grid container spacing={3}>
         {/* Left column — settings */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card variant="outlined" sx={{ mb: 2 }}>
+          <Card variant="outlined" className='bg-white-50 text-gray-800' sx={{ mb: 2 }}>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>Auto-approval</Typography>
+              <Typography variant="subtitle2" gutterBottom color='info'>Auto-approval</Typography>
               <TextField
                 fullWidth type="number" size="small"
                 label={meta.label}
                 value={localConfig.autoApproveBelowDays}
                 onChange={(e) => updateConfig({ autoApproveBelowDays: parseInt(e.target.value) || 0 })}
                 helperText={meta.helper}
-                sx={{ mb: 1, '& .MuiFormHelperText-root': { color: 'var(--text-primary)' } }}
+                sx={{ my: 2, '& .MuiFormHelperText-root': { color: 'var(--text-primary)' } }}
               />
               <Typography variant="caption" color="text.secondary">
                 Set to 0 to disable auto-approval.
@@ -105,16 +82,16 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ mb: 2 }}>
+          <Card variant="outlined" sx={{ mb: 2 }} className='bg-white-50 text-gray-800'>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>Approval Mode</Typography>
+              <Typography variant="subtitle2" gutterBottom color='info'>Approval Mode</Typography>
               <FormControlLabel
                 control={<Switch size="small" checked={!!localConfig.parallelApproval}
                   onChange={(e) => updateConfig({ parallelApproval: e.target.checked })} />}
                 label="Parallel Approval" />
-              <Typography variant="caption" sx={{ mb: 1.5 }}>
+              <div className='text-[12px] text-gray-500 mb-2'>
                 All approvers get notified at once. Sequential otherwise.
-              </Typography>
+              </div>
               <FormControlLabel
                 control={<Switch size="small" checked={localConfig.rejectionRequiresReason !== false}
                   onChange={(e) => updateConfig({ rejectionRequiresReason: e.target.checked })} />}
@@ -122,9 +99,9 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
             </CardContent>
           </Card>
 
-          <Card variant="outlined" sx={{ mb: 2 }}>
+          <Card variant="outlined" sx={{ mb: 2 }} className='bg-white-50 text-gray-800'>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>Notifications</Typography>
+              <Typography variant="subtitle2" gutterBottom color='info'>Notifications</Typography>
               <FormControlLabel
                 control={<Switch size="small" checked={localConfig.notifyOnSubmit !== false}
                   onChange={(e) => updateConfig({ notifyOnSubmit: e.target.checked })} />}
@@ -136,10 +113,10 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
             </CardContent>
           </Card>
 
-          <Card variant="outlined">
+          <Card variant="outlined" className='bg-white-50 text-gray-800'>
             <CardContent>
-              <Typography variant="subtitle2" gutterBottom>Fallback Approver</Typography>
-              <FormControl fullWidth size="small">
+              <Typography variant="subtitle2" gutterBottom color='info'>Fallback Approver</Typography>
+              <FormControl fullWidth className='!mt-5'>
                 <InputLabel>If all levels unavailable</InputLabel>
                 <Select value={localConfig.fallbackApprover || ''} label="If all levels unavailable"
                   onChange={(e) => updateConfig({ fallbackApprover: e.target.value || undefined })}>
@@ -168,33 +145,33 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
           </Box>
 
           {localConfig.levels.map((level, index) => (
-            <Card key={index} sx={{ mb: 2 }}>
+            <Card key={index} sx={{ mb: 2 }} className='bg-white-50'>
               <CardContent>
                 <Box className="flex justify-between items-center mb-2">
-                  <Box className="flex items-center gap-1">
+                  <Box className="flex items-center gap-1 mb-4">
                     <Chip label={`Level ${level.level}`} color="primary" size="small" />
-                    <Typography variant="body2" color="text.secondary">
+                    <div className='text-[12px] text-gray-800 ml-2'>
                       {APPROVER_LABELS[level.approverType] ?? level.approverType}
-                    </Typography>
+                    </div>
                   </Box>
                   <Box>
                     <Tooltip title="Move up">
                       <span>
                         <IconButton size="small" onClick={() => moveLevel(index, 'up')} disabled={index === 0}>
-                          <ArrowUpIcon fontSize="small" />
+                          <ArrowUpIcon fontSize="small" className={`${index === 0 ? 'text-gray-400 dark:text-[#6d7991]' : 'text-gray-800'}`} />
                         </IconButton>
                       </span>
                     </Tooltip>
                     <Tooltip title="Move down">
                       <span>
                         <IconButton size="small" onClick={() => moveLevel(index, 'down')} disabled={index === localConfig.levels.length - 1}>
-                          <ArrowDownIcon fontSize="small" />
+                          <ArrowDownIcon fontSize="small" className={`${index === localConfig.levels.length - 1 ? 'text-gray-400 dark:text-[#6d7991]' : 'text-gray-800'}`} />
                         </IconButton>
                       </span>
                     </Tooltip>
                     <Tooltip title="Remove">
                       <IconButton size="small" onClick={() => removeApprovalLevel(index)}>
-                        <DeleteIcon fontSize="small" />
+                        <DeleteIcon fontSize="small" className='text-red-500' />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -228,7 +205,8 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
                     <TextField fullWidth type="number" size="small" label="Timeout (days)"
                       value={level.timeoutDays ?? 2}
                       onChange={(e) => updateLevel(index, { timeoutDays: parseInt(e.target.value) })}
-                      helperText="Days before escalation" />
+                      helperText="Days before escalation"
+                      sx={helperSx} />
                   </Grid>
 
                   <Grid size={{ xs: 12, md: 3 }}>
@@ -257,7 +235,7 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({ config, on
       </Grid>
 
       <Divider sx={{ my: 3 }} />
-      <Alert severity="success" variant="outlined">
+      <Alert severity="success" variant="outlined" className='bg-white-50'>
         <Typography variant="body2">
           This workflow applies to all {domain ? domain.replace(/_/g, ' ').toLowerCase() : ''} requests under this policy.
           {localConfig.parallelApproval

@@ -63,6 +63,8 @@ export const ShiftRoster = () => {
   // const [filteredRosterData, setFilteredRosterData] = useState<RosterEmployee[]>([]);
   const [alerts, setAlerts] = useState<alert[]>([]);
   const [isPublished, setIsPublished] = useState(false);
+  const [publishAnchorEl, setPublishAnchorEl] = useState<null | HTMLElement>(null);
+
 
   // Edit state
   const [editingCell, setEditingCell] = useState<{ employeeId: string; day: string; currentShift: string } | null>(null);
@@ -249,40 +251,40 @@ export const ShiftRoster = () => {
     }
   };
 
-  const handlePublish = async () => {
-    showConfirmDialog({
-      title: 'Publish Roster',
-      message: 'Publishing the roster will notify all employees. Continue?',
-      confirmText: 'Publish',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        showSpinner();
-        try {
-          const payload: any = {
-            weekStartDate: selectedWeek.format('YYYY-MM-DD')
-          };
-          // if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
-          // if (selectedBranchId) payload.branchId = selectedBranchId;
-          if (department !== 'all') {
-            payload.departmentId = department; // or departmentId based on API
-          }
+  // const handlePublish = async () => {
+  //   showConfirmDialog({
+  //     title: 'Publish Roster',
+  //     message: 'Publishing the roster will notify all employees. Continue?',
+  //     confirmText: 'Publish',
+  //     cancelText: 'Cancel',
+  //     onConfirm: async () => {
+  //       showSpinner();
+  //       try {
+  //         const payload: any = {
+  //           weekStartDate: selectedWeek.format('YYYY-MM-DD')
+  //         };
+  //         // if (selectedDepartmentId) payload.departmentId = selectedDepartmentId;
+  //         // if (selectedBranchId) payload.branchId = selectedBranchId;
+  //         if (department !== 'all') {
+  //           payload.departmentId = department; // or departmentId based on API
+  //         }
 
-          if (branch !== 'all') {
-            payload.branchId = branch;
-          }
+  //         if (branch !== 'all') {
+  //           payload.branchId = branch;
+  //         }
 
-          await shiftService.publishRoster(payload);
-          showSnackbar('Roster published successfully!', 'success');
-          setIsPublished(true);
-          fetchAlerts();
-        } catch (error: any) {
-          showSnackbar(error.message || 'Failed to publish roster', 'error');
-        } finally {
-          hideSpinner();
-        }
-      }
-    });
-  };
+  //         await shiftService.publishRoster(payload);
+  //         showSnackbar('Roster published successfully!', 'success');
+  //         setIsPublished(true);
+  //         fetchAlerts();
+  //       } catch (error: any) {
+  //         showSnackbar(error.message || 'Failed to publish roster', 'error');
+  //       } finally {
+  //         hideSpinner();
+  //       }
+  //     }
+  //   });
+  // };
 
   const handleShiftChange = async (employeeId: string, day: string, newShift: string) => {
     showSpinner();
@@ -322,6 +324,14 @@ export const ShiftRoster = () => {
 
   const closeExportMenu = () => {
     setExportAnchorEl(null);
+  };
+
+  const handlePublishClick = (event: React.MouseEvent<HTMLElement>) => {
+    setPublishAnchorEl(event.currentTarget);
+  };
+
+  const handlePublishMenuClose = () => {
+    setPublishAnchorEl(null);
   };
 
   const handleExportPDF = async () => {
@@ -390,8 +400,57 @@ export const ShiftRoster = () => {
     return roster?.shiftCode || '-';
   };
 
-  // const departmentOptions = ['all', ...new Set(rosterData.map(emp => emp.department).filter(Boolean))];
-  // console.log(departmentOptions,'000000');
+  const handlePublishWithNotifications = async (sendNotifications: boolean = true) => {
+    showConfirmDialog({
+      title: 'Publish Roster',
+      message: sendNotifications
+        ? 'Publishing the roster will notify all employees. Continue?'
+        : 'Publish roster without sending notifications?',
+      confirmText: 'Publish',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const weekStartDate = selectedWeek.format('YYYY-MM-DD');
+          const payload: any = { weekStartDate };
+          if (department !== 'all') {
+            payload.departmentId = department;
+          }
+          if (branch !== 'all') {
+            payload.branchId = branch;
+          }
+          await shiftService.publishRoster(payload);
+          if (sendNotifications) {
+            const employeeIds = rosterData.map(emp => emp.employeeId).filter(Boolean);
+            if (employeeIds.length > 0) {
+              const notificationPayload = {
+                date: weekStartDate,
+                employeeIds: employeeIds,
+                channel: 'email' // or make this configurable
+              };
+              const notificationResponse: any = await shiftService.sendShiftNotifications(notificationPayload);
+              const notificationCount = notificationResponse.data;
+              showSnackbar(
+                `Roster published! Notifications sent to ${Object.keys(notificationCount || {}).length} employees`,
+                'success'
+              );
+            } else {
+              showSnackbar('Roster published successfully!', 'success');
+            }
+          } else {
+            showSnackbar('Roster published successfully!', 'success');
+          }
+          setIsPublished(true);
+          fetchRoster();
+          fetchAlerts();
+        } catch (error: any) {
+          showSnackbar(error.message || 'Failed to publish roster', 'error');
+        } finally {
+          hideSpinner();
+        }
+      }
+    });
+  };
 
   const selectedShift: any = shifts.find((shift) => shift.shiftCode === bulkAssignShift);
   const availableDays = days.filter((day) => !selectedShift?.weeklyOff?.includes(day));
@@ -418,11 +477,6 @@ export const ShiftRoster = () => {
                     value={selectedWeek}
                     onChange={(date) => setSelectedWeek(dayjs(date)?.startOf('isoWeek') || dayjs().startOf('isoWeek'))}
                     slotProps={{ textField: { size: 'small', className: 'w-48' } }}
-                    sx={{
-                      "& .MuiIconButton-root": {
-                        color: "dodgerblue",
-                      },
-                    }}
                   />
                 </LocalizationProvider>
 
@@ -494,15 +548,35 @@ export const ShiftRoster = () => {
                     Export as Excel
                   </MenuItem>
                 </Menu>
-                <Button
-                  variant="contained"
-                  startIcon={<PublishIcon />}
-                  onClick={handlePublish}
-                  disabled={isPublished}
-                  className="!bg-primary"
-                >
-                  {isPublished ? 'Published' : 'Publish Roster'}
-                </Button>
+                <>
+                  <Button
+                    variant="contained"
+                    startIcon={<PublishIcon />}
+                    onClick={handlePublishClick}
+                    disabled={isPublished}
+                    className="!bg-primary"
+                  >
+                    {isPublished ? 'Published' : 'Publish'}
+                  </Button>
+                  <Menu
+                    anchorEl={publishAnchorEl}
+                    open={Boolean(publishAnchorEl)}
+                    onClose={handlePublishMenuClose}
+                  >
+                    <MenuItem onClick={() => {
+                      handlePublishMenuClose();
+                      handlePublishWithNotifications(true);
+                    }}>
+                      Publish & Send Notifications
+                    </MenuItem>
+                    <MenuItem onClick={() => {
+                      handlePublishMenuClose();
+                      handlePublishWithNotifications(false);
+                    }}>
+                      Publish Only (No Notifications)
+                    </MenuItem>
+                  </Menu>
+                </>
               </div>
             </div>
           </div>

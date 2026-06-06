@@ -1,11 +1,7 @@
-// src/pages/PolicySimulator.tsx
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Container,
   Box,
   Typography,
-  Paper,
   Grid,
   FormControl,
   InputLabel,
@@ -29,37 +25,25 @@ import {
 import { policyApi } from '../../services/modules/policy';
 import { EmployeeSelector } from '../../components/PolicyManagement/Common/EmployeeSelector';
 import { type PolicyEvaluationResponse, PolicyDomain } from '../../types/policy';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import { DatePicker } from '@mui/x-date-pickers';
+import type { LeaveType } from '../../services/modules/leaveTypes';
+import { leaveService } from '../../services';
+import { actionOptions } from './const';
 
-export  default function PolicySimulator() {
+export default function PolicySimulator() {
   const [selectedDomain, setSelectedDomain] = useState<PolicyDomain>(PolicyDomain.LEAVE);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [action, setAction] = useState('');
   const [context, setContext] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolicyEvaluationResponse | null>(null);
-
-  const actionOptions: Record<PolicyDomain, string[]> = {
-    [PolicyDomain.LEAVE]: ['APPLY_LEAVE', 'CANCEL_LEAVE', 'CHECK_BALANCE', 'GET_APPROVERS'],
-    [PolicyDomain.ATTENDANCE]: ['MARK_ATTENDANCE', 'REGULARIZE_ATTENDANCE', 'CHECK_LATE_PENALTY'],
-    [PolicyDomain.OVERTIME]: ['REQUEST_OVERTIME', 'APPROVE_OVERTIME', 'CALCULATE_OVERTIME'],
-    [PolicyDomain.EXPENSE]: ['SUBMIT_EXPENSE', 'APPROVE_EXPENSE', 'CHECK_ELIGIBILITY'],
-    [PolicyDomain.PAYROLL]: ['CALCULATE_SALARY', 'PROCESS_PAYROLL', 'CALCULATE_DEDUCTION'],
-    [PolicyDomain.SHIFT]: ['REQUEST_SHIFT_CHANGE', 'CHECK_SHIFT_ELIGIBILITY'],
-    [PolicyDomain.HOLIDAY]: ['CHECK_HOLIDAY_ELIGIBILITY', 'REQUEST_HOLIDAY_WORK'],
-    [PolicyDomain.ALLOWANCE]: ['CHECK_ALLOWANCE_ELIGIBILITY', 'CALCULATE_ALLOWANCE'],
-    [PolicyDomain.DEDUCTION]: ['CALCULATE_DEDUCTION', 'CHECK_DEDUCTION_APPLICABILITY'],
-    [PolicyDomain.PROBATION]: ['CHECK_PROBATION_STATUS', 'EXTEND_PROBATION'],
-    [PolicyDomain.NOTICE_PERIOD]: ['SUBMIT_RESIGNATION', 'CALCULATE_NOTICE_PAY'],
-    [PolicyDomain.APPROVAL_WORKFLOW]: ['GET_APPROVAL_FLOW', 'CHECK_APPROVAL_STATUS'],
-    [PolicyDomain.ONBOARDING]: ['CHECK_ONBOARDING_TASKS', 'VALIDATE_DOCUMENTS'],
-    [PolicyDomain.OFFBOARDING]: ['INITIATE_OFFBOARDING', 'CHECK_EXIT_TASKS'],
-    [PolicyDomain.COMP_OFF]: ['APPLY_COMP_OFF', 'CHECK_COMP_OFF_BALANCE', 'EARN_COMP_OFF'],
-    [PolicyDomain.WORK_FROM_HOME]: ['REQUEST_WFH', 'CHECK_WFH_ELIGIBILITY', 'CHECK_WFH_BALANCE'],
-  };
+  const [leaveType, setLeaveType] = useState<LeaveType[]>([]);
 
   const handleRunSimulation = async () => {
     if (!selectedEmployee || !action) return;
-
     setLoading(true);
     try {
       const request = {
@@ -71,6 +55,8 @@ export  default function PolicySimulator() {
       };
       const response = await policyApi.evaluatePolicy(request);
       setResult(response);
+      console.log(response);
+      
     } catch (error) {
       console.error('Simulation failed:', error);
     } finally {
@@ -84,6 +70,26 @@ export  default function PolicySimulator() {
     return <ErrorIcon sx={{ fontSize: 60, color: 'error.main' }} />;
   };
 
+  const getLeaveTypes = async () => {
+    try {
+      const response = await leaveService.getLeaveTypes({
+        page: 0,
+        size: 50,
+        sort: "name,ASC",
+      });
+      setLeaveType(response.data?.content ?? []);
+    } catch (err: any) {
+      console.log(err?.message || "Failed to load leave types", "error");
+    }
+  };
+
+  useEffect(() => {
+    if (PolicyDomain.LEAVE) {
+      getLeaveTypes();
+    }
+  }, [])
+
+
   const renderContextFields = () => {
     switch (selectedDomain) {
       case PolicyDomain.LEAVE:
@@ -96,32 +102,51 @@ export  default function PolicySimulator() {
               value={context.leaveType || ''}
               onChange={(e) => setContext({ ...context, leaveType: e.target.value })}
               margin="normal"
-              size="small"
+              className="!mt-4"
             >
-              <MenuItem value="CL">Casual Leave</MenuItem>
-              <MenuItem value="SL">Sick Leave</MenuItem>
-              <MenuItem value="EL">Earned Leave</MenuItem>
-              <MenuItem value="ML">Maternity Leave</MenuItem>
-              <MenuItem value="PL">Paternity Leave</MenuItem>
+              {leaveType.map((option) => (
+                <MenuItem key={option.id} value={option.code}>
+                  {option.name} ({option.code})
+                </MenuItem>
+              ))}
             </TextField>
-            <TextField
-              fullWidth
-              type="date"
-              label="From Date"
-              value={context.fromDate || ''}
-              onChange={(e) => setContext({ ...context, fromDate: e.target.value })}
-              margin="normal"
-              size="small"
-            />
-            <TextField
-              fullWidth
-              type="date"
-              label="To Date"
-              value={context.toDate || ''}
-              onChange={(e) => setContext({ ...context, toDate: e.target.value })}
-              margin="normal"
-              size="small"
-            />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Effective From"
+                value={context.fromDate ? dayjs(context.fromDate) : null}
+                onChange={(newValue) => {
+                  setContext({
+                    ...context,
+                    fromDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
+                  });
+                }}
+                maxDate={context.toDate ? dayjs(context.toDate) : undefined}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    margin: "normal",
+                  },
+                }}
+              />
+
+              <DatePicker
+                label="Effective To"
+                value={context.toDate ? dayjs(context.toDate) : null}
+                onChange={(newValue) => {
+                  setContext({
+                    ...context,
+                    toDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : undefined
+                  });
+                }}
+                minDate={context.fromDate ? dayjs(context.fromDate) : undefined}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    margin: "normal",
+                  },
+                }}
+              />
+            </LocalizationProvider>
           </>
         );
 
@@ -173,22 +198,22 @@ export  default function PolicySimulator() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
+    <div className='pt-5'>
+      <div className='font-bold mb-1 text-gray-800'>
         Policy Simulator
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
+      </div>
+      <div className='text-gray-500 text-[12px] mb-4'>
         Test how policies apply to employees by simulating different actions and scenarios.
-      </Typography>
+      </div>
 
       <Grid container spacing={3}>
-        <Grid size={{xs:12,md:5}}>
-          <Paper sx={{ p: 3 }}>
+        <Grid size={{ xs: 12, md: 5 }}>
+          <div className='p-5 bg-white dark:bg-white-50 border border-gray-200 shadow-lg rounded-lg'>
             <Typography variant="subtitle1" gutterBottom>
               Simulation Parameters
             </Typography>
 
-            <FormControl fullWidth size="small" margin="normal">
+            <FormControl fullWidth size="small" margin="normal" className="!mt-6">
               <InputLabel>Policy Domain</InputLabel>
               <Select
                 value={selectedDomain}
@@ -205,7 +230,7 @@ export  default function PolicySimulator() {
               </Select>
             </FormControl>
 
-            <Box>
+            <Box className="mt-4">
               <EmployeeSelector
                 companyId="company_123"
                 value={selectedEmployee}
@@ -214,7 +239,7 @@ export  default function PolicySimulator() {
               />
             </Box>
 
-            <FormControl fullWidth size="small" margin="normal">
+            <FormControl fullWidth margin="normal" className="!mt-6">
               <InputLabel>Action</InputLabel>
               <Select
                 value={action}
@@ -240,11 +265,11 @@ export  default function PolicySimulator() {
             >
               {loading ? <CircularProgress size={24} /> : 'Run Simulation'}
             </Button>
-          </Paper>
+          </div>
         </Grid>
 
-        <Grid size={{xs:12,md:7}}>
-          <Paper sx={{ p: 3 }}>
+        <Grid size={{ xs: 12, md: 7 }}>
+          <div className='p-5 bg-white dark:bg-white-50 border border-gray-200 shadow-lg rounded-lg'>
             <Typography variant="subtitle1" gutterBottom>
               Simulation Results
             </Typography>
@@ -257,11 +282,11 @@ export  default function PolicySimulator() {
               <Box>
                 <Box className="flex items-center justify-center">
                   {getResultIcon()}
-                  <Typography  color={result.allowed ? 'success.main' : 'error.main'}>
+                  <Typography color={result.allowed ? 'success.main' : 'error.main'}>
                     {result.allowed ? 'REQUEST ALLOWED' : 'REQUEST REJECTED'}
                   </Typography>
                   {result.policyName && (
-                    <Chip 
+                    <Chip
                       label={`Policy: ${result.policyName} v${result.policyVersion}`}
                       size="small"
                       sx={{ mt: 1 }}
@@ -269,13 +294,13 @@ export  default function PolicySimulator() {
                   )}
                 </Box>
 
-                <Divider sx={{ my: 2 }} />
+                <Divider sx={{ my: 2 }} className='!border-gray-300'/>
 
                 <Typography variant="subtitle2" gutterBottom>
                   Evaluation Messages
                 </Typography>
                 {result.messages.map((msg, idx) => (
-                  <Alert 
+                  <Alert
                     key={idx}
                     severity={msg.type.toLowerCase() as any}
                     sx={{ mb: 1 }}
@@ -323,9 +348,9 @@ export  default function PolicySimulator() {
                 )}
               </Box>
             )}
-          </Paper>
+          </div>
         </Grid>
       </Grid>
-    </Container>
+    </div>
   );
 };

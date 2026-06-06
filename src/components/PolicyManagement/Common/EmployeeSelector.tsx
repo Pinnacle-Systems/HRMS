@@ -1,113 +1,151 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Autocomplete,
   TextField,
   Avatar,
   Box,
   Typography,
+  CircularProgress,
+  Paper,
 } from '@mui/material';
 import type { Employee } from '../../../types/policy';
-import { MOCK_EMPLOYEES } from '../../../services/mockPolicyService';
-
-interface EmployeeSelectorProps {
-  companyId: string;
-  value: Employee | null;
-  onChange: (employee: Employee | null) => void;
-  multiple?: boolean;
-  filter?: (employee: Employee) => boolean;
-  label?: string;
-  placeholder?: string;
-}
+import { employeeService } from '../../../services/modules/employees';
+import type { EmployeeSelectorProps } from '../types';
 
 export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
-  companyId,
   value,
   onChange,
-  multiple = false,
+  multiple,
   filter,
   label = 'Select Employee',
   placeholder = 'Search employees…',
+  pageSize = 20,
 }) => {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const isFetchingRef = useRef(false);
+  const searchTermRef = useRef('');
 
-  useEffect(() => {
+  // Fetch employees function
+  const fetchEmployees = useCallback(async (currentPage: number, append = false) => {
+    if (isFetchingRef.current) {
+      console.log('Already fetching, skipping...');
+      return;
+    }
     if (!open) return;
-    setLoading(true);
-    // Simulate async search against mock data
-    const timer = setTimeout(() => {
-      let list = MOCK_EMPLOYEES.filter(e => e.companyId === companyId);
-      if (searchTerm) {
-        const q = searchTerm.toLowerCase();
-        list = list.filter(
-          e =>
-            e.name.toLowerCase().includes(q) ||
-            e.employeeCode.toLowerCase().includes(q),
-        );
+    if (append) {
+    } else {
+      setLoading(true);
+    }
+    isFetchingRef.current = true;
+    try {
+      const response = await employeeService.getEmployees({
+        includeInactive: false,
+        page: currentPage,
+        size: pageSize,
+        search: searchTermRef.current || undefined,
+      });
+      let list: any = response.data.content || [];
+      if (filter) {
+        list = list.filter(filter);
       }
-      if (filter) list = list.filter(filter);
-      setOptions(list);
+      if (append) {
+        setOptions(prev => {
+          const newOptions = [...prev, ...list];
+          const uniqueOptions = newOptions.filter((option, index, self) =>
+            index === self.findIndex((o) => o.id === option.id)
+          );
+          return uniqueOptions;
+        });
+      } else {
+        setOptions(list);
+      }
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    } finally {
       setLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [open, searchTerm, companyId, filter]);
+      isFetchingRef.current = false;
+    }
+  }, [open, filter, pageSize, options.length]);
 
-  const deptNames: Record<string, string> = {
-    dept1: 'Engineering',
-    dept2: 'Sales',
-    dept3: 'HR',
-    dept4: 'Production',
+  // Load initial data when dropdown opens
+  useEffect(() => {
+    if (!open) {
+      setOptions([]);
+      setSearchTerm('');
+      searchTermRef.current = '';
+      return;
+    }
+
+    if (options.length === 0 && !isFetchingRef.current) {
+      fetchEmployees(0, false);
+    }
+  }, [open, fetchEmployees, options.length]);
+
+  // Handle search
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    searchTermRef.current = value;
+    setOptions([]);
+    fetchEmployees(0, false);
   };
-  const desigNames: Record<string, string> = {
-    des1: 'Manager',
-    des2: 'Senior Engineer',
-    des3: 'Associate',
-    des4: 'Worker',
+
+  const getValue = () => {
+    if (multiple) {
+      return Array.isArray(value) ? value : [];
+    }
+    return !Array.isArray(value) ? value : null;
   };
-  const categoryColors: Record<string, string> = {
-    STAFF:        '#1976d2',
-    LABOUR:       '#d32f2f',
-    GROUND_WORKER:'#388e3c',
-    SUPERVISOR:   '#f57c00',
-    TECHNICIAN:   '#7b1fa2',
-  };
+
+  // Custom Listbox with Load More button
+  const CustomListbox = React.forwardRef<HTMLUListElement, any>((props, ref) => {
+    const { children, ownerState: _ownerState, ...other } = props;
+
+    return (
+      <Paper elevation={8}>
+        <ul ref={ref} {...other} style={{ margin: 0, padding: 0, maxHeight: 300, overflowY: 'auto' }}>
+          {children}
+        </ul>
+      </Paper>
+    );
+  });
 
   return (
     <Autocomplete
-      multiple={multiple as any}
-      value={value}
-      onChange={(_, newValue) => onChange(newValue as Employee | null)}
+      multiple={multiple}
+      value={getValue()}
+      onChange={(_, newValue) => onChange(newValue)}
       open={open}
       onOpen={() => setOpen(true)}
       onClose={() => setOpen(false)}
-      isOptionEqualToValue={(option, val) => option.id === val.id}
-      getOptionLabel={(option) => `${option.employeeCode} — ${option.name}`}
       options={options}
       loading={loading}
+      isOptionEqualToValue={(option, val) => option.id === val.id}
+      getOptionLabel={(option) => `${option.name}`}
+      filterSelectedOptions
+      filterOptions={(x) => x}
+      loadingText="Loading employees..."
+      noOptionsText={searchTerm ? "No employees found" : "No employees"}
+      slots={{ listbox: CustomListbox }}
+      onInputChange={(_, newInputValue, reason) => {
+        if (reason === 'input') {
+          handleSearchChange(newInputValue);
+        }
+      }}
       renderOption={(props, option) => (
         <li {...props} key={option.id}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>
-              {option.name.charAt(0)}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, cursor: 'pointer' }}>
+            <Avatar sx={{ width: 32, height: 32, fontSize: 14 }} className='!bg-primary'>
+              {option.name?.charAt(0) || '?'}
             </Avatar>
             <Box>
               <Typography variant="body2">{option.name}</Typography>
-              <Typography variant="caption" color="text.secondary">
-                {option.employeeCode} · {deptNames[option.departmentId] ?? option.departmentId} ·{' '}
-                {desigNames[option.designationId] ?? option.designationId}
-                {option.isOnProbation && ' · 🔵 On Probation'}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: categoryColors[option.employeeCategory] ?? 'text.secondary',
-                  fontWeight: 600,
-                  fontSize: '0.68rem',
-                }}
-              >
-                {option.employeeCategory?.replace('_', ' ')}
+              <Typography variant="caption" color="text.secondary" className='text-gray-500'>
+                {option.employeeId}
+                {option.department ? ' ·' + option.department : ''}
+                {option.designation ? ' ·' + option.designation : ''}
               </Typography>
             </Box>
           </Box>
@@ -118,7 +156,24 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
           {...params}
           label={label}
           placeholder={placeholder}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          // helperText={loading ? 'Loading employees...' : `${options.length} employee(s) loaded`}
+          slotProps={{
+            ...params.slotProps,
+            input: {
+              ...params.slotProps.input,
+              endAdornment: (
+                <>
+                  {loading && <CircularProgress color="inherit" size={20} />}
+                  {params.slotProps.input.endAdornment}
+                </>
+              ),
+            },
+          }}
+          sx={{
+            "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
+              padding: '10px !important'
+            }
+          }}
         />
       )}
     />

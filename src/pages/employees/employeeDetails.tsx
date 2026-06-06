@@ -400,11 +400,6 @@ const EditableGroup = ({
                               fullWidth: true,
                             },
                           }}
-                          sx={{
-                            "& .MuiIconButton-root": {
-                              color: "dodgerblue",
-                            },
-                          }}
                         />
                       </LocalizationProvider>
                     ) : field.type === "boolean" ? (
@@ -1406,9 +1401,6 @@ const EditableTableGroup = ({
                       sx={{
                         "& .MuiInputLabel-root": {
                           top: 0,
-                        },
-                        "& .MuiIconButton-root": {
-                          color: "dodgerblue",
                         },
                       }}
                     />

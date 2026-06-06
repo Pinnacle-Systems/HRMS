@@ -1,38 +1,23 @@
 export const PolicyDomain = {
-  LEAVE: 'LEAVE',
+  ONBOARDING: 'ONBOARDING',
+  PROBATION: 'PROBATION',
   ATTENDANCE: 'ATTENDANCE',
   SHIFT: 'SHIFT',
+  WORK_FROM_HOME: 'WORK_FROM_HOME',
   HOLIDAY: 'HOLIDAY',
+  LEAVE: 'LEAVE',
+  COMP_OFF: 'COMP_OFF',
   OVERTIME: 'OVERTIME',
-  PAYROLL: 'PAYROLL',
+  EXPENSE: 'EXPENSE',
   ALLOWANCE: 'ALLOWANCE',
   DEDUCTION: 'DEDUCTION',
-  PROBATION: 'PROBATION',
+  PAYROLL: 'PAYROLL',
   NOTICE_PERIOD: 'NOTICE_PERIOD',
-  EXPENSE: 'EXPENSE',
-  APPROVAL_WORKFLOW: 'APPROVAL_WORKFLOW',
-  ONBOARDING: 'ONBOARDING',
   OFFBOARDING: 'OFFBOARDING',
-  COMP_OFF: 'COMP_OFF',
-  WORK_FROM_HOME: 'WORK_FROM_HOME',
+  APPROVAL_WORKFLOW: 'APPROVAL_WORKFLOW',
 } as const;
 
 export type PolicyDomain = typeof PolicyDomain[keyof typeof PolicyDomain];
-
-export const IndustryType = {
-  IT: 'IT',
-  MANUFACTURING: 'MANUFACTURING',
-  TEXTILE: 'TEXTILE',
-  RETAIL: 'RETAIL',
-  HEALTHCARE: 'HEALTHCARE',
-  CONSTRUCTION: 'CONSTRUCTION',
-  LOGISTICS: 'LOGISTICS',
-  EDUCATION: 'EDUCATION',
-  HOSPITALITY: 'HOSPITALITY',
-  BPO: 'BPO',
-} as const;
-
-export type IndustryType = typeof IndustryType[keyof typeof IndustryType];
 
 export const PolicyStatus = {
   DRAFT: 'DRAFT',
@@ -57,11 +42,8 @@ export const EmploymentType = {
 export type EmploymentType = typeof EmploymentType[keyof typeof EmploymentType];
 
 export const EmployeeCategory = {
-  STAFF:        'STAFF',        // Office / white-collar: managers, engineers, HR
-  LABOUR:       'LABOUR',       // Factory / production floor workers
-  GROUND_WORKER:'GROUND_WORKER',// Retail floor, security, field / delivery staff
-  SUPERVISOR:   'SUPERVISOR',   // Mid-level: team leads, floor supervisors
-  TECHNICIAN:   'TECHNICIAN',   // Skilled trade: electrician, mechanic, maintenance
+  STAFF: 'STAFF',
+  LABOUR: 'LABOUR',
 } as const;
 
 export type EmployeeCategory = typeof EmployeeCategory[keyof typeof EmployeeCategory];
@@ -89,12 +71,14 @@ export const PolicyScopeLevel = {
 
 export type PolicyScopeLevel = typeof PolicyScopeLevel[keyof typeof PolicyScopeLevel];
 
-// Rest of the types remain the same
+// ============================================
+// Base Types
+// ============================================
+
 export interface PolicyTemplate {
   id: string;
   name: string;
   domain: PolicyDomain;
-  industryType?: IndustryType;
   description: string;
   configSchema: Record<string, any>;
   defaultConfig: Record<string, any>;
@@ -105,10 +89,32 @@ export interface PolicyTemplate {
 export interface RuleBlock {
   id: string;
   name: string;
-  type: string;
+  type: RuleBlockType;
   configurable: boolean;
   schema: Record<string, any>;
 }
+
+export type RuleBlockType = 
+  | 'LEAVE_ENTITLEMENTS'
+  | 'ACCRUAL_RULES'
+  | 'CARRY_FORWARD'
+  | 'SANDWICH_RULE'
+  | 'OVERTIME_RULES'
+  | 'SHIFT_RULES'
+  | 'ROTATION_RULES'
+  | 'EXPENSE_LIMITS'
+  | 'PAYROLL_RULES'
+  | 'STATUTORY_DEDUCTIONS'
+  | 'TAX_DEDUCTIONS'
+  | 'PROBATION_RULES'
+  | 'NOTICE_PERIOD_RULES'
+  | 'HOLIDAY_RULES'
+  | 'ALLOWANCE_RULES'
+  | 'COMP_OFF_RULES'
+  | 'WFH_RULES'
+  | 'APPROVAL_FLOW'
+  | 'ONBOARDING_RULES'
+  | 'OFFBOARDING_RULES';
 
 export interface PolicyDefinition {
   id: string;
@@ -141,14 +147,400 @@ export interface PolicyVersion {
   createdAt: string;
 }
 
+// ============================================
+// Policy Config - Complete Type
+// ============================================
+
+// Add or update this in your policy.ts file
+
+export interface OTConfigs {
+  otDay:string;
+  otCode: string;
+  // otValue: string;
+  multiplier: number;
+  formula: string;
+}
+
+// Update the PolicyConfig interface
 export interface PolicyConfig {
   rules?: PolicyRule[];
   entitlements?: EntitlementConfig[];
   accrualRules?: AccrualRule;
   carryForward?: CarryForwardRule;
   approvalFlow?: ApprovalFlowConfig;
+  
+  // Expense domain
+  expenseLimits?: Record<string, ExpenseLimit>;
+  advanceAllowed?: boolean;
+  maxAdvanceAmount?: number;
+  settlementDays?: number;
+  perDiemAllowed?: boolean;
+  perDiemAmount?: number;
+  foreignCurrencyAllowed?: boolean;
+  
+  // Overtime domain
+  overtimeRules?: {
+    maxHoursPerDay?: number;
+    maxHoursPerMonth?: number;
+    weeklyOTLimit?: number;
+    overtimeEligibleAfterHours?: number;
+    // weekdayMultiplier?: number;
+    // weekendMultiplier?: number;
+    // holidayMultiplier?: number;
+    compensationType?: 'PAY' | 'COMP_OFF' | 'COMP_OFF_OR_PAY';
+    compOffValidityDays?: number;
+    requiresManagerApproval?: boolean;
+    configs: OTConfigs[];
+  };
+  
+  // Shift/Attendance domain
+  shiftConfig?: {
+    graceTimeMinutes?: number;
+    latePenaltyAfterMinutes?: number;
+    halfDayMinutes?: number;
+    fullDayMinutes?: number;
+    biometricRequired?: boolean;
+    mobileCheckInAllowed?: boolean;
+    wfhAllowed?: boolean;
+    regularizationAllowedPerMonth?: number;
+    overtimeAutoCalculate?: boolean;
+  };
+  
+  penalties?: {
+    absentDeductionPerDay?: number;
+    lwpAfterDays?: number;
+  };
+  
+  // Payroll domain
+  payrollComponents?: {
+    basic?: { percentage: number; of: string };
+    hra?: { percentage: number; of: string; cityType?: string };
+    da?: { percentage: number; of: string };
+    special?: { percentage: number; of: string };
+  };
+  
+  overtimeMultiplier?: number;
+  shiftAllowance?: Record<string, number>;
+  
+  // Statutory deductions
+  pf?: {
+    employeeContribution: number;
+    employerContribution: number;
+    ceiling: number;
+    basis?: string;
+  };
+  
+  esi?: {
+    employeeContribution: number;
+    employerContribution: number;
+    applicableBelowCTC: number;
+  };
+  
+  professionalTax?: {
+    applicable: boolean;
+    state?: string;
+    slabs?: Array<{ min: number; max: number; amount: number }>;
+  };
+  
+  gratuity?: {
+    eligibleAfterYears: number;
+    rate: number;
+  };
+  
+  lwf?: {
+    applicable: boolean;
+    state?: string;
+  };
+  
+  tds?: {
+    applicable: boolean;
+    regime: 'OLD' | 'NEW';
+    declarationRequired?: boolean;
+    investmentProofRequired?: boolean;
+  };
+  
+  // Probation domain
+  probationDuration?: number;
+  extensionAllowed?: boolean;
+  maxExtensionDays?: number;
+  reviewCheckpoints?: number[];
+  autoConfirmIfNoAction?: boolean;
+  salaryPercentageDuringProbation?: number;
+  benefitsEligible?: boolean;
+  performanceReviewRequired?: boolean;
+  
+  // Notice period domain
+  noticeDays?: Record<string, number>;
+  noticeDuringProbation?: number;
+  buyOutAllowed?: boolean;
+  buyOutMultiplier?: number;
+  gardenLeaveAllowed?: boolean;
+  
+  // Comp off domain
+  compOffValidityDays?: number;
+  minOTHoursForCompOff?: number;
+  maxCompOffBalance?: number;
+  requiresManagerApproval?: boolean;
+  autoExpireUnused?: boolean;
+  
+  // WFH domain
+  wfhDaysPerMonth?: number;
+  advanceNoticeDays?: number;
+  geofencingEnabled?: boolean;
+  geofencingRadius?: number;
+  eligibleAfterProbation?: boolean;
+  allowedDuringProbation?: boolean;
+  
+  // Holiday domain
+  holidayTypes?: string[];
+  optionalHolidayQuota?: number;
+  workOnHolidayAllowed?: boolean;
+  workOnHolidayCompensation?: string;
+  
+  // Allowance domain
+  allowances?: Array<{
+    type: string;
+    percentage?: number;
+    fixedAmount?: number;
+    basis?: string;
+    taxExempt: boolean;
+  }>;
+  
   [key: string]: any;
 }
+
+// ============================================
+// Leave Domain Types
+// ============================================
+
+export interface LeaveEntitlement {
+  leaveType: string;
+  name: string;
+  annualEntitlement: number;
+  accrualType: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'PER_DAY';
+  maxConsecutiveDays?: number;
+  requiresDocument: boolean;
+  documentAfterDays?: number;
+  allowedDuringProbation: boolean;
+  halfDayAllowed?: boolean;
+  advanceLeaveAllowed?: boolean;
+  encashable?: boolean;
+  minimumServiceMonths?: number;
+  backdatedAllowed?: boolean;
+  backdatedDaysLimit?: number;
+  genderRestricted?: 'MALE' | 'FEMALE' | null;
+  clubbingRestrictions?: string[];
+}
+
+export interface AccrualRules {
+  enableProRata?: boolean;
+  carryForwardUnused?: boolean;
+  accrualFrequency?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  maxAccrual?: number;
+  leaveYearStartMonth?: number;
+  resetOnYearEnd?: boolean;
+}
+
+export interface CarryForwardRules {
+  maxDays?: number;
+  validUntilMonths?: number;
+  allowEncashment?: boolean;
+  encashmentRate?: number;
+}
+
+export interface SandwichRule {
+  enabled: boolean;
+  includeWeekends?: boolean;
+  includeHolidays?: boolean;
+}
+
+// ============================================
+// Overtime Domain Types
+// ============================================
+
+export interface OvertimeRules {
+  maxHoursPerDay?: number;
+  maxHoursPerMonth?: number;
+  weeklyOTLimit?: number;
+  overtimeEligibleAfterHours?: number;
+  weekdayMultiplier?: number;
+  weekendMultiplier?: number;
+  holidayMultiplier?: number;
+  compensationType?: 'PAY' | 'COMP_OFF' | 'COMP_OFF_OR_PAY';
+  compOffValidityDays?: number;
+  requiresManagerApproval?: boolean;
+}
+
+// ============================================
+// Attendance/Shift Domain Types
+// ============================================
+
+export interface ShiftConfig {
+  graceTimeMinutes?: number;
+  latePenaltyAfterMinutes?: number;
+  halfDayMinutes?: number;
+  fullDayMinutes?: number;
+  biometricRequired?: boolean;
+  mobileCheckInAllowed?: boolean;
+  wfhAllowed?: boolean;
+  regularizationAllowedPerMonth?: number;
+  overtimeAutoCalculate?: boolean;
+}
+
+export interface AttendancePenalties {
+  absentDeductionPerDay?: number;
+  lwpAfterDays?: number;
+}
+
+// ============================================
+// Expense Domain Types
+// ============================================
+
+interface ExpenseLimit {
+  daily?: number;
+  monthly?: number;
+  yearly?: number;
+  requiresReceipt?: boolean;
+  requiresPreApproval?: boolean;
+  preApprovalThreshold?: number;
+}
+
+// ============================================
+// Payroll Domain Types
+// ============================================
+
+export interface PayrollComponents {
+  basic: { percentage: number; of: 'CTC' };
+  hra: { percentage: number; of: 'BASIC'; cityType?: 'METRO' | 'NON_METRO' };
+  da: { percentage: number; of: 'BASIC' };
+  special: { percentage: number; of: 'BASIC' };
+}
+
+export interface ShiftAllowance {
+  MORNING?: number;
+  EVENING?: number;
+  NIGHT?: number;
+}
+
+// ============================================
+// Statutory Deductions Types
+// ============================================
+
+export interface PFConfig {
+  employeeContribution: number;
+  employerContribution: number;
+  ceiling: number;
+  basis?: 'BASIC' | 'BASIC_DA';
+}
+
+export interface ESIConfig {
+  employeeContribution: number;
+  employerContribution: number;
+  applicableBelowCTC: number;
+}
+
+export interface ProfessionalTaxConfig {
+  applicable: boolean;
+  state?: string;
+  slabs?: Array<{ min: number; max: number; amount: number }>;
+}
+
+export interface GratuityConfig {
+  eligibleAfterYears: number;
+  rate: number;
+}
+
+export interface LWFConfig {
+  applicable: boolean;
+  state?: string;
+}
+
+// ============================================
+// Tax Deductions Types
+// ============================================
+
+export interface TDSConfig {
+  applicable: boolean;
+  regime: 'OLD' | 'NEW';
+  declarationRequired?: boolean;
+  investmentProofRequired?: boolean;
+}
+
+// ============================================
+// Probation Domain Types
+// ============================================
+
+export interface ProbationRules {
+  probationDuration?: number;
+  extensionAllowed?: boolean;
+  maxExtensionDays?: number;
+  reviewCheckpoints?: number[];
+  autoConfirmIfNoAction?: boolean;
+  salaryPercentageDuringProbation?: number;
+  benefitsEligible?: boolean;
+  performanceReviewRequired?: boolean;
+}
+
+// ============================================
+// Notice Period Domain Types
+// ============================================
+
+export interface NoticeDaysConfig {
+  DEFAULT?: number;
+  ASSOCIATE?: number;
+  SENIOR?: number;
+  MANAGER?: number;
+  DIRECTOR?: number;
+  [key: string]: number | undefined;
+}
+
+// ============================================
+// Allowance Domain Types
+// ============================================
+
+export interface Allowance {
+  type: string;
+  percentage?: number;
+  fixedAmount?: number;
+  basis?: 'BASIC' | 'BASIC_DA' | 'CTC';
+  cityType?: 'METRO' | 'NON_METRO' | 'ALL';
+  taxExempt: boolean;
+  maxExemptAmount?: number;
+}
+
+// ============================================
+// Approval Flow Types (Updated to fix the error)
+// ============================================
+
+export interface ApprovalCondition {
+  field: string;
+  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between';
+  value: any;
+}
+
+export interface ApprovalLevel {
+  level: number;
+  approverType: 'REPORTING_MANAGER' | 'HR' | 'DEPARTMENT_HEAD' | 'ADMIN' | 'SPECIFIC_USER';
+  approverId?: string;
+  condition?: ApprovalCondition;
+  timeoutDays?: number;
+  escalationTo?: string;
+}
+
+export interface ApprovalFlowConfig {
+  levels: ApprovalLevel[];
+  autoApproveBelowDays: number;
+  autoApproveThreshold?: number;
+  fallbackApprover?: string;
+  notifyOnSubmit?: boolean;
+  notifyOnApproval?: boolean;
+  parallelApproval?: boolean;
+  rejectionRequiresReason?: boolean;
+}
+
+// ============================================
+// Rule Engine Types (Existing)
+// ============================================
 
 export interface PolicyRule {
   id: string;
@@ -174,6 +566,7 @@ export interface RuleAction {
   message?: string;
 }
 
+// Legacy types (kept for backward compatibility)
 export interface EntitlementConfig {
   leaveType: string;
   name: string;
@@ -183,7 +576,6 @@ export interface EntitlementConfig {
   requiresDocument?: boolean;
   documentAfterDays?: number;
   allowedDuringProbation: boolean;
-  // Extended fields
   halfDayAllowed?: boolean;
   minimumServiceMonths?: number;
   advanceLeaveAllowed?: boolean;
@@ -210,25 +602,9 @@ export interface CarryForwardRule {
   encashmentRate?: number;
 }
 
-export interface ApprovalFlowConfig {
-  levels: ApprovalLevel[];
-  autoApproveBelowDays: number;
-  autoApproveThreshold?: number;
-  fallbackApprover?: string;
-  notifyOnSubmit?: boolean;
-  notifyOnApproval?: boolean;
-  parallelApproval?: boolean;
-  rejectionRequiresReason?: boolean;
-}
-
-export interface ApprovalLevel {
-  level: number;
-  approverType: 'REPORTING_MANAGER' | 'HR' | 'DEPARTMENT_HEAD' | 'ADMIN' | 'SPECIFIC_USER';
-  approverId?: string;
-  condition?: RuleCondition;
-  timeoutDays?: number;
-  escalationTo?: string;
-}
+// ============================================
+// Assignment & Evaluation Types
+// ============================================
 
 export interface PolicyAssignment {
   id: string;
@@ -240,12 +616,13 @@ export interface PolicyAssignment {
   employeeGradeId?: string;
   employmentType?: EmploymentType;
   employeeCategory?: EmployeeCategory;
-  employeeGroupId?: string;
+  // employeeGroupId?: string;
   employeeId?: string;
   priority: number;
   effectiveFrom: string;
   effectiveTo?: string;
   conditions?: Record<string, any>;
+  template?: string;
 }
 
 export interface PolicyEvaluationRequest {
@@ -275,12 +652,12 @@ export interface EvaluationMessage {
 
 export interface Employee {
   id: string;
-  employeeCode: string;
+  employeeId: string;
   name: string;
   companyId: string;
-  branchId: string;
-  departmentId: string;
-  designationId: string;
+  branch: string;
+  department: string;
+  designation: string;
   employmentType: EmploymentType;
   employeeCategory: EmployeeCategory;
   joiningDate: string;

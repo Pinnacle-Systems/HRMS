@@ -148,23 +148,12 @@ export default function EmployeeManagement() {
     try {
       const config: any = await employeeService.getEmployeeId();
       setEmployeeIdConfig(config);
-      console.log(config);
-      // if (config.configured) {
-      //   setEmpCodeType(config.formatType.toLowerCase());
-      //   if (config.prefix) setEmpPrefix(config.prefix);
-      //   if (config.startingNumber) setEmpStartNumber(String(config.startingNumber));
-      //   if (config.numberOfDigits) setEmpDigitCount(String(config.numberOfDigits));
-      //   if (config.lastGeneratedId) {
-      //     setEmpGenerationFlow("continue");
-      //   }
-      // }
       if (!config.configured) {
         setEmployeeIdConfig(config);
         setEmpGenerationFlow("new");
         setExcelHasEmployeeIdColumn(true);
         return;
       }
-
       setEmpCodeType(config.formatType.toLowerCase());
       setEmpPrefix(config.prefix || "EMP");
       setEmpStartNumber(String(config.startingNumber || 1));
@@ -175,7 +164,6 @@ export default function EmployeeManagement() {
       }
     } catch (error: any) {
       console.error("Failed to load employee ID config:", error);
-      // Don't show error to user as this is not critical
     }
   };
 
@@ -793,12 +781,12 @@ export default function EmployeeManagement() {
       // }
       if (result.failureCount === 0) {
         showSnackbar(
-          `Successfully imported ${result.successCount} employees. Welcome emails sent: ${result.welcomeEmailsSent}`,
+          `${result.successCount} employees imported successfully`,
           "success"
         );
       } else {
         showSnackbar(
-          `Upload completed with ${result.failureCount} validation errors.`,
+          `Upload completed with ${result.failureCount} row error(s). See details below.`,
           "warning"
         );
       }
@@ -1225,12 +1213,7 @@ export default function EmployeeManagement() {
                         <MaterialModule.Tooltip title="Deactivate">
                           <MaterialModule.IconButton
                             size="small"
-                            onClick={() => {
-                              setIsDeactivate(true); setDeactivateEmployeeId(employee.id)
-                            }
-                              // handleDeactivateEmployee(employee.id, employee.name)
-                            }
-                          >
+                            onClick={() => { setIsDeactivate(true); setDeactivateEmployeeId(employee.id) }}>
                             <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
                           </MaterialModule.IconButton>
                         </MaterialModule.Tooltip>
@@ -1249,11 +1232,6 @@ export default function EmployeeManagement() {
                               slotProps={{
                                 textField: {
                                   className: "!w-[150px]",
-                                },
-                              }}
-                              sx={{
-                                "& .MuiIconButton-root": {
-                                  color: "dodgerblue",
                                 },
                               }}
                             />
@@ -1644,7 +1622,7 @@ export default function EmployeeManagement() {
               Download Template
             </MaterialModule.Button>
           </div>
-          <div className="flex gap-2 items-center mb-4">
+          <div className="flex items-center mb-4">
             <MaterialModule.FormControlLabel
               control={
                 <MaterialModule.Checkbox
@@ -1652,12 +1630,35 @@ export default function EmployeeManagement() {
                   onChange={(e) =>
                     setExcelHasEmployeeIdColumn(e.target.checked)
                   }
+                  className={`${!excelHasEmployeeIdColumn ? 'animate-blink' : ''}`}
                   disabled={!employeeIdConfig?.configured}
                 />
               }
               label="Excel already contains Employee ID column"
             />
-            <div className="text-[12px] text-yellow-800">
+            {/* <MaterialModule.FormControl className="flex items-center gap-4 !flex-row !w-max"
+              disabled={!employeeIdConfig?.configured}>
+              <div className="text-[12px] text-gray-800">Does the Excel already contain an Employee ID column?</div>
+              <MaterialModule.RadioGroup
+                row
+                value={excelHasEmployeeIdColumn ? "yes" : "no"}
+                onChange={(e) =>
+                  setExcelHasEmployeeIdColumn(e.target.value === "yes")
+                }
+              >
+                <MaterialModule.FormControlLabel
+                  value="yes"
+                  control={<MaterialModule.Radio />}
+                  label="Yes"
+                />
+                <MaterialModule.FormControlLabel
+                  value="no"
+                  control={<MaterialModule.Radio />}
+                  label="No"
+                />
+              </MaterialModule.RadioGroup>
+            </MaterialModule.FormControl> */}
+            <div className="text-[12px] text-red-600">
               [ Note : {!employeeIdConfig?.configured
                 ? "Employee ID generation is not configured. Your Excel file must contain an Employee ID column"
                 : excelHasEmployeeIdColumn
@@ -1702,8 +1703,8 @@ export default function EmployeeManagement() {
               {/* Upload Summary */}
               <div
                 className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
-                    ? "border-orange-200 bg-orange-50"
-                    : "border-green-200 bg-green-50"
+                  ? "border-orange-200 bg-orange-50"
+                  : "border-green-200 bg-green-50"
                   }`}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -1734,7 +1735,7 @@ export default function EmployeeManagement() {
                   </div>
 
                   <div className="bg-white rounded-lg border p-3">
-                    <div className="text-xs text-gray-500">Success</div>
+                    <div className="text-xs text-gray-500">Imported:</div>
                     <div className="font-bold text-lg text-green-600">
                       {uploadResult.successCount ?? 0}
                     </div>
@@ -1833,11 +1834,11 @@ export default function EmployeeManagement() {
                 </div>
               )}
 
-              {/* Validation Errors */}
+              {/* Row Errors */}
               {uploadResult.errors && uploadResult.errors?.length > 0 && (
                 <div className="border border-red-200 rounded-lg p-4 bg-red-50">
                   <div className="font-semibold text-red-700 mb-3">
-                    Validation Errors
+                    Row Errors
                   </div>
 
                   <div className="max-h-72 overflow-auto space-y-3">
@@ -1847,9 +1848,11 @@ export default function EmployeeManagement() {
                           key={index}
                           className="bg-white border border-red-100 rounded-lg p-3"
                         >
-                          <div className="font-medium text-red-700">
-                            Row {err.rowNumber}
-                          </div>
+                          {(err.row ?? err.rowNumber) !== undefined && (
+                            <div className="font-medium text-red-700">
+                              Row {err.row ?? err.rowNumber}
+                            </div>
+                          )}
 
                           {(err.branchName || err.branchCode) && (
                             <div className="text-xs text-gray-500 mt-1">
@@ -1859,13 +1862,19 @@ export default function EmployeeManagement() {
                             </div>
                           )}
 
-                          <ul className="list-disc ml-5 mt-2 text-sm text-red-600">
-                            {err.errors?.map(
-                              (message: string, idx: number) => (
-                                <li key={idx}>{message}</li>
-                              )
-                            )}
-                          </ul>
+                          {err.message && (
+                            <div className="text-sm text-red-600 mt-1">{err.message}</div>
+                          )}
+
+                          {err.errors && (
+                            <ul className="list-disc ml-5 mt-2 text-sm text-red-600">
+                              {err.errors.map(
+                                (message: string, idx: number) => (
+                                  <li key={idx}>{message}</li>
+                                )
+                              )}
+                            </ul>
+                          )}
                         </div>
                       )
                     )}

@@ -437,11 +437,6 @@ export default function Profile() {
                 required: required,
               },
             }}
-            sx={{
-                      "& .MuiIconButton-root": {
-                        color: "dodgerblue",
-                      },
-                    }}
           />
         </LocalizationProvider>
       );

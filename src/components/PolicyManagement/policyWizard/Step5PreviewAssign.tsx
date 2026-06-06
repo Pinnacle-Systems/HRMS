@@ -3,7 +3,7 @@ import {
   Box, Typography, Grid, Card, CardContent, Divider, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  FormControl, InputLabel, Select, MenuItem, CircularProgress, TextField,
+ CircularProgress,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
@@ -12,17 +12,14 @@ import {
   Preview as PreviewIcon,
   Send as SendIcon,
 } from '@mui/icons-material';
-import { MOCK_EMPLOYEES } from '../../../services/mockPolicyService';
-
-interface Step5PreviewAssignProps {
-  policyName: any;
-  templateName?: string;
-  config: any;
-  eligibilityConfig: any;
-  approvalFlow: any;
-  effectiveFrom?: string;
-  onEffectiveFromChange?: (date: string) => void;
-}
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import { DatePicker } from '@mui/x-date-pickers';
+import { helperSx } from '../const';
+import { EmployeeSelector } from '../Common/EmployeeSelector';
+import type { Employee } from '../../../types/policy';
+import type { Step5PreviewAssignProps } from '../types';
 
 export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
   policyName,
@@ -34,41 +31,29 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
   onEffectiveFromChange,
 }) => {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [selectedEmployees, setSelectedEmployees] = useState<any>('');
   const [previewResult, setPreviewResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
-
-  const sampleEmployees = MOCK_EMPLOYEES.map(e => ({
-    id: e.id,
-    name: e.name,
-    role: e.designationId,
-    department: e.departmentId,
-    category: e.employeeCategory,
-    isOnProbation: e.isOnProbation,
-  }));
-
-  const deptNames: Record<string,string> = { dept1:'Engineering', dept2:'Sales', dept3:'HR', dept4:'Production' };
-  const desigNames: Record<string,string> = { des1:'Manager', des2:'Senior Engineer', des3:'Associate', des4:'Worker' };
-  const catColors: Record<string,string> = { STAFF:'#1976d2', LABOUR:'#d32f2f', GROUND_WORKER:'#388e3c', SUPERVISOR:'#f57c00', TECHNICIAN:'#7b1fa2' };
-
+  
   const handlePreview = async () => {
-    if (!selectedEmployee) return;
+    if (!selectedEmployees) return;
+    console.log(selectedEmployees);
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const emp = MOCK_EMPLOYEES.find(e => e.id === selectedEmployee);
+      // await new Promise(resolve => setTimeout(resolve, 800));
+      const emp = selectedEmployees;
       setPreviewResult({
         allowed: true,
         policyName,
         messages: [
           { type: 'INFO', message: `Employee ${emp?.name} is eligible for this policy` },
-          { type: 'INFO', message: `Category: ${emp?.employeeCategory}` },
-          { type: emp?.isOnProbation ? 'WARNING' : 'INFO', message: emp?.isOnProbation ? 'Employee is on probation — some leave types may be restricted' : 'Employee is confirmed' },
+          { type: 'INFO', message: `Template: ${emp?.template}` },
+          { type: emp?.employeeStatus == 'Probation' ? 'WARNING' : 'INFO', message: emp?.employeeStatus == 'Probation' ? 'Employee is on probation — some leave types may be restricted' : 'Employee is confirmed' },
         ],
         computed: {
-          employeeCategory: emp?.employeeCategory,
-          isOnProbation: emp?.isOnProbation,
+          template: emp?.template,
+          isOnProbation: emp?.employeeStatus == 'Probation',
           approvalLevels: approvalFlow?.levels?.length ?? 0,
           autoApproveThreshold: approvalFlow?.autoApproveBelowDays ?? 0,
         },
@@ -102,10 +87,10 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                     <TableCell>Half Day</TableCell>
                   </TableRow>
                 </TableHead>
-                <TableBody>
+                <TableBody className='bg-white-50'>
                   {config.entitlements.map((leave: any, i: number) => (
                     <TableRow key={i}>
-                      <TableCell><Chip label={leave.leaveType} size="small" /> {leave.name}</TableCell>
+                      <TableCell><Chip label={leave.leaveType} size="small" className='text-gray-500 bg-gray-100' /> {leave.name}</TableCell>
                       <TableCell>{leave.annualEntitlement} days</TableCell>
                       <TableCell>{leave.maxConsecutiveDays || '—'}</TableCell>
                       <TableCell>{leave.accrualType}</TableCell>
@@ -120,9 +105,9 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
         {approvalFlow?.levels?.length > 0 && (
           <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" gutterBottom>Approval Workflow</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
               {approvalFlow.levels.map((level: any, i: number) => (
-                <Chip key={i} label={`Level ${level.level}: ${level.approverType}`} variant="outlined" icon={<CheckIcon />} />
+                <Chip key={i} label={`Level ${level.level}: ${level.approverType}`} variant="outlined" className='text-gray-800' icon={<CheckIcon />} />
               ))}
               {approvalFlow.autoApproveBelowDays > 0 && (
                 <Chip label={`Auto-approve below ${approvalFlow.autoApproveBelowDays}`} color="success" size="small" />
@@ -156,12 +141,11 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
         Review all configurations before creating the policy.
       </Typography>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid size={{ xs: 12 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" gutterBottom>Policy Summary</Typography>
-              <Divider sx={{ mb: 2 }} />
+          <Card className='border border-gray-200 !rounded-lg mt-2 bg-white-50 text-gray-800'>
+            <CardContent className='!pb-2'>
+              <Typography variant="subtitle1" gutterBottom className='mb-2 text-primary'>Policy Summary</Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, md: 3 }}>
                   <Typography variant="caption" color="text.secondary">Policy Name</Typography>
@@ -182,13 +166,25 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                   </Box>
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <TextField
-                    fullWidth size="small" type="date" label="Effective From"
-                    value={effectiveFrom || new Date().toISOString().split('T')[0]}
-                    onChange={(e) => onEffectiveFromChange?.(e.target.value)}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    helperText="When this policy takes effect"
-                  />
+                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <DatePicker
+                      label="Effective From"
+                      value={effectiveFrom ? dayjs(effectiveFrom) : dayjs()}
+                      onChange={(newValue) =>
+                        onEffectiveFromChange?.(
+                          newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
+                        )
+                      }
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          size: "small",
+                          helperText: "When this policy takes effect",
+                        },
+                      }}
+                      sx={helperSx}
+                    />
+                  </LocalizationProvider>
                 </Grid>
               </Grid>
             </CardContent>
@@ -196,17 +192,16 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" gutterBottom>Configuration Details</Typography>
-              <Divider sx={{ mb: 2 }} />
+          <Card className='border border-gray-200 !rounded-lg bg-white-50 text-gray-800'>
+            <CardContent className='!pb-4'>
+              <Typography variant="subtitle1" gutterBottom className='mb-2 text-primary'>Configuration Details</Typography>
               {renderConfigSummary()}
             </CardContent>
           </Card>
         </Grid>
 
         <Grid size={{ xs: 12 }}>
-          <Card>
+          <Card className='border border-gray-200 !rounded-lg bg-white-50 text-gray-800'>
             <CardContent>
               <Box className="flex justify-between items-center">
                 <Typography variant="subtitle1">Test with Sample Employee</Typography>
@@ -249,35 +244,25 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
         <DialogTitle>Test Policy: {policyName}</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 3 }}>
               Select an employee to see how this policy would apply to them.
             </Typography>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Select Employee</InputLabel>
-              <Select value={selectedEmployee} label="Select Employee"
-                onChange={(e) => { setSelectedEmployee(e.target.value); setPreviewResult(null); }}>
-                {sampleEmployees.map((emp) => (
-                  <MenuItem key={emp.id} value={emp.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span>{emp.name} — {deptNames[emp.department] ?? emp.department} / {desigNames[emp.role] ?? emp.role}</span>
-                      <Chip label={emp.category} size="small"
-                        sx={{ bgcolor: catColors[emp.category] ?? '#999', color: '#fff', fontSize: '0.65rem' }} />
-                      {emp.isOnProbation && <Chip label="Probation" size="small" color="warning" />}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
+            <EmployeeSelector
+              companyId="company_123"
+              value={selectedEmployees ? selectedEmployees : null}
+              onChange={(value) => setSelectedEmployees(value as Employee[])}
+              label="Select Employees"
+              placeholder="Search multiple employees..."
+            />
             <Button fullWidth variant="contained" onClick={handlePreview}
-              disabled={!selectedEmployee || loading}>
+              disabled={!selectedEmployees || loading} className='!mt-4'>
               {loading ? <CircularProgress size={24} /> : 'Run Policy Test'}
             </Button>
 
             {previewResult && (
-              <Box sx={{ mt: 2 }}>
+              <Box sx={{ mt: 2 }} className="bg-gray-100 px-5 py-3 rounded-2xl">
                 <Typography variant="subtitle2" gutterBottom>Test Results</Typography>
-                <Paper variant="outlined" sx={{ p: 2 }}>
+                <div className='p-2'>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <CheckIcon color="success" />
                     <Typography >
@@ -295,13 +280,13 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                       </pre>
                     </Box>
                   )}
-                </Paper>
+                </div>
               </Box>
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewDialogOpen(false)}>Close</Button>
+        <DialogActions className='!p-4 !pt-0'>
+          <Button onClick={() => setPreviewDialogOpen(false)} variant='outlined' className='!text-gray-800 !border-gray-200'>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

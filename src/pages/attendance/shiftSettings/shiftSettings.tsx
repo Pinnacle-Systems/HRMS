@@ -61,7 +61,7 @@ export default function ShiftSettings() {
         <div className="font-semibold text-gray-800">
           Shift Management
         </div>
-        <div className="text-gray-500 text-[13px] mt-1">
+        <div className="text-gray-500 text-[12px]">
           Configure and manage all company shift policies
         </div>
       </div>

@@ -1,5 +1,3 @@
-// src/components/PolicyManagement/PolicyWizard/PolicyWizard.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   Stepper,
@@ -7,10 +5,7 @@ import {
   StepLabel,
   Button,
   Box,
-  Paper,
-  Typography,
   Alert,
-  CircularProgress,
 } from '@mui/material';
 import { Step1SelectTemplate } from './Step1SelectTemplate';
 import { Step2ConfigureRules } from './Step2ConfigureRules';
@@ -19,21 +14,8 @@ import { Step4ApprovalFlow } from './Step4ApprovalFlow';
 import { Step5PreviewAssign } from './Step5PreviewAssign';
 import { policyApi } from '../../../services/modules/policy';
 import { type PolicyTemplate, type PolicyDefinition, type PolicyConfig, PolicyDomain } from '../../../types/policy';
-
-const steps = [
-  'Select Template',
-  'Configure Rules',
-  'Set Eligibility',
-  'Approval Flow',
-  'Preview & Assign',
-];
-
-interface PolicyWizardProps {
-  companyId: string;
-  existingPolicyId?: string;
-  onComplete: (policyId: string) => void;
-  onCancel: () => void;
-}
+import { useUI } from '../../../context/Snackbar';
+import { steps, type PolicyWizardProps } from '../types';
 
 export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   companyId,
@@ -43,8 +25,9 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
 }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const { showSpinner, hideSpinner } = useUI();
   const [error, setError] = useState<string | null>(null);
-  
+
   // Wizard state
   const [selectedTemplate, setSelectedTemplate] = useState<PolicyTemplate | null>(null);
   const [policyConfig, setPolicyConfig] = useState<PolicyConfig | null>(null);
@@ -56,21 +39,15 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
     domain: PolicyDomain['LEAVE'],
   });
 
-  // Load existing policy if editing
-  useEffect(() => {
-    if (existingPolicyId) {
-      loadExistingPolicy();
-    }
-  }, [existingPolicyId]);
-
   const loadExistingPolicy = async () => {
     setLoading(true);
+    showSpinner()
     try {
       const policy = await policyApi.getPolicyById(existingPolicyId!);
       const template = await policyApi.getTemplateById(policy.templateId);
       const versions = await policyApi.getPolicyVersions(existingPolicyId!);
       const latestVersion = versions[0];
-      
+
       setSelectedTemplate(template);
       setPolicyDefinition(policy);
       if (latestVersion) {
@@ -80,19 +57,25 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
       setError('Failed to load existing policy');
     } finally {
       setLoading(false);
+      hideSpinner();
     }
   };
 
+  // Load existing policy if editing
+  useEffect(() => {
+    if (existingPolicyId) {
+      loadExistingPolicy();
+    }
+  }, [existingPolicyId]);
+
   const handleNext = async () => {
-    console.log(activeStep,selectedTemplate);
-    
     if (activeStep === 0 && !selectedTemplate) {
       setError('Please select a template');
       return;
     }
-    
+
     setError(null);
-    
+
     if (activeStep === steps.length - 1) {
       await handleSubmit();
     } else {
@@ -107,10 +90,10 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       let policyId = existingPolicyId;
-      
+
       if (!existingPolicyId) {
         // Create new policy
         const newPolicy = await policyApi.createPolicy({
@@ -124,20 +107,20 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
         });
         policyId = newPolicy.id;
       }
-      
+
       // Create policy version with complete config
       const completeConfig = {
-        ...policyConfig,
+        ...(policyConfig || {}),
         eligibility: eligibilityConfig,
         approvalFlow: approvalFlow,
-      };
-      
+      } as PolicyConfig;
+
       const newVersion = await policyApi.createPolicyVersion(
         policyId!,
         completeConfig,
         `Created policy version for ${policyDefinition.name}`
       );
-      
+
       // Create assignments if any
       if (eligibilityConfig?.assignments?.length) {
         for (const assignment of eligibilityConfig.assignments) {
@@ -148,7 +131,7 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
           });
         }
       }
-      
+
       onComplete(policyId!);
     } catch (err: any) {
       setError(err.message || 'Failed to create policy');
@@ -208,63 +191,51 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
     }
   };
 
-  if (loading && !selectedTemplate) {
-    return (
-      <div>
-        <CircularProgress />
-      </div>
-    );
-  }
-
   return (
-    <Paper elevation={3} sx={{ p: 3 }}>
-      <Typography variant="h5" gutterBottom>
-        {existingPolicyId ? 'Edit Policy' : 'Create New Policy'}
-      </Typography>
-      
-      <Stepper activeStep={activeStep} sx={{ my: 4 }}>
+    <div className='py-4 px-6 bg-white shadow-sm'>
+      <div className='text-gray-800 font-semibold text-[12px]'>{existingPolicyId ? 'Edit Policy' : 'Create New Policy'}</div>
+      <div className='text-gray-500 text-[12px]'>
+        Define a new policy by selecting a template and configuring rules, eligibility, and approval workflows.
+      </div>
+      <Stepper activeStep={activeStep} sx={{ my: 3 }}>
         {steps.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
-      
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-      
-      <Box sx={{ mt: 2, mb: 4 }}>
+
+      <Box sx={{ mt: 0, mb: 0 }} className='!h-[calc(100vh-320px)] !overflow-auto'>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
         {getStepContent(activeStep)}
       </Box>
-      
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-        <Button
-          variant="outlined"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Cancel
-        </Button>
+        <Button disabled={activeStep === 0 || loading} variant='outlined'
+          onClick={handleBack}>Back</Button>
         <Box>
           <Button
-            disabled={activeStep === 0 || loading}
-            onClick={handleBack}
+            variant="outlined"
+            onClick={onCancel}
+            className='!text-gray-800 !border-gray-200'
+            disabled={loading}
             sx={{ mr: 1 }}
           >
-            Back
+            Cancel
           </Button>
           <Button
             variant="contained"
             onClick={handleNext}
             disabled={loading}
+            className='!bg-primary'
           >
-            {activeStep === steps.length - 1 ? 'Create Policy' : 'Next'}
+            {activeStep === steps.length - 1 ? existingPolicyId ? 'Edit Policy' : 'Create Policy' : 'Next'}
           </Button>
         </Box>
       </Box>
-    </Paper>
+    </div>
   );
 };

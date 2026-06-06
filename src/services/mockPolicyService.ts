@@ -1,9 +1,3 @@
-/**
- * Mock Policy Service
- * Provides complete mock data and a frontend evaluation engine.
- * Set USE_MOCK = true in policy.ts while the backend is not ready.
- */
-
 import type {
   PolicyTemplate,
   PolicyDefinition,
@@ -15,7 +9,6 @@ import type {
 } from '../types/policy';
 import {
   PolicyDomain,
-  IndustryType,
   PolicyStatus,
   VersionStatus,
   EmploymentType,
@@ -31,16 +24,13 @@ export const delay = (ms = 400) => new Promise<void>(r => setTimeout(r, ms));
 // ─────────────────────────────────────────────
 // MOCK TEMPLATES
 // ─────────────────────────────────────────────
-
 export const MOCK_TEMPLATES: PolicyTemplate[] = [
-  // ── IT ──────────────────────────────────────
+  // ── LEAVE DOMAIN ──────────────────────────────────────────────────────────────
   {
     id: 'tmpl_it_leave',
-    name: 'IT Standard Leave Policy',
+    name: 'Standard Leave Policy',
     domain: PolicyDomain.LEAVE,
-    industryType: IndustryType.IT,
-    description:
-      'Standard leave policy for IT companies — CL, SL, EL with monthly accrual, carry-forward, and sandwich rule.',
+    description: 'Standard leave policy for IT companies — CL, SL, EL with monthly accrual, carry-forward, and sandwich rule.',
     configSchema: {},
     defaultConfig: {
       entitlements: [
@@ -52,41 +42,13 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
           maxConsecutiveDays: 3,
           requiresDocument: false,
           allowedDuringProbation: true,
-        },
-        {
-          leaveType: 'SL',
-          name: 'Sick Leave',
-          annualEntitlement: 12,
-          accrualType: 'YEARLY',
-          maxConsecutiveDays: 7,
-          requiresDocument: true,
-          documentAfterDays: 3,
-          allowedDuringProbation: true,
-        },
-        {
-          leaveType: 'EL',
-          name: 'Earned Leave',
-          annualEntitlement: 15,
-          accrualType: 'MONTHLY',
-          maxConsecutiveDays: 15,
-          requiresDocument: false,
-          allowedDuringProbation: false,
-        },
-        {
-          leaveType: 'ML',
-          name: 'Maternity Leave',
-          annualEntitlement: 182,
-          accrualType: 'YEARLY',
-          requiresDocument: true,
-          allowedDuringProbation: false,
-        },
-        {
-          leaveType: 'PL',
-          name: 'Paternity Leave',
-          annualEntitlement: 15,
-          accrualType: 'YEARLY',
-          requiresDocument: false,
-          allowedDuringProbation: false,
+          halfDayAllowed: true,
+          advanceLeaveAllowed: false,
+          encashable: false,
+          minimumServiceMonths: null,
+          backdatedAllowed: true,
+          backdatedDaysLimit: 7,
+          genderRestricted: null,
         },
       ],
       accrualRules: {
@@ -94,6 +56,8 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
         carryForwardUnused: true,
         accrualFrequency: 'MONTHLY',
         maxAccrual: 45,
+        leaveYearStartMonth: 4,
+        resetOnYearEnd: false,
       },
       carryForward: {
         maxDays: 30,
@@ -101,7 +65,12 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
         allowEncashment: true,
         encashmentRate: 100,
       },
-      sandwichRule: { enabled: true, includeWeekends: true, includeHolidays: true },
+      sandwichRule: { 
+        enabled: true, 
+        includeWeekends: true, 
+        includeHolidays: true 
+      },
+     
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Leave Entitlements', type: 'LEAVE_ENTITLEMENTS', configurable: true, schema: {} },
@@ -111,280 +80,308 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
     ],
     isSystemTemplate: true,
   },
+
+  // ── OVERTIME DOMAIN ──────────────────────────────────────────────────────────
   {
-    id: 'tmpl_it_overtime',
-    name: 'IT Overtime Policy',
+    id: 'tmpl_overtime',
+    name: 'Overtime Policy',
     domain: PolicyDomain.OVERTIME,
-    industryType: IndustryType.IT,
-    description:
-      'Overtime compensation for IT professionals — project-based OT with comp-off or pay options.',
+    description: 'Overtime compensation as per Factories Act, 1948 — double rate, max 4 hours/day, 50 hours/month',
     configSchema: {},
     defaultConfig: {
       overtimeRules: {
         maxHoursPerDay: 4,
-        maxHoursPerMonth: 40,
-        requiresManagerApproval: true,
-        compensationType: 'COMP_OFF_OR_PAY',
-        weekdayMultiplier: 1.5,
+        maxHoursPerMonth: 50,
+        weeklyOTLimit: 20,
+        overtimeEligibleAfterHours: 9,
+        weekdayMultiplier: 2.0,
         weekendMultiplier: 2.0,
         holidayMultiplier: 2.5,
+        compensationType: 'PAY',
+        compOffValidityDays: 90,
+        requiresManagerApproval: true,
+      },
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 1,
+          },
+          {
+            level: 2,
+            approverType: 'HR',
+            timeoutDays: 2,
+            condition: {
+              field: 'hours',
+              operator: 'gt',
+              value: 4,
+            },
+          },
+        ],
+        autoApproveBelowDays: 0,
+        fallbackApprover: 'HR',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
       },
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Overtime Rules', type: 'OVERTIME_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
+
+  // ── ATTENDANCE DOMAIN ─────────────────────────────────────────────────────────
   {
-    id: 'tmpl_it_expense',
-    name: 'IT Expense Reimbursement Policy',
+    id: 'tmpl_attendance',
+    name: 'Attendance & Shift Policy',
+    domain: PolicyDomain.ATTENDANCE,
+    description: 'Shift-based attendance with grace time, late penalty, and absent deduction rules',
+    configSchema: {},
+    defaultConfig: {
+      shiftConfig: {
+        graceTimeMinutes: 15,
+        latePenaltyAfterMinutes: 30,
+        halfDayMinutes: 240,
+        fullDayMinutes: 480,
+        biometricRequired: true,
+        mobileCheckInAllowed: false,
+        wfhAllowed: false,
+        regularizationAllowedPerMonth: 3,
+        overtimeAutoCalculate: true,
+      },
+      penalties: {
+        absentDeductionPerDay: 1,
+        lwpAfterDays: 3,
+      },
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 2,
+          },
+        ],
+        autoApproveBelowDays: 0,
+        fallbackApprover: 'HR',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
+      },
+    },
+    ruleBlocks: [
+      { id: 'rb1', name: 'Shift & Attendance Rules', type: 'SHIFT_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
+    ],
+    isSystemTemplate: true,
+  },
+
+  // ── SHIFT DOMAIN ──────────────────────────────────────────────────────────────
+  {
+    id: 'tmpl_shift_rotation',
+    name: 'Shift Rotation Policy',
+    domain: PolicyDomain.SHIFT,
+    description: 'Rotational shift policy for 24/7 operations with shift allowances',
+    configSchema: {},
+    defaultConfig: {
+      shiftConfig: {
+        graceTimeMinutes: 10,
+        latePenaltyAfterMinutes: 30,
+        halfDayMinutes: 240,
+        fullDayMinutes: 480,
+        biometricRequired: true,
+        mobileCheckInAllowed: false,
+        wfhAllowed: false,
+        regularizationAllowedPerMonth: 2,
+        overtimeAutoCalculate: true,
+      },
+      rotationPattern: 'WEEKLY',
+      notifyDaysBefore: 3,
+      minGapBetweenShifts: 12,
+      shiftAllowance: {
+        MORNING: 100,
+        EVENING: 200,
+        NIGHT: 500,
+      },
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 2,
+          },
+        ],
+        autoApproveBelowDays: 0,
+        fallbackApprover: 'HR',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
+      },
+    },
+    ruleBlocks: [
+      { id: 'rb1', name: 'Shift Rules', type: 'SHIFT_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Rotation Rules', type: 'ROTATION_RULES', configurable: true, schema: {} },
+      { id: 'rb3', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
+    ],
+    isSystemTemplate: true,
+  },
+
+  // ── EXPENSE DOMAIN ────────────────────────────────────────────────────────────
+  {
+    id: 'tmpl_expense',
+    name: 'Expense Reimbursement Policy',
     domain: PolicyDomain.EXPENSE,
-    industryType: IndustryType.IT,
-    description:
-      'Expense reimbursement for IT teams with per-category limits, receipt requirements, and approval thresholds.',
+    description: 'Expense reimbursement with per-category limits as per Income Tax Act, 1961',
     configSchema: {},
     defaultConfig: {
       expenseLimits: {
-        TRAVEL: { daily: 5000, monthly: 50000, requiresReceipt: true },
-        FOOD: { daily: 500, monthly: 5000, requiresReceipt: false },
-        ACCOMMODATION: { daily: 3000, monthly: 30000, requiresReceipt: true },
-        EQUIPMENT: { yearly: 25000, requiresReceipt: true },
-        OTHER: { monthly: 2000, requiresReceipt: true },
+        TRAVEL: { daily: 5000, monthly: 50000, requiresReceipt: true, requiresPreApproval: false },
+        FOOD: { daily: 500, monthly: 5000, requiresReceipt: false, requiresPreApproval: false },
+        ACCOMMODATION: { daily: 3000, monthly: 30000, requiresReceipt: true, requiresPreApproval: true, preApprovalThreshold: 10000 },
+        EQUIPMENT: { yearly: 25000, requiresReceipt: true, requiresPreApproval: true, preApprovalThreshold: 5000 },
+        STATIONERY: { monthly: 1000, requiresReceipt: false, requiresPreApproval: false },
+        OTHER: { monthly: 2000, requiresReceipt: true, requiresPreApproval: false },
       },
       advanceAllowed: true,
       maxAdvanceAmount: 20000,
       settlementDays: 7,
+      perDiemAllowed: false,
+      perDiemAmount: 0,
+      foreignCurrencyAllowed: false,
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 3,
+          },
+          {
+            level: 2,
+            approverType: 'DEPARTMENT_HEAD',
+            timeoutDays: 2,
+            condition: {
+              field: 'amount',
+              operator: 'gt',
+              value: 10000,
+            },
+          },
+          {
+            level: 3,
+            approverType: 'ADMIN',
+            timeoutDays: 2,
+            condition: {
+              field: 'amount',
+              operator: 'gt',
+              value: 50000,
+            },
+          },
+        ],
+        autoApproveBelowDays: 0,
+        fallbackApprover: 'HR',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
+      },
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Expense Limits', type: 'EXPENSE_LIMITS', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
 
-  // ── MANUFACTURING ────────────────────────────
+  // ── PAYROLL DOMAIN ────────────────────────────────────────────────────────────
   {
-    id: 'tmpl_mfg_attendance',
-    name: 'Factory Attendance Policy',
-    domain: PolicyDomain.ATTENDANCE,
-    industryType: IndustryType.MANUFACTURING,
-    description:
-      'Shift-based attendance for factory workers — grace time, late penalty, and absent deduction rules.',
-    configSchema: {},
-    defaultConfig: {
-      shiftConfig: {
-        graceTimeMinutes: 5,
-        latePenaltyAfterMinutes: 30,
-        halfDayMinutes: 240,
-        fullDayMinutes: 480,
-      },
-      penalties: { absentDeductionPerDay: 1, lwpAfterDays: 3 },
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Shift Configuration', type: 'SHIFT_RULES', configurable: true, schema: {} },
-      { id: 'rb2', name: 'Overtime Rules', type: 'OVERTIME_RULES', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
-  {
-    id: 'tmpl_mfg_leave',
-    name: 'Manufacturing Leave Policy',
-    domain: PolicyDomain.LEAVE,
-    industryType: IndustryType.MANUFACTURING,
-    description:
-      'Leave policy for factory workers with shift-aware scheduling and LWP rules.',
-    configSchema: {},
-    defaultConfig: {
-      entitlements: [
-        {
-          leaveType: 'CL',
-          name: 'Casual Leave',
-          annualEntitlement: 7,
-          accrualType: 'MONTHLY',
-          allowedDuringProbation: true,
-        },
-        {
-          leaveType: 'SL',
-          name: 'Sick Leave',
-          annualEntitlement: 10,
-          accrualType: 'YEARLY',
-          requiresDocument: true,
-          allowedDuringProbation: true,
-        },
-        {
-          leaveType: 'EL',
-          name: 'Earned Leave',
-          annualEntitlement: 18,
-          accrualType: 'MONTHLY',
-          allowedDuringProbation: false,
-        },
-      ],
-      accrualRules: { enableProRata: true, carryForwardUnused: false, accrualFrequency: 'MONTHLY' },
-      sandwichRule: { enabled: false },
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Leave Entitlements', type: 'LEAVE_ENTITLEMENTS', configurable: true, schema: {} },
-      { id: 'rb2', name: 'Accrual Rules', type: 'ACCRUAL_RULES', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
-  {
-    id: 'tmpl_mfg_payroll',
-    name: 'Manufacturing Payroll Policy',
+    id: 'tmpl_payroll',
+    name: 'Payroll Policy',
     domain: PolicyDomain.PAYROLL,
-    industryType: IndustryType.MANUFACTURING,
-    description:
-      'Payroll for factory workers — includes OT pay, night-shift allowance, and production incentives.',
+    description: 'Payroll components with statutory deductions as per Indian Labour Laws',
     configSchema: {},
     defaultConfig: {
       payrollComponents: {
         basic: { percentage: 60, of: 'CTC' },
-        hra: { percentage: 15, of: 'BASIC' },
+        hra: { percentage: 40, of: 'BASIC', cityType: 'METRO' },
         da: { percentage: 10, of: 'BASIC' },
+        special: { percentage: 15, of: 'BASIC' },
       },
       overtimeMultiplier: 2.0,
       shiftAllowance: { MORNING: 0, EVENING: 200, NIGHT: 500 },
+      pf: { employeeContribution: 12, employerContribution: 12, ceiling: 15000, basis: 'BASIC' },
+      esi: { employeeContribution: 0.75, employerContribution: 3.25, applicableBelowCTC: 21000 },
+      professionalTax: { applicable: true, state: 'KARNATAKA' },
+      gratuity: { eligibleAfterYears: 5, rate: 15 },
+      lwf: { applicable: false },
+      tds: { applicable: true, regime: 'NEW', declarationRequired: true },
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Payroll Components', type: 'PAYROLL_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Statutory Deductions', type: 'STATUTORY_DEDUCTIONS', configurable: true, schema: {} },
+      { id: 'rb3', name: 'Tax Deductions', type: 'TAX_DEDUCTIONS', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
 
-  // ── RETAIL ───────────────────────────────────
-  {
-    id: 'tmpl_retail_shift',
-    name: 'Retail Shift Rotation Policy',
-    domain: PolicyDomain.SHIFT,
-    industryType: IndustryType.RETAIL,
-    description:
-      'Rotating shift for retail stores — morning, evening, and night shifts with auto-rotation schedule.',
-    configSchema: {},
-    defaultConfig: {
-      shifts: [
-        { code: 'MORNING', name: 'Morning Shift', startTime: '06:00', endTime: '14:00' },
-        { code: 'EVENING', name: 'Evening Shift', startTime: '14:00', endTime: '22:00' },
-        { code: 'NIGHT', name: 'Night Shift', startTime: '22:00', endTime: '06:00' },
-      ],
-      rotationWeeks: 4,
-      minGapBetweenShifts: 8,
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Shift Rotation Rules', type: 'ROTATION_RULES', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
-  {
-    id: 'tmpl_retail_attendance',
-    name: 'Retail Attendance Policy',
-    domain: PolicyDomain.ATTENDANCE,
-    industryType: IndustryType.RETAIL,
-    description:
-      'Attendance policy for retail store employees — covers flexible shifts, punch-in rules, and WFH guidelines.',
-    configSchema: {},
-    defaultConfig: {
-      shiftConfig: { graceTimeMinutes: 10, halfDayMinutes: 240, fullDayMinutes: 480 },
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Attendance Rules', type: 'SHIFT_RULES', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
-
-  // ── HEALTHCARE ───────────────────────────────
-  {
-    id: 'tmpl_hc_leave',
-    name: 'Healthcare Leave Policy',
-    domain: PolicyDomain.LEAVE,
-    industryType: IndustryType.HEALTHCARE,
-    description:
-      'Leave policy for healthcare workers — includes emergency duty leave and special on-call provisions.',
-    configSchema: {},
-    defaultConfig: {
-      entitlements: [
-        {
-          leaveType: 'CL',
-          name: 'Casual Leave',
-          annualEntitlement: 10,
-          accrualType: 'MONTHLY',
-          allowedDuringProbation: true,
-        },
-        {
-          leaveType: 'SL',
-          name: 'Sick Leave',
-          annualEntitlement: 14,
-          accrualType: 'YEARLY',
-          requiresDocument: true,
-          allowedDuringProbation: true,
-        },
-        {
-          leaveType: 'EL',
-          name: 'Earned Leave',
-          annualEntitlement: 15,
-          accrualType: 'MONTHLY',
-          allowedDuringProbation: false,
-        },
-        {
-          leaveType: 'EmL',
-          name: 'Emergency Leave',
-          annualEntitlement: 5,
-          accrualType: 'YEARLY',
-          allowedDuringProbation: true,
-        },
-      ],
-      accrualRules: { enableProRata: true, carryForwardUnused: true, accrualFrequency: 'MONTHLY' },
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Leave Entitlements', type: 'LEAVE_ENTITLEMENTS', configurable: true, schema: {} },
-      { id: 'rb2', name: 'Accrual Rules', type: 'ACCRUAL_RULES', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
-
-  // ── GENERIC (all industries) ─────────────────
+  // ── PROBATION DOMAIN ──────────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_probation',
     name: 'Standard Probation Policy',
     domain: PolicyDomain.PROBATION,
-    industryType: undefined,
-    description:
-      'Standard probation policy — 3 to 6 month period with configurable review checkpoints.',
+    description: 'Standard probation policy — 3 to 6 month period with configurable review checkpoints',
     configSchema: {},
     defaultConfig: {
       probationDuration: 90,
       extensionAllowed: true,
       maxExtensionDays: 90,
       reviewCheckpoints: [30, 60, 90],
+      autoConfirmIfNoAction: false,
+      salaryPercentageDuringProbation: 100,
+      benefitsEligible: true,
+      performanceReviewRequired: true,
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Probation Rules', type: 'PROBATION_RULES', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
+
+  // ── NOTICE PERIOD DOMAIN ──────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_notice',
     name: 'Notice Period Policy',
     domain: PolicyDomain.NOTICE_PERIOD,
-    industryType: undefined,
-    description:
-      'Notice period policy — defines notice duration by designation and buy-out rules.',
+    description: 'Notice period policy — defines notice duration by designation and buy-out rules',
     configSchema: {},
     defaultConfig: {
-      noticeDays: { DEFAULT: 30, MANAGER: 60, SENIOR: 90 },
+      noticeDays: { 
+        DEFAULT: 30, 
+        ASSOCIATE: 30, 
+        SENIOR: 60, 
+        MANAGER: 60, 
+        DIRECTOR: 90 
+      },
+      noticeDuringProbation: 7,
       buyOutAllowed: true,
       buyOutMultiplier: 1.0,
+      gardenLeaveAllowed: false,
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Notice Period Rules', type: 'NOTICE_PERIOD_RULES', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
-  // ── HOLIDAY ──────────────────────────────────
+
+  // ── HOLIDAY DOMAIN ────────────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_holiday',
     name: 'Company Holiday Policy',
     domain: PolicyDomain.HOLIDAY,
-    industryType: undefined,
-    description: 'Defines national, state, and company-declared holidays with optional/mandatory classification.',
+    description: 'Defines national, state, and company-declared holidays with optional/mandatory classification',
     configSchema: {},
     defaultConfig: {
       holidayTypes: ['NATIONAL', 'STATE', 'COMPANY', 'OPTIONAL'],
@@ -398,20 +395,20 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
     ],
     isSystemTemplate: true,
   },
-  // ── ALLOWANCE ────────────────────────────────
+
+  // ── ALLOWANCE DOMAIN ──────────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_allowance',
     name: 'Standard Allowance Policy',
     domain: PolicyDomain.ALLOWANCE,
-    industryType: undefined,
-    description: 'Defines HRA, Travel Allowance, Medical Allowance, and other recurring allowances.',
+    description: 'Defines HRA, Travel Allowance, Medical Allowance, and other recurring allowances',
     configSchema: {},
     defaultConfig: {
       allowances: [
-        { type: 'HRA', percentage: 40, basis: 'BASIC', cityType: 'NON_METRO' },
+        { type: 'HRA', percentage: 40, basis: 'BASIC', cityType: 'NON_METRO', taxExempt: true },
         { type: 'TRANSPORT', fixedAmount: 1600, taxExempt: true },
         { type: 'MEDICAL', fixedAmount: 1250, taxExempt: true },
-        { type: 'SPECIAL', percentage: 10, basis: 'BASIC' },
+        { type: 'SPECIAL', percentage: 10, basis: 'BASIC', taxExempt: false },
       ],
     },
     ruleBlocks: [
@@ -419,35 +416,35 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
     ],
     isSystemTemplate: true,
   },
-  // ── DEDUCTION ────────────────────────────────
+
+  // ── DEDUCTION DOMAIN ──────────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_deduction',
     name: 'Statutory Deduction Policy',
     domain: PolicyDomain.DEDUCTION,
-    industryType: undefined,
-    description: 'PF, ESI, Professional Tax, LWF, and TDS deduction configuration.',
+    description: 'PF, ESI, Professional Tax, LWF, and TDS deduction configuration',
     configSchema: {},
     defaultConfig: {
       pf: { employeeContribution: 12, employerContribution: 12, basis: 'BASIC', ceiling: 15000 },
       esi: { employeeContribution: 0.75, employerContribution: 3.25, applicableBelowCTC: 21000 },
       professionalTax: { applicable: true, state: 'KARNATAKA' },
       lwf: { applicable: false },
-      tds: { applicable: true, regime: 'NEW' },
+      tds: { applicable: true, regime: 'NEW', declarationRequired: true },
       gratuity: { eligibleAfterYears: 5, rate: 15 },
     },
     ruleBlocks: [
-      { id: 'rb1', name: 'PF & ESI', type: 'STATUTORY_DEDUCTIONS', configurable: true, schema: {} },
-      { id: 'rb2', name: 'Tax Deductions', type: 'TAX_DEDUCTIONS', configurable: true, schema: {} },
+      { id: 'rb1', name: 'Statutory Deductions (PF/ESI/PT)', type: 'STATUTORY_DEDUCTIONS', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Tax Deductions (TDS)', type: 'TAX_DEDUCTIONS', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
-  // ── COMP-OFF ──────────────────────────────────
+
+  // ── COMP OFF DOMAIN ───────────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_compoff',
     name: 'Compensatory Off Policy',
     domain: PolicyDomain.COMP_OFF,
-    industryType: undefined,
-    description: 'Rules for earning and redeeming compensatory offs against overtime or holiday work.',
+    description: 'Rules for earning and redeeming compensatory offs against overtime or holiday work',
     configSchema: {},
     defaultConfig: {
       compOffValidityDays: 90,
@@ -455,30 +452,160 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
       maxCompOffBalance: 5,
       requiresManagerApproval: true,
       autoExpireUnused: true,
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 2,
+          },
+        ],
+        autoApproveBelowDays: 0,
+        fallbackApprover: 'HR',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
+      },
     },
     ruleBlocks: [
       { id: 'rb1', name: 'Comp-off Rules', type: 'COMP_OFF_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
-  // ── WORK FROM HOME ────────────────────────────
+
+  // ── WORK FROM HOME DOMAIN ─────────────────────────────────────────────────────
   {
     id: 'tmpl_generic_wfh',
     name: 'Work From Home Policy',
     domain: PolicyDomain.WORK_FROM_HOME,
-    industryType: undefined,
-    description: 'Eligibility and limits for remote/WFH work per employee category and designation.',
+    description: 'Eligibility and limits for remote/WFH work per employee category and designation',
     configSchema: {},
     defaultConfig: {
       wfhDaysPerMonth: 8,
       requiresManagerApproval: true,
       advanceNoticeDays: 1,
       geofencingEnabled: false,
+      geofencingRadius: 500,
       eligibleAfterProbation: true,
       allowedDuringProbation: false,
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 1,
+          },
+        ],
+        autoApproveBelowDays: 0,
+        fallbackApprover: 'HR',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
+      },
     },
     ruleBlocks: [
       { id: 'rb1', name: 'WFH Rules', type: 'WFH_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
+    ],
+    isSystemTemplate: true,
+  },
+
+  // ── APPROVAL WORKFLOW DOMAIN ──────────────────────────────────────────────────
+  {
+    id: 'tmpl_approval_workflow',
+    name: 'Multi-Level Approval Workflow',
+    domain: PolicyDomain.APPROVAL_WORKFLOW,
+    description: 'Generic multi-level approval workflow for various requests',
+    configSchema: {},
+    defaultConfig: {
+      approvalFlow: {
+        levels: [
+          {
+            level: 1,
+            approverType: 'REPORTING_MANAGER',
+            timeoutDays: 2,
+            escalationTo: 'DEPARTMENT_HEAD',
+          },
+          {
+            level: 2,
+            approverType: 'DEPARTMENT_HEAD',
+            timeoutDays: 2,
+            condition: {
+              field: 'amount',
+              operator: 'gt',
+              value: 10000,
+            },
+          },
+          {
+            level: 3,
+            approverType: 'HR',
+            timeoutDays: 2,
+            condition: {
+              field: 'amount',
+              operator: 'gt',
+              value: 50000,
+            },
+          },
+        ],
+        autoApproveBelowDays: 1,
+        fallbackApprover: 'ADMIN',
+        notifyOnSubmit: true,
+        notifyOnApproval: true,
+        parallelApproval: false,
+        rejectionRequiresReason: true,
+      },
+    },
+    ruleBlocks: [
+      { id: 'rb1', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
+    ],
+    isSystemTemplate: true,
+  },
+
+  // ── ONBOARDING DOMAIN ─────────────────────────────────────────────────────────
+  {
+    id: 'tmpl_onboarding',
+    name: 'Employee Onboarding Policy',
+    domain: PolicyDomain.ONBOARDING,
+    description: 'Standard onboarding process for new employees',
+    configSchema: {},
+    defaultConfig: {
+      onboardingTasks: [
+        'Document Collection',
+        'IT Asset Allocation',
+        'Email & System Access',
+        'HR Induction',
+        'Department Introduction',
+      ],
+      probationDuration: 90,
+      trainingRequired: true,
+      mentorAssigned: true,
+    },
+    ruleBlocks: [
+      { id: 'rb1', name: 'Onboarding Rules', type: 'ONBOARDING_RULES', configurable: true, schema: {} },
+    ],
+    isSystemTemplate: true,
+  },
+
+  // ── OFFBOARDING DOMAIN ────────────────────────────────────────────────────────
+  {
+    id: 'tmpl_offboarding',
+    name: 'Employee Offboarding Policy',
+    domain: PolicyDomain.OFFBOARDING,
+    description: 'Standard offboarding process for exiting employees',
+    configSchema: {},
+    defaultConfig: {
+      noticeDays: { DEFAULT: 30, MANAGER: 60, SENIOR: 90 },
+      exitInterviewRequired: true,
+      assetReturnRequired: true,
+      fullAndFinalSettlementDays: 45,
+      experienceLetterProvided: true,
+    },
+    ruleBlocks: [
+      { id: 'rb1', name: 'Offboarding Rules', type: 'OFFBOARDING_RULES', configurable: true, schema: {} },
+      { id: 'rb2', name: 'Notice Period Rules', type: 'NOTICE_PERIOD_RULES', configurable: true, schema: {} },
     ],
     isSystemTemplate: true,
   },
@@ -491,12 +618,12 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
 export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'EMP001',
-    employeeCode: 'E1001',
+    employeeId: 'E1001',
     name: 'John Doe',
     companyId: 'company_123',
-    branchId: 'branch1',
-    departmentId: 'dept1',
-    designationId: 'des2',
+    branch: 'branch1',
+    department: 'dept1',
+    designation: 'des2',
     employmentType: EmploymentType.PERMANENT,
     employeeCategory: EmployeeCategory.STAFF,
     joiningDate: '2020-01-15',
@@ -507,12 +634,12 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
   {
     id: 'EMP002',
-    employeeCode: 'E1002',
+    employeeId: 'E1002',
     name: 'Priya Sharma',
     companyId: 'company_123',
-    branchId: 'branch1',
-    departmentId: 'dept3',
-    designationId: 'des1',
+    branch: 'branch1',
+    department: 'dept3',
+    designation: 'des1',
     employmentType: EmploymentType.PERMANENT,
     employeeCategory: EmployeeCategory.STAFF,
     joiningDate: '2019-06-01',
@@ -523,12 +650,12 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
   {
     id: 'EMP003',
-    employeeCode: 'E1003',
+    employeeId: 'E1003',
     name: 'Rajesh Kumar',
     companyId: 'company_123',
-    branchId: 'branch3',
-    departmentId: 'dept4',
-    designationId: 'des4',
+    branch: 'branch3',
+    department: 'dept4',
+    designation: 'des4',
     employmentType: EmploymentType.CONTRACT,
     employeeCategory: EmployeeCategory.LABOUR,
     joiningDate: '2023-03-10',
@@ -538,29 +665,13 @@ export const MOCK_EMPLOYEES: Employee[] = [
     location: 'Mumbai',
   },
   {
-    id: 'EMP004',
-    employeeCode: 'E1004',
-    name: 'Sarah Williams',
-    companyId: 'company_123',
-    branchId: 'branch2',
-    departmentId: 'dept2',
-    designationId: 'des3',
-    employmentType: EmploymentType.PERMANENT,
-    employeeCategory: EmployeeCategory.GROUND_WORKER,
-    joiningDate: '2022-08-20',
-    isOnProbation: false,
-    grade: 'S1',
-    shiftType: 'GENERAL',
-    location: 'Bangalore',
-  },
-  {
     id: 'EMP005',
-    employeeCode: 'E1005',
+    employeeId: 'E1005',
     name: 'Arjun Mehta',
     companyId: 'company_123',
-    branchId: 'branch1',
-    departmentId: 'dept1',
-    designationId: 'des3',
+    branch: 'branch1',
+    department: 'dept1',
+    designation: 'des3',
     employmentType: EmploymentType.PROBATION,
     employeeCategory: EmployeeCategory.STAFF,
     joiningDate: '2026-03-01',
@@ -572,12 +683,12 @@ export const MOCK_EMPLOYEES: Employee[] = [
   },
   {
     id: 'EMP006',
-    employeeCode: 'E1006',
+    employeeId: 'E1006',
     name: 'Deepa Nair',
     companyId: 'company_123',
-    branchId: 'branch2',
-    departmentId: 'dept3',
-    designationId: 'des3',
+    branch: 'branch2',
+    department: 'dept3',
+    designation: 'des3',
     employmentType: EmploymentType.PERMANENT,
     employeeCategory: EmployeeCategory.STAFF,
     joiningDate: '2021-11-15',
@@ -587,29 +698,13 @@ export const MOCK_EMPLOYEES: Employee[] = [
     location: 'Bangalore',
   },
   {
-    id: 'EMP007',
-    employeeCode: 'E1007',
-    name: 'Karthik Rajan',
-    companyId: 'company_123',
-    branchId: 'branch3',
-    departmentId: 'dept4',
-    designationId: 'des2',
-    employmentType: EmploymentType.PERMANENT,
-    employeeCategory: EmployeeCategory.SUPERVISOR,
-    joiningDate: '2018-09-01',
-    isOnProbation: false,
-    grade: 'P4',
-    shiftType: 'EVENING',
-    location: 'Mumbai',
-  },
-  {
     id: 'EMP008',
-    employeeCode: 'E1008',
+    employeeId: 'E1008',
     name: 'Anita Bose',
     companyId: 'company_123',
-    branchId: 'branch1',
-    departmentId: 'dept2',
-    designationId: 'des1',
+    branch: 'branch1',
+    department: 'dept2',
+    designation: 'des1',
     employmentType: EmploymentType.PERMANENT,
     employeeCategory: EmployeeCategory.STAFF,
     joiningDate: '2017-04-10',
@@ -810,6 +905,29 @@ const INITIAL_POLICIES: PolicyDefinition[] = [
       createdAt: '2026-02-10T09:00:00Z',
     },
   },
+  {
+    id: 'POL-009',
+    companyId: 'company_123',
+    templateId: 'tmpl_it_leave',
+    name: 'Annual Leave Policy',
+    domain: PolicyDomain.ONBOARDING,
+    description: 'Defines annual leave entitlement and carry-forward rules for all permanent IT staff.',
+    status: PolicyStatus.ARCHIVED,
+    createdBy: 'HR Admin',
+    createdAt: '2026-01-10T09:00:00Z',
+    updatedAt: '2026-05-20T10:30:00Z',
+    effectiveFrom: '2026-01-01',
+    currentVersion: {
+      id: 'VER-001-v2',
+      policyId: 'POL-001',
+      versionNumber: 2,
+      config: {},
+      effectiveFrom: '2026-01-01',
+      status: VersionStatus.ARCHIVED,
+      createdBy: 'HR Admin',
+      createdAt: '2025-12-15T09:00:00Z',
+    },
+  },
 ];
 
 // Mutable runtime store — new policies created via wizard are appended here
@@ -916,14 +1034,6 @@ const assignmentStore: PolicyAssignment[] = [
     priority: 50,
     effectiveFrom: '2026-01-01',
   },
-  {
-    id: 'ASN-003',
-    policyVersionId: 'VER-001-v2',
-    companyId: 'company_123',
-    employmentType: EmploymentType.PERMANENT,
-    priority: 40,
-    effectiveFrom: '2026-01-01',
-  },
 ];
 
 // ─────────────────────────────────────────────
@@ -950,7 +1060,7 @@ const mockEvaluate = (
   messages.push({
     type: 'INFO',
     code: 'EMP_CONTEXT',
-    message: `Evaluating for ${employee.name} (${employee.employeeCode}) — ${employee.employmentType} · ${category}`,
+    message: `Evaluating for ${employee.name} (${employee.employeeId}) — ${employee.employmentType} · ${category}`,
   });
 
   if (employee.isOnProbation) {
@@ -974,9 +1084,6 @@ const mockEvaluate = (
     const leaveBalancesByCategory: Record<string, Record<string, number>> = {
       [EmployeeCategory.STAFF]:        { CL: 12, SL: 12, EL: 15, ML: 182, PL: 15, EmL: 5 },
       [EmployeeCategory.LABOUR]:       { CL: 7,  SL: 10, EL: 18, ML: 182, PL: 7,  EmL: 3 },
-      [EmployeeCategory.GROUND_WORKER]:{ CL: 9,  SL: 10, EL: 12, ML: 182, PL: 10, EmL: 5 },
-      [EmployeeCategory.SUPERVISOR]:   { CL: 10, SL: 12, EL: 15, ML: 182, PL: 15, EmL: 5 },
-      [EmployeeCategory.TECHNICIAN]:   { CL: 9,  SL: 10, EL: 15, ML: 182, PL: 10, EmL: 5 },
     };
     const leaveBalances = leaveBalancesByCategory[category] ?? leaveBalancesByCategory[EmployeeCategory.STAFF];
 
@@ -1087,9 +1194,9 @@ const mockEvaluate = (
     const otRules: Record<string, { maxHours: number; rate: number; compensationType: string }> = {
       [EmployeeCategory.STAFF]:        { maxHours: 4, rate: 1.5, compensationType: 'Pay or Comp-off (employee\'s choice)' },
       [EmployeeCategory.LABOUR]:       { maxHours: 2, rate: 2.0, compensationType: 'Cash pay only (Factories Act)' },
-      [EmployeeCategory.GROUND_WORKER]:{ maxHours: 3, rate: 1.5, compensationType: 'Pay or Comp-off' },
-      [EmployeeCategory.SUPERVISOR]:   { maxHours: 4, rate: 1.5, compensationType: 'Pay or Comp-off' },
-      [EmployeeCategory.TECHNICIAN]:   { maxHours: 3, rate: 1.75, compensationType: 'Pay or Comp-off' },
+      // [EmployeeCategory.GROUND_WORKER]:{ maxHours: 3, rate: 1.5, compensationType: 'Pay or Comp-off' },
+      // [EmployeeCategory.SUPERVISOR]:   { maxHours: 4, rate: 1.5, compensationType: 'Pay or Comp-off' },
+      // [EmployeeCategory.TECHNICIAN]:   { maxHours: 3, rate: 1.75, compensationType: 'Pay or Comp-off' },
     };
     const otRule = otRules[category] ?? otRules[EmployeeCategory.STAFF];
 
@@ -1141,7 +1248,7 @@ const mockEvaluate = (
   return {
     allowed,
     policyId: 'POL-001',
-    policyName: 'IT Standard Leave Policy',
+    policyName: 'Standard Leave Policy',
     policyVersion: 2,
     messages,
     computed,
@@ -1177,7 +1284,6 @@ export const mockPolicyService = {
       id: `tmpl_custom_${Date.now()}`,
       name: data.name || 'Custom Template',
       domain: data.domain || PolicyDomain.LEAVE,
-      industryType: data.industryType,
       description: data.description || '',
       configSchema: {},
       defaultConfig: data.defaultConfig || {},
@@ -1263,7 +1369,7 @@ export const mockPolicyService = {
       departmentId: data.departmentId,
       designationId: data.designationId,
       employmentType: data.employmentType,
-      employeeGroupId: data.employeeGroupId,
+      template: data.template,
       employeeId: data.employeeId,
       priority: data.priority ?? 50,
       effectiveFrom: data.effectiveFrom || new Date().toISOString().split('T')[0],
@@ -1329,7 +1435,7 @@ export const mockPolicyService = {
       list = list.filter(
         e =>
           e.name.toLowerCase().includes(q) ||
-          e.employeeCode.toLowerCase().includes(q),
+          e.employeeId.toLowerCase().includes(q),
       );
     }
     return list;

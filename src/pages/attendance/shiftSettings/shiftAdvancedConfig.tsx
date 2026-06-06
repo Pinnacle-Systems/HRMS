@@ -18,6 +18,7 @@ import {
   Typography,
   Box,
   Alert,
+  Paper,
 } from '@mui/material';
 import {
   CloseOutlined,
@@ -30,11 +31,11 @@ import {
   ScheduleOutlined,
   BedtimeOutlined,
   CheckCircleOutlined,
-  SelectAll as SelectAllIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import { useUI } from '../../../context/Snackbar';
 import type { EmployeeCategory as EmployeeCategoryType } from '../../../types/policy';
-import type { AdvancedShiftConfig, ShiftAdvancedConfigProps, ShiftCategoryConfig } from './types';
+import type { AdvancedShiftConfig, ShiftAdvancedConfigProps, ShiftCategoryConfig, BreakSlot } from './types';
 import { ALL_CATEGORIES, CATEGORY_COLORS, CATEGORY_DEFAULTS, CATEGORY_LABELS, CATEGORY_SUBLABELS } from './const';
 
 // ─── Expandable Section ───────────────────────────────────────────────────────
@@ -59,13 +60,480 @@ const ExpandableSection = ({ title, icon, children, defaultOpen = false }: any) 
   );
 };
 
+let calculateEndTime = (startTime: string, durationMinutes: number): string => {
+  if (!startTime) return '';
+  const [hours, minutes] = startTime.split(':').map(Number);
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  date.setMinutes(date.getMinutes() + durationMinutes);
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+};
+
+// ─── Break Slots Component - For multiple breaks mode with editable durations ───────
+const BreakSlotsEditor = ({
+  maxBreaks,
+  breakDuration,
+  breakAfterHours,
+  minBreakInterval,
+  slots,
+  onChange,
+  shiftStartTime
+}: {
+  maxBreaks: number;
+  breakDuration: number;
+  breakAfterHours: number;
+  minBreakInterval: number;
+  slots: BreakSlot[];
+  onChange: (slots: BreakSlot[]) => void;
+  shiftStartTime?: string;
+}) => {
+
+  // Auto-calculate initial break times based on breakAfterHours
+  const calculateInitialBreakTimes = () => {
+    if (!shiftStartTime || maxBreaks === 0) return [];
+    const [startHours, startMinutes] = shiftStartTime.split(':').map(Number);
+    const initialSlots: BreakSlot[] = [];
+    let currentTime = new Date();
+    currentTime.setHours(startHours, startMinutes, 0, 0);
+    // Add breakAfterHours to get first break start time
+    const breakAfterHoursValue = breakAfterHours || 2;
+    const breakHours = Math.floor(breakAfterHoursValue);
+    const breakMinutes = Math.round((breakAfterHoursValue % 1) * 60);
+    currentTime.setHours(currentTime.getHours() + breakHours);
+    currentTime.setMinutes(currentTime.getMinutes() + breakMinutes);
+    for (let i = 0; i < maxBreaks; i++) {
+      const startTimeStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+      // Use default breakDuration for initial calculation
+      const endTimeStr = calculateEndTime(startTimeStr, breakDuration);
+      initialSlots.push({
+        id: `break_${Date.now()}_${i}`,
+        startTime: startTimeStr,
+        endTime: endTimeStr,
+        duration: breakDuration  // Store individual duration
+      });
+      // Move to next break time (current end time + minBreakInterval)
+      currentTime.setMinutes(currentTime.getMinutes() + breakDuration + minBreakInterval);
+    }
+    return initialSlots;
+  };
+
+  // Helper function to calculate end time
+  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
+    if (!startTime || durationMinutes <= 0) return '';
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    date.setMinutes(date.getMinutes() + durationMinutes);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Helper function to calculate duration from start and end times
+  const calculateDuration = (startTime: string, endTime: string): number => {
+    if (!startTime || !endTime) return 0;
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    const start = new Date();
+    start.setHours(startHours, startMinutes, 0, 0);
+    const end = new Date();
+    end.setHours(endHours, endMinutes, 0, 0);
+    return (end.getTime() - start.getTime()) / 60000;
+  };
+
+  // Format breakAfterHours for display
+  const formatBreakAfterHours = (hours: number): string => {
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.round((hours % 1) * 60);
+    if (wholeHours === 0) return `${minutes} minutes`;
+    if (minutes === 0) return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''}`;
+    return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  };
+
+  // Auto-calculate when settings change
+  useEffect(() => {
+    if (maxBreaks > 0 && shiftStartTime && breakAfterHours >= 0) {
+      if (slots.length === 0 || slots.length < maxBreaks) {
+        const initialSlots = calculateInitialBreakTimes();
+        if (initialSlots.length > 0) {
+          onChange(initialSlots);
+        }
+      }
+    }
+  }, [maxBreaks, breakAfterHours, minBreakInterval, shiftStartTime]);
+
+  // Update slots when maxBreaks changes
+  useEffect(() => {
+    if (maxBreaks > slots.length && slots.length > 0) {
+      const newSlots = [...slots];
+      let lastBreak = newSlots[newSlots.length - 1];
+      let currentTime = new Date();
+      const [endHours, endMinutes] = lastBreak.endTime.split(':').map(Number);
+      currentTime.setHours(endHours, endMinutes, 0, 0);
+      currentTime.setMinutes(currentTime.getMinutes() + minBreakInterval);
+      for (let i = slots.length; i < maxBreaks; i++) {
+        const startTimeStr = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+        const duration = breakDuration;
+        const endTimeStr = calculateEndTime(startTimeStr, duration);
+        newSlots.push({
+          id: `break_${Date.now()}_${i}`,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          duration: duration
+        });
+        currentTime.setMinutes(currentTime.getMinutes() + duration + minBreakInterval);
+      }
+      onChange(newSlots);
+    } else if (maxBreaks < slots.length) {
+      onChange(slots.slice(0, maxBreaks));
+    }
+  }, [maxBreaks]);
+
+  // Update start time and recalculate duration
+  const updateStartTime = (index: number, startTime: string) => {
+    const updated = [...slots];
+    const currentSlot = updated[index];
+    const duration = currentSlot.duration || breakDuration;
+    const endTime = calculateEndTime(startTime, duration);
+    updated[index] = {
+      ...currentSlot,
+      startTime,
+      endTime,
+      duration
+    };
+    onChange(updated);
+  };
+
+  // Update end time and recalculate duration
+  const updateEndTime = (index: number, endTime: string) => {
+    const updated = [...slots];
+    const currentSlot = updated[index];
+    const duration = calculateDuration(currentSlot.startTime, endTime);
+    if (duration > 0) {
+      updated[index] = {
+        ...currentSlot,
+        endTime,
+        duration
+      };
+      onChange(updated);
+    }
+  };
+
+  // Update duration directly
+  const updateDuration = (index: number, duration: number) => {
+    if (duration <= 0) return;
+    const updated = [...slots];
+    const currentSlot = updated[index];
+    const endTime = calculateEndTime(currentSlot.startTime, duration);
+    updated[index] = {
+      ...currentSlot,
+      endTime,
+      duration
+    };
+    onChange(updated);
+  };
+
+  // Validate break intervals
+  const getBreakIntervalError = (index: number, startTime: string): string | null => {
+    if (index === 0 || !startTime) return null;
+    const prevSlot = slots[index - 1];
+    if (!prevSlot?.endTime) return null;
+    const prevEnd = new Date(`2000-01-01 ${prevSlot.endTime}`);
+    const currentStart = new Date(`2000-01-01 ${startTime}`);
+    const gapMinutes = (currentStart.getTime() - prevEnd.getTime()) / 60000;
+    if (gapMinutes < minBreakInterval && minBreakInterval > 0) {
+      return `Minimum ${minBreakInterval} minutes gap required between breaks`;
+    }
+    return null;
+  };
+
+  return (
+    <Box>
+      <Typography variant="subtitle2" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <AccessTimeIcon fontSize="small" />
+        Break Time Slots ({maxBreaks} break{maxBreaks !== 1 ? 's' : ''})
+        {minBreakInterval > 0 && (
+          <Chip
+            label={`Min gap: ${minBreakInterval} min`}
+            size="small"
+            variant="outlined"
+          />
+        )}
+      </Typography>
+      {!shiftStartTime && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Shift start time is required to auto-calculate break schedules.
+        </Alert>
+      )}
+      {maxBreaks === 0 ? (
+        <Alert severity="info">
+          Set "Max Breaks per Shift" to 1 or more to configure break time slots.
+        </Alert>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {slots.map((slot, index) => {
+            const intervalError = getBreakIntervalError(index, slot.startTime);
+            const duration = slot.duration || breakDuration;
+            return (
+              <Paper key={slot.id} variant="outlined" sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Break #{index + 1}
+                  </Typography>
+                  <Chip
+                    label={`Duration: ${duration} min`}
+                    size="small"
+                    color={duration !== breakDuration ? "primary" : "default"}
+                    variant={duration !== breakDuration ? "filled" : "outlined"}
+                  />
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="Start Time"
+                      type="time"
+                      size="small"
+                      value={slot.startTime}
+                      onChange={(e) => updateStartTime(index, e.target.value)}
+                      error={!!intervalError}
+                      helperText={intervalError || 'When break starts'}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="End Time"
+                      type="time"
+                      size="small"
+                      value={slot.endTime}
+                      onChange={(e) => updateEndTime(index, e.target.value)}
+                      helperText="When break ends (editable)"
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField
+                      fullWidth
+                      label="Duration (minutes)"
+                      type="number"
+                      size="small"
+                      value={duration}
+                      onChange={(e) => updateDuration(index, parseInt(e.target.value) || 0)}
+                      helperText="Auto-calculated or manual"
+                      slotProps={{ htmlInput: { min: 1, step: 5 } }}
+                    />
+                  </Grid>
+                </Grid>
+                {index === 0 && shiftStartTime && breakAfterHours > 0 && (
+                  <Alert severity="info" sx={{ mt: 1 }} icon={false}>
+                    <div>
+                      💡 First break scheduled {formatBreakAfterHours(breakAfterHours)} after shift start ({shiftStartTime}).
+                      You can adjust times/durations as needed.
+                    </div>
+                  </Alert>
+                )}
+                {index > 0 && minBreakInterval > 0 && slot.startTime && slots[index - 1]?.endTime && (
+                  <div className="!text-[12px] !mt-2 text-gray-600">
+                    ⏱️ Should be at least {minBreakInterval} min after previous break end ({slots[index - 1].endTime})
+                  </div>
+                )}
+              </Paper>
+            );
+          })}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+// ─── Single Break Display Component ─────────────────────────────────────────
+const SingleBreakDisplay = ({
+  shiftStartTime,
+  breakAfterHours,
+  breakDuration
+}: {
+  shiftStartTime?: string;
+  breakAfterHours: number;
+  breakDuration: number;
+}) => {
+  const [breakStart, setBreakStart] = useState('');
+  const [breakEnd, setBreakEnd] = useState('');
+  const calculateTimes = () => {
+    if (shiftStartTime && breakAfterHours > 0 && breakDuration > 0) {
+      // Parse shift start time
+      const [hours, minutes] = shiftStartTime.split(':').map(Number);
+      // Convert breakAfterHours to hours and minutes
+      const breakHours = Math.floor(breakAfterHours);
+      const breakMinutes = Math.round((breakAfterHours % 1) * 60);
+      // Calculate break start time = shift start + breakAfterHours
+      const breakStartDate = new Date();
+      breakStartDate.setHours(hours + breakHours, minutes + breakMinutes, 0, 0);
+      const startTimeStr = `${String(breakStartDate.getHours()).padStart(2, '0')}:${String(breakStartDate.getMinutes()).padStart(2, '0')}`;
+      // Calculate break end time = break start + breakDuration
+      const breakEndDate = new Date(breakStartDate);
+      breakEndDate.setMinutes(breakEndDate.getMinutes() + breakDuration);
+      const endTimeStr = `${String(breakEndDate.getHours()).padStart(2, '0')}:${String(breakEndDate.getMinutes()).padStart(2, '0')}`;
+      setBreakStart(startTimeStr);
+      setBreakEnd(endTimeStr);
+    }
+  };
+
+  useEffect(() => {
+    calculateTimes();
+  }, [shiftStartTime, breakAfterHours, breakDuration]);
+
+  // Format breakAfterHours for display
+  const formatBreakAfterHours = (hours: number): string => {
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.round((hours % 1) * 60);
+    if (wholeHours === 0) return `${minutes} minutes`;
+    if (minutes === 0) return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''}`;
+    return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  };
+
+  if (!shiftStartTime) {
+    return <Alert severity="info">Shift start time required to calculate break time.</Alert>;
+  }
+
+  if (breakAfterHours <= 0) {
+    return <Alert severity="warning">Please set "Break After (hours worked)" to calculate break time.</Alert>;
+  }
+
+  return (
+    <Box sx={{ mt: 1, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+      <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <ScheduleOutlined fontSize="small" />
+        Auto-calculated Break Schedule
+      </Typography>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Break Start Time"
+            type="time"
+            size="small"
+            value={breakStart}
+            disabled
+            helperText={`${formatBreakAfterHours(breakAfterHours)} after shift start (${shiftStartTime})`}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Break End Time"
+            type="time"
+            size="small"
+            value={breakEnd}
+            disabled
+            helperText={`${breakDuration} minute(s) duration`}
+          />
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+// Add this new component for Meal Break Display (similar to SingleBreakDisplay)
+const MealBreakDisplay = ({
+  shiftStartTime,
+  mealAfterHours,
+  mealDuration
+}: {
+  shiftStartTime?: string;
+  mealAfterHours: number;
+  mealDuration: number;
+}) => {
+  const [mealStart, setMealStart] = useState('');
+  const [mealEnd, setMealEnd] = useState('');
+
+  const calculateTimes = () => {
+    if (shiftStartTime && mealAfterHours > 0 && mealDuration > 0) {
+      // Parse shift start time
+      const [hours, minutes] = shiftStartTime.split(':').map(Number);
+
+      // Convert mealAfterHours (e.g., 1.5) to hours and minutes
+      const mealHours = Math.floor(mealAfterHours); // Gets 1 from 1.5
+      const mealMinutes = Math.round((mealAfterHours % 1) * 60); // Gets 30 from 1.5 (0.5 * 60)
+
+      // Calculate meal start time = shift start + mealAfterHours
+      const mealStartDate = new Date();
+      mealStartDate.setHours(hours + mealHours, minutes + mealMinutes, 0, 0);
+      const startTimeStr = `${String(mealStartDate.getHours()).padStart(2, '0')}:${String(mealStartDate.getMinutes()).padStart(2, '0')}`;
+
+      // Calculate meal end time = meal start + mealDuration
+      const mealEndDate = new Date(mealStartDate);
+      mealEndDate.setMinutes(mealEndDate.getMinutes() + mealDuration);
+      const endTimeStr = `${String(mealEndDate.getHours()).padStart(2, '0')}:${String(mealEndDate.getMinutes()).padStart(2, '0')}`;
+
+      setMealStart(startTimeStr);
+      setMealEnd(endTimeStr);
+    }
+  };
+
+  useEffect(() => {
+    calculateTimes();
+  }, [shiftStartTime, mealAfterHours, mealDuration]);
+
+  // Format mealAfterHours for display (e.g., 1.5 -> "1 hour 30 minutes")
+  const formatmealAfterHours = (hours: number): string => {
+    const wholeHours = Math.floor(hours);
+    const minutes = Math.round((hours % 1) * 60);
+    if (wholeHours === 0) return `${minutes} minutes`;
+    if (minutes === 0) return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''}`;
+    return `${wholeHours} hour${wholeHours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  };
+
+  if (!shiftStartTime) {
+    return <Alert severity="info">Shift start time required to calculate meal break time.</Alert>;
+  }
+
+  if (mealAfterHours <= 0) {
+    return <Alert severity="warning">Please set "meal After (hours worked)" to calculate meal break time.</Alert>;
+  }
+
+  if (mealDuration <= 0) {
+    return <Alert severity="warning">Please set "meal Duration" to calculate meal break time.</Alert>;
+  }
+
+  return (
+    <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+      <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <LunchDiningOutlined fontSize="small" />
+        Auto-calculated Meal Break Schedule
+      </Typography>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Meal Break Start Time"
+            type="time"
+            size="small"
+            value={mealStart}
+            disabled
+            helperText={`${formatmealAfterHours(mealAfterHours)} after shift start (${shiftStartTime})`}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <TextField
+            fullWidth
+            label="Meal Break End Time"
+            type="time"
+            size="small"
+            value={mealEnd}
+            disabled
+            helperText={`${mealDuration} minute(s) duration`}
+          />
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvancedConfigProps) => {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [masterConfig, setMasterConfig] = useState<AdvancedShiftConfig>({
     shiftId: shift?.id || '',
     shiftName: shift?.shiftName || '',
-    categoryConfigs: [],
+    advancedConfigs: [],
   });
   const [selectedCategories, setSelectedCategories] = useState<EmployeeCategoryType[]>([]);
   const [currentConfig, setCurrentConfig] = useState<ShiftCategoryConfig>(CATEGORY_DEFAULTS.STAFF);
@@ -75,51 +543,82 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
       setMasterConfig({
         shiftId: shift.id,
         shiftName: shift.shiftName,
-        categoryConfigs: (shift as any).categoryConfigs || [],
+        advancedConfigs: (shift as any).advancedConfigs || [],
       });
     }
   }, [shift]);
 
   useEffect(() => {
     if (selectedCategories.length === 0) return;
-    const first = selectedCategories[0];
-    const existing = masterConfig.categoryConfigs.find((c) => c.type === first);
-    setCurrentConfig(existing ?? CATEGORY_DEFAULTS[first]);
-  }, [selectedCategories]);
+    // Only take the first category since single selection
+    const selected = selectedCategories[0];
+    const existing = masterConfig.advancedConfigs.find((c) => c.type === selected);
+    const defaultConfig = CATEGORY_DEFAULTS[selected];
+    // Ensure breakSlots is initialized
+    if (existing && !existing.breakSlots) {
+      existing.breakSlots = defaultConfig.breakSlots || [];
+    }
+    setCurrentConfig(existing ?? defaultConfig);
+  }, [selectedCategories, masterConfig.advancedConfigs]);
 
-  const toggleCategory = (cat: EmployeeCategoryType) => {
-    setSelectedCategories((prev) =>
-      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
-    );
-  };
+  // const toggleCategory = (cat: EmployeeCategoryType) => {
+  //   setSelectedCategories((prev) =>
+  //     prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+  //   );
+  // };
 
-  const toggleSelectAll = () => {
-    setSelectedCategories((prev) =>
-      prev.length === ALL_CATEGORIES.length ? [] : [...ALL_CATEGORIES],
-    );
-  };
+  // const toggleSelectAll = () => {
+  //   setSelectedCategories((prev) =>
+  //     prev.length === ALL_CATEGORIES.length ? [] : [...ALL_CATEGORIES],
+  //   );
+  // };
 
   const isConfigured = (cat: EmployeeCategoryType) =>
-    masterConfig.categoryConfigs.some((c) => c.type === cat);
+    masterConfig.advancedConfigs.some((c) => c.type === cat);
 
   const handleSave = async () => {
     if (selectedCategories.length === 0) {
-      showSnackbar('Please select at least one employee category to configure.', 'warning');
+      showSnackbar('Please select either Staff or Labour category to configure.', 'warning');
       return;
     }
+    // Validate break slots if multiple breaks are allowed
+    if (currentConfig.allowMultipleBreaks && currentConfig.maxBreaksPerShift > 0) {
+      if (!currentConfig.breakSlots || currentConfig.breakSlots.length === 0) {
+        showSnackbar('Please configure break time slots when multiple breaks are allowed.', 'warning');
+        return;
+      }
+      if (currentConfig.breakSlots.length !== currentConfig.maxBreaksPerShift) {
+        showSnackbar(`Please configure exactly ${currentConfig.maxBreaksPerShift} break slot(s) as specified in "Max Breaks per Shift".`, 'warning');
+        return;
+      }
+      // Validate each break slot has valid times
+      const invalidSlot = currentConfig.breakSlots.find(
+        slot => !slot.startTime || !slot.endTime
+      );
+      if (invalidSlot) {
+        showSnackbar('Please ensure all break slots have valid start and end times.', 'warning');
+        return;
+      }
+    }
+
     try {
       showSpinner();
-      let updatedConfigs = [...masterConfig.categoryConfigs];
+      let updatedConfigs = [...masterConfig.advancedConfigs];
       selectedCategories.forEach((cat) => {
         const idx = updatedConfigs.findIndex((c) => c.type === cat);
-        const entry: ShiftCategoryConfig = { ...currentConfig, type: cat };
+        const entry: ShiftCategoryConfig = {
+          ...currentConfig,
+          type: cat,
+          // Ensure breakSlots is preserved
+          breakSlots: currentConfig.allowMultipleBreaks ? currentConfig.breakSlots : []
+        };
         if (idx >= 0) {
           updatedConfigs[idx] = entry;
         } else {
           updatedConfigs.push(entry);
         }
       });
-      const saved: AdvancedShiftConfig = { ...masterConfig, categoryConfigs: updatedConfigs };
+      const saved: AdvancedShiftConfig = { ...masterConfig, advancedConfigs: updatedConfigs };
       setMasterConfig(saved);
       console.log('Saved config:', saved);
       // await shiftService.updateShiftConfig(saved.shiftId, saved);
@@ -137,9 +636,19 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
   };
 
   const set = (fields: Partial<ShiftCategoryConfig>) =>
-    setCurrentConfig((prev) => ({ ...prev, ...fields }));
+    setCurrentConfig((prev) => {
+      const updated = { ...prev, ...fields };
+      if (updated.allowMultipleBreaks && updated.breakSlots && fields.breakTime) {
+        updated.breakSlots = updated.breakSlots.map(slot => ({
+          ...slot,
+          duration: slot.duration === prev.breakTime || !slot.duration ? fields.breakTime : slot.duration,
+          endTime: slot.startTime ? calculateEndTime(slot.startTime, slot.duration || fields.breakTime || 0) : slot.endTime
+        }));
+      }
+      return updated;
+    });
 
-  const helperSx = { '& .MuiFormHelperText-root': { color: 'var(--text-primary)' } };
+  const helperSx = { '& .MuiFormHelperText-root': { color: 'var(--text-secondary)' } };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -162,23 +671,15 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
 
       <DialogContent className="!overflow-y-auto" style={{ maxHeight: 'calc(92vh - 130px)' }}>
 
-        {/* ── Step 1: Category Selector ── */}
+        {/* // ── Step 1: Category Selector (Single Selection) ── */}
         <Box sx={{ mb: 3, p: 2, border: '2px solid', borderColor: 'primary.main', borderRadius: 2, bgcolor: 'primary.50' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
             <Typography component="div" variant="subtitle1" sx={{ fontWeight: 700 }} color="primary">
-              Step 1 — Select Employee Category
+              Step 1 — Select Employee Template to Configure
             </Typography>
-            <Button
-              size="small"
-              variant={selectedCategories.length === ALL_CATEGORIES.length ? 'contained' : 'outlined'}
-              startIcon={<SelectAllIcon />}
-              onClick={toggleSelectAll}
-            >
-              {selectedCategories.length === ALL_CATEGORIES.length ? 'Deselect All' : 'Select All'}
-            </Button>
           </Box>
           <Typography component="div" variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select one or more categories. The configuration below will be saved to all selected categories.
+            Select either Staff or Labour Template to configure shift rules.
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
             {ALL_CATEGORIES.map((cat) => {
@@ -187,7 +688,17 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
               return (
                 <Box
                   key={cat}
-                  onClick={() => toggleCategory(cat)}
+                  onClick={() => {
+                    // Single selection - replace with this category only
+                    setSelectedCategories([cat]);
+                    // Also update currentConfig immediately
+                    const existing = masterConfig.advancedConfigs.find((c) => c.type === cat);
+                    const defaultConfig = CATEGORY_DEFAULTS[cat];
+                    if (existing && !existing.breakSlots) {
+                      existing.breakSlots = defaultConfig.breakSlots || [];
+                    }
+                    setCurrentConfig(existing ?? defaultConfig);
+                  }}
                   sx={{
                     cursor: 'pointer',
                     border: '2px solid',
@@ -229,7 +740,6 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
           </Box>
         </Box>
 
-        {/* ── No category selected state ── */}
         {selectedCategories.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Select one or more employee categories above to begin configuring their shift rules.
@@ -239,7 +749,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
         {/* ── Step 2: Config sections — shown only when categories are selected ── */}
         {selectedCategories.length > 0 && (
           <>
-            <Box sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+            {/* <Box sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
               <Typography component="div" variant="body2" color="text.secondary">
                 Configuring for:{' '}
                 {selectedCategories.map((cat) => (
@@ -251,12 +761,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                   />
                 ))}
               </Typography>
-              {selectedCategories.length > 1 && (
-                <Typography component="div" variant="caption" color="warning.main" sx={{ display: 'block', mt: 0.5 }}>
-                  Settings shown are loaded from "{CATEGORY_LABELS[selectedCategories[0]]}". Saving will apply to all selected categories.
-                </Typography>
-              )}
-            </Box>
+            </Box> */}
 
             <div className="space-y-1">
 
@@ -266,7 +771,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                 icon={<TimerOutlined fontSize="small" className="text-blue-600" />}
                 defaultOpen
               >
-                <Grid container spacing={3} className="mt-4">
+                <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField fullWidth label="Grace Before Check-in" type="number" size="small"
                       value={currentConfig.graceBeforeCheckIn}
@@ -295,20 +800,6 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                       helperText="Minutes allowed to delay checkout process" sx={helperSx}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField fullWidth label="Late Arrival Threshold" type="number" size="small"
-                      value={currentConfig.lateArrivalThreshold}
-                      onChange={(e) => set({ lateArrivalThreshold: parseInt(e.target.value) || 0 })}
-                      helperText="Minutes after grace period to mark as late" sx={helperSx}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField fullWidth label="Early Departure Threshold" type="number" size="small"
-                      value={currentConfig.earlyDepartureThreshold}
-                      onChange={(e) => set({ earlyDepartureThreshold: parseInt(e.target.value) || 0 })}
-                      helperText="Minutes before shift end to mark as early departure" sx={helperSx}
-                    />
-                  </Grid>
                 </Grid>
               </ExpandableSection>
 
@@ -317,98 +808,243 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                 title="Break Settings"
                 icon={<FreeBreakfastOutlined fontSize="small" className="text-green-600" />}
               >
-                <Grid container spacing={3} className="mt-4">
+                <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField fullWidth label="Break Duration (min)" type="number" size="small"
+                    <TextField
+                      fullWidth
+                      label="Break Duration (minutes)"
+                      type="number"
+                      size="small"
                       value={currentConfig.breakTime}
-                      onChange={(e) => set({ breakTime: parseInt(e.target.value) || 0 })}
-                      helperText="Duration per break" sx={helperSx}
+                      onChange={(e) => {
+                        const duration = parseInt(e.target.value) || 0;
+                        set({ breakTime: duration });
+                        // If in multiple breaks mode, recalculate end times for existing slots
+                        if (currentConfig.allowMultipleBreaks && currentConfig.breakSlots) {
+                          const updatedSlots = currentConfig.breakSlots.map(slot => ({
+                            ...slot,
+                            endTime: slot.startTime ? calculateEndTime(slot.startTime, duration) : ''
+                          }));
+                          set({ breakSlots: updatedSlots });
+                        }
+                      }}
+                      helperText="Duration of each break"
+                      sx={helperSx}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField fullWidth label="Break After (hours worked)" type="number" size="small"
+                    <TextField
+                      fullWidth
+                      label="Break After (hours worked)"
+                      type="number"
+                      size="small"
                       value={currentConfig.breakAfterHours}
-                      onChange={(e) => set({ breakAfterHours: parseInt(e.target.value) || 0 })}
-                      helperText="Trigger break after these hours" sx={helperSx}
+                      onChange={(e) => set({ breakAfterHours: parseFloat(e.target.value) || 0 })}
+                      helperText="Trigger break after these hours"
+                      slotProps={{ htmlInput: { step: 0.5, min: 5 } }}
+                      sx={helperSx}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <FormControlLabel
-                      control={<Switch size="small" checked={currentConfig.breakIsPaid}
-                        onChange={(e) => set({ breakIsPaid: e.target.checked })} />}
-                      label="Paid Break"
+                      control={<Switch size="small" checked={currentConfig.allowMultipleBreaks || false}
+                        onChange={(e) => {
+                          const isMultiple = e.target.checked;
+                          set({
+                            allowMultipleBreaks: isMultiple,
+                            // Reset multiple breaks config when toggling off
+                            maxBreaksPerShift: isMultiple ? currentConfig.maxBreaksPerShift || 2 : 0,
+                            breakSlots: isMultiple ? [] : [] // Clear slots when toggling off
+                          });
+                        }} />}
+                      label="Enable Multiple Breaks"
                     />
                   </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <FormControlLabel
-                      control={<Switch size="small" checked={currentConfig.allowMultipleBreaks}
-                        onChange={(e) => set({ allowMultipleBreaks: e.target.checked })} />}
-                      label="Allow Multiple Breaks"
-                    />
-                  </Grid>
-                  {currentConfig.allowMultipleBreaks && (
+
+                  {/* Single Break Mode (Auto-calculated) */}
+                  {!currentConfig.allowMultipleBreaks && (
                     <>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField fullWidth label="Max Breaks per Shift" type="number" size="small"
-                          value={currentConfig.maxBreaksPerShift}
-                          onChange={(e) => set({ maxBreaksPerShift: parseInt(e.target.value) || 0 })} />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField fullWidth label="Min Break Interval (min)" type="number" size="small"
-                          value={currentConfig.minBreakInterval}
-                          onChange={(e) => set({ minBreakInterval: parseInt(e.target.value) || 0 })} />
+                      <Grid size={{ xs: 12 }}>
+                        <Alert severity="info">
+                          Single break will be automatically scheduled {currentConfig.breakAfterHours} hour(s) after shift start,
+                          lasting {currentConfig.breakTime} minutes.
+                        </Alert>
+                        <SingleBreakDisplay
+                          shiftStartTime={shift?.startTime}
+                          breakAfterHours={currentConfig.breakAfterHours}
+                          breakDuration={currentConfig.breakTime}
+                        />
                       </Grid>
                     </>
                   )}
-                  <Grid size={{ xs: 12 }}>
-                    <FormControlLabel
-                      control={<Switch size="small" checked={currentConfig.autoBreakDeduction}
-                        onChange={(e) => set({ autoBreakDeduction: e.target.checked })} />}
-                      label="Auto-deduct break time from attendance"
-                    />
-                  </Grid>
+
+                  {/* Multiple Breaks Mode (Auto-initialized, manually editable) */}
+                  {currentConfig.allowMultipleBreaks && (
+                    <>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Max Breaks per Shift"
+                          type="number"
+                          size="small"
+                          value={currentConfig.maxBreaksPerShift || 2}
+                          onChange={(e) => {
+                            const maxBreaks = parseInt(e.target.value) || 0;
+                            set({ maxBreaksPerShift: maxBreaks });
+                          }}
+                          helperText="Number of breaks (1-5)"
+                          slotProps={{ htmlInput: { min: 1, max: 5 } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Min Break Interval (minutes)"
+                          type="number"
+                          size="small"
+                          value={currentConfig.minBreakInterval || 60}
+                          onChange={(e) => set({ minBreakInterval: parseInt(e.target.value) || 0 })}
+                          helperText="Minimum time between consecutive breaks"
+                          slotProps={{ htmlInput: { step: 15, min: 0 } }}
+                        />
+                      </Grid>
+
+                      <Grid size={{ xs: 12 }}>
+                        <BreakSlotsEditor
+                          maxBreaks={currentConfig.maxBreaksPerShift || 0}
+                          breakDuration={currentConfig.breakTime}
+                          minBreakInterval={currentConfig.minBreakInterval || 60}
+                          slots={currentConfig.breakSlots || []}
+                          onChange={(slots) => set({ breakSlots: slots })}
+                          shiftStartTime={shift?.startTime}
+                          breakAfterHours={currentConfig.breakAfterHours || 0}
+                        />
+                      </Grid>
+                    </>
+                  )}
                 </Grid>
               </ExpandableSection>
 
-              {/* Lunch Settings */}
+
+              {/* Meal Break Settings */}
+              {/* <ExpandableSection
+                title="Meal Break"
+                icon={<mealDiningOutlined fontSize="small" className="text-orange-600" />}
+              >
+                <Grid container spacing={3} className="mt-6">
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField fullWidth label="meal Duration (min)" type="number" size="small"
+                      value={currentConfig.mealDuration}
+                      onChange={(e) => set({ mealDuration: parseInt(e.target.value) || 0 })}
+                      helperText="Total meal break duration" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
+                    <TextField fullWidth label="meal After (hours worked)" type="number" size="small"
+                      value={currentConfig.mealAfterHours}
+                      onChange={(e) => set({ mealAfterHours: parseInt(e.target.value) || 0 })}
+                      helperText="Trigger meal after these hours" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace Before meal (min)" type="number" size="small"
+                      value={currentConfig.mealGraceBefore || 0}
+                      onChange={(e) => set({ mealGraceBefore: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to start meal early" sx={helperSx}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <TextField fullWidth label="Grace After meal (min)" type="number" size="small"
+                      value={currentConfig.mealGraceAfter || 0}
+                      onChange={(e) => set({ mealGraceAfter: parseInt(e.target.value) || 0 })}
+                      helperText="Minutes allowed to return from meal late" sx={helperSx}
+                    />
+                  </Grid>
+                </Grid>
+              </ExpandableSection> */}
+              {/* Meal Break Settings */}
               <ExpandableSection
-                title="Lunch & Meal Break"
+                title="Meal Break"
                 icon={<LunchDiningOutlined fontSize="small" className="text-orange-600" />}
               >
-                <Grid container spacing={3} className="mt-4">
+                <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField fullWidth label="Lunch Duration (min)" type="number" size="small"
-                      value={currentConfig.lunchDuration}
-                      onChange={(e) => set({ lunchDuration: parseInt(e.target.value) || 0 })}
-                      helperText="Total lunch break duration" sx={helperSx}
+                    <TextField
+                      fullWidth
+                      label="Meal Duration (min)"
+                      type="number"
+                      size="small"
+                      value={currentConfig.mealDuration}
+                      onChange={(e) => set({ mealDuration: parseInt(e.target.value) || 0 })}
+                      helperText="Duration of meal break"
+                      sx={helperSx}
+                      slotProps={{ htmlInput: { min: 0, step: 5 } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
-                    <TextField fullWidth label="Lunch After (hours worked)" type="number" size="small"
-                      value={currentConfig.lunchAfterHours}
-                      onChange={(e) => set({ lunchAfterHours: parseInt(e.target.value) || 0 })}
-                      helperText="Trigger lunch after these hours" sx={helperSx}
+                    <TextField
+                      fullWidth
+                      label="Meal After (hours worked)"
+                      type="number"
+                      size="small"
+                      value={currentConfig.mealAfterHours}
+                      onChange={(e) => set({ mealAfterHours: parseFloat(e.target.value) || 0 })} // Changed from parseInt to parseFloat
+                      helperText="Trigger meal break after these hours"
+                      sx={helperSx}
+                      slotProps={{ htmlInput: { min: 0, step: 0.5 } }} // step 0.5 allows 0.5, 1.0, 1.5, 2.0, etc.
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <FormControlLabel
-                      control={<Switch size="small" checked={currentConfig.lunchIsPaid}
-                        onChange={(e) => set({ lunchIsPaid: e.target.checked })} />}
-                      label="Paid Lunch"
+                      control={
+                        <Switch
+                          size="small"
+                          checked={currentConfig.enableMealBreakGrace || false}
+                          onChange={(e) => set({ enableMealBreakGrace: e.target.checked })}
+                        />
+                      }
+                      label="Enable Grace Periods"
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField fullWidth label="Grace Before Lunch (min)" type="number" size="small"
-                      value={currentConfig.lunchGraceBefore}
-                      onChange={(e) => set({ lunchGraceBefore: parseInt(e.target.value) || 0 })}
-                      helperText="Minutes allowed to start lunch early" sx={helperSx}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
-                    <TextField fullWidth label="Grace After Lunch (min)" type="number" size="small"
-                      value={currentConfig.lunchGraceAfter}
-                      onChange={(e) => set({ lunchGraceAfter: parseInt(e.target.value) || 0 })}
-                      helperText="Minutes allowed to return from lunch late" sx={helperSx}
+
+                  {/* Grace periods - only show if enabled */}
+                  {currentConfig.enableMealBreakGrace && (
+                    <>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Grace Before Meal (min)"
+                          type="number"
+                          size="small"
+                          value={currentConfig.mealGraceBefore || 0}
+                          onChange={(e) => set({ mealGraceBefore: parseInt(e.target.value) || 0 })}
+                          helperText="Minutes allowed to start meal early"
+                          sx={helperSx}
+                          slotProps={{ htmlInput: { min: 0, step: 5 } }}
+                        />
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 6 }}>
+                        <TextField
+                          fullWidth
+                          label="Grace After Meal (min)"
+                          type="number"
+                          size="small"
+                          value={currentConfig.mealGraceAfter || 0}
+                          onChange={(e) => set({ mealGraceAfter: parseInt(e.target.value) || 0 })}
+                          helperText="Minutes allowed to return from meal late"
+                          sx={helperSx}
+                          slotProps={{ htmlInput: { min: 0, step: 5 } }}
+                        />
+                      </Grid>
+                    </>
+                  )}
+
+                  {/* Auto-calculated meal break schedule */}
+                  <Grid size={{ xs: 12 }}>
+                    <MealBreakDisplay
+                      shiftStartTime={shift?.startTime}
+                      mealAfterHours={currentConfig.mealAfterHours}
+                      mealDuration={currentConfig.mealDuration}
                     />
                   </Grid>
                 </Grid>
@@ -419,23 +1055,23 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                 title="Overtime Settings"
                 icon={<ScheduleOutlined fontSize="small" className="text-purple-600" />}
               >
-                <Grid container spacing={3} className="mt-4">
+                <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField fullWidth label="OT Eligible Before Shift (min)" type="number" size="small"
-                      value={currentConfig.overtimeBeforeShift}
+                      value={currentConfig.overtimeBeforeShift || 0}
                       onChange={(e) => set({ overtimeBeforeShift: parseInt(e.target.value) || 0 })}
                       helperText="Minutes of early arrival that count as OT" sx={helperSx}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField fullWidth label="OT Eligible After Shift (min)" type="number" size="small"
-                      value={currentConfig.overtimeAfterShift}
+                      value={currentConfig.overtimeAfterShift || 0}
                       onChange={(e) => set({ overtimeAfterShift: parseInt(e.target.value) || 0 })}
                       helperText="Minutes of late departure that count as OT" sx={helperSx}
                     />
                   </Grid>
                 </Grid>
-                <Alert severity="info" sx={{ mt: 2 }} icon={false}>
+                <Alert severity="info" sx={{ mt: 1 }} icon={false}>
                   OT rate, max hours, and compensation type are governed by the <strong>Overtime Policy</strong> assigned to each employee category — not by shift config.
                 </Alert>
               </ExpandableSection>
@@ -445,17 +1081,17 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                 title="Rest Periods & Shift Limits"
                 icon={<BedtimeOutlined fontSize="small" className="text-indigo-600" />}
               >
-                <Grid container spacing={3} className="mt-4">
+                <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField fullWidth label="Min Rest Between Shifts (hours)" type="number" size="small"
-                      value={currentConfig.minRestBetweenShifts}
+                      value={currentConfig.minRestBetweenShifts || 0}
                       onChange={(e) => set({ minRestBetweenShifts: parseInt(e.target.value) || 0 })}
                       helperText="Required gap before next shift starts" sx={helperSx}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField fullWidth label="Max Consecutive Working Days" type="number" size="small"
-                      value={currentConfig.maxConsecutiveDays}
+                      value={currentConfig.maxConsecutiveDays || 0}
                       onChange={(e) => set({ maxConsecutiveDays: parseInt(e.target.value) || 0 })}
                       helperText="Days before a mandatory day off" sx={helperSx}
                     />
@@ -468,11 +1104,11 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                 title="Time Rounding"
                 icon={<SettingsIcon fontSize="small" className="text-gray-600" />}
               >
-                <Grid container spacing={3} className="mt-4">
+                <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Rounding Rule</InputLabel>
-                      <Select value={currentConfig.roundingRule} label="Rounding Rule"
+                      <Select value={currentConfig.roundingRule || 'none'} label="Rounding Rule"
                         onChange={(e) => set({ roundingRule: e.target.value })}>
                         <MenuItem value="none">No Rounding</MenuItem>
                         <MenuItem value="up">Round Up</MenuItem>
@@ -483,7 +1119,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <TextField fullWidth label="Rounding Interval (min)" type="number" size="small"
-                      value={currentConfig.roundingInterval}
+                      value={currentConfig.roundingInterval || 0}
                       onChange={(e) => set({ roundingInterval: parseInt(e.target.value) || 0 })}
                       helperText="Interval to round attendance time entries" sx={helperSx}
                     />
@@ -506,9 +1142,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
           className="!bg-primary"
           disabled={selectedCategories.length === 0}
         >
-          Save{selectedCategories.length > 0
-            ? ` for ${selectedCategories.length} Categor${selectedCategories.length > 1 ? 'ies' : 'y'}`
-            : ' Configuration'}
+          Save Configuration{selectedCategories.length === 1 ? ` for ${CATEGORY_LABELS[selectedCategories[0]]}` : ''}
         </Button>
       </DialogActions>
     </Dialog>

@@ -134,6 +134,22 @@ export interface BulkUploadResponse {
 
 export const normalizeBulkUploadResponse = (response: any) => {
   const payload = response?.data?.data || response?.data || response;
+  const normalizeErrors = (errors: any[]): BulkUploadResponse["errors"] => {
+    if (!Array.isArray(errors)) return [];
+    return errors.flatMap((row: any) => {
+      // nested format: { rowNumber, errors: string[] }
+      if (Array.isArray(row.errors)) {
+        return row.errors.map((message: string) => ({
+          row: row.rowNumber,
+          branchName: row.branchName,
+          branchCode: row.branchCode,
+          message,
+        }));
+      }
+      // flat format: { row, field, message }
+      return [row];
+    });
+  };
 
   return {
     jobId: payload.jobId,
@@ -141,7 +157,7 @@ export const normalizeBulkUploadResponse = (response: any) => {
     fileName: payload.fileName,
 
     totalRecords: payload.totalRecords || 0,
-    successCount: payload.successCount || 0,
+    successCount: payload.successCount ?? payload.importedCount ?? 0,
     failureCount: payload.failureCount || 0,
 
     completedAt: payload.completedAt,
@@ -152,15 +168,7 @@ export const normalizeBulkUploadResponse = (response: any) => {
 
     generatedEmployeeIds: payload.generatedEmployeeIds || [],
 
-    errors:
-      payload.errors?.flatMap((row: any) =>
-        row.errors.map((message: string) => ({
-          row: row.rowNumber,
-          branchName: row.branchName,
-          branchCode: row.branchCode,
-          message,
-        }))
-      ) || [],
+    errors: normalizeErrors(payload.errors),
   };
 };
 
@@ -577,12 +585,14 @@ export const employeeService = {
 
   async bulkUploadEmployees(
     file: File,
-    excelHasEmployeeIdColumn: boolean,
+    excelHasEmployeeIdColumn?: boolean,
     onProgress?: (progress: number) => void,
   ) {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("excelHasEmployeeIdColumn", excelHasEmployeeIdColumn.toString());
+    if (excelHasEmployeeIdColumn !== undefined) {
+      formData.append("excelHasEmployeeIdColumn", excelHasEmployeeIdColumn.toString());
+    }
     return apiService.post(API_ENDPOINTS.EMPLOYEE.BULK_UPLOAD, formData, {
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
@@ -628,7 +638,7 @@ export const employeeService = {
     const blob = response.data;
 
     if (!blob || blob.size === 0) {
-      throw new Error("Downloaded file is empty.");
+      throw new Error("Downloaded file is empty");
     }
 
     if (blob.type === "application/json" || blob.type === "text/plain") {

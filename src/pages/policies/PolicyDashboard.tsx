@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
-  Container,
-  Typography,
   Grid,
   Card,
   CardContent,
@@ -18,15 +16,14 @@ import {
   Menu,
   MenuItem,
   TextField,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
   Dialog,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Search as SearchIcon,
   MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -34,49 +31,70 @@ import {
   CheckCircle as ActiveIcon,
   Pending as PendingIcon,
   Schedule as ScheduledIcon,
+  Archive as ArchiveIcon
 } from '@mui/icons-material';
 import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';
 import { policyApi } from '../../services/modules/policy';
 import { type PolicyDefinition, PolicyDomain, PolicyStatus } from '../../types/policy';
-import { mockPolicies } from './const';
+import { mockPolicies, statsCard } from './const';
 import dayjs from 'dayjs';
 import { useNavigate } from "react-router-dom";
+import { companyService } from '../../services/modules/company';
+import { useUI } from '../../context/Snackbar';
+import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from '../const';
+import { GlobalPagination } from '../../components/GlobalPagination';
 
 export default function PolicyDashboard() {
-  // const [activeTab, setActiveTab] = useState(0);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingPolicyId, setEditingPolicyId] = useState<string | undefined>();
   const [policies, setPolicies] = useState<PolicyDefinition[]>([]);
-  // const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [companyId, setCompanyId] = useState('');
   const [domainFilter, setDomainFilter] = useState<PolicyDomain | ''>('');
   const [statusFilter, setStatusFilter] = useState<PolicyStatus | ''>('');
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedPolicy, setSelectedPolicy] = useState<PolicyDefinition | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(0);
+  const [limit, setLimit] = useState(20);
+  const [searchTerm, setSearchTerm] = useState("");
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const navigate = useNavigate();
 
-  const companyId = 'company_123'; // Should come from auth context
-
-
-  useEffect(() => {
-    loadPolicies();
-  }, []);
+  const fetchCompanyData = async () => {
+    try {
+      const companyData: any = await companyService.getCompany();
+      setCompanyId(companyData.data.length ? companyData.data?.[0].id : '');
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+    }
+  };
 
   const loadPolicies = async () => {
-    // setLoading(true);
+    showSpinner();
     try {
       const response: any = await policyApi.getPolicies(companyId);
       const data = Array.isArray(response)
         ? response
         : response?.data?.content || response?.data || [];
       setPolicies(data.length > 0 ? data : mockPolicies);
+      setTotal(data.totalElements || mockPolicies.length);
+      console.log(mockPolicies.length);
+
     } catch (error) {
-      console.error('Failed to load policies:', error);
+      showSnackbar('Failed to load policies:', 'error');
       setPolicies(mockPolicies);
     } finally {
-      // setLoading(false);
+      hideSpinner();
     }
   };
+
+  useEffect(() => {
+    loadPolicies();
+  }, []);
+
+  useEffect(() => {
+    fetchCompanyData();
+  }, []);
 
   const getStatusChip = (status: PolicyStatus) => {
     const config: Record<
@@ -87,7 +105,9 @@ export default function PolicyDashboard() {
         | "warning"
         | "info"
         | "primary"
-        | "default";
+        | "default"
+        | "error"
+        | "secondary";
         icon?: React.ReactElement;
       }
     > = {
@@ -96,11 +116,11 @@ export default function PolicyDashboard() {
         icon: <ActiveIcon fontSize="small" />,
       },
       DRAFT: {
-        color: 'warning',
+        color: 'info',
         icon: <PendingIcon fontSize="small" />,
       },
       PENDING_APPROVAL: {
-        color: 'info',
+        color: 'warning',
         icon: <PendingIcon fontSize="small" />,
       },
       SCHEDULED: {
@@ -108,12 +128,12 @@ export default function PolicyDashboard() {
         icon: <ScheduledIcon fontSize="small" />,
       },
       EXPIRED: {
-        color: 'default',
+        color: 'error',
         icon: undefined,
       },
       ARCHIVED: {
-        color: 'default',
-        icon: undefined,
+        color: 'secondary',
+        icon: <ArchiveIcon fontSize="small" />,
       },
     };
 
@@ -160,7 +180,7 @@ export default function PolicyDashboard() {
 
   console.log(filteredPolicies);
 
-  const stats = useMemo(
+  const stats: any = useMemo(
     () => ({
       total: policies.length,
       active: policies.filter(
@@ -190,255 +210,220 @@ export default function PolicyDashboard() {
   const handleEdit = () => {
     if (selectedPolicy) {
       setEditingPolicyId(selectedPolicy.id);
-      setWizardOpen(true);
+      // setWizardOpen(true);
+      navigate(`/policies/${selectedPolicy.id}/edit`)
     }
     handleMenuClose();
   };
 
   const handleDelete = async () => {
     if (!selectedPolicy) return;
-
-    try {
-      // await policyApi.deletePolicy(selectedPolicy.id);
-
-      setPolicies((prev) =>
-        prev.filter((p) => p.id !== selectedPolicy.id)
-      );
-    } catch (error) {
-      console.error(error);
-    }
-
-    handleMenuClose();
+    showConfirmDialog({
+      title: "Delete Policy",
+      message: "Are you sure you want to delete this Policy?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          // await policyApi.deletePolicy(selectedPolicy.id);
+          setPolicies((prev) =>
+            prev.filter((p) => p.id !== selectedPolicy.id)
+          );
+          showSnackbar("Policy Deleted Successfully!", "success");
+        } catch (error: any) {
+          showSnackbar(error.message, "error");
+        } finally {
+          hideSpinner();
+          handleMenuClose();
+        }
+      },
+    });
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box className="flex justify-between items-center mb-4">
-        <Typography variant="h4" component="h1">
-          Policy Management
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            // setEditingPolicyId(undefined);
-            // setWizardOpen(true);
-            navigate('/policies/create')
-          }}
-        >
-          Create Policy
-        </Button>
-      </Box>
+    <div>
+      <div className="mb-4">
+        <div className='font-semibold text-gray-800'>Policy Management</div>
+        <div className="text-gray-500 text-[12px]">Configure and manage all company management policies</div>
+      </div>
 
       <Grid container spacing={3}>
-        {/* Stats Cards */}
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Total Policies
-              </Typography>
-              <Typography variant="h4">{stats.total}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Active Policies
-              </Typography>
-              <Typography variant="h4" color="success.main">
-                {stats.active}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Pending Approval
-              </Typography>
-              <Typography variant="h4" color="warning.main">
-                {stats.pending}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Drafts
-              </Typography>
-              <Typography variant="h4" color="info.main">
-                {stats.draft}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
+        {
+          statsCard.map((stat, i) => (
+            <Grid key={i} size={{ xs: 12, md: 3 }}>
+              <Card className='!bg-white'>
+                <CardContent sx={{ borderLeft: `4px solid ${stat.color}`, padding: 2, borderRadius: 2 }}>
+                  <div className='flex items-center justify-between'>
+                    <div className='text-[12px] text-gray-800'>
+                      <div className='font-bold'>{stat.label}</div>
+                      <div className='mt-1'>{stats[stat.total]}</div>
+                    </div>
+                    <CircularProgress
+                      enableTrackSlot
+                      variant="determinate"
+                      value={(stats[stat.value] / stats.total) * 100}
+                      size={50}
+                      thickness={4}
+                      sx={{ color: stat.color }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))
+        }
         {/* Policy List */}
         <Grid size={{ xs: 12 }}>
-          <Card>
-            <CardContent>
-              {/* <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
-                <Tab label="All Policies" />
-                <Tab label="Leave Policies" />
-                <Tab label="Attendance Policies" />
-                <Tab label="Payroll Policies" />
-              </Tabs> */}
+          <div>
+            <Box className="flex items-center justify-center gap-3 mb-3">
+              <TextField
+                placeholder="Search policies..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <FormControl>
+                <InputLabel>Domain</InputLabel>
+                <Select
+                  value={domainFilter}
+                  label="Domain"
+                  className='dark:bg-white-50 bg-white'
+                  onChange={(e) => setDomainFilter(e.target.value as PolicyDomain)}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {Object.values(PolicyDomain).map((domain) => (
+                    <MenuItem key={domain} value={domain}>
+                      {domain.replace(/_/g, ' ')}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Status"
+                  className='dark:bg-white-50 bg-white'
+                  onChange={(e) =>
+                    setStatusFilter(e.target.value as PolicyStatus | '')
+                  }
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {Object.values(PolicyStatus).map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {status.replace(/_/g, ' ')}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <div>
+                <Button variant="contained" className='!bg-primary whitespace-nowrap' startIcon={<AddIcon />}
+                  onClick={() => {
+                    navigate('/policies/create', {
+                      state: companyId
+                    })
+                  }}>
+                  Create Policy
+                </Button>
+              </div>
+            </Box>
 
-              <Box className="flex gap-3 mb-3">
-                <TextField
-                  size="small"
-                  placeholder="Search policies..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-                <FormControl size="small" sx={{ minWidth: 150 }}>
-                  <InputLabel>Domain</InputLabel>
-                  <Select
-                    value={domainFilter}
-                    label="Domain"
-                    onChange={(e) => setDomainFilter(e.target.value as PolicyDomain)}
-                  >
-                    <MenuItem value="">All</MenuItem>
-                    {Object.values(PolicyDomain).map((domain) => (
-                      <MenuItem key={domain} value={domain}>
-                        {domain.replace(/_/g, ' ')}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: 150 }}>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    value={statusFilter}
-                    label="Status"
-                    onChange={(e) =>
-                      setStatusFilter(e.target.value as PolicyStatus | '')
-                    }
-                  >
-                    <MenuItem value="">All</MenuItem>
-
-                    {Object.values(PolicyStatus).map((status) => (
-                      <MenuItem key={status} value={status}>
-                        {status.replace(/_/g, ' ')}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-
-              <TableContainer>
-                <Table>
-                  <TableHead>
+            <TableContainer className='!h-[calc(100vh-355px)]'>
+              <Table stickyHeader className="border border-gray-200" >
+                <TableHead>
+                  <TableRow>
+                    <TableCell className='!font-semibold' sx={{
+                      ...stickyHeaderLeftSx,
+                      minWidth: "70px",
+                    }}>S No</TableCell>
+                    <TableCell className='!font-semibold nth-c' >Domain</TableCell>
+                    <TableCell className='!font-semibold'>Policy Name</TableCell>
+                    <TableCell className='!font-semibold'>Status</TableCell>
+                    <TableCell className='!font-semibold'>Created By</TableCell>
+                    <TableCell className='!font-semibold'>Effective From</TableCell>
+                    <TableCell className='!font-semibold'>Last Updated</TableCell>
+                    <TableCell className='!font-semibold' sx={{
+                      ...stickyHeaderRightSx,
+                      minWidth: "100px",
+                    }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredPolicies.length === 0 ? (
                     <TableRow>
-                      <TableCell>Policy Name</TableCell>
-                      <TableCell>Domain</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Created By</TableCell>
-                      <TableCell>Effective From</TableCell>
-                      <TableCell>Last Updated</TableCell>
-
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell colSpan={8} align="center" >
+                        <div className='!p-4'> No policies found</div>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredPolicies.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center">
-                          No policies found
+                  ) : (
+                    filteredPolicies.map((policy, index) => (
+                      <TableRow key={policy.id} hover sx={getRowColor(index)}>
+                        <TableCell sx={{
+                          ...getStickyLeftSx(index),
+                          minWidth: "70px",
+                        }}>{page * limit + index + 1}</TableCell>
+                        <TableCell sx={{
+                          ...getStickyLeftSx(index),
+                          left: "70px",
+                          minWidth: "100px",
+                        }}>
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            className='!text-gray-800 !font-mono'
+                            label={policy.domain.replace(/_/g, ' ')}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className='text-gray-900'>{policy.name}</div>
+                          {policy.description && (
+                            <div className='text-gray-500 text-[12px]'>{policy.description}</div>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusChip(policy.status)}</TableCell>
+                        <TableCell>{policy.createdBy}</TableCell>
+                        <TableCell>
+                          {dayjs(policy.effectiveFrom).format("DD MMM YYYY")}
+                        </TableCell>
+                        <TableCell>{dayjs(policy.updatedAt).format("DD MMM YYYY")}</TableCell>
+                        <TableCell sx={{
+                          ...getStickyRightSx(index),
+                          minWidth: "50px",
+                        }}>
+                          <IconButton size="small" className='!text-primary'
+                            onClick={() => navigate(`/policies/${policy.id}`)}
+                          >
+                            <ViewIcon />
+                          </IconButton>
+                          <IconButton
+                            size="small" className='!text-blue-500'
+                            onClick={(e) => handleMenuOpen(e, policy)}
+                          >
+                            <MoreIcon />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      filteredPolicies.map((policy) => (
-                        <TableRow key={policy.id} hover >
-                          <TableCell>
-                            <Typography>
-                              {policy.name}
-                            </Typography>
-
-                            {policy.description && (
-                              <Typography
-
-                              >
-                                {policy.description}
-                              </Typography>
-                            )}
-                          </TableCell>
-
-                          <TableCell>
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              label={policy.domain.replace(/_/g, ' ')}
-                            />
-                          </TableCell>
-
-                          <TableCell>
-                            {getStatusChip(policy.status)}
-                          </TableCell>
-
-                          <TableCell>{policy.createdBy}</TableCell>
-
-                          
-                          <TableCell>
-                            {dayjs(policy.effectiveFrom).format(
-                              "DD MMM YYYY"
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {/* {new Date(policy.updatedAt).toLocaleDateString()} */}
-                            {dayjs(policy.updatedAt).format("DD MMM YYYY")}
-                          </TableCell>
-
-                          <TableCell align="right">
-                            <IconButton
-                              size="small"
-                              onClick={() => navigate(`/policies/${policy.id}`)}
-                            >
-                              <ViewIcon />
-                            </IconButton>
-
-                            <IconButton
-                              size="small"
-                              onClick={(e) => handleMenuOpen(e, policy)}
-                            >
-                              <MoreIcon />
-                            </IconButton>
-                          </TableCell>
-                          {/* <TableCell>
-                            {policy.currentVersion}
-                          </TableCell> */}
-
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              {/* {filteredPolicies.length === 0 && !loading && (
-                <Box>
-                  <Typography color="text.secondary">
-                    No policies found. Click "Create Policy" to get started.
-                  </Typography>
-                </Box>
-              )} */}
-            </CardContent>
-          </Card>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {/* Pagination */}
+            {total > 0 && (
+              <GlobalPagination
+                total={total}
+                page={page + 1}
+                limit={limit}
+                onPageChange={(newPage) => setPage(newPage - 1)}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(0);
+                }}
+                pageSizeOptions={[10, 20, 50, 100]}
+                showTotal={true}
+              />
+            )}
+          </div>
         </Grid>
       </Grid>
 
@@ -458,15 +443,12 @@ export default function PolicyDashboard() {
       {/* Action Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         <MenuItem onClick={handleEdit}>
-          <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
-        </MenuItem>
-        <MenuItem onClick={() => {/* View versions */ }}>
-          <ViewIcon fontSize="small" sx={{ mr: 1 }} /> View Versions
+          <EditIcon fontSize="small" sx={{ mr: 1 }} className='text-blue-500' /> Edit
         </MenuItem>
         <MenuItem onClick={handleDelete}>
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} className='text-red-500' /> Delete
         </MenuItem>
       </Menu>
-    </Container>
+    </div>
   );
 };

@@ -174,9 +174,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                         "& .MuiInputLabel-shrink": {
                           top: 0,
                         },
-                        "& .MuiIconButton-root": {
-                          color: "dodgerblue",
-                        },
                       },
                     },
                   }}
@@ -201,9 +198,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                         },
                         "& .MuiInputLabel-shrink": {
                           top: 0,
-                        },
-                        "& .MuiIconButton-root": {
-                          color: "dodgerblue",
                         },
                       },
                     },

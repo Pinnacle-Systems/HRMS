@@ -72,6 +72,8 @@ vi.mock("../../src/materialModule", () => {
       Accordion: El("div"),
       AccordionSummary: El("div"),
       AccordionDetails: El("div"),
+      Menu: ({ open, children }: any) => open ? <div>{children}</div> : null,
+      CheckCircleOutlineIcon: Noop,
       // Icons
       CloseOutlined: Noop,
       CloudUploadIcon: Noop,
@@ -106,6 +108,7 @@ vi.mock("../../src/services/modules/employees", async (importOriginal) => {
       deleteEmployee: vi.fn(),
       deactivateEmployee: vi.fn(),
       reactivateEmployee: vi.fn(),
+      getEmployeeId: vi.fn().mockResolvedValue({}),
     },
   };
 });

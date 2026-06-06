@@ -376,7 +376,7 @@ export const ShiftRotation = () => {
 
       {/* Create/Edit Rotation Dialog */}
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" sx={commonsx}>
-        <div className="flex items-center p-2 justify-between border-b border-gray-300">
+        <div className="flex items-center p-2 justify-between border-b border-gray-200">
           <div className="text-primary ml-4">
             {editingRotation ? 'Edit Rotation' : 'Create Rotation'}
           </div>
@@ -495,7 +495,7 @@ export const ShiftRotation = () => {
             />
           </div>
         </DialogContent>
-        <DialogActions className='!p-4 border-t border-gray-300'>
+        <DialogActions className='!p-4 border-t border-gray-200'>
           <Button onClick={() => setIsDialogOpen(false)} variant="outlined" className="!border-gray-300 !text-gray-800">Cancel</Button>
           <Button onClick={handleSave} variant="contained" className="!bg-primary">
             {editingRotation ? 'Update' : 'Create'}
@@ -533,10 +533,6 @@ export const ShiftRotation = () => {
                   "& .MuiInputLabel-root": {
                     top: 0,
                   },
-                  "& .MuiIconButton-root": {
-                    color: "dodgerblue",
-                  },
-
                 }}
               />
             </LocalizationProvider>
@@ -557,9 +553,6 @@ export const ShiftRotation = () => {
                 sx={{
                   "& .MuiInputLabel-root": {
                     top: 0,
-                  },
-                  "& .MuiIconButton-root": {
-                    color: "dodgerblue",
                   },
                 }}
               />

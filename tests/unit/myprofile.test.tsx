@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../helpers/render";
@@ -28,6 +28,23 @@ vi.mock("../../src/services/modules/auth", () => ({
     clearLoginHistory: vi.fn(),
     clearLoginHistoryOlderThan: vi.fn(),
     uploadProfilePicture: vi.fn(),
+  },
+}));
+
+vi.mock("../../src/services/modules/passwordPolicy", () => ({
+  passwordPolicyService: {
+    getPasswordPolicy: vi.fn().mockResolvedValue({
+      minPasswordLength: 8,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireDigit: true,
+      requireSpecialChar: false,
+      passwordExpiryDays: 90,
+      expiryReminderDays: 7,
+      maxInvalidLoginAttempts: 5,
+      welcomePasswordExpiryDays: 7,
+      requireMfa: false,
+    }),
   },
 }));
 
@@ -355,9 +372,9 @@ describe("Profile — change password dialog", () => {
     await user.click(await screen.findByRole("button", { name: /change password/i }));
     await screen.findByRole("dialog");
 
-    await user.type(screen.getByLabelText(/current password/i), "oldPass123");
-    await user.type(screen.getByLabelText(/^new password/i), "newPass123");
-    await user.type(screen.getByLabelText(/confirm new password/i), "different99");
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: "oldPass123" } });
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: "newPass123" } });
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: "different99" } });
 
     await user.click(screen.getByRole("button", { name: /update password/i }));
 
@@ -373,9 +390,9 @@ describe("Profile — change password dialog", () => {
     await user.click(await screen.findByRole("button", { name: /change password/i }));
     await screen.findByRole("dialog");
 
-    await user.type(screen.getByLabelText(/current password/i), "old1234");
-    await user.type(screen.getByLabelText(/^new password/i), "short");
-    await user.type(screen.getByLabelText(/confirm new password/i), "short");
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: "old1234" } });
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: "short" } });
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: "short" } });
 
     await user.click(screen.getByRole("button", { name: /update password/i }));
 
@@ -391,9 +408,9 @@ describe("Profile — change password dialog", () => {
     await user.click(await screen.findByRole("button", { name: /change password/i }));
     await screen.findByRole("dialog");
 
-    await user.type(screen.getByLabelText(/current password/i), "OldPass123");
-    await user.type(screen.getByLabelText(/^new password/i), "NewPass456!");
-    await user.type(screen.getByLabelText(/confirm new password/i), "NewPass456!");
+    fireEvent.change(screen.getByLabelText(/current password/i), { target: { value: "OldPass123" } });
+    fireEvent.change(screen.getByLabelText(/^new password/i), { target: { value: "NewPass456!" } });
+    fireEvent.change(screen.getByLabelText(/confirm new password/i), { target: { value: "NewPass456!" } });
 
     await user.click(screen.getByRole("button", { name: /update password/i }));
 

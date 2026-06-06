@@ -148,6 +148,7 @@ vi.mock("../../src/services/modules/branch", () => ({
     createBranch: vi.fn(),
     deleteBranchById: vi.fn(),
     getBranches: vi.fn(),
+    getDropdownBranches: vi.fn(),
     updateBranch: vi.fn(),
   },
 }));
@@ -180,6 +181,9 @@ describe("employee async combobox screen migrations", () => {
         content: [{ id: "branch-1", branchName: "HQ", branchCode: "HQ" }],
         totalElements: 1,
       },
+    });
+    mockedBranchService.getDropdownBranches.mockResolvedValue({
+      data: [{ id: "branch-1", branchName: "HQ", branchCode: "HQ" }],
     });
     mockedBranchService.createBranch.mockResolvedValue({
       success: true,

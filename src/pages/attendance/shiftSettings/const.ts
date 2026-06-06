@@ -70,25 +70,25 @@ export const statusColors = {
 export const CATEGORY_LABELS: Record<EmployeeCategoryType, string> = {
   STAFF:         'Staff',
   LABOUR:        'Labour',
-  GROUND_WORKER: 'Ground Worker',
-  SUPERVISOR:    'Supervisor',
-  TECHNICIAN:    'Technician',
+  // GROUND_WORKER: 'Ground Worker',
+  // SUPERVISOR:    'Supervisor',
+  // TECHNICIAN:    'Technician',
 };
 
 export const CATEGORY_SUBLABELS: Record<EmployeeCategoryType, string> = {
   STAFF:         'Office / White-collar',
   LABOUR:        'Factory / Production floor',
-  GROUND_WORKER: 'Retail / Field / Security',
-  SUPERVISOR:    'Team lead / Floor supervisor',
-  TECHNICIAN:    'Electrician / Mechanic / Maintenance',
+  // GROUND_WORKER: 'Retail / Field / Security',
+  // SUPERVISOR:    'Team lead / Floor supervisor',
+  // TECHNICIAN:    'Electrician / Mechanic / Maintenance',
 };
 
 export const CATEGORY_COLORS: Record<EmployeeCategoryType, string> = {
   STAFF:         '#1976d2',
   LABOUR:        '#d32f2f',
-  GROUND_WORKER: '#388e3c',
-  SUPERVISOR:    '#f57c00',
-  TECHNICIAN:    '#7b1fa2',
+  // GROUND_WORKER: '#388e3c',
+  // SUPERVISOR:    '#f57c00',
+  // TECHNICIAN:    '#7b1fa2',
 };
 
 // Sensible defaults differ per category
@@ -96,58 +96,29 @@ export const CATEGORY_DEFAULTS: Record<EmployeeCategoryType, ShiftCategoryConfig
   STAFF: {
     type: 'STAFF',
     graceBeforeCheckIn: 15, graceAfterCheckIn: 5, graceBeforeCheckOut: 5, graceAfterCheckOut: 15,
-    breakTime: 15, breakAfterHours: 2, breakIsPaid: true, allowMultipleBreaks: false,
+    breakTime: 15, breakAfterHours: 2, allowMultipleBreaks: false,breakEndTime: '00:00', breakStartTime: '00:00',
     maxBreaksPerShift: 2, minBreakInterval: 60,
-    lunchDuration: 30, lunchAfterHours: 4, lunchIsPaid: false, lunchGraceBefore: 5, lunchGraceAfter: 5,
+
+    mealDuration: 30, mealAfterHours: 4, mealGraceBefore: 5, mealGraceAfter: 5,
+    enableMealBreakGrace:false, mealBreakStartTime: '00:00', mealBreakEndTime: '00:00',
+
     overtimeBeforeShift: 30, overtimeAfterShift: 30,
     minRestBetweenShifts: 8, maxConsecutiveDays: 6,
-    lateArrivalThreshold: 10, earlyDepartureThreshold: 10,
-    autoBreakDeduction: false, roundingRule: 'nearest', roundingInterval: 15,
+    roundingRule: 'none', roundingInterval: 0,
   },
   LABOUR: {
     type: 'LABOUR',
-    graceBeforeCheckIn: 5, graceAfterCheckIn: 2, graceBeforeCheckOut: 2, graceAfterCheckOut: 5,
-    breakTime: 15, breakAfterHours: 2, breakIsPaid: true, allowMultipleBreaks: true,
-    maxBreaksPerShift: 3, minBreakInterval: 90,
-    lunchDuration: 30, lunchAfterHours: 4, lunchIsPaid: false, lunchGraceBefore: 5, lunchGraceAfter: 5,
+    graceBeforeCheckIn: 10, graceAfterCheckIn: 10, graceBeforeCheckOut: 10, graceAfterCheckOut: 10,
+    breakTime: 30, breakAfterHours: 4, allowMultipleBreaks: true,
+    maxBreaksPerShift: 4, minBreakInterval: 120,
+
+    mealDuration: 60, mealAfterHours: 5, mealGraceBefore: 10, mealGraceAfter: 10,
+    enableMealBreakGrace:false, mealBreakStartTime: '00:00', mealBreakEndTime: '00:00',
+
     overtimeBeforeShift: 15, overtimeAfterShift: 15,
-    minRestBetweenShifts: 12, maxConsecutiveDays: 6,
-    lateArrivalThreshold: 5, earlyDepartureThreshold: 5,
-    autoBreakDeduction: true, roundingRule: 'down', roundingInterval: 15,
-  },
-  GROUND_WORKER: {
-    type: 'GROUND_WORKER',
-    graceBeforeCheckIn: 10, graceAfterCheckIn: 5, graceBeforeCheckOut: 5, graceAfterCheckOut: 10,
-    breakTime: 15, breakAfterHours: 2, breakIsPaid: true, allowMultipleBreaks: false,
-    maxBreaksPerShift: 2, minBreakInterval: 60,
-    lunchDuration: 30, lunchAfterHours: 4, lunchIsPaid: false, lunchGraceBefore: 5, lunchGraceAfter: 5,
-    overtimeBeforeShift: 20, overtimeAfterShift: 20,
-    minRestBetweenShifts: 8, maxConsecutiveDays: 5,
-    lateArrivalThreshold: 10, earlyDepartureThreshold: 10,
-    autoBreakDeduction: true, roundingRule: 'nearest', roundingInterval: 15,
-  },
-  SUPERVISOR: {
-    type: 'SUPERVISOR',
-    graceBeforeCheckIn: 15, graceAfterCheckIn: 5, graceBeforeCheckOut: 5, graceAfterCheckOut: 15,
-    breakTime: 15, breakAfterHours: 2, breakIsPaid: true, allowMultipleBreaks: false,
-    maxBreaksPerShift: 2, minBreakInterval: 60,
-    lunchDuration: 30, lunchAfterHours: 4, lunchIsPaid: false, lunchGraceBefore: 5, lunchGraceAfter: 5,
-    overtimeBeforeShift: 30, overtimeAfterShift: 30,
-    minRestBetweenShifts: 8, maxConsecutiveDays: 6,
-    lateArrivalThreshold: 10, earlyDepartureThreshold: 10,
-    autoBreakDeduction: false, roundingRule: 'nearest', roundingInterval: 15,
-  },
-  TECHNICIAN: {
-    type: 'TECHNICIAN',
-    graceBeforeCheckIn: 10, graceAfterCheckIn: 5, graceBeforeCheckOut: 5, graceAfterCheckOut: 10,
-    breakTime: 15, breakAfterHours: 2, breakIsPaid: true, allowMultipleBreaks: false,
-    maxBreaksPerShift: 2, minBreakInterval: 60,
-    lunchDuration: 30, lunchAfterHours: 4, lunchIsPaid: false, lunchGraceBefore: 5, lunchGraceAfter: 5,
-    overtimeBeforeShift: 20, overtimeAfterShift: 20,
-    minRestBetweenShifts: 8, maxConsecutiveDays: 6,
-    lateArrivalThreshold: 10, earlyDepartureThreshold: 10,
-    autoBreakDeduction: true, roundingRule: 'nearest', roundingInterval: 15,
+    minRestBetweenShifts: 10, maxConsecutiveDays: 7,
+    roundingRule: 'none', roundingInterval: 0,
   },
 };
 
-export const ALL_CATEGORIES = Object.values(EmployeeCategory) as EmployeeCategoryType[];
+export const ALL_CATEGORIES = [EmployeeCategory.STAFF, EmployeeCategory.LABOUR] as EmployeeCategoryType[];

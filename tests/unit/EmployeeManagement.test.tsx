@@ -115,14 +115,30 @@ vi.mock("../../src/materialModule", () => {
         open ? <div role="dialog">{children}</div> : null,
       DialogContent: Element("div"),
       DialogActions: Element("div"),
+      DialogTitle: Element("div"),
+      Alert: Element("div"),
+      LinearProgress: () => <span role="progressbar" />,
+      Select: ({ children, label, value, onChange }: any) => (
+        <select aria-label={label} value={value || ""} onChange={onChange}>{children}</select>
+      ),
+      MenuItem: ({ children, value }: any) => <option value={value}>{children}</option>,
+      Menu: ({ open, children }: any) => open ? <div>{children}</div> : null,
+      FormControl: Element("div"),
+      InputLabel: Element("label"),
+      Checkbox: ({ checked, onChange }: any) => (
+        <input type="checkbox" checked={!!checked} onChange={onChange} />
+      ),
       CloseOutlined: Icon,
       FileUploadIcon: Icon,
+      DownloadIcon: Icon,
+      CloudUploadIcon: Icon,
       VisibilityOutlined: Icon,
       DeleteIcon: Icon,
       NoAccountsIcon: Icon,
       HowToRegIcon: Icon,
       ArrowUpward: Icon,
       ArrowDownward: Icon,
+      CheckCircleOutlineIcon: Icon,
     },
   };
 });
@@ -143,6 +159,8 @@ vi.mock("../../src/services/modules/employees", async (importOriginal) => {
       deactivateEmployee: vi.fn(),
       reactivateEmployee: vi.fn(),
       bulkUploadEmployees: vi.fn(),
+      getEmployeeId: vi.fn().mockResolvedValue({}),
+      downloadBulkUploadTemplate: vi.fn(),
     },
   };
 });
@@ -156,6 +174,7 @@ vi.mock("../../src/services/modules/department", () => ({
 vi.mock("../../src/services/modules/branch", () => ({
   branchService: {
     getBranches: vi.fn().mockResolvedValue({ data: { content: [] } }),
+    getDropdownBranches: vi.fn().mockResolvedValue({ data: { content: [] } }),
   },
 }));
 
