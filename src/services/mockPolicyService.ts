@@ -181,55 +181,55 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
   },
 
   // ── SHIFT DOMAIN ──────────────────────────────────────────────────────────────
-  {
-    id: 'tmpl_shift_rotation',
-    name: 'Shift Rotation Policy',
-    domain: PolicyDomain.SHIFT,
-    description: 'Rotational shift policy for 24/7 operations with shift allowances',
-    configSchema: {},
-    defaultConfig: {
-      shiftConfig: {
-        graceTimeMinutes: 10,
-        latePenaltyAfterMinutes: 30,
-        halfDayMinutes: 240,
-        fullDayMinutes: 480,
-        biometricRequired: true,
-        mobileCheckInAllowed: false,
-        wfhAllowed: false,
-        regularizationAllowedPerMonth: 2,
-        overtimeAutoCalculate: true,
-      },
-      rotationPattern: 'WEEKLY',
-      notifyDaysBefore: 3,
-      minGapBetweenShifts: 12,
-      shiftAllowance: {
-        MORNING: 100,
-        EVENING: 200,
-        NIGHT: 500,
-      },
-      approvalFlow: {
-        levels: [
-          {
-            level: 1,
-            approverType: 'REPORTING_MANAGER',
-            timeoutDays: 2,
-          },
-        ],
-        autoApproveBelowDays: 0,
-        fallbackApprover: 'HR',
-        notifyOnSubmit: true,
-        notifyOnApproval: true,
-        parallelApproval: false,
-        rejectionRequiresReason: true,
-      },
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Shift Rules', type: 'SHIFT_RULES', configurable: true, schema: {} },
-      { id: 'rb2', name: 'Rotation Rules', type: 'ROTATION_RULES', configurable: true, schema: {} },
-      { id: 'rb3', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
+  // {
+  //   id: 'tmpl_shift_rotation',
+  //   name: 'Shift Rotation Policy',
+  //   domain: PolicyDomain.SHIFT,
+  //   description: 'Rotational shift policy for 24/7 operations with shift allowances',
+  //   configSchema: {},
+  //   defaultConfig: {
+  //     shiftConfig: {
+  //       graceTimeMinutes: 10,
+  //       latePenaltyAfterMinutes: 30,
+  //       halfDayMinutes: 240,
+  //       fullDayMinutes: 480,
+  //       biometricRequired: true,
+  //       mobileCheckInAllowed: false,
+  //       wfhAllowed: false,
+  //       regularizationAllowedPerMonth: 2,
+  //       overtimeAutoCalculate: true,
+  //     },
+  //     rotationPattern: 'WEEKLY',
+  //     notifyDaysBefore: 3,
+  //     minGapBetweenShifts: 12,
+  //     shiftAllowance: {
+  //       MORNING: 100,
+  //       EVENING: 200,
+  //       NIGHT: 500,
+  //     },
+  //     approvalFlow: {
+  //       levels: [
+  //         {
+  //           level: 1,
+  //           approverType: 'REPORTING_MANAGER',
+  //           timeoutDays: 2,
+  //         },
+  //       ],
+  //       autoApproveBelowDays: 0,
+  //       fallbackApprover: 'HR',
+  //       notifyOnSubmit: true,
+  //       notifyOnApproval: true,
+  //       parallelApproval: false,
+  //       rejectionRequiresReason: true,
+  //     },
+  //   },
+  //   ruleBlocks: [
+  //     { id: 'rb1', name: 'Shift Rules', type: 'SHIFT_RULES', configurable: true, schema: {} },
+  //     { id: 'rb2', name: 'Rotation Rules', type: 'ROTATION_RULES', configurable: true, schema: {} },
+  //     { id: 'rb3', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
+  //   ],
+  //   isSystemTemplate: true,
+  // },
 
   // ── EXPENSE DOMAIN ────────────────────────────────────────────────────────────
   {
@@ -514,55 +514,55 @@ export const MOCK_TEMPLATES: PolicyTemplate[] = [
   },
 
   // ── APPROVAL WORKFLOW DOMAIN ──────────────────────────────────────────────────
-  {
-    id: 'tmpl_approval_workflow',
-    name: 'Multi-Level Approval Workflow',
-    domain: PolicyDomain.APPROVAL_WORKFLOW,
-    description: 'Generic multi-level approval workflow for various requests',
-    configSchema: {},
-    defaultConfig: {
-      approvalFlow: {
-        levels: [
-          {
-            level: 1,
-            approverType: 'REPORTING_MANAGER',
-            timeoutDays: 2,
-            escalationTo: 'DEPARTMENT_HEAD',
-          },
-          {
-            level: 2,
-            approverType: 'DEPARTMENT_HEAD',
-            timeoutDays: 2,
-            condition: {
-              field: 'amount',
-              operator: 'gt',
-              value: 10000,
-            },
-          },
-          {
-            level: 3,
-            approverType: 'HR',
-            timeoutDays: 2,
-            condition: {
-              field: 'amount',
-              operator: 'gt',
-              value: 50000,
-            },
-          },
-        ],
-        autoApproveBelowDays: 1,
-        fallbackApprover: 'ADMIN',
-        notifyOnSubmit: true,
-        notifyOnApproval: true,
-        parallelApproval: false,
-        rejectionRequiresReason: true,
-      },
-    },
-    ruleBlocks: [
-      { id: 'rb1', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
-    ],
-    isSystemTemplate: true,
-  },
+  // {
+  //   id: 'tmpl_approval_workflow',
+  //   name: 'Multi-Level Approval Workflow',
+  //   domain: PolicyDomain.APPROVAL_WORKFLOW,
+  //   description: 'Generic multi-level approval workflow for various requests',
+  //   configSchema: {},
+  //   defaultConfig: {
+  //     approvalFlow: {
+  //       levels: [
+  //         {
+  //           level: 1,
+  //           approverType: 'REPORTING_MANAGER',
+  //           timeoutDays: 2,
+  //           escalationTo: 'DEPARTMENT_HEAD',
+  //         },
+  //         {
+  //           level: 2,
+  //           approverType: 'DEPARTMENT_HEAD',
+  //           timeoutDays: 2,
+  //           condition: {
+  //             field: 'amount',
+  //             operator: 'gt',
+  //             value: 10000,
+  //           },
+  //         },
+  //         {
+  //           level: 3,
+  //           approverType: 'HR',
+  //           timeoutDays: 2,
+  //           condition: {
+  //             field: 'amount',
+  //             operator: 'gt',
+  //             value: 50000,
+  //           },
+  //         },
+  //       ],
+  //       autoApproveBelowDays: 1,
+  //       fallbackApprover: 'ADMIN',
+  //       notifyOnSubmit: true,
+  //       notifyOnApproval: true,
+  //       parallelApproval: false,
+  //       rejectionRequiresReason: true,
+  //     },
+  //   },
+  //   ruleBlocks: [
+  //     { id: 'rb1', name: 'Approval Workflow', type: 'APPROVAL_FLOW', configurable: true, schema: {} },
+  //   ],
+  //   isSystemTemplate: true,
+  // },
 
   // ── ONBOARDING DOMAIN ─────────────────────────────────────────────────────────
   {
@@ -765,29 +765,6 @@ const INITIAL_POLICIES: PolicyDefinition[] = [
       status: VersionStatus.DRAFT,
       createdBy: 'HR Manager',
       createdAt: '2026-03-05T11:00:00Z',
-    },
-  },
-  {
-    id: 'POL-003',
-    companyId: 'company_123',
-    templateId: 'tmpl_retail_shift',
-    name: 'Shift Assignment Policy',
-    domain: PolicyDomain.SHIFT,
-    description: 'Automated shift allocation and swap approval process.',
-    status: PolicyStatus.PENDING_APPROVAL,
-    createdBy: 'Operations Head',
-    createdAt: '2026-04-12T08:15:00Z',
-    updatedAt: '2026-05-28T09:45:00Z',
-    effectiveFrom: '2026-06-01',
-    currentVersion: {
-      id: 'VER-003-v1',
-      policyId: 'POL-003',
-      versionNumber: 1,
-      config: {},
-      effectiveFrom: '2026-06-01',
-      status: VersionStatus.PENDING_APPROVAL,
-      createdBy: 'Operations Head',
-      createdAt: '2026-04-12T08:15:00Z',
     },
   },
   {

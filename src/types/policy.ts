@@ -2,7 +2,7 @@ export const PolicyDomain = {
   ONBOARDING: 'ONBOARDING',
   PROBATION: 'PROBATION',
   ATTENDANCE: 'ATTENDANCE',
-  SHIFT: 'SHIFT',
+  // SHIFT: 'SHIFT',
   WORK_FROM_HOME: 'WORK_FROM_HOME',
   HOLIDAY: 'HOLIDAY',
   LEAVE: 'LEAVE',
@@ -14,7 +14,7 @@ export const PolicyDomain = {
   PAYROLL: 'PAYROLL',
   NOTICE_PERIOD: 'NOTICE_PERIOD',
   OFFBOARDING: 'OFFBOARDING',
-  APPROVAL_WORKFLOW: 'APPROVAL_WORKFLOW',
+  // APPROVAL_WORKFLOW: 'APPROVAL_WORKFLOW',
 } as const;
 
 export type PolicyDomain = typeof PolicyDomain[keyof typeof PolicyDomain];
@@ -210,6 +210,25 @@ export interface PolicyConfig {
     absentDeductionPerDay?: number;
     lwpAfterDays?: number;
   };
+
+  // Onboarding domain
+  onboardingTasks?: string[];
+  trainingRequired?: boolean;
+  mentorAssigned?: boolean;
+  backgroundVerificationRequired?: boolean;
+  buddySystemEnabled?: boolean;
+  inductionDurationDays?: number;
+
+  // Offboarding domain
+  fullAndFinalSettlementDays?: number;
+  exitInterviewRequired?: boolean;
+  assetReturnRequired?: boolean;
+  experienceLetterProvided?: boolean;
+  relievingLetterProvided?: boolean;
+  knowledgeTransferRequired?: boolean;
+  knowledgeTransferDays?: number;
+  rehireEligibility?: RehireEligibility;
+  clearanceChecklist?: string[];
   
   // Payroll domain
   payrollComponents?: {
@@ -390,6 +409,38 @@ export interface ShiftConfig {
 export interface AttendancePenalties {
   absentDeductionPerDay?: number;
   lwpAfterDays?: number;
+}
+
+// ============================================
+// Onboarding Domain Types
+// ============================================
+
+export interface OnboardingConfig {
+  probationDuration?: number;
+  trainingRequired?: boolean;
+  mentorAssigned?: boolean;
+  backgroundVerificationRequired?: boolean;
+  buddySystemEnabled?: boolean;
+  inductionDurationDays?: number;
+  onboardingTasks?: string[];
+}
+
+// ============================================
+// Offboarding Domain Types
+// ============================================
+
+export type RehireEligibility = 'ELIGIBLE' | 'CASE_BY_CASE' | 'NOT_ELIGIBLE';
+
+export interface OffboardingConfig {
+  fullAndFinalSettlementDays?: number;
+  exitInterviewRequired?: boolean;
+  assetReturnRequired?: boolean;
+  experienceLetterProvided?: boolean;
+  relievingLetterProvided?: boolean;
+  knowledgeTransferRequired?: boolean;
+  knowledgeTransferDays?: number;
+  rehireEligibility?: RehireEligibility;
+  clearanceChecklist?: string[];
 }
 
 // ============================================

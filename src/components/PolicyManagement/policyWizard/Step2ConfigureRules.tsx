@@ -498,31 +498,213 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
   );
 
   // ── Shift & Attendance Rules ─────────────────────────────────────────────────
-  // const renderShiftRules = () => (
+  const renderShiftRules = () => (
+    <Grid container spacing={2}>
+      <Grid size={{ xs: 12 }}>
+        <Typography variant="subtitle2" color="info" className='!mb-1'>Timing Thresholds</Typography>
+      </Grid>
+      {/* <Grid size={{ xs: 12, md: 3 }}>
+        <TextField fullWidth size="small" type="number" label="Grace Time (min)" value={localConfig.shiftConfig?.graceTimeMinutes ?? 15} onChange={(e) => set('shiftConfig.graceTimeMinutes', parseInt(e.target.value) || 0)} helperText="Late tolerance window" sx={helperSx} />
+      </Grid> */}
+      <Grid size={{ xs: 12, md: 4 }}>
+        <TextField fullWidth size="small" type="number" label="Late Penalty After (min)" value={localConfig.shiftConfig?.latePenaltyAfterMinutes ?? 30} onChange={(e) => set('shiftConfig.latePenaltyAfterMinutes', parseInt(e.target.value) || 0)} />
+      </Grid>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <TextField fullWidth size="small" type="number" label="Half Day Threshold (min)" value={localConfig.shiftConfig?.halfDayMinutes ?? 240} onChange={(e) => set('shiftConfig.halfDayMinutes', parseInt(e.target.value) || 0)} helperText="Min hours for half day" sx={helperSx} />
+      </Grid>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <TextField fullWidth size="small" type="number" label="Full Day Threshold (min)" value={localConfig.shiftConfig?.fullDayMinutes ?? 480} onChange={(e) => set('shiftConfig.fullDayMinutes', parseInt(e.target.value) || 0)} helperText="Min hours for full day" sx={helperSx} />
+      </Grid>
+
+      <Grid size={{ xs: 12 }}><Divider /><Typography variant="subtitle2" color="info" sx={{ my: 1 }} >Check-in Settings</Typography></Grid>
+      <Grid size={{ xs: 12, md: 3 }}>
+        <TextField fullWidth size="small" type="number" label="Regularizations / Month" value={localConfig.shiftConfig?.regularizationAllowedPerMonth ?? 3} onChange={(e) => set('shiftConfig.regularizationAllowedPerMonth', parseInt(e.target.value) || 0)} helperText="Max attendance corrections allowed" sx={helperSx} />
+      </Grid>
+      <Grid size={{ xs: 12, md: 2 }}>
+        <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.biometricRequired} onChange={(e) => set('shiftConfig.biometricRequired', e.target.checked)} />} label="Biometric Required" />
+      </Grid>
+      <Grid size={{ xs: 12, md: 2 }}>
+        <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.wfhAllowed} onChange={(e) => set('shiftConfig.wfhAllowed', e.target.checked)} />} label="WFH Allowed" />
+      </Grid>
+      <Grid size={{ xs: 12, md: 4 }}>
+        <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.mobileCheckInAllowed} onChange={(e) => set('shiftConfig.mobileCheckInAllowed', e.target.checked)} />} label="Mobile Check-in Allowed" />
+      </Grid>
+      {/* <Grid size={{ xs: 12, md: 3 }}>
+        <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.overtimeAutoCalculate} onChange={(e) => set('shiftConfig.overtimeAutoCalculate', e.target.checked)} />} label="Auto-Calculate Overtime" />
+      </Grid> */}
+
+      <Grid size={{ xs: 12 }}><Divider /><Typography variant="subtitle2" color="info" sx={{ my: 1 }}>Absence Penalties</Typography></Grid>
+      <Grid size={{ xs: 12, md: 3 }}>
+        <TextField fullWidth size="small" type="number" label="Absent Deduction (days salary)" value={localConfig.penalties?.absentDeductionPerDay ?? 1} onChange={(e) => set('penalties.absentDeductionPerDay', parseFloat(e.target.value) || 1)} helperText="Salary days deducted per absent day" sx={helperSx} />
+      </Grid>
+      <Grid size={{ xs: 12, md: 3 }}>
+        <TextField fullWidth size="small" type="number" label="LWP After (days)" value={localConfig.penalties?.lwpAfterDays ?? 3} onChange={(e) => set('penalties.lwpAfterDays', parseInt(e.target.value) || 3)} helperText="Consecutive absences before LWP" sx={helperSx} />
+      </Grid>
+    </Grid>
+  );
+
+  // ── Shift Rotation Rules ──────────────────────────────────────────────────────
+  // const renderRotationRules = () => (
   //   <Grid container spacing={2}>
-  //     <Grid size={{ xs: 12, md: 3 }}>
-  //       <TextField fullWidth size="small" type="number" label="Grace Time (min)" value={localConfig.shiftConfig?.graceTimeMinutes ?? 15} onChange={(e) => set('shiftConfig.graceTimeMinutes', parseInt(e.target.value) || 0)} />
-  //     </Grid>
-  //     <Grid size={{ xs: 12, md: 3 }}>
-  //       <TextField fullWidth size="small" type="number" label="Late Penalty After (min)" value={localConfig.shiftConfig?.latePenaltyAfterMinutes ?? 30} onChange={(e) => set('shiftConfig.latePenaltyAfterMinutes', parseInt(e.target.value) || 0)} />
-  //     </Grid>
-  //     <Grid size={{ xs: 12, md: 3 }}>
-  //       <TextField fullWidth size="small" type="number" label="Half Day (min)" value={localConfig.shiftConfig?.halfDayMinutes ?? 240} onChange={(e) => set('shiftConfig.halfDayMinutes', parseInt(e.target.value) || 0)} />
-  //     </Grid>
-  //     <Grid size={{ xs: 12, md: 3 }}>
-  //       <TextField fullWidth size="small" type="number" label="Full Day (min)" value={localConfig.shiftConfig?.fullDayMinutes ?? 480} onChange={(e) => set('shiftConfig.fullDayMinutes', parseInt(e.target.value) || 0)} />
+  //     <Grid size={{ xs: 12, md: 4 }}>
+  //       <FormControl fullWidth size="small">
+  //         <InputLabel>Rotation Pattern</InputLabel>
+  //         <Select value={localConfig.rotationPattern || 'WEEKLY'} onChange={(e) => set('rotationPattern', e.target.value)}>
+  //           <MenuItem value="WEEKLY">Weekly</MenuItem>
+  //           <MenuItem value="FORTNIGHTLY">Fortnightly</MenuItem>
+  //           <MenuItem value="MONTHLY">Monthly</MenuItem>
+  //           <MenuItem value="FIXED">Fixed (No Rotation)</MenuItem>
+  //         </Select>
+  //       </FormControl>
   //     </Grid>
   //     <Grid size={{ xs: 12, md: 4 }}>
-  //       <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.biometricRequired} onChange={(e) => set('shiftConfig.biometricRequired', e.target.checked)} />} label="Biometric Required" />
+  //       <TextField fullWidth size="small" type="number" label="Notify Employees (days before)" value={localConfig.notifyDaysBefore ?? 3} onChange={(e) => set('notifyDaysBefore', parseInt(e.target.value) || 0)} helperText="Advance notice for shift change" sx={helperSx} />
   //     </Grid>
   //     <Grid size={{ xs: 12, md: 4 }}>
-  //       <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.mobileCheckInAllowed} onChange={(e) => set('shiftConfig.mobileCheckInAllowed', e.target.checked)} />} label="Mobile Check-in Allowed" />
+  //       <TextField fullWidth size="small" type="number" label="Min Gap Between Shifts (hrs)" value={localConfig.minGapBetweenShifts ?? 12} onChange={(e) => set('minGapBetweenShifts', parseInt(e.target.value) || 0)} helperText="Rest time between consecutive shifts" sx={helperSx} />
   //     </Grid>
-  //     <Grid size={{ xs: 12, md: 4 }}>
-  //       <TextField fullWidth size="small" type="number" label="Absent Deduction (days)" value={localConfig.penalties?.absentDeductionPerDay ?? 1} onChange={(e) => set('penalties.absentDeductionPerDay', parseFloat(e.target.value) || 1)} />
+  //     <Grid size={{ xs: 12 }}>
+  //       <Typography variant="subtitle2" sx={{ mb: 1 }}>Shift Allowances (₹/day)</Typography>
   //     </Grid>
+  //     {['MORNING', 'EVENING', 'NIGHT'].map((shift) => (
+  //       <Grid size={{ xs: 12, md: 4 }} key={shift}>
+  //         <TextField
+  //           fullWidth size="small" type="number"
+  //           label={`${shift.charAt(0) + shift.slice(1).toLowerCase()} Shift Allowance`}
+  //           value={localConfig.shiftAllowance?.[shift] ?? 0}
+  //           onChange={(e) => set(`shiftAllowance.${shift}`, parseFloat(e.target.value) || 0)}
+  //         />
+  //       </Grid>
+  //     ))}
   //   </Grid>
   // );
+
+  // ── Onboarding Rules ──────────────────────────────────────────────────────────
+  const renderOnboardingRules = () => {
+    const tasks: string[] = localConfig.onboardingTasks || [];
+    const addTask = () => set('onboardingTasks', [...tasks, '']);
+    const updateTask = (i: number, val: string) => {
+      const updated = [...tasks]; updated[i] = val; set('onboardingTasks', updated);
+    };
+    const removeTask = (i: number) => set('onboardingTasks', tasks.filter((_, idx) => idx !== i));
+
+    return (
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField fullWidth size="small" type="number" label="Probation Duration (days)" value={localConfig.probationDuration ?? 90} onChange={(e) => set('probationDuration', parseInt(e.target.value) || 90)} helperText="Duration of probation period" sx={helperSx} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.trainingRequired} onChange={(e) => set('trainingRequired', e.target.checked)} />} label="Training Required" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.mentorAssigned} onChange={(e) => set('mentorAssigned', e.target.checked)} />} label="Assign Mentor" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.backgroundVerificationRequired} onChange={(e) => set('backgroundVerificationRequired', e.target.checked)} />} label="Background Verification" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.buddySystemEnabled} onChange={(e) => set('buddySystemEnabled', e.target.checked)} />} label="Buddy System" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField fullWidth size="small" type="number" label="Induction Duration (days)" value={localConfig.inductionDurationDays ?? 7} onChange={(e) => set('inductionDurationDays', parseInt(e.target.value) || 0)} />
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ mb: 1 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="subtitle2">Onboarding Task Checklist</Typography>
+            <IconButton size="small" onClick={addTask} color="primary"><AddIcon /></IconButton>
+          </Box>
+          {tasks.length === 0 && (
+            <Alert severity="info">No tasks added. Click + to add onboarding tasks.</Alert>
+          )}
+          {tasks.map((task, i) => (
+            <Box key={i} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <TextField
+                fullWidth size="small"
+                placeholder={`Task ${i + 1}`}
+                value={task}
+                onChange={(e) => updateTask(i, e.target.value)}
+              />
+              <IconButton size="small" onClick={() => removeTask(i)}>
+                <DeleteIcon fontSize="small" className='text-red-500' />
+              </IconButton>
+            </Box>
+          ))}
+        </Grid>
+      </Grid>
+    );
+  };
+
+  // ── Offboarding Rules ─────────────────────────────────────────────────────────
+  const renderOffboardingRules = () => {
+    const checklist: string[] = localConfig.clearanceChecklist || [];
+    const addItem = () => set('clearanceChecklist', [...checklist, '']);
+    const updateItem = (i: number, val: string) => {
+      const updated = [...checklist]; updated[i] = val; set('clearanceChecklist', updated);
+    };
+    const removeItem = (i: number) => set('clearanceChecklist', checklist.filter((_, idx) => idx !== i));
+
+    return (
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField fullWidth size="small" type="number" label="Full & Final Settlement (days)" value={localConfig.fullAndFinalSettlementDays ?? 45} onChange={(e) => set('fullAndFinalSettlementDays', parseInt(e.target.value) || 45)} helperText="Days to process F&F after exit" sx={helperSx} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.exitInterviewRequired} onChange={(e) => set('exitInterviewRequired', e.target.checked)} />} label="Exit Interview Required" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.assetReturnRequired} onChange={(e) => set('assetReturnRequired', e.target.checked)} />} label="Asset Return Required" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.experienceLetterProvided} onChange={(e) => set('experienceLetterProvided', e.target.checked)} />} label="Experience Letter Issued" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.relievingLetterProvided} onChange={(e) => set('relievingLetterProvided', e.target.checked)} />} label="Relieving Letter Issued" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.knowledgeTransferRequired} onChange={(e) => set('knowledgeTransferRequired', e.target.checked)} />} label="Knowledge Transfer Required" />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <TextField fullWidth size="small" type="number" label="KT Duration (days)" value={localConfig.knowledgeTransferDays ?? 7} onChange={(e) => set('knowledgeTransferDays', parseInt(e.target.value) || 0)} />
+        </Grid>
+        <Grid size={{ xs: 12, md: 3 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Rehire Eligibility</InputLabel>
+            <Select value={localConfig.rehireEligibility || 'CASE_BY_CASE'} onChange={(e) => set('rehireEligibility', e.target.value)}>
+              <MenuItem value="ELIGIBLE">Always Eligible</MenuItem>
+              <MenuItem value="CASE_BY_CASE">Case by Case</MenuItem>
+              <MenuItem value="NOT_ELIGIBLE">Not Eligible</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ mb: 1 }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="subtitle2">Clearance Checklist</Typography>
+            <IconButton size="small" onClick={addItem} color="primary"><AddIcon /></IconButton>
+          </Box>
+          {checklist.length === 0 && (
+            <Alert severity="info">No clearance items. Click + to add items employees must clear before exit.</Alert>
+          )}
+          {checklist.map((item, i) => (
+            <Box key={i} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <TextField
+                fullWidth size="small"
+                placeholder={`Clearance item ${i + 1}`}
+                value={item}
+                onChange={(e) => updateItem(i, e.target.value)}
+              />
+              <IconButton size="small" onClick={() => removeItem(i)}>
+                <DeleteIcon fontSize="small" className='text-red-500' />
+              </IconButton>
+            </Box>
+          ))}
+        </Grid>
+      </Grid>
+    );
+  };
 
   // ── Expense Limits (Indian Tax Norms - Income Tax Act) ───────────────────────
   const renderExpenseLimits = () => (
@@ -868,7 +1050,10 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       case 'CARRY_FORWARD': return renderCarryForward();
       case 'SANDWICH_RULE': return renderSandwichRule();
       case 'OVERTIME_RULES': return renderOvertimeRules();
-      // case 'SHIFT_RULES': return renderShiftRules();
+      case 'SHIFT_RULES': return renderShiftRules();
+      // case 'ROTATION_RULES': return renderRotationRules();
+      case 'ONBOARDING_RULES': return renderOnboardingRules();
+      case 'OFFBOARDING_RULES': return renderOffboardingRules();
       case 'EXPENSE_LIMITS': return renderExpenseLimits();
       case 'PAYROLL_RULES': return renderPayrollRules();
       case 'STATUTORY_DEDUCTIONS': return renderStatutoryDeductions();
@@ -879,7 +1064,6 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       case 'WFH_RULES': return renderWFHRules();
       case 'HOLIDAY_RULES': return renderHolidayRules();
       case 'ALLOWANCE_RULES': return renderAllowanceRules();
-      // case 'APPROVAL_FLOW': return renderApprovalFlow();
       default: return <Alert severity="info">Configuration for {block.name} coming soon.</Alert>;
     }
   };
