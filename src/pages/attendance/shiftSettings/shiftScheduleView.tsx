@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
   Typography,
-  Paper,
   Avatar,
   Chip,
   Button,
