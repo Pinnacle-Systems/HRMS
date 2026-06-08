@@ -391,7 +391,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
             <Grid size={{ xs: 12, md:6 }}>
               {formData.type === 'SPECIFIC_EMPLOYEES' ? (
                 <EmployeeSelector
-                  companyId={companyId}
+                  // companyId={companyId}
                   value={selectedEmployee}
                   onChange={(emp) => {
                     const e = emp as Employee | null;

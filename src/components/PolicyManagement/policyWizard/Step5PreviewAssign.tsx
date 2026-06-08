@@ -38,7 +38,6 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
   
   const handlePreview = async () => {
     if (!selectedEmployees) return;
-    console.log(selectedEmployees);
     setLoading(true);
     try {
       // await new Promise(resolve => setTimeout(resolve, 800));
@@ -248,7 +247,6 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
               Select an employee to see how this policy would apply to them.
             </Typography>
             <EmployeeSelector
-              companyId="company_123"
               value={selectedEmployees ? selectedEmployees : null}
               onChange={(value) => setSelectedEmployees(value as Employee[])}
               label="Select Employees"

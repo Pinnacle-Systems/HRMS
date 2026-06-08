@@ -211,7 +211,6 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                 rule.type == 'SPECIFIC_EMPLOYEES' &&
                 <Box>
                   <EmployeeSelector
-                    companyId="company_123"
                     value={selectedEmployees}
                     onChange={(value) => setSelectedEmployees(value as Employee[])}
                     multiple={true}

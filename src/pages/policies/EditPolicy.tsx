@@ -192,7 +192,7 @@ export default function EditPolicy() {
   return (
     <div>
       <Box>
-        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} className='!text-gray-500 !mb-4'>
+        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-primary'/>} className='!text-gray-500 !mb-4'>
           <Link color="inherit" href="/policies" onClick={(e) => { e.preventDefault(); navigate('/policies'); }}>
             Policies
           </Link>

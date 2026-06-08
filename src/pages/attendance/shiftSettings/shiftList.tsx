@@ -145,7 +145,7 @@ export const ShiftList = () => {
         shiftService.getShiftStats(),
         shiftService.getShiftTypes(),
       ]);
-      setShifts(shiftsData.content);
+      setShifts(shiftsData.content ?? []);
       setTotal(shiftsData.totalElements || 0);
       setStats(statsData);
       setShiftTypes(shiftType.data);
@@ -193,7 +193,6 @@ export const ShiftList = () => {
       active: formData.active,
       nightShift: formData.shiftType.toLowerCase() === 'night'
     };
-    console.log('API Data:', apiData);
     try {
       showSpinner();
       if (editingShift) {

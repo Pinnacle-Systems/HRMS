@@ -3,11 +3,13 @@ import { Typography, Breadcrumbs, Link } from '@mui/material';
 import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
 import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';
 
-export default function CreatePolicy()  {
+export default function CreatePolicy() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const companyId = location.state?.companyId;
+  const policyName = location.state?.policyName;
+  // const categoryId = location.state?.categoryId;
 
   const handleComplete = (policyId: string) => {
     navigate(`/policies/${policyId}`);
@@ -20,7 +22,7 @@ export default function CreatePolicy()  {
   return (
     <div>
       <div>
-        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-blue-500' />} aria-label="breadcrumb" sx={{ mb: 2,ml: 2 }}>
+        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-primary' />} aria-label="breadcrumb" sx={{ mb: 2, ml: 2 }}>
           <Link color="inherit" href="/policies" className='!text-gray-500' onClick={(e) => { e.preventDefault(); navigate('/policies'); }}>
             Policies
           </Link>
@@ -32,6 +34,7 @@ export default function CreatePolicy()  {
         companyId={companyId}
         onComplete={handleComplete}
         onCancel={handleCancel}
+        domain={policyName}
       />
     </div>
   );

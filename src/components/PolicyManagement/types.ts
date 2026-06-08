@@ -29,6 +29,7 @@ export interface PolicyWizardProps {
   existingPolicyId?: string;
   onComplete: (policyId: string) => void;
   onCancel: () => void;
+  domain?: string;
 }
 
 export interface Step2ConfigureRulesProps {
@@ -70,6 +71,7 @@ export interface Step1SelectTemplateProps {
   onSelect: (template: PolicyTemplate) => void;
   onPolicyDefinitionChange: (data: any) => void;
   policyDefinition: any;
+  policyDomain?: string;
 }
 export interface CreateTemplateDialogProps {
   open: boolean;
@@ -94,7 +96,7 @@ export interface Step5PreviewAssignProps {
 }
 
 export interface EmployeeSelectorProps {
-  companyId: string;
+  companyId?: string;
   value: Employee | Employee[] | null;
   onChange: (employee: Employee | Employee[] | null) => void;
   multiple?: boolean;
@@ -170,11 +172,11 @@ export const DOMAIN_RULE_BLOCKS: Record<
     { type: "APPROVAL_FLOW", name: "Approval Workflow" },
   ],
   ATTENDANCE: [{ type: "SHIFT_RULES", name: "Attendance & Shift Rules" }],
-  SHIFT: [
-    { type: "SHIFT_RULES", name: "Shift Rules" },
-    { type: "ROTATION_RULES", name: "Rotation Rules" },
-    { type: "APPROVAL_FLOW", name: "Approval Workflow" },
-  ],
+  // SHIFT: [
+  //   { type: "SHIFT_RULES", name: "Shift Rules" },
+  //   { type: "ROTATION_RULES", name: "Rotation Rules" },
+  //   { type: "APPROVAL_FLOW", name: "Approval Workflow" },
+  // ],
   EXPENSE: [
     { type: "EXPENSE_LIMITS", name: "Expense Limits & Categories" },
     { type: "APPROVAL_FLOW", name: "Approval Workflow" },
@@ -200,12 +202,20 @@ export const DOMAIN_RULE_BLOCKS: Record<
     { type: "STATUTORY_DEDUCTIONS", name: "Statutory Deductions" },
     { type: "TAX_DEDUCTIONS", name: "Tax Deductions" },
   ],
-  APPROVAL_WORKFLOW: [
-    { type: "APPROVAL_FLOW", name: "Approval Workflow Configuration" },
-  ],
+  // APPROVAL_WORKFLOW: [
+  //   { type: "APPROVAL_FLOW", name: "Approval Workflow Configuration" },
+  // ],
   ONBOARDING: [{ type: "ONBOARDING_RULES", name: "Onboarding Rules" }],
   OFFBOARDING: [
     { type: "OFFBOARDING_RULES", name: "Offboarding Rules" },
     { type: "NOTICE_PERIOD_RULES", name: "Notice Period Rules" },
+  ],
+  BONUS: [
+    { type: "BONUS_RULES", name: "Bonus Configuration" },
+    { type: "APPROVAL_FLOW", name: "Approval Workflow" },
+  ],
+  LOAN_ADVANCE: [
+    { type: "LOAN_ADVANCE_RULES", name: "Loan & Advance Configuration" },
+    { type: "APPROVAL_FLOW", name: "Approval Workflow" },
   ],
 };

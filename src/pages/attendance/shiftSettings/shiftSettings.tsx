@@ -6,12 +6,14 @@ import {
   SettingsOutlined,
   ScheduleOutlined,
   Rotate90DegreesCwOutlined,
+  SwapHorizOutlined,
 } from "@mui/icons-material";
 
 import { ShiftList } from "./shiftList";
 import { ShiftRoster } from "./shiftRoster";
 import { ShiftScheduleView } from "./shiftScheduleView";
 import { ShiftRotation } from "./shiftRotation";
+import { ShiftSwapRequests } from "./shiftSwapRequests";
 import type { TabPanelProps } from "./types";
 
 function TabPanel(props: TabPanelProps) {
@@ -51,6 +53,11 @@ export default function ShiftSettings() {
       label: "Shift Schedule",
       icon: <ScheduleOutlined fontSize="small" />,
       component: <ShiftScheduleView />,
+    },
+    {
+      label: "Swap Requests",
+      icon: <SwapHorizOutlined fontSize="small" />,
+      component: <ShiftSwapRequests />,
     },
   ];
 

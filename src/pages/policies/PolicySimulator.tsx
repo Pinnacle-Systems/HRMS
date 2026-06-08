@@ -32,6 +32,7 @@ import { DatePicker } from '@mui/x-date-pickers';
 import type { LeaveType } from '../../services/modules/leaveTypes';
 import { leaveService } from '../../services';
 import { actionOptions } from './const';
+import { useUI } from '../../context/Snackbar';
 
 export default function PolicySimulator() {
   const [selectedDomain, setSelectedDomain] = useState<PolicyDomain>(PolicyDomain.LEAVE);
@@ -41,6 +42,7 @@ export default function PolicySimulator() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolicyEvaluationResponse | null>(null);
   const [leaveType, setLeaveType] = useState<LeaveType[]>([]);
+  const { showSnackbar } = useUI();
 
   const handleRunSimulation = async () => {
     if (!selectedEmployee || !action) return;
@@ -55,8 +57,6 @@ export default function PolicySimulator() {
       };
       const response = await policyApi.evaluatePolicy(request);
       setResult(response);
-      console.log(response);
-      
     } catch (error) {
       console.error('Simulation failed:', error);
     } finally {
@@ -79,7 +79,7 @@ export default function PolicySimulator() {
       });
       setLeaveType(response.data?.content ?? []);
     } catch (err: any) {
-      console.log(err?.message || "Failed to load leave types", "error");
+      showSnackbar(err?.message || "Failed to load leave types", "error");
     }
   };
 
@@ -232,7 +232,6 @@ export default function PolicySimulator() {
 
             <Box className="mt-4">
               <EmployeeSelector
-                companyId="company_123"
                 value={selectedEmployee}
                 onChange={setSelectedEmployee}
                 label="Select Employee"
@@ -294,7 +293,7 @@ export default function PolicySimulator() {
                   )}
                 </Box>
 
-                <Divider sx={{ my: 2 }} className='!border-gray-300'/>
+                <Divider sx={{ my: 2 }} className='!border-gray-300' />
 
                 <Typography variant="subtitle2" gutterBottom>
                   Evaluation Messages

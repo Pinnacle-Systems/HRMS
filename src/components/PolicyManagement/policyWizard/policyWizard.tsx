@@ -22,6 +22,7 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   existingPolicyId,
   onComplete,
   onCancel,
+  domain
 }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -150,6 +151,7 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
             onSelect={setSelectedTemplate}
             onPolicyDefinitionChange={setPolicyDefinition}
             policyDefinition={policyDefinition}
+            policyDomain={domain}
           />
         );
       case 1:

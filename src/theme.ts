@@ -153,12 +153,12 @@ const theme = createTheme({
         },
 
         // Sunday day cells (1st column) and Saturday day cells (7th column)
-        ".MuiDayCalendar-weekContainer .MuiPickerDay-root:nth-child(1):not(.MuiPickerDay-fillerCell):not(.Mui-selected)": {
-          color: "var(--color-primary) !important",
-        },
-        ".MuiDayCalendar-weekContainer .MuiPickerDay-root:nth-child(7):not(.MuiPickerDay-fillerCell):not(.Mui-selected)": {
-          color: "var(--color-primary) !important",
-        },
+        // ".MuiDayCalendar-weekContainer .MuiPickerDay-root:nth-of-type(1):not(.MuiPickerDay-fillerCell):not(.Mui-selected)": {
+        //   color: "var(--color-primary) !important",
+        // },
+        // ".MuiDayCalendar-weekContainer .MuiPickerDay-root:nth-of-type(7):not(.MuiPickerDay-fillerCell):not(.Mui-selected)": {
+        //   color: "var(--color-primary) !important",
+        // },
 
         // DatePicker input — calendar toggle icon button
         ".MuiInputAdornment-root .MuiIconButton-root": {

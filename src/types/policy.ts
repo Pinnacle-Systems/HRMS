@@ -14,6 +14,8 @@ export const PolicyDomain = {
   PAYROLL: 'PAYROLL',
   NOTICE_PERIOD: 'NOTICE_PERIOD',
   OFFBOARDING: 'OFFBOARDING',
+  BONUS: 'BONUS',
+  LOAN_ADVANCE: 'LOAN_ADVANCE',
   // APPROVAL_WORKFLOW: 'APPROVAL_WORKFLOW',
 } as const;
 
@@ -114,7 +116,9 @@ export type RuleBlockType =
   | 'WFH_RULES'
   | 'APPROVAL_FLOW'
   | 'ONBOARDING_RULES'
-  | 'OFFBOARDING_RULES';
+  | 'OFFBOARDING_RULES'
+  | 'BONUS_RULES'
+  | 'LOAN_ADVANCE_RULES';
 
 export interface PolicyDefinition {
   id: string;
@@ -324,7 +328,50 @@ export interface PolicyConfig {
     basis?: string;
     taxExempt: boolean;
   }>;
-  
+
+  // Bonus domain
+  bonusRules?: {
+    bonusTypes?: Array<{
+      type: 'ANNUAL' | 'PERFORMANCE' | 'FESTIVAL' | 'RETENTION' | 'REFERRAL' | 'JOINING';
+      name: string;
+      calculationBasis: 'CTC' | 'BASIC' | 'GROSS';
+      percentage?: number;
+      fixedAmount?: number;
+      payoutFrequency: 'ANNUAL' | 'SEMI_ANNUAL' | 'QUARTERLY' | 'ONE_TIME';
+      payoutMonth?: number;
+      eligibilityMonths: number;
+      performanceLinked: boolean;
+      minPerformanceRating?: number;
+      prorationApplicable: boolean;
+      clawbackPeriodMonths?: number;
+      taxable: boolean;
+    }>;
+    requiresManagerApproval?: boolean;
+    requiresHRApproval?: boolean;
+    budgetCapPercentage?: number;
+  };
+
+  // Loan & Advance domain
+  loanAdvanceRules?: {
+    loanTypes?: Array<{
+      type: 'SALARY_ADVANCE' | 'PERSONAL_LOAN' | 'FESTIVAL_ADVANCE' | 'EDUCATION_LOAN' | 'MEDICAL_ADVANCE' | 'VEHICLE_LOAN';
+      name: string;
+      maxAmount?: number;
+      maxMonthlyMultiplier?: number;
+      interestRate: number;
+      maxRepaymentMonths: number;
+      maxEMIPercentage?: number;
+      minServiceMonths: number;
+      collateralRequired: boolean;
+      preClosureAllowed: boolean;
+      maxActiveLoans: number;
+    }>;
+    requiresManagerApproval?: boolean;
+    requiresHRApproval?: boolean;
+    requiresFinanceApproval?: boolean;
+    deductionFromSalary?: boolean;
+  };
+
   [key: string]: any;
 }
 

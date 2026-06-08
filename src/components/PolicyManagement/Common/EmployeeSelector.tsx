@@ -31,7 +31,6 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
   // Fetch employees function
   const fetchEmployees = useCallback(async (currentPage: number, append = false) => {
     if (isFetchingRef.current) {
-      console.log('Already fetching, skipping...');
       return;
     }
     if (!open) return;

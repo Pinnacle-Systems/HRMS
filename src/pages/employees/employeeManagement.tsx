@@ -765,7 +765,6 @@ export default function EmployeeManagement() {
         (progress) => { setUploadProgress(progress); },
       );
       const result = normalizeBulkUploadResponse(response);
-      console.log(result);
       setUploadResult(result);
       // const errorCount = result.failureCount ?? result.errors?.length ?? 0;
       // if (errorCount === 0) {

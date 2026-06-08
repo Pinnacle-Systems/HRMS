@@ -78,8 +78,6 @@ export default function PolicyDashboard() {
         : response?.data?.content || response?.data || [];
       setPolicies(data.length > 0 ? data : mockPolicies);
       setTotal(data.totalElements || mockPolicies.length);
-      console.log(mockPolicies.length);
-
     } catch (error) {
       showSnackbar('Failed to load policies:', 'error');
       setPolicies(mockPolicies);
@@ -177,8 +175,6 @@ export default function PolicyDashboard() {
     domainFilter,
     statusFilter,
   ]);
-
-  console.log(filteredPolicies);
 
   const stats: any = useMemo(
     () => ({

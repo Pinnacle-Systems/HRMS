@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
   Typography,
@@ -39,6 +39,67 @@ import { leaveService, type LeaveType } from '../../../services';
 import { categoryService } from '../../../services/modules/category';
 import { useMasterData } from '../../../hooks/useMasterData';
 import type { Step2ConfigureRulesProps } from '../types';
+import { useUI } from '../../../context/Snackbar';
+
+const FORMULA_TOKENS = [
+  { label: 'Basic', value: 'Basic' },
+  { label: 'DA', value: 'Da' },
+  { label: 'OT Hrs', value: 'OT Hrs' },
+];
+
+const FormulaBuilder: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ value, onChange }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [insertToken, setInsertToken] = useState('');
+
+  const handleInsert = (token: string) => {
+    const input = inputRef.current;
+    if (input) {
+      const start = input.selectionStart ?? value.length;
+      const end = input.selectionEnd ?? value.length;
+      const next = value.slice(0, start) + token + value.slice(end);
+      onChange(next);
+      // Restore focus and cursor after the inserted token
+      setTimeout(() => {
+        input.focus();
+        input.setSelectionRange(start + token.length, start + token.length);
+      }, 0);
+    } else {
+      onChange(value + token);
+    }
+    setInsertToken('');
+  };
+
+  return (
+    <div className="flex items-center gap-1 min-w-[240px]">
+      <FormControl size="small" sx={{ minWidth: 90 }}>
+        <Select
+          value={insertToken}
+          displayEmpty
+          onChange={(e) => handleInsert(e.target.value as string)}
+          renderValue={() => <span className="text-gray-400 text-xs">Insert</span>}
+        >
+          {FORMULA_TOKENS.map((t) => (
+            <MenuItem key={t.value} value={t.value}>
+              {t.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      <TextField
+        size="small"
+        fullWidth
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        inputRef={inputRef}
+        placeholder="e.g. Basic+Da*2"
+        slotProps={{ htmlInput: { style: { fontFamily: 'monospace', fontSize: 13 } } }}
+      />
+    </div>
+  );
+};
 
 export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
   template,
@@ -54,7 +115,7 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
   const [otValues, setOTValues] = useState<any[]>([]);
   const { fetchStatesByCountry } = useMasterData();
   const [states, setStates] = useState<any[]>([]);
-
+  const { showSnackbar } = useUI();
   React.useEffect(() => {
     setLocalConfig(initialConfig);
   }, [initialConfig]);
@@ -115,7 +176,7 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       });
       setLeaveType(response.data?.content ?? []);
     } catch (err: any) {
-      console.log(err?.message || "Failed to load leave types", "error");
+      showSnackbar(err?.message || "Failed to load leave types", "error");
     }
   };
 
@@ -124,7 +185,7 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       const response: any = await categoryService.getCategoryItems("3a6987fe-3597-4f87-ab26-2e4c7eab71d9");
       setOTValues(response.data?.content || response.data || []);
     } catch (error: any) {
-      console.log(error?.message || "Failed to load OT types", "error");
+      showSnackbar(error?.message || "Failed to load OT types", "error");
     }
   }
 
@@ -133,7 +194,7 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       const res: any = await fetchStatesByCountry("cc000000-0000-0000-0000-000000000001");
       setStates(res)
     } catch (error: any) {
-      console.log(error?.message, "error");
+      showSnackbar(error?.message, "error");
     }
   }
 
@@ -453,17 +514,9 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
                       />
                     </TableCell>
                     <TableCell>
-                      <TextField
-                        size="small"
-                        fullWidth
+                      <FormulaBuilder
                         value={row.formula}
-                        onChange={(e) =>
-                          updateRow(
-                            index,
-                            'formula',
-                            e.target.value
-                          )
-                        }
+                        onChange={(v) => updateRow(index, 'formula', v)}
                       />
                     </TableCell>
                     <TableCell>
@@ -1025,6 +1078,308 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
     );
   };
 
+  // ── Bonus Rules (Payment of Bonus Act, 1965) ─────────────────────────────────
+  const renderBonusRules = () => {
+    const bonusTypes = localConfig.bonusRules?.bonusTypes || [];
+
+    const addBonus = () => set('bonusRules.bonusTypes', [
+      ...bonusTypes,
+      {
+        type: 'ANNUAL',
+        name: '',
+        calculationBasis: 'BASIC',
+        percentage: 8.33,
+        payoutFrequency: 'ANNUAL',
+        payoutMonth: 3,
+        eligibilityMonths: 6,
+        performanceLinked: false,
+        prorationApplicable: true,
+        clawbackPeriodMonths: 0,
+        taxable: true,
+      },
+    ]);
+
+    const updateBonus = (index: number, field: string, value: any) => {
+      const updated = [...bonusTypes];
+      updated[index] = { ...updated[index], [field]: value };
+      set('bonusRules.bonusTypes', updated);
+    };
+
+    const removeBonus = (index: number) => {
+      const updated = [...bonusTypes];
+      updated.splice(index, 1);
+      set('bonusRules.bonusTypes', updated);
+    };
+
+    return (
+      <Box>
+        <Alert severity="info" sx={{ mb: 4 }}>
+          Payment of Bonus Act, 1965 — Minimum bonus: 8.33% of annual wages (max ₹7,000/month ceiling). Applicable to employees earning up to ₹21,000/month.
+        </Alert>
+
+        {/* Global controls */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <TextField
+              fullWidth size="small" type="number" label="Budget Cap (% of payroll)"
+              value={localConfig.bonusRules?.budgetCapPercentage ?? 15}
+              onChange={(e) => set('bonusRules.budgetCapPercentage', parseFloat(e.target.value) || 0)}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControlLabel
+              control={<Switch checked={!!localConfig.bonusRules?.requiresManagerApproval} onChange={(e) => set('bonusRules.requiresManagerApproval', e.target.checked)} />}
+              label="Manager Approval"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControlLabel
+              control={<Switch checked={!!localConfig.bonusRules?.requiresHRApproval} onChange={(e) => set('bonusRules.requiresHRApproval', e.target.checked)} />}
+              label="HR Approval"
+            />
+          </Grid>
+        </Grid>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="subtitle2" className="text-gray-700">Bonus Types</Typography>
+          <IconButton onClick={addBonus} size="small"><AddIcon /></IconButton>
+        </Box>
+
+        {bonusTypes.length === 0 ? (
+          <Alert severity="warning">No bonus types configured. Click + to add one.</Alert>
+        ) : (
+          bonusTypes.map((bonus, index) => (
+            <Card key={index} variant="outlined" sx={{ mb: 2 }} className="!border-gray-200">
+              <CardContent className='bg-white-50'>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="subtitle2" className="text-gray-800">Bonus {index + 1}</Typography>
+                  <IconButton size="small" onClick={() => removeBonus(index)}><DeleteIcon fontSize="small" className="text-red-500" /></IconButton>
+                </Box>
+                <Grid container spacing={3}>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Bonus Type</InputLabel>
+                      <Select value={bonus.type} label="Bonus Type" onChange={(e) => updateBonus(index, 'type', e.target.value)}>
+                        <MenuItem value="ANNUAL">Annual Bonus</MenuItem>
+                        <MenuItem value="PERFORMANCE">Performance Bonus</MenuItem>
+                        <MenuItem value="FESTIVAL">Festival Bonus</MenuItem>
+                        <MenuItem value="RETENTION">Retention Bonus</MenuItem>
+                        <MenuItem value="REFERRAL">Referral Bonus</MenuItem>
+                        <MenuItem value="JOINING">Joining Bonus</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth label="Display Name" value={bonus.name} onChange={(e) => updateBonus(index, 'name', e.target.value)} placeholder="e.g. Diwali Bonus" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Calculation Basis</InputLabel>
+                      <Select value={bonus.calculationBasis} label="Calculation Basis" onChange={(e) => updateBonus(index, 'calculationBasis', e.target.value)}>
+                        <MenuItem value="BASIC">Basic Salary</MenuItem>
+                        <MenuItem value="GROSS">Gross Salary</MenuItem>
+                        <MenuItem value="CTC">CTC</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Payout Frequency</InputLabel>
+                      <Select value={bonus.payoutFrequency} label="Payout Frequency" onChange={(e) => updateBonus(index, 'payoutFrequency', e.target.value)}>
+                        <MenuItem value="ANNUAL">Annual</MenuItem>
+                        <MenuItem value="SEMI_ANNUAL">Semi-Annual</MenuItem>
+                        <MenuItem value="QUARTERLY">Quarterly</MenuItem>
+                        <MenuItem value="ONE_TIME">One-Time</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Percentage (%)" value={bonus.percentage ?? ''} onChange={(e) => updateBonus(index, 'percentage', parseFloat(e.target.value) || 0)} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Fixed Amount (₹)" value={bonus.fixedAmount ?? ''} onChange={(e) => updateBonus(index, 'fixedAmount', parseFloat(e.target.value) || undefined)} placeholder="0 = use %" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Payout Month" value={bonus.payoutMonth ?? ''} onChange={(e) => updateBonus(index, 'payoutMonth', parseInt(e.target.value) || undefined)}
+                      slotProps={{ htmlInput: { min: 1, max: 12 } }} placeholder="1–12" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Min Service (months)" value={bonus.eligibilityMonths ?? 6} onChange={(e) => updateBonus(index, 'eligibilityMonths', parseInt(e.target.value) || 0)} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Clawback Period (months)" value={bonus.clawbackPeriodMonths ?? 0} onChange={(e) => updateBonus(index, 'clawbackPeriodMonths', parseInt(e.target.value) || 0)} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControlLabel className='!text-gray-800' control={<Switch checked={!!bonus.performanceLinked} onChange={(e) => updateBonus(index, 'performanceLinked', e.target.checked)} />} label="Performance Linked" />
+                  </Grid>
+                  {bonus.performanceLinked && (
+                    <Grid size={{ xs: 12, md: 2 }}>
+                      <TextField fullWidth size="small" type="number" label="Min Rating (1–5)" value={bonus.minPerformanceRating ?? 3}
+                        onChange={(e) => updateBonus(index, 'minPerformanceRating', parseFloat(e.target.value) || 3)}
+                        slotProps={{ htmlInput: { min: 1, max: 5, step: 0.5 } }} />
+                    </Grid>
+                  )}
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControlLabel className='!text-gray-800' control={<Switch checked={!!bonus.prorationApplicable} onChange={(e) => updateBonus(index, 'prorationApplicable', e.target.checked)} />} label="Pro-rata Applicable" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControlLabel className='!text-gray-800' control={<Switch checked={!!bonus.taxable} onChange={(e) => updateBonus(index, 'taxable', e.target.checked)} />} label="Taxable (TDS)" />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </Box>
+    );
+  };
+
+  // ── Loan & Advance Rules ──────────────────────────────────────────────────────
+  const renderLoanAdvanceRules = () => {
+    const loanTypes = localConfig.loanAdvanceRules?.loanTypes || [];
+
+    const addLoan = () => set('loanAdvanceRules.loanTypes', [
+      ...loanTypes,
+      {
+        type: 'SALARY_ADVANCE',
+        name: '',
+        maxAmount: 0,
+        maxMonthlyMultiplier: 2,
+        interestRate: 0,
+        maxRepaymentMonths: 3,
+        maxEMIPercentage: 50,
+        minServiceMonths: 6,
+        collateralRequired: false,
+        preClosureAllowed: true,
+        maxActiveLoans: 1,
+      },
+    ]);
+
+    const updateLoan = (index: number, field: string, value: any) => {
+      const updated = [...loanTypes];
+      updated[index] = { ...updated[index], [field]: value };
+      set('loanAdvanceRules.loanTypes', updated);
+    };
+
+    const removeLoan = (index: number) => {
+      const updated = [...loanTypes];
+      updated.splice(index, 1);
+      set('loanAdvanceRules.loanTypes', updated);
+    };
+
+    return (
+      <Box>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Configure employee loan and salary advance policies. EMI deductions are processed via payroll each month.
+        </Alert>
+
+        {/* Global controls */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControlLabel
+              control={<Switch checked={!!localConfig.loanAdvanceRules?.deductionFromSalary} onChange={(e) => set('loanAdvanceRules.deductionFromSalary', e.target.checked)} />}
+              label="Auto-deduct EMI from Salary"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControlLabel
+              control={<Switch checked={!!localConfig.loanAdvanceRules?.requiresManagerApproval} onChange={(e) => set('loanAdvanceRules.requiresManagerApproval', e.target.checked)} />}
+              label="Manager Approval"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControlLabel
+              control={<Switch checked={!!localConfig.loanAdvanceRules?.requiresHRApproval} onChange={(e) => set('loanAdvanceRules.requiresHRApproval', e.target.checked)} />}
+              label="HR Approval"
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <FormControlLabel
+              control={<Switch checked={!!localConfig.loanAdvanceRules?.requiresFinanceApproval} onChange={(e) => set('loanAdvanceRules.requiresFinanceApproval', e.target.checked)} />}
+              label="Finance Approval"
+            />
+          </Grid>
+        </Grid>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="subtitle2" className="text-gray-700">Loan / Advance Types</Typography>
+          <IconButton onClick={addLoan} size="small"><AddIcon className='!text-gray-800'/></IconButton>
+        </Box>
+
+        {loanTypes.length === 0 ? (
+          <Alert severity="warning">No loan types configured. Click + to add one.</Alert>
+        ) : (
+          loanTypes.map((loan, index) => (
+            <Card key={index} variant="outlined" sx={{ mb: 2 }} className="!border-gray-200">
+              <CardContent className='bg-white-50'>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <div className="text-gray-800 text-[12px] !mb-4">Loan Type {index + 1}</div>
+                  <IconButton size="small" onClick={() => removeLoan(index)}><DeleteIcon fontSize="small" className="text-red-500" /></IconButton>
+                </Box>
+                <Grid container spacing={3}>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Loan Type</InputLabel>
+                      <Select value={loan.type} label="Loan Type" onChange={(e) => updateLoan(index, 'type', e.target.value)}>
+                        <MenuItem value="Salary Advance">Salary Advance</MenuItem>
+                        <MenuItem value="Personal Loan">Personal Loan</MenuItem>
+                        <MenuItem value="Festival Advance">Festival Advance</MenuItem>
+                        <MenuItem value="Education Loan">Education Loan</MenuItem>
+                        <MenuItem value="Medical Advance">Medical Advance</MenuItem>
+                        <MenuItem value="Vehicle Loan">Vehicle Loan</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth label="Display Name" value={loan.name} onChange={(e) => updateLoan(index, 'name', e.target.value)} placeholder="e.g. Festival Advance" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Max Amount (₹)" value={loan.maxAmount ?? ''}
+                      onChange={(e) => updateLoan(index, 'maxAmount', parseFloat(e.target.value) || 0)} placeholder="0 = use salary multiplier" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Max Monthly Salary Multiplier"
+                      value={loan.maxMonthlyMultiplier ?? ''}
+                      onChange={(e) => updateLoan(index, 'maxMonthlyMultiplier', parseFloat(e.target.value) || 0)}
+                      placeholder="e.g. 2 = 2× monthly salary" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Interest Rate (% p.a.)"
+                      value={loan.interestRate ?? 0} onChange={(e) => updateLoan(index, 'interestRate', parseFloat(e.target.value) || 0)}
+                      slotProps={{ htmlInput: { min: 0, step: 0.5 } }} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Max Repayment (months)"
+                      value={loan.maxRepaymentMonths ?? 12} onChange={(e) => updateLoan(index, 'maxRepaymentMonths', parseInt(e.target.value) || 1)} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Max EMI (% of salary)"
+                      value={loan.maxEMIPercentage ?? 40} onChange={(e) => updateLoan(index, 'maxEMIPercentage', parseFloat(e.target.value) || 0)}
+                      slotProps={{ htmlInput: { min: 1, max: 100 } }} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Min Service (months)"
+                      value={loan.minServiceMonths ?? 6} onChange={(e) => updateLoan(index, 'minServiceMonths', parseInt(e.target.value) || 0)} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 2 }}>
+                    <TextField fullWidth type="number" label="Max Active Loans"
+                      value={loan.maxActiveLoans ?? 1} onChange={(e) => updateLoan(index, 'maxActiveLoans', parseInt(e.target.value) || 1)} />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <FormControlLabel className='!text-gray-800' control={<Switch checked={!!loan.collateralRequired} onChange={(e) => updateLoan(index, 'collateralRequired', e.target.checked)} />} label="Collateral Required" />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 3 }}>
+                    <FormControlLabel className='!text-gray-800' control={<Switch checked={!!loan.preClosureAllowed} onChange={(e) => updateLoan(index, 'preClosureAllowed', e.target.checked)} />} label="Pre-closure Allowed" />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </Box>
+    );
+  };
+
   // const renderApprovalFlow = () => (
   //   <Grid container spacing={2}>
   //     <Grid size={{ xs: 12 }}>
@@ -1064,6 +1419,8 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       case 'WFH_RULES': return renderWFHRules();
       case 'HOLIDAY_RULES': return renderHolidayRules();
       case 'ALLOWANCE_RULES': return renderAllowanceRules();
+      case 'BONUS_RULES': return renderBonusRules();
+      case 'LOAN_ADVANCE_RULES': return renderLoanAdvanceRules();
       default: return <Alert severity="info">Configuration for {block.name} coming soon.</Alert>;
     }
   };

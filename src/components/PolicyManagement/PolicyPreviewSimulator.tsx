@@ -51,7 +51,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolicyEvaluationResponse | null>(null);
   const [activeStep, setActiveStep] = useState(0);
-  const { showSpinner, hideSpinner } = useUI();
+  const { showSpinner, hideSpinner,showSnackbar } = useUI();
   const [leaveType, setLeaveType] = useState<LeaveType[]>([]);
 
   const handleRunSimulation = async () => {
@@ -92,7 +92,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
       });
       setLeaveType(response.data?.content ?? []);
     } catch (err: any) {
-      console.log(err?.message || "Failed to load leave types", "error");
+      showSnackbar(err?.message || "Failed to load leave types", "error");
     }
   };
 
@@ -261,7 +261,6 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
               Select an employee to test this policy
             </Typography>
             <EmployeeSelector
-              companyId="company_123"
               value={selectedEmployee}
               onChange={setSelectedEmployee}
               label="Employee"

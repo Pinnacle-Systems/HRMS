@@ -563,7 +563,7 @@ export default function BranchSettings() {
             limit={limit}
             onPageChange={handlePageChange}
             onLimitChange={handleLimitChange}
-            pageSizeOptions={[5, 10, 20, 50, 100]}
+            pageSizeOptions={[10, 20, 50, 100]}
             showTotal={true}
           />
         )}

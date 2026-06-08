@@ -271,20 +271,19 @@ class ShiftService {
     return response.data;
   }
 
-  // async createSwapRequest(data: CreateSwapRequestDto): Promise<SwapRequest> {
-  //   const response = await apiService.post(API_ENDPOINTS.SHIFTS.CREATE_SWAP_REQUEST,data);
-  //   return response.data;
-  // }
+  async createSwapRequest(data: any) {
+    return apiService.post(API_ENDPOINTS.SHIFTS.CREATE_SWAP_REQUEST, data);
+  }
 
   async updateSwapRequestStatus(
     id: string,
     data: UpdateSwapRequestStatusDto,
   ): Promise<SwapRequest> {
-    const response = (await apiService.put(
+    const response = await apiService.put(
       API_ENDPOINTS.SHIFTS.UPDATE_SWAP_REQUEST(id),
       data,
-    )) as SingleSwapRequestApiResponse;
-    return response.data;
+    );
+    return (response as SingleSwapRequestApiResponse).data;
   }
 
   // Shift Rotations

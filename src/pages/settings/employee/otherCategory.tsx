@@ -78,22 +78,22 @@ export default function CategorySettings() {
   }, []);
 
   useEffect(() => {
-  if (!searchTerm.trim()) {
-    setCategories(allCategories);
-    return;
-  }
+    if (!searchTerm.trim()) {
+      setCategories(allCategories);
+      return;
+    }
 
-  const filtered = allCategories.filter((item: any) =>
-    item?.categoryName
-      ?.toLowerCase()
-      ?.includes(searchTerm.toLowerCase()) ||
-    item?.categoryCode
-      ?.toLowerCase()
-      ?.includes(searchTerm.toLowerCase())
-  );
+    const filtered = allCategories.filter((item: any) =>
+      item?.categoryName
+        ?.toLowerCase()
+        ?.includes(searchTerm.toLowerCase()) ||
+      item?.categoryCode
+        ?.toLowerCase()
+        ?.includes(searchTerm.toLowerCase())
+    );
 
-  setCategories(filtered);
-}, [searchTerm, allCategories]);
+    setCategories(filtered);
+  }, [searchTerm, allCategories]);
 
   const handleOpenDialog = (category?: Category) => {
     if (category) {
@@ -245,22 +245,16 @@ export default function CategorySettings() {
             <Card
               key={category.id}
               className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-white ${!category.enabled ? "opacity-60" : ""}`}
-              onClick={() => handleViewItems(category)}
+            // onClick={() => handleViewItems(category)}
             >
               <CardContent>
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
-                    <div
-                      className={`p-2 rounded-lg ${category.enabled ? "" : "bg-gray-100"}`}
-                    >
-                      <CategoryIcon
-                        className={`${category.enabled ? "text-gray-600" : "text-gray-400"}`}
-                      />
+                    <div className={`p-2 rounded-lg ${category.enabled ? "" : "bg-gray-100"}`}>
+                      <CategoryIcon className={`${category.enabled ? "text-gray-600" : "text-gray-400"}`} />
                     </div>
                     <div>
-                      <div
-                        className="text-[12px] text-gray-800"
-                      >
+                      <div className="text-[12px] text-gray-800">
                         {category.categoryName}
                       </div>
                     </div>
@@ -276,11 +270,32 @@ export default function CategorySettings() {
                   </IconButton>
                 </div>
                 <div className="mt-3 flex justify-between items-center">
-                  <Chip
-                    label={category.enabled ? "Active" : "Inactive"}
-                    color={category.enabled ? "success" : "error"}
-                    size="small"
-                  />
+                  <div className="flex">
+                    <Chip
+                      label={category.enabled ? "Active" : "Inactive"}
+                      color={category.enabled ? "success" : "error"}
+                      size="small"
+                    />
+                    {category.categoryName?.toLowerCase().includes('policy') && (
+                      <Chip
+                        className="!ml-2 animate-blink"
+                        label="Policy"
+                        color="warning"
+                        size="small"
+                        clickable
+                        onClick={(e) => {
+                          e.stopPropagation();
+
+                          navigate('/policies/create', {
+                            state: {
+                              policyName: category.categoryName == "OT Policy" ? "OVERTIME" : "BONUS",
+                              categoryId: category.id,
+                            },
+                          });
+                        }}
+                      />
+                    )}
+                  </div>
                   <Button
                     size="small"
                     variant="outlined"
@@ -324,7 +339,7 @@ export default function CategorySettings() {
           }}
         >
           <ListItemIcon>
-            <EditNoteIcon fontSize="small" className="text-gray-800"/>
+            <EditNoteIcon fontSize="small" className="text-gray-800" />
           </ListItemIcon>
           <ListItemText>Edit Category</ListItemText>
         </MenuItem>
@@ -336,7 +351,7 @@ export default function CategorySettings() {
         >
           <ListItemIcon>
             {selectedCategory?.enabled ? (
-              <CancelIcon fontSize="small" className="text-orange-500"/>
+              <CancelIcon fontSize="small" className="text-orange-500" />
             ) : (
               <CheckCircleIcon fontSize="small" className="text-green-500" />
             )}
@@ -372,7 +387,7 @@ export default function CategorySettings() {
             {editingCategory ? "Edit Category" : "Add New Category"}
           </div>
           <IconButton onClick={() => setDialogOpen(false)}>
-            <CloseOutlined className="!text-gray-800"/>
+            <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
         <DialogContent>
