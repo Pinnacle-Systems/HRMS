@@ -210,7 +210,7 @@ export default function PolicyDetails() {
                     Current Version: v{currentVersion?.versionNumber}
                   </Typography>
                   {currentVersion?.config && (
-                    <Box component="pre" className='bg-gray-100' sx={{
+                    <Box component="pre" className='bg-head' sx={{
                       // bgcolor: 'action.hover',
                       p: 2,
                       borderRadius: 1,

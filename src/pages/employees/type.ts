@@ -47,19 +47,19 @@ export interface Branches {
   branchCode: string;
 }
 
-export const employeeStatusColors = {
-  PENDING: "warning",
-  ACTIVE: "success",
-  INACTIVE: "error",
-  ONBOARDING: "info",
-} as const;
+// export const employeeStatusColors = {
+//   PENDING: "warning",
+//   ACTIVE: "success",
+//   INACTIVE: "error",
+//   ONBOARDING: "info",
+// } as const;
 
-export const employeeStatusLabels = {
-  PENDING: "Pending",
-  ACTIVE: "Active",
-  INACTIVE: "Inactive",
-  ONBOARDING: "Onboarding",
-} as const;
+// export const employeeStatusLabels = {
+//   PENDING: "Pending",
+//   ACTIVE: "Active",
+//   INACTIVE: "Inactive",
+//   ONBOARDING: "Onboarding",
+// } as const;
 
 export interface EmployeeDetails {
   id: string;

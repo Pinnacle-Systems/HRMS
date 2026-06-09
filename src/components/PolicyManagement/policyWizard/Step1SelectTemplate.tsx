@@ -178,7 +178,7 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
 }) => {
   const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
   const [filteredTemplates, setFilteredTemplates] = useState<PolicyTemplate[]>([]);
-  const [domain, setDomain] = useState<string>(policyDomain || " ");
+  const [domain, setDomain] = useState<string>(policyDomain || '');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const { showSpinner, hideSpinner } = useUI();
 

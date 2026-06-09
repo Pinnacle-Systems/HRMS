@@ -46,6 +46,8 @@ import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
 import { AttachFileOutlined } from "@mui/icons-material";
 import { shiftService, type Shift } from "../../services/modules/shifts";
+import { auditLogService } from "../../services/modules/auditLogs";
+import { Button } from "@mui/material";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -1643,41 +1645,163 @@ export default function EmployeeDetails() {
 
   useEffect(() => { }, [categoryOptions]);
 
+  const fetchLogs = async () => {
+    showSpinner();
+    try {
+      const res: any = await auditLogService.getAuditHistory(String(id));
+      setAuditLogs(res.data?.content || res.data || []);
+    } catch (err: any) {
+      showSnackbar(err.message || "Failed to load audit logs", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleOpenAuditLog = async () => {
+    setAuditLogOpen(true);
+    await fetchLogs();
+  };
+
   // ==================== PATCH UPDATES ====================
   //BASIC INFO
   const updatePersonalInfo = async (updatedData: any) => {
     showSpinner();
     try {
+      // const payload = {
+      //   firstName: updatedData.firstName,
+      //   lastName: updatedData.lastName,
+      //   genderId: updatedData.genderId,
+      //   dateOfBirth: updatedData.dateOfBirth,
+      //   birthday: updatedData.birthday,
+      //   maritalStatusId: updatedData.maritalStatusId,
+      //   marriageDate: updatedData.marriageDate,
+      //   bloodGroupId: updatedData.bloodGroupId,
+      //   fathersName: updatedData.fathersName,
+      //   spouseName: updatedData.spouseName,
+      //   // mobileNumber: updatedData.mobileNumber,
+      //   nationalityId: updatedData.nationalityId,
+      //   religionId: updatedData.religionId,
+      //   height: Number(updatedData.height),
+      //   weight: Number(updatedData.weight),
+      //   disabilityTypeId: updatedData.disabilityTypeId,
+      //   personalEmailAddress: updatedData.personalEmailAddress,
+      //   // age: Number(updatedData.age),
+      //   // totalExperience: Number(updatedData.totalExperience),
+      //   // extensionNumber: updatedData.extensionNumber 
+      //   nickName: updatedData.nickName,
+      //   // employeeReferenceNumber: updatedData.employeeReferenceNumber 
+      //   identificationMark: updatedData.identificationMark,
+      //   hobbies: updatedData.hobbies,
+      //   languagesKnown: updatedData.languagesKnown,
+      //   physicallyChallenged: updatedData.physicallyChallenged,
+      //   internationalEmployee: updatedData.internationalEmployee
+      // };
       const payload = {
         firstName: updatedData.firstName,
         lastName: updatedData.lastName,
+        nickName: updatedData.nickName,
         genderId: updatedData.genderId,
         dateOfBirth: updatedData.dateOfBirth,
         birthday: updatedData.birthday,
-        maritalStatusId: updatedData.maritalStatusId,
-        marriageDate: updatedData.marriageDate,
+        mobileNumber: updatedData.mobileNumber,
+        emailAddress: updatedData.emailAddress,
+        personalEmailAddress: updatedData.personalEmailAddress,
         bloodGroupId: updatedData.bloodGroupId,
-        fathersName: updatedData.fathersName,
-        spouseName: updatedData.spouseName,
         nationalityId: updatedData.nationalityId,
         religionId: updatedData.religionId,
+        maritalStatusId: updatedData.maritalStatusId,
+        marriageDate: updatedData.marriageDate,
+        fathersName: updatedData.fathersName,
+        spouseName: updatedData.spouseName,
         height: Number(updatedData.height),
         weight: Number(updatedData.weight),
-        disabilityTypeId: updatedData.disabilityTypeId,
-        personalEmailAddress: updatedData.personalEmailAddress,
-        // age: Number(updatedData.age),
-        // totalExperience: Number(updatedData.totalExperience),
-        // extensionNumber: updatedData.extensionNumber 
-        nickName: updatedData.nickName,
-        // employeeReferenceNumber: updatedData.employeeReferenceNumber 
         identificationMark: updatedData.identificationMark,
         hobbies: updatedData.hobbies,
         languagesKnown: updatedData.languagesKnown,
         physicallyChallenged: updatedData.physicallyChallenged,
-        internationalEmployee: updatedData.internationalEmployee
+        internationalEmployee: updatedData.internationalEmployee,
+        disabilityTypeId: updatedData.disabilityTypeId,
+        employeeStatusId: updatedData.employeeStatusId,
+        designationId: updatedData.designationId,
+        gradeId: updatedData.gradeId,
+        empTypeId: updatedData.empTypeId,
+        departmentId: updatedData.departmentId,
+        branchId: updatedData.branchId,
+        managerId: updatedData.reportingManager,
+        bandId: updatedData.bandId,
+        joiningDate: updatedData.joiningDate,
+        confirmationDate: updatedData.confirmationDate,
+        probationPeriod: Number(updatedData.probationPeriod),
+        noticePeriod: Number(updatedData.noticePeriod),
+        attendanceSchemaId: updatedData.attendanceSchemaId,
+        vehicleTypeId: updatedData.vehicleTypeId,
+        hostel: updatedData.hostel,
+        referredBy: updatedData.referredBy,
+        bonusPolicyId: updatedData.bonusPolicyId,
+        otPolicyId: updatedData.otPolicyId,
+        otAmount: updatedData.otAmount,
+        vehicleFacility: updatedData.vehicleFacility,
+        migrant: updatedData.migrant,
+        exService: updatedData.exService,
+        monthly: updatedData.monthly,
+        adminRemarks: updatedData.adminRemarks,
+        idCardNo: updatedData.idCardNo,
+        midNo: updatedData.midNo,
+        oldIdNo: updatedData.oldIdNo,
+        relievedDate: updatedData.relievedDate,
+        pfEligible: updatedData.pfEligible,
+        excessEpfEligible: updatedData.excessEpfEligible,
+        excessEpsEligible: updatedData.excessEpsEligible,
+        existingEpsMember: updatedData.existingEpsMember,
+        esiEligible: updatedData.esiEligible,
+        lwfCovered: updatedData.lwfCovered,
+        backgroundCheckStatus: updatedData.backgroundCheckStatus,
+        backgroundVerificationCompletedOn:
+          updatedData.backgroundVerificationCompletedOn
+            ? new Date(
+              updatedData.backgroundVerificationCompletedOn
+            ).toISOString()
+            : null,
+        backgroundVerificationIndicator: updatedData.backgroundVerificationIndicator,
+        agencyName: updatedData.agencyName,
+        backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
+        bankAccountNumber: updatedData.bankAccountNumber,
+        bankName: updatedData.bankName,
+        bankBranch: updatedData.bankBranch,
+        ifscCode: updatedData.ifscCode,
+        nameAsPerBankRecords: updatedData.nameAsPerBankRecords,
+        bankAccountTypeId: updatedData.bankAccountTypeId,
+        ddPayableAt: updatedData.ddPayableAt,
+        salaryPaymentModeId: updatedData.salaryPaymentModeId,
+        salaryTypeId: updatedData.salaryTypeId,
+        iban: updatedData.iban,
+        panNumber: updatedData.panNumber,
+        aadhaarEnrolmentNo: updatedData.aadhaarEnrolmentNo,
+        nameAsOnAadhaar: updatedData.nameAsOnAadhaar,
+        aadhaarNumber: updatedData.aadhaarNumber,
+        universalAccountNumber: updatedData.universalAccountNumber,
+        pranNumber: updatedData.pranNumber,
+        nameAsPerPran: updatedData.nameAsPerPran,
+        passportNumber: updatedData.passportNumber,
+        visaType: updatedData.visaType,
+        visaExpiry: updatedData.visaExpiry,
+        loginIpAddress: updatedData.loginIpAddress,
+        loginUserName: updatedData.loginUserName,
+        nameInPan: updatedData.nameInPan,
+        nameInPassport: updatedData.nameInPassport,
+        placeOfIssue: updatedData.placeOfIssue,
+        dateOfIssue: updatedData.dateOfIssue,
+        expiryDate: updatedData.expiryDate,
+        insuranceNumber: updatedData.insuranceNumber,
+        nameInInsurance: updatedData.nameInInsurance,
+        insuranceValidFrom: updatedData.insuranceValidFrom,
+        insuranceValidTo: updatedData.insuranceValidTo,
+        esiNumber: updatedData.esiNumber,
+        esiJoiningDate: updatedData.esiJoiningDate,
+        esiRelievingDate: updatedData.esiRelievingDate,
       };
       if (Object.keys(payload).length) {
-        await employeeService.updatePersonalInfo(id, payload);
+        await employeeService.updateEmployee(id, payload);
         await fetchEmployeeDetails();
         showSnackbar("Personal information updated successfully!", "success");
       }
@@ -2405,6 +2529,9 @@ export default function EmployeeDetails() {
   };
 
   // Nominations
+  const [auditLogOpen, setAuditLogOpen] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
 
   const getTotalSharePercentage = (
@@ -2606,7 +2733,7 @@ export default function EmployeeDetails() {
 
       {/* Profile Header */}
       <MaterialModule.Card className="mb-2 bg-white">
-        <MaterialModule.CardContent className="py-2 px-6">
+        <MaterialModule.CardContent className="py-2 px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="relative group">
               <MaterialModule.Avatar
@@ -2656,6 +2783,9 @@ export default function EmployeeDetails() {
                 />
               </div>
             </div>
+          </div>
+          <div>
+            <Button variant="outlined" className="!text-primary !border-primary" onClick={handleOpenAuditLog}>Audit Log</Button>
           </div>
         </MaterialModule.CardContent>
       </MaterialModule.Card>
@@ -2979,6 +3109,70 @@ export default function EmployeeDetails() {
           </TabPanel>
         </div>
       </div>
+
+      {/* Audit Log Dialog */}
+      <MaterialModule.Dialog
+        open={auditLogOpen}
+        onClose={() => setAuditLogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <div className="flex items-center justify-between border-b border-gray-200 p-2 pl-5">
+          <div className="text-primary font-medium">Audit Log - {employee.name}</div>
+          <MaterialModule.IconButton onClick={() => setAuditLogOpen(false)}>
+            <MaterialModule.CloseOutlined />
+          </MaterialModule.IconButton>
+        </div>
+        <MaterialModule.DialogContent className="!p-4 !pb-0 ">
+          {auditLogs.length === 0 ? (
+            <div className="text-center text-gray-500 py-10">No audit records found.</div>
+          ) : (
+            <MaterialModule.TableContainer>
+              <MaterialModule.Table size="small">
+                <MaterialModule.TableHead className="bg-gray-100">
+                  <MaterialModule.TableRow>
+                    {["S No", "Field", "Old Value", "New Value", "Changed By", "Date & Time"].map((h) => (
+                      <MaterialModule.TableCell key={h} className="!font-semibold !text-xs">{h}</MaterialModule.TableCell>
+                    ))}
+                  </MaterialModule.TableRow>
+                </MaterialModule.TableHead>
+                <MaterialModule.TableBody>
+                  {auditLogs.map((log: any, i: number) => (
+                    <MaterialModule.TableRow key={log.id || i} sx={getRowColor(i)}>
+                      <MaterialModule.TableCell className="!text-xs !whitespace-nowrap">
+                        {i + 1}
+                      </MaterialModule.TableCell>
+
+                      {/* <MaterialModule.TableCell className="!text-xs">
+                        <MaterialModule.Chip label={log.actionType} size="small" color={
+                          log.actionType === "CREATE" ? "success" :
+                            log.actionType === "DELETE" ? "error" :
+                              log.actionType === "UPDATE" ? "primary" : "default"
+                        } />
+                      </MaterialModule.TableCell> */}
+                      {/* <MaterialModule.TableCell className="!text-xs">{[log.module, log.screen].filter(Boolean).join(" / ") || "-"}</MaterialModule.TableCell> */}
+                      <MaterialModule.TableCell className="!text-xs">{log.fieldName || "-"}</MaterialModule.TableCell>
+                      <MaterialModule.TableCell >
+                        <span className="!text-xs !text-red-500"> {log.oldValue || "-"}</span>
+                      </MaterialModule.TableCell>
+                      <MaterialModule.TableCell>
+                        <span className="!text-xs !text-green-600">{log.newValue || "-"}</span>
+                      </MaterialModule.TableCell>
+                      <MaterialModule.TableCell className="!text-xs">{log.changedBy?.userName || "-"}</MaterialModule.TableCell>
+                      <MaterialModule.TableCell className="!text-xs !whitespace-nowrap">
+                        {log.changedOn ? formatDate(log.changedOn) : "-"}
+                      </MaterialModule.TableCell>
+                    </MaterialModule.TableRow>
+                  ))}
+                </MaterialModule.TableBody>
+              </MaterialModule.Table>
+            </MaterialModule.TableContainer>
+          )}
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="!p-4">
+          <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={() => setAuditLogOpen(false)}>Close</Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
     </div>
   );
 }

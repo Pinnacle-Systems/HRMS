@@ -120,6 +120,11 @@ export const tabs = [
                 label: "Password Config",
                 path: "/settings/general/password-config",
             },
+            {
+                id: "audit-logs",
+                label: "Audit Logs",
+                path: "/settings/general/audit-logs",
+            },
         ],
     },
     {

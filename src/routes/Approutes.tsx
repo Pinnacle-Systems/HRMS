@@ -50,6 +50,7 @@ const CreatePolicy = lazy(() => import("../pages/policies/CreatePolicy"));
 const EditPolicy = lazy(() => import("../pages/policies/EditPolicy"));
 const PolicyDetails = lazy(() => import("../pages/policies/PolicyDetails"));
 const PolicySimulator = lazy(() => import("../pages/policies/PolicySimulator"));
+const AuditLogs = lazy(() => import("../pages/settings/general/auditLogs"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -249,6 +250,10 @@ function AppRoutesContent() {
                   <Route
                     path="general/password-config"
                     element={<PasswordConfig />}
+                  />
+                  <Route
+                    path="general/audit-logs"
+                    element={<AuditLogs />}
                   />
                   <Route
                     path="employee/onboarding-process"

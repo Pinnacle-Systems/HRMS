@@ -410,4 +410,19 @@ export const API_ENDPOINTS = {
     POST: "/employees/id-config/preview",
     PUT: "/employees/id-config",
   },
+
+  BANK: {
+    DELETE: (id: string) => `/banks/${id}`,
+    GET_BY_ID: (id: string) => `/banks/${id}`,
+    BASE: "/banks",
+    CREATE: "/banks",
+    PATCH_STATUS: (id: string) => `/banks/${id}/status`,
+    PATCH_PRIMARY: (id: string) => `/banks/${id}/primary`,
+    UPDATE: (id: string) => `/banks/${id}`,
+  },
+
+  AUDIT_LOGS: {
+    GET_ALL: "/audit-logs",
+    GET_BY_RECORD_ID: (recordId: string) => `/audit-logs/${recordId}`,
+  },
 };

@@ -61,6 +61,22 @@ export interface Employee {
   designation?: string;
 }
 
+export interface BankDetail {
+  id: string;
+  bankName: string;
+  accountHolderName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branchName: string;
+  accountType: string;
+  isPrimary: boolean;
+  companyId?: string;
+  branchId: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const sortOptions = [
   { value: "branchName", label: "Branch Name" },
   { value: "branchCode", label: "Branch Code" },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Button,
   Table,
@@ -17,6 +17,12 @@ import {
   FormControlLabel,
   Chip,
   Tooltip,
+  Collapse,
+  Box,
+  Select,
+  MenuItem,
+  InputLabel,
+  FormControl,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -26,17 +32,25 @@ import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import KeyboardDoubleArrowRightIcon from "@mui/icons-material/KeyboardDoubleArrowRight";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import AddIcon from "@mui/icons-material/Add";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import StarIcon from "@mui/icons-material/Star";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
 import { getCurrentRouteLabel } from "../const";
 import { branchService } from "../../../services/modules/branch";
+import { bankService, type BankStatus } from "../../../services/modules/bank";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
-import { sortOptions, type Branch } from "./type";
+import { sortOptions, type Branch, type BankDetail } from "./type";
 import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from "../../const";
 // import { LocationMap } from "../../../components/Location";
 import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
+import { companyService } from "../../../services/modules/company";
 
 
 export default function BranchSettings() {
@@ -54,6 +68,14 @@ export default function BranchSettings() {
   const [googleMapLink, setGoogleMapLink] = useState("");
   const [selectedBranchHead, setSelectedBranchHead] =
     useState<EmployeeSummaryResponse | null>(null);
+
+  // Bank State
+  const [expandedBranchId, setExpandedBranchId] = useState<string | null>(null);
+  const [banksByBranch, setBanksByBranch] = useState<Record<string, BankDetail[]>>({});
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
+  const [editingBank, setEditingBank] = useState<BankDetail | null>(null);
+  const [bankFormData, setBankFormData] = useState<Partial<BankDetail>>({});
+  const [currentBranchForBank, setCurrentBranchForBank] = useState<string>("");
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -406,6 +428,141 @@ export default function BranchSettings() {
     );
   };
 
+  const [companyId, setCompanyId] = useState<string>('');
+  const fetchCompanyInfo = async () => {
+    try {
+      const companyData: any = await companyService.getCompany();
+      setCompanyId(companyData.data.length ? companyData.data?.[0].id : '');
+    } catch (err: any) {
+      showSnackbar(err.message || "Failed to fetch company info", 'error');
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanyInfo();
+  }, []);
+
+  const loadBanksForBranch = async (branchId: string) => {
+    try {
+      const res: any = await bankService.getBanks({ branchId });
+      setBanksByBranch((prev) => ({
+        ...prev,
+        [branchId]: res.data?.content || res.data || [],
+      }));
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    }
+  };
+
+  const toggleExpand = (branchId: string) => {
+    if (expandedBranchId === branchId) {
+      setExpandedBranchId(null);
+    } else {
+      setExpandedBranchId(branchId);
+      loadBanksForBranch(branchId);
+    }
+  };
+
+  const handleOpenBankDialog = (branchId: string, bank?: BankDetail) => {
+    setCurrentBranchForBank(branchId);
+    if (bank) {
+      setEditingBank(bank);
+      setBankFormData(bank);
+    } else {
+      setEditingBank(null);
+      setBankFormData({ branchId, accountType: "SAVINGS", isPrimary: false });
+    }
+    setBankDialogOpen(true);
+  };
+
+  const handleCloseBankDialog = () => {
+    setBankDialogOpen(false);
+    setEditingBank(null);
+    setBankFormData({});
+    setCurrentBranchForBank("");
+  };
+
+  const handleSaveBank = async () => {
+    if (!bankFormData.bankName || !bankFormData.accountNumber || !bankFormData.ifscCode || !bankFormData.accountHolderName) {
+      showSnackbar("Please fill all required fields", "error");
+      return;
+    }
+    showSpinner();
+    try {
+      const payload = {
+        bankName: bankFormData.bankName,
+        accountHolderName: bankFormData.accountHolderName,
+        accountNumber: bankFormData.accountNumber,
+        ifscCode: bankFormData.ifscCode,
+        branchName: bankFormData.branchName,
+        accountType: bankFormData.accountType,
+        isPrimary: bankFormData.isPrimary,
+        branchId: currentBranchForBank,
+        companyId: companyId
+      };
+      if (editingBank) {
+        const res: any = await bankService.updateBranch(editingBank.id, payload);
+        if (res.success) showSnackbar(res.message || "Bank updated", "success");
+      } else {
+        const res: any = await bankService.createBranch(payload);
+        if (res.success) showSnackbar(res.message || "Bank added", "success");
+      }
+      await loadBanksForBranch(currentBranchForBank);
+      handleCloseBankDialog();
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // const handleDeleteBank = (bank: BankDetail) => {
+  //   showConfirmDialog({
+  //     title: "Delete Bank",
+  //     message: `Delete "${bank.bankName}" (${bank.accountNumber})?`,
+  //     confirmText: "Delete",
+  //     cancelText: "Cancel",
+  //     onConfirm: async () => {
+  //       showSpinner();
+  //       try {
+  //         await bankService.deleteBankById(bank.id);
+  //         showSnackbar("Bank deleted", "success");
+  //         await loadBanksForBranch(bank.branchId);
+  //       } catch (error: any) {
+  //         showSnackbar(error.message, "error");
+  //       } finally {
+  //         hideSpinner();
+  //       }
+  //     },
+  //   });
+  // };
+
+  const handleSetPrimary = async (bank: BankDetail) => {
+    showSpinner();
+    try {
+      await bankService.setPrimary(bank.id);
+      showSnackbar(`"${bank.bankName}" set as primary`, "success");
+      await loadBanksForBranch(bank.branchId);
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleToggleBankStatus = async (bank: BankDetail, status: BankStatus) => {
+    showSpinner();
+    try {
+      await bankService.updateStatus(bank.id, status);
+      showSnackbar("Bank status updated", "success");
+      await loadBanksForBranch(bank.branchId);
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
   return (
     <>
       <div className="flex justify-between items-center mt-3 mb-3">
@@ -488,65 +645,177 @@ export default function BranchSettings() {
                   <div className="flex items-center gap-1">Radius (km) {getSortIcon("radius")}</div>
                 </TableCell>
                 <TableCell className="nth-d !font-semibold text-gray-800">Status</TableCell>
-                <TableCell className="!font-semibold text-gray-800 text-center" sx={{
+                <TableCell align="center" className="!font-semibold text-gray-800" sx={{
                   ...stickyHeaderRightSx,
                   minWidth: "70px",
+                  zIndex: 5
                 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {branches.map((branch, index) => (
-                <TableRow key={branch.id} hover sx={getRowColor(index)}>
-                  <TableCell className="font-medium text-gray-800" sx={{
-                    ...getStickyLeftSx(index),
-                    minWidth: "70px",
-                  }}>{page * limit + index + 1}</TableCell>
-                  <TableCell sx={{
-                    ...getStickyLeftSx(index),
-                    left: "70px",
-                    minWidth: "100px",
-                  }}>{branch.branchName}</TableCell>
-                  <TableCell className="font-medium text-gray-800">{branch.branchCode}</TableCell>
-                  <TableCell className="max-w-xs truncate text-gray-800" title={branch.branchAddress}>
-                    {branch.branchAddress}
-                  </TableCell>
-                  <TableCell className="text-gray-800">{branch.branchHeadName}</TableCell>
-                  <TableCell className="text-gray-800">{branch.contactEmail}</TableCell>
-                  <TableCell className="text-gray-800">{branch.contactNumber}</TableCell>
-                  <TableCell className="text-gray-800">{branch.pfCode}</TableCell>
-                  <TableCell className="text-gray-800">{branch.pfLocation}</TableCell>
-                  <TableCell className="text-gray-800">{branch.esiCode}</TableCell>
-                  <TableCell className="text-gray-800">{branch.esiLocation}</TableCell>
-                  <TableCell className="text-gray-800">{branch.radius} km</TableCell>
-                  <TableCell sx={{
-                    ...getStickyRightSx(index),
-                    right: "75px",
-                    minWidth: "70px",
-                  }}>
-                    <Chip
-                      label={branch.active ? "Active" : "Inactive"}
-                      color={branch.active ? "success" : "error"}
-                      size="small"
-                      onClick={() => handleToggleStatus(branch)}
-                      className="cursor-pointer"
-                    />
-                  </TableCell>
-                  <TableCell className="!flex" sx={{
-                    ...getStickyRightSx(index),
-                    minWidth: "50px",
-                  }}>
-                    <Tooltip title="Edit">
-                      <IconButton size="small" color="primary" className="!mr-2" onClick={() => handleOpenDialog(branch)}>
-                        <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(branch.id, branch.branchName)}>
-                        <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
+                <React.Fragment key={branch.id}>
+                  {/* Branch Row */}
+                  <TableRow hover sx={getRowColor(index)}>
+                    <TableCell className="font-medium text-gray-800" sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}>
+                      {page * limit + index + 1}
+                    </TableCell>
+                    <TableCell sx={{ ...getStickyLeftSx(index), left: "70px", minWidth: "100px" }}>
+                      {branch.branchName}
+                    </TableCell>
+                    <TableCell className="font-medium text-gray-800">{branch.branchCode}</TableCell>
+                    <TableCell className="max-w-xs truncate text-gray-800" title={branch.branchAddress}>
+                      {branch.branchAddress}
+                    </TableCell>
+                    <TableCell className="text-gray-800">{branch.branchHeadName}</TableCell>
+                    <TableCell className="text-gray-800">{branch.contactEmail}</TableCell>
+                    <TableCell className="text-gray-800">{branch.contactNumber}</TableCell>
+                    <TableCell className="text-gray-800">{branch.pfCode}</TableCell>
+                    <TableCell className="text-gray-800">{branch.pfLocation}</TableCell>
+                    <TableCell className="text-gray-800">{branch.esiCode}</TableCell>
+                    <TableCell className="text-gray-800">{branch.esiLocation}</TableCell>
+                    <TableCell className="text-gray-800">{branch.radius} km</TableCell>
+                    <TableCell sx={{ ...getStickyRightSx(index), right: "75px", minWidth: "70px" }}>
+                      <Chip
+                        label={branch.active ? "Active" : "Inactive"}
+                        color={branch.active ? "success" : "error"}
+                        size="small"
+                        onClick={() => handleToggleStatus(branch)}
+                        className="cursor-pointer"
+                      />
+                    </TableCell>
+                    <TableCell className="!flex" sx={{ ...getStickyRightSx(index), minWidth: "50px" }}>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" color="primary" className="" onClick={() => handleOpenDialog(branch)}>
+                          <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" color="error" onClick={() => handleDelete(branch.id, branch.branchName)}>
+                          <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Bank Details">
+                        <IconButton size="small" onClick={() => toggleExpand(branch.id)}>
+                          {expandedBranchId === branch.id ? <ExpandLessIcon className="!w-4 text-gray-800" /> : <ExpandMoreIcon className="!w-4 text-gray-800" />}
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Bank Details Expand Row */}
+                  <TableRow>
+                    <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
+                      <Collapse in={expandedBranchId === branch.id} timeout="auto" unmountOnExit className="!w-max">
+                        <Box sx={{ m: 2 }}>
+                          <div className="flex items-center justify-between gap-4 mb-2">
+                            <div className="flex items-center gap-2 text-[13px] font-semibold text-blue-700">
+                              {/* <AccountBalanceIcon className="!w-4 text-primary" /> */}
+                              Bank Accounts - <span>{branch.branchName}</span>
+                            </div>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              className="!text-primary !border-primary"
+                              startIcon={<AddIcon />}
+                              onClick={() => handleOpenBankDialog(branch.id)}
+                            >
+                              Add Bank
+                            </Button>
+                          </div>
+
+                          {(banksByBranch[branch.id] || []).length === 0 ? (
+                            <div className="text-center text-gray-400 text-[12px] py-6 border border-dashed border-gray-300 rounded-lg">
+                              <AccountBalanceIcon className="!w-8 !h-8 text-gray-300 mb-1" />
+                              <div>No bank accounts added for this branch.</div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col rounded-lg border border-gray-200 overflow-hidden bg-white">
+                              {(banksByBranch[branch.id] || []).map((bank) => (
+                                <div key={bank.id} className={`flex items-center gap-6 px-4 py-3 ${bank.isPrimary ? "bg-blue-50/40" : ""}`}>
+                                  {/* Icon + Bank Name */}
+                                  <div className="flex items-center gap-2 w-[160px] shrink-0">
+                                    <div className={`p-1.5 rounded-lg ${bank.isPrimary ? "bg-blue-100" : "bg-gray-100"}`}>
+                                      <AccountBalanceIcon className={`!w-4 !h-4 ${bank.isPrimary ? "text-blue-600" : "text-gray-500"}`} />
+                                    </div>
+                                    <div>
+                                      <div className="text-[12px] font-semibold text-gray-800 truncate max-w-[110px]">{bank.bankName}</div>
+                                      {bank.isPrimary && (
+                                        <span className="text-[9px] bg-blue-100 text-blue-600 font-bold px-1.5 py-0.5 rounded-full">PRIMARY</span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Divider */}
+                                  <div className="h-8 w-px bg-gray-200 shrink-0" />
+
+                                  {/* Details Grid */}
+                                  <div className="flex gap-6 flex-wrap">
+                                    <div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Account Holder</div>
+                                      <div className="text-[12px] text-gray-700 font-medium">{bank.accountHolderName}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Account No.</div>
+                                      <div className="text-[12px] font-mono font-semibold text-gray-800">{bank.accountNumber}</div>
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">IFSC</div>
+                                      <div className="text-[12px] font-mono text-gray-700">{bank.ifscCode}</div>
+                                    </div>
+                                    {bank.branchName && (
+                                      <div>
+                                        <div className="text-[10px] text-gray-400 uppercase tracking-wide">Bank Branch</div>
+                                        <div className="text-[12px] text-gray-700">{bank.branchName}</div>
+                                      </div>
+                                    )}
+                                    <div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Account Type</div>
+                                      <div className="text-[12px] text-gray-700">{bank.accountType}</div>
+                                    </div>
+                                  </div>
+
+                                  {/* Divider */}
+                                  <div className="h-8 w-px bg-gray-200 shrink-0" />
+
+                                  {/* Status + Actions */}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <Chip
+                                      label={bank.status || "ACTIVE"}
+                                      size="small"
+                                      color={bank.status === "INACTIVE" ? "error" : "success"}
+                                      onClick={() => handleToggleBankStatus(bank, bank.status === "INACTIVE" ? 'ACTIVE' : 'INACTIVE')}
+                                      className="cursor-pointer !text-[10px] !h-6 !w-16"
+                                    />
+                                    <Tooltip title={bank.isPrimary ? "Primary Account" : "Set as Primary"}>
+                                      <span>
+                                        <IconButton size="small" onClick={() => !bank.isPrimary && handleSetPrimary(bank)} disabled={bank.isPrimary}>
+                                          {bank.isPrimary
+                                            ? <StarIcon className="!w-4 !text-yellow-500" />
+                                            : <StarBorderIcon className="!w-4 text-gray-400" />}
+                                        </IconButton>
+                                      </span>
+                                    </Tooltip>
+                                    <Tooltip title="Edit">
+                                      <IconButton size="small" onClick={() => handleOpenBankDialog(branch.id, bank)}>
+                                        <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
+                                      </IconButton>
+                                    </Tooltip>
+                                    {/* <Tooltip title="Delete">
+                                      <IconButton size="small" onClick={() => handleDeleteBank(bank)}>
+                                        <DeleteIcon className="!w-4 !text-red-500" />
+                                      </IconButton>
+                                    </Tooltip> */}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </Box>
+                      </Collapse>
+                    </TableCell>
+                  </TableRow>
+                </React.Fragment>
               ))}
             </TableBody>
           </Table>
@@ -574,7 +843,7 @@ export default function BranchSettings() {
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="text-primary ml-4">{editingBranch ? "Edit Branch" : "Add New Branch"}</div>
           <IconButton onClick={handleCloseDialog}>
-            <CloseOutlined className="!text-gray-800"/>
+            <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
         <DialogContent className="max-h-[80vh] overflow-y-auto">
@@ -775,6 +1044,93 @@ export default function BranchSettings() {
           </Button>
           <Button onClick={handleSave} variant="contained" className="!bg-primary">
             {editingBranch ? "Update" : "Save"} Branch
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add / Edit Bank Dialog */}
+      <Dialog open={bankDialogOpen} onClose={handleCloseBankDialog} maxWidth="sm" fullWidth>
+        <div className="flex items-center justify-between p-2 border-b border-gray-300">
+          <div className="flex items-center gap-2 text-primary ml-4">
+            <AccountBalanceIcon className="!w-4" />
+            {editingBank ? "Edit Bank Account" : "Add Bank Account"}
+          </div>
+          <IconButton onClick={handleCloseBankDialog}>
+            <CloseOutlined className="!text-gray-800" />
+          </IconButton>
+        </div>
+        <DialogContent>
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            <TextField
+              fullWidth
+              label="Bank Name"
+              value={bankFormData.bankName || ""}
+              onChange={(e) => setBankFormData((p) => ({ ...p, bankName: e.target.value }))}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Account Holder Name"
+              value={bankFormData.accountHolderName || ""}
+              onChange={(e) => setBankFormData((p) => ({ ...p, accountHolderName: e.target.value }))}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Account Number"
+              value={bankFormData.accountNumber || ""}
+              onChange={(e) => setBankFormData((p) => ({ ...p, accountNumber: e.target.value }))}
+              required
+            />
+            <TextField
+              fullWidth
+              label="IFSC Code"
+              value={bankFormData.ifscCode || ""}
+              onChange={(e) => setBankFormData((p) => ({ ...p, ifscCode: e.target.value.toUpperCase() }))}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Bank Branch Name"
+              value={bankFormData.branchName || ""}
+              onChange={(e) => setBankFormData((p) => ({ ...p, branchName: e.target.value }))}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Account Type</InputLabel>
+              <Select
+                value={bankFormData.accountType || "SAVINGS"}
+                label="Account Type"
+                onChange={(e) => setBankFormData((p) => ({ ...p, accountType: e.target.value }))}
+              >
+                <MenuItem value="SAVINGS">Savings</MenuItem>
+                <MenuItem value="CURRENT">Current</MenuItem>
+                {/* <MenuItem value="SALARY">Salary</MenuItem>
+                <MenuItem value="FIXED_DEPOSIT">Fixed Deposit</MenuItem>
+                <MenuItem value="RECURRING_DEPOSIT">Recurring Deposit</MenuItem>
+                <MenuItem value="NRE">NRE</MenuItem>
+                <MenuItem value="NRO">NRO</MenuItem> */}
+              </Select>
+            </FormControl>
+            <div className="col-span-2">
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={bankFormData.isPrimary || false}
+                    onChange={(e) => setBankFormData((p) => ({ ...p, isPrimary: e.target.checked }))}
+                    color="primary"
+                  />
+                }
+                label="Set as Primary Account"
+              />
+            </div>
+          </div>
+        </DialogContent>
+        <DialogActions className="!p-4 border-t border-gray-300">
+          <Button onClick={handleCloseBankDialog} variant="outlined" className="!text-gray-800 !border-gray-300">
+            Cancel
+          </Button>
+          <Button onClick={handleSaveBank} variant="contained" className="!bg-primary">
+            {editingBank ? "Update" : "Save"} Bank
           </Button>
         </DialogActions>
       </Dialog>

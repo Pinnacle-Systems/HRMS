@@ -39,10 +39,11 @@ import {
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
 import logo from "../assets/logo.jpg"
-import { PolicyOutlined, TrackChangesOutlined } from "@mui/icons-material";
+import { DarkModeOutlined, HistoryOutlined as HistoryOutlinedIcon, LightModeOutlined, PolicyOutlined, PowerSettingsNewOutlined, SearchOutlined, TrackChangesOutlined } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
+import { useTheme } from "../context/themeContext";
 const drawerWidth = 180;
 
 export default function Layout() {
@@ -51,6 +52,7 @@ export default function Layout() {
   const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(
     null,
   );
+  const { mode, toggleMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { session, logout } = useAuth();
@@ -97,6 +99,7 @@ export default function Layout() {
     handleProfileMenuClose();
     navigate("/profile");
   };
+
 
   const menuItems: NavItem[] = [
     {
@@ -227,6 +230,15 @@ export default function Layout() {
 
           {/* Right Side Icons */}
           <Box className="flex items-center gap-2">
+            <Tooltip title="Search">
+              <IconButton
+                size="small"
+                aria-label="show notifications"
+                color="inherit"
+              >
+                <SearchOutlined className="text-gray-500 !w-5" />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Notifications">
               <IconButton
                 size="small"
@@ -288,6 +300,18 @@ export default function Layout() {
           </ListItemIcon>
           <div className="text-gray-800 ">My Profile</div>
         </MenuItem>
+        <MenuItem onClick={() => navigate("/settings/general/company-settings")} className="bg-white-50">
+          <ListItemIcon>
+            <SettingsOutlinedIcon className="!w-4" />
+          </ListItemIcon>
+          <div className="text-gray-800 ">Company Settings</div>
+        </MenuItem>
+        <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
+          <ListItemIcon>
+            <HistoryOutlinedIcon className="!w-4" />
+          </ListItemIcon>
+          <div className="text-gray-800">Audit Logs</div>
+        </MenuItem>
         <Divider className="border border-gray-200" />
         <MenuItem onClick={handleLogout} className="bg-white text-error">
           <ListItemIcon>
@@ -329,10 +353,11 @@ export default function Layout() {
                 duration: theme.transitions.duration.enteringScreen,
               }),
             overflowX: "hidden",
-            borderRight: "1px solid #bebebe",
+            borderRight: "1px solid #afb0b1",
             marginTop: "64px",
             height: "calc(100% - 64px)",
             position: "fixed",
+            justifyContent: "space-between"
           },
         }}
         open={open}
@@ -382,7 +407,7 @@ export default function Layout() {
                       : "text-gray-400"
                       } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
                     onClick={() => {
-                    
+
                       if (item.text === 'Policy Engine') {
                         setPolicyOpen(!policyOpen);
                         setOpen(true);
@@ -391,7 +416,7 @@ export default function Layout() {
                         setOpen(true);
                         setAttendanceOpen(!attendanceOpen);
                       }
-                    
+
                       navigate(item.path);
                     }}
                   >
@@ -438,8 +463,8 @@ export default function Layout() {
                         key={child.path}
                         sx={{ pl: 2 }}
                         className={`min-h-[40px] text-sm ${location.pathname === child.path
-                            ? "text-primary !bg-primary-50"
-                            : "text-gray-400"
+                          ? "text-primary !bg-primary-50"
+                          : "text-gray-400"
                           }`}
                         onClick={() => navigate(child.path)}
                       >
@@ -478,8 +503,8 @@ export default function Layout() {
                         key={child.path}
                         sx={{ pl: 2 }}
                         className={`min-h-[40px] text-sm ${location.pathname === child.path
-                            ? "text-primary !bg-primary-50"
-                            : "text-gray-400"
+                          ? "text-primary !bg-primary-50"
+                          : "text-gray-400"
                           }`}
                         onClick={() => navigate(child.path)}
                       >
@@ -511,8 +536,29 @@ export default function Layout() {
             </Box>
           ))}
         </List>
+        <div>
+          <div className="flex items-center cursor-pointer px-3 py-1" onClick={() => toggleMode()} >
+            <Tooltip title="Theme">
+              <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                {mode === "dark" ? (
+                  <LightModeOutlined className="h-5 w-5" />
+                ) : (
+                  <DarkModeOutlined className="h-5 w-5" />
+                )}
+              </IconButton>
+            </Tooltip>
+            <span className="text-gray-800 text-[12px]">Theme</span>
+          </div>
+          <div className="flex items-center cursor-pointer px-3 py-1" onClick={() => handleLogout()} >
+            <Tooltip title="Logout">
+              <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                <PowerSettingsNewOutlined />
+              </IconButton>
+            </Tooltip>
+            <span className="text-gray-800 text-[12px]">Logout</span>
+          </div>
+        </div>
       </Drawer>
-
       {/* Main Content - Only this adjusts when drawer opens/closes */}
       <Box
         component="main"

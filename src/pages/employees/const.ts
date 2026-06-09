@@ -22,7 +22,7 @@ export const basicInfoFields = [
   { key: "identificationMark", label: "Identification Mark" },
   { key: "hobbies", label: "Hobbies" },
   { key: "languagesKnown", label: "Languages" },
-  { key: "totalExperience", label: "Total Experience (Years)", disabled: true },
+  // { key: "totalExperience", label: "Total Experience (Years)", disabled: true },
   {
     key: "physicallyChallenged",
     label: "Physically Challenged",

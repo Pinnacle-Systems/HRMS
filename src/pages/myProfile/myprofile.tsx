@@ -498,7 +498,7 @@ export default function Profile() {
           onChange={handleTabChange}
           indicatorColor="primary"
           textColor="primary"
-          className="!bg-white !border-b !border-gray-300"
+          className="!border-b !border-gray-300"
           sx={{
             "& .MuiTabs-indicator": {
               backgroundColor: "var(--color-primary)",
@@ -640,11 +640,9 @@ export default function Profile() {
               )}
             </div>
             <TableContainer
-              component={Paper}
-              elevation={0}
-              className="h-[calc(100vh-245px)] overflow-auto bg-white-50"
+              className="h-[calc(100vh-245px)] overflow-auto"
             >
-              <Table stickyHeader className="border">
+              <Table stickyHeader className="border border-gray-200 bg-white-50">
                 <TableHead>
                   <TableRow className="bg-gray-100 !text-primary">
                     <TableCell className="!font-semibold text-gray-800">
@@ -673,7 +671,7 @@ export default function Profile() {
                     </TableCell>
                   </TableRow>
                 </TableHead>
-                <TableBody className="bg-white">
+                <TableBody>
                   {loginHistory.map((history, index) => (
                     <TableRow key={history.id} hover sx={getRowColor(index)}>
                       <TableCell className="text-gray-800">
@@ -709,16 +707,22 @@ export default function Profile() {
                       <TableCell>
                         <Tooltip
                           title={
-                            history.status === "SUCCESS"
-                              ? "Successful login"
-                              : history.failureReason ?? "Login failed"
+                            history.status === "SUCCESS" ? "Success" : history.status === "MFA_SETUP_REQUIRED" ? "MFA Required"
+                            : history.failureReason ?? "failed"
                           }
                         >
                           <IconButton size="small">
-                            {history.status === "SUCCESS" ? (
+                            {history.status === "SUCCESS" && (
                               <CheckCircleRoundedIcon
                                 className="!w-4"
                                 sx={{ color: "green" }}
+                              />
+                            )}
+
+                            {history.status === "MFA_SETUP_REQUIRED" ?  (
+                              <ErrorRoundedIcon
+                                className="!w-4"
+                                sx={{ color: "#ffa700" }}
                               />
                             ) : (
                               <ErrorRoundedIcon

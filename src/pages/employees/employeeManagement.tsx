@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import MaterialModule from "../../materialModule";
 import {
   employeeService,
@@ -27,9 +27,17 @@ import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, sti
 import { useNavigate } from "react-router-dom";
 import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
-import type { FilterConfig, FilterField } from "../../types/filter.ts";
+import type { FilterConfig } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
+import { applyFiltersToData } from "../../utils/filterUtils";
+import {
+  EMPLOYEE_FIELD_MAP,
+  getEmployeeFilterFields,
+  buildEmployeeServerFilterParams,
+  isEmployeeServerSupportedFilter,
+} from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
+import type { Category } from "../../services/modules/shifts.ts";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -63,6 +71,7 @@ export default function EmployeeManagement() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
+  const [empStatus, setEmpStatus] = useState<Category[]>([]);
 
   // Code Generation (used by Add Employee dialog)
   const [hasManualEmpId, setHasManualEmpId] = useState(false);
@@ -82,67 +91,10 @@ export default function EmployeeManagement() {
   const [deactivateEmployeeId, setDeactivateEmployeeId] = useState("");
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] = useState(false);
 
-  // Define filter fields for employee management
-  const filterFields: FilterField[] = [
-    {
-      id: 'employeeId',
-      label: 'Employee ID',
-      type: 'text',
-      placeholder: 'Enter employee ID',
-    },
-    {
-      id: 'name',
-      label: 'Employee Name',
-      type: 'text',
-      placeholder: 'Enter employee name',
-    },
-    {
-      id: 'emailAddress',
-      label: 'Email Address',
-      type: 'text',
-      placeholder: 'Enter email address',
-    },
-    {
-      id: 'mobileNumber',
-      label: 'Mobile Number',
-      type: 'text',
-      placeholder: 'Enter mobile number',
-    },
-    {
-      id: 'designationId',
-      label: 'Designation',
-      type: 'select',
-      options: designations.map(d => ({ value: d.id, label: d.name })),
-    },
-    {
-      id: 'dept',
-      label: 'Department',
-      type: 'select',
-      options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })),
-    },
-    {
-      id: 'branch',
-      label: 'Branch',
-      type: 'select',
-      options: branches.map(b => ({ value: b.branchName, label: b.branchName })),
-    },
-    {
-      id: 'joinedFrom',
-      label: 'Joining Date',
-      type: 'date',
-    },
-    {
-      id: 'employeeStatusId',
-      label: 'Employee Status',
-      type: 'select',
-      options: [
-        { value: 'ACTIVE', label: 'Active' },
-        { value: 'INACTIVE', label: 'Inactive' },
-        { value: 'ONBOARDING', label: 'Onboarding' },
-        { value: 'TERMINATED', label: 'Terminated' },
-      ],
-    },
-  ];
+  const filterFields = useMemo(
+    () => getEmployeeFilterFields(departments, designations, branches, empStatus),
+    [departments, designations, branches, empStatus]
+  );
 
   const loadEmployeeIdConfig = async () => {
     try {
@@ -252,70 +204,6 @@ export default function EmployeeManagement() {
   //   return `${prefix}${nextNumber}`;
   // };
 
-  // Evaluate a single filter rule
-  const evaluateRule = (item: any, rule: any): boolean => {
-    const localFieldMap: Record<string, string> = {
-      dept: "department",
-      joinedFrom: "joiningDate",
-    };
-    const fieldValue = item[localFieldMap[rule.field] || rule.field];
-    const ruleValue = rule.value;
-    const safeFieldValue = fieldValue ?? "";
-    const safeRuleValue = ruleValue ?? "";
-
-    switch (rule.operator) {
-      case 'equals':
-        return String(safeFieldValue).toLowerCase() === String(safeRuleValue).toLowerCase();
-      case 'notEquals':
-        return String(safeFieldValue).toLowerCase() !== String(safeRuleValue).toLowerCase();
-      case 'contains':
-        return String(safeFieldValue).toLowerCase().includes(String(safeRuleValue).toLowerCase());
-      case 'notContains':
-        return !String(safeFieldValue).toLowerCase().includes(String(safeRuleValue).toLowerCase());
-      case 'startsWith':
-        return String(safeFieldValue).toLowerCase().startsWith(String(safeRuleValue).toLowerCase());
-      case 'endsWith':
-        return String(safeFieldValue).toLowerCase().endsWith(String(safeRuleValue).toLowerCase());
-      case 'greaterThan':
-        return new Date(safeFieldValue) > new Date(safeRuleValue);
-      case 'greaterThanOrEqual':
-        return new Date(safeFieldValue) >= new Date(safeRuleValue);
-      case 'lessThan':
-        return new Date(safeFieldValue) < new Date(safeRuleValue);
-      case 'lessThanOrEqual':
-        return new Date(safeFieldValue) <= new Date(safeRuleValue);
-      case 'between':
-        return new Date(safeFieldValue) >= new Date(safeRuleValue) && new Date(safeFieldValue) <= new Date(rule.value2);
-      case 'in':
-        return Array.isArray(safeRuleValue) && safeRuleValue.includes(safeFieldValue);
-      case 'notIn':
-        return Array.isArray(safeRuleValue) && !safeRuleValue.includes(safeFieldValue);
-      case 'isEmpty':
-        return !safeFieldValue || safeFieldValue === '' || (Array.isArray(safeFieldValue) && safeFieldValue.length === 0);
-      case 'isNotEmpty':
-        return safeFieldValue && safeFieldValue !== '' && (!Array.isArray(safeFieldValue) || safeFieldValue.length > 0);
-      default:
-        return true;
-    }
-  };
-
-  // Apply filters to data
-  const applyFiltersToData = (
-    data: Employee[],
-    filters: FilterConfig
-  ): Employee[] => {
-    if (!filters || filters.rules.length === 0) return data;
-    return data.filter((item) => {
-      const results = filters.rules.map(rule =>
-        evaluateRule(item, rule)
-      );
-      if (filters.condition === "AND") {
-        return results.every(Boolean);
-      }
-      return results.some(Boolean);
-    });
-  };
-
   const handleApplyFilters = (filters: FilterConfig) => {
     setActiveFilters(filters);
     setPage(0);
@@ -347,74 +235,6 @@ export default function EmployeeManagement() {
     return activeFilters?.rules.length || 0;
   };
 
-  const buildServerFilterParams = (filters: FilterConfig | null): EmployeeListQuery => {
-    if (!filters?.rules.length || filters.condition !== "AND") return {};
-
-    return filters.rules.reduce<EmployeeListQuery>((params, rule) => {
-      if (rule.operator !== "equals" && rule.operator !== "between") return params;
-
-      switch (rule.field) {
-        case "dept":
-          params.dept = String(rule.value);
-          break;
-        case "branch":
-          params.branch = String(rule.value);
-          break;
-        case "designationId":
-          params.designationId = String(rule.value);
-          break;
-        case "employeeStatusId":
-          params.employeeStatusId = String(rule.value);
-          break;
-        case "managerId":
-          params.managerId = String(rule.value);
-          break;
-        case "joinedFrom":
-          if (rule.operator === "between") {
-            params.joinedFrom = String(rule.value);
-            params.joinedTo = String(rule.value2);
-          } else {
-            params.joinedFrom = String(rule.value);
-          }
-          break;
-        case "employeeId":
-        case "name":
-        case "emailAddress":
-        case "mobileNumber":
-          if (!params.search) params.search = String(rule.value);
-          break;
-        default:
-          break;
-      }
-
-      return params;
-    }, {});
-  };
-
-  const isServerSupportedFilter = (filters: FilterConfig | null): boolean => {
-    if (!filters?.rules.length) return true;
-    if (filters.condition !== "AND") return false;
-
-    return filters.rules.every((rule) => {
-      const simpleFields = [
-        "dept",
-        "branch",
-        "designationId",
-        "employeeStatusId",
-        "managerId",
-        "employeeId",
-        "name",
-        "emailAddress",
-        "mobileNumber",
-      ];
-
-      return (
-        (simpleFields.includes(rule.field) && rule.operator === "equals") ||
-        (rule.field === "joinedFrom" && (rule.operator === "equals" || rule.operator === "between"))
-      );
-    });
-  };
-
   // Fetch employees
   const getEmployees = async () => {
     showSpinner();
@@ -423,7 +243,7 @@ export default function EmployeeManagement() {
         page,
         size: limit,
         sort: `${sortBy},${sortOrder}`,
-        ...buildServerFilterParams(activeFilters),
+        ...buildEmployeeServerFilterParams(activeFilters),
       };
       if (searchTerm) params.search = searchTerm;
       if (includeInactive) params.includeInactive = true;
@@ -435,8 +255,8 @@ export default function EmployeeManagement() {
       setTotal(employeePage.totalElements);
 
       // Operators outside the backend query contract are applied to the current page only.
-      if (activeFilters && activeFilters.rules.length > 0 && !isServerSupportedFilter(activeFilters)) {
-        visibleEmployees = applyFiltersToData(employeeData, activeFilters);
+      if (activeFilters && activeFilters.rules.length > 0 && !isEmployeeServerSupportedFilter(activeFilters)) {
+        visibleEmployees = applyFiltersToData(employeeData, activeFilters, EMPLOYEE_FIELD_MAP);
       }
       setEmployees(visibleEmployees);
     } catch (error: any) {
@@ -455,6 +275,9 @@ export default function EmployeeManagement() {
       setBranches(branchRes.data.content || branchRes.data || []);
       const desigRes: any = await categoryService.getCategoryItems("00c4fd3c-4fb6-4d33-932e-80a615a90825");
       setDesignations(desigRes.data.content || desigRes.data || []);
+      const stsRes: any = await categoryService.getCategoryItems("db50d81f-9fcd-4afd-a87c-a5591aa7abbb");
+      setEmpStatus(stsRes.data.content || stsRes.data || []);
+      // "5504ad78-7089-42ec-8219-2a579d99bb0a"
     } catch (error: any) {
       showSnackbar(error.message, "error");
     }
@@ -828,7 +651,7 @@ export default function EmployeeManagement() {
         const params: any = {
           search: searchTerm || undefined,
           sort: `${sortBy},${sortOrder}`,
-          ...buildServerFilterParams(activeFilters),
+          ...buildEmployeeServerFilterParams(activeFilters),
         };
 
         await employeeService.downloadEmployeeExport(
@@ -909,10 +732,13 @@ export default function EmployeeManagement() {
           </MaterialModule.Typography>
           {activeFilters.rules.map((rule) => {
             const field = filterFields.find(f => f.id === rule.field);
+            const displayValue = field?.type === 'select' || field?.type === 'multiSelect'
+              ? (field.options?.find(o => o.value === rule.value)?.label ?? rule.value)
+              : rule.value;
             return (
               <MaterialModule.Chip
                 key={rule.id}
-                label={`${field?.label} ${operatorLabels[rule.operator]} ${rule.value}`}
+                label={`${field?.label} ${operatorLabels[rule.operator]} ${displayValue}`}
                 onDelete={() => removeFilter(rule.id)}
                 size="small"
                 color="primary"
