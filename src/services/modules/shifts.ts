@@ -1,3 +1,4 @@
+import type { ShiftCategoryConfig } from "../../pages/attendance/shiftSettings/types";
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
@@ -35,9 +36,9 @@ export interface Shift {
   weeklyOff: WeekDay[];
   color: string;
   description: string;
-  active: boolean;
+  // active: boolean;
   nightShift: boolean;
-  isActive?: boolean;
+  isActive: boolean;
   templateId: string;
 }
 
@@ -90,6 +91,12 @@ export interface Category {
   id: string;
   name: string;
   code: string;
+}
+
+export interface AdvancedConfigPayload {
+  shiftId: string;
+  shiftName: string;
+  advancedConfigs: ShiftCategoryConfig[];
 }
 
 // Combined types for API responses
@@ -570,6 +577,19 @@ class ShiftService {
 
   async sendShiftNotifications(data: any) {
     return apiService.post(API_ENDPOINTS.SHIFTS.SEND_NOTIFY, data);
+  }
+
+  //Shift Advanced Configuration
+  async getShiftAdvancedConfig(id: string) {
+    return apiService.get(API_ENDPOINTS.SHIFTS.GET_ADV_CONFIG(id));
+  }
+
+  async createShiftAdvancedConfig(id: string, payload: AdvancedConfigPayload) {
+    return apiService.post(API_ENDPOINTS.SHIFTS.POST_ADV_CONFIG(id), payload);
+  }
+
+  async updateShiftAdvancedConfig(id: string, payload: AdvancedConfigPayload) {
+    return apiService.put(API_ENDPOINTS.SHIFTS.PUT_ADV_CONFIG(id), payload);
   }
 }
 

@@ -306,7 +306,7 @@ test.describe("role and permission access matrix", () => {
       await page.getByLabel("open drawer").click();
 
       for (const item of allNavItems) {
-        const assertion = expect(page.getByText(item));
+        const assertion = expect(page.getByText(item, { exact: true }));
 
         if (scenario.visibleNav.includes(item)) {
           await assertion.toBeVisible();

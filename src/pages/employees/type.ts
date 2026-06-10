@@ -18,17 +18,42 @@ export interface Employee {
   branch: string;
   branchId: string;
   designation?: string;
-  employeeStatus?:string;
-  employeeStatusId?:string;
+  employeeStatus?: string;
+  employeeStatusId?: string;
   isActive?: boolean;
   deactivatedAt?: string;
-  relievedDate:string;
+  relievedDate: string;
   //   status: "PENDING" | "ACTIVE" | "INACTIVE" | "ONBOARDING";
   //   isWelcomeEmailSent: boolean;
   //   welcomeEmailSentAt?: string;
   createdAt?: string;
-}
+  gradeId: string;
+  empTypeId: string;
+  managerId: string;
+  bandId: string;
+  confirmationDate: string;
+  probationPeriod: string;
 
+  noticePeriod: string;
+  // attendanceSchemaId: string,
+  vehicleTypeId: string;
+  hostel: string;
+  currentCompanyExperience: string;
+
+  referredBy: string;
+  bonusPolicyId: string;
+  otPolicyId: string;
+  otAmount: string;
+  vehicleFacility: string;
+
+  migrant: string;
+  exService: string;
+  monthly: string;
+  adminRemarks: string;
+  idCardNo: string;
+  midNo: string;
+  oldIdNo: string;
+}
 export interface Department {
   id: string;
   departmentName: string;
@@ -92,7 +117,7 @@ export interface EmployeeDetails {
   esiEligible: boolean;
   lwfCovered: boolean;
   loginUserName: string;
-  photoUrl:string
+  photoUrl: string;
 }
 
 export interface Address {

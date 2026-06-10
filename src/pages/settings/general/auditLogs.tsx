@@ -152,7 +152,7 @@ export default function AuditLogs() {
       </div>
 
       {/* Compact Filter Bar */}
-      <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-lg px-3 py-2 mb-3">
+      <div className="flex items-center gap-2 flex-wrap bg-white border border-gray-200 rounded-lg px-3 py-2 pt-5 mb-3">
         <div className="flex items-center gap-1 text-gray-400 shrink-0">
           <FilterAltOutlinedIcon sx={{ fontSize: 15 }} />
           <span className="text-[11px] font-medium uppercase tracking-wide">Filters</span>
@@ -206,14 +206,14 @@ export default function AuditLogs() {
           <DatePicker
             value={filterFromDate ? dayjs(filterFromDate) : null}
             onChange={(d) => setFilterFromDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
-            slotProps={{ textField: { label: "From", sx: { width: 135, "& .MuiInputBase-input": { fontSize: 12, padding: "5.5px !important" }, "& .MuiOutlinedInput-root": { borderRadius: "6px" } } } }}
+            slotProps={{ textField: { label: "From", sx: { width: 135, "& .MuiPickersOutlinedInput-root": { borderRadius: "6px !important" } } } }}
           />
         </LocalizationProvider>
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DatePicker
             value={filterToDate ? dayjs(filterToDate) : null}
             onChange={(d) => setFilterToDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
-            slotProps={{ textField: { label: "To", sx: { width: 135, "& .MuiInputBase-input": { fontSize: 12, py: "5.5px" }, "& .MuiOutlinedInput-root": { borderRadius: "6px" } } } }}
+            slotProps={{ textField: { label: "To", sx: { width: 135, "& .MuiOutlinedInput-root": { borderRadius: "6px !important" } } } }}
           />
         </LocalizationProvider>
         <Button

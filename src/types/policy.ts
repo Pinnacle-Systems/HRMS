@@ -44,8 +44,8 @@ export const EmploymentType = {
 export type EmploymentType = typeof EmploymentType[keyof typeof EmploymentType];
 
 export const EmployeeCategory = {
-  STAFF: 'STAFF',
-  LABOUR: 'LABOUR',
+  Staff: 'staff',
+  Labour: 'labour',
 } as const;
 
 export type EmployeeCategory = typeof EmployeeCategory[keyof typeof EmployeeCategory];

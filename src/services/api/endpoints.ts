@@ -341,6 +341,10 @@ export const API_ENDPOINTS = {
     EXPORT_SCHEDULE_Excel: "/shift-schedule/export/excel",
     GET_COUNT: "/shift-schedule/distribution",
     SEND_NOTIFY: "/shift-schedule/send-notifications",
+
+    GET_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
+    POST_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
+    PUT_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`
   },
 
   POLICY: {

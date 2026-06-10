@@ -11,7 +11,7 @@ export interface ShiftFormData {
   shiftType: string;
   graceTime?: number;
   breakTime?: number;
-  active: boolean;
+  isActive: boolean;
   color: string;
   weeklyOff: string[];
   description: string;

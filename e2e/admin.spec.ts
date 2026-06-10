@@ -33,9 +33,9 @@ test.describe("mocked admin flow", () => {
     await expect(page.getByRole("heading", { name: "Payroll" })).toBeVisible();
     await page.getByRole("heading", { name: "Payroll" }).hover(); // Dismiss tooltips
 
-    await page.getByText("Settings").click();
+    await page.getByText("Settings", { exact: true }).click();
     await expect(page).toHaveURL(/\/settings/);
-    await expect(page.getByText("Company Settings")).toBeVisible();
+    await expect(page.getByText("Company Settings").first()).toBeVisible();
   });
 
   // test("company settings can be saved", async ({ page }) => {
@@ -61,7 +61,7 @@ test.describe("mocked admin flow", () => {
     await page.goto("/admin/dashboard");
 
     await page.getByLabel("Account").click();
-    await page.getByText("Logout").click();
+    await page.getByRole("menuitem", { name: "Logout" }).click();
 
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();

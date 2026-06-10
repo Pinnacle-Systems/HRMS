@@ -68,24 +68,24 @@ export const statusColors = {
 };
 
 export const CATEGORY_LABELS: Record<EmployeeCategoryType, string> = {
-  STAFF:         'Staff',
-  LABOUR:        'Labour',
+  staff:         'Staff',
+  labour:        'Labour',
   // GROUND_WORKER: 'Ground Worker',
   // SUPERVISOR:    'Supervisor',
   // TECHNICIAN:    'Technician',
 };
 
 export const CATEGORY_SUBLABELS: Record<EmployeeCategoryType, string> = {
-  STAFF:         'Office / White-collar',
-  LABOUR:        'Factory / Production floor',
+  staff:         'Office / White-collar',
+  labour:        'Factory / Production floor',
   // GROUND_WORKER: 'Retail / Field / Security',
   // SUPERVISOR:    'Team lead / Floor supervisor',
   // TECHNICIAN:    'Electrician / Mechanic / Maintenance',
 };
 
 export const CATEGORY_COLORS: Record<EmployeeCategoryType, string> = {
-  STAFF:         '#1976d2',
-  LABOUR:        '#d32f2f',
+  staff:         '#1976d2',
+  labour:        '#d32f2f',
   // GROUND_WORKER: '#388e3c',
   // SUPERVISOR:    '#f57c00',
   // TECHNICIAN:    '#7b1fa2',
@@ -93,8 +93,8 @@ export const CATEGORY_COLORS: Record<EmployeeCategoryType, string> = {
 
 // Sensible defaults differ per category
 export const CATEGORY_DEFAULTS: Record<EmployeeCategoryType, ShiftCategoryConfig> = {
-  STAFF: {
-    type: 'STAFF',
+  staff: {
+    type: 'staff',
     graceBeforeCheckIn: 15, graceAfterCheckIn: 5, graceBeforeCheckOut: 5, graceAfterCheckOut: 15,
     breakTime: 15, breakAfterHours: 2, allowMultipleBreaks: false,breakEndTime: '00:00', breakStartTime: '00:00',
     maxBreaksPerShift: 2, minBreakInterval: 60,
@@ -106,8 +106,8 @@ export const CATEGORY_DEFAULTS: Record<EmployeeCategoryType, ShiftCategoryConfig
     minRestBetweenShifts: 8, maxConsecutiveDays: 6,
     roundingRule: 'none', roundingInterval: 0,
   },
-  LABOUR: {
-    type: 'LABOUR',
+  labour: {
+    type: 'labour',
     graceBeforeCheckIn: 10, graceAfterCheckIn: 10, graceBeforeCheckOut: 10, graceAfterCheckOut: 10,
     breakTime: 30, breakAfterHours: 4, allowMultipleBreaks: true,
     maxBreaksPerShift: 4, minBreakInterval: 120,
@@ -121,4 +121,4 @@ export const CATEGORY_DEFAULTS: Record<EmployeeCategoryType, ShiftCategoryConfig
   },
 };
 
-export const ALL_CATEGORIES = [EmployeeCategory.STAFF, EmployeeCategory.LABOUR] as EmployeeCategoryType[];
+export const ALL_CATEGORIES = [EmployeeCategory.Staff, EmployeeCategory.Labour] as EmployeeCategoryType[];

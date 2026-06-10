@@ -78,7 +78,7 @@ export const ShiftList = () => {
     endTime: dayjs('2000-01-01 18:00'),
     shiftType: 'General',
     templateId: 'Staff',
-    active: true,
+    isActive: true,
     color: '#3b82f6',
     weeklyOff: ['MON'],
     description: '',
@@ -190,7 +190,7 @@ export const ShiftList = () => {
       weeklyOff: formData.weeklyOff,
       color: formData.color,
       description: formData.description,
-      active: formData.active,
+      isActive: formData.isActive,
       nightShift: formData.shiftType.toLowerCase() === 'night'
     };
     try {
@@ -223,7 +223,7 @@ export const ShiftList = () => {
       shiftType: 'General',
       graceTime: 15,
       breakTime: 60,
-      active: true,
+      isActive: true,
       color: '#3b82f6',
       weeklyOff: ['MON'],
       description: '',
@@ -242,7 +242,7 @@ export const ShiftList = () => {
       shiftType: shift.shiftType,
       // graceTime: shift.graceTime,
       // breakTime: shift.breakTime,
-      active: shift.active,
+      isActive: shift.isActive,
       color: shift.color,
       weeklyOff: shift.weeklyOff,
       description: shift.description || '',
@@ -272,9 +272,9 @@ export const ShiftList = () => {
   const handleToggleStatus = async (shift: Shift) => {
     showSpinner();
     try {
-      const res: any = await shiftService.updateShiftStatus(shift.id, { isActive: !shift.active });
+      const res: any = await shiftService.updateShiftStatus(shift.id, { isActive: !shift.isActive });
       if (res.success) {
-        showSnackbar(`Shift ${!shift.active ? "activated" : "deactivated"} successfully!`, "success");
+        showSnackbar(`Shift ${!shift.isActive ? "activated" : "deactivated"} successfully!`, "success");
         await fetchData();
       }
     } catch (error: any) {
@@ -417,8 +417,8 @@ export const ShiftList = () => {
                 <TableCell>
                   <Chip
                     size="small"
-                    label={shift.active ? 'Active' : 'Inactive'}
-                    color={shift.active ? 'success' : 'error'}
+                    label={shift.isActive ? 'Active' : 'Inactive'}
+                    color={shift.isActive ? 'success' : 'error'}
                     onClick={() => handleToggleStatus(shift)}
                   />
                 </TableCell>
@@ -642,8 +642,8 @@ export const ShiftList = () => {
             <FormControlLabel
               control={
                 <Switch
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                 />
               }
               label="Active"

@@ -43,8 +43,8 @@ import { useMasterData } from "../../hooks/useMasterData";
 import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
-import { formatDate } from "../../utils/dateFormatter";
-import { AttachFileOutlined } from "@mui/icons-material";
+import { formatDate, formatDateTime } from "../../utils/dateFormatter";
+import { AttachFileOutlined, KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
 import { shiftService, type Shift } from "../../services/modules/shifts";
 import { auditLogService } from "../../services/modules/auditLogs";
 import { Button } from "@mui/material";
@@ -1650,6 +1650,7 @@ export default function EmployeeDetails() {
     try {
       const res: any = await auditLogService.getAuditHistory(String(id));
       setAuditLogs(res.data?.content || res.data || []);
+      setAuditLogOpen(true);
     } catch (err: any) {
       showSnackbar(err.message || "Failed to load audit logs", "error");
     } finally {
@@ -1658,7 +1659,6 @@ export default function EmployeeDetails() {
   };
 
   const handleOpenAuditLog = async () => {
-    setAuditLogOpen(true);
     await fetchLogs();
   };
 
@@ -1667,35 +1667,6 @@ export default function EmployeeDetails() {
   const updatePersonalInfo = async (updatedData: any) => {
     showSpinner();
     try {
-      // const payload = {
-      //   firstName: updatedData.firstName,
-      //   lastName: updatedData.lastName,
-      //   genderId: updatedData.genderId,
-      //   dateOfBirth: updatedData.dateOfBirth,
-      //   birthday: updatedData.birthday,
-      //   maritalStatusId: updatedData.maritalStatusId,
-      //   marriageDate: updatedData.marriageDate,
-      //   bloodGroupId: updatedData.bloodGroupId,
-      //   fathersName: updatedData.fathersName,
-      //   spouseName: updatedData.spouseName,
-      //   // mobileNumber: updatedData.mobileNumber,
-      //   nationalityId: updatedData.nationalityId,
-      //   religionId: updatedData.religionId,
-      //   height: Number(updatedData.height),
-      //   weight: Number(updatedData.weight),
-      //   disabilityTypeId: updatedData.disabilityTypeId,
-      //   personalEmailAddress: updatedData.personalEmailAddress,
-      //   // age: Number(updatedData.age),
-      //   // totalExperience: Number(updatedData.totalExperience),
-      //   // extensionNumber: updatedData.extensionNumber 
-      //   nickName: updatedData.nickName,
-      //   // employeeReferenceNumber: updatedData.employeeReferenceNumber 
-      //   identificationMark: updatedData.identificationMark,
-      //   hobbies: updatedData.hobbies,
-      //   languagesKnown: updatedData.languagesKnown,
-      //   physicallyChallenged: updatedData.physicallyChallenged,
-      //   internationalEmployee: updatedData.internationalEmployee
-      // };
       const payload = {
         firstName: updatedData.firstName,
         lastName: updatedData.lastName,
@@ -2095,12 +2066,15 @@ export default function EmployeeDetails() {
     showSpinner();
     try {
       const payload = {
-        pfEligible: updatedData.pfEligible,
-        excessEpfEligible: updatedData.excessEpfEligible,
-        excessEpsEligible: updatedData.excessEpsEligible,
-        existingEpsMember: updatedData.existingEpsMember,
-        esiEligible: updatedData.esiEligible,
-        lwfCovered: updatedData.lwfCovered,
+        pfEligible: updatedData.pfEligible || employee.pfEligible,
+        excessEpfEligible: updatedData.excessEpfEligible || employee.excessEpfEligible,
+        excessEpsEligible: updatedData.excessEpsEligible || employee.excessEpsEligible,
+        existingEpsMember: updatedData.existingEpsMember || employee.existingEpsMember,
+        esiEligible: updatedData.esiEligible || employee.esiEligible,
+        lwfCovered: updatedData.lwfCovered || employee.lwfCovered,
+        esiNumber: updatedData.esiNumber || employee.esiNumber,
+        esiJoiningDate: updatedData.esiJoiningDate || employee.esiJoiningDate,
+        esiRelievingDate: updatedData.esiRelievingDate || employee.esiRelievingDate,
       };
       await employeeService.updateEligibilityInfo(id, payload);
       await fetchEmployeeDetails();
@@ -2399,27 +2373,27 @@ export default function EmployeeDetails() {
     showSpinner();
     try {
       const payload = {
-        panNumber: updatedData.panNumber,
-        aadhaarEnrolmentNo: updatedData.aadhaarEnrolmentNo,
-        nameAsOnAadhaar: updatedData.nameAsOnAadhaar,
-        aadhaarNumber: updatedData.aadhaarNumber,
-        universalAccountNumber: updatedData.universalAccountNumber,
-        pranNumber: updatedData.pranNumber,
-        nameAsPerPran: updatedData.nameAsPerPran,
-        passportNumber: updatedData.passportNumber,
-        visaType: updatedData.visaType,
-        visaExpiry: updatedData.visaExpiry,
-        loginIpAddress: updatedData.loginIpAddress,
-        loginUserName: updatedData.loginUserName,
-        nameInPan: updatedData.nameInPan,
-        nameInPassport: updatedData.nameInPassport,
-        placeOfIssue: updatedData.placeOfIssue,
-        dateOfIssue: updatedData.dateOfIssue,
-        expiryDate: updatedData.expiryDate,
-        insuranceNumber: updatedData.insuranceNumber,
-        nameInInsurance: updatedData.nameInInsurance,
-        insuranceValidFrom: updatedData.insuranceValidFrom,
-        insuranceValidTo: updatedData.insuranceValidTo,
+        panNumber: updatedData.panNumber || employee.panNumber,
+        aadhaarEnrolmentNo: updatedData.aadhaarEnrolmentNo || employee.aadhaarEnrolmentNo,
+        nameAsOnAadhaar: updatedData.nameAsOnAadhaar || employee.nameAsOnAadhaar,
+        aadhaarNumber: updatedData.aadhaarNumber || employee.aadhaarNumber,
+        universalAccountNumber: updatedData.universalAccountNumber || employee.universalAccountNumber,
+        pranNumber: updatedData.pranNumber || employee.pranNumber,
+        nameAsPerPran: updatedData.nameAsPerPran || employee.nameAsPerPran,
+        passportNumber: updatedData.passportNumber || employee.passportNumber,
+        visaType: updatedData.visaType || employee.visaType,
+        visaExpiry: updatedData.visaExpiry || employee.visaExpiry,
+        loginIpAddress: updatedData.loginIpAddress || employee.loginIpAddress,
+        loginUserName: updatedData.loginUserName || employee.loginUserName,
+        nameInPan: updatedData.nameInPan || employee.nameInPan,
+        nameInPassport: updatedData.nameInPassport || employee.nameInPassport,
+        placeOfIssue: updatedData.placeOfIssue || employee.placeOfIssue,
+        dateOfIssue: updatedData.dateOfIssue || employee.dateOfIssue,
+        expiryDate: updatedData.expiryDate || employee.expiryDate,
+        insuranceNumber: updatedData.insuranceNumber || employee.insuranceNumber,
+        nameInInsurance: updatedData.nameInInsurance || employee.nameInInsurance,
+        insuranceValidFrom: updatedData.insuranceValidFrom || employee.insuranceValidFrom,
+        insuranceValidTo: updatedData.insuranceValidTo || employee.insuranceValidTo,
       };
       await employeeService.updateIdentityInfo(id, payload);
       await fetchEmployeeDetails();
@@ -2432,23 +2406,23 @@ export default function EmployeeDetails() {
   };
 
   //ESI INFO
-  const updateESIInfo = async (updatedData: any) => {
-    showSpinner();
-    try {
-      const payload = {
-        esiNumber: updatedData.esiNumber,
-        esiJoiningDate: updatedData.esiJoiningDate,
-        esiRelievingDate: updatedData.esiRelievingDate,
-      };
-      await employeeService.updateEligibilityInfo(id, payload);
-      await fetchEmployeeDetails()
-      showSnackbar("Bank details updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
+  // const updateESIInfo = async (updatedData: any) => {
+  //   showSpinner();
+  //   try {
+  //     const payload = {
+  //       esiNumber: updatedData.esiNumber,
+  //       esiJoiningDate: updatedData.esiJoiningDate,
+  //       esiRelievingDate: updatedData.esiRelievingDate,
+  //     };
+  //     await employeeService.updateEligibilityInfo(id, payload);
+  //     await fetchEmployeeDetails()
+  //     showSnackbar("Bank details updated successfully!", "success");
+  //   } catch (error: any) {
+  //     showSnackbar(error.message, "error");
+  //   } finally {
+  //     hideSpinner();
+  //   }
+  // };
 
   // Family Members
   const handleUpdateFamilyMembers = async (updatedData: any[]) => {
@@ -2531,6 +2505,7 @@ export default function EmployeeDetails() {
   // Nominations
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [expandedAuditFields, setExpandedAuditFields] = useState<Set<string>>(new Set());
 
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
 
@@ -3021,7 +2996,7 @@ export default function EmployeeDetails() {
               fields={esiColumns}
               document="esi"
               data={employee}
-              onSave={updateESIInfo}
+              onSave={updateEligibilityInfo}
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
@@ -3118,58 +3093,129 @@ export default function EmployeeDetails() {
         fullWidth
       >
         <div className="flex items-center justify-between border-b border-gray-200 p-2 pl-5">
-          <div className="text-primary font-medium">Audit Log - {employee.name}</div>
+          <div className="font-medium">Audit Log  <span className="text-primary font-bold">({employee.name})</span></div>
           <MaterialModule.IconButton onClick={() => setAuditLogOpen(false)}>
-            <MaterialModule.CloseOutlined />
+            <MaterialModule.CloseOutlined className="text-gray-800"/>
           </MaterialModule.IconButton>
         </div>
-        <MaterialModule.DialogContent className="!p-4 !pb-0 ">
+        <MaterialModule.DialogContent className="!p-2 border border-gray-200 m-3 bg-gray-200 !overflow-hidden">
           {auditLogs.length === 0 ? (
-            <div className="text-center text-gray-500 py-10">No audit records found.</div>
-          ) : (
-            <MaterialModule.TableContainer>
-              <MaterialModule.Table size="small">
-                <MaterialModule.TableHead className="bg-gray-100">
-                  <MaterialModule.TableRow>
-                    {["S No", "Field", "Old Value", "New Value", "Changed By", "Date & Time"].map((h) => (
-                      <MaterialModule.TableCell key={h} className="!font-semibold !text-xs">{h}</MaterialModule.TableCell>
-                    ))}
-                  </MaterialModule.TableRow>
-                </MaterialModule.TableHead>
-                <MaterialModule.TableBody>
-                  {auditLogs.map((log: any, i: number) => (
-                    <MaterialModule.TableRow key={log.id || i} sx={getRowColor(i)}>
-                      <MaterialModule.TableCell className="!text-xs !whitespace-nowrap">
-                        {i + 1}
-                      </MaterialModule.TableCell>
+            <div className="text-center text-gray-400 py-16 text-sm">No audit records found.</div>
+          ) : (() => {
+            const grouped = Object.entries(
+              auditLogs.reduce((acc: Record<string, any[]>, log: any) => {
+                const key = log.fieldName || "-";
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(log);
+                return acc;
+              }, {})
+            ).map(([field, logs]) => ({
+              field,
+              logs: [...logs].sort((a, b) =>
+                new Date(b.changedOn || 0).getTime() - new Date(a.changedOn || 0).getTime()
+              ),
+            })).sort((a, b) =>
+              new Date(b.logs[0]?.changedOn || 0).getTime() - new Date(a.logs[0]?.changedOn || 0).getTime()
+            );
 
-                      {/* <MaterialModule.TableCell className="!text-xs">
-                        <MaterialModule.Chip label={log.actionType} size="small" color={
-                          log.actionType === "CREATE" ? "success" :
-                            log.actionType === "DELETE" ? "error" :
-                              log.actionType === "UPDATE" ? "primary" : "default"
-                        } />
-                      </MaterialModule.TableCell> */}
-                      {/* <MaterialModule.TableCell className="!text-xs">{[log.module, log.screen].filter(Boolean).join(" / ") || "-"}</MaterialModule.TableCell> */}
-                      <MaterialModule.TableCell className="!text-xs">{log.fieldName || "-"}</MaterialModule.TableCell>
-                      <MaterialModule.TableCell >
-                        <span className="!text-xs !text-red-500"> {log.oldValue || "-"}</span>
-                      </MaterialModule.TableCell>
-                      <MaterialModule.TableCell>
-                        <span className="!text-xs !text-green-600">{log.newValue || "-"}</span>
-                      </MaterialModule.TableCell>
-                      <MaterialModule.TableCell className="!text-xs">{log.changedBy?.userName || "-"}</MaterialModule.TableCell>
-                      <MaterialModule.TableCell className="!text-xs !whitespace-nowrap">
-                        {log.changedOn ? formatDate(log.changedOn) : "-"}
-                      </MaterialModule.TableCell>
-                    </MaterialModule.TableRow>
-                  ))}
-                </MaterialModule.TableBody>
-              </MaterialModule.Table>
-            </MaterialModule.TableContainer>
-          )}
+            return (
+              <div style={{ height: "calc(100vh - 250px)", overflowY: "auto" }}>
+                {grouped.map((group) => {
+                  const latest = group.logs[0];
+                  const isExpanded = expandedAuditFields.has(group.field);
+                  const hasPrevious = group.logs.length > 1;
+
+                  return (
+                    <div key={group.field} className="border-b border-gray-200 bg-white">
+                      {/* Main row */}
+                      <div
+                        onClick={() => {
+                          if (!hasPrevious) return;
+                          setExpandedAuditFields((prev) => {
+                            const next = new Set(prev);
+                            next.has(group.field) ? next.delete(group.field) : next.add(group.field);
+                            return next;
+                          });
+                        }}
+                        className={`flex items-center gap-4 py-2 px-4 cursor-pointer ${isExpanded ? "bg-sky-200/50 dark:bg-sky-900" : "var(--bg-white)"}`}>
+                        {/* Expand icon */}
+                        <div className="flex items-center text-gray-500">
+                          {hasPrevious
+                            ? isExpanded ? <KeyboardArrowUp style={{ fontSize: 16 }} /> : <KeyboardArrowDown style={{ fontSize: 16 }} />
+                            : <div className="w-[20px]"></div>}
+                        </div>
+
+                        {/* Field name */}
+                        <div className="w-[250px]">
+                          <span className="text-[12px] text-gray-800">{group.field}</span>
+                          {hasPrevious && (
+                            <span className="ml-2 font-mono text-primary bg-primary-100 px-2 py-1 rounded-lg text-[10px]">
+                              {group.logs.length - 1}x
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Old → New */}
+                        <div className="flex flex-1 items-center gap-4">
+                          <div className="text-[12px]  w-[230px] ">
+                            <div className="text-gray-500">Previous Value</div>
+                            <span className="text-red-500 whitespace-nowrap overflow-hidden text-ellipsis ">{latest.oldValue || "—"}</span>
+                          </div>
+                          <span className="text-gray-500 w-[20px]">→</span>
+                          <div className="text-[12px] w-[230px] ">
+                            <div className="text-gray-500">Current Value</div>
+                            <span className="text-green-600 whitespace-nowrap overflow-hidden text-ellipsis">
+                              {latest.newValue || "—"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Changed by + date */}
+                        <div className="text-right flex flex-col gap-1">
+                          <span className="text-[11px] text-gray-500 font-bold">{latest.changedBy?.userName || "—"}</span>
+                          <span className="text-[10px] text-gray-500 whitespace-nowrap">{latest.changedOn ? formatDateTime(latest.changedOn) : "—"}</span>
+                        </div>
+                      </div>
+
+                      {/* History entries */}
+                      <MaterialModule.Collapse in={isExpanded} unmountOnExit className="!bg-white">
+                        <div className="bg-head px-8 pt-0 border-t border-gray-200">
+                          {group.logs.slice(1).map((log: any, j: number) => (
+                            <div key={log.id || `${group.field}-${j}`}
+                              className={`flex items-center gap-4 p-2 relative ${j < group.logs.length - 2 ? "border-b border-gray-200" : "none"}`}
+                            >
+                              {/* timeline dot */}
+                              <div className="text-[10px] text-gray-500"></div>
+
+                              {/* Field (muted) */}
+                              <div className="w-[250px]">
+                                <span className="text-[11px] text-gray-500">{group.field}</span>
+                              </div>
+
+                              {/* Old → New */}
+                              <div className="flex flex-1 items-center gap-4">
+                                <span className="text-[10px] text-gray-500 whitespace-nowrap w-[225px] overflow-hidden text-ellipsis">{log.oldValue || "—"}</span>
+                                <span className="text-gray-500 w-[20px]">→</span>
+                                <span className="text-[10px] text-gray-500 whitespace-nowrap w-[225px] overflow-hidden text-ellipsis">{log.newValue || "—"}</span>
+                              </div>
+
+                              {/* Changed by + date */}
+                              <div className="text-right flex flex-col gap-1">
+                                <span className="text-[11px] text-gray-500 font-bold">{log.changedBy?.userName || "—"}</span>
+                                <span className="text-[10px] text-gray-500 whitespace-nowrap">{log.changedOn ? formatDateTime(log.changedOn) : "—"}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </MaterialModule.Collapse>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </MaterialModule.DialogContent>
-        <MaterialModule.DialogActions className="!p-4">
+        <MaterialModule.DialogActions className="!px-4 !py-2">
           <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={() => setAuditLogOpen(false)}>Close</Button>
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
