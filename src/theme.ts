@@ -207,6 +207,12 @@ const theme = createTheme({
             // backgroundColor: "gray",
           },
 
+          '& input[type="time"]::-webkit-calendar-picker-indicator': {
+            filter:
+              'invert(32%) sepia(98%) saturate(1324%) hue-rotate(210deg) brightness(97%) contrast(101%)',
+            cursor: 'pointer',
+          },
+
           "& .MuiOutlinedInput-root": {
             backgroundColor: "var(--bg-primary)",
             padding: "0px",

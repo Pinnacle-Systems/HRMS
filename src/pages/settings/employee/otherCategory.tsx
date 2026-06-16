@@ -383,7 +383,7 @@ export default function CategorySettings() {
         sx={commonsx}
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             {editingCategory ? "Edit Category" : "Add New Category"}
           </div>
           <IconButton onClick={() => setDialogOpen(false)}>

@@ -50,6 +50,7 @@ const CreatePolicy = lazy(() => import("../pages/policies/CreatePolicy"));
 const EditPolicy = lazy(() => import("../pages/policies/EditPolicy"));
 const PolicyDetails = lazy(() => import("../pages/policies/PolicyDetails"));
 const PolicySimulator = lazy(() => import("../pages/policies/PolicySimulator"));
+const PolicyReports = lazy(() => import("../pages/policies/PolicyReports"));
 const AuditLogs = lazy(() => import("../pages/settings/general/auditLogs"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
@@ -226,6 +227,7 @@ function AppRoutesContent() {
                 <Route path="policies/:id" element={<PolicyDetails />} />
                 <Route path="policies/:id/edit" element={<EditPolicy />} />
                 <Route path="policies/simulator" element={<PolicySimulator />} />
+                <Route path="policies/reports" element={<PolicyReports />} />
               </Route>
 
               <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>

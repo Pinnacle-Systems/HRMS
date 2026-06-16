@@ -1,36 +1,53 @@
-import { mockPolicyService } from "../../services/mockPolicyService";
 import { PolicyDomain } from "../../types/policy";
-
-export const mockPolicies = mockPolicyService.getPolicies("company_123");
 
 export const statsCard = [
   {
     label: "Total Policies",
     value: "total",
-    color: "#64748b !important",
-    textColor: "text.primary",
+    color: "#64748b",
+    bgColor: "#f8fafc",
     total: "total",
+    icon: "total",
   },
   {
-    label: "Active Policies",
+    label: "Active",
     value: "active",
-    color: "#22c55e !important",
-    textColor: "success.main",
+    color: "#22c55e",
+    bgColor: "#f0fdf4",
     total: "active",
+    icon: "active",
   },
   {
     label: "Pending Approval",
     value: "pending",
-    color: "#f59e0b !important",
-    textColor: "warning.main",
+    color: "#f59e0b",
+    bgColor: "#fffbeb",
     total: "pending",
+    icon: "pending",
   },
   {
     label: "Drafts",
     value: "draft",
-    color: "#0288d1 !important",
-    textColor: "info.main",
+    color: "#0288d1",
+    bgColor: "#f0f9ff",
     total: "draft",
+    icon: "draft",
+  },
+  {
+    label: "Archived",
+    value: "archived",
+    color: "#9602d1",
+    bgColor: "#fdf4ff",
+    total: "archived",
+    icon: "archived",
+  },
+  {
+    label: "Expired",
+    value: "expired",
+    color: "#ef4444",
+    bgColor: "#fef2f2",
+    total: "expired",
+    icon: "expired",
   },
 ];
 export interface TabPanelProps {

@@ -44,10 +44,12 @@ import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
 import { formatDate, formatDateTime } from "../../utils/dateFormatter";
-import { AttachFileOutlined, KeyboardArrowDown, KeyboardArrowUp } from "@mui/icons-material";
+import { AttachFileOutlined, KeyboardArrowDown, KeyboardArrowUp, AssignmentOutlined as PolicyIcon } from "@mui/icons-material";
 import { shiftService, type Shift } from "../../services/modules/shifts";
 import { auditLogService } from "../../services/modules/auditLogs";
 import { Button } from "@mui/material";
+import { policyService } from "../../services";
+import { PolicyDomain } from "../../types/policy";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -518,7 +520,7 @@ const EditableGroup = ({
         fullWidth
       >
         <div className="flex items-center justify-between border-b p-1">
-          <div className="text-primary font-medium pl-5">
+          <div className="text-gray-800 font-medium pl-5">
             Upload Attachment
           </div>
           <MaterialModule.IconButton
@@ -1362,7 +1364,7 @@ const EditableTableGroup = ({
         maxWidth="sm"
         sx={commonsx}
       >
-        <div className="text-primary !border-b !p-2 flex items-center justify-between !border-gray-200">
+        <div className="text-gray-800 !border-b !p-2 flex items-center justify-between !border-gray-200">
           <span className="ml-4">
             {dialogType === "attachment"
               ? "Upload Document"
@@ -1375,7 +1377,7 @@ const EditableTableGroup = ({
             setSelectedFile(null);
             setNewItemData({})
           }}>
-            <MaterialModule.CloseOutlined />
+            <MaterialModule.CloseOutlined className="text-gray-800"/>
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
@@ -1592,6 +1594,15 @@ export default function EmployeeDetails() {
   );
   const [categories, setCategories] = useState<Record<string, any[]>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Policy tab state
+  const [empPolicies, setEmpPolicies] = useState<any[]>([]);
+  const [empPolicyHistory, setEmpPolicyHistory] = useState<any[]>([]);
+  const [effectivePolicies, setEffectivePolicies] = useState<Record<string, any>>({});
+  const [policyLoading, setPolicyLoading] = useState(false);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const [policySection, setPolicySection] = useState<'effective' | 'assigned' | 'history'>('effective');
+
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
     { label: "Addresses", icon: <MaterialModule.LocationIcon /> },
@@ -1603,6 +1614,7 @@ export default function EmployeeDetails() {
     { label: "Family Details", icon: <MaterialModule.FamilyIcon /> },
     { label: "Nominations", icon: <MaterialModule.AccountBalanceIcon /> },
     { label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
+    { label: "Policies", icon: <PolicyIcon /> },
   ];
 
   const fetchEmployeeDetails = async () => {
@@ -2553,6 +2565,33 @@ export default function EmployeeDetails() {
     }
   }, [tabValue])
 
+  useEffect(() => {
+    if (tabValue !== 10 || !id) return;
+    setPolicyLoading(true);
+    setPolicyError(null);
+    const keyDomains = [PolicyDomain.LEAVE, PolicyDomain.EXPENSE, PolicyDomain.OVERTIME, PolicyDomain.ATTENDANCE, PolicyDomain.PAYROLL];
+    Promise.all([
+      policyService.getEmployeePolicies(id),
+      policyService.getEmployeePolicyHistory(id),
+      Promise.all(keyDomains.map(domain =>
+        policyService.getEffectivePolicy(id, domain)
+          .then((res: any) => ({ domain, data: res.data ?? null }))
+          .catch(() => ({ domain, data: null }))
+      )),
+    ])
+      .then(([policiesRes, historyRes, effectiveRes]: any) => {
+        setEmpPolicies(policiesRes.data ?? []);
+        setEmpPolicyHistory(historyRes.data ?? []);
+        const effectiveMap: Record<string, any> = {};
+        (effectiveRes as Array<{ domain: string; data: any }>).forEach(({ domain, data }) => {
+          if (data) effectiveMap[domain] = data;
+        });
+        setEffectivePolicies(effectiveMap);
+      })
+      .catch(() => setPolicyError('Failed to load policy data'))
+      .finally(() => setPolicyLoading(false));
+  }, [tabValue, id]);
+
   const familyMemberOptions = familyMembers.map((member: any) => ({
     id: member.id,
     name: `${member.name} (${member.relationship})`,
@@ -3081,6 +3120,160 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
             />
+          </TabPanel>
+
+          {/* Tab 10: Policies */}
+          <TabPanel value={tabValue} index={10}>
+            <div className="p-4">
+              {/* Section toggle buttons */}
+              <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">
+                {([
+                  { key: 'effective', label: 'Effective Policies' },
+                  { key: 'assigned',  label: 'All Assigned Policies' },
+                  { key: 'history',   label: 'Policy History' },
+                ] as const).map(({ key, label }) => (
+                  <Button
+                    key={key}
+                    size="small"
+                    variant={policySection === key ? 'contained' : 'outlined'}
+                    onClick={() => setPolicySection(key)}
+                    className={policySection === key ? '!bg-primary !text-white' : '!text-gray-600 !border-gray-300'}
+                    sx={{ textTransform: 'none', borderRadius: 2, px: 2 }}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+
+              {policyLoading && (
+                <div className="flex justify-center py-10">
+                  <MaterialModule.CircularProgress />
+                </div>
+              )}
+              {policyError && (
+                <MaterialModule.Alert severity="error">{policyError}</MaterialModule.Alert>
+              )}
+
+              {!policyLoading && !policyError && (
+                <>
+                  {/* Effective Policies */}
+                  {policySection === 'effective' && (
+                    Object.keys(effectivePolicies).length === 0 ? (
+                      <MaterialModule.Alert severity="info">No effective policies found for this employee.</MaterialModule.Alert>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Object.entries(effectivePolicies).map(([domain, policy]: [string, any]) => (
+                          <MaterialModule.Card key={domain} variant="outlined" className="!rounded-lg !bg-white">
+                            <MaterialModule.CardContent className="!py-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <MaterialModule.Chip label={domain} size="small" className="!bg-primary !text-white !text-[11px]" />
+                                {policy.status && (
+                                  <MaterialModule.Chip label={policy.status} size="small" color="success" variant="outlined" />
+                                )}
+                              </div>
+                              <div className="text-[13px] font-medium text-gray-800">
+                                {policy.policyName || '—'}
+                              </div>
+                              {policy.policyCode && (
+                                <div className="text-[11px] text-gray-400">{policy.policyCode}</div>
+                              )}
+                              {policy.effectiveFrom && (
+                                <div className="text-[11px] text-gray-500 mt-1">
+                                  From: {formatDate(policy.effectiveFrom)}
+                                  {policy.effectiveTo ? ` → ${formatDate(policy.effectiveTo)}` : ' — Ongoing'}
+                                </div>
+                              )}
+                            </MaterialModule.CardContent>
+                          </MaterialModule.Card>
+                        ))}
+                      </div>
+                    )
+                  )}
+
+                  {/* All Assigned Policies */}
+                  {policySection === 'assigned' && (
+                    empPolicies.length === 0 ? (
+                      <MaterialModule.Alert severity="info">No policies assigned to this employee.</MaterialModule.Alert>
+                    ) : (
+                      <MaterialModule.TableContainer className="bg-white border border-gray-200 rounded-md !max-h-[335px]">
+                        <MaterialModule.Table stickyHeader size="small">
+                          <MaterialModule.TableHead sx={{ bgcolor: 'action.hover' }}>
+                            <MaterialModule.TableRow>
+                              <MaterialModule.TableCell>S No</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Policy Name</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Domain</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Version</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Effective From</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Effective To</MaterialModule.TableCell>
+                            </MaterialModule.TableRow>
+                          </MaterialModule.TableHead>
+                          <MaterialModule.TableBody>
+                            {empPolicies.map((p: any,index: any) => (
+                              <MaterialModule.TableRow key={p.id || index} sx={getRowColor(index)}>
+                                <MaterialModule.TableCell>{index + 1}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{p.policyName || p.name || '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <MaterialModule.Chip label={p.domainCode} size="small" variant="outlined" className="!text-gray-800" />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <MaterialModule.Chip label={p.policyVersion ? `v${p.policyVersion}` : '—'} size="small" className="!text-gray-800" />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{p.effectiveFrom ? formatDate(p.effectiveFrom) : '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{p.effectiveTo ? formatDate(p.effectiveTo) : 'Ongoing'}</MaterialModule.TableCell>
+                              </MaterialModule.TableRow>
+                            ))}
+                          </MaterialModule.TableBody>
+                        </MaterialModule.Table>
+                      </MaterialModule.TableContainer>
+                    )
+                  )}
+
+                  {/* Policy History */}
+                  {policySection === 'history' && (
+                    empPolicyHistory.length === 0 ? (
+                      <MaterialModule.Alert severity="info">No policy history found for this employee.</MaterialModule.Alert>
+                    ) : (
+                      <MaterialModule.TableContainer className="bg-white border border-gray-200 rounded-md !max-h-[335px]">
+                        <MaterialModule.Table stickyHeader size="small">
+                          <MaterialModule.TableHead sx={{ bgcolor: 'action.hover' }}>
+                            <MaterialModule.TableRow>
+                              <MaterialModule.TableCell>S No</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Policy Name</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Domain</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Version</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Assigned From</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Assigned To</MaterialModule.TableCell>
+                              <MaterialModule.TableCell>Status</MaterialModule.TableCell>
+                            </MaterialModule.TableRow>
+                          </MaterialModule.TableHead>
+                          <MaterialModule.TableBody>
+                            {empPolicyHistory.map((h: any, i: number) => (
+                              <MaterialModule.TableRow key={h.id ?? i} sx={getRowColor(i)}>
+                                <MaterialModule.TableCell>{i + 1}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{h.policyName || h.name || '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <MaterialModule.Chip label={h.domainCode} size="small" variant="outlined" className="!text-gray-800" />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{h.policyVersion ? `v${h.policyVersion}` : '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{h.effectiveFrom ? formatDate(h.effectiveFrom) : '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>{h.effectiveTo ? formatDate(h.effectiveTo) : '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <MaterialModule.Chip
+                                    label={h.status || '—'}
+                                    size="small" className="!text-gray-800"
+                                    color={h.status === 'ACTIVE' ? 'success' : 'default'}
+                                  />
+                                </MaterialModule.TableCell>
+                              </MaterialModule.TableRow>
+                            ))}
+                          </MaterialModule.TableBody>
+                        </MaterialModule.Table>
+                      </MaterialModule.TableContainer>
+                    )
+                  )}
+                </>
+              )}
+            </div>
           </TabPanel>
         </div>
       </div>

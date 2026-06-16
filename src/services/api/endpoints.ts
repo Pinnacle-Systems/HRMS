@@ -344,69 +344,196 @@ export const API_ENDPOINTS = {
 
     GET_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
     POST_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
-    PUT_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`
+    PUT_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
   },
 
   POLICY: {
+    DELETE: (id: string) => `/policies/${id}`,
+    GET_BY_ID: (id: string) => `/policies/${id}`,
     BASE: "/policies",
+    GET_VERSIONS: (id: string) => `/policies/${id}/versions`,
+    GET_AUDIT: (id: string) => `/policies/${id}/audit`,
+    COMPANY_POLICY: (id: string) => `/policies/company/${id}`,
+    GET_BY_DOMAIN: (domain: string) => `/policies/by-domain/${domain}`,
+    CREATE: "/policies",
+    CREATE_VERSION: (id: string) => `/policies/${id}/versions`,
+    UPDATE_VALIDATE_CONFIG: (id: string) => `/policies/${id}/validate-config`,
+    UPDATE: (id: string) => `/policies/${id}`,
+    CREATE_VALIDATE_CONFIG: (did: string) => `/policy-domains/${did}/validate-config`,
+
     TEMPLATES: {
-      BASE: "/policies/templates",
-      GET_BY_ID: (id: string) => `/policies/templates/${id}`,
-      CREATE: "/policies/templates",
-      UPDATE: (id: string) => `/policies/templates/${id}`,
-      DELETE: (id: string) => `/policies/templates/${id}`,
-      CLONE: (id: string) => `/policies/templates/${id}/clone`,
-      TOGGLE_STATUS: (id: string) => `/policies/templates/${id}/toggle-status`,
-      LIST: "/policies/templates",
-      BULK_DELETE: "/policies/templates/bulk-delete",
-      BULK_STATUS: "/policies/templates/bulk-status",
-      VERSIONS: (id: string) => `/policies/templates/${id}/versions`,
-      VERSION_BY_ID: (id: string, versionId: string) =>
-        `/policies/templates/${id}/versions/${versionId}`,
-      ROLLBACK: (id: string, versionId: string) =>
-        `/policies/templates/${id}/versions/${versionId}/rollback`,
+      DELETE: (id: string) => `/policy-templates/${id}`,
+      REMOVE_RULE: (id: string, rid: string) =>
+        `/policy-templates/${id}/rule-blocks/${rid}`,
+      GET_BY_ID: (id: string) => `/policy-templates/${id}`,
+      BASE: "/policy-templates",
+      GET_RULES_BY_ID: (id: string) => `/policy-templates/${id}/rule-blocks`,
+      CREATE: "/policy-templates",
+      ADD_RULE: (id: string) => `/policy-templates/${id}/rule-blocks`,
+      COPY: (id: string) => `/policy-templates/${id}/copy`,
+      UPDATE: (id: string) => `/policy-templates/${id}`,
+      UPDATE_RULE: (id: string, rid: string) =>
+        `/policy-templates/${id}/rule-blocks/${rid}`,
     },
+
+    VERSION: {
+      GET_BY_ID: (id: string) => `/policy-versions/${id}`,
+      COMPARE: (v1: string, v2: string) =>
+        `/policy-versions/${v1}/compare/${v2}`,
+      GET_AUDIT: (id: string) => `/policy-versions/${id}/audit`,
+      SUBMIT: (id: string) => `/policy-versions/${id}/submit`,
+      REJECT: (id: string) => `/policy-versions/${id}/reject`,
+      EXPIRE: (id: string) => `/policy-versions/${id}/expire`,
+      ARCHIVE: (id: string) => `/policy-versions/${id}/archive`,
+      APPROVE: (id: string) => `/policy-versions/${id}/approve`,
+      ACTIVATE: (id: string) => `/policy-versions/${id}/activate`,
+      UPDATE: (id: string) => `/policy-versions/${id}`,
+    },
+
+    EVALUATION: {
+      GET_HISTORY: (id: string) => `/employees/${id}/policy-history`,
+      GET_EMP_POLICY: (id: string) => `/employees/${id}/policies`,
+      GET_EFFECTIVE_POLICY: (id: string, domain: string) =>
+        `/employees/${id}/effective-policy/${domain}`,
+      PREVIEW: (id: string) => `/policy-versions/${id}/preview`,
+      EVALUATE: "/policies/evaluate",
+      BULK_EVALUATE: "/policies/bulk-evaluate",
+    },
+
+    RULE_BLOCKS: {
+      DELETE: (id: string) => `/rule-blocks/${id}`,
+      GET_BY_ID: (id: string) => `/rule-blocks/${id}`,
+      BASE: "/rule-blocks",
+      SCHEMA: (id: string) => `/rule-blocks/${id}/schema`,
+      BY_DOMAIN: (code: string) => `/rule-blocks/domain/${code}`,
+      CREATE: "/rule-blocks",
+      UPDATE: (id: string) => `/rule-blocks/${id}`,
+    },
+
+    DOMAIN_CONFIG: {
+      LEAVE_ENTITLEMENTS: {
+        DELETE: (id: string) => `/leave-entitlements/${id}`,
+        GET: (id: string) => `/policy-versions/${id}/leave-entitlements`,
+        POST: (id: string) => `/policy-versions/${id}/leave-entitlements`,
+        PUT: (id: string) => `/leave-entitlements/${id}`,
+      },
+      EXPENSE_LIMITS: {
+        DELETE: (id: string) => `/expense-limits/${id}`,
+        GET: (id: string) => `/policy-versions/${id}/expense-limits`,
+        POST: (id: string) => `/policy-versions/${id}/expense-limits`,
+        PUT: (id: string) => `/expense-limits/${id}`,
+      },
+      OVERTIME_RULES: {
+        GET: (id: string) => `/policy-versions/${id}/overtime-rules`,
+        PUT: (id: string) => `/policy-versions/${id}/overtime-rules`,
+      },
+      CARRY_FORWARD: {
+        GET: (id: string) => `/policy-versions/${id}/carry-forward`,
+        PUT: (id: string) => `/policy-versions/${id}/carry-forward`,
+      },
+      WFH: {
+        GET: (id: string) => `/policy-versions/${id}/wfh-rules`,
+        PUT: (id: string) => `/policy-versions/${id}/wfh-rules`,
+      },
+      SANDWICH: {
+        GET: (id: string) => `/policy-versions/${id}/sandwich-rule`,
+        PUT: (id: string) => `/policy-versions/${id}/sandwich-rule`,
+      },
+      PAYROLL: {
+        GET: (id: string) => `/policy-versions/${id}/payroll-rules`,
+        PUT: (id: string) => `/policy-versions/${id}/payroll-rules`,
+      },
+      COMPOFF: {
+        GET: (id: string) => `/policy-versions/${id}/comp-off-rules`,
+        PUT: (id: string) => `/policy-versions/${id}/comp-off-rules`,
+      },
+      HOLIDAY: {
+        GET: (id: string) => `/policy-versions/${id}/holiday-rules`,
+        PUT: (id: string) => `/policy-versions/${id}/holiday-rules`,
+      },
+    },
+
     ASSIGNMENT: {
-      EMPLOYEE_POLICIES: (employeeId: string) =>
-        `/employees/${employeeId}/policies`,
-      EMPLOYEE_POLICY_BY_ID: (employeeId: string, assignmentId: string) =>
-        `/employees/${employeeId}/policies/${assignmentId}`,
-      ASSIGN: (employeeId: string) => `/employees/${employeeId}/policies`,
-      UPDATE: (employeeId: string, assignmentId: string) =>
-        `/employees/${employeeId}/policies/${assignmentId}`,
-      REMOVE: (employeeId: string, assignmentId: string) =>
-        `/employees/${employeeId}/policies/${assignmentId}`,
-      BULK_ASSIGN: "/employees/policies/bulk-assign",
-      APPLICABLE: (employeeId: string) =>
-        `/employees/${employeeId}/policies/applicable`,
-      SIMULATE_CHANGE: (employeeId: string) =>
-        `/employees/${employeeId}/policies/simulate-change`,
-      VALIDATE: (employeeId: string) =>
-        `/employees/${employeeId}/policies/validate`,
-      CONFLICTS: (employeeId: string) =>
-        `/employees/${employeeId}/policies/conflicts`,
+      DELETE: (id: string) => `/policy-assignments/${id}`,
+      GET_BY_ID: (id: string) => `/policy-assignments/${id}`,
+      GET_BY_VERSION: (vid: string) => `/policy-versions/${vid}/assignments`,
+      CONFLICTS: (id: string) => `/policy-assignments/${id}/conflicts`,
+      EMP_ASSIGNMENTS: (eid: string) => `/employees/${eid}/assignments`,
+      CREATE: "/policy-assignments",
+      CHECK_CONFLICTS: "/policy-assignments/check-conflicts",
+      UPDATE: (id: string) => `/policy-assignments/${id}`,
     },
-    CALCULATION: {
-      CALCULATE: "/policies/calculate",
-      CALCULATE_OT: "/policies/calculate-ot",
-      CALCULATE_BONUS: "/policies/calculate-bonus",
-      PREVIEW: "/policies/preview",
+
+    NOTIFICATION: {
+      GET: "/notifications/policy",
+      CREATE: (vid: string) => `/policy-versions/${vid}/notify`,
     },
-    LOGS: {
-      EMPLOYEE_LOGS: (employeeId: string) =>
-        `/employees/${employeeId}/policy-logs`,
-      LOG_BY_ID: (logId: string) => `/policies/execution-logs/${logId}`,
-      EXPORT: (employeeId: string) =>
-        `/employees/${employeeId}/policy-logs/export`,
+
+    SIMULATION: {
+      GET: "/policy-simulations",
+      GET_BY_ID: (id: string) => `/policy-simulations/${id}`,
+      RUN: (vid: string) => `/policy-versions/${vid}/simulate`,
+      ANALYSIS: (vid: string) => `/policy-versions/${vid}/impact-analysis`,
     },
+
+    APPROVAL_WORKFLOW: {
+      DELETE: (id: string) => `/approval-flow/${id}`,
+      DELETE_LEVEL: (id: string) => `/approval-flow-levels/${id}`,
+      GET_BY_VERSION: (vid: string) => `/policy-versions/${vid}/approval-flow`,
+      CREATE_FLOW: (vid: string) => `/policy-versions/${vid}/approval-flow`,
+      CREATE_LEVEL: (id: string) => `/approval-flow/${id}/levels`,
+      UPDATE: (id: string) => `/approval-flow/${id}`,
+      UPDATE_LEVEL: (id: string) => `/approval-flow-levels/${id}`,
+    },
+
     REPORTS: {
-      STATISTICS: "/policies/statistics",
-      IMPACT_REPORT: "/policies/impact-report",
-      COMPARE: "/policies/compare",
+      GET_SUMMARY: "/reports/policy-summary",
+      GET_SIMULATION: "/reports/policy-simulations",
+      GET_CONFLICTS: "/reports/policy-conflicts",
+      GET_AUDIT: "/reports/policy-audit",
+      GET_ASSIGNMENTS: "/reports/policy-assignments",
+      GET_APPROVALS: "/reports/policy-approvals",
+      GET: "/dashboard/policies",
     },
-    RULES: {
-      BY_TYPE: "/policies/rules",
-    },
+  },
+
+  ALLOWANCE: {
+    DELETE: (id: string) => `/allowance-components/${id}`,
+    GET_BY_ID: (id: string) => `/allowance-components/${id}`,
+    BASE: "/allowance-components",
+    TOOGLE_ACTIVE: (id: string) => `/allowance-components/${id}/toggle-active`,
+    CREATE: "/allowance-components",
+    UPDATE: (id: string) => `/allowance-components/${id}`,
+  },
+
+  EXPENSE_CATEGORIES: {
+    DELETE: (id: string) => `/expense-categories/${id}`,
+    GET_BY_ID: (id: string) => `/expense-categories/${id}`,
+    BASE: "/expense-categories",
+    TOOGLE_ACTIVE: (id: string) => `/expense-categories/${id}/toggle-active`,
+    CREATE: "/expense-categories",
+    UPDATE: (id: string) => `/expense-categories/${id}`,
+  },
+
+  DEDUCTION: {
+    DELETE: (id: string) => `/deduction-components/${id}`,
+    GET_BY_ID: (id: string) => `/deduction-components/${id}`,
+    BASE: "/deduction-components",
+    TOOGLE_ACTIVE: (id: string) => `/deduction-components/${id}/toggle-active`,
+    CREATE: "/deduction-components",
+    UPDATE: (id: string) => `/deduction-components/${id}`,
+  },
+
+  POLICY_DOMAIN: {
+    DELETE: (id: string) => `/policy-domains/${id}`,
+    GET_BY_ID: (id: string) => `/policy-domains/${id}`,
+    BASE: "/policy-domains",
+    CREATE: "/policy-domains",
+    UPDATE: (id: string) => `/policy-domains/${id}`,
+  },
+
+  EXPORTS: {
+    GET_EXPORTS: (token: string) => `/exports/${token}`,
   },
 
   ID_GENERATION: {

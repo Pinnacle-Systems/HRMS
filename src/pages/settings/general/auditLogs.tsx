@@ -240,7 +240,7 @@ export default function AuditLogs() {
       </div>
 
       {/* Table */}
-      <TableContainer className="h-[calc(100vh-310px)] overflow-auto">
+      <TableContainer className="h-[calc(100vh-330px)] overflow-auto">
         <Table stickyHeader className="border border-gray-200">
           <TableHead sx={{ "& .MuiTableCell-root": { backgroundColor: "#f3f4f6" } }}>
             <TableRow>
@@ -321,7 +321,7 @@ export default function AuditLogs() {
                         <Box sx={{ px: 6, py: 2 }}>
                           <div className="flex flex-wrap gap-x-6 gap-y-2">
                             <div>
-                              <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Record ID</div>
+                              <div className="text-[10px] text-gray-400 uppercase  mb-1">Record ID</div>
                               <div className="text-[12px] font-mono text-gray-700 break-all">{log.recordId}</div>
                             </div>
                             {/* Divider */}

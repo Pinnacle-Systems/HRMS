@@ -316,7 +316,7 @@ export default function CompOffsPage() {
           </TableContainer>
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">Request Comp-Off Credit</div>
+          <div className="text-gray-800 ml-4">Request Comp-Off Credit</div>
           <IconButton onClick={() => setOpen(false)}>
             <CloseOutlinedIcon className="!text-gray-800"/>
           </IconButton>

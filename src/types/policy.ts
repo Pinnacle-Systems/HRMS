@@ -1,64 +1,66 @@
 export const PolicyDomain = {
-  ONBOARDING: 'ONBOARDING',
-  PROBATION: 'PROBATION',
-  ATTENDANCE: 'ATTENDANCE',
+  ONBOARDING: "ONBOARDING",
+  PROBATION: "PROBATION",
+  ATTENDANCE: "ATTENDANCE",
   // SHIFT: 'SHIFT',
-  WORK_FROM_HOME: 'WORK_FROM_HOME',
-  HOLIDAY: 'HOLIDAY',
-  LEAVE: 'LEAVE',
-  COMP_OFF: 'COMP_OFF',
-  OVERTIME: 'OVERTIME',
-  EXPENSE: 'EXPENSE',
-  ALLOWANCE: 'ALLOWANCE',
-  DEDUCTION: 'DEDUCTION',
-  PAYROLL: 'PAYROLL',
-  NOTICE_PERIOD: 'NOTICE_PERIOD',
-  OFFBOARDING: 'OFFBOARDING',
-  BONUS: 'BONUS',
-  LOAN_ADVANCE: 'LOAN_ADVANCE',
+  WORK_FROM_HOME: "WORK_FROM_HOME",
+  HOLIDAY: "HOLIDAY",
+  LEAVE: "LEAVE",
+  COMP_OFF: "COMP_OFF",
+  OVERTIME: "OVERTIME",
+  EXPENSE: "EXPENSE",
+  ALLOWANCE: "ALLOWANCE",
+  DEDUCTION: "DEDUCTION",
+  PAYROLL: "PAYROLL",
+  NOTICE_PERIOD: "NOTICE_PERIOD",
+  OFFBOARDING: "OFFBOARDING",
+  BONUS: "BONUS",
+  LOAN_ADVANCE: "LOAN_ADVANCE",
   // APPROVAL_WORKFLOW: 'APPROVAL_WORKFLOW',
 } as const;
 
-export type PolicyDomain = typeof PolicyDomain[keyof typeof PolicyDomain];
+export type PolicyDomain = (typeof PolicyDomain)[keyof typeof PolicyDomain];
 
 export const PolicyStatus = {
-  DRAFT: 'DRAFT',
-  PENDING_APPROVAL: 'PENDING_APPROVAL',
-  ACTIVE: 'ACTIVE',
-  SCHEDULED: 'SCHEDULED',
-  EXPIRED: 'EXPIRED',
-  ARCHIVED: 'ARCHIVED',
+  DRAFT: "DRAFT",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  ACTIVE: "ACTIVE",
+  SCHEDULED: "SCHEDULED",
+  EXPIRED: "EXPIRED",
+  ARCHIVED: "ARCHIVED",
 } as const;
 
-export type PolicyStatus = typeof PolicyStatus[keyof typeof PolicyStatus];
+export type PolicyStatus = (typeof PolicyStatus)[keyof typeof PolicyStatus];
 
 export const EmploymentType = {
-  PERMANENT: 'PERMANENT',
-  CONTRACT: 'CONTRACT',
-  INTERN: 'INTERN',
-  CONSULTANT: 'CONSULTANT',
-  PROBATION: 'PROBATION',
-  TEMPORARY: 'TEMPORARY',
+  PERMANENT: "PERMANENT",
+  CONTRACT: "CONTRACT",
+  INTERN: "INTERN",
+  CONSULTANT: "CONSULTANT",
+  PROBATION: "PROBATION",
+  TEMPORARY: "TEMPORARY",
 } as const;
 
-export type EmploymentType = typeof EmploymentType[keyof typeof EmploymentType];
+export type EmploymentType =
+  (typeof EmploymentType)[keyof typeof EmploymentType];
 
 export const EmployeeCategory = {
-  Staff: 'staff',
-  Labour: 'labour',
+  Staff: "staff",
+  Labour: "labour",
 } as const;
 
-export type EmployeeCategory = typeof EmployeeCategory[keyof typeof EmployeeCategory];
+export type EmployeeCategory =
+  (typeof EmployeeCategory)[keyof typeof EmployeeCategory];
 
 export const VersionStatus = {
-  DRAFT: 'DRAFT',
-  PENDING_APPROVAL: 'PENDING_APPROVAL',
-  ACTIVE: 'ACTIVE',
-  EXPIRED: 'EXPIRED',
-  ARCHIVED: 'ARCHIVED',
+  DRAFT: "DRAFT",
+  PENDING_APPROVAL: "PENDING_APPROVAL",
+  ACTIVE: "ACTIVE",
+  EXPIRED: "EXPIRED",
+  ARCHIVED: "ARCHIVED",
 } as const;
 
-export type VersionStatus = typeof VersionStatus[keyof typeof VersionStatus];
+export type VersionStatus = (typeof VersionStatus)[keyof typeof VersionStatus];
 
 export const PolicyScopeLevel = {
   SYSTEM_DEFAULT: 10,
@@ -71,7 +73,8 @@ export const PolicyScopeLevel = {
   EMPLOYEE: 80,
 } as const;
 
-export type PolicyScopeLevel = typeof PolicyScopeLevel[keyof typeof PolicyScopeLevel];
+export type PolicyScopeLevel =
+  (typeof PolicyScopeLevel)[keyof typeof PolicyScopeLevel];
 
 // ============================================
 // Base Types
@@ -80,67 +83,75 @@ export type PolicyScopeLevel = typeof PolicyScopeLevel[keyof typeof PolicyScopeL
 export interface PolicyTemplate {
   id: string;
   name: string;
-  domain: PolicyDomain;
+  domainId: string;
   description: string;
   configSchema: Record<string, any>;
   defaultConfig: Record<string, any>;
   ruleBlocks: RuleBlock[];
+  systemTemplate: boolean;
   isSystemTemplate: boolean;
+  blockCount: number;
 }
 
 export interface RuleBlock {
   id: string;
-  name: string;
-  type: RuleBlockType;
+  ruleBlockName: string;
+  ruleBlockCode: RuleBlockType;
+  sequenceNo: number;
+  ruleBlockId: string;
   configurable: boolean;
-  schema: Record<string, any>;
+  templateId: string;
+  mandatory: boolean;
 }
 
-export type RuleBlockType = 
-  | 'LEAVE_ENTITLEMENTS'
-  | 'ACCRUAL_RULES'
-  | 'CARRY_FORWARD'
-  | 'SANDWICH_RULE'
-  | 'OVERTIME_RULES'
-  | 'SHIFT_RULES'
-  | 'ROTATION_RULES'
-  | 'EXPENSE_LIMITS'
-  | 'PAYROLL_RULES'
-  | 'STATUTORY_DEDUCTIONS'
-  | 'TAX_DEDUCTIONS'
-  | 'PROBATION_RULES'
-  | 'NOTICE_PERIOD_RULES'
-  | 'HOLIDAY_RULES'
-  | 'ALLOWANCE_RULES'
-  | 'COMP_OFF_RULES'
-  | 'WFH_RULES'
-  | 'APPROVAL_FLOW'
-  | 'ONBOARDING_RULES'
-  | 'OFFBOARDING_RULES'
-  | 'BONUS_RULES'
-  | 'LOAN_ADVANCE_RULES';
+export type RuleBlockType =
+  | "LEAVE_ENTITLEMENTS"
+  | "ACCRUAL_RULES"
+  | "CARRY_FORWARD"
+  | "SANDWICH_RULE"
+  | "OVERTIME_RULES"
+  | "SHIFT_RULES"
+  | "ROTATION_RULES"
+  | "EXPENSE_LIMITS"
+  | "PAYROLL_RULES"
+  | "STATUTORY_DEDUCTIONS"
+  | "TAX_DEDUCTIONS"
+  | "PROBATION_RULES"
+  | "NOTICE_PERIOD_RULES"
+  | "HOLIDAY_RULES"
+  | "ALLOWANCE_RULES"
+  | "COMP_OFF_RULES"
+  | "WFH_RULES"
+  | "APPROVAL_FLOW"
+  | "ONBOARDING_RULES"
+  | "OFFBOARDING_RULES"
+  | "BONUS_RULES"
+  | "LOAN_ADVANCE_RULES";
 
 export interface PolicyDefinition {
   id: string;
   companyId: string;
   templateId: string;
-  name: string;
-  domain: PolicyDomain;
+  policyName: string;
+  domainId: string;
+  domain: string;
   description?: string;
   status: PolicyStatus;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  updatedBy: string;
   currentVersion?: PolicyVersion;
   effectiveFrom?: string;
   effectiveTo?: string;
+  policyCode: string;
 }
 
 export interface PolicyVersion {
   id: string;
   policyId: string;
-  versionNumber: number;
-  config: PolicyConfig;
+  versionNo: number;
+  configJson: PolicyConfig;
   effectiveFrom: string;
   effectiveTo?: string;
   status: VersionStatus;
@@ -158,7 +169,7 @@ export interface PolicyVersion {
 // Add or update this in your policy.ts file
 
 export interface OTConfigs {
-  otDay:string;
+  otDay: string;
   otCode: string;
   // otValue: string;
   multiplier: number;
@@ -168,11 +179,12 @@ export interface OTConfigs {
 // Update the PolicyConfig interface
 export interface PolicyConfig {
   rules?: PolicyRule[];
+
   entitlements?: EntitlementConfig[];
   accrualRules?: AccrualRule;
   carryForward?: CarryForwardRule;
   approvalFlow?: ApprovalFlowConfig;
-  
+
   // Expense domain
   expenseLimits?: Record<string, ExpenseLimit>;
   advanceAllowed?: boolean;
@@ -181,7 +193,7 @@ export interface PolicyConfig {
   perDiemAllowed?: boolean;
   perDiemAmount?: number;
   foreignCurrencyAllowed?: boolean;
-  
+
   // Overtime domain
   overtimeRules?: {
     maxHoursPerDay?: number;
@@ -191,12 +203,12 @@ export interface PolicyConfig {
     // weekdayMultiplier?: number;
     // weekendMultiplier?: number;
     // holidayMultiplier?: number;
-    compensationType?: 'PAY' | 'COMP_OFF' | 'COMP_OFF_OR_PAY';
+    compensationType?: "PAY" | "COMP_OFF" | "COMP_OFF_OR_PAY";
     compOffValidityDays?: number;
     requiresManagerApproval?: boolean;
     configs: OTConfigs[];
   };
-  
+
   // Shift/Attendance domain
   shiftConfig?: {
     graceTimeMinutes?: number;
@@ -209,7 +221,7 @@ export interface PolicyConfig {
     regularizationAllowedPerMonth?: number;
     overtimeAutoCalculate?: boolean;
   };
-  
+
   penalties?: {
     absentDeductionPerDay?: number;
     lwpAfterDays?: number;
@@ -233,7 +245,7 @@ export interface PolicyConfig {
   knowledgeTransferDays?: number;
   rehireEligibility?: RehireEligibility;
   clearanceChecklist?: string[];
-  
+
   // Payroll domain
   payrollComponents?: {
     basic?: { percentage: number; of: string };
@@ -241,10 +253,10 @@ export interface PolicyConfig {
     da?: { percentage: number; of: string };
     special?: { percentage: number; of: string };
   };
-  
+
   overtimeMultiplier?: number;
   shiftAllowance?: Record<string, number>;
-  
+
   // Statutory deductions
   pf?: {
     employeeContribution: number;
@@ -252,36 +264,36 @@ export interface PolicyConfig {
     ceiling: number;
     basis?: string;
   };
-  
+
   esi?: {
     employeeContribution: number;
     employerContribution: number;
     applicableBelowCTC: number;
   };
-  
+
   professionalTax?: {
     applicable: boolean;
     state?: string;
     slabs?: Array<{ min: number; max: number; amount: number }>;
   };
-  
+
   gratuity?: {
     eligibleAfterYears: number;
     rate: number;
   };
-  
+
   lwf?: {
     applicable: boolean;
     state?: string;
   };
-  
+
   tds?: {
     applicable: boolean;
-    regime: 'OLD' | 'NEW';
+    regime: "OLD" | "NEW";
     declarationRequired?: boolean;
     investmentProofRequired?: boolean;
   };
-  
+
   // Probation domain
   probationDuration?: number;
   extensionAllowed?: boolean;
@@ -291,21 +303,21 @@ export interface PolicyConfig {
   salaryPercentageDuringProbation?: number;
   benefitsEligible?: boolean;
   performanceReviewRequired?: boolean;
-  
+
   // Notice period domain
   noticeDays?: Record<string, number>;
   noticeDuringProbation?: number;
   buyOutAllowed?: boolean;
   buyOutMultiplier?: number;
   gardenLeaveAllowed?: boolean;
-  
+
   // Comp off domain
   compOffValidityDays?: number;
   minOTHoursForCompOff?: number;
   maxCompOffBalance?: number;
   requiresManagerApproval?: boolean;
   autoExpireUnused?: boolean;
-  
+
   // WFH domain
   wfhDaysPerMonth?: number;
   advanceNoticeDays?: number;
@@ -313,13 +325,13 @@ export interface PolicyConfig {
   geofencingRadius?: number;
   eligibleAfterProbation?: boolean;
   allowedDuringProbation?: boolean;
-  
+
   // Holiday domain
   holidayTypes?: string[];
   optionalHolidayQuota?: number;
   workOnHolidayAllowed?: boolean;
   workOnHolidayCompensation?: string;
-  
+
   // Allowance domain
   allowances?: Array<{
     type: string;
@@ -332,12 +344,18 @@ export interface PolicyConfig {
   // Bonus domain
   bonusRules?: {
     bonusTypes?: Array<{
-      type: 'ANNUAL' | 'PERFORMANCE' | 'FESTIVAL' | 'RETENTION' | 'REFERRAL' | 'JOINING';
+      type:
+        | "ANNUAL"
+        | "PERFORMANCE"
+        | "FESTIVAL"
+        | "RETENTION"
+        | "REFERRAL"
+        | "JOINING";
       name: string;
-      calculationBasis: 'CTC' | 'BASIC' | 'GROSS';
+      calculationBasis: "CTC" | "BASIC" | "GROSS";
       percentage?: number;
       fixedAmount?: number;
-      payoutFrequency: 'ANNUAL' | 'SEMI_ANNUAL' | 'QUARTERLY' | 'ONE_TIME';
+      payoutFrequency: "ANNUAL" | "SEMI_ANNUAL" | "QUARTERLY" | "ONE_TIME";
       payoutMonth?: number;
       eligibilityMonths: number;
       performanceLinked: boolean;
@@ -354,7 +372,13 @@ export interface PolicyConfig {
   // Loan & Advance domain
   loanAdvanceRules?: {
     loanTypes?: Array<{
-      type: 'SALARY_ADVANCE' | 'PERSONAL_LOAN' | 'FESTIVAL_ADVANCE' | 'EDUCATION_LOAN' | 'MEDICAL_ADVANCE' | 'VEHICLE_LOAN';
+      type:
+        | "SALARY_ADVANCE"
+        | "PERSONAL_LOAN"
+        | "FESTIVAL_ADVANCE"
+        | "EDUCATION_LOAN"
+        | "MEDICAL_ADVANCE"
+        | "VEHICLE_LOAN";
       name: string;
       maxAmount?: number;
       maxMonthlyMultiplier?: number;
@@ -383,7 +407,7 @@ export interface LeaveEntitlement {
   leaveType: string;
   name: string;
   annualEntitlement: number;
-  accrualType: 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'PER_DAY';
+  accrualType: "MONTHLY" | "QUARTERLY" | "YEARLY" | "PER_DAY";
   maxConsecutiveDays?: number;
   requiresDocument: boolean;
   documentAfterDays?: number;
@@ -394,14 +418,14 @@ export interface LeaveEntitlement {
   minimumServiceMonths?: number;
   backdatedAllowed?: boolean;
   backdatedDaysLimit?: number;
-  genderRestricted?: 'MALE' | 'FEMALE' | null;
+  genderRestricted?: "MALE" | "FEMALE" | null;
   clubbingRestrictions?: string[];
 }
 
 export interface AccrualRules {
   enableProRata?: boolean;
   carryForwardUnused?: boolean;
-  accrualFrequency?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  accrualFrequency?: "MONTHLY" | "QUARTERLY" | "YEARLY";
   maxAccrual?: number;
   leaveYearStartMonth?: number;
   resetOnYearEnd?: boolean;
@@ -432,7 +456,7 @@ export interface OvertimeRules {
   weekdayMultiplier?: number;
   weekendMultiplier?: number;
   holidayMultiplier?: number;
-  compensationType?: 'PAY' | 'COMP_OFF' | 'COMP_OFF_OR_PAY';
+  compensationType?: "PAY" | "COMP_OFF" | "COMP_OFF_OR_PAY";
   compOffValidityDays?: number;
   requiresManagerApproval?: boolean;
 }
@@ -476,7 +500,7 @@ export interface OnboardingConfig {
 // Offboarding Domain Types
 // ============================================
 
-export type RehireEligibility = 'ELIGIBLE' | 'CASE_BY_CASE' | 'NOT_ELIGIBLE';
+export type RehireEligibility = "ELIGIBLE" | "CASE_BY_CASE" | "NOT_ELIGIBLE";
 
 export interface OffboardingConfig {
   fullAndFinalSettlementDays?: number;
@@ -508,10 +532,10 @@ interface ExpenseLimit {
 // ============================================
 
 export interface PayrollComponents {
-  basic: { percentage: number; of: 'CTC' };
-  hra: { percentage: number; of: 'BASIC'; cityType?: 'METRO' | 'NON_METRO' };
-  da: { percentage: number; of: 'BASIC' };
-  special: { percentage: number; of: 'BASIC' };
+  basic: { percentage: number; of: "CTC" };
+  hra: { percentage: number; of: "BASIC"; cityType?: "METRO" | "NON_METRO" };
+  da: { percentage: number; of: "BASIC" };
+  special: { percentage: number; of: "BASIC" };
 }
 
 export interface ShiftAllowance {
@@ -528,7 +552,7 @@ export interface PFConfig {
   employeeContribution: number;
   employerContribution: number;
   ceiling: number;
-  basis?: 'BASIC' | 'BASIC_DA';
+  basis?: "BASIC" | "BASIC_DA";
 }
 
 export interface ESIConfig {
@@ -559,7 +583,7 @@ export interface LWFConfig {
 
 export interface TDSConfig {
   applicable: boolean;
-  regime: 'OLD' | 'NEW';
+  regime: "OLD" | "NEW";
   declarationRequired?: boolean;
   investmentProofRequired?: boolean;
 }
@@ -600,8 +624,8 @@ export interface Allowance {
   type: string;
   percentage?: number;
   fixedAmount?: number;
-  basis?: 'BASIC' | 'BASIC_DA' | 'CTC';
-  cityType?: 'METRO' | 'NON_METRO' | 'ALL';
+  basis?: "BASIC" | "BASIC_DA" | "CTC";
+  cityType?: "METRO" | "NON_METRO" | "ALL";
   taxExempt: boolean;
   maxExemptAmount?: number;
 }
@@ -612,13 +636,28 @@ export interface Allowance {
 
 export interface ApprovalCondition {
   field: string;
-  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between';
+  operator:
+    | "eq"
+    | "neq"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "in"
+    | "notIn"
+    | "between";
   value: any;
 }
 
 export interface ApprovalLevel {
+  id?: string;
   level: number;
-  approverType: 'REPORTING_MANAGER' | 'HR' | 'DEPARTMENT_HEAD' | 'ADMIN' | 'SPECIFIC_USER';
+  approverType:
+    | "REPORTING_MANAGER"
+    | "HR"
+    | "DEPARTMENT_HEAD"
+    | "ADMIN"
+    | "SPECIFIC_USER";
   approverId?: string;
   condition?: ApprovalCondition;
   timeoutDays?: number;
@@ -652,14 +691,28 @@ export interface PolicyRule {
 
 export interface RuleCondition {
   field: string;
-  operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'notIn' | 'between';
+  operator:
+    | "eq"
+    | "neq"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "in"
+    | "notIn"
+    | "between";
   value: any;
-  logicalOperator?: 'and' | 'or';
+  logicalOperator?: "and" | "or";
   conditions?: RuleCondition[];
 }
 
 export interface RuleAction {
-  type: 'ALLOW' | 'REJECT' | 'REQUIRE_APPROVAL' | 'REQUIRE_DOCUMENT' | 'CALCULATE';
+  type:
+    | "ALLOW"
+    | "REJECT"
+    | "REQUIRE_APPROVAL"
+    | "REQUIRE_DOCUMENT"
+    | "CALCULATE";
   value?: any;
   message?: string;
 }
@@ -669,7 +722,7 @@ export interface EntitlementConfig {
   leaveType: string;
   name: string;
   annualEntitlement: number;
-  accrualType: 'MONTHLY' | 'YEARLY' | 'QUARTERLY';
+  accrualType: "MONTHLY" | "YEARLY" | "QUARTERLY";
   maxConsecutiveDays?: number;
   requiresDocument?: boolean;
   documentAfterDays?: number;
@@ -679,7 +732,7 @@ export interface EntitlementConfig {
   advanceLeaveAllowed?: boolean;
   backdatedAllowed?: boolean;
   backdatedDaysLimit?: number;
-  genderRestricted?: 'MALE' | 'FEMALE' | null;
+  genderRestricted?: "MALE" | "FEMALE" | null;
   encashable?: boolean;
   clubbingRestrictions?: string[];
 }
@@ -687,7 +740,7 @@ export interface EntitlementConfig {
 export interface AccrualRule {
   enableProRata?: boolean;
   carryForwardUnused?: boolean;
-  accrualFrequency?: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  accrualFrequency?: "MONTHLY" | "QUARTERLY" | "YEARLY";
   maxAccrual?: number;
   leaveYearStartMonth?: number;
   resetOnYearEnd?: boolean;
@@ -707,14 +760,14 @@ export interface CarryForwardRule {
 export interface PolicyAssignment {
   id: string;
   policyVersionId: string;
-  companyId: string;
+  companyId?: string;
   branchId?: string;
   departmentId?: string;
   designationId?: string;
   employeeGradeId?: string;
   employmentType?: EmploymentType;
   employeeCategory?: EmployeeCategory;
-  // employeeGroupId?: string;
+  employeeGroupId?: string;
   employeeId?: string;
   priority: number;
   effectiveFrom: string;
@@ -742,7 +795,7 @@ export interface PolicyEvaluationResponse {
 }
 
 export interface EvaluationMessage {
-  type: 'ERROR' | 'WARNING' | 'INFO';
+  type: "ERROR" | "WARNING" | "INFO";
   code: string;
   message: string;
   field?: string;
@@ -764,4 +817,68 @@ export interface Employee {
   grade?: string;
   shiftType?: string;
   location?: string;
+}
+
+export interface Domain {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export interface PolicyAuditLog {
+  id: string;
+  policyId: string;
+  versionId: string;
+  actionType: string;
+  actionBy: string;
+  actionDate: string;
+  remarks: string;
+}
+
+export interface PreviewPayload {
+  employeeId: string;
+  domain?: string;
+  action: string;
+  effectiveDate?: string;
+  context?: Record<string, unknown>;
+}
+
+// ============================================
+// Simulation Types
+// ============================================
+
+export interface SimulationRunPayload {
+  simulationName: string;
+  simulationType: string;
+  employeeIds: string[];
+}
+
+export interface SimulationResultItem {
+  id: string;
+  simulationId: string;
+  employeeId: string;
+  policyId: string;
+  resultStatus: string;
+  resultJson: Record<string, any>;
+}
+
+export interface PolicySimulation {
+  id: string;
+  versionId: string;
+  simulationName: string;
+  simulationType: string;
+  status: string;
+  createdAt: string;
+  totalEmployees: number;
+  appliedCount: number;
+  notApplicableCount: number;
+  results: SimulationResultItem[];
+}
+
+export interface ImpactAnalysisResult {
+  versionId: string;
+  domainCode: string;
+  totalEmployees: number;
+  affectedEmployees: number;
+  metrics: Record<string, any>;
 }

@@ -38,6 +38,7 @@ import {
 } from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
+import { FileDownloadOutlined } from "@mui/icons-material";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -87,8 +88,11 @@ export default function EmployeeManagement() {
   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedEmployeeForExport, setSelectedEmployeeForExport] = useState<string | null>(null);
 
-  const [isDeactivate, setIsDeactivate] = useState(false);
-  const [deactivateEmployeeId, setDeactivateEmployeeId] = useState("");
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [actionMenuEmployee, setActionMenuEmployee] = useState<Employee | null>(null);
+  const [relievingDialogOpen, setRelievingDialogOpen] = useState(false);
+  const [relievingDialogEmployee, setRelievingDialogEmployee] = useState<Employee | null>(null);
+  const [relievingDate, setRelievingDate] = useState("");
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] = useState(false);
 
   const filterFields = useMemo(
@@ -98,22 +102,21 @@ export default function EmployeeManagement() {
 
   const loadEmployeeIdConfig = async () => {
     try {
-      const config: any = await employeeService.getEmployeeId();
+      const res: any = await employeeService.getEmployeeId();
+      const config = res?.data ?? res;
       setEmployeeIdConfig(config);
       if (!config.configured) {
-        setEmployeeIdConfig(config);
         setEmpGenerationFlow("new");
         setExcelHasEmployeeIdColumn(true);
         return;
       }
+      // Always restore saved config values into the form fields
       setEmpCodeType(config.formatType.toLowerCase());
       setEmpPrefix(config.prefix || "EMP");
       setEmpStartNumber(String(config.startingNumber || 1));
       setEmpDigitCount(String(config.numberOfDigits || 4));
-
-      if (config.lastGeneratedId) {
-        setEmpGenerationFlow("continue");
-      }
+      // Auto-select "continue" only when at least one employee has been generated
+      setEmpGenerationFlow(config.lastGeneratedId ? "continue" : "new");
     } catch (error: any) {
       console.error("Failed to load employee ID config:", error);
     }
@@ -134,30 +137,18 @@ export default function EmployeeManagement() {
   const generatePreview = async () => {
     showSpinner();
     try {
-      let payload: any = {};
-
-      if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
-        payload = {
-          formatType: employeeIdConfig.formatType,
-          prefix: employeeIdConfig.prefix,
-          startingNumber: employeeIdConfig.startingNumber,
-          numberOfDigits: employeeIdConfig.numberOfDigits,
-        };
-      } else {
-        // Use current form values
-        payload = {
-          formatType: empCodeType.toUpperCase(),
-          prefix: empCodeType === "pattern" ? empPrefix : undefined,
-          startingNumber: (empCodeType === "pattern" || empCodeType === "number")
-            ? parseInt(empStartNumber)
-            : undefined,
-          numberOfDigits: empCodeType === "alphanumeric"
-            ? parseInt(empDigitCount)
-            : undefined,
-        };
-      }
-
-      const response: any = await employeeService.previewEmployeeId(payload);
+      const payload: any = {
+        formatType: empCodeType.toUpperCase(),
+        prefix: empCodeType === "pattern" ? empPrefix : undefined,
+        startingNumber: (empCodeType === "pattern" || empCodeType === "number")
+          ? parseInt(empStartNumber)
+          : undefined,
+        numberOfDigits: empCodeType === "alphanumeric"
+          ? parseInt(empDigitCount)
+          : undefined,
+      };
+      const res: any = await employeeService.previewEmployeeId(payload);
+      const response = res?.data ?? res;
       setNextIdPreview(response.previewId);
     } catch (error: any) {
       console.error("Failed to generate preview:", error);
@@ -169,15 +160,16 @@ export default function EmployeeManagement() {
 
   // Generate preview whenever relevant fields change
   useEffect(() => {
-    if (!hasManualEmpId && employeeDialogOpen && empGenerationFlow === "new") {
-      const timer = setTimeout(() => {
-        if (empCodeType === "pattern" && (!empPrefix || !empStartNumber)) {
-          return;
-        }
-        generatePreview();
-      }, 300);
-      return () => clearTimeout(timer);
+    if (hasManualEmpId || !employeeDialogOpen) return;
+    if (empGenerationFlow === "continue") {
+      // "continue" preview is already embedded in employeeIdConfig — no API call needed here
+      return;
     }
+    const timer = setTimeout(() => {
+      if (empCodeType === "pattern" && (!empPrefix || !empStartNumber)) return;
+      generatePreview();
+    }, 300);
+    return () => clearTimeout(timer);
   }, [empCodeType, empPrefix, empStartNumber, empDigitCount, empGenerationFlow, employeeDialogOpen, hasManualEmpId, employeeIdConfig]);
 
   // const generateRandomAlphaNumeric = (length: number) => {
@@ -335,62 +327,56 @@ export default function EmployeeManagement() {
     if (hasManualEmpId) {
       return manualEmployeeId;
     }
-    let payload: any = {};
     if (empGenerationFlow === "continue" && employeeIdConfig?.configured) {
-      payload = {
-        formatType: employeeIdConfig.formatType,
-        prefix: employeeIdConfig.prefix,
-        startingNumber: employeeIdConfig.startingNumber,
-        numberOfDigits: employeeIdConfig.numberOfDigits,
-      };
-    } else {
-      payload = {
-        formatType: empCodeType.toUpperCase(),
-      };
-      if (empCodeType === "pattern") {
-        payload.prefix = empPrefix;
-        payload.startingNumber = parseInt(empStartNumber);
-      }
-      if (empCodeType === "number") {
-        payload.startingNumber = parseInt(empStartNumber);
-      }
-      if (empCodeType === "alphanumeric") {
-        payload.numberOfDigits = parseInt(empDigitCount);
-      }
-      await employeeService.updateEmployeeId(payload);
+      // GET /id-config already returned the correct next sequence ID — use it directly.
+      // previewEmployeeId always computes from startingNumber (stateless), so it would
+      // return EMP001 instead of the actual next in sequence.
+      return employeeIdConfig.nextSequencePreview;
     }
-    const preview: any = await employeeService.previewEmployeeId(payload);
+
+    // "new" pattern — PUT saves the config and resets the counter to startingNumber,
+    // then POST preview returns the first ID for the new pattern.
+    const payload: any = { formatType: empCodeType.toUpperCase() };
+    if (empCodeType === "pattern") {
+      payload.prefix = empPrefix;
+      payload.startingNumber = parseInt(empStartNumber);
+    }
+    if (empCodeType === "number") {
+      payload.startingNumber = parseInt(empStartNumber);
+    }
+    if (empCodeType === "alphanumeric") {
+      payload.numberOfDigits = parseInt(empDigitCount);
+    }
+    await employeeService.updateEmployeeId(payload);
+    const previewRes: any = await employeeService.previewEmployeeId(payload);
+    const preview = previewRes?.data ?? previewRes;
     return preview.previewId;
   };
 
   const validateEmployeeIdConfig = () => {
     if (hasManualEmpId) return true;
-
+    // "continue" uses the saved server config — no form fields to validate
+    if (empGenerationFlow === "continue") return true;
     if (empCodeType === "pattern") {
       if (!empPrefix.trim()) {
         showSnackbar("Prefix is required", "error");
         return false;
       }
-
       if (!empStartNumber) {
         showSnackbar("Starting number is required", "error");
         return false;
       }
     }
-
     if (empCodeType === "number" && !empStartNumber) {
       showSnackbar("Starting number is required", "error");
       return false;
     }
-
     if (empCodeType === "alphanumeric" && !empDigitCount) {
       showSnackbar("Number of digits is required", "error");
       return false;
     }
-
     return true;
   };
-
 
   // Reset form
   const resetForm = () => {
@@ -426,54 +412,99 @@ export default function EmployeeManagement() {
   };
 
   // Handle Edit Employee - Open Edit Dialog
-  // const handleOpenEditDialog = (employee: Employee) => {
-  //   setIsEditing(true);
-  //   setSelectedEmployee(employee);
-  //   setFormData({
-  //     name: employee.name,
-  //     emailAddress: employee.emailAddress,
-  //     joiningDate: employee.joiningDate?.split("T")[0] || "",
-  //     branch: employee.branch || "",
-  //     branchId: employee.branchId,
-  //     employeeId: employee.employeeId,
-  //     departmentId: employee.departmentId,
-  //     designationId: employee.designationId,
-  //     department: employee.department,
-  //     designation: employee.designation,
-  //     mobileNumber: employee.mobileNumber || "",
-  //   });
-  //   setEmployeeDialogOpen(true);
-  // };
+  const handleOpenEditDialog = async (employee: Employee) => {
+    setIsEditing(true);
+    const response: any = await employeeService.getEmployeeById(employee.id);
+    setSelectedEmployee(response.data);
+
+    const resolvedDepartmentId =
+      employee.departmentId ||
+      departments.find((d) => d.departmentName === employee.department)?.id;
+    const resolvedDesignationId =
+      employee.designationId ||
+      designations.find((d) => d.name === employee.designation)?.id;
+    const resolvedBranchId =
+      employee.branchId ||
+      branches.find((b) => b.branchName === employee.branch)?.id;
+    const resolvedEmployeeStatusId =
+      employee.employeeStatusId ||
+      empStatus.find((s) => s.name === employee.employeeStatus)?.id;
+
+    setFormData({
+      name: employee.name,
+      emailAddress: employee.emailAddress,
+      joiningDate: employee.joiningDate?.split("T")[0] || "",
+      branch: employee.branch || "",
+      branchId: resolvedBranchId,
+      employeeId: employee.employeeId,
+      departmentId: resolvedDepartmentId,
+      designationId: resolvedDesignationId,
+      department: employee.department,
+      designation: employee.designation,
+      mobileNumber: employee.mobileNumber || "",
+      employeeStatus: employee.employeeStatus || "",
+      employeeStatusId: resolvedEmployeeStatusId,
+    });
+    setEmployeeDialogOpen(true);
+  };
 
   // Handle Update Employee
   const handleSaveEmployee = async () => {
-    if (!formData.name || !formData.emailAddress) {
-      showSnackbar("Please fill all required fields", "error");
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.emailAddress)) {
-      showSnackbar("Please enter a valid email address", "error");
-      return;
-    }
+    // if (!formData.name || !formData.emailAddress) {
+    //   showSnackbar("Please fill all required fields", "error");
+    //   return;
+    // }
+    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // if (!emailRegex.test(formData.emailAddress)) {
+    //   showSnackbar("Please enter a valid email address", "error");
+    //   return;
+    // }
     if (!validateEmployeeIdConfig()) return;
     showSpinner();
     try {
       if (isEditing) {
-        const payload: any = {
-          firstName: formData.name,
-          emailAddress: formData.emailAddress,
-          joiningDate: formData.joiningDate,
-          branchId: formData.branchId || selectedEmployee?.branchId,
-          departmentId: formData.departmentId || selectedEmployee?.departmentId,
-          designationId: formData.designationId || selectedEmployee?.designationId,
-          mobileNumber: formData.mobileNumber,
-        };
-        await employeeService.updateEmployee(selectedEmployee!.id, payload);
+        const empId = selectedEmployee!.id;
+        await Promise.all([
+          // employeeService.updatePersonalInfo(empId, {
+          // firstName: formData.name,
+          // emailAddress: formData.emailAddress,
+          // mobileNumber: formData.mobileNumber,
+          // }),
+          employeeService.updateAdminInfo(empId, {
+            joiningDate: formData.joiningDate,
+            branchId: formData.branchId || selectedEmployee?.branchId,
+            departmentId: formData.departmentId || selectedEmployee?.departmentId,
+            designationId: formData.designationId || selectedEmployee?.designationId,
+            employeeStatusId: formData.employeeStatusId || selectedEmployee?.employeeStatusId,
+            gradeId: selectedEmployee?.gradeId,
+            empTypeId: selectedEmployee?.empTypeId,
+            managerId: selectedEmployee?.managerId,
+            bandId: selectedEmployee?.bandId,
+            confirmationDate: selectedEmployee?.confirmationDate,
+            relievedDate: selectedEmployee?.relievedDate,
+            probationPeriod: selectedEmployee?.probationPeriod,
+            noticePeriod: selectedEmployee?.noticePeriod,
+            // attendanceSchemaId: selectedEmployee?.empTypeId,
+            vehicleTypeId: selectedEmployee?.vehicleTypeId,
+            hostel: selectedEmployee?.hostel,
+            currentCompanyExperience: selectedEmployee?.currentCompanyExperience,
+            referredBy: selectedEmployee?.referredBy,
+            bonusPolicyId: selectedEmployee?.bonusPolicyId,
+            otPolicyId: selectedEmployee?.otPolicyId,
+            otAmount: selectedEmployee?.otAmount,
+            vehicleFacility: selectedEmployee?.vehicleFacility,
+            migrant: selectedEmployee?.migrant,
+            exService: selectedEmployee?.exService,
+            monthly: selectedEmployee?.monthly,
+            adminRemarks: selectedEmployee?.adminRemarks,
+            idCardNo: selectedEmployee?.idCardNo,
+            midNo: selectedEmployee?.midNo,
+            oldIdNo: selectedEmployee?.oldIdNo
+          }),
+        ]);
         showSnackbar("Employee updated successfully!", "success");
       } else {
         const employeeId = await getEmployeeIdForCreation();
-
         const payload = {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
@@ -481,15 +512,24 @@ export default function EmployeeManagement() {
           employeeId: employeeId,
           departmentId: formData.departmentId,
           designationId: formData.designationId,
+          branchId: formData.branchId,
           mobileNumber: formData.mobileNumber,
+          employeeStatusId: formData.employeeStatusId,
         };
+        //{
+        //   "middleName": "string",
+        //   "lastName": "string",
+        //   "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        //   "aadhaarLockedFields": [
+        //     "string"
+        //   ]
+        // }
         await employeeService.createEmployee(payload);
         showSnackbar(
           `Employee Created! ID: ${employeeId}. Welcome email sent to ${formData.emailAddress}`,
           "success",
         );
         await loadEmployeeIdConfig();
-
       }
       setEmployeeDialogOpen(false);
       resetForm();
@@ -675,14 +715,59 @@ export default function EmployeeManagement() {
   const updateReleivingDate = async (emp: any, value: any) => {
     showSpinner();
     try {
-      await employeeService.updateAdminInfo(emp.id, { relievedDate: value })
+      await employeeService.updateAdminInfo(emp.id, {
+        relievedDate: value,
+        joiningDate: formData.joiningDate,
+        branchId: formData.branchId || selectedEmployee?.branchId,
+        departmentId: formData.departmentId || selectedEmployee?.departmentId,
+        designationId: formData.designationId || selectedEmployee?.designationId,
+        employeeStatusId: formData.employeeStatusId || selectedEmployee?.employeeStatusId,
+        gradeId: selectedEmployee?.gradeId,
+        empTypeId: selectedEmployee?.empTypeId,
+        managerId: selectedEmployee?.managerId,
+        bandId: selectedEmployee?.bandId,
+        confirmationDate: selectedEmployee?.confirmationDate,
+        probationPeriod: selectedEmployee?.probationPeriod,
+        noticePeriod: selectedEmployee?.noticePeriod,
+        vehicleTypeId: selectedEmployee?.vehicleTypeId,
+        hostel: selectedEmployee?.hostel,
+        currentCompanyExperience: selectedEmployee?.currentCompanyExperience,
+        referredBy: selectedEmployee?.referredBy,
+        bonusPolicyId: selectedEmployee?.bonusPolicyId,
+        otPolicyId: selectedEmployee?.otPolicyId,
+        otAmount: selectedEmployee?.otAmount,
+        vehicleFacility: selectedEmployee?.vehicleFacility,
+        migrant: selectedEmployee?.migrant,
+        exService: selectedEmployee?.exService,
+        monthly: selectedEmployee?.monthly,
+        adminRemarks: selectedEmployee?.adminRemarks,
+        idCardNo: selectedEmployee?.idCardNo,
+        midNo: selectedEmployee?.midNo,
+        oldIdNo: selectedEmployee?.oldIdNo
+      })
       handleDeactivateEmployee(emp.id, emp.name);
-      setIsDeactivate(false);
     } catch (error: any) {
       showSnackbar(error.message, 'error')
     } finally {
       hideSpinner();
     }
+  }
+
+  const openActionMenu = (event: React.MouseEvent<HTMLElement>, employee: Employee) => {
+    setActionMenuEmployee(employee);
+    setActionMenuAnchor(event.currentTarget);
+  };
+
+  const closeActionMenu = () => {
+    setActionMenuAnchor(null);
+    setActionMenuEmployee(null);
+  };
+
+  const dialogSx = {
+    "& .MuiDialog-paper": {
+      width: "600px",
+      maxWidth: "600px",
+    },
   }
 
   return (
@@ -764,12 +849,12 @@ export default function EmployeeManagement() {
             {employees.filter(e => e.employeeStatus === 'ONBOARDING').length}
           </div>
         </div>
-        {/* <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
+        <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
           <div className="text-gray-500">Active Employees</div>
           <div className="font-bold">
             {employees.filter(e => e.isActive === true).length}
           </div>
-        </div> */}
+        </div>
         <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
           <div className="text-gray-500">Onboarding</div>
           <div className="font-bold">
@@ -1001,17 +1086,13 @@ export default function EmployeeManagement() {
                   ...getStickyRightSx(index),
                   minWidth: "50px",
                 }}>
-                  <div className="flex">
-                    <MaterialModule.Tooltip title="View Details">
+                  <div className="flex items-center justify-center">
+                    <MaterialModule.Tooltip title="More Actions">
                       <MaterialModule.IconButton
                         size="small"
-                        className="!mr-1"
-                        onClick={() => navigate(`/employees/${employee.id}`)}
+                        onClick={(e) => openActionMenu(e, employee)}
                       >
-                        <MaterialModule.VisibilityOutlined
-                          className="!w-4"
-                          sx={{ color: "var(--color-primary)" }}
-                        />
+                        <MaterialModule.MoreVertIcon className="!w-4 text-gray-800" />
                       </MaterialModule.IconButton>
                     </MaterialModule.Tooltip>
                     <MaterialModule.Tooltip title="Export Employee">
@@ -1019,51 +1100,31 @@ export default function EmployeeManagement() {
                         size="small"
                         onClick={(e) => openExportMenu(e, employee.id)}
                       >
-                        <MaterialModule.DownloadIcon className="!w-4" color="primary" />
+                        <FileDownloadOutlined className="!w-4" color="primary" />
                       </MaterialModule.IconButton>
                     </MaterialModule.Tooltip>
                     {isInactiveEmployee(employee) ? (
                       <MaterialModule.Tooltip title="Reactivate">
                         <MaterialModule.IconButton
                           size="small"
-                          onClick={() =>
-                            handleReactivateEmployee(employee.id, employee.name)
-                          }
+                          onClick={() => handleReactivateEmployee(employee.id, employee.name)}
                         >
                           <MaterialModule.HowToRegIcon className="!w-4" sx={{ color: "#16a34a" }} />
                         </MaterialModule.IconButton>
                       </MaterialModule.Tooltip>
                     ) : (
-                      <>
-                        <MaterialModule.Tooltip title="Deactivate">
-                          <MaterialModule.IconButton
-                            size="small"
-                            onClick={() => { setIsDeactivate(true); setDeactivateEmployeeId(employee.id) }}>
-                            <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                          </MaterialModule.IconButton>
-                        </MaterialModule.Tooltip>
-                        {
-                          isDeactivate && employee.id === deactivateEmployeeId &&
-                          <LocalizationProvider dateAdapter={AdapterDayjs}>
-                            <DatePicker
-                              label="Relieving Date"
-                              className="!bg-white"
-                              value={employee.relievedDate ? dayjs(employee.relievedDate) : null}
-                              onChange={(newValue) =>
-                                updateReleivingDate(employee,
-                                  newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
-                                )
-                              }
-                              slotProps={{
-                                textField: {
-                                  className: "!w-[150px]",
-                                },
-                              }}
-                            />
-                          </LocalizationProvider>
-                        }
-
-                      </>
+                      <MaterialModule.Tooltip title="Deactivate">
+                        <MaterialModule.IconButton
+                          size="small"
+                          onClick={() => {
+                            setRelievingDialogEmployee(employee);
+                            setRelievingDate("");
+                            setRelievingDialogOpen(true);
+                          }}
+                        >
+                          <MaterialModule.NoAccountsIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                        </MaterialModule.IconButton>
+                      </MaterialModule.Tooltip>
                     )}
                   </div>
                 </MaterialModule.TableCell>
@@ -1109,10 +1170,10 @@ export default function EmployeeManagement() {
         open={employeeDialogOpen}
         onClose={() => setEmployeeDialogOpen(false)}
         maxWidth="md"
-        fullWidth
+        sx={dialogSx}
       >
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             {isEditing ? "Edit Employee" : "Add New Employee"}
           </div>
           <MaterialModule.IconButton onClick={() => setEmployeeDialogOpen(false)}>
@@ -1121,6 +1182,14 @@ export default function EmployeeManagement() {
         </div>
         <MaterialModule.DialogContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+            {isEditing && (
+              <MaterialModule.TextField
+                fullWidth
+                label="Employee ID"
+                value={formData.employeeId}
+                disabled
+              />
+            )}
             <MaterialModule.TextField
               fullWidth
               label="Employee Name"
@@ -1225,22 +1294,76 @@ export default function EmployeeManagement() {
                 ))}
               </MaterialModule.Select>
             </MaterialModule.FormControl>
-            <MaterialModule.TextField
-              fullWidth
-              label="Mobile Number"
-              value={formData.mobileNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, mobileNumber: e.target.value })
-              }
-            />
-            {isEditing && (
+            <MaterialModule.FormControl fullWidth>
+              <MaterialModule.InputLabel>Branch</MaterialModule.InputLabel>
+              <MaterialModule.Select
+                value={formData.branch || ""}
+                label="Branch"
+                className="!text-[12px]"
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    branch: e.target.value,
+                    branchId: branches.find(
+                      (d) => d.branchName === e.target.value,
+                    )?.id,
+                  })
+                }
+              >
+                <MaterialModule.MenuItem value="" className="!text-[12px]">
+                  Select Branch
+                </MaterialModule.MenuItem>
+                {branches.map((bran) => (
+                  <MaterialModule.MenuItem
+                    key={bran.id}
+                    value={bran.branchName}
+                    className="!text-[12px]"
+                  >
+                    {bran.branchName}
+                  </MaterialModule.MenuItem>
+                ))}
+              </MaterialModule.Select>
+            </MaterialModule.FormControl>
+            <MaterialModule.FormControl fullWidth>
+              <MaterialModule.InputLabel>Employee Status</MaterialModule.InputLabel>
+              <MaterialModule.Select
+                value={formData.employeeStatus || ""}
+                label="Employee Status"
+                className="!text-[12px]"
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    employeeStatus: e.target.value,
+                    employeeStatusId: empStatus.find(
+                      (d) => d.name === e.target.value,
+                    )?.id,
+                  })
+                }
+              >
+                <MaterialModule.MenuItem value="" className="!text-[12px]">
+                  Select Employee Status
+                </MaterialModule.MenuItem>
+                {empStatus.map((s) => (
+                  <MaterialModule.MenuItem
+                    key={s.id}
+                    value={s.name}
+                    className="!text-[12px]"
+                  >
+                    {s.name}
+                  </MaterialModule.MenuItem>
+                ))}
+              </MaterialModule.Select>
+            </MaterialModule.FormControl>
+            {!isEditing &&
               <MaterialModule.TextField
                 fullWidth
-                label="Employee ID"
-                value={formData.employeeId}
-                disabled
+                label="Mobile Number"
+                value={formData.mobileNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, mobileNumber: e.target.value })
+                }
               />
-            )}
+            }
           </div>
           {!isEditing && (
             <>
@@ -1413,6 +1536,83 @@ export default function EmployeeManagement() {
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
 
+      {/* Row Action Menu */}
+      <MaterialModule.Menu
+        anchorEl={actionMenuAnchor}
+        open={Boolean(actionMenuAnchor)}
+        onClose={closeActionMenu}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+      >
+        <MaterialModule.MenuItem
+          className="!text-[12px]"
+          onClick={() => { if (actionMenuEmployee) navigate(`/employees/${actionMenuEmployee.id}`); closeActionMenu(); }}
+        >
+          <MaterialModule.VisibilityOutlined className="!w-4 mr-2" sx={{ color: "var(--color-primary)" }} />
+          View Details
+        </MaterialModule.MenuItem>
+        <MaterialModule.MenuItem
+          className="!text-[12px]"
+          onClick={() => { if (actionMenuEmployee) handleOpenEditDialog(actionMenuEmployee); closeActionMenu(); }}
+        >
+          <MaterialModule.EditIcon className="!w-4 mr-2" color="info" />
+          Edit Employee
+        </MaterialModule.MenuItem>
+      </MaterialModule.Menu>
+
+      {/* Relieving Date Dialog */}
+      <MaterialModule.Dialog
+        open={relievingDialogOpen}
+        onClose={() => setRelievingDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <div className="flex items-center justify-between border-b border-gray-300 p-2">
+          <div className="text-gray-800 text-[12px] ml-4 font-medium">Deactivate Employee</div>
+          <MaterialModule.IconButton onClick={() => setRelievingDialogOpen(false)}>
+            <MaterialModule.CloseOutlined className="!text-gray-800" />
+          </MaterialModule.IconButton>
+        </div>
+        <MaterialModule.DialogContent>
+          <div className="text-[12px] text-gray-600 mb-5">
+            Enter the relieving date for <strong>{relievingDialogEmployee?.name}</strong>
+          </div>
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label="Relieving Date"
+              value={relievingDate ? dayjs(relievingDate) : null}
+              onChange={(newValue) =>
+                setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+              }
+              slotProps={{ textField: { fullWidth: true } }}
+            />
+          </LocalizationProvider>
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
+          <MaterialModule.Button
+            onClick={() => setRelievingDialogOpen(false)}
+            variant="outlined"
+            className="!border-gray-300 !text-gray-800"
+          >
+            Cancel
+          </MaterialModule.Button>
+          <MaterialModule.Button
+            onClick={async () => {
+              if (relievingDialogEmployee) {
+                await updateReleivingDate(relievingDialogEmployee, relievingDate);
+                setRelievingDialogOpen(false);
+                setRelievingDate("");
+              }
+            }}
+            variant="contained"
+            disabled={!relievingDate}
+            sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}
+          >
+            Deactivate
+          </MaterialModule.Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
+
       {/* Bulk Upload Dialog */}
       <MaterialModule.Dialog
         open={bulkUploadDialogOpen}
@@ -1421,9 +1621,9 @@ export default function EmployeeManagement() {
         fullWidth
       >
         <div className="flex items-center justify-between p-2 border-b !border-gray-300">
-          <div className="text-primary ml-4">Bulk Upload Employees</div>
+          <div className="text-gray-800 ml-4">Bulk Upload Employees</div>
           <MaterialModule.IconButton onClick={handleCloseBulkUploadDialog}>
-            <MaterialModule.CloseOutlined />
+            <MaterialModule.CloseOutlined className="text-gray-800"/>
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>

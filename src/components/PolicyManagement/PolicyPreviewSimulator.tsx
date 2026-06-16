@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -27,17 +27,24 @@ import {
   Error as ErrorIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { policyApi } from '../../services/modules/policy';
 import { EmployeeSelector } from './Common/EmployeeSelector';
 import { type PolicyEvaluationResponse, PolicyDomain } from '../../types/policy';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { useUI } from '../../context/Snackbar';
-import { leaveService } from '../../services/modules/leave';
-import type { LeaveType } from '../../services/modules/leaveTypes';
-import { EXPENSE_CATEGORIES, mockActions } from './const';
 import type { PolicyPreviewSimulatorProps } from './types';
+import { policyService } from '../../services';
+import { actionOptions } from '../../pages/policies/const';
+import { useLeaveTypesList } from '../../hooks/useLeaveTypesList';
+import { useExpenseCategoriesList } from '../../hooks/useExpenseCategoriesList';
+
+// Single source of truth for the (domain, action) pairs offered in this dialog —
+// derived from the same `actionOptions` map the PolicySimulator page uses,
+// instead of the previously duplicated, narrower `mockActions` list.
+const allActions = Object.entries(actionOptions).flatMap(([domain, actions]) =>
+  actions.map((action) => ({ value: action, domain: domain as PolicyDomain })),
+);
 
 export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
   open,
@@ -51,23 +58,31 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolicyEvaluationResponse | null>(null);
   const [activeStep, setActiveStep] = useState(0);
-  const { showSpinner, hideSpinner,showSnackbar } = useUI();
-  const [leaveType, setLeaveType] = useState<LeaveType[]>([]);
+  const { showSpinner, hideSpinner, showSnackbar } = useUI();
+  const actionDomain = useMemo(
+    () => allActions.find((a) => a.value === selectedAction)?.domain,
+    [selectedAction],
+  );
+  const { leaveTypes: leaveType } = useLeaveTypesList(actionDomain === PolicyDomain.LEAVE);
+  const { expenseCategories: expenseCategory } = useExpenseCategoriesList(actionDomain === PolicyDomain.EXPENSE);
 
   const handleRunSimulation = async () => {
     if (!selectedEmployee || !selectedAction) return;
     showSpinner();
     setLoading(true);
     try {
-      const response = await policyApi.previewPolicy(
+      const response: any = await policyService.previewVersion(
         policyVersionId,
-        selectedEmployee.id,
-        selectedAction,
-        context
+        {
+          employeeId: selectedEmployee.id,
+          action: selectedAction,
+          context,
+        }
       );
-      setResult(response);
+      setResult(response.data ?? response);
       setActiveStep(2);
-    } catch (error) {
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Simulation failed', 'error');
       console.error('Simulation failed:', error);
     } finally {
       setLoading(false);
@@ -83,30 +98,10 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
     setActiveStep(0);
   };
 
-  const getLeaveTypes = async () => {
-    try {
-      const response = await leaveService.getLeaveTypes({
-        page: 0,
-        size: 50,
-        sort: "name,ASC",
-      });
-      setLeaveType(response.data?.content ?? []);
-    } catch (err: any) {
-      showSnackbar(err?.message || "Failed to load leave types", "error");
-    }
-  };
-
-  useEffect(() => {
-    if (PolicyDomain.LEAVE) {
-      getLeaveTypes();
-    }
-  }, [])
-
   const renderContextFields = () => {
-    const action = mockActions.find(a => a.value === selectedAction);
-    if (!action) return null;
+    if (!actionDomain) return null;
 
-    switch (action.domain) {
+    switch (actionDomain) {
       case PolicyDomain.LEAVE:
         return (
           <>
@@ -189,9 +184,9 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
               onChange={(e) => setContext({ ...context, category: e.target.value })}
               margin="normal"
             >
-              {EXPENSE_CATEGORIES.map((option) => (
-                <MenuItem key={option} value={option}>
-                  {option}
+              {expenseCategory.map((option) => (
+                <MenuItem key={option.id} value={option.id}>
+                  {option.name}
                 </MenuItem>
               ))}
             </TextField>
@@ -285,9 +280,9 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
                   setContext({});
                 }}
               >
-                {mockActions.map(action => (
+                {allActions.map(action => (
                   <MenuItem key={action.value} value={action.value}>
-                    {action.label}
+                    {action.value}
                   </MenuItem>
                 ))}
               </Select>
@@ -320,7 +315,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
                 Evaluation Details
               </Typography>
 
-              {result.messages.map((msg, idx) => (
+              {(result.messages ?? []).map((msg, idx) => (
                 <Alert
                   key={idx}
                   severity={msg.type.toLowerCase() as any}

@@ -690,7 +690,7 @@ export const ShiftScheduleView = () => {
       {/* Swap Requests Dialog */}
       <Dialog open={swapDialogOpen} onClose={() => setSwapDialogOpen(false)} maxWidth="md" fullWidth>
         <div className="flex items-center p-2 justify-between border-b border-gray-200">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             Swap Requests
           </div>
           <IconButton onClick={() => setSwapDialogOpen(false)}>
@@ -754,7 +754,7 @@ export const ShiftScheduleView = () => {
       {/* Notifications Dialog */}
       <Dialog open={notificationDialogOpen} onClose={() => setNotificationDialogOpen(false)} maxWidth="sm" fullWidth>
         <div className="flex items-center p-2 justify-between border-b border-gray-300">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             Send Shift Notifications
           </div>
           <IconButton onClick={() => setNotificationDialogOpen(false)}>

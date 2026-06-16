@@ -35,6 +35,7 @@ import ArrowUpward from "@mui/icons-material/ArrowUpward";
 import ArrowDownward from "@mui/icons-material/ArrowDownward";
 import NoAccounts from "@mui/icons-material/NoAccounts";
 import HowToReg from "@mui/icons-material/HowToReg";
+import MoreVert from "@mui/icons-material/MoreVert";
 
 const MaterialModule: typeof Mui & Record<string, any> = {
   ...Mui,
@@ -76,6 +77,7 @@ const MaterialModule: typeof Mui & Record<string, any> = {
   VisibilityOutlined,
   NoAccountsIcon: NoAccounts,
   HowToRegIcon: HowToReg,
+  MoreVertIcon: MoreVert,
 };
 
 export default MaterialModule;

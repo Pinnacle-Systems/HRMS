@@ -214,7 +214,7 @@ export const buildEmployeeListParams = (
   return params;
 };
 
-const normalizeEmployee = (employee: EmployeeLike): EmployeeSummaryResponse => {
+export const normalizeEmployee = (employee: EmployeeLike): EmployeeSummaryResponse => {
   const name =
     employee.name ||
     employee.fullName ||

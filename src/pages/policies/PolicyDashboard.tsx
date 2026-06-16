@@ -19,7 +19,6 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Dialog,
   CircularProgress,
 } from '@mui/material';
 import {
@@ -31,22 +30,23 @@ import {
   CheckCircle as ActiveIcon,
   Pending as PendingIcon,
   Schedule as ScheduledIcon,
-  Archive as ArchiveIcon
+  Archive as ArchiveIcon,
+  Policy as TotalIcon,
+  Drafts as DraftIcon,
+  ErrorOutlined as ExpiredIcon,
 } from '@mui/icons-material';
-import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';
-import { policyApi } from '../../services/modules/policy';
+import { policyService } from '../../services/modules/policy';
 import { type PolicyDefinition, PolicyDomain, PolicyStatus } from '../../types/policy';
-import { mockPolicies, statsCard } from './const';
+import { statsCard } from './const';
 import dayjs from 'dayjs';
 import { useNavigate } from "react-router-dom";
 import { companyService } from '../../services/modules/company';
 import { useUI } from '../../context/Snackbar';
 import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from '../const';
 import { GlobalPagination } from '../../components/GlobalPagination';
+import { usePolicyDomains } from '../../hooks/usePolicyDomains';
 
 export default function PolicyDashboard() {
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [editingPolicyId, setEditingPolicyId] = useState<string | undefined>();
   const [policies, setPolicies] = useState<PolicyDefinition[]>([]);
   const [companyId, setCompanyId] = useState('');
   const [domainFilter, setDomainFilter] = useState<PolicyDomain | ''>('');
@@ -57,13 +57,15 @@ export default function PolicyDashboard() {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
+  const { domains } = usePolicyDomains();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const navigate = useNavigate();
 
   const fetchCompanyData = async () => {
     try {
       const companyData: any = await companyService.getCompany();
-      setCompanyId(companyData.data.length ? companyData.data?.[0].id : '');
+      const companyId = companyData.data.length ? companyData.data?.[0].id : '';
+      setCompanyId(companyId);
     } catch (error) {
       console.error('Error fetching company data:', error);
     }
@@ -72,23 +74,32 @@ export default function PolicyDashboard() {
   const loadPolicies = async () => {
     showSpinner();
     try {
-      const response: any = await policyApi.getPolicies(companyId);
-      const data = Array.isArray(response)
-        ? response
-        : response?.data?.content || response?.data || [];
-      setPolicies(data.length > 0 ? data : mockPolicies);
-      setTotal(data.totalElements || mockPolicies.length);
-    } catch (error) {
-      showSnackbar('Failed to load policies:', 'error');
-      setPolicies(mockPolicies);
+      const response: any = await policyService.getPolicies({
+        // companyId,
+        page: page,
+        size: limit,
+        search: searchTerm || undefined,
+        domainId: domainFilter || undefined,
+        status: statusFilter || undefined,
+        sort: [
+          'updatedAt,desc',
+          'createdAt,asc'
+        ]
+      });
+      setPolicies(response.data.content || []);
+      setTotal(response.data.totalElements);
+    } catch (error: any) {
+      showSnackbar(error.message, 'error');
     } finally {
       hideSpinner();
     }
   };
 
   useEffect(() => {
-    loadPolicies();
-  }, []);
+    if (companyId) {
+      loadPolicies();
+    }
+  }, [companyId, page, limit, searchTerm, domainFilter, statusFilter]);
 
   useEffect(() => {
     fetchCompanyData();
@@ -135,63 +146,30 @@ export default function PolicyDashboard() {
       },
     };
 
-    const { color, icon } = config[status];
+    const { color, icon } = config[status] || { color: 'default', icon: undefined };
 
     return (
       <Chip
         size="small"
-        label={status.replace(/_/g, ' ')}
+        label={status?.replace(/_/g, ' ') || 'UNKNOWN'}
         color={color}
         icon={icon}
+        className='!text-[10px] !capitalize'
       />
     );
   };
 
-  const filteredPolicies = useMemo(() => {
-    return policies.filter((policy) => {
-      const matchesSearch =
-        !searchTerm ||
-        policy.name
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
-
-      const matchesDomain =
-        !domainFilter ||
-        policy.domain === domainFilter;
-
-      const matchesStatus =
-        !statusFilter ||
-        policy.status === statusFilter;
-
-      return (
-        matchesSearch &&
-        matchesDomain &&
-        matchesStatus
-      );
-    });
-  }, [
-    policies,
-    searchTerm,
-    domainFilter,
-    statusFilter,
-  ]);
-
   const stats: any = useMemo(
     () => ({
       total: policies.length,
-      active: policies.filter(
-        p => p.status === PolicyStatus.ACTIVE
-      ).length,
-      pending: policies.filter(
-        p => p.status === PolicyStatus.PENDING_APPROVAL
-      ).length,
-      draft: policies.filter(
-        p => p.status === PolicyStatus.DRAFT
-      ).length,
+      active: policies.filter(p => p.status === PolicyStatus.ACTIVE).length,
+      pending: policies.filter(p => p.status === PolicyStatus.PENDING_APPROVAL).length,
+      draft: policies.filter(p => p.status === PolicyStatus.DRAFT).length,
+      expired: policies.filter(p => p.status === PolicyStatus.EXPIRED).length,
+      archived: policies.filter(p => p.status === PolicyStatus.ARCHIVED).length,
     }),
     [policies]
   );
-
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, policy: PolicyDefinition) => {
     setAnchorEl(event.currentTarget);
@@ -205,36 +183,46 @@ export default function PolicyDashboard() {
 
   const handleEdit = () => {
     if (selectedPolicy) {
-      setEditingPolicyId(selectedPolicy.id);
-      // setWizardOpen(true);
-      navigate(`/policies/${selectedPolicy.id}/edit`)
+      navigate(`/policies/${selectedPolicy.id}/edit`);
     }
     handleMenuClose();
   };
 
   const handleDelete = async () => {
     if (!selectedPolicy) return;
+
+    if (selectedPolicy.status !== PolicyStatus.ARCHIVED) {
+      showSnackbar(
+        "Policy must be archived before it can be deleted. Go to the policy's Version History and archive the active version first.",
+        "error"
+      );
+      handleMenuClose();
+      return;
+    }
+
     showConfirmDialog({
       title: "Delete Policy",
-      message: "Are you sure you want to delete this Policy?",
+      message: "Are you sure you want to permanently delete this archived policy? This action cannot be undone.",
       confirmText: "Delete",
       cancelText: "Cancel",
       onConfirm: async () => {
         showSpinner();
         try {
-          // await policyApi.deletePolicy(selectedPolicy.id);
-          setPolicies((prev) =>
-            prev.filter((p) => p.id !== selectedPolicy.id)
-          );
+          await policyService.deletePolicy(selectedPolicy.id);
           showSnackbar("Policy Deleted Successfully!", "success");
+          loadPolicies();
         } catch (error: any) {
-          showSnackbar(error.message, "error");
+          showSnackbar(error?.message || "Failed to delete policy", "error");
         } finally {
           hideSpinner();
           handleMenuClose();
         }
       },
     });
+  };
+
+  const handleView = (policy: PolicyDefinition) => {
+    navigate(`/policies/${policy.id}`);
   };
 
   return (
@@ -244,31 +232,62 @@ export default function PolicyDashboard() {
         <div className="text-gray-500 text-[12px]">Configure and manage all company management policies</div>
       </div>
 
-      <Grid container spacing={3}>
-        {
-          statsCard.map((stat, i) => (
-            <Grid key={i} size={{ xs: 12, md: 3 }}>
-              <Card className='!bg-white'>
-                <CardContent sx={{ borderLeft: `4px solid ${stat.color}`, padding: 2, borderRadius: 2 }}>
-                  <div className='flex items-center justify-between'>
-                    <div className='text-[12px] text-gray-800'>
-                      <div className='font-bold'>{stat.label}</div>
-                      <div className='mt-1'>{stats[stat.total]}</div>
+      <Grid container spacing={2}>
+        {statsCard.map((stat, i) => {
+          const iconMap: Record<string, React.ReactElement> = {
+            total: <TotalIcon sx={{ fontSize: 20 }} />,
+            active: <ActiveIcon sx={{ fontSize: 20 }} />,
+            pending: <PendingIcon sx={{ fontSize: 20 }} />,
+            draft: <DraftIcon sx={{ fontSize: 20 }} />,
+            archived: <ArchiveIcon sx={{ fontSize: 20 }} />,
+            expired: <ExpiredIcon sx={{ fontSize: 20 }} />,
+          };
+          const count = stats[stat.value] ?? 0;
+          const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
+          return (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 2 }}>
+              <Card className='!bg-white'
+                sx={{
+                  borderLeft: `4px solid ${stat.color}`,
+                  // boxShadow: '0 4px 16px',
+                  borderRadius: 2,
+                  transition: 'box-shadow 0.2s',
+                  '&:hover': { boxShadow: `0 4px 16px ${stat.color}20` },
+                }}
+              >
+                <CardContent sx={{ p: '16px !important' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="mt-3">
+                      <div className="text-[24px] font-bold leading-none" style={{ color: stat.color }}>
+                        {count}
+                      </div>
+                      <div className="text-[11px] text-gray-500 mt-1">{stat.label}</div>
                     </div>
-                    <CircularProgress
-                      enableTrackSlot
-                      variant="determinate"
-                      value={(stats[stat.value] / stats.total) * 100}
-                      size={50}
-                      thickness={4}
-                      sx={{ color: stat.color }}
-                    />
+                    <div className="flex items-center justify-between">
+                      <div className="relative flex items-center justify-center">
+                        <CircularProgress
+                          variant="determinate"
+                          value={pct}
+                          size={50}
+                          thickness={4}
+                          enableTrackSlot
+                          sx={{
+                            '& .MuiCircularProgress-circle': { stroke: stat.color },
+                            '& .MuiCircularProgress-track': { stroke: `${stat.color}` },
+                          }}
+                        />
+                        <span className="absolute" style={{ color: stat.color, display: 'flex' }}>
+                          {iconMap[stat.icon]}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </Grid>
-          ))
-        }
+          );
+        })}
+
         {/* Policy List */}
         <Grid size={{ xs: 12 }}>
           <div>
@@ -276,7 +295,11 @@ export default function PolicyDashboard() {
               <TextField
                 placeholder="Search policies..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(0);
+                }}
+                size="small"
               />
               <FormControl>
                 <InputLabel>Domain</InputLabel>
@@ -284,12 +307,15 @@ export default function PolicyDashboard() {
                   value={domainFilter}
                   label="Domain"
                   className='dark:bg-white-50 bg-white'
-                  onChange={(e) => setDomainFilter(e.target.value as PolicyDomain)}
+                  onChange={(e) => {
+                    setDomainFilter(e.target.value);
+                    setPage(0);
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
-                  {Object.values(PolicyDomain).map((domain) => (
-                    <MenuItem key={domain} value={domain}>
-                      {domain.replace(/_/g, ' ')}
+                  {domains.map((domain) => (
+                    <MenuItem key={domain.id} value={domain.id}>
+                      {domain.name} <span className='text-gray-500 font-bold text-[10px] ml-1'>({domain.code})</span>
                     </MenuItem>
                   ))}
                 </Select>
@@ -300,9 +326,10 @@ export default function PolicyDashboard() {
                   value={statusFilter}
                   label="Status"
                   className='dark:bg-white-50 bg-white'
-                  onChange={(e) =>
-                    setStatusFilter(e.target.value as PolicyStatus | '')
-                  }
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value as PolicyStatus | '');
+                    setPage(0);
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   {Object.values(PolicyStatus).map((status) => (
@@ -313,26 +340,30 @@ export default function PolicyDashboard() {
                 </Select>
               </FormControl>
               <div>
-                <Button variant="contained" className='!bg-primary whitespace-nowrap' startIcon={<AddIcon />}
+                <Button
+                  variant="contained"
+                  className='!bg-primary whitespace-nowrap'
+                  startIcon={<AddIcon />}
                   onClick={() => {
                     navigate('/policies/create', {
-                      state: companyId
-                    })
-                  }}>
+                      state: { companyId }
+                    });
+                  }}
+                >
                   Create Policy
                 </Button>
               </div>
             </Box>
 
             <TableContainer className='!h-[calc(100vh-355px)]'>
-              <Table stickyHeader className="border border-gray-200" >
+              <Table stickyHeader className="border border-gray-200">
                 <TableHead>
                   <TableRow>
                     <TableCell className='!font-semibold' sx={{
                       ...stickyHeaderLeftSx,
                       minWidth: "70px",
                     }}>S No</TableCell>
-                    <TableCell className='!font-semibold nth-c' >Domain</TableCell>
+                    <TableCell className='!font-semibold'>Domain</TableCell>
                     <TableCell className='!font-semibold'>Policy Name</TableCell>
                     <TableCell className='!font-semibold'>Status</TableCell>
                     <TableCell className='!font-semibold'>Created By</TableCell>
@@ -345,54 +376,55 @@ export default function PolicyDashboard() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredPolicies.length === 0 ? (
+                  {policies.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" >
-                        <div className='!p-4'> No policies found</div>
+                      <TableCell colSpan={8} align="center">
+                        <div className='!p-4'>No policies found</div>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredPolicies.map((policy, index) => (
+                    policies.map((policy, index) => (
                       <TableRow key={policy.id} hover sx={getRowColor(index)}>
                         <TableCell sx={{
                           ...getStickyLeftSx(index),
                           minWidth: "70px",
                         }}>{page * limit + index + 1}</TableCell>
-                        <TableCell sx={{
-                          ...getStickyLeftSx(index),
-                          left: "70px",
-                          minWidth: "100px",
-                        }}>
+                        <TableCell>
                           <Chip
                             size="small"
                             variant="outlined"
                             className='!text-gray-800 !font-mono'
-                            label={policy.domain.replace(/_/g, ' ')}
+                            label={policy.domainId || 'N/A'}
                           />
                         </TableCell>
                         <TableCell>
-                          <div className='text-gray-900'>{policy.name}</div>
+                          <div className='text-gray-900'>{policy.policyName}</div>
                           {policy.description && (
                             <div className='text-gray-500 text-[12px]'>{policy.description}</div>
                           )}
                         </TableCell>
                         <TableCell>{getStatusChip(policy.status)}</TableCell>
-                        <TableCell>{policy.createdBy}</TableCell>
+                        <TableCell>{policy.createdBy || 'N/A'}</TableCell>
                         <TableCell>
-                          {dayjs(policy.effectiveFrom).format("DD MMM YYYY")}
+                          {policy.effectiveFrom ? dayjs(policy.effectiveFrom).format("DD MMM YYYY") : 'N/A'}
                         </TableCell>
-                        <TableCell>{dayjs(policy.updatedAt).format("DD MMM YYYY")}</TableCell>
+                        <TableCell>
+                          {policy.updatedAt ? dayjs(policy.updatedAt).format("DD MMM YYYY") : 'N/A'}
+                        </TableCell>
                         <TableCell sx={{
                           ...getStickyRightSx(index),
                           minWidth: "50px",
                         }}>
-                          <IconButton size="small" className='!text-primary'
-                            onClick={() => navigate(`/policies/${policy.id}`)}
+                          <IconButton
+                            size="small"
+                            className='!text-primary'
+                            onClick={() => handleView(policy)}
                           >
                             <ViewIcon />
                           </IconButton>
                           <IconButton
-                            size="small" className='!text-blue-500'
+                            size="small"
+                            className='!text-blue-500'
                             onClick={(e) => handleMenuOpen(e, policy)}
                           >
                             <MoreIcon />
@@ -404,6 +436,7 @@ export default function PolicyDashboard() {
                 </TableBody>
               </Table>
             </TableContainer>
+
             {/* Pagination */}
             {total > 0 && (
               <GlobalPagination
@@ -423,28 +456,19 @@ export default function PolicyDashboard() {
         </Grid>
       </Grid>
 
-      {/* Policy Wizard Dialog */}
-      <Dialog open={wizardOpen} onClose={() => setWizardOpen(false)} maxWidth="lg" fullWidth>
-        <PolicyWizard
-          companyId={companyId}
-          existingPolicyId={editingPolicyId}
-          onComplete={(_policyId) => {
-            setWizardOpen(false);
-            loadPolicies();
-          }}
-          onCancel={() => setWizardOpen(false)}
-        />
-      </Dialog>
-
       {/* Action Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         <MenuItem onClick={handleEdit}>
           <EditIcon fontSize="small" sx={{ mr: 1 }} className='text-blue-500' /> Edit
         </MenuItem>
-        <MenuItem onClick={handleDelete}>
+        <MenuItem
+          onClick={handleDelete}
+          disabled={selectedPolicy?.status !== PolicyStatus.ARCHIVED}
+          title={selectedPolicy?.status !== PolicyStatus.ARCHIVED ? 'Archive the policy version first to enable deletion' : ''}
+        >
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} className='text-red-500' /> Delete
         </MenuItem>
       </Menu>
     </div>
   );
-};
+}

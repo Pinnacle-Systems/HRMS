@@ -16,15 +16,15 @@ import {
   DialogActions,
   TextField,
 } from '@mui/material';
-import { NavigateNext as NavigateNextIcon, Warning as WarningIcon } from '@mui/icons-material';
+import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
 import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';
 import { PolicyVersionHistory } from '../../components/PolicyManagement/PolicyVersionHistory';
 import { PolicyAssignmentGrid } from '../../components/PolicyManagement/PolicyAssignmentGrid';
 import { PolicyPreviewSimulator } from '../../components/PolicyManagement/PolicyPreviewSimulator';
-import { policyApi } from '../../services/modules/policy';
 import type { PolicyDefinition, PolicyVersion, PolicyAssignment } from '../../types/policy';
 import { useUI } from '../../context/Snackbar';
 import type { TabPanelProps } from './const';
+import { policyService } from '../../services';
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, index, value }) => {
   return (
@@ -40,7 +40,7 @@ export default function EditPolicy() {
   const [activeTab, setActiveTab] = useState(0);
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
-  const [assignments, setAssignments] = useState<PolicyAssignment[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, PolicyAssignment[]>>({});
   const [editMode, setEditMode] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [createVersionDialogOpen, setCreateVersionDialogOpen] = useState(false);
@@ -57,51 +57,137 @@ export default function EditPolicy() {
   const loadPolicyData = async () => {
     showSpinner();
     try {
-      const policyData = await policyApi.getPolicyById(id!);
-      const versionsData = await policyApi.getPolicyVersions(id!);
-      setPolicy(policyData);
-      setVersions(versionsData);
+      const [policyData, versionsData]: any[] = await Promise.all([
+        policyService.getPolicyById(id!),
+        policyService.getPolicyVersions(id!),
+      ]);
+      setPolicy(policyData.data || {});
+      setVersions(versionsData.data || []);
+      if (versionsData.data.length > 0) {
+        const assignmentsResults = await Promise.all(
+          versionsData.data.map(async (v: any) => {
+            const assignmentsData: any = await policyService.getAssignmentsByVersion(v.id);
+            return { versionId: v.versionNo, assignments: assignmentsData.data };
+          })
+        );
 
-      if (versionsData[0]) {
-        const assignmentsData = await policyApi.getAssignments(versionsData[0].id);
-        setAssignments(assignmentsData);
+        // Process all assignments
+        assignmentsResults.forEach(({ versionId, assignments }) => {
+          setAssignments(prev => ({ ...prev, [versionId]: assignments }));
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load policy:', error);
+      showSnackbar(error?.message || 'Failed to load policy', 'error');
     } finally {
       hideSpinner();
     }
   };
 
-  const handleViewVersion = (version: PolicyVersion) => {
-    // Open version details dialog or navigate
-    console.log('View version:', version);
+  // PolicyVersionHistory already renders its own "Version Details" dialog
+  // when a version is viewed — this callback is just an optional hook for
+  // the parent page to react to that event. Nothing extra is needed here.
+  const handleViewVersion = (_version: PolicyVersion) => { };
+
+  // The policy's own status mirrors its latest/active version's status, so
+  // every version-status transition (submit, approve, reject, activate,
+  // archive, expire, restore) must push the same status onto the policy
+  // record. PUT replaces the whole resource, so the rest of the policy's
+  // fields are carried over from the currently loaded policy state.
+  const syncPolicyStatus = async (status: string) => {
+    await policyService.updatePolicy(id!, {
+      companyId: policy?.companyId,
+      templateId: policy?.templateId,
+      domainId: policy?.domainId,
+      policyCode: policy?.policyCode,
+      policyName: policy?.policyName,
+      description: policy?.description,
+      effectiveFrom: policy?.effectiveFrom,
+      effectiveTo: policy?.effectiveTo,
+      status,
+    });
   };
 
   const handleRestoreVersion = async (version: PolicyVersion) => {
     // Create a new version based on the restored version
-    setNewVersionConfig(version.config);
+    setNewVersionConfig(version.configJson);
     setCreateVersionDialogOpen(true);
   };
 
   const handleApproveVersion = async (version: PolicyVersion) => {
     try {
-      await policyApi.approveVersion(version.id);
+      const res: any = await policyService.approveVersion(version.id);
+      await syncPolicyStatus(res?.data?.status ?? 'ACTIVE');
+      showSnackbar('Version approved successfully', 'success');
       loadPolicyData();
-    } catch (error) {
-      console.error('Failed to approve version:', error);
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to approve version', 'error');
     }
   };
 
-  const handleCompareVersions = (version1: PolicyVersion, version2: PolicyVersion) => {
-    // Open compare dialog or navigate to compare page
-    console.log('Compare:', version1, version2);
+  const handleRejectVersion = async (version: PolicyVersion, remarks: string) => {
+    try {
+      const res: any = await policyService.rejectVersion(version.id, remarks);
+      await syncPolicyStatus(res?.data?.status ?? 'DRAFT');
+      showSnackbar('Version rejected', 'success');
+      loadPolicyData();
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to reject version', 'error');
+    }
   };
 
+  const handleArchiveVersion = async (version: PolicyVersion) => {
+    showConfirmDialog({
+      title: 'Archive Version',
+      message: `Are you sure you want to archive version ${version.versionNo}? This will also set the policy status to ARCHIVED, which is required before the policy can be deleted.`,
+      confirmText: 'Archive',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await policyService.archiveVersion(version.id);
+          await syncPolicyStatus('ARCHIVED');
+          showSnackbar('Version archived and policy status set to ARCHIVED', 'success');
+          loadPolicyData();
+        } catch (error: any) {
+          showSnackbar(error?.message || 'Failed to archive version', 'error');
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  const handleExpireVersion = async (version: PolicyVersion) => {
+    showConfirmDialog({
+      title: 'Expire Version',
+      message: `Are you sure you want to expire version ${version.versionNo}?`,
+      confirmText: 'Expire',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await policyService.expireVersion(version.id);
+          await syncPolicyStatus('EXPIRED');
+          showSnackbar('Version expired', 'success');
+          loadPolicyData();
+        } catch (error: any) {
+          showSnackbar(error?.message || 'Failed to expire version', 'error');
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  // PolicyVersionHistory already renders its own compare dialog with the
+  // full diff — same as handleViewVersion, this is just an optional hook.
+  const handleCompareVersions = (_version1: PolicyVersion, _version2: PolicyVersion) => { };
+
   const handleExportVersion = (version: PolicyVersion) => {
-    const dataStr = JSON.stringify(version.config, null, 2);
+    const dataStr = JSON.stringify(version.configJson, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    const exportFileDefaultName = `policy_${policy?.name}_v${version.versionNumber}.json`;
+    const exportFileDefaultName = `policy_${policy?.policyName}_v${version.versionNo}.json`;
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
@@ -110,7 +196,7 @@ export default function EditPolicy() {
 
   const handleAddAssignment = async (assignment: Partial<PolicyAssignment>) => {
     try {
-      await policyApi.createAssignment(assignment);
+      await policyService.createAssignment(assignment);
       loadPolicyData();
     } catch (error) {
       console.error('Failed to add assignment:', error);
@@ -119,7 +205,7 @@ export default function EditPolicy() {
 
   const handleUpdateAssignment = async (id: string, assignment: Partial<PolicyAssignment>) => {
     try {
-      await policyApi.updateAssignment(id, assignment);
+      await policyService.updateAssignment(id, assignment);
       loadPolicyData();
     } catch (error) {
       console.error('Failed to update assignment:', error);
@@ -135,7 +221,7 @@ export default function EditPolicy() {
       onConfirm: async () => {
         showSpinner();
         try {
-          await policyApi.deleteAssignment(id);
+          await policyService.deleteAssignment(id);
           loadPolicyData();
           showSnackbar("Assignment Deleted Successfully!", "success");
         } catch (error: any) {
@@ -147,15 +233,19 @@ export default function EditPolicy() {
     });
   };
 
-  const handleCheckConflicts = async (assignment: Partial<PolicyAssignment>) => {
-    return await policyApi.checkConflicts(assignment);
-  };
-
   const handleCreateNewVersion = async () => {
     if (!newVersionConfig || !changeLog) return;
 
     try {
-      await policyApi.createPolicyVersion(id!, newVersionConfig, changeLog);
+      const payload: any = {
+        changeLog,
+        configJson: newVersionConfig,
+      }
+      const newVersion: any = await policyService.createPolicyVersion(id!, payload);
+      const newStatus = newVersion?.data?.status;
+      if (newStatus) {
+        await syncPolicyStatus(newStatus);
+      }
       setCreateVersionDialogOpen(false);
       setNewVersionConfig(null);
       setChangeLog('');
@@ -169,14 +259,6 @@ export default function EditPolicy() {
     setEditMode(false);
     loadPolicyData();
   };
-
-  // if (loading) {
-  //   return (
-  //     <Container sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-  //       <CircularProgress />
-  //     </Container>
-  //   );
-  // }
 
   if (!policy) {
     return (
@@ -192,12 +274,12 @@ export default function EditPolicy() {
   return (
     <div>
       <Box>
-        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-primary'/>} className='!text-gray-500 !mb-4'>
+        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-primary' />} className='!text-gray-500 !mb-4'>
           <Link color="inherit" href="/policies" onClick={(e) => { e.preventDefault(); navigate('/policies'); }}>
             Policies
           </Link>
           <Link color="inherit" href={`/policies/${id}`} onClick={(e) => { e.preventDefault(); navigate(`/policies/${id}`); }}>
-            {policy.name}
+            {policy.policyName}
           </Link>
           <Typography color="text.primary">Edit</Typography>
         </Breadcrumbs>
@@ -208,7 +290,7 @@ export default function EditPolicy() {
           <Box className="flex justify-between  items-center my-4">
             <Box>
               <Typography variant="h4" gutterBottom className='!text-gray-500'>
-                {policy.name}
+                {policy.policyName}
               </Typography>
               <Typography variant="body2" className='!text-gray-500'>
                 {policy.description}
@@ -253,7 +335,7 @@ export default function EditPolicy() {
                 </Typography>
                 <div className='border border-gray-200 p-2 bg-head'>
                   <pre style={{ margin: 0, overflow: 'auto', fontSize: 12 }}>
-                    {JSON.stringify(currentVersion?.config, null, 2)}
+                    {JSON.stringify(currentVersion?.configJson, null, 2)}
                   </pre>
                 </div>
               </Box>
@@ -262,10 +344,13 @@ export default function EditPolicy() {
             <TabPanel value={activeTab} index={1}>
               <PolicyVersionHistory
                 versions={versions}
-                policyName={policy.name}
+                policyName={policy.policyName}
                 onViewVersion={handleViewVersion}
                 onRestoreVersion={handleRestoreVersion}
                 onApproveVersion={handleApproveVersion}
+                onRejectVersion={handleRejectVersion}
+                onArchiveVersion={handleArchiveVersion}
+                onExpireVersion={handleExpireVersion}
                 onCompareVersions={handleCompareVersions}
                 onExportVersion={handleExportVersion}
               />
@@ -278,7 +363,6 @@ export default function EditPolicy() {
                 onAddAssignment={handleAddAssignment}
                 onUpdateAssignment={handleUpdateAssignment}
                 onDeleteAssignment={handleDeleteAssignment}
-                onCheckConflicts={handleCheckConflicts}
                 policyVersionId={currentVersion?.id || ''}
               />
             </TabPanel>
@@ -298,14 +382,13 @@ export default function EditPolicy() {
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
         policyVersionId={currentVersion?.id || ''}
-        policyName={policy.name}
+        policyName={policy.policyName}
       />
 
       {/* Create New Version Dialog */}
       <Dialog open={createVersionDialogOpen} onClose={() => setCreateVersionDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box className="flex items-center gap-1">
-            <WarningIcon color="warning" />
             Create New Version from Restore
           </Box>
         </DialogTitle>

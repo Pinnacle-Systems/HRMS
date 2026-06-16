@@ -20,59 +20,87 @@ import { helperSx } from '../const';
 import { EmployeeSelector } from '../Common/EmployeeSelector';
 import type { Employee } from '../../../types/policy';
 import type { Step5PreviewAssignProps } from '../types';
+import { policyService } from '../../../services';
+
+const statusChipColor = (status?: string): 'default' | 'warning' | 'info' | 'success' => {
+  switch (status) {
+    case 'PENDING_APPROVAL':
+      return 'warning';
+    case 'ACTIVE':
+      return 'success';
+    case 'DRAFT':
+    case undefined:
+      return 'info';
+    default:
+      return 'default';
+  }
+};
 
 export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
   policyName,
   templateName,
+  domain,
   config,
   eligibilityConfig,
   approvalFlow,
   effectiveFrom,
   onEffectiveFromChange,
+  versionId,
+  policyStatus,
+  onSubmitForApproval,
 }) => {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedEmployees, setSelectedEmployees] = useState<any>('');
   const [previewResult, setPreviewResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
-  
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'submitting' | 'submitted' | 'error'>('idle');
+  // Tracks the policy's real status. Seeded from the prop (the status the
+  // policy actually has on the server) and only overwritten once the submit
+  // call succeeds and the server confirms the new status — never guessed
+  // from local UI interaction state.
+  const [currentStatus, setCurrentStatus] = useState<string | undefined>(policyStatus);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handlePreview = async () => {
-    if (!selectedEmployees) return;
+    if (!selectedEmployees || !versionId) return;
     setLoading(true);
+    setPreviewError(null);
+    setPreviewResult(null);
     try {
-      // await new Promise(resolve => setTimeout(resolve, 800));
-      const emp = selectedEmployees;
-      setPreviewResult({
-        allowed: true,
-        policyName,
-        messages: [
-          { type: 'INFO', message: `Employee ${emp?.name} is eligible for this policy` },
-          { type: 'INFO', message: `Template: ${emp?.template}` },
-          { type: emp?.employeeStatus == 'Probation' ? 'WARNING' : 'INFO', message: emp?.employeeStatus == 'Probation' ? 'Employee is on probation — some leave types may be restricted' : 'Employee is confirmed' },
-        ],
-        computed: {
-          template: emp?.template,
-          isOnProbation: emp?.employeeStatus == 'Probation',
-          approvalLevels: approvalFlow?.levels?.length ?? 0,
-          autoApproveThreshold: approvalFlow?.autoApproveBelowDays ?? 0,
-        },
+      const res: any = await policyService.previewVersion(versionId, {
+        employeeId: selectedEmployees.id,
+        domain: domain ?? '',
+        action: 'APPLY',
+        effectiveDate: effectiveFrom ?? new Date().toISOString().split('T')[0],
       });
+      setPreviewResult(res.data ?? res);
+    } catch (err: any) {
+      setPreviewError(err?.message || 'Failed to run policy test');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSubmitForApproval = async () => {
+    if (!onSubmitForApproval) return;
     setSubmitStatus('submitting');
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setSubmitStatus('submitted');
+    setSubmitError(null);
+    try {
+      const status = await onSubmitForApproval();
+      if (status) setCurrentStatus(status);
+      setSubmitStatus('submitted');
+    } catch (error: any) {
+      setSubmitStatus('error');
+      setSubmitError(error?.message || 'Failed to submit policy for approval');
+    }
   };
 
   const renderConfigSummary = () => {
-    if (!config) return null;
+    // if (!config || !approvalFlow || !eligibilityConfig) return null;
     return (
       <Grid container spacing={2}>
-        {config.entitlements && config.entitlements.length > 0 && (
+        {config?.entitlements && config.entitlements.length > 0 && (
           <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" gutterBottom>Leave Entitlements</Typography>
             <TableContainer component={Paper} variant="outlined">
@@ -158,9 +186,9 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                   <Typography variant="caption" color="text.secondary">Status</Typography>
                   <Box>
                     <Chip
-                      label={submitStatus === 'submitted' ? 'PENDING APPROVAL' : 'DRAFT'}
+                      label={(currentStatus ?? 'DRAFT').replace(/_/g, ' ')}
                       size="small"
-                      color={submitStatus === 'submitted' ? 'info' : 'warning'}
+                      color={statusChipColor(currentStatus)}
                     />
                   </Box>
                 </Grid>
@@ -204,7 +232,7 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
             <CardContent>
               <Box className="flex justify-between items-center">
                 <Typography variant="subtitle1">Test with Sample Employee</Typography>
-                <Button variant="outlined" startIcon={<PreviewIcon />} onClick={() => setPreviewDialogOpen(true)}>
+                <Button variant="outlined" startIcon={<PreviewIcon />} onClick={() => setPreviewDialogOpen(true)} disabled={!versionId}>
                   Test Policy
                 </Button>
               </Box>
@@ -221,8 +249,8 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
             <Alert severity="success" icon={<CheckIcon />}>
               Policy submitted for approval. The approvers have been notified.
             </Alert>
-          ) : (
-            <Alert severity="warning" icon={<WarningIcon />} action={
+          ) : onSubmitForApproval && (currentStatus ?? 'DRAFT') === 'DRAFT' ? (
+            <Alert severity={submitStatus === 'error' ? 'error' : 'warning'} icon={submitStatus === 'error' ? undefined : <WarningIcon />} action={
               <Button
                 color="warning" size="small" variant="outlined"
                 startIcon={submitStatus === 'submitting' ? <CircularProgress size={14} /> : <SendIcon />}
@@ -232,7 +260,17 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                 Submit for Approval
               </Button>
             }>
-              After creating, this policy will be in DRAFT. Click "Submit for Approval" to start the approval workflow, or activate it directly from the dashboard.
+              {submitStatus === 'error' && submitError
+                ? submitError
+                : 'This policy is in DRAFT. Click "Submit for Approval" to start the approval workflow, or activate it directly from the dashboard.'}
+            </Alert>
+          ) : onSubmitForApproval ? (
+            <Alert severity="info" icon={<InfoIcon />}>
+              This policy is currently {(currentStatus ?? '').replace(/_/g, ' ')}. It can only be submitted for approval while in DRAFT.
+            </Alert>
+          ) : (
+            <Alert severity="info" icon={<InfoIcon />}>
+              Click "Create Policy" below to save and submit this policy for approval.
             </Alert>
           )}
         </Grid>
@@ -257,6 +295,9 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
               {loading ? <CircularProgress size={24} /> : 'Run Policy Test'}
             </Button>
 
+            {previewError && (
+              <Alert severity="error" sx={{ mt: 2 }}>{previewError}</Alert>
+            )}
             {previewResult && (
               <Box sx={{ mt: 2 }} className="bg-gray-100 px-5 py-3 rounded-2xl">
                 <Typography variant="subtitle2" gutterBottom>Test Results</Typography>

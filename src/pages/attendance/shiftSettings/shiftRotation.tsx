@@ -377,7 +377,7 @@ export const ShiftRotation = () => {
       {/* Create/Edit Rotation Dialog */}
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" sx={commonsx}>
         <div className="flex items-center p-2 justify-between border-b border-gray-200">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             {editingRotation ? 'Edit Rotation' : 'Create Rotation'}
           </div>
           <IconButton onClick={() => setIsDialogOpen(false)}>
@@ -407,12 +407,12 @@ export const ShiftRotation = () => {
                     renderValue={(selected) => (
                       <div className="flex flex-wrap gap-1">
                         {(selected as string[]).map((id) => (
-                          <Chip key={id} label={getShiftName(id)} size="small" className='text-gray-800' />
+                          <Chip key={id} label={getShiftName(id)} size="small" className='text-gray-800 bg-gray-100' />
                         ))}
                       </div>
                     )}
                   >
-                    {shifts.filter(s => s.active).map((shift) => (
+                    {shifts.filter(s => s.isActive).map((shift) => (
                       <MenuItem key={shift.id} value={shift.id}>
                         {shift.shiftName}
                         {/* ({formatTimeTo12Hour(shift.startTime)} - {formatTimeTo12Hour(shift.endTime)}) */}

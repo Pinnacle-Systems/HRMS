@@ -428,13 +428,13 @@ export const ShiftList = () => {
                 }}>
                   <div className="flex gap-1 justify-center">
                     <Tooltip title="Edit Basic Info">
-                      <IconButton size="small" onClick={() => handleEdit(shift)} color="primary">
-                        <EditIcon fontSize="small" />
+                      <IconButton size="small" onClick={() => handleEdit(shift)} color="primary" disabled={!shift.isActive}>
+                        <EditIcon fontSize="small"/>
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Advanced Configuration">
-                      <IconButton size="small" onClick={() => handleAdvancedConfig(shift)} color="secondary">
-                        <SettingsIcon fontSize="small" className='!text-primary' />
+                      <IconButton size="small" onClick={() => handleAdvancedConfig(shift)} disabled={!shift.isActive}>
+                        <SettingsIcon fontSize="small" className={`${!shift.isActive ? 'text-gray-500' :'!text-primary'}`} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
@@ -487,7 +487,7 @@ export const ShiftList = () => {
       {/* Create/Edit Shift Dialog */}
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" sx={commonsx}>
         <div className="flex items-center p-2 justify-between border-b border-gray-300">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             {editingShift ? 'Edit Shift' : 'Create New Shift'}
           </div>
           <IconButton onClick={() => setIsDialogOpen(false)}>
@@ -583,7 +583,7 @@ export const ShiftList = () => {
                     onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value as string[] })}
                     renderValue={(selected) => <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(selected as string[]).map((value) => (
-                        <Chip key={value} label={value} size="small" />
+                        <Chip key={value} label={value} size="small" className='text-gray-800 bg-gray-100'/>
                       ))}
                     </Box>}
                   >

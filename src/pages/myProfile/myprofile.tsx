@@ -767,7 +767,7 @@ export default function Profile() {
         sx={commonsx}
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">Edit Profile Information</div>
+          <div className="text-gray-800 ml-4">Edit Profile Information</div>
           <IconButton onClick={handleEditDialogClose}>
             <CloseOutlined className="!text-gray-800"/>
           </IconButton>
@@ -813,7 +813,7 @@ export default function Profile() {
         sx={commonsx}
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">Change Password</div>
+          <div className="text-gray-800 ml-4">Change Password</div>
           <IconButton onClick={handlePasswordDialogClose}>
             <CloseOutlined className="!text-gray-800"/>
           </IconButton>
@@ -944,20 +944,19 @@ export default function Profile() {
         maxWidth="sm"
         sx={commonsx}
       >
-        <div className="text-primary p-2 border-b !border-gray-300">
-          <div className="ml-4">Clear Login History</div>
+        <div className="text-gray-800 p-4 border-b !border-gray-300">
+          <div className="ml-2">Clear Login History</div>
         </div>
-        <DialogContent className="mt-2">
-          {/* <div className="mb-4">
+        <DialogContent>
+          <div className="!mb-6 text-[12px]">
             Clear all login history older than specified number of days.
-          </div> */}
+          </div>
           <TextField
             fullWidth
             type="number"
             label="Number of Days"
             value={daysToKeep}
             onChange={(e) => setDaysToKeep(parseInt(e.target.value))}
-            helperText="Enter number of days to keep (older than this will be deleted)"
           />
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">

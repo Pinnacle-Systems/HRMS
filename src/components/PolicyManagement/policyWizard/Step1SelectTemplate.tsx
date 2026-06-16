@@ -3,7 +3,6 @@ import {
   Box,
   Card,
   CardContent,
-  CardActionArea,
   Grid,
   Typography,
   TextField,
@@ -13,159 +12,26 @@ import {
   Select,
   MenuItem,
   Button,
-  Dialog,
-  DialogContent,
-  DialogActions,
-  FormControlLabel,
-  Checkbox,
-  FormGroup,
-  Divider,
   IconButton,
+  Menu,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  CloseOutlined,
-  StarBorder as CustomIcon,
+  DeleteOutlineOutlined,
+  EditOutlined,
+  ContentCopy as CopyIcon,
+  MoreVertOutlined,
 } from '@mui/icons-material';
 import Alert from '@mui/material/Alert';
-import { policyApi } from '../../../services/modules/policy';
-import { type PolicyTemplate, PolicyDomain, type RuleBlockType } from '../../../types/policy';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import dayjs from 'dayjs';
+import { type PolicyTemplate } from '../../../types/policy';
 import { useUI } from '../../../context/Snackbar';
-import { DOMAIN_RULE_BLOCKS, type CreateTemplateDialogProps, type Step1SelectTemplateProps } from '../types';
-import { MOCK_TEMPLATES } from '../const';
-
-const CreateTemplateDialog: React.FC<CreateTemplateDialogProps> = ({ open, onClose, onCreated }) => {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [domain, setDomain] = useState<PolicyDomain | ''>('');
-  const [selectedBlocks, setSelectedBlocks] = useState<RuleBlockType[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const availableBlocks = domain ? (DOMAIN_RULE_BLOCKS[domain] || []) : [];
-
-  useEffect(() => {
-    setSelectedBlocks(availableBlocks.map((b) => b.type));
-  }, [domain]);
-
-  const toggleBlock = (type: RuleBlockType) => {
-    setSelectedBlocks((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    );
-  };
-
-  const handleCreate = async () => {
-    if (!name.trim()) { setError('Template name is required.'); return; }
-    if (!domain) { setError('Please select a policy domain.'); return; }
-    setError('');
-    setSaving(true);
-    try {
-      const ruleBlocks = availableBlocks
-        .filter((b) => selectedBlocks.includes(b.type))
-        .map((b, i) => ({ id: `rb_${i + 1}`, name: b.name, type: b.type, configurable: true, schema: {} }));
-
-      const created = await policyApi.createTemplate({
-        name: name.trim(),
-        description: description.trim(),
-        domain,
-        ruleBlocks,
-        defaultConfig: {},
-        isSystemTemplate: false,
-      });
-      onCreated(created);
-      setName(''); setDescription(''); setDomain(''); setSelectedBlocks([]);
-    } catch (e: any) {
-      setError(e.message || 'Failed to create template.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleClose = () => {
-    setName(''); setDescription(''); setDomain('');
-    setSelectedBlocks([]); setError('');
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <div className='flex items-center justify-between p-2 border-b border-gray-200'>
-        <div className='flex text-primary'>
-          <CustomIcon fontSize="small" className='ml-3' />
-          <div className='ml-3'> Create Custom Template</div>
-        </div>
-        <IconButton onClick={handleClose}>
-          <CloseOutlined className='text-gray-800' />
-        </IconButton>
-      </div>
-      <DialogContent>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Grid container spacing={2} sx={{ my: 2 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <TextField fullWidth required label="Template Name"
-              value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. My Company Leave Policy 2027" />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <FormControl fullWidth required>
-              <InputLabel>Policy Domain</InputLabel>
-              <Select value={domain} label="Policy Domain"
-                onChange={(e) => setDomain(e.target.value)}>
-                {Object.values(PolicyDomain).map((d) => (
-                  <MenuItem key={d} value={d}>{d.replace(/_/g, ' ')}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12 }}>
-            <TextField fullWidth label="Description" multiline rows={2}
-              value={description} onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of what this template covers" />
-          </Grid>
-
-          {domain && (
-            <>
-              <Grid size={{ xs: 12 }}>
-                <Divider />
-                <Typography variant="subtitle2" sx={{ mt: 1.5, mb: 1 }}>
-                  Rule Blocks
-                </Typography>
-                {availableBlocks.length === 0 ? (
-                  <Alert severity="info" sx={{ py: 0.5 }}>
-                    No predefined rule blocks for this domain. The template will be created with a blank config.
-                  </Alert>
-                ) : (
-                  <FormGroup>
-                    {availableBlocks.map((block) => (
-                      <FormControlLabel key={block.type}
-                        control={
-                          <Checkbox size="small"
-                            checked={selectedBlocks.includes(block.type)}
-                            onChange={() => toggleBlock(block.type)} />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body2">{block.name}</Typography>
-                            <Typography variant="caption" color="text.secondary">{block.type}</Typography>
-                          </Box>
-                        }
-                      />
-                    ))}
-                  </FormGroup>
-                )}
-              </Grid>
-            </>
-          )}
-        </Grid>
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }} className='!border-t !border-gray-200'>
-        <Button variant="outlined" onClick={handleClose} className='!text-gray-800 !border-gray-200' disabled={saving}>Cancel</Button>
-        <Button variant="contained" onClick={handleCreate} disabled={saving} className='!bg-primary' >
-          {saving ? 'Creating…' : 'Create Template'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
+import { type Step1SelectTemplateProps } from '../types';
+import { policyService } from '../../../services/modules/policy';
+import { usePolicyDomains } from '../../../hooks/usePolicyDomains';
+import { CreateTemplateDialog } from './CreateTemplateDialog';
 
 // ── Main Step ─────────────────────────────────────────────────────────────────
 
@@ -179,37 +45,99 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
   const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
   const [filteredTemplates, setFilteredTemplates] = useState<PolicyTemplate[]>([]);
   const [domain, setDomain] = useState<string>(policyDomain || '');
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const { showSpinner, hideSpinner } = useUI();
-
-  useEffect(() => { loadTemplates(); }, []);
-  useEffect(() => { filterTemplates(); }, [domain, templates]);
+  const [templateDialog, setTemplateDialog] = useState<{ open: boolean; editTemplate: PolicyTemplate | null }>({ open: false, editTemplate: null });
+  const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
+  const { domains, getDomainName } = usePolicyDomains();
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [actionMenuTemplate, setActionMenuTemplate] = useState<PolicyTemplate | null>(null);
 
   const loadTemplates = async () => {
-    showSpinner()
+    showSpinner();
     try {
-      const allTemplates = await policyApi.getTemplates();
-      const arr = Array.isArray(allTemplates) && allTemplates.length > 0 ? allTemplates : MOCK_TEMPLATES;
-      setTemplates(arr);
-      setFilteredTemplates(arr);
-    } catch {
-      setTemplates(MOCK_TEMPLATES);
-      setFilteredTemplates(MOCK_TEMPLATES);
+      const params = {
+        sort: "createdAt,DESC"
+      }
+      const allTemplates: any = await policyService.getTemplates(params);
+      const templateData = allTemplates.data.content || allTemplates.data || [];
+      setTemplates(templateData);
+      setFilteredTemplates(templateData);
+    } catch (error: any) {
+      showSnackbar(error.message, 'error');
     } finally {
       hideSpinner();
     }
   };
 
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  useEffect(() => {
+    filterTemplates();
+  }, [domain, templates]);
+
   const filterTemplates = () => {
     let filtered = [...templates];
-    if (domain) filtered = filtered.filter((t) => t.domain === domain);
+    if (domain) {
+      filtered = filtered.filter((t) => t.domainId === domain);
+    }
     setFilteredTemplates(filtered);
   };
 
-  const handleTemplateCreated = (template: PolicyTemplate) => {
-    setTemplates((prev) => [...prev, template]);
-    setCreateDialogOpen(false);
+  const handleTemplateCreated = async (template: PolicyTemplate) => {
     onSelect(template);
+    await loadTemplates();
+  };
+
+  const handleTemplateUpdated = async (updated: PolicyTemplate) => {
+    setTemplates((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+    if (selectedTemplate?.id === updated.id) onSelect(updated);
+    await loadTemplates();
+  };
+
+  const handleTemplateDeleted = (id: string) => {
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (selectedTemplate?.id === id) {
+      onSelect(null as any);
+      onPolicyDefinitionChange({ name: '', description: '' });
+    }
+  };
+
+  const handleCopyTemplate = async (template: PolicyTemplate) => {
+    showSpinner();
+    try {
+      await policyService.copyTemplate(template.id, {
+        name: `${template.name} (Copy)`,
+        description: template.description,
+      });
+      showSnackbar('Template copied successfully', 'success');
+      await loadTemplates();
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to copy template', 'error');
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleDomainChange = (newDomain: string) => {
+    setDomain(newDomain);
+    if (selectedTemplate && selectedTemplate.domainId !== newDomain) {
+      onSelect(null as any);
+      onPolicyDefinitionChange({ name: '', description: '' });
+    }
+  };
+
+  const handleMenuOpen = (
+    event: React.MouseEvent<HTMLElement>,
+    template: PolicyTemplate,
+  ) => {
+    setActionMenuAnchor(event.currentTarget);
+    setActionMenuTemplate(template);
+  };
+
+  const handleMenuClose = () => {
+    setActionMenuAnchor(null);
+    setActionMenuTemplate(null);
   };
 
   return (
@@ -223,21 +151,29 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
         <Grid size={{ xs: 12, md: 3 }}>
           <Card variant="outlined" sx={{ p: 2 }} className='!bg-white-50'>
             <div className='text-[12px] mb-4 text-gray-800'>Filters</div>
-            <FormControl fullWidth sx={{ mb: 3 }}>
-              <InputLabel>Policy Domain</InputLabel>
-              <Select value={domain} label="Policy Domain"
-                onChange={(e) => setDomain(e.target.value)}>
+            <FormControl fullWidth sx={{ mb: 1 }}>
+              <InputLabel id="filter-domain-label">Policy Domain</InputLabel>
+              <Select
+                labelId="filter-domain-label"
+                value={domain}
+                label="Policy Domain"
+                onChange={(e) => handleDomainChange(e.target.value)}
+              >
                 <MenuItem value="">All Domains</MenuItem>
-                {Object.values(PolicyDomain).map((d) => (
-                  <MenuItem key={d} value={d}>{d.replace(/_/g, ' ')}</MenuItem>
+                {domains.map((d) => (
+                  <MenuItem key={d.id} value={d.id}>
+                    {d.name}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
+
             <Button
               fullWidth
               variant="outlined"
               startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={() => setTemplateDialog({ open: true, editTemplate: null })}
+              className='!border-primary !text-primary hover:!bg-primary/5'
             >
               Create Custom Template
             </Button>
@@ -246,25 +182,51 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
           {selectedTemplate && (
             <div className='mt-4 border border-gray-200 rounded-sm p-4 bg-white-50'>
               <div className='text-[12px] mb-4 text-gray-800'>Policy Information</div>
-              <div className='grid gap-4'>
-                <div>
-                  <TextField fullWidth required label="Policy Name"
-                    value={policyDefinition.name}
-                    onChange={(e) => onPolicyDefinitionChange({ ...policyDefinition, name: e.target.value })}
+              <div className='grid gap-y-6'>
+                <TextField
+                  fullWidth
+                  required
+                  label="Policy Name"
+                  value={policyDefinition.policyName}
+                  onChange={(e) => onPolicyDefinitionChange({ ...policyDefinition, policyName: e.target.value })}
+                  placeholder="Enter policy name"
+                />
+                <TextField
+                  fullWidth
+                  required
+                  label="Policy Code"
+                  value={(policyDefinition as any).policyCode || ''}
+                  onChange={(e) => onPolicyDefinitionChange({ ...policyDefinition, policyCode: e.target.value })}
+                  placeholder="e.g., LVE-2026"
+                />
+                <TextField
+                  fullWidth
+                  label="Description"
+                  multiline
+                  rows={3}
+                  value={policyDefinition.description}
+                  onChange={(e) => onPolicyDefinitionChange({ ...policyDefinition, description: e.target.value })}
+                  placeholder="Enter policy description (optional)"
+                />
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Effective From"
+                    value={(policyDefinition as any).effectiveFrom ? dayjs((policyDefinition as any).effectiveFrom) : null}
+                    onChange={(v) => onPolicyDefinitionChange({ ...policyDefinition, effectiveFrom: v ? dayjs(v).format('YYYY-MM-DD') : '' })}
+                    slotProps={{ textField: { fullWidth: true, required: true } }}
                   />
-                </div>
-                <div>
-                  <TextField fullWidth label="Description" multiline rows={5}
-                    value={policyDefinition.description}
-                    onChange={(e) => onPolicyDefinitionChange({ ...policyDefinition, description: e.target.value })}
+                  <DatePicker
+                    label="Effective To"
+                    value={(policyDefinition as any).effectiveTo ? dayjs((policyDefinition as any).effectiveTo) : null}
+                    onChange={(v) => onPolicyDefinitionChange({ ...policyDefinition, effectiveTo: v ? dayjs(v).format('YYYY-MM-DD') : '' })}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
-                </div>
+                </LocalizationProvider>
               </div>
             </div>
           )}
         </Grid>
 
-        {/* Template grid */}
         <Grid size={{ xs: 12, md: 9 }}>
           {filteredTemplates.length === 0 && (
             <Alert severity="info" sx={{ mb: 2 }}>
@@ -286,41 +248,126 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
                     }}
                     onClick={() => onSelect(template)}
                   >
-                    <CardActionArea>
-                      <CardContent className='bg-white'>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                          <div className='text-[12px] text-gray-600 font-bold'>
-                            {template.name}
+                    <CardContent className='bg-white'>
+                      <div className='flex items-start justify-between'>
+                        <div>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            <div className='text-[12px] text-gray-600 font-bold'>
+                              {template.name}
+                            </div>
+                          </Box>
+                          <div className='text-gray-500 text-[12px] mb-2 min-h-[36px]'>
+                            {template.description}
                           </div>
-                        </Box>
-                        <div className='text-gray-500 text-[12px] mb-2 min-h-[36px]'>
-                          {template.description}
                         </div>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          <Chip label={template.domain.replace(/_/g, ' ')} size="small"
-                            color="primary" variant="outlined" className='!text-primary !border-primary' />
+                        <div>
+                          <IconButton size="small"
+                            onClick={(e) => handleMenuOpen(e, template)}>
+                            <MoreVertOutlined className='text-gray-800' />
+                          </IconButton>
+                        </div>
+                      </div>
 
-                          <Chip label={`${template.ruleBlocks?.length || 0} blocks`}
-                            size="small" variant="outlined" className='!text-gray-800' />
-                          {isCustom && (
-                            <Chip label="Custom" size="small" color="secondary" variant="outlined" />
-                          )}
-                        </Box>
-                      </CardContent>
-                    </CardActionArea>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                        <Chip
+                          label={getDomainName(template.domainId)}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                          className='!text-primary !border-primary'
+                        />
+                        <Chip
+                          label={`${template.blockCount} blocks`}
+                          size="small"
+                          variant="outlined"
+                          className='!text-gray-800 !border-gray-200'
+                        />
+                        {isCustom && (
+                          <Chip
+                            label="Custom"
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+                    </CardContent>
                   </Card>
                 </div>
               );
             })}
           </div>
+
+          <Menu
+            anchorEl={actionMenuAnchor}
+            open={Boolean(actionMenuAnchor)}
+            onClose={handleMenuClose}
+            transformOrigin={{ horizontal: "right", vertical: "top" }}
+            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+          >
+            <MenuItem
+              className="!text-[12px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (actionMenuTemplate) handleCopyTemplate(actionMenuTemplate);
+                handleMenuClose();
+              }}
+            >
+              <CopyIcon className='text-green-500 !w-4 mr-2' />
+              Copy Template
+            </MenuItem>
+
+            {actionMenuTemplate && !actionMenuTemplate.isSystemTemplate && (
+              <>
+                <MenuItem
+                  className="!text-[12px]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTemplateDialog({ open: true, editTemplate: actionMenuTemplate });
+                    handleMenuClose();
+                  }}
+                >
+                  <EditOutlined className='text-blue-500 !w-4 mr-2' />
+                  Edit Template
+                </MenuItem>
+
+                <MenuItem
+                  className="!text-[12px] text-red-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const template = actionMenuTemplate;
+                    showConfirmDialog({
+                      title: 'Delete Template',
+                      message: `Are you sure you want to delete "${template.name}"? This action cannot be undone.`,
+                      confirmText: 'Delete',
+                      onConfirm: async () => {
+                        try {
+                          await policyService.deleteTemplate(template.id);
+                          handleTemplateDeleted(template.id);
+                          showSnackbar('Template deleted successfully', 'success');
+                        } catch (error: any) {
+                          showSnackbar(error.message || 'Failed to delete template', 'error');
+                        }
+                      },
+                    });
+                    handleMenuClose();
+                  }}
+                >
+                  <DeleteOutlineOutlined className='text-red-500 !w-4 mr-2' />
+                  Delete Template
+                </MenuItem>
+              </>
+            )}
+          </Menu>
         </Grid>
       </Grid>
 
-      {/* Create Template Dialog */}
       <CreateTemplateDialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
+        open={templateDialog.open}
+        onClose={() => setTemplateDialog({ open: false, editTemplate: null })}
         onCreated={handleTemplateCreated}
+        editTemplate={templateDialog.editTemplate}
+        onUpdated={handleTemplateUpdated}
       />
     </div>
   );

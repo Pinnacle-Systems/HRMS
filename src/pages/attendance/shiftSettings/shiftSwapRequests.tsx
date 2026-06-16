@@ -397,7 +397,7 @@ export const ShiftSwapRequests = () => {
       {/* Create Swap Request Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
         <div className="flex items-center p-3 justify-between border-b border-gray-200">
-          <div className="text-primary font-medium">New Swap Request</div>
+          <div className="text-gray-800 font-medium">New Swap Request</div>
           <IconButton size="small" onClick={() => setCreateOpen(false)}>
             <CloseOutlined className="!text-gray-600" />
           </IconButton>
@@ -490,7 +490,7 @@ export const ShiftSwapRequests = () => {
       {/* Detail Dialog */}
       <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="sm" fullWidth>
         <div className="flex items-center p-3 justify-between border-b border-gray-200">
-          <div className="text-primary font-medium">Swap Request Details</div>
+          <div className="text-gray-800 font-medium">Swap Request Details</div>
           <IconButton size="small" onClick={() => setDetailOpen(false)}>
             <CloseOutlined className="!text-gray-600" />
           </IconButton>
@@ -598,7 +598,7 @@ export const ShiftSwapRequests = () => {
       {/* Action Confirmation Dialog */}
       <Dialog open={actionDialog.open} onClose={() => setActionDialog(d => ({ ...d, open: false }))} maxWidth="xs" fullWidth>
         <div className="flex items-center p-3 justify-between border-b border-gray-200">
-          <div className="text-primary font-medium">
+          <div className="text-gray-800 font-medium">
             {actionDialog.type === 'APPROVED' ? 'Approve Request' : actionDialog.type === 'REJECTED' ? 'Reject Request' : 'Cancel Request'}
           </div>
           <IconButton size="small" onClick={() => setActionDialog(d => ({ ...d, open: false }))}>

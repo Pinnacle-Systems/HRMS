@@ -627,7 +627,7 @@ export default function ManagerLeaveApprovalsPage() {
 
       <Dialog open={Boolean(actionDialog)} onClose={closeActionDialog} maxWidth="sm" fullWidth>
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">{actionTitle}</div>
+          <div className="text-gray-800 ml-4">{actionTitle}</div>
           <IconButton onClick={closeActionDialog}>
             <CloseOutlinedIcon className="!text-gray-800"/>
           </IconButton>

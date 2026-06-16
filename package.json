@@ -32,11 +32,13 @@
     "dayjs": "^1.11.20",
     "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
+    "qs": "^6.15.2",
     "react": "^19.2.5",
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^19.2.5",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.14.2",
+    "recharts": "^3.8.1",
     "use-places-autocomplete": "^4.0.1"
   },
   "devDependencies": {

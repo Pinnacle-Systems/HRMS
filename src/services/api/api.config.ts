@@ -2,7 +2,15 @@ import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
 import { setupInterceptors } from "./interceptors";
 import { API_CONFIG } from "./config";
 
-type RequestBody = Record<string, unknown> | object | FormData | File | string | number | boolean | null;
+type RequestBody =
+  | Record<string, unknown>
+  | object
+  | FormData
+  | File
+  | string
+  | number
+  | boolean
+  | null;
 type UploadAdditionalData = Record<string, string | Blob>;
 
 class ApiService {
@@ -13,6 +21,9 @@ class ApiService {
       baseURL: API_CONFIG.baseURL || import.meta.env.VITE_API_URL,
       timeout: API_CONFIG.timeout,
       headers: API_CONFIG.headers,
+      paramsSerializer: {
+        indexes: null,
+      },
     });
 
     // Setup interceptors

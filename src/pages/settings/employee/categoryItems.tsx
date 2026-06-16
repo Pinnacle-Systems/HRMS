@@ -334,7 +334,7 @@ export default function CategoryItems() {
         sx={commonsx}
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             {editingItem
               ? `Edit ${category.categoryName}`
               : `Add New ${category.categoryName}`}

@@ -15,43 +15,40 @@ import {
   TableHead,
   TableRow,
   Divider,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
+  TextField,
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
   Edit as EditIcon,
   History as HistoryIcon,
-  // People as PeopleIcon,
   Assignment as AssignmentIcon,
   PlayArrow as TestIcon,
-  // CheckCircle as ActivateIcon,
-  // Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { policyApi } from '../../services/modules/policy';
-import type { PolicyDefinition, PolicyVersion, PolicyAssignment } from '../../types/policy';
+import type { PolicyDefinition, PolicyVersion, PolicyAssignment, PolicyAuditLog } from '../../types/policy';
 import { PolicyPreviewSimulator } from '../../components/PolicyManagement/PolicyPreviewSimulator';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import dayjs from 'dayjs';
 import { useUI } from '../../context/Snackbar';
+import { policyService } from '../../services';
+import { formatDate, formatDateTime } from '../../utils/dateFormatter';
 
 export default function PolicyDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
-  const [assignments, setAssignments] = useState<PolicyAssignment[]>([]);
+  const [assignments, setAssignments] = useState<Record<string, PolicyAssignment[]>>({});
+  const [auditLogs, setAuditLogs] = useState<PolicyAuditLog[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
-  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
-  const [scheduleDate, setScheduleDate] = useState('');
-  const { showSpinner, hideSpinner } = useUI();
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingVersionId, setRejectingVersionId] = useState('');
+  const [rejectRemarks, setRejectRemarks] = useState('');
+  const { showSpinner, hideSpinner, showSnackbar } = useUI();
 
   useEffect(() => {
     if (id) {
@@ -60,51 +57,110 @@ export default function PolicyDetails() {
   }, [id]);
 
   const loadPolicyData = async () => {
-    showSpinner()
+    showSpinner();
     try {
-      const [policyData, versionsData] = await Promise.all([
-        policyApi.getPolicyById(id!),
-        policyApi.getPolicyVersions(id!),
+      const [policyData, versionsData, auditData]: any = await Promise.all([
+        policyService.getPolicyById(id!),
+        policyService.getPolicyVersions(id!),
+        policyService.getPolicyAudit(id!),
       ]);
-      setPolicy(policyData);
-      setVersions(versionsData);
+      setPolicy(policyData.data || {});
+      setVersions(versionsData.data || []);
+      setAuditLogs(auditData.data || []);
+      if (versionsData.data.length > 0) {
+        const assignmentsResults = await Promise.all(
+          versionsData.data.map(async (v: any) => {
+            const assignmentsData: any = await policyService.getAssignmentsByVersion(v.id);
+            return { versionId: v.versionNo, assignments: assignmentsData.data };
+          })
+        );
 
-      if (versionsData[0]) {
-        const assignmentsData = await policyApi.getAssignments(versionsData[0].id);
-        setAssignments(assignmentsData);
+        // Process all assignments
+        assignmentsResults.forEach(({ versionId, assignments }) => {
+          setAssignments(prev => ({ ...prev, [versionId]: assignments }));
+        });
       }
     } catch (error) {
       console.error('Failed to load policy:', error);
     } finally {
-      hideSpinner()
+      hideSpinner();
     }
+  };
+
+  // The policy's own status mirrors its latest/active version's status, so
+  // every version-status transition (activate, approve, reject) must push
+  // the same status onto the policy record. PUT replaces the whole
+  // resource, so the rest of the fields are carried over from the
+  // currently loaded policy state.
+  const syncPolicyStatus = async (status: string) => {
+    await policyService.updatePolicy(id!, {
+      companyId: policy?.companyId,
+      templateId: policy?.templateId,
+      domainId: policy?.domainId,
+      policyCode: policy?.policyCode,
+      policyName: policy?.policyName,
+      description: policy?.description,
+      effectiveFrom: policy?.effectiveFrom,
+      effectiveTo: policy?.effectiveTo,
+      status,
+    });
   };
 
   const handleActivate = async (versionId: string) => {
+    showSpinner();
     try {
-      await policyApi.activateVersion(versionId);
+      const res: any = await policyService.activateVersion(versionId);
+      await syncPolicyStatus(res?.data?.status ?? 'ACTIVE');
+      showSnackbar('Version activated successfully', 'success');
       loadPolicyData();
-    } catch (error) {
-      console.error('Failed to activate:', error);
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to activate version', 'error');
+    } finally {
+      hideSpinner();
     }
   };
 
-  const handleSchedule = async () => {
-    if (!scheduleDate) return;
+  const handleApprove = async (versionId: string) => {
+    showSpinner();
     try {
-      // API call to schedule activation
-      setScheduleDialogOpen(false);
+      const res: any = await policyService.approveVersion(versionId);
+      await syncPolicyStatus(res?.data?.status ?? 'ACTIVE');
+      showSnackbar('Version approved successfully', 'success');
       loadPolicyData();
-    } catch (error) {
-      console.error('Failed to schedule:', error);
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to approve version', 'error');
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleOpenReject = (versionId: string) => {
+    setRejectingVersionId(versionId);
+    setRejectRemarks('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleReject = async () => {
+    if (!rejectingVersionId) return;
+    showSpinner();
+    try {
+      const res: any = await policyService.rejectVersion(rejectingVersionId, rejectRemarks);
+      await syncPolicyStatus(res?.data?.status ?? 'DRAFT');
+      showSnackbar('Version rejected', 'success');
+      setRejectDialogOpen(false);
+      loadPolicyData();
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to reject version', 'error');
+    } finally {
+      hideSpinner();
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'success';
-      case 'DRAFT': return 'warning';
-      case 'PENDING_APPROVAL': return 'info';
+      case 'DRAFT': return 'info';
+      case 'PENDING_APPROVAL': return 'warning';
       case 'SCHEDULED': return 'primary';
       case 'EXPIRED': return 'error';
       default: return 'secondary';
@@ -113,7 +169,6 @@ export default function PolicyDetails() {
 
   if (!policy) return null;
 
-  // const activeVersion = versions.find(v => v.status === 'ACTIVE');
   const currentVersion = versions[0];
 
   return (
@@ -124,22 +179,12 @@ export default function PolicyDetails() {
         </IconButton>
         <Box>
           <Typography variant="h4" component="h1">
-            {policy.name} (View Details)
+            {policy.policyName} (View Details)
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {policy.description}
           </Typography>
         </Box>
-        {/* {!activeVersion && (
-          <Button
-            variant="contained"
-            className='!bg-primary'
-            startIcon={<TestIcon />}
-            onClick={() => setTestDialogOpen(true)}
-          >
-            Test Policy
-          </Button>
-        )} */}
       </Box>
 
       <Grid container spacing={3}>
@@ -160,7 +205,7 @@ export default function PolicyDetails() {
                       <Typography variant="caption" color="text.secondary">
                         Policy ID
                       </Typography>
-                      <Typography variant="body2">{policy.id}</Typography>
+                      <Typography variant="body2">{policy.policyCode}</Typography>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
@@ -191,7 +236,7 @@ export default function PolicyDetails() {
                         Created At
                       </Typography>
                       <Typography variant="body2">
-                        {new Date(policy.createdAt).toLocaleString()}
+                        {formatDateTime(policy.createdAt)}
                       </Typography>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -199,7 +244,7 @@ export default function PolicyDetails() {
                         Last Updated
                       </Typography>
                       <Typography variant="body2">
-                        {new Date(policy.updatedAt).toLocaleString()}
+                        {formatDateTime(policy.updatedAt)}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -207,9 +252,9 @@ export default function PolicyDetails() {
                   <Divider sx={{ my: 3 }} />
 
                   <Typography variant="subtitle1" gutterBottom>
-                    Current Version: v{currentVersion?.versionNumber}
+                    Current Version: v{currentVersion?.versionNo}
                   </Typography>
-                  {currentVersion?.config && (
+                  {currentVersion?.configJson && (
                     <Box component="pre" className='bg-head' sx={{
                       // bgcolor: 'action.hover',
                       p: 2,
@@ -217,14 +262,14 @@ export default function PolicyDetails() {
                       overflow: 'auto',
                       fontSize: 12,
                     }}>
-                      {JSON.stringify(currentVersion.config, null, 2)}
+                      {JSON.stringify(currentVersion.configJson, null, 2)}
                     </Box>
                   )}
                 </Box>
               )}
 
               {activeTab === 1 && (
-                <TableContainer className='p-5'>
+                <TableContainer className='p-5 !max-h-[calc(100vh-200px)]'>
                   <Table className='bg-white-50 border border-gray-200 rounded-lg shadow-sm'>
                     <TableHead>
                       <TableRow>
@@ -239,10 +284,10 @@ export default function PolicyDetails() {
                     <TableBody>
                       {versions.map((version) => (
                         <TableRow key={version.id}>
-                          <TableCell>v{version.versionNumber}</TableCell>
-                          <TableCell>{new Date(version.effectiveFrom).toLocaleDateString()}</TableCell>
+                          <TableCell>v{version.versionNo}</TableCell>
+                          <TableCell>{formatDateTime(version.effectiveFrom)}</TableCell>
                           <TableCell>
-                            {version.effectiveTo ? new Date(version.effectiveTo).toLocaleDateString() : '-'}
+                            {version.effectiveTo ? formatDateTime(version.effectiveTo) : '-'}
                           </TableCell>
                           <TableCell>
                             <Chip
@@ -254,17 +299,19 @@ export default function PolicyDetails() {
                           <TableCell>{version.createdBy}</TableCell>
                           <TableCell>
                             {version.status === 'PENDING_APPROVAL' && (
-                              <Button size="small" color="success">
-                                Approve
-                              </Button>
+                              <>
+                                <Button size="small" color="success" onClick={() => handleApprove(version.id)}>
+                                  Approve
+                                </Button>
+                                <Button size="small" color="error" onClick={() => handleOpenReject(version.id)}>
+                                  Reject
+                                </Button>
+                              </>
                             )}
                             {version.status === 'DRAFT' && (
                               <>
                                 <Button size="small" onClick={() => handleActivate(version.id)}>
                                   Activate
-                                </Button>
-                                <Button size="small" onClick={() => setScheduleDialogOpen(true)}>
-                                  Schedule
                                 </Button>
                               </>
                             )}
@@ -277,49 +324,101 @@ export default function PolicyDetails() {
               )}
 
               {activeTab === 2 && (
-                <TableContainer className='p-5'>
+                <TableContainer className='p-5 !max-h-[calc(100vh-200px)]'>
                   <Table className='bg-white-50 border border-gray-200 rounded-lg shadow-sm'>
                     <TableHead>
                       <TableRow>
+                        <TableCell>Version</TableCell>
                         <TableCell>Assignment Type</TableCell>
-                        <TableCell>Values</TableCell>
+                        <TableCell>Value</TableCell>
                         <TableCell>Priority</TableCell>
                         <TableCell>Effective Period</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {assignments.map((assignment) => (
-                        <TableRow key={assignment.id}>
-                          <TableCell>
-                            {assignment.branchId && 'Branch'}
-                            {assignment.departmentId && 'Department'}
-                            {assignment.designationId && 'Designation'}
-                            {assignment.employeeId && 'Specific Employee'}
-                          </TableCell>
-                          <TableCell>
-                            {assignment.branchId ||
-                              assignment.departmentId ||
-                              assignment.designationId ||
-                              assignment.employeeId}
-                          </TableCell>
-                          <TableCell>{assignment.priority}</TableCell>
-                          <TableCell>
-                            {new Date(assignment.effectiveFrom).toLocaleDateString()} -
-                            {assignment.effectiveTo ? new Date(assignment.effectiveTo).toLocaleDateString() : 'Ongoing'}
+                      {Object.keys(assignments).length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} align="center" className='!text-gray-400'>
+                            No assignments configured.
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        Object.entries(assignments).flatMap(([versionNo, versionAssignments]) =>
+                          versionAssignments?.map((assignment) => (
+                            <TableRow key={assignment.id}>
+                              <TableCell>v{versionNo}</TableCell>
+                              <TableCell>
+                                {assignment.branchId ? 'Branch'
+                                  : assignment.departmentId ? 'Department'
+                                    : assignment.designationId ? 'Designation'
+                                      : assignment.employmentType ? 'Employment Type'
+                                        : assignment.employeeGroupId ? 'Employee Group'
+                                          : assignment.employeeId ? 'Specific Employee'
+                                            : 'All Employees'}
+                              </TableCell>
+                              <TableCell>
+                                {assignment.branchId ||
+                                  assignment.departmentId ||
+                                  assignment.designationId ||
+                                  assignment.employmentType ||
+                                  assignment.employeeGroupId ||
+                                  assignment.employeeId ||
+                                  'Company-wide'}
+                              </TableCell>
+                              <TableCell>{assignment.priority}</TableCell>
+                              <TableCell>
+                                {formatDate(assignment.effectiveFrom)} ---{' '}
+                                {assignment.effectiveTo ? formatDate(assignment.effectiveTo) : 'Ongoing'}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )
+                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
               )}
 
               {activeTab === 3 && (
-                <div className="p-2">
-                  <Alert severity="info" className='!m-5'>
-                    Audit logs will be displayed here. This includes all policy changes, approvals, and activations.
-                  </Alert>
+                <div className="p-5">
+                  {auditLogs.length === 0 ? (
+                    <div>
+                      <Alert severity="info" className='!m-2'>
+                        Audit logs will be displayed here. This includes all policy changes, approvals, and activations.
+                      </Alert>
+                    </div>
+                  ) : (
+                    <TableContainer className="!max-h-[calc(100vh-200px)]">
+                      <Table stickyHeader className="bg-white-50 border border-gray-200 rounded-sm shadow-sm">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>S No</TableCell>
+                            <TableCell>Action Type</TableCell>
+                            <TableCell>Action By</TableCell>
+                            <TableCell>Date & Time</TableCell>
+                            <TableCell>Remarks</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {(
+                            auditLogs.map((log, index) => (
+                              <TableRow key={log.id}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>
+                                  <Chip label={log.actionType} size="small" variant="outlined" className='text-gray-800'/>
+                                </TableCell>
+                                <TableCell>{log.actionBy}</TableCell>
+                                <TableCell>{formatDateTime(log.actionDate)}</TableCell>
+                                <TableCell>{log.remarks || '-'}</TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
                 </div>
+
               )}
             </Box>
           </div>
@@ -381,7 +480,7 @@ export default function PolicyDetails() {
               />
 
               <Chip
-                label={`Assignments: ${assignments.length ?? 0}`}
+                label={`Assignments: ${Object.values(assignments).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)}`}
                 color="success"
                 variant="outlined"
               />
@@ -403,35 +502,29 @@ export default function PolicyDetails() {
         policyVersionId={currentVersion?.id || ''}
       />
 
-      {/* Schedule Dialog */}
-      <Dialog open={scheduleDialogOpen} onClose={() => setScheduleDialogOpen(false)}>
-        <DialogTitle>Schedule Policy Activation</DialogTitle>
+      {/* Reject Version Dialog */}
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reject Version</DialogTitle>
         <DialogContent>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            <DateTimePicker
-              label="Activation Date & Time"
-              value={scheduleDate ? dayjs(scheduleDate) : null}
-              onChange={(newValue) =>
-                setScheduleDate(newValue ? dayjs(newValue).format("YYYY-MM-DDTHH:mm:ss") : "")
-              }
-              sx={{
-                mt: 2,
-              }}
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                },
-              }}
-            />
-          </LocalizationProvider>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Rejection Remarks"
+            placeholder="Provide a reason for rejection..."
+            value={rejectRemarks}
+            onChange={(e) => setRejectRemarks(e.target.value)}
+            sx={{ mt: 1 }}
+          />
         </DialogContent>
         <DialogActions className='!p-4'>
-          <Button onClick={() => setScheduleDialogOpen(false)} variant='outlined' className='!border-gray-200 !text-gray-800'>Cancel</Button>
-          <Button onClick={handleSchedule} variant="contained" className='!bg-primary'>
-            Schedule
+          <Button onClick={() => setRejectDialogOpen(false)} variant='outlined' className='!border-gray-200 !text-gray-800'>Cancel</Button>
+          <Button onClick={handleReject} variant="contained" color="error">
+            Reject
           </Button>
         </DialogActions>
       </Dialog>
+
     </div>
   );
 };

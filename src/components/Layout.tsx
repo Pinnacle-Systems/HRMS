@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -32,6 +32,7 @@ import ContrastOutlinedIcon from "@mui/icons-material/ContrastOutlined";
 import HelpOutlineTwoTone from "@mui/icons-material/HelpOutlineTwoTone";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { useAuth } from "../auth/authContext";
+import GlobalSearch from "./GlobalSearch";
 import {
   canShowNavItem,
   getDefaultRoute,
@@ -44,7 +45,9 @@ import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useTheme } from "../context/themeContext";
-const drawerWidth = 180;
+import { Chip } from "@mui/material";
+import { companyService } from "../services/modules/company";
+const drawerWidth = 220;
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
@@ -99,6 +102,22 @@ export default function Layout() {
     handleProfileMenuClose();
     navigate("/profile");
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if ((e.metaKey || e.ctrlKey) && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        toggleMode();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
 
   const menuItems: NavItem[] = [
@@ -161,8 +180,15 @@ export default function Layout() {
           text: "Policy Simulator",
           path: "/policies/simulator",
         },
+        {
+          text: "Reports",
+          path: "/policies/reports",
+        },
       ],
     },
+  ];
+
+  const menuBottomItems: NavItem[] = [
     {
       text: "Settings",
       icon: <SettingsOutlinedIcon />,
@@ -175,10 +201,13 @@ export default function Layout() {
       path: "/documentation",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
     },
-  ];
+  ]
 
   const visibleMenuItems = user
     ? menuItems.filter((item) => canShowNavItem(user, item))
+    : [];
+  const visibleBottomMenuItems = user
+    ? menuBottomItems.filter((item) => canShowNavItem(user, item))
     : [];
   const avatarInitial = user?.email?.charAt(0).toUpperCase() || "U";
 
@@ -190,6 +219,27 @@ export default function Layout() {
   ];
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
+
+  });
+
+  const fetchCompanyData = async () => {
+    try {
+      const companyData: any = await companyService.getCompany();
+      const companyId = companyData.data.length ? companyData.data?.[0].id : '';
+      if (companyId) {
+        const response: any = await companyService.getCompanyById(companyId);
+        setCompanyInfo(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching company data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCompanyData();
+  }, [])
 
   return (
     <Box className="flex">
@@ -216,7 +266,7 @@ export default function Layout() {
             </IconButton>
             <Box className="flex items-center gap-2">
               {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div> */}
-              <img src={logo} alt="" width="20px" />
+              <img src={companyInfo.logoUrl} alt="logo" width="20px" />
               <div className="font-bold text-gray-700">
                 Vibe<span className="text-primary">HR</span>
               </div>
@@ -233,10 +283,17 @@ export default function Layout() {
             <Tooltip title="Search">
               <IconButton
                 size="small"
-                aria-label="show notifications"
+                aria-label="search"
                 color="inherit"
+                onClick={() => setSearchOpen(true)}
               >
-                <SearchOutlined className="text-gray-500 !w-5" />
+                <Chip
+                  label="CTRL + P"
+                  icon={<SearchOutlined className="text-gray-500 !w-5" />}
+                  size="small"
+                  variant="outlined"
+                  className="!text-gray-500"
+                />
               </IconButton>
             </Tooltip>
             <Tooltip title="Notifications">
@@ -281,6 +338,11 @@ export default function Layout() {
               </IconButton>
             </Tooltip>
           </Box>
+
+          <GlobalSearch
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+          />
         </Toolbar>
       </AppBar>
 
@@ -296,26 +358,26 @@ export default function Layout() {
       >
         <MenuItem onClick={handleMyProfile} className="bg-white-50">
           <ListItemIcon>
-            <Person4OutlinedIcon className="!w-4" />
+            <Person4OutlinedIcon className="!w-4 dark:text-primary" />
           </ListItemIcon>
           <div className="text-gray-800 ">My Profile</div>
         </MenuItem>
         <MenuItem onClick={() => navigate("/settings/general/company-settings")} className="bg-white-50">
           <ListItemIcon>
-            <SettingsOutlinedIcon className="!w-4" />
+            <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
           </ListItemIcon>
           <div className="text-gray-800 ">Company Settings</div>
         </MenuItem>
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
           <ListItemIcon>
-            <HistoryOutlinedIcon className="!w-4" />
+            <HistoryOutlinedIcon className="!w-4 dark:text-primary" />
           </ListItemIcon>
           <div className="text-gray-800">Audit Logs</div>
         </MenuItem>
         <Divider className="border border-gray-200" />
         <MenuItem onClick={handleLogout} className="bg-white text-error">
           <ListItemIcon>
-            <LogoutOutlinedIcon className="!w-4" />
+            <LogoutOutlinedIcon className="!w-4 dark:text-error" />
           </ListItemIcon>
           <div>Logout</div>
         </MenuItem>
@@ -363,39 +425,19 @@ export default function Layout() {
         open={open}
       >
         <List>
-          {/* {visibleMenuItems.map((item, index) => (
-            <Tooltip
-              key={`item-${index}-${item.text}`}
-              title={item.text}
-            >
-              <ListItem disablePadding className="block whitespace-nowrap">
-                <ListItemButton
-                  className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
-                    location.pathname.startsWith(`${item.path}/`)
-                    ? "text-primary !bg-primary-50"
-                    : "text-gray-400"
-                    } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
-                  onClick={() => navigate(item.path)}
-                >
-                  <ListItemIcon
-                    className={`!min-w-0 ml-2 ${open ? "mr-5" : "mr-0"} w-2 dark:text-primary justify-center`}
-                    sx={{ "& svg": { fontSize: 20 } }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.text}
-                    className={
-                      open ? "opacity-100 dark:text-white" : "opacity-0"
-                    }
-                    sx={{
-                      "& .MuiTypography-root": { fontSize: "12px" },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            </Tooltip>
-          ))} */}
+          {open && (
+            <Box className="p-3">
+              <Box className="flex items-center gap-1 shadow-sm">
+                <img src={logo} className="!w-6 !h-6 mr-2"></img>
+                <Box>
+                  <div className="text-gray-500 text-[10px]">Organization</div>
+                  <div className="text-gray-800 font-bold text-[12px]">
+                    Pinnacle Systems
+                  </div>
+                </Box>
+              </Box>
+            </Box>
+          )}
           {visibleMenuItems.map((item: any, index) => (
             <Box key={`item-${index}-${item.text}`}>
               <Tooltip title={!open ? item.text : ""}>
@@ -411,10 +453,12 @@ export default function Layout() {
                       if (item.text === 'Policy Engine') {
                         setPolicyOpen(!policyOpen);
                         setOpen(true);
+                        setAttendanceOpen(false);
                       }
                       if (item.text == 'Attendance') {
                         setOpen(true);
                         setAttendanceOpen(!attendanceOpen);
+                        setPolicyOpen(false);
                       }
 
                       navigate(item.path);
@@ -536,27 +580,96 @@ export default function Layout() {
             </Box>
           ))}
         </List>
+
         <div>
-          <div className="flex items-center cursor-pointer px-3 py-1" onClick={() => toggleMode()} >
-            <Tooltip title="Theme">
-              <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
-                {mode === "dark" ? (
-                  <LightModeOutlined className="h-5 w-5" />
-                ) : (
-                  <DarkModeOutlined className="h-5 w-5" />
-                )}
-              </IconButton>
-            </Tooltip>
-            <span className="text-gray-800 text-[12px]">Theme</span>
-          </div>
-          <div className="flex items-center cursor-pointer px-3 py-1" onClick={() => handleLogout()} >
-            <Tooltip title="Logout">
-              <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
-                <PowerSettingsNewOutlined />
-              </IconButton>
-            </Tooltip>
-            <span className="text-gray-800 text-[12px]">Logout</span>
-          </div>
+          <List className="!p-0">
+            {visibleBottomMenuItems.map((item: any, index) => (
+              <Box key={`item-${index}-${item.text}`}>
+                <Tooltip title={!open ? item.text : ""}>
+                  <ListItem disablePadding className="block whitespace-nowrap">
+                    <ListItemButton
+                      className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
+                        location.pathname.startsWith(`${item.path}/`)
+                        ? "text-primary !bg-primary-50"
+                        : "text-gray-400"
+                        } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                      onClick={() => {
+                        navigate(item.path);
+                      }}
+                    >
+                      <ListItemIcon
+                        className={`!min-w-0 ml-2 dark:text-primary ${open ? "mr-5" : "mr-0"
+                          } w-2 justify-center`}
+                        sx={{ "& svg": { fontSize: 20 } }}
+                      >
+                        {item.icon}
+                      </ListItemIcon>
+
+                      <ListItemText
+                        primary={item.text}
+                        className={open ? "opacity-100 text-gray-800" : "opacity-0"}
+                        sx={{
+                          "& .MuiTypography-root": {
+                            fontSize: "12px",
+                          },
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                </Tooltip>
+              </Box>
+            ))}
+          </List>
+          {
+            open ? (
+              <div className="flex items-center justify-between cursor-pointer py-3 pl-4 border-t border-gray-200">
+                <div className="flex items-center gap-2">
+                  <div className="relative group">
+                    <Avatar
+                      src={user?.profilePic}
+                      className="!w-8 !h-8 text-2xl cursor-pointer"
+                    >
+                      {avatarInitial}
+                    </Avatar>
+                  </div>
+                  <div className="text-[12px] text-gray-800">
+                    <div>{user?.roles}</div>
+                    <div className="text-gray-500 text-[5px]">{user?.email}</div>
+                  </div>
+                </div>
+                <div className="flex items-center">
+                  <Tooltip title="Logout" onClick={() => handleLogout()}>
+                    <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                      <PowerSettingsNewOutlined />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Theme" onClick={() => toggleMode()}>
+                    <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                      {mode === "dark" ? (
+                        <LightModeOutlined className="h-5 w-5" />
+                      ) : (
+                        <DarkModeOutlined className="h-5 w-5" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </div>
+                {/* <span className="text-gray-800 text-[12px]">Theme</span> */}
+              </div>
+            ) : (
+              <div>
+                <Tooltip title="Theme CTRL + D" onClick={() => toggleMode()}>
+                  <IconButton className="dark:!text-primary !ml-3 !mb-4">
+                    {mode === "dark" ? (
+                      <LightModeOutlined className="h-5 w-5" />
+                    ) : (
+                      <DarkModeOutlined className="h-5 w-5" />
+                    )}
+                  </IconButton>
+                </Tooltip>
+              </div>
+            )
+
+          }
         </div>
       </Drawer>
       {/* Main Content - Only this adjusts when drawer opens/closes */}

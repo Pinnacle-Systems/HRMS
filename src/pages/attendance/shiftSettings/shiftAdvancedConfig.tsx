@@ -38,6 +38,7 @@ import type { EmployeeCategory as EmployeeCategoryType } from '../../../types/po
 import type { AdvancedShiftConfig, ShiftAdvancedConfigProps, ShiftCategoryConfig, BreakSlot } from './types';
 import { ALL_CATEGORIES, CATEGORY_COLORS, CATEGORY_DEFAULTS, CATEGORY_LABELS, CATEGORY_SUBLABELS } from './const';
 import { shiftService } from '../../../services/modules/shifts';
+import { helperSx } from '../../../components/PolicyManagement/const';
 
 // ─── Expandable Section ───────────────────────────────────────────────────────
 const ExpandableSection = ({ title, icon, children, defaultOpen = false }: any) => {
@@ -255,7 +256,7 @@ const BreakSlotsEditor = ({
           <Chip
             label={`Min gap: ${minBreakInterval} min`}
             size="small"
-            variant="outlined"
+            variant="outlined" className='text-gray-800'
           />
         )}
       </Typography>
@@ -274,7 +275,7 @@ const BreakSlotsEditor = ({
             const intervalError = getBreakIntervalError(index, slot.startTime);
             const duration = slot.duration || breakDuration;
             return (
-              <Paper key={slot.id} variant="outlined" sx={{ p: 2 }}>
+              <div key={slot.id}  className='bg-white border border-gray-200 rounded-lg p-4'>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="subtitle2" color="primary">
                     Break #{index + 1}
@@ -282,6 +283,7 @@ const BreakSlotsEditor = ({
                   <Chip
                     label={`Duration: ${duration} min`}
                     size="small"
+                    className='text-gray-800'
                     color={duration !== breakDuration ? "primary" : "default"}
                     variant={duration !== breakDuration ? "filled" : "outlined"}
                   />
@@ -296,7 +298,7 @@ const BreakSlotsEditor = ({
                       value={slot.startTime}
                       onChange={(e) => updateStartTime(index, e.target.value)}
                       error={!!intervalError}
-                      helperText={intervalError || 'When break starts'}
+                      helperText={intervalError || 'When break starts'} sx={helperSx}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -307,7 +309,7 @@ const BreakSlotsEditor = ({
                       size="small"
                       value={slot.endTime}
                       onChange={(e) => updateEndTime(index, e.target.value)}
-                      helperText="When break ends (editable)"
+                      helperText="When break ends (editable)" sx={helperSx}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -318,7 +320,7 @@ const BreakSlotsEditor = ({
                       size="small"
                       value={duration}
                       onChange={(e) => updateDuration(index, parseInt(e.target.value) || 0)}
-                      helperText="Auto-calculated or manual"
+                      helperText="Auto-calculated or manual" sx={helperSx}
                       slotProps={{ htmlInput: { min: 1, step: 5 } }}
                     />
                   </Grid>
@@ -336,7 +338,7 @@ const BreakSlotsEditor = ({
                     ⏱️ Should be at least {minBreakInterval} min after previous break end ({slots[index - 1].endTime})
                   </div>
                 )}
-              </Paper>
+              </div>
             );
           })}
         </Box>
@@ -414,6 +416,7 @@ const SingleBreakDisplay = ({
             value={breakStart}
             disabled
             helperText={`${formatBreakAfterHours(breakAfterHours)} after shift start (${shiftStartTime})`}
+            sx={helperSx}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -425,6 +428,7 @@ const SingleBreakDisplay = ({
             value={breakEnd}
             disabled
             helperText={`${breakDuration} minute(s) duration`}
+            sx={helperSx}
           />
         </Grid>
       </Grid>
@@ -495,7 +499,7 @@ const MealBreakDisplay = ({
   }
 
   return (
-    <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+    <div className='bg-head p-2 rounded-lg'>
       <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <LunchDiningOutlined fontSize="small" />
         Auto-calculated Meal Break Schedule
@@ -510,6 +514,7 @@ const MealBreakDisplay = ({
             value={mealStart}
             disabled
             helperText={`${formatmealAfterHours(mealAfterHours)} after shift start (${shiftStartTime})`}
+            sx={helperSx}
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -521,10 +526,11 @@ const MealBreakDisplay = ({
             value={mealEnd}
             disabled
             helperText={`${mealDuration} minute(s) duration`}
+            sx={helperSx}
           />
         </Grid>
       </Grid>
-    </Box>
+    </div>
   );
 };
 
@@ -719,7 +725,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
     >
       {/* Header */}
       <div className="flex items-center p-3 justify-between border-b border-gray-300 sticky top-0 bg-white z-10">
-        <div className="text-primary ml-3 flex items-center gap-2 font-semibold">
+        <div className="text-gray-800 ml-3 flex items-center gap-2 font-semibold">
           <SettingsIcon fontSize="small" />
           Advanced Configuration — {masterConfig.shiftName}
         </div>
@@ -759,6 +765,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                       setCurrentConfig(defaultConfig);
                     }
                   }}
+                  className={`bg-${selected ? `${CATEGORY_COLORS[cat]}18` : 'white-50'}`}
                   sx={{
                     cursor: 'pointer',
                     border: '2px solid',
@@ -766,7 +773,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                     borderRadius: 2,
                     p: 1,
                     minWidth: 150,
-                    bgcolor: selected ? `${CATEGORY_COLORS[cat]}18` : 'background.paper',
+                    // bgcolor: selected ? `${CATEGORY_COLORS[cat]}18` : 'background.paper',
                     transition: 'all 0.15s ease',
                     '&:hover': { borderColor: CATEGORY_COLORS[cat], bgcolor: `${CATEGORY_COLORS[cat]}10` },
                   }}
@@ -934,7 +941,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                             const maxBreaks = parseInt(e.target.value) || 0;
                             set({ maxBreaksPerShift: maxBreaks });
                           }}
-                          helperText="Number of breaks (1-5)"
+                          helperText="Number of breaks (1-5)" sx={helperSx}
                           slotProps={{ htmlInput: { min: 1, max: 5 } }}
                         />
                       </Grid>
@@ -946,7 +953,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                           size="small"
                           value={currentConfig.minBreakInterval || 60}
                           onChange={(e) => set({ minBreakInterval: parseInt(e.target.value) || 0 })}
-                          helperText="Minimum time between consecutive breaks"
+                          helperText="Minimum time between consecutive breaks" sx={helperSx}
                           slotProps={{ htmlInput: { step: 15, min: 0 } }}
                         />
                       </Grid>

@@ -841,7 +841,7 @@ export default function BranchSettings() {
       {/* Add/Edit Branch Dialog with Integrated Map */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" sx={commonsx}>
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">{editingBranch ? "Edit Branch" : "Add New Branch"}</div>
+          <div className="text-gray-800 ml-4">{editingBranch ? "Edit Branch" : "Add New Branch"}</div>
           <IconButton onClick={handleCloseDialog}>
             <CloseOutlined className="!text-gray-800" />
           </IconButton>
@@ -1051,7 +1051,7 @@ export default function BranchSettings() {
       {/* Add / Edit Bank Dialog */}
       <Dialog open={bankDialogOpen} onClose={handleCloseBankDialog} maxWidth="sm" fullWidth>
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="flex items-center gap-2 text-primary ml-4">
+          <div className="flex items-center gap-2 text-gray-800 ml-4">
             <AccountBalanceIcon className="!w-4" />
             {editingBank ? "Edit Bank Account" : "Add Bank Account"}
           </div>

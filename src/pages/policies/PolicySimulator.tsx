@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Typography,
@@ -22,43 +22,46 @@ import {
   Error as ErrorIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { policyApi } from '../../services/modules/policy';
 import { EmployeeSelector } from '../../components/PolicyManagement/Common/EmployeeSelector';
-import { type PolicyEvaluationResponse, PolicyDomain } from '../../types/policy';
+import { PolicyDomain, type PolicyEvaluationResponse } from '../../types/policy';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import { DatePicker } from '@mui/x-date-pickers';
-import type { LeaveType } from '../../services/modules/leaveTypes';
-import { leaveService } from '../../services';
+import { policyService } from '../../services';
 import { actionOptions } from './const';
 import { useUI } from '../../context/Snackbar';
+import { usePolicyDomains } from '../../hooks/usePolicyDomains';
+import { useLeaveTypesList } from '../../hooks/useLeaveTypesList';
+import { useExpenseCategoriesList } from '../../hooks/useExpenseCategoriesList';
 
 export default function PolicySimulator() {
-  const [selectedDomain, setSelectedDomain] = useState<PolicyDomain>(PolicyDomain.LEAVE);
+  const [selectedDomain, setSelectedDomain] = useState<string>('');
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [action, setAction] = useState('');
   const [context, setContext] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PolicyEvaluationResponse | null>(null);
-  const [leaveType, setLeaveType] = useState<LeaveType[]>([]);
   const { showSnackbar } = useUI();
+  const { domains } = usePolicyDomains();
+  const { leaveTypes: leaveType } = useLeaveTypesList(selectedDomain === PolicyDomain.LEAVE);
+  const { expenseCategories: expenseCategory } = useExpenseCategoriesList(selectedDomain === PolicyDomain.EXPENSE);
 
   const handleRunSimulation = async () => {
-    if (!selectedEmployee || !action) return;
+    if (!selectedEmployee || !action || !selectedDomain) return;
     setLoading(true);
     try {
-      const request = {
+      const request: any = {
         employeeId: selectedEmployee.id,
-        domain: selectedDomain,
+        domain: selectedDomain as PolicyDomain,
         action,
         effectiveDate: new Date().toISOString().split('T')[0],
         context,
       };
-      const response = await policyApi.evaluatePolicy(request);
-      setResult(response);
-    } catch (error) {
-      console.error('Simulation failed:', error);
+      const response: any = await policyService.evaluatePolicy(request);
+      setResult(response.data ?? response);
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Simulation failed', 'error');
     } finally {
       setLoading(false);
     }
@@ -69,26 +72,6 @@ export default function PolicySimulator() {
     if (result.allowed) return <SuccessIcon sx={{ fontSize: 60, color: 'success.main' }} />;
     return <ErrorIcon sx={{ fontSize: 60, color: 'error.main' }} />;
   };
-
-  const getLeaveTypes = async () => {
-    try {
-      const response = await leaveService.getLeaveTypes({
-        page: 0,
-        size: 50,
-        sort: "name,ASC",
-      });
-      setLeaveType(response.data?.content ?? []);
-    } catch (err: any) {
-      showSnackbar(err?.message || "Failed to load leave types", "error");
-    }
-  };
-
-  useEffect(() => {
-    if (PolicyDomain.LEAVE) {
-      getLeaveTypes();
-    }
-  }, [])
-
 
   const renderContextFields = () => {
     switch (selectedDomain) {
@@ -160,7 +143,6 @@ export default function PolicySimulator() {
               value={context.amount || ''}
               onChange={(e) => setContext({ ...context, amount: parseFloat(e.target.value) })}
               margin="normal"
-              size="small"
             />
             <TextField
               select
@@ -169,12 +151,12 @@ export default function PolicySimulator() {
               value={context.expenseType || ''}
               onChange={(e) => setContext({ ...context, expenseType: e.target.value })}
               margin="normal"
-              size="small"
             >
-              <MenuItem value="TRAVEL">Travel</MenuItem>
-              <MenuItem value="FOOD">Food</MenuItem>
-              <MenuItem value="STATIONERY">Stationery</MenuItem>
-              <MenuItem value="OTHER">Other</MenuItem>
+              {
+                expenseCategory.map((exp) => (
+                  <MenuItem key={exp.id} value={exp.id}>{exp.name}</MenuItem>
+                ))
+              }
             </TextField>
           </>
         );
@@ -213,19 +195,19 @@ export default function PolicySimulator() {
               Simulation Parameters
             </Typography>
 
-            <FormControl fullWidth size="small" margin="normal" className="!mt-6">
+            <FormControl fullWidth margin="normal" className="!mt-6">
               <InputLabel>Policy Domain</InputLabel>
               <Select
                 value={selectedDomain}
                 label="Policy Domain"
                 onChange={(e) => {
-                  setSelectedDomain(e.target.value as PolicyDomain);
+                  setSelectedDomain(e.target.value);
                   setAction('');
                   setContext({});
                 }}
               >
-                {Object.values(PolicyDomain).map(domain => (
-                  <MenuItem key={domain} value={domain}>{domain.replace(/_/g, ' ')}</MenuItem>
+                {domains.map(domain => (
+                  <MenuItem key={domain.id} value={domain.code}>{domain.name}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -246,7 +228,7 @@ export default function PolicySimulator() {
                 onChange={(e) => setAction(e.target.value)}
                 disabled={!selectedEmployee}
               >
-                {actionOptions[selectedDomain]?.map(act => (
+                {actionOptions[selectedDomain as PolicyDomain]?.map(act => (
                   <MenuItem key={act} value={act}>{act}</MenuItem>
                 ))}
               </Select>
@@ -257,9 +239,10 @@ export default function PolicySimulator() {
             <Button
               fullWidth
               variant="contained"
+              className='!bg-primary'
               startIcon={<RunIcon />}
               onClick={handleRunSimulation}
-              disabled={!selectedEmployee || !action || loading}
+              disabled={!selectedDomain || !selectedEmployee || !action || loading}
               sx={{ mt: 3 }}
             >
               {loading ? <CircularProgress size={24} /> : 'Run Simulation'}
@@ -279,16 +262,17 @@ export default function PolicySimulator() {
               </Alert>
             ) : (
               <Box>
-                <Box className="flex items-center justify-center">
-                  {getResultIcon()}
-                  <Typography color={result.allowed ? 'success.main' : 'error.main'}>
-                    {result.allowed ? 'REQUEST ALLOWED' : 'REQUEST REJECTED'}
-                  </Typography>
+                <Box className="flex items-center gap-2 justify-center">
+                  <div className='flex items-center gap-1 '>
+                    {getResultIcon()}
+                    <Typography color={result.allowed ? 'success.main' : 'error.main'}>
+                      {result.allowed ? 'REQUEST ALLOWED' : 'REQUEST REJECTED'}
+                    </Typography>
+                  </div>
                   {result.policyName && (
                     <Chip
                       label={`Policy: ${result.policyName} v${result.policyVersion}`}
                       size="small"
-                      sx={{ mt: 1 }}
                     />
                   )}
                 </Box>

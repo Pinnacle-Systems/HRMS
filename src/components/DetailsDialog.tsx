@@ -31,7 +31,7 @@ export default function DetailsDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth={maxWidth} fullWidth={fullWidth}>
       <div className="flex items-center justify-between p-2 border-b border-gray-300">
-        <div className="text-primary ml-4">
+        <div className="text-gray-800 ml-4">
           <div>{title}</div>
           {subtitle && <div className="text-xs text-gray-500 mt-1">{subtitle}</div>}
         </div>

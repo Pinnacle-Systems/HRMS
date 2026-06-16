@@ -39,6 +39,15 @@ import {
   WorkOutlined,
 } from '@mui/icons-material';
 import { type Employee, type PolicyAssignment, EmploymentType } from '../../types/policy';
+
+interface PolicyConflict {
+  conflictingAssignmentId: string;
+  conflictType: string;
+  conflictMessage: string;
+  id?: string;
+  assignmentId?: string;
+  createdAt?: string;
+}
 import { slidersx, typeLabels } from './const';
 import { useUI } from '../../context/Snackbar';
 import { branchService } from '../../services/modules/branch';
@@ -51,6 +60,8 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import type { AssignmentFormData, PolicyAssignmentGridProps } from './types';
+import { policyService } from '../../services/modules/policy';
+import { formatDate } from '../../utils/dateFormatter';
 
 const typeIcons: Record<string, React.ReactNode> = {
   BRANCH: <LocationIcon />,
@@ -80,6 +91,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
   policyVersionId,
   readOnly = false,
 }) => {
+  
   // Lookup data
   const [branches, setBranches] = useState<Branches[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -90,7 +102,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<PolicyAssignment | null>(null);
-  const [conflicts, setConflicts] = useState<PolicyAssignment[]>([]);
+  const [conflicts, setConflicts] = useState<PolicyConflict[]>([]);
   const [conflictsChecked, setConflictsChecked] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -164,10 +176,13 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
     if (assignment.template) {
       return `${assignment.template} (Template)`;
     }
+    if (assignment.employeeGroupId) {
+      return `Employee Group: ${assignment.employeeGroupId}`;
+    }
     if (assignment.employeeId) {
       return `Specific Employee: ${assignment.employeeId}`;
     }
-    return 'Unknown';
+    return 'All Employees (Company-wide)';
   };
 
   const resetConflicts = () => {
@@ -175,7 +190,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
     setConflictsChecked(false);
   };
 
-  const handleOpenDialog = (assignment?: PolicyAssignment) => {
+  const handleOpenDialog = async (assignment?: PolicyAssignment) => {
     if (assignment) {
       setEditingAssignment(assignment);
       setFormData({
@@ -191,6 +206,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
           assignment.designationId ||
           assignment.employmentType ||
           assignment.template ||
+          assignment.employeeGroupId ||
           assignment.employeeId ||
           '',
         ].filter(Boolean),
@@ -198,6 +214,30 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
         effectiveFrom: assignment.effectiveFrom.split('T')[0],
         effectiveTo: assignment.effectiveTo?.split('T')[0],
       });
+      resetConflicts();
+      setDialogOpen(true);
+
+      // if (assignment.employeeId) {
+      //   try {
+      //     const empRes: any = await employeeService.getEmployeeById(assignment.employeeId);
+      //     setSelectedEmployee(empRes?.data || null);
+      //   } catch {
+      //     setSelectedEmployee(null);
+      //   }
+      // } else {
+      //   setSelectedEmployee(null);
+      // }
+
+      try {
+        const res = await policyService.getAssignmentConflicts(assignment.id);
+        const conflictsData = extractArrayFromResponse(res);
+        if (conflictsData.length > 0) {
+          setConflicts(conflictsData);
+          setConflictsChecked(true);
+        }
+      } catch {
+        // non-critical — user can still check manually
+      }
     } else {
       setEditingAssignment(null);
       setFormData({
@@ -207,9 +247,9 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
         effectiveFrom: new Date().toISOString().split('T')[0],
       });
       setSelectedEmployee(null);
+      resetConflicts();
+      setDialogOpen(true);
     }
-    resetConflicts();
-    setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
@@ -253,7 +293,15 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
     setLoading(true);
     showSpinner();
     try {
-      const conflictsData = await onCheckConflicts(buildAssignmentData());
+      const assignment = buildAssignmentData();
+      let conflictsData: PolicyConflict[];
+      if (onCheckConflicts) {
+        const result = await onCheckConflicts(assignment);
+        conflictsData = result as unknown as PolicyConflict[];
+      } else {
+        const res = await policyService.checkConflicts(assignment);
+        conflictsData = extractArrayFromResponse(res);
+      }
       setConflicts(conflictsData);
       setConflictsChecked(true);
     } finally {
@@ -295,54 +343,8 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
         )}
       </div>
 
-      <Grid container spacing={2}>
-        {assignments.map((assignment) => (
-          <Grid size={{ xs: 12, md: 4, sm: 6 }} key={assignment.id}>
-            <Card className='!bg-white-50 !text-gray-800'>
-              <CardContent>
-                <div className='flex items-start justify-between'>
-                  <div className='flex items-center gap-1'>
-                    {typeIcons[
-                      assignment.branchId ? 'BRANCH'
-                        : assignment.departmentId ? 'DEPARTMENT'
-                          : assignment.designationId ? 'DESIGNATION'
-                            : assignment.employmentType ? 'EMPLOYMENT_TYPE'
-                              : assignment.template ? 'EMPLOYEE_TEMPLATE'
-                                : 'SPECIFIC_EMPLOYEES'
-                    ]}
-                    <Typography variant="subtitle2">
-                      {getAssignmentLabel(assignment)}
-                    </Typography>
-                  </div>
-                  {!readOnly && (
-                    <Box>
-                      <IconButton size="small" onClick={() => handleOpenDialog(assignment)}>
-                        <EditIcon fontSize="small" className='text-blue-500' />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => onDeleteAssignment(assignment.id)}>
-                        <DeleteIcon fontSize="small" className='text-red-500' />
-                      </IconButton>
-                    </Box>
-                  )}
-                </div>
-
-                <Divider sx={{ my: 1 }} />
-
-                <div className='flex justify-between mt-1'>
-                  <Typography variant="caption" color="text.secondary">
-                    Priority: {assignment.priority}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Effective: {new Date(assignment.effectiveFrom).toLocaleDateString()}
-                    {assignment.effectiveTo && ` — ${new Date(assignment.effectiveTo).toLocaleDateString()}`}
-                  </Typography>
-                </div>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-
-        {assignments.length === 0 && (
+      {Object.keys(assignments).length === 0 ? (
+        <Grid container>
           <Grid size={{ xs: 12 }}>
             <Paper sx={{ p: 3, textAlign: 'center' }}>
               <Typography color="text.secondary">
@@ -350,13 +352,69 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
               </Typography>
             </Paper>
           </Grid>
-        )}
-      </Grid>
+        </Grid>
+      ) : (
+        Object.entries(assignments).map(([versionNo, versionAssignments]) => (
+          <Box key={versionNo} className="mb-4">
+            <Typography variant="subtitle2" className="!mb-2 !text-gray-500">
+              Version {versionNo}
+            </Typography>
+            <Grid container spacing={2}>
+              {versionAssignments?.map((assignment) => (
+                <Grid size={{ xs: 12, md: 4, sm: 6 }} key={assignment.id}>
+                  <Card className='!bg-white-50 !text-gray-800'>
+                    <CardContent>
+                      <div className='flex items-start justify-between'>
+                        <div className='flex items-center gap-1'>
+                          {typeIcons[
+                            assignment.branchId ? 'BRANCH'
+                              : assignment.departmentId ? 'DEPARTMENT'
+                                : assignment.designationId ? 'DESIGNATION'
+                                  : assignment.employmentType ? 'EMPLOYMENT_TYPE'
+                                    : assignment.template ? 'EMPLOYEE_TEMPLATE'
+                                      : assignment.employeeGroupId ? 'SPECIFIC_EMPLOYEES'
+                                        : 'SPECIFIC_EMPLOYEES'
+                          ]}
+                          <Typography variant="subtitle2">
+                            {getAssignmentLabel(assignment)}
+                          </Typography>
+                        </div>
+                        {!readOnly && (
+                          <Box>
+                            <IconButton size="small" onClick={() => handleOpenDialog(assignment)}>
+                              <EditIcon fontSize="small" className='text-blue-500' />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => onDeleteAssignment(assignment.id)}>
+                              <DeleteIcon fontSize="small" className='text-red-500' />
+                            </IconButton>
+                          </Box>
+                        )}
+                      </div>
+
+                      <Divider sx={{ my: 1 }} />
+
+                      <div className='flex justify-between mt-1'>
+                        <Typography variant="caption" color="text.secondary">
+                          Priority: {assignment.priority}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Effective: {formatDate(assignment.effectiveFrom)}
+                          {assignment.effectiveTo && ` - ${formatDate(assignment.effectiveTo)}`}
+                        </Typography>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        ))
+      )}
 
       {/* Assignment Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <div className='flex justify-between items-center p-2 border-b border-gray-200'>
-          <div className="text-[12px] ml-4 text-primary">
+          <div className="text-[12px] ml-4 text-gray-800">
             {editingAssignment ? 'Edit Assignment' : 'Add Assignment'}
           </div>
           <IconButton onClick={handleCloseDialog}>
@@ -475,7 +533,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                 onChange={(_, value) => setFormData({ ...formData, priority: value as number })}
                 min={0}
                 max={100}
-                step={1}
+                step={10}
                 valueLabelDisplay="auto"
                 marks={[
                   { value: 0, label: 'Low' },
@@ -508,19 +566,20 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell>Assignment</TableCell>
-                            <TableCell>Priority</TableCell>
-                            <TableCell>Effective Period</TableCell>
+                            <TableCell>Conflict Type</TableCell>
+                            <TableCell>Details</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {conflicts.map(conflict => (
-                            <TableRow key={conflict.id}>
-                              <TableCell>{getAssignmentLabel(conflict)}</TableCell>
-                              <TableCell>{conflict.priority}</TableCell>
+                          {conflicts.map((conflict, i) => (
+                            <TableRow key={conflict.conflictingAssignmentId ?? i}>
                               <TableCell>
-                                {new Date(conflict.effectiveFrom).toLocaleDateString()}
-                                {conflict.effectiveTo && ` — ${new Date(conflict.effectiveTo).toLocaleDateString()}`}
+                                <span className="text-xs font-mono text-orange-700">
+                                  {conflict.conflictType}
+                                </span>
+                              </TableCell>
+                              <TableCell className="!text-xs !text-gray-600">
+                                {conflict.conflictMessage}
                               </TableCell>
                             </TableRow>
                           ))}

@@ -5,6 +5,7 @@ import {
   type Employee,
   type PolicyAssignment,
   type PolicyConfig,
+  type PolicyDefinition,
   type PolicyTemplate,
   type PolicyVersion,
   type RuleBlockType,
@@ -14,6 +15,7 @@ export interface Step3SetEligibilityProps {
   companyId: string;
   config: any;
   onChange: (config: any) => void;
+  editPolicy: any;
 }
 
 export const steps = [
@@ -36,6 +38,10 @@ export interface Step2ConfigureRulesProps {
   template: PolicyTemplate;
   config: PolicyConfig | null;
   onChange: (config: PolicyConfig) => void;
+  policyId?: string;
+  versionId?: string;
+  policyStatus?: string;
+  onVersionCreated?: (versionId: string) => void;
 }
 
 export interface AssignmentRule {
@@ -47,6 +53,7 @@ export interface AssignmentRule {
     | "EMPLOYMENT_TYPE"
     | "EMPLOYEE_CATEGORY"
     | "EMPLOYEE_GROUP"
+    | "EMPLOYEE_TEMPLATE"
     | "SPECIFIC_EMPLOYEES";
   values: string[];
   priority: number;
@@ -70,29 +77,36 @@ export interface Step1SelectTemplateProps {
   selectedTemplate: PolicyTemplate | null;
   onSelect: (template: PolicyTemplate) => void;
   onPolicyDefinitionChange: (data: any) => void;
-  policyDefinition: any;
+  policyDefinition: Partial<PolicyDefinition>;
   policyDomain?: string;
 }
 export interface CreateTemplateDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated: (template: PolicyTemplate) => void;
+  editTemplate?: PolicyTemplate | null;
+  onUpdated?: (template: PolicyTemplate) => void;
 }
 
 export interface Step4ApprovalFlowProps {
   config: ApprovalFlowConfig | null;
   onChange: (config: ApprovalFlowConfig) => void;
   domain?: string;
+  versionId?: string;
 }
 
 export interface Step5PreviewAssignProps {
   policyName: any;
   templateName?: string;
+  domain?: string;
   config: any;
   eligibilityConfig: any;
   approvalFlow: any;
   effectiveFrom?: string;
   onEffectiveFromChange?: (date: string) => void;
+  versionId?: string;
+  policyStatus?: string;
+  onSubmitForApproval?: () => Promise<string | void>;
 }
 
 export interface EmployeeSelectorProps {
@@ -107,7 +121,7 @@ export interface EmployeeSelectorProps {
 }
 
 export interface PolicyAssignmentGridProps {
-  assignments: PolicyAssignment[];
+  assignments: Record<string, PolicyAssignment[]>;
   companyId: string;
   onAddAssignment: (assignment: Partial<PolicyAssignment>) => Promise<void>;
   onUpdateAssignment: (
@@ -115,7 +129,7 @@ export interface PolicyAssignmentGridProps {
     assignment: Partial<PolicyAssignment>,
   ) => Promise<void>;
   onDeleteAssignment: (id: string) => Promise<void>;
-  onCheckConflicts: (
+  onCheckConflicts?: (
     assignment: Partial<PolicyAssignment>,
   ) => Promise<PolicyAssignment[]>;
   policyVersionId: string;
@@ -149,6 +163,9 @@ export interface PolicyVersionHistoryProps {
   onViewVersion: (version: PolicyVersion) => void;
   onRestoreVersion: (version: PolicyVersion) => void;
   onApproveVersion?: (version: PolicyVersion) => void;
+  onRejectVersion?: (version: PolicyVersion, remarks: string) => void;
+  onArchiveVersion?: (version: PolicyVersion) => void;
+  onExpireVersion?: (version: PolicyVersion) => void;
   onCompareVersions?: (
     version1: PolicyVersion,
     version2: PolicyVersion,
@@ -219,3 +236,33 @@ export const DOMAIN_RULE_BLOCKS: Record<
     { type: "APPROVAL_FLOW", name: "Approval Workflow" },
   ],
 };
+
+export interface JsonSchemaProperty {
+  type?: string;
+  enum?: any[];
+  minimum?: number;
+  maximum?: number;
+  description?: string;
+}
+
+export interface JsonSchema {
+  type: string;
+  properties: Record<string, JsonSchemaProperty>;
+  required?: string[];
+}
+
+export interface ExpenseCat {
+  id: string;
+  code: string;
+  name: string;
+}
+export interface Deduction {
+  id: string;
+  code: string;
+  name: string;
+}
+export interface Allowance {
+  id: string;
+  code: string;
+  name: string;
+}

@@ -396,7 +396,7 @@ export const ChecklistBuilder = () => {
       {/* Add Checklist Dialog */}
       <Dialog open={isAddingChecklist} onClose={() => setIsAddingChecklist(false)} maxWidth="sm" fullWidth>
         <div className="text-primary !border-b !p-2 flex items-center justify-between !border-gray-200">
-          <span className="ml-4"> Add Checklist</span>
+          <span className="ml-4 text-gray-800"> Add Checklist</span>
           <IconButton onClick={() => { setIsAddingChecklist(false) }}>
             <CloseOutlined className="!text-gray-800"/>
           </IconButton>

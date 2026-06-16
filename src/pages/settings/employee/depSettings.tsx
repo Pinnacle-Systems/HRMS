@@ -511,7 +511,7 @@ export default function DepartmentSettings() {
         sx={commonsx}
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-primary ml-4">
+          <div className="text-gray-800 ml-4">
             {editingDepartment ? "Edit Department" : "Add New Department"}
           </div>
           <IconButton onClick={handleCloseDialog}>

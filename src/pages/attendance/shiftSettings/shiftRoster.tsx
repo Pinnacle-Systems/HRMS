@@ -724,9 +724,9 @@ export const ShiftRoster = () => {
       <Dialog open={bulkAssignOpen} onClose={() => setBulkAssignOpen(false)} maxWidth="md" sx={commonsx}>
         <DialogTitle className='!p-2 border-b border-gray-200'>
           <div className="flex justify-between items-center">
-            <span className='ml-4 text-primary'>Bulk Assign Shifts</span>
+            <span className='ml-4 text-gray-800'>Bulk Assign Shifts</span>
             <IconButton onClick={() => setBulkAssignOpen(false)}>
-              <CloseIcon />
+              <CloseIcon className='text-gray-800'/>
             </IconButton>
           </div>
         </DialogTitle>
@@ -778,6 +778,7 @@ export const ShiftRoster = () => {
                           key={day}
                           size="small"
                           label={day}
+                          className='text-gray-800 bg-gray-100'
                         />
                       ))}
                     </div>
@@ -874,7 +875,7 @@ export const ShiftRoster = () => {
                       key={option.employeeId}
                       size="small"
                       label={option.employeeName}
-                      className='mr-1'
+                      className='mr-1 text-gray-800 bg-gray-100'
                     />
                   ))}
                 </div>
@@ -906,7 +907,7 @@ export const ShiftRoster = () => {
               <div className="ml-2 text-yellow-800 font-semibold">Alerts</div>
             </div>
             <IconButton onClick={() => setopenAlertDialog(false)}>
-              <CloseIcon />
+              <CloseIcon className='text-gray-800'/>
             </IconButton>
           </div>
         </DialogTitle>

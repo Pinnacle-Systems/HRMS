@@ -6,10 +6,8 @@ import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/pol
 export default function CreatePolicy() {
   const navigate = useNavigate();
   const location = useLocation();
-
   const companyId = location.state?.companyId;
   const policyName = location.state?.policyName;
-  // const categoryId = location.state?.categoryId;
 
   const handleComplete = (policyId: string) => {
     navigate(`/policies/${policyId}`);

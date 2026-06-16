@@ -9,13 +9,13 @@ import {
 } from '@mui/material';
 import { Step1SelectTemplate } from './Step1SelectTemplate';
 import { Step2ConfigureRules } from './Step2ConfigureRules';
-import { Step3SetEligibility } from './Step3SetEligibility';
-import { Step4ApprovalFlow } from './Step4ApprovalFlow';
+import { Step3SetEligibility, buildSinglePayload } from './Step3SetEligibility';
+import { Step4ApprovalFlow, buildFlowPayload, buildLevelPayload } from './Step4ApprovalFlow';
 import { Step5PreviewAssign } from './Step5PreviewAssign';
-import { policyApi } from '../../../services/modules/policy';
-import { type PolicyTemplate, type PolicyDefinition, type PolicyConfig, PolicyDomain } from '../../../types/policy';
+import { type PolicyTemplate, type PolicyDefinition, type PolicyConfig } from '../../../types/policy';
 import { useUI } from '../../../context/Snackbar';
 import { steps, type PolicyWizardProps } from '../types';
+import { policyService } from '../../../services';
 
 export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   companyId,
@@ -34,25 +34,31 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   const [policyConfig, setPolicyConfig] = useState<PolicyConfig | null>(null);
   const [eligibilityConfig, setEligibilityConfig] = useState<any>(null);
   const [approvalFlow, setApprovalFlow] = useState<any>(null);
+  const [currentVersionId, setCurrentVersionId] = useState<string | undefined>();
   const [policyDefinition, setPolicyDefinition] = useState<Partial<PolicyDefinition>>({
-    name: '',
+    policyName: '',
     description: '',
-    domain: PolicyDomain['LEAVE'],
+    domainId: '',
+    policyCode: '',
+    effectiveFrom: '',
+    effectiveTo: '',
   });
+  const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
 
   const loadExistingPolicy = async () => {
     setLoading(true);
     showSpinner()
     try {
-      const policy = await policyApi.getPolicyById(existingPolicyId!);
-      const template = await policyApi.getTemplateById(policy.templateId);
-      const versions = await policyApi.getPolicyVersions(existingPolicyId!);
-      const latestVersion = versions[0];
-
-      setSelectedTemplate(template);
-      setPolicyDefinition(policy);
+      const policy: any = await policyService.getPolicyById(existingPolicyId!);
+      const template: any = await policyService.getTemplateById(policy.data.templateId);
+      const versions: any = await policyService.getPolicyVersions(existingPolicyId!);
+      const latestVersion = versions.data[0];
+      setSelectedTemplate(template.data);
+      setPolicyDefinition(policy.data);
+      setPolicy(policy.data);
       if (latestVersion) {
-        setPolicyConfig(latestVersion.config);
+        setPolicyConfig(latestVersion.configJson);
+        setCurrentVersionId(latestVersion.id);
       }
     } catch (err) {
       setError('Failed to load existing policy');
@@ -62,7 +68,6 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
     }
   };
 
-  // Load existing policy if editing
   useEffect(() => {
     if (existingPolicyId) {
       loadExistingPolicy();
@@ -70,13 +75,41 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   }, [existingPolicyId]);
 
   const handleNext = async () => {
-    if (activeStep === 0 && !selectedTemplate) {
-      setError('Please select a template');
-      return;
+    if (activeStep === 0) {
+      if (!selectedTemplate) {
+        setError('Please select a template');
+        return;
+      }
+      if (!policyDefinition.policyName?.trim()) {
+        setError('Please enter a policy name');
+        return;
+      }
+      if (!policyDefinition.policyCode?.trim()) {
+        setError('Please enter a policy code');
+        return;
+      }
+      if (!policyDefinition.effectiveFrom) {
+        setError('Please select an effective from date');
+        return;
+      }
     }
-
+    if (activeStep === 2) {
+      const assignments: any[] = eligibilityConfig?.assignments ?? [];
+      if (existingPolicyId) {
+        const hasUnsaved = assignments.some((r: any) => !r._saved);
+        if (hasUnsaved) {
+          setError('Please save all assignment rules before proceeding.');
+          return;
+        }
+      }
+      const priorities = assignments.map((r: any) => r.priority);
+      const hasDuplicatePriority = priorities.some((p, i) => priorities.indexOf(p) !== i);
+      if (hasDuplicatePriority) {
+        setError('Two or more assignment rules share the same priority. Each rule must have a unique priority.');
+        return;
+      }
+    }
     setError(null);
-
     if (activeStep === steps.length - 1) {
       await handleSubmit();
     } else {
@@ -91,53 +124,76 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
-
+    showSpinner();
     try {
-      let policyId = existingPolicyId;
+      const policyPayload = {
+        companyId,
+        templateId: selectedTemplate!.id,
+        domainId: selectedTemplate!.domainId,
+        policyCode: policyDefinition.policyCode!,
+        policyName: policyDefinition.policyName!,
+        description: policyDefinition.description,
+        effectiveFrom: policyDefinition.effectiveFrom!,
+        effectiveTo: policyDefinition.effectiveTo,
+      };
 
-      if (!existingPolicyId) {
-        // Create new policy
-        const newPolicy = await policyApi.createPolicy({
-          companyId,
-          templateId: selectedTemplate!.id,
-          name: policyDefinition.name,
-          description: policyDefinition.description,
-          domain: selectedTemplate!.domain,
-          status: 'DRAFT',
-          createdBy: 'current_user_id', // Should come from auth context
-        });
-        policyId = newPolicy.id;
+      if (existingPolicyId) {
+        await policyService.updatePolicy(existingPolicyId, policyPayload);
+        onComplete(existingPolicyId);
+        return;
       }
 
-      // Create policy version with complete config
+      // Create flow
+      const newPolicy: any = await policyService.createPolicy(policyPayload);
+      const policyId: string = newPolicy.data?.id || newPolicy.id;
+
       const completeConfig = {
         ...(policyConfig || {}),
-        eligibility: eligibilityConfig,
-        approvalFlow: approvalFlow,
+        approvalFlow,
       } as PolicyConfig;
 
-      const newVersion = await policyApi.createPolicyVersion(
-        policyId!,
-        completeConfig,
-        `Created policy version for ${policyDefinition.name}`
+      const newVersion: any = await policyService.createPolicyVersion(policyId, {
+        changeLog: 'Initial policy version',
+        configJson: completeConfig as unknown as Record<string, unknown>,
+      });
+      const versionId: string = newVersion.data?.id || newVersion.id;
+
+      // Create assignments from draft eligibility data collected in Step 3.
+      // Sibling assignment rows have no dependency on each other, so create
+      // them concurrently instead of one HTTP round trip at a time.
+      const draftAssignments: any[] = eligibilityConfig?.assignments ?? [];
+      await Promise.all(
+        draftAssignments.flatMap((rule) =>
+          (rule.values as string[]).map((value) =>
+            policyService.createAssignment(buildSinglePayload(rule, value, versionId, companyId)),
+          ),
+        ),
       );
 
-      // Create assignments if any
-      if (eligibilityConfig?.assignments?.length) {
-        for (const assignment of eligibilityConfig.assignments) {
-          await policyApi.createAssignment({
-            ...assignment,
-            policyVersionId: newVersion.id,
-            companyId,
-          });
-        }
+      // Create approval flow and levels from draft data collected in Step 4
+      if (approvalFlow) {
+        const flowRes: any = await policyService.createApprovalFlow(versionId, buildFlowPayload(approvalFlow));
+        const flowId: string = flowRes.data?.id ?? flowRes.id;
+        await Promise.all(
+          (approvalFlow.levels ?? []).map((level: any) =>
+            policyService.createApprovalLevel(flowId, buildLevelPayload(level)),
+          ),
+        );
       }
 
-      onComplete(policyId!);
+      // Submit for approval and stop here — the policy stays PENDING_APPROVAL
+      // until a reviewer approves + activates it from PolicyDetails, the same
+      // governance path edits to existing active policies already go through.
+      // (Previously this also called activateVersion immediately, which
+      // bypassed approval entirely for brand-new policies.)
+      const res: any = await policyService.submitVersionForApproval(versionId, { remarks: '' });
+      await policyService.updatePolicy(policyId, { ...policyPayload, status: res.data.status });
+      onComplete(policyId);
     } catch (err: any) {
-      setError(err.message || 'Failed to create policy');
+      setError(err.message || 'Failed to save policy');
     } finally {
       setLoading(false);
+      hideSpinner();
     }
   };
 
@@ -160,6 +216,10 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
             template={selectedTemplate!}
             config={policyConfig}
             onChange={setPolicyConfig}
+            policyId={existingPolicyId ?? (policyDefinition as any).id}
+            versionId={currentVersionId}
+            policyStatus={policyDefinition.status}
+            onVersionCreated={setCurrentVersionId}
           />
         );
       case 2:
@@ -168,6 +228,7 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
             companyId={companyId}
             config={eligibilityConfig}
             onChange={setEligibilityConfig}
+            editPolicy={policy}
           />
         );
       case 3:
@@ -175,17 +236,40 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
           <Step4ApprovalFlow
             config={approvalFlow}
             onChange={setApprovalFlow}
-            domain={selectedTemplate?.domain}
+            domain={selectedTemplate?.domainId}
+            versionId={currentVersionId}
           />
         );
       case 4:
         return (
           <Step5PreviewAssign
-            policyName={policyDefinition.name}
+            policyName={policyDefinition.policyName}
             templateName={selectedTemplate?.name}
+            domain={(policyDefinition as any).domain ?? selectedTemplate?.domainId}
             config={policyConfig}
             eligibilityConfig={eligibilityConfig}
             approvalFlow={approvalFlow}
+            versionId={currentVersionId}
+            policyStatus={policyDefinition.status}
+            onSubmitForApproval={
+              existingPolicyId && currentVersionId
+                ? async () => {
+                  const res: any = await policyService.submitVersionForApproval(currentVersionId, { remarks: '' });
+                  await policyService.updatePolicy(existingPolicyId, {
+                    companyId,
+                    templateId: selectedTemplate?.id,
+                    domainId: selectedTemplate?.domainId,
+                    policyCode: policyDefinition.policyCode,
+                    policyName: policyDefinition.policyName,
+                    description: policyDefinition.description,
+                    effectiveFrom: policyDefinition.effectiveFrom,
+                    effectiveTo: policyDefinition.effectiveTo,
+                    status: res.data.status,
+                  });
+                  return res.data.status;
+                }
+                : undefined
+            }
           />
         );
       default:
@@ -200,9 +284,9 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
         Define a new policy by selecting a template and configuring rules, eligibility, and approval workflows.
       </div>
       <Stepper activeStep={activeStep} sx={{ my: 3 }}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
+        {steps.map((label, i) => (
+          <Step key={label} className='cursor-pointer'>
+            <StepLabel onClick={() => setActiveStep(i)}>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
@@ -216,25 +300,25 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
         {getStepContent(activeStep)}
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-        <Button disabled={activeStep === 0 || loading} variant='outlined'
-          onClick={handleBack}>Back</Button>
+        <Button
+          variant="outlined"
+          onClick={onCancel}
+          className='!text-gray-800 !border-gray-200'
+          disabled={loading}
+        >
+          Cancel
+        </Button>
+
         <Box>
-          <Button
-            variant="outlined"
-            onClick={onCancel}
-            className='!text-gray-800 !border-gray-200'
-            disabled={loading}
-            sx={{ mr: 1 }}
-          >
-            Cancel
-          </Button>
+          <Button disabled={activeStep === 0 || loading} variant='outlined'
+            onClick={handleBack} className={`!mr-3 ${activeStep !== 0 ? '!text-gray-800' : 'text-gray-500'} !border-gray-200`}>Back</Button>
           <Button
             variant="contained"
             onClick={handleNext}
             disabled={loading}
             className='!bg-primary'
           >
-            {activeStep === steps.length - 1 ? existingPolicyId ? 'Edit Policy' : 'Create Policy' : 'Next'}
+            {activeStep === steps.length - 1 ? existingPolicyId ? 'Update Policy' : 'Create Policy' : 'Next'}
           </Button>
         </Box>
       </Box>

@@ -1,19 +1,9 @@
-import { PolicyDomain, VersionStatus } from "../../types/policy";
-
-export { MOCK_TEMPLATES } from "../../services/mockPolicyService";
+import { PolicyDomain, VersionStatus, type Employee } from "../../types/policy";
+import type { AssignmentRule } from "./types";
 
 export const helperSx = {
   "& .MuiFormHelperText-root": { color: "var(--text-primary)" },
 };
-
-export const EXPENSE_CATEGORIES = [
-  "TRAVEL",
-  "FOOD",
-  "ACCOMMODATION",
-  "EQUIPMENT",
-  "STATIONERY",
-  "OTHER",
-];
 
 export const slidersx = {
   "& .MuiSlider-track": {
@@ -127,39 +117,79 @@ export const typeLabels: Record<string, string> = {
   SPECIFIC_EMPLOYEES: "Specific Employee",
 };
 
-export const mockActions = [
-  {
-    value: "APPLY_LEAVE",
-    label: "Apply for Leave",
-    domain: PolicyDomain.LEAVE,
-  },
-  {
-    value: "MARK_ATTENDANCE",
-    label: "Mark Attendance",
-    domain: PolicyDomain.ATTENDANCE,
-  },
-  {
-    value: "REQUEST_OVERTIME",
-    label: "Request Overtime",
-    domain: PolicyDomain.OVERTIME,
-  },
-  {
-    value: "SUBMIT_EXPENSE",
-    label: "Submit Expense",
-    domain: PolicyDomain.EXPENSE,
-  },
-];
-
 export const statusConfig: Record<
   VersionStatus,
   { color: any; label: string }
 > = {
-  [VersionStatus.DRAFT]: { color: "warning", label: "Draft" },
+  [VersionStatus.DRAFT]: { color: "info", label: "Draft" },
   [VersionStatus.PENDING_APPROVAL]: {
-    color: "info",
+    color: "warning",
     label: "Pending Approval",
   },
   [VersionStatus.ACTIVE]: { color: "success", label: "Active" },
   [VersionStatus.EXPIRED]: { color: "error", label: "Expired" },
   [VersionStatus.ARCHIVED]: { color: "secondary", label: "Archived" },
+};
+
+export const RULE_BLOCK_CONFIG_PATHS: Record<string, string> = {
+  ACCRUAL_RULES: "accrualRules",
+  CARRY_FORWARD: "carryForward",
+  SANDWICH_RULE: "sandwichRule",
+  OVERTIME_RULES: "overtimeRules",
+  SHIFT_RULES: "shiftConfig",
+  TAX_DEDUCTIONS: "tds",
+  APPROVAL_FLOW: "approvalFlow",
+  BONUS_RULES: "bonusRules",
+  LOAN_ADVANCE_RULES: "loanAdvanceRules",
+  PAYROLL_RULES: "payrollComponents",
+  WFH_RULES: "",
+  COMP_OFF_RULES: "",
+  PROBATION_RULES: "",
+  NOTICE_PERIOD_RULES: "",
+  HOLIDAY_RULES: "",
+  ONBOARDING_RULES: "",
+  OFFBOARDING_RULES: "",
+};
+
+export const OBJECT_TYPED_FIELDS = new Set([
+  "carryForward",
+  "accrualRules",
+  "sandwichRule",
+  "overtimeRules",
+  "shiftConfig",
+  "approvalFlow",
+  "bonusRules",
+  "loanAdvanceRules",
+  "payrollComponents",
+  "pf",
+  "esi",
+  "professionalTax",
+  "gratuity",
+  "lwf",
+  "tds",
+]);
+
+export interface AssignmentRuleWithMeta extends AssignmentRule {
+  _apiIds?: string[];
+  _saved?: boolean;
+  _saving?: boolean;
+  _selectedEmployees?: Employee[];
+}
+
+export const chipSx = {
+  borderRadius: "16px",
+  backgroundColor: "#f3f4f6",
+  fontSize: "0.8125rem",
+  width:"max-content",
+  fontWeight: 400,
+  color: "#1f2937",
+  height: "24px",
+  "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+  "& .MuiSelect-select": {
+    py: 0,
+    px: "8px",
+    display: "flex",
+    alignItems: "center",
+  },
+  "& .MuiSelect-icon": { right: 2, fontSize: "1rem" },
 };
