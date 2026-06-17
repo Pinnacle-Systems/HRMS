@@ -35,6 +35,7 @@ import { PolicyPreviewSimulator } from '../../components/PolicyManagement/Policy
 import { useUI } from '../../context/Snackbar';
 import { policyService } from '../../services';
 import { formatDate, formatDateTime } from '../../utils/dateFormatter';
+import { getStatusColor } from './const';
 
 export default function PolicyDetails() {
   const { id } = useParams<{ id: string }>();
@@ -153,17 +154,6 @@ export default function PolicyDetails() {
       showSnackbar(error?.message || 'Failed to reject version', 'error');
     } finally {
       hideSpinner();
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE': return 'success';
-      case 'DRAFT': return 'info';
-      case 'PENDING_APPROVAL': return 'warning';
-      case 'SCHEDULED': return 'primary';
-      case 'EXPIRED': return 'error';
-      default: return 'secondary';
     }
   };
 
@@ -485,11 +475,11 @@ export default function PolicyDetails() {
                 variant="outlined"
               />
 
-              <Chip
+              {/* <Chip
                 label="Evaluations (30d): - 0"
                 color="warning"
                 variant="outlined"
-              />
+              /> */}
             </Box>
           </div>
         </Grid>

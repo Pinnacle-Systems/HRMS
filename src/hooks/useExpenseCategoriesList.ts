@@ -3,7 +3,7 @@ import { policyService } from "../services/modules/policy";
 import type { ExpenseCat } from "../components/PolicyManagement/types";
 import { useUI } from "../context/Snackbar";
 
-export const useExpenseCategoriesList = (enabled: boolean) => {
+export const useExpenseCategoriesList = (enabled?: boolean) => {
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCat[]>([]);
   const [loading, setLoading] = useState(false);
   const { showSnackbar } = useUI();

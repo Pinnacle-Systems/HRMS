@@ -7,7 +7,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   IconButton,
   Dialog,
   DialogContent,
@@ -355,11 +354,8 @@ export default function DepartmentSettings() {
 
         {/* Departments Table */}
         <TableContainer
-          component={Paper}
-          elevation={0}
-          className="h-[calc(100vh-290px)] overflow-auto bg-white-50"
-        >
-          <Table stickyHeader className="border border-gray-200">
+          className="h-[calc(100vh-290px)] overflow-auto">
+          <Table stickyHeader className="border border-gray-200 bg-white-50 rounded-sm">
             <TableHead className="bg-gray-100">
               <TableRow>
                 <TableCell className="!font-semibold text-gray-800">

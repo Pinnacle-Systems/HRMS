@@ -76,3 +76,14 @@ export const actionOptions: Record<PolicyDomain, string[]> = {
     [PolicyDomain.BONUS]: ['CHECK_BONUS_ELIGIBILITY', 'CALCULATE_BONUS', 'PROCESS_BONUS_PAYOUT'],
     [PolicyDomain.LOAN_ADVANCE]: ['APPLY_LOAN', 'CHECK_LOAN_ELIGIBILITY', 'CALCULATE_EMI', 'CHECK_OUTSTANDING_BALANCE'],
   };
+
+export  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'success';
+      case 'DRAFT': return 'info';
+      case 'PENDING_APPROVAL': return 'warning';
+      case 'SCHEDULED': return 'primary';
+      case 'EXPIRED': return 'error';
+      default: return 'secondary';
+    }
+  };

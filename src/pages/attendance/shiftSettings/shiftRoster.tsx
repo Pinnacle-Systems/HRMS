@@ -101,7 +101,7 @@ export const ShiftRoster = () => {
       const shiftData = shiftRes.data?.content || shiftRes.data || [];
       const updatedShifts = shiftData.map((shift: any) => ({
         ...shift,
-        weeklyOff: ["SUN"], // Mock data
+        weeklyOff: ["SUN"],
       }));
       setShifts(updatedShifts);
     } catch (error: any) {

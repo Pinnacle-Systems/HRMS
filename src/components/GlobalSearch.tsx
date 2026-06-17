@@ -21,6 +21,7 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import TrackChangesOutlined from "@mui/icons-material/TrackChanges";
 import PolicyOutlined from "@mui/icons-material/PolicyOutlined";
 import KeyboardReturnOutlined from "@mui/icons-material/KeyboardReturnOutlined";
+import { MonetizationOnOutlined, ReceiptLong, RemoveCircleOutlined } from "@mui/icons-material";
 
 interface SearchItem {
   label: string;
@@ -232,16 +233,41 @@ const ALL_ITEMS: SearchItem[] = [
     icon: <PeopleAltOutlinedIcon fontSize="small" />,
     keywords: ["profile", "account", "personal", "me"],
   },
+  {
+    label: "Allowance Master",
+    description: "Manage your allowances and benefits",
+    path: "/settings/policy/allowance-components",
+    category: "Master",
+    icon: <MonetizationOnOutlined fontSize="small" />,
+    keywords: ["allowance", "benefits", "perks", "compensation", "payroll"],
+  },
+  {
+    label: "Deduction Master",
+    description: "View your salary deductions and contributions",
+    path: "/settings/policy/deduction-components",
+    category: "Master",
+    icon: <RemoveCircleOutlined fontSize="small" />,
+    keywords: ["deduction", "tax", "contributions", "salary", "payroll"],
+  },
+  {
+    label: "Expense Category Master",
+    description: "Manage expense categories for claims",
+    path: "/settings/policy/expense-category",
+    category: "Master",
+    icon: <ReceiptLong fontSize="small" />,
+    keywords: ["expense", "category", "claims", "reimbursement", "settings"],
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Navigation: "info",
-  Leave: "success",
-  Attendance: "warning",
-  Payroll: "info",
-  "Policy Engine": "secondary",
-  Settings: "info",
-  Account: "primary",
+  Navigation: "#0288d1",
+  Leave: "#2e7d32",
+  Attendance: "#ed6c02",
+  Payroll: "#af1d03",
+  "Policy Engine": "#9c27b0",
+  Settings: "#03af98",
+  Account: "#1976d2",
+  Master: "#df9a07"
 };
 
 interface GlobalSearchProps {
@@ -431,9 +457,8 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                             <Box
                               className="flex items-center justify-center w-7 h-7 rounded-md"
                               sx={{
-                                color: `${CATEGORY_COLORS[category]}.main`,
-                                bgcolor: `${CATEGORY_COLORS[category]}.light`,
-                                opacity: 0.9,
+                                color: CATEGORY_COLORS[category],
+                                bgcolor: `${CATEGORY_COLORS[category]}20`,
                               }}
                             >
                               {item.icon}
@@ -456,9 +481,18 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                           <Chip
                             label={category}
                             size="small"
-                            color={(CATEGORY_COLORS[category] as any) || "default"}
+                            // color={(CATEGORY_COLORS[category] as any) || "default"}
                             variant="outlined"
-                            sx={{ fontSize: 10, height: 20, ml: 1 }}
+                            sx={{
+                              fontSize: 10,
+                              height: 20,
+                              ml: 1,
+                              color: CATEGORY_COLORS[category],
+                              borderColor: `${CATEGORY_COLORS[category]}44`, // Semi-transparent border
+                              '& .MuiChip-label': {
+                                px: 1,
+                              }
+                            }}
                           />
                           {isActive && (
                             <KeyboardReturnOutlined

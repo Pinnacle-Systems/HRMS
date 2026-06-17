@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Chip,
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
 import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';
@@ -23,7 +24,7 @@ import { PolicyAssignmentGrid } from '../../components/PolicyManagement/PolicyAs
 import { PolicyPreviewSimulator } from '../../components/PolicyManagement/PolicyPreviewSimulator';
 import type { PolicyDefinition, PolicyVersion, PolicyAssignment } from '../../types/policy';
 import { useUI } from '../../context/Snackbar';
-import type { TabPanelProps } from './const';
+import { getStatusColor, type TabPanelProps } from './const';
 import { policyService } from '../../services';
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, index, value }) => {
@@ -273,8 +274,8 @@ export default function EditPolicy() {
 
   return (
     <div>
-      <Box>
-        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-primary' />} className='!text-gray-500 !mb-4'>
+      <div className='flex items-center justify-between mb-4'>
+        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" className='text-primary' />} className='!text-gray-500'>
           <Link color="inherit" href="/policies" onClick={(e) => { e.preventDefault(); navigate('/policies'); }}>
             Policies
           </Link>
@@ -283,7 +284,17 @@ export default function EditPolicy() {
           </Link>
           <Typography color="text.primary">Edit</Typography>
         </Breadcrumbs>
-      </Box>
+        {
+          editMode &&
+          <div>
+            <Chip
+              label={policy.status}
+              color={getStatusColor(policy.status) as any}
+              size="small"
+            />
+          </div>
+        }
+      </div>
 
       {!editMode ? (
         <>

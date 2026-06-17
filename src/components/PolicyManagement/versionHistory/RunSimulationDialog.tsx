@@ -4,7 +4,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, Alert, CircularProgress, Grid,
   Chip, Button,
 } from '@mui/material';
-import { Close as CloseIcon, History as HistoryIcon, PlayArrow } from '@mui/icons-material';
+import { Close as CloseIcon } from '@mui/icons-material';
 import type { PolicyVersion, Employee } from '../../../types/policy';
 import { EmployeeSelector } from '../Common/EmployeeSelector';
 import { policyService } from '../../../services';

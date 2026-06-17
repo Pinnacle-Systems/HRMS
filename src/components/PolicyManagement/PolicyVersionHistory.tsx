@@ -31,7 +31,6 @@ import {
   Download as DownloadIcon,
   MoreVert as MoreIcon,
   Analytics as AnalyticsIcon,
-  History as HistoryIcon,
   PlayArrow,
 } from '@mui/icons-material';
 import { type PolicyVersion, VersionStatus } from '../../types/policy';

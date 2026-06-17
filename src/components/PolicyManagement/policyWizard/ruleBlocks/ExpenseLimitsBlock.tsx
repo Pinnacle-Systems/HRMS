@@ -1,12 +1,16 @@
 import React from 'react';
 import {
   Box, Alert, IconButton, TableContainer, Table, TableHead, TableRow, TableCell,
-  TableBody, FormControl, Select, MenuItem, TextField, Switch, Grid, FormControlLabel,
+  TableBody, FormControl,TextField, Switch, Grid, FormControlLabel,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { chipSx } from '../../const';
 import type { ExpenseCat } from '../../types';
 import type { RuleBlockProps } from './types';
+import { DynamicSelectWithAdd } from '../../../SelectField';
+import { policyService } from '../../../../services';
+import { useUI } from '../../../../context/Snackbar';
+import { useExpenseCategoriesList } from '../../../../hooks/useExpenseCategoriesList';
 
 interface ExpenseLimitsBlockProps extends RuleBlockProps {
   expenseCategory: ExpenseCat[];
@@ -16,6 +20,8 @@ export const ExpenseLimitsBlock: React.FC<ExpenseLimitsBlockProps> = ({ localCon
   const expenseLimits = (localConfig.expenseLimits || {}) as Record<string, any>;
   const rows = Object.entries(expenseLimits);
   const usedNames = new Set(Object.keys(expenseLimits));
+  const { showSnackbar } = useUI();
+  const { refetch } = useExpenseCategoriesList();
 
   const addExpenseRow = () => {
     const available = expenseCategory.find((cat) => !usedNames.has(cat.name));
@@ -36,6 +42,20 @@ export const ExpenseLimitsBlock: React.FC<ExpenseLimitsBlockProps> = ({ localCon
     }
     set('expenseLimits', updated);
   };
+
+  const addNewExpCat = async (newOption: any) => {
+    try { 
+      const payload = {
+        name: newOption,
+        code: newOption.toUpperCase().replace(/\s/g, "_"),
+        active: true,
+      };
+      await policyService.createExpenseCategory(payload);
+      await refetch();
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    }
+  }
 
   return (
     <Box>
@@ -66,7 +86,7 @@ export const ExpenseLimitsBlock: React.FC<ExpenseLimitsBlockProps> = ({ localCon
                 <TableRow key={catName}>
                   <TableCell>
                     <FormControl size="small">
-                      <Select
+                      {/* <Select
                         value={catName}
                         onChange={(e) => changeExpenseCategory(catName, e.target.value)}
                         sx={chipSx}
@@ -76,7 +96,27 @@ export const ExpenseLimitsBlock: React.FC<ExpenseLimitsBlockProps> = ({ localCon
                             {cat.name}
                           </MenuItem>
                         ))}
-                      </Select>
+                      </Select> */}
+                      <Box sx={{ position: 'relative' }}>
+                        <DynamicSelectWithAdd
+                          label=""
+                          title="Expense Category"
+                          value={catName}
+                          disabled={false}
+                          onChange={(value) => {
+                            changeExpenseCategory(catName, value as string);
+                          }}
+                          options={expenseCategory
+                            .filter(cat => !usedNames.has(cat.name) || cat.name === catName)
+                            .map(cat => cat.name)
+                          }
+                          onAddOption={(newOption) => {
+                            addNewExpCat(newOption)
+                          }}
+                          showAddButton={true}
+                          sx={chipSx}
+                        />
+                      </Box>
                     </FormControl>
                   </TableCell>
                   <TableCell>

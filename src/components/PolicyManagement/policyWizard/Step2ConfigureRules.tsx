@@ -186,8 +186,9 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
 
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch {
+      } catch(error:any) {
         setSaveStatus('error');
+        showSnackbar(error.message,'error')
       }
     }, 800);
   }, [versionId, policyId, policyStatus, template?.domainId, onVersionCreated]);

@@ -18,7 +18,6 @@ import {
   Typography,
   Box,
   Alert,
-  Paper,
 } from '@mui/material';
 import {
   CloseOutlined,

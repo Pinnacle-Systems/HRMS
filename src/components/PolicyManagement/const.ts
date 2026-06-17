@@ -184,6 +184,7 @@ export const chipSx = {
   fontWeight: 400,
   color: "#1f2937",
   height: "24px",
+  paddingTop:"3px",
   "& .MuiOutlinedInput-notchedOutline": { border: "none" },
   "& .MuiSelect-select": {
     py: 0,

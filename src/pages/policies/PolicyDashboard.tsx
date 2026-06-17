@@ -122,27 +122,27 @@ export default function PolicyDashboard() {
     > = {
       ACTIVE: {
         color: 'success',
-        icon: <ActiveIcon fontSize="small" />,
+        icon: <ActiveIcon className='!w-3' />,
       },
       DRAFT: {
         color: 'info',
-        icon: <PendingIcon fontSize="small" />,
+        icon: <DraftIcon className='!w-3' />,
       },
       PENDING_APPROVAL: {
         color: 'warning',
-        icon: <PendingIcon fontSize="small" />,
+        icon: <PendingIcon className='!w-3' />,
       },
       SCHEDULED: {
         color: 'primary',
-        icon: <ScheduledIcon fontSize="small" />,
+        icon: <ScheduledIcon className='!w-3' />,
       },
       EXPIRED: {
         color: 'error',
-        icon: undefined,
+        icon: <ExpiredIcon className='!w-3' />,
       },
       ARCHIVED: {
         color: 'secondary',
-        icon: <ArchiveIcon fontSize="small" />,
+        icon: <ArchiveIcon className='!w-3' />,
       },
     };
 
@@ -235,12 +235,12 @@ export default function PolicyDashboard() {
       <Grid container spacing={2}>
         {statsCard.map((stat, i) => {
           const iconMap: Record<string, React.ReactElement> = {
-            total: <TotalIcon sx={{ fontSize: 20 }} />,
-            active: <ActiveIcon sx={{ fontSize: 20 }} />,
-            pending: <PendingIcon sx={{ fontSize: 20 }} />,
-            draft: <DraftIcon sx={{ fontSize: 20 }} />,
-            archived: <ArchiveIcon sx={{ fontSize: 20 }} />,
-            expired: <ExpiredIcon sx={{ fontSize: 20 }} />,
+            total: <TotalIcon className='!w-4' />,
+            active: <ActiveIcon className='!w-4' />,
+            pending: <PendingIcon className='!w-4' />,
+            draft: <DraftIcon className='!w-4' />,
+            archived: <ArchiveIcon className='!w-4' />,
+            expired: <ExpiredIcon className='!w-4' />,
           };
           const count = stats[stat.value] ?? 0;
           const pct = stats.total > 0 ? Math.round((count / stats.total) * 100) : 0;
@@ -252,16 +252,16 @@ export default function PolicyDashboard() {
                   // boxShadow: '0 4px 16px',
                   borderRadius: 2,
                   transition: 'box-shadow 0.2s',
-                  '&:hover': { boxShadow: `0 4px 16px ${stat.color}20` },
+                  '&:hover': { boxShadow: `0 4px 16px ${stat.color}15` },
                 }}
               >
                 <CardContent sx={{ p: '16px !important' }}>
                   <div className="flex items-center justify-between">
-                    <div className="mt-3">
-                      <div className="text-[24px] font-bold leading-none" style={{ color: stat.color }}>
+                    <div className="mb-1">
+                      <div className="text-[11px] text-gray-500 mb-1 whitespace-nowrap">{stat.label}</div>
+                      <div className="text-[12px] font-bold">
                         {count}
                       </div>
-                      <div className="text-[11px] text-gray-500 mt-1">{stat.label}</div>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="relative flex items-center justify-center">
@@ -269,7 +269,7 @@ export default function PolicyDashboard() {
                           variant="determinate"
                           value={pct}
                           size={50}
-                          thickness={4}
+                          thickness={2}
                           enableTrackSlot
                           sx={{
                             '& .MuiCircularProgress-circle': { stroke: stat.color },
@@ -355,7 +355,7 @@ export default function PolicyDashboard() {
               </div>
             </Box>
 
-            <TableContainer className='!h-[calc(100vh-355px)]'>
+            <TableContainer className='!h-[calc(100vh-340px)]'>
               <Table stickyHeader className="border border-gray-200">
                 <TableHead>
                   <TableRow>

@@ -52,6 +52,9 @@ const PolicyDetails = lazy(() => import("../pages/policies/PolicyDetails"));
 const PolicySimulator = lazy(() => import("../pages/policies/PolicySimulator"));
 const PolicyReports = lazy(() => import("../pages/policies/PolicyReports"));
 const AuditLogs = lazy(() => import("../pages/settings/general/auditLogs"));
+const AllowanceComponents = lazy(() => import("../pages/settings/policy/allowanceComponents"));
+const DeductionComponents = lazy(() => import("../pages/settings/policy/deductionComponents"));
+const ExpenseCategory = lazy(() => import("../pages/settings/policy/expenseCategory"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -272,6 +275,18 @@ function AppRoutesContent() {
                   <Route
                     path="employee/category-items/:categoryId"
                     element={<CategoryItems />}
+                  />
+                  <Route
+                    path="policy/allowance-components"
+                    element={<AllowanceComponents />}
+                  />
+                  <Route
+                    path="policy/deduction-components"
+                    element={<DeductionComponents />}
+                  />
+                  <Route
+                    path="policy/expense-category"
+                    element={<ExpenseCategory />}
                   />
                   <Route index element={<CompanySettings />} />
                 </Route>

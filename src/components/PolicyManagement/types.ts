@@ -255,14 +255,17 @@ export interface ExpenseCat {
   id: string;
   code: string;
   name: string;
+  active?: boolean;
 }
 export interface Deduction {
   id: string;
   code: string;
   name: string;
+  active?: boolean;
 }
 export interface Allowance {
   id: string;
   code: string;
   name: string;
+  active?: boolean;
 }

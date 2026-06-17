@@ -205,7 +205,7 @@ export const DynamicSelectWithAdd: React.FC<DynamicSelectWithAddProps> = ({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle className="!text-primary !font-bold !border-b !border-gray-200">
+        <DialogTitle className="!text-gray-800 !border-b !border-gray-200">
           Add New {label ? label : title}
         </DialogTitle>
         <DialogContent className="!pt-4">

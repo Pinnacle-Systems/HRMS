@@ -3,12 +3,16 @@ import { Box, Alert, Typography, IconButton, Card, CardContent, Grid, TextField,
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { RuleBlockProps } from './types';
 import { useAllowanceList } from '../../../../hooks/useAllowance';
+import { DynamicSelectWithAdd } from '../../../SelectField';
+import { policyService } from '../../../../services/modules/policy';
+import { useUI } from '../../../../context/Snackbar';
 
 export const AllowanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => {
-  const allowances = localConfig.allowances || [];
-  const { allowanceList } = useAllowanceList();
+  const allowances = localConfig.allowances || [];  
+  const { allowanceList, refetch } = useAllowanceList();
+  const { showSnackbar } = useUI();
 
-  const addAllowance = () => set('allowances', [...allowances, { type: '', taxExempt: false }]);
+  const addAllowance = () => set('allowances', [...allowances, { type: 'HRA', taxExempt: false }]);
   const updateAllowance = (index: number, field: string, value: any) => {
     const updated = [...allowances];
     updated[index] = { ...updated[index], [field]: value };
@@ -19,6 +23,20 @@ export const AllowanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set
     updated.splice(index, 1);
     set('allowances', updated);
   };
+
+  const addNewAllowance = async (newOption: any) => {
+    try {
+      const payload = {
+        name: newOption,
+        code: newOption.toUpperCase().split(" ")[0],
+        active: true,
+      };
+      await policyService.createAllowance(payload);
+      await refetch();
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    }
+  }
 
   return (
     <Box>
@@ -37,14 +55,30 @@ export const AllowanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set
             <Grid container spacing={2} sx={{ mt: 0.5 }}>
               <Grid size={{ xs: 12, md: 3 }}>
                 <FormControl fullWidth>
-                  <InputLabel>Allowance Type</InputLabel>
-                  <Select value={allowance.type || ''} onChange={(e) => updateAllowance(index, 'type', e.target.value)}>
+                  {/* <InputLabel>Allowance Type</InputLabel> */}
+                  {/* <Select value={allowance.type || ''}
+                    onChange={(e) => updateAllowance(index, 'type', e.target.value)}>
                     {
                       allowanceList.map((item) => (
-                        <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                        <MenuItem key={item.id} value={item.name}>{item.name}</MenuItem>
                       ))
                     }
-                  </Select>
+                  </Select> */}
+                  <DynamicSelectWithAdd
+                    label="Allowance Type"
+                    title="Allowance Type"
+                    value={allowance.type || ""}
+                    disabled={false}
+                    onChange={(value) => {
+                      const selectedItem = allowanceList.find(item => item.name === value);
+                      updateAllowance(index, 'type', selectedItem?.code || '');
+                    }}
+                    options={allowanceList.map(item => item.name)}
+                    onAddOption={(newOption) => {
+                      addNewAllowance(newOption)
+                    }}
+                    showAddButton={true}
+                  />
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>

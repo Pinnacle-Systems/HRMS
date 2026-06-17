@@ -557,7 +557,6 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                 fullWidth
                 type="number"
                 label="Priority"
-                size="small"
                 value={rule.priority}
                 onChange={(e) => updateRule(rule.id, { priority: parseInt(e.target.value) })}
                 helperText="Higher = more specific"
@@ -573,7 +572,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                   onChange={(v) =>
                     updateRule(rule.id, { effectiveFrom: v ? dayjs(v).format('YYYY-MM-DD') : '' })
                   }
-                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
@@ -583,7 +582,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                   onChange={(v) =>
                     updateRule(rule.id, { effectiveTo: v ? dayjs(v).format('YYYY-MM-DD') : '' })
                   }
-                  slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                  slotProps={{ textField: { fullWidth: true } }}
                 />
               </Grid>
             </LocalizationProvider>
