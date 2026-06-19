@@ -41,6 +41,7 @@ import { EmployeeSelector } from '../Common/EmployeeSelector';
 import { policyService } from '../../../services/modules/policy';
 import { useUI } from '../../../context/Snackbar';
 import { employeeService, normalizeEmployee } from '../../../services/modules/employees';
+import { selectSx } from '../../../const';
 
 const apiToRule = (a: any): AssignmentRuleWithMeta => {
   let type: AssignmentRule['type'] = 'DEPARTMENT';
@@ -464,6 +465,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                 <Select
                   value={rule.type}
                   label="Rule Type"
+                  sx={selectSx}
                   onChange={(e) => {
                     const newType = e.target.value as AssignmentRule['type'];
                     updateRule(rule.id, {

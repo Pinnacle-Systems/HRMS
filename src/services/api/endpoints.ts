@@ -556,4 +556,40 @@ export const API_ENDPOINTS = {
     GET_ALL: "/audit-logs",
     GET_BY_RECORD_ID: (recordId: string) => `/audit-logs/${recordId}`,
   },
+
+  ATTENDANCE: {
+    GET_TODAY: "/attendance/today",
+    GET_REGISTER: "/attendance/register",
+    GET_CORRECTIONS: "/attendance/corrections",
+    GET_CORRECTIONS_BYID: (id: string) => `/attendance/corrections/${id}`,
+    POST_DAILY_STATUS: "/attendance/daily-status",
+    POST_CORRECTION_APPROVE: (id: string) => `/attendance/corrections/${id}/approve`,
+    POST_CORRECTION_REQ: "/attendance/correction/request",
+    POST_CHECKIN: "/attendance/check-in",
+
+    GET_SUMMARY: "/attendance/summary",
+    GET_DETAILED: "/attendance/detailed",
+    GET_EMPLOYEE_ATTENDANCE: (employeeId: string) => `/attendance/employee/${employeeId}`,
+    GET_MUSTER: "/attendance/muster",
+    GET_MONTHLY_REGISTER: "/attendance/monthly-register",
+    GET_ATTENDANCE_INFO: (employeeId: string) => `/attendance/info/${employeeId}`,
+    GET_HOLIDAYS: "/attendance/holidays",
+    GET_FINALISED: "/attendance/finalised",
+
+    POST_CHECKOUT: "/attendance/check-out",
+    POST_PROCESS: "/attendance/process",
+    POST_BULK_PROCESS: "/attendance/bulk-process",
+    POST_FINALISE: "/attendance/finalise",
+    POST_UNLOCK: "/attendance/unlock",
+
+    REPORT_MONTHLY_SUMMARY: "/attendance/reports/monthly-summary",
+    REPORT_LATE_ARRIVAL: "/attendance/reports/late-arrivals",
+    REPORT_OVERTIME: "/attendance/reports/overtime",
+    REPORT_ABSENTEEISM: "/attendance/reports/absenteeism",
+    REPORT_IRREGULAR_PUNCH: "/attendance/reports/irregular-punch",
+    REPORT_DEPARTMENT_WISE: "/attendance/reports/department-wise",
+    REPORT_EMPLOYEE_HISTORY: "/attendance/reports/employee-history",
+    REPORT_LEAVE_UTILIZATION: "/attendance/reports/leave-utilization",
+    REPORT_EXPORT: (type: string, format: string) => `/attendance/reports/${type}/export?format=${format}`,
+  }
 };

@@ -1,13 +1,15 @@
 import React from 'react';
 import { Grid, FormControl, InputLabel, Select, MenuItem, TextField, FormControlLabel, Switch, Alert } from '@mui/material';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 export const HolidayRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => (
   <Grid container spacing={2}>
     <Grid size={{ xs: 12, md: 4 }}>
       <FormControl fullWidth size="small">
         <InputLabel>Holiday Types</InputLabel>
-        <Select multiple value={localConfig.holidayTypes || ['NATIONAL', 'STATE', 'COMPANY']} onChange={(e) => set('holidayTypes', e.target.value)}>
+        <Select multiple value={localConfig.holidayTypes || ['NATIONAL', 'STATE', 'COMPANY']} sx={selectSx}
+        onChange={(e) => set('holidayTypes', e.target.value)}>
           <MenuItem value="NATIONAL">National Holidays (3 days)</MenuItem>
           <MenuItem value="STATE">State Holidays</MenuItem>
           <MenuItem value="COMPANY">Company Holidays</MenuItem>

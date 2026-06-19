@@ -50,6 +50,7 @@ import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { companyService } from "../../../services/modules/company";
+import { selectSx } from "../../../const";
 
 
 export default function BranchSettings() {
@@ -1096,6 +1097,7 @@ export default function BranchSettings() {
               <Select
                 value={bankFormData.accountType || "SAVINGS"}
                 label="Account Type"
+                sx={selectSx}
                 onChange={(e) => setBankFormData((p) => ({ ...p, accountType: e.target.value }))}
               >
                 <MenuItem value="SAVINGS">Savings</MenuItem>

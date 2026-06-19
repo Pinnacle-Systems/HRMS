@@ -7,6 +7,7 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { EntitlementConfig } from '../../../../types/policy';
 import type { LeaveType } from '../../../../services';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 interface LeaveEntitlementsBlockProps extends RuleBlockProps {
   leaveType: LeaveType[];
@@ -63,6 +64,7 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
                     value={leave.leaveType}
                     onChange={(e) => handleLeaveTypeChange(index, 'leaveType', e.target.value)}
                     label="Leave Code"
+                    sx={selectSx}
                   >
                     {leaveType.map((option) => (
                       <MenuItem key={option.code} value={option.code}>
@@ -81,7 +83,7 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
               <Grid size={{ xs: 12, md: 2 }}>
                 <FormControl fullWidth>
                   <InputLabel>Accrual</InputLabel>
-                  <Select value={leave.accrualType} onChange={(e) => handleLeaveTypeChange(index, 'accrualType', e.target.value)}>
+                  <Select value={leave.accrualType} onChange={(e) => handleLeaveTypeChange(index, 'accrualType', e.target.value)} sx={selectSx}>
                     <MenuItem value="MONTHLY">Monthly</MenuItem>
                     <MenuItem value="QUARTERLY">Quarterly</MenuItem>
                     <MenuItem value="YEARLY">Yearly</MenuItem>

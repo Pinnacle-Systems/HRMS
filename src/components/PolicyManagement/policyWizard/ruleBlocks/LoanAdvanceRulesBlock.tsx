@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 export const LoanAdvanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => {
   const loanTypes = localConfig.loanAdvanceRules?.loanTypes || [];
@@ -91,7 +92,7 @@ export const LoanAdvanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, s
                 <Grid size={{ xs: 12, md: 2 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Loan Type</InputLabel>
-                    <Select value={loan.type} label="Loan Type" onChange={(e) => updateLoan(index, 'type', e.target.value)}>
+                    <Select value={loan.type} label="Loan Type" onChange={(e) => updateLoan(index, 'type', e.target.value)} sx={selectSx}>
                       <MenuItem value="Salary Advance">Salary Advance</MenuItem>
                       <MenuItem value="Personal Loan">Personal Loan</MenuItem>
                       <MenuItem value="Festival Advance">Festival Advance</MenuItem>

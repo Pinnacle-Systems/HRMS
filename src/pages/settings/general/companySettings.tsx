@@ -18,6 +18,7 @@ import { useMasterData } from "../../../hooks/useMasterData";
 import { MasterSelect } from "../../../components/MasterSelect";
 import LocationMap from "../../../components/Map";
 import dayjs from "dayjs";
+import { selectSx } from "../../../const";
 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
@@ -517,6 +518,7 @@ const CompanySettings = () => {
               label={label}
               value={value || ''}
               onChange={(e) => handleChange(key, e.target.value)}
+              sx={selectSx}
             >
               <MenuItem value="">
                 <em>{placeholder || `Select ${label}`}</em>

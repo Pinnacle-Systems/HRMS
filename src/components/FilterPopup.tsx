@@ -34,6 +34,7 @@ import type {
 } from '../types/filter';
 import { operatorLabels, getOperatorsForFieldType, getInputTypeForOperator } from '../types/filterOperators';
 import dayjs from 'dayjs';
+import { selectSx } from '../const';
 
 const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -539,6 +540,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                           value={rule.field}
                           label="Field"
                           size='small'
+                          sx={selectSx}
                           onChange={(e) => {
                             const newFieldId = e.target.value;
                             const defaultOperators =
@@ -562,12 +564,12 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                       </FormControl>
 
                       {/* Operator selector */}
-                      <FormControl size="small" sx={{ minWidth: 180 }}>
+                      <FormControl sx={{ minWidth: 180 }}>
                         <InputLabel>Operator</InputLabel>
                         <Select
                           value={rule.operator}
                           label="Operator"
-                          className='!text-[12px]'
+                          sx={selectSx}
                           onChange={(e) => {
                             updateRule(rule.id, {
                               operator:

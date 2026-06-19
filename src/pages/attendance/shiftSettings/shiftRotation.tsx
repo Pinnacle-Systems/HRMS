@@ -39,6 +39,7 @@ import { DatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import { employeeService } from '../../../services/modules/employees';
 import type { RotationFormData } from './types';
+import { selectSx } from '../../../const';
 
 export const ShiftRotation = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -403,6 +404,7 @@ export const ShiftRotation = () => {
                     multiple
                     value={formData.shiftIds}
                     label="Select Shifts (in order)"
+                    sx={selectSx}
                     onChange={(e) => setFormData({ ...formData, shiftIds: e.target.value as string[] })}
                     renderValue={(selected) => (
                       <div className="flex flex-wrap gap-1">

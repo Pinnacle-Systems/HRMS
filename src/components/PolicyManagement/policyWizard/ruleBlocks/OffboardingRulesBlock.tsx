@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 export const OffboardingRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => {
   const checklist: string[] = localConfig.clearanceChecklist || [];
@@ -40,7 +41,7 @@ export const OffboardingRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, s
       <Grid size={{ xs: 12, md: 3 }}>
         <FormControl fullWidth size="small">
           <InputLabel>Rehire Eligibility</InputLabel>
-          <Select value={localConfig.rehireEligibility || 'CASE_BY_CASE'} onChange={(e) => set('rehireEligibility', e.target.value)}>
+          <Select value={localConfig.rehireEligibility || 'CASE_BY_CASE'} onChange={(e) => set('rehireEligibility', e.target.value)} sx={selectSx}>
             <MenuItem value="ELIGIBLE">Always Eligible</MenuItem>
             <MenuItem value="CASE_BY_CASE">Case by Case</MenuItem>
             <MenuItem value="NOT_ELIGIBLE">Not Eligible</MenuItem>

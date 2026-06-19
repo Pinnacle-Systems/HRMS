@@ -51,6 +51,7 @@ import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, sti
 import type { ShiftFormData } from './types';
 import { ShiftAdvancedConfig } from './shiftAdvancedConfig';
 import { categoryService } from '../../../services/modules/category';
+import { selectSx } from '../../../const';
 
 export const ShiftList = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -553,6 +554,7 @@ export const ShiftList = () => {
                     <Select
                       value={formData.templateId}
                       label="Template"
+                      sx={selectSx}
                       onChange={(e) => {
                         const newType = e.target.value;
                         setFormData({
@@ -611,6 +613,7 @@ export const ShiftList = () => {
                   <Select
                     value={formData.shiftType}
                     label="Shift Type"
+                    sx={selectSx}
                     onChange={(e) => {
                       const newType = e.target.value;
                       setFormData({

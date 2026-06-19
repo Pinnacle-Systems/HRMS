@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 export const BonusRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => {
   const bonusTypes = localConfig.bonusRules?.bonusTypes || [];
@@ -86,7 +87,7 @@ export const BonusRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) 
                 <Grid size={{ xs: 12, md: 2 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Bonus Type</InputLabel>
-                    <Select value={bonus.type} label="Bonus Type" onChange={(e) => updateBonus(index, 'type', e.target.value)}>
+                    <Select value={bonus.type} label="Bonus Type" onChange={(e) => updateBonus(index, 'type', e.target.value)} sx={selectSx}>
                       <MenuItem value="ANNUAL">Annual Bonus</MenuItem>
                       <MenuItem value="PERFORMANCE">Performance Bonus</MenuItem>
                       <MenuItem value="FESTIVAL">Festival Bonus</MenuItem>
@@ -102,7 +103,8 @@ export const BonusRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) 
                 <Grid size={{ xs: 12, md: 2 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Calculation Basis</InputLabel>
-                    <Select value={bonus.calculationBasis} label="Calculation Basis" onChange={(e) => updateBonus(index, 'calculationBasis', e.target.value)}>
+                    <Select value={bonus.calculationBasis} label="Calculation Basis" sx={selectSx}
+                    onChange={(e) => updateBonus(index, 'calculationBasis', e.target.value)}>
                       <MenuItem value="BASIC">Basic Salary</MenuItem>
                       <MenuItem value="GROSS">Gross Salary</MenuItem>
                       <MenuItem value="CTC">CTC</MenuItem>
@@ -112,7 +114,8 @@ export const BonusRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) 
                 <Grid size={{ xs: 12, md: 2 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>Payout Frequency</InputLabel>
-                    <Select value={bonus.payoutFrequency} label="Payout Frequency" onChange={(e) => updateBonus(index, 'payoutFrequency', e.target.value)}>
+                    <Select value={bonus.payoutFrequency} label="Payout Frequency" sx={selectSx}
+                    onChange={(e) => updateBonus(index, 'payoutFrequency', e.target.value)}>
                       <MenuItem value="ANNUAL">Annual</MenuItem>
                       <MenuItem value="SEMI_ANNUAL">Semi-Annual</MenuItem>
                       <MenuItem value="QUARTERLY">Quarterly</MenuItem>

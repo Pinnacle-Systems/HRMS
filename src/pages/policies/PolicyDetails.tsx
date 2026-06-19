@@ -36,6 +36,7 @@ import { useUI } from '../../context/Snackbar';
 import { policyService } from '../../services';
 import { formatDate, formatDateTime } from '../../utils/dateFormatter';
 import { getStatusColor } from './const';
+import { getRowColor } from '../const';
 
 export default function PolicyDetails() {
   const { id } = useParams<{ id: string }>();
@@ -272,8 +273,8 @@ export default function PolicyDetails() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {versions.map((version) => (
-                        <TableRow key={version.id}>
+                      {versions.map((version,index) => (
+                        <TableRow key={version.id} sx={getRowColor(index)}>
                           <TableCell>v{version.versionNo}</TableCell>
                           <TableCell>{formatDateTime(version.effectiveFrom)}</TableCell>
                           <TableCell>
@@ -334,8 +335,8 @@ export default function PolicyDetails() {
                         </TableRow>
                       ) : (
                         Object.entries(assignments).flatMap(([versionNo, versionAssignments]) =>
-                          versionAssignments?.map((assignment) => (
-                            <TableRow key={assignment.id}>
+                          versionAssignments?.map((assignment,index) => (
+                            <TableRow key={assignment.id} sx={getRowColor(index)}>
                               <TableCell>v{versionNo}</TableCell>
                               <TableCell>
                                 {assignment.branchId ? 'Branch'
@@ -392,7 +393,7 @@ export default function PolicyDetails() {
                         <TableBody>
                           {(
                             auditLogs.map((log, index) => (
-                              <TableRow key={log.id}>
+                              <TableRow key={log.id} sx={getRowColor(index)}>
                                 <TableCell>{index + 1}</TableCell>
                                 <TableCell>
                                   <Chip label={log.actionType} size="small" variant="outlined" className='text-gray-800'/>

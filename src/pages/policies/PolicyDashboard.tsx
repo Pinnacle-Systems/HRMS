@@ -45,6 +45,7 @@ import { useUI } from '../../context/Snackbar';
 import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from '../const';
 import { GlobalPagination } from '../../components/GlobalPagination';
 import { usePolicyDomains } from '../../hooks/usePolicyDomains';
+import { selectSx } from '../../const';
 
 export default function PolicyDashboard() {
   const [policies, setPolicies] = useState<PolicyDefinition[]>([]);
@@ -306,6 +307,7 @@ export default function PolicyDashboard() {
                 <Select
                   value={domainFilter}
                   label="Domain"
+                  sx={selectSx}
                   className='dark:bg-white-50 bg-white'
                   onChange={(e) => {
                     setDomainFilter(e.target.value);
@@ -325,6 +327,7 @@ export default function PolicyDashboard() {
                 <Select
                   value={statusFilter}
                   label="Status"
+                  sx={selectSx}
                   className='dark:bg-white-50 bg-white'
                   onChange={(e) => {
                     setStatusFilter(e.target.value as PolicyStatus | '');

@@ -49,6 +49,7 @@ import { days } from './const';
 import type { Branch, RosterEmployee, alert } from './types';
 import type { Department } from '../../employees/type';
 import { departmentService } from '../../../services/modules/department';
+import { selectSx } from '../../../const';
 
 dayjs.extend(isoWeek);
 
@@ -482,7 +483,7 @@ export const ShiftRoster = () => {
 
                 <FormControl size="small" className="w-48">
                   <InputLabel>Department</InputLabel>
-                  <Select value={department} onChange={(e) => setDepartment(e.target.value)} label="Department">
+                  <Select value={department} onChange={(e) => setDepartment(e.target.value)} label="Department" sx={selectSx}>
                     <MenuItem value="all">All Departments</MenuItem>
                     {departments.map(d => (
                       <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
@@ -492,7 +493,7 @@ export const ShiftRoster = () => {
 
                 <FormControl size="small" className="w-48">
                   <InputLabel>Branch</InputLabel>
-                  <Select value={branch} onChange={(e) => setBranch(e.target.value)} label="Branch">
+                  <Select value={branch} onChange={(e) => setBranch(e.target.value)} label="Branch" sx={selectSx}>
                     <MenuItem value="all">All Branches</MenuItem>
                     {branches.map(b => (
                       <MenuItem key={b.id} value={b.id}>{b.branchName}</MenuItem>
@@ -734,7 +735,7 @@ export const ShiftRoster = () => {
           <div className="grid grid-cols-3 gap-4 py-5">
             <FormControl fullWidth>
               <InputLabel>Select Shift</InputLabel>
-              <Select value={bulkAssignShift} onChange={(e) => setBulkAssignShift(e.target.value)} label="Select Shift">
+              <Select value={bulkAssignShift} onChange={(e) => setBulkAssignShift(e.target.value)} label="Select Shift" sx={selectSx}>
                 {shifts.map((shift) => (
                   <MenuItem key={shift.id} value={shift.shiftCode}>{shift.shiftName}</MenuItem>
                 ))}
@@ -745,6 +746,7 @@ export const ShiftRoster = () => {
               <Select
                 multiple
                 value={bulkAssignDays}
+                sx={selectSx}
                 onChange={(e) => {
                   const value = e.target.value as string[];
                   if (value.includes("ALL")) {

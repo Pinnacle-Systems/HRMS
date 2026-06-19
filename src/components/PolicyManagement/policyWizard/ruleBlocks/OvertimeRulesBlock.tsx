@@ -7,6 +7,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { helperSx } from '../../const';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 const FORMULA_TOKENS = [
   { name: 'Basic', id: 'Basic' },
@@ -131,7 +132,8 @@ export const OvertimeRulesBlock: React.FC<OvertimeRulesBlockProps> = ({ localCon
       <Grid size={{ xs: 12, md: 3 }}>
         <FormControl fullWidth size="small">
           <InputLabel>Compensation Type</InputLabel>
-          <Select value={localConfig.overtimeRules?.compensationType || 'PAY'} onChange={(e) => set('overtimeRules.compensationType', e.target.value)}>
+          <Select value={localConfig.overtimeRules?.compensationType || 'PAY'} sx={selectSx}
+          onChange={(e) => set('overtimeRules.compensationType', e.target.value)}>
             <MenuItem value="PAY">Cash Payment Only</MenuItem>
             <MenuItem value="COMP_OFF">Compensatory Off</MenuItem>
             <MenuItem value="COMP_OFF_OR_PAY">Employee's Choice</MenuItem>

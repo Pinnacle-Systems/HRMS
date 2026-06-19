@@ -44,6 +44,7 @@ import { RejectVersionDialog } from './versionHistory/RejectVersionDialog';
 import { RestoreVersionDialog } from './versionHistory/RestoreVersionDialog';
 import { ImpactAnalysisDialog } from './versionHistory/ImpactAnalysisDialog';
 import { RunSimulationDialog } from './versionHistory/RunSimulationDialog';
+import { getRowColor } from '../../pages/const';
 
 // This component used to own the version table AND all 6 dialogs (view,
 // compare, reject, restore, impact-analysis, run-simulation) inline, in one
@@ -182,7 +183,7 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
             {sortedVersions.map((version, index) => {
               const isLatest = index === 0;
               return (
-                <TableRow key={version.id + index}>
+                <TableRow key={version.id + index} sx={getRowColor(index)}>
                   <TableCell>
                     <Box>
                       <Typography component="span">

@@ -36,27 +36,27 @@ export default function ShiftSettings() {
   const tabs = [
     {
       label: "Shift List",
-      icon: <SettingsOutlined fontSize="small" />,
+      icon: <SettingsOutlined className="!w-4" />,
       component: <ShiftList />,
     },
     {
       label: "Shift Rotation",
-      icon: <Rotate90DegreesCwOutlined fontSize="small" />,
+      icon: <Rotate90DegreesCwOutlined className="!w-4" />,
       component: <ShiftRotation />,
     },
     {
       label: "Shift Roster",
-      icon: <GroupOutlined fontSize="small" />,
+      icon: <GroupOutlined className="!w-4" />,
       component: <ShiftRoster />,
     },
     {
       label: "Shift Schedule",
-      icon: <ScheduleOutlined fontSize="small" />,
+      icon: <ScheduleOutlined className="!w-4" />,
       component: <ShiftScheduleView />,
     },
     {
       label: "Swap Requests",
-      icon: <SwapHorizOutlined fontSize="small" />,
+      icon: <SwapHorizOutlined className="!w-4" />,
       component: <ShiftSwapRequests />,
     },
   ];
@@ -92,7 +92,7 @@ export default function ShiftSettings() {
                 >
                   {tab.icon}
 
-                  <span>{tab.label}</span>
+                  <span className="text-[12px]">{tab.label}</span>
                 </button>
               );
             })}

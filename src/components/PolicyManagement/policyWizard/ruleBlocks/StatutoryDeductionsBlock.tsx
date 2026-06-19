@@ -2,6 +2,7 @@ import React from 'react';
 import { Grid, Typography, Divider, TextField, FormControlLabel, Switch, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { helperSx } from '../../const';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 interface StatutoryDeductionsBlockProps extends RuleBlockProps {
   states: any[];
@@ -39,7 +40,7 @@ export const StatutoryDeductionsBlock: React.FC<StatutoryDeductionsBlockProps> =
       <Grid size={{ xs: 12, md: 3 }}>
         <FormControl fullWidth>
           <InputLabel>State</InputLabel>
-          <Select value={localConfig.professionalTax?.state} onChange={(e) => set('professionalTax.state', e.target.value)}>
+          <Select value={localConfig.professionalTax?.state} onChange={(e) => set('professionalTax.state', e.target.value)} sx={selectSx}>
             {states.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
           </Select>
         </FormControl>

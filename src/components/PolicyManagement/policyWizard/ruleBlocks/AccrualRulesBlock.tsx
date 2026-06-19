@@ -1,13 +1,15 @@
 import React from 'react';
 import { Grid, FormControl, InputLabel, Select, MenuItem, TextField, FormControlLabel, Switch } from '@mui/material';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 export const AccrualRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => (
   <Grid container spacing={3}>
     <Grid size={{ xs: 12, md: 4 }}>
       <FormControl fullWidth>
         <InputLabel>Accrual Frequency</InputLabel>
-        <Select value={localConfig?.accrualRules?.accrualFrequency || 'MONTHLY'} onChange={(e) => set('accrualRules.accrualFrequency', e.target.value)}>
+        <Select value={localConfig?.accrualRules?.accrualFrequency || 'MONTHLY'} sx={selectSx}
+          onChange={(e) => set('accrualRules.accrualFrequency', e.target.value)}>
           <MenuItem value="MONTHLY">Monthly</MenuItem>
           <MenuItem value="QUARTERLY">Quarterly</MenuItem>
           <MenuItem value="YEARLY">Yearly</MenuItem>
@@ -20,7 +22,8 @@ export const AccrualRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }
     <Grid size={{ xs: 12, md: 4 }}>
       <FormControl fullWidth>
         <InputLabel>Leave Year Start</InputLabel>
-        <Select value={localConfig?.accrualRules?.leaveYearStartMonth ?? 4} onChange={(e) => set('accrualRules.leaveYearStartMonth', Number(e.target.value))}>
+        <Select value={localConfig?.accrualRules?.leaveYearStartMonth ?? 4}  sx={selectSx}
+         onChange={(e) => set('accrualRules.leaveYearStartMonth', Number(e.target.value))}>
           {['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'].map((m, i) => (<MenuItem key={i + 1} value={((i + 3) % 12) + 1}>{m}</MenuItem>))}
         </Select>
       </FormControl>

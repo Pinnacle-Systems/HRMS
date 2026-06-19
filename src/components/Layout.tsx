@@ -143,7 +143,7 @@ export default function Layout() {
     {
       text: "Attendance",
       icon: <TrackChangesOutlined />,
-      path: "/attendance/shifts",
+      path: "/attendance",
       roles: ["HR", "ADMIN"],
       children: [
         {
@@ -151,7 +151,7 @@ export default function Layout() {
           path: "/attendance/shifts",
         },
         {
-          text: "Attendance List",
+          text: "Attendance Management",
           path: "/attendance/list",
         },
         {
@@ -449,18 +449,18 @@ export default function Layout() {
                       : "text-gray-400"
                       } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
                     onClick={() => {
-
-                      if (item.text === 'Policy Engine') {
-                        setPolicyOpen(!policyOpen);
+                      if (item.children) {
                         setOpen(true);
-                        setAttendanceOpen(false);
+                        if (item.text === "Attendance") {
+                          setAttendanceOpen((prev) => !prev);
+                          setPolicyOpen(false);
+                        }
+                        if (item.text === "Policy Engine") {
+                          setPolicyOpen((prev) => !prev);
+                          setAttendanceOpen(false);
+                        }
+                        return;
                       }
-                      if (item.text == 'Attendance') {
-                        setOpen(true);
-                        setAttendanceOpen(!attendanceOpen);
-                        setPolicyOpen(false);
-                      }
-
                       navigate(item.path);
                     }}
                   >

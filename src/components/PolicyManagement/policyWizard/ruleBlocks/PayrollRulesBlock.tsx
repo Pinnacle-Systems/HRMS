@@ -1,6 +1,7 @@
 import React from 'react';
 import { Grid, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import type { RuleBlockProps } from './types';
+import { selectSx } from '../../../../const';
 
 export const PayrollRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => (
   <Grid container spacing={2}>
@@ -13,7 +14,8 @@ export const PayrollRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }
     <Grid size={{ xs: 12, md: 3 }}>
       <FormControl fullWidth size="small">
         <InputLabel>HRA City Type</InputLabel>
-        <Select value={localConfig.payrollComponents?.hra?.cityType || 'METRO'} onChange={(e) => set('payrollComponents.hra.cityType', e.target.value)}>
+        <Select value={localConfig.payrollComponents?.hra?.cityType || 'METRO'} sx={selectSx}
+        onChange={(e) => set('payrollComponents.hra.cityType', e.target.value)}>
           <MenuItem value="METRO">Metro (50% exemption)</MenuItem>
           <MenuItem value="NON_METRO">Non-Metro (40% exemption)</MenuItem>
         </Select>

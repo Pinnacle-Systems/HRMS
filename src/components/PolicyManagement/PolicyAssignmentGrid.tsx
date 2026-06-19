@@ -62,6 +62,7 @@ import dayjs from 'dayjs';
 import type { AssignmentFormData, PolicyAssignmentGridProps } from './types';
 import { policyService } from '../../services/modules/policy';
 import { formatDate } from '../../utils/dateFormatter';
+import { selectSx } from '../../const';
 
 const typeIcons: Record<string, React.ReactNode> = {
   BRANCH: <LocationIcon />,
@@ -423,7 +424,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
         </div>
 
         <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
 
             {/* Assignment Type */}
             <Grid size={{ xs: 12, md:6 }}>
@@ -432,6 +433,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                 <Select
                   value={formData.type}
                   label="Assignment Type"
+                  sx={selectSx}
                   onChange={(e) => {
                     setFormData({ ...formData, type: e.target.value as AssignmentFormData['type'], values: [] });
                     setSelectedEmployee(null);
@@ -466,6 +468,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                   <Select
                     value={formData.values[0] || ''}
                     label={`Select ${typeLabels[formData.type]}`}
+                    sx={selectSx}
                     onChange={(e) => {
                       setFormData({ ...formData, values: [e.target.value] });
                       resetConflicts();

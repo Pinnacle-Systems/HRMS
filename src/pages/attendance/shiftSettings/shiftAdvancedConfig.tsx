@@ -38,6 +38,7 @@ import type { AdvancedShiftConfig, ShiftAdvancedConfigProps, ShiftCategoryConfig
 import { ALL_CATEGORIES, CATEGORY_COLORS, CATEGORY_DEFAULTS, CATEGORY_LABELS, CATEGORY_SUBLABELS } from './const';
 import { shiftService } from '../../../services/modules/shifts';
 import { helperSx } from '../../../components/PolicyManagement/const';
+import { selectSx } from '../../../const';
 
 // ─── Expandable Section ───────────────────────────────────────────────────────
 const ExpandableSection = ({ title, icon, children, defaultOpen = false }: any) => {
@@ -1119,7 +1120,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                   <Grid size={{ xs: 12, md: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Rounding Rule</InputLabel>
-                      <Select value={currentConfig.roundingRule || 'none'} label="Rounding Rule"
+                      <Select value={currentConfig.roundingRule || 'none'} label="Rounding Rule" sx={selectSx}
                         onChange={(e) => set({ roundingRule: e.target.value })}>
                         <MenuItem value="none">No Rounding</MenuItem>
                         <MenuItem value="up">Round Up</MenuItem>

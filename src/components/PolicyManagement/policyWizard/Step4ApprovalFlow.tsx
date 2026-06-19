@@ -13,6 +13,7 @@ import { APPROVER_LABELS, AUTO_APPROVE_META, DEFAULT_META, helperSx } from '../c
 import type { Step4ApprovalFlowProps } from '../types';
 import { policyService } from '../../../services';
 import { useUI } from '../../../context/Snackbar';
+import { selectSx } from '../../../const';
 
 const EMPTY_CONFIG: ApprovalFlowConfig = {
   levels: [],
@@ -348,7 +349,7 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({
                   <Grid size={{ xs: 12, md: 6 }}>
                     <FormControl fullWidth size="small">
                       <InputLabel>Approver Type</InputLabel>
-                      <Select value={level.approverType} label="Approver Type"
+                      <Select value={level.approverType} label="Approver Type" sx={selectSx}
                         onChange={(e) => updateLevel(index, { approverType: e.target.value as any })}>
                         <MenuItem value="REPORTING_MANAGER">Reporting Manager</MenuItem>
                         <MenuItem value="DEPARTMENT_HEAD">Department Head</MenuItem>
@@ -379,7 +380,7 @@ export const Step4ApprovalFlow: React.FC<Step4ApprovalFlowProps> = ({
                   <Grid size={{ xs: 12, md: 3 }}>
                     <FormControl fullWidth>
                       <InputLabel>Escalate To</InputLabel>
-                      <Select value={level.escalationTo || ''} label="Escalate To"
+                      <Select value={level.escalationTo || ''} label="Escalate To" sx={selectSx}
                         onChange={(e) => updateLevel(index, { escalationTo: e.target.value || undefined })}>
                         <MenuItem value="">No escalation</MenuItem>
                         <MenuItem value="NEXT_LEVEL">Next Level</MenuItem>

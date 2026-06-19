@@ -6,6 +6,7 @@ import { useAllowanceList } from '../../../../hooks/useAllowance';
 import { DynamicSelectWithAdd } from '../../../SelectField';
 import { policyService } from '../../../../services/modules/policy';
 import { useUI } from '../../../../context/Snackbar';
+import { selectSx } from '../../../../const';
 
 export const AllowanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => {
   const allowances = localConfig.allowances || [];  
@@ -90,7 +91,7 @@ export const AllowanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set
               <Grid size={{ xs: 12, md: 2 }}>
                 <FormControl fullWidth>
                   <InputLabel>Basis</InputLabel>
-                  <Select value={allowance.basis || ''} onChange={(e) => updateAllowance(index, 'basis', e.target.value)}>
+                  <Select value={allowance.basis || ''} onChange={(e) => updateAllowance(index, 'basis', e.target.value)} sx={selectSx}>
                     <MenuItem value="">None</MenuItem>
                     <MenuItem value="BASIC">Basic</MenuItem>
                     <MenuItem value="CTC">CTC</MenuItem>
