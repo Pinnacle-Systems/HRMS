@@ -91,6 +91,7 @@ export interface PolicyTemplate {
   systemTemplate: boolean;
   isSystemTemplate: boolean;
   blockCount: number;
+  domainName?: string;
 }
 
 export interface RuleBlock {
@@ -134,6 +135,7 @@ export interface PolicyDefinition {
   templateId: string;
   policyName: string;
   domainId: string;
+  domainName?: string;
   domain: string;
   description?: string;
   status: PolicyStatus;
@@ -145,6 +147,7 @@ export interface PolicyDefinition {
   effectiveFrom?: string;
   effectiveTo?: string;
   policyCode: string;
+  createdByName?: string;
 }
 
 export interface PolicyVersion {
@@ -160,6 +163,8 @@ export interface PolicyVersion {
   approvedBy?: string;
   approvedAt?: string;
   createdAt: string;
+  createdByName?: string;
+  approvedByName?: string;
 }
 
 // ============================================
@@ -774,6 +779,12 @@ export interface PolicyAssignment {
   effectiveTo?: string;
   conditions?: Record<string, any>;
   template?: string;
+  branchName?: string;
+  departmentName?: string;
+  designationName?: string;
+  employmentTypeName?: string;
+  employeeName?: string;
+  employeeGroupName?: string;
 }
 
 export interface PolicyEvaluationRequest {
@@ -833,6 +844,7 @@ export interface PolicyAuditLog {
   actionBy: string;
   actionDate: string;
   remarks: string;
+  actionByName: string;
 }
 
 export interface PreviewPayload {

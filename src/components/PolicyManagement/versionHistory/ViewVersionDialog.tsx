@@ -65,7 +65,7 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary">Created By</Typography>
-                <Typography variant="body2">{version.createdBy}</Typography>
+                <Typography variant="body2">{version.createdByName}</Typography>
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary">Created At</Typography>
@@ -133,7 +133,7 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
                           <TableCell>
                             <Chip label={log.actionType} size="small" variant="outlined" />
                           </TableCell>
-                          <TableCell>{log.actionBy}</TableCell>
+                          <TableCell>{log.actionByName}</TableCell>
                           <TableCell>{formatDateTime(log.actionDate)}</TableCell>
                           <TableCell>{log.remarks || '—'}</TableCell>
                         </TableRow>

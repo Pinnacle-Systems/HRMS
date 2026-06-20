@@ -5,6 +5,7 @@ import {
   FormControl,
   Select,
   MenuItem,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from "@mui/material";
 import {
   PlayArrowOutlined, CheckCircleOutlined, ErrorOutlined,
@@ -94,113 +95,86 @@ export function ProcessAttendance() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="grid grid-cols-1 lg:grid-cols-[30%_auto] gap-4">
-        {/* Process Configuration */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-          <div className="font-semibold text-gray-700 mb-6">Process Configuration</div>
+      {/* Process Configuration */}
+      <div className="bg-white-50 border border-gray-200 rounded-lg p-4">
+        <div className="font-semibold text-gray-700 mb-4">Process Configuration</div>
 
-          <div className="space-y-3">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <div className="grid grid-cols-2 gap-4">
-                <DatePicker
-                  label="From Date"
-                  value={fromDate ? dayjs(fromDate) : null}
-                  onChange={(newValue) => {
-                    setFromDate(newValue ? dayjs(newValue).format('YYYY-MM-DD') : '');
-                  }}
-                  maxDate={dayjs()}
-                />
-                <DatePicker
-                  label="To Date"
-                  value={toDate ? dayjs(toDate) : null}
-                  onChange={(newValue) => {
-                    setToDate(newValue ? dayjs(newValue).format('YYYY-MM-DD') : '');
-                  }}
-                  maxDate={dayjs()}
-                  minDate={fromDate ? dayjs(fromDate) : undefined}
-                />
-              </div>
-            </LocalizationProvider>
-            <FormControl>
-              <InputLabel>Department</InputLabel>
-              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
-                <MenuItem value="">All Departments</MenuItem>
-                {departments.map(d => (
-                  <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={reprocess}
-                  onChange={(e) => setReprocess(e.target.checked)}
-                  size="small"
-                  color="warning"
-                />
-              }
-              label={
-                <span className="text-[12px] text-gray-700">
-                  Re-process already processed records
-                </span>
-              }
+        <div className="flex flex-wrap items-start gap-4">
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label="From Date"
+              value={fromDate ? dayjs(fromDate) : null}
+              onChange={(newValue) => {
+                setFromDate(newValue ? dayjs(newValue).format('YYYY-MM-DD') : '');
+              }}
+              maxDate={dayjs()}
+              slotProps={{ textField: { size: "small", sx: { width: 170 } } }}
             />
-            {reprocess && (
-              <Alert severity="warning" icon={<WarningAmberOutlined fontSize="small" />} sx={{ py: 0.5 }}>
-                <span className="text-xs">
-                  Re-processing will overwrite existing attendance statuses for the selected period.
-                </span>
-              </Alert>
-            )}
-          </div>
+            <DatePicker
+              label="To Date"
+              value={toDate ? dayjs(toDate) : null}
+              onChange={(newValue) => {
+                setToDate(newValue ? dayjs(newValue).format('YYYY-MM-DD') : '');
+              }}
+              maxDate={dayjs()}
+              minDate={fromDate ? dayjs(fromDate) : undefined}
+              slotProps={{ textField: { size: "small", sx: { width: 170 } } }}
+            />
+          </LocalizationProvider>
+
+          <FormControl sx={{ width: 220 }}>
+            <InputLabel>Department</InputLabel>
+            <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
+              <MenuItem value="">All Departments</MenuItem>
+              {departments.map(d => (
+                <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControlLabel
+            sx={{ mt: 0.5 }}
+            control={
+              <Switch
+                checked={reprocess}
+                onChange={(e) => setReprocess(e.target.checked)}
+                size="small"
+                color="warning"
+              />
+            }
+            label={
+              <span className="text-[12px] text-gray-700">
+                Re-process already processed records
+              </span>
+            }
+          />
 
           <button
             onClick={handleProcess}
             disabled={processing}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="ml-auto flex items-center justify-center gap-2 px-5 py-2 bg-primary text-white rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors self-center"
           >
             <PlayArrowOutlined fontSize="small" />
             {processing ? "Processing..." : "Process Attendance"}
           </button>
-
-          {processing && (
-            <div>
-              <LinearProgress color="primary" />
-              <div className="text-xs text-gray-500 mt-1 text-center">
-                Processing attendance records...
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Rules / Info Panel */}
-        <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
-          <div className="font-semibold text-gray-700">Processing Rules</div>
-          <div className="grid grid-cols-3 gap-2 text-[12px] text-gray-600">
-            {[
-              { icon: <CheckCircleOutlined fontSize="small" className="text-green-500" />, text: "Present — both check-in and check-out within shift" },
-              { icon: <WarningAmberOutlined fontSize="small" className="text-amber-500" />, text: "Late — check-in after shift start grace period" },
-              { icon: <ErrorOutlined fontSize="small" className="text-pink-500" />, text: "Early Out — check-out before shift end time" },
-              { icon: <InfoOutlined fontSize="small" className="text-pink-400" />, text: "Irregular — only one punch (check-in OR check-out)" },
-              { icon: <ErrorOutlined fontSize="small" className="text-red-500" />, text: "Absent — no biometric/manual punch recorded" },
-              { icon: <CheckCircleOutlined fontSize="small" className="text-cyan-500" />, text: "On Duty — approved on-duty request present" },
-              { icon: <CheckCircleOutlined fontSize="small" className="text-violet-500" />, text: "Leave — approved leave application for the date" },
-              { icon: <InfoOutlined fontSize="small" className="text-orange-400" />, text: "Permission — approved short leave/permission request" },
-              { icon: <InfoOutlined fontSize="small" className="text-slate-400" />, text: "Holiday / Weekly Off — as per company calendar" },
-              { icon: <CheckCircleOutlined fontSize="small" className="text-orange-500" />, text: "OT — hours worked beyond shift end (shift-policy based)" },
-            ].map(({ icon, text }, i) => (
-              <div key={i} className="flex items-start gap-2">
-                {icon}
-                <span>{text}</span>
-              </div>
-            ))}
-          </div>
-          <Alert severity="info" sx={{ py: 0.5 }}>
+        {reprocess && (
+          <Alert severity="warning" icon={<WarningAmberOutlined fontSize="small" />} sx={{ py: 0.5, mt: 2 }}>
             <span className="text-xs">
-              Only dates up to today can be processed. Finalised periods cannot be re-processed.
+              Re-processing will overwrite existing attendance statuses for the selected period.
             </span>
           </Alert>
-        </div>
+        )}
+
+        {processing && (
+          <div className="mt-3">
+            <LinearProgress color="primary" />
+            <div className="text-xs text-gray-500 mt-1 text-center">
+              Processing attendance records...
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Error Display */}
@@ -232,45 +206,77 @@ export function ProcessAttendance() {
 
           {/* Employee Results Table */}
           {result.employees && result.employees.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12px] border border-gray-200 rounded-lg">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-head">
-                    <th className="text-left py-2 px-3">S No</th>
-                    <th className="text-left py-2 px-3">Code</th>
-                    <th className="text-left py-2 px-3 ">Employee</th>
-                    <th className="text-center py-2 px-3 ">Status</th>
-                    <th className="text-center py-2 px-3 ">Check In</th>
-                    <th className="text-center py-2 px-3 ">Check Out</th>
-                    <th className="text-center py-2 px-3 ">Shift</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer className="max-h-[calc(100vh-500px)]">
+              <Table size="small" stickyHeader className="text-[12px] border border-gray-200">
+                <TableHead>
+                  <TableRow className="bg-head">
+                    <TableCell className="!font-bold">S No</TableCell>
+                    <TableCell className="!font-bold">Code</TableCell>
+                    <TableCell className="!font-bold">Employee</TableCell>
+                    <TableCell className="!font-bold" align="center">Status</TableCell>
+                    <TableCell className="!font-bold" align="center">Check In</TableCell>
+                    <TableCell className="!font-bold" align="center">Check Out</TableCell>
+                    <TableCell className="!font-bold" align="center">Shift</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {result.employees.map((emp, i) => (
-                    <tr key={emp.employeeId} style={getRowColor(i)}>
-                      <td className="py-2 px-3 text-gray-600 font-mono ">{i + 1}</td>
-                      <td className="py-2 px-3 text-gray-600 font-mono ">{emp.employeeCode}</td>
-                      <td className="py-2 px-3 font-medium text-gray-800 ">{emp.employeeName}</td>
-                      <td className="py-2 px-3 text-center">
-                        <span className={` px-2 py-0.5 rounded-full font-medium ${ATTENDANCE_STATUS_BG[emp.status as AttendanceStatus] ?? "bg-gray-100 text-gray-600"}`}>
+                    <TableRow key={emp.employeeId} hover sx={getRowColor(i)}>
+                      <TableCell className="text-gray-600 font-mono">{i + 1}</TableCell>
+                      <TableCell className="text-gray-600 font-mono">{emp.employeeCode}</TableCell>
+                      <TableCell className="font-medium text-gray-800">{emp.employeeName}</TableCell>
+                      <TableCell align="center" sx={{
+                        padding: '8px !important',
+                      }}>
+                        <span className={`px-2 py-0.5 rounded-full m-5 font-medium ${ATTENDANCE_STATUS_BG[emp.status as AttendanceStatus] ?? "bg-gray-100 text-gray-600"}`}>
                           {ATTENDANCE_STATUS_LABELS[emp.status as AttendanceStatus] ?? emp.status}
                         </span>
-                      </td>
-                      <td className="py-2 px-3 text-center !font-mono">
-                        {formatTime(emp.checkInTime)}
-                      </td>
-                      <td className="py-2 px-3 text-center !font-mono">
-                        {formatTime(emp.checkOutTime)}
-                      </td>
-                      <td className="py-2 px-3 text-center">{emp.shiftCode}</td>
-                    </tr>
+                      </TableCell>
+                      <TableCell align="center">
+                        {emp.checkInTime ? formatTime(emp.checkInTime) : '-'}
+                      </TableCell>
+                      <TableCell align="center">
+                        {emp.checkOutTime ? formatTime(emp.checkOutTime) : '-'}
+                      </TableCell>
+                      <TableCell align="center">{emp.shiftCode}</TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </div>
       )}
+
+      {/* Rules / Info Panel */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="font-semibold text-gray-700">Processing Rules</div>
+        <div className="flex flex-wrap gap-5 text-[12px] text-gray-600">
+          {[
+            { icon: <CheckCircleOutlined fontSize="small" className="text-green-500" />, text: "Present" },
+            { icon: <WarningAmberOutlined fontSize="small" className="text-amber-500" />, text: "Late" },
+            { icon: <ErrorOutlined fontSize="small" className="text-pink-500" />, text: "Early Out" },
+            { icon: <InfoOutlined fontSize="small" className="text-pink-400" />, text: "Irregular" },
+            { icon: <ErrorOutlined fontSize="small" className="text-red-500" />, text: "Absent" },
+            { icon: <CheckCircleOutlined fontSize="small" className="text-cyan-500" />, text: "On Duty" },
+            { icon: <CheckCircleOutlined fontSize="small" className="text-violet-500" />, text: "Leave" },
+            { icon: <InfoOutlined fontSize="small" className="text-orange-400" />, text: "Permission" },
+            { icon: <InfoOutlined fontSize="small" className="text-slate-400" />, text: "Holiday / Weekly Off" },
+            { icon: <CheckCircleOutlined fontSize="small" className="text-orange-500" />, text: "OT" },
+          ].map(({ icon, text }, i) => (
+            <div key={i} className="flex items-start gap-2">
+              {icon}
+              <span>{text}</span>
+            </div>
+          ))}
+        </div>
+        <Alert severity="info" sx={{ py: 0.5 }}>
+          <span className="text-xs">
+            Only dates up to today can be processed. Finalised periods cannot be re-processed.
+          </span>
+        </Alert>
+      </div>
+
     </div>
   );
 }

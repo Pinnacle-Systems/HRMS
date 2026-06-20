@@ -136,6 +136,75 @@ export default function AuditLogs() {
   const toggleExpand = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
 
+  const parseAndFormatValue = (value?: string) => {
+    if (!value) return 'empty';
+    try {
+
+      let jsonStr = value
+        .replace(/(\w+)=/g, '"$1":') // Convert fieldName= to "fieldName":
+        .replace(/'/g, '"') // Replace single quotes with double quotes
+        .replace(/(\w+)=/g, '"$1":'); // Handle nested fields
+
+      const parsed = JSON.parse(jsonStr);
+      return parsed;
+    } catch (e) {
+      try {
+        const pairs = value.split(',').reduce((acc: any, pair) => {
+          const [key, ...val] = pair.split('=');
+          if (key && val.length) {
+            acc[key.trim()] = val.join('=').trim();
+          }
+          return acc;
+        }, {});
+        return pairs;
+      } catch (err) {
+        return value;
+      }
+    }
+  };
+
+  // Helper to format nested objects as readable strings
+  const formatValueDisplay = (value: any, indent = 0): string => {
+    if (value === null || value === undefined) return 'empty';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    if (Array.isArray(value)) {
+      return value.map(item => formatValueDisplay(item, indent + 2)).join(', ');
+    }
+    if (typeof value === 'object') {
+      const entries = Object.entries(value);
+      return entries.map(([key, val]) =>
+        `${' '.repeat(indent)}${key}: ${formatValueDisplay(val, indent + 2)}`
+      ).join('\n');
+    }
+    return String(value);
+  };
+
+  // Function to compare two objects and show only changed fields
+  const getChangedFields = (oldObj: any, newObj: any) => {
+    const changes: { field: string; oldValue: any; newValue: any }[] = [];
+
+    const compare = (oldVal: any, newVal: any, path: string) => {
+      if (oldVal === newVal) return;
+
+      if (typeof oldVal === 'object' && typeof newVal === 'object' && oldVal !== null && newVal !== null) {
+        const allKeys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+        for (const key of allKeys) {
+          compare(oldVal[key], newVal[key], path ? `${path}.${key}` : key);
+        }
+      } else {
+        changes.push({
+          field: path || 'root',
+          oldValue: oldVal,
+          newValue: newVal
+        });
+      }
+    };
+
+    compare(oldObj, newObj, '');
+    return changes;
+  };
+
   return (
     <div>
       {/* Header */}
@@ -286,7 +355,7 @@ export default function AuditLogs() {
                       />
                     </TableCell>
                     <TableCell className="!text-[12px]">
-                          <span className="font-medium text-gray-700">{log.fieldName}</span>
+                      <span className="font-medium text-gray-700">{log.fieldName}</span>
 
                       {/* {log.fieldName ? (
                         <div className="flex items-center gap-1 flex-wrap">
@@ -316,45 +385,113 @@ export default function AuditLogs() {
 
                   {/* Expand Detail Row */}
                   <TableRow>
-                    <TableCell colSpan={9} sx={{ p:" 0 !important", border: 0 }} className="!bg-blue-50/40">
+                    <TableCell colSpan={9} sx={{ p: "0 !important", border: 0 }} className="!bg-blue-50/40">
                       <Collapse in={expandedId === log.id}>
-                        <Box sx={{ px: 6, py: 2 }}>
-                          <div className="flex flex-wrap gap-x-6 gap-y-2">
-                            <div>
-                              <div className="text-[10px] text-gray-400 uppercase  mb-1">Record ID</div>
+                        <Box sx={{ px: 6, py: 3 }}>
+                          <div className="flex flex-wrap gap-x-6 gap-y-4">
+                            {/* Record ID */}
+                            <div className="min-w-[150px]">
+                              <div className="text-[10px] text-gray-400 uppercase mb-1">Record ID</div>
                               <div className="text-[12px] font-mono text-gray-700 break-all">{log.recordId}</div>
                             </div>
-                            {/* Divider */}
-                            {/* <div className="h-8 w-px bg-gray-300 shrink-0" />
-                            <div>
-                              <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Changed By (User ID)</div>
-                              <div className="text-[12px] font-mono text-gray-700 break-all">{log.changedBy?.userName ?? "—"}</div>
-                            </div> */}
-                            {/* Divider */}
-                            {/* <div className="h-8 w-px bg-gray-300 shrink-0" />
-                            <div>
-                              <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Timestamp</div>
+
+                            {/* Changed By */}
+                            <div className="min-w-[150px]">
+                              <div className="text-[10px] text-gray-400 uppercase mb-1">Changed By</div>
+                              <div className="text-[12px] text-gray-700">{log.changedBy?.userName ?? "—"}</div>
+                            </div>
+
+                            {/* Timestamp */}
+                            <div className="min-w-[150px]">
+                              <div className="text-[10px] text-gray-400 uppercase mb-1">Timestamp</div>
                               <div className="text-[12px] text-gray-700">{formatDateTime(log.changedOn)}</div>
-                            </div> */}
-                            {log.fieldName && (
+                            </div>
+
+                            {/* Field Change Details */}
+                            {log.fieldName  && (
                               <>
-                                {/* Divider */}
-                                <div className="h-8 w-px bg-gray-300 shrink-0" />
-                                <div className="col-span-2 md:col-span-1">
-                                  <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Field Change</div>
-                                  <div className="flex items-center gap-2 text-[12px]">
-                                    <span className="font-semibold text-gray-700">{log.fieldName}</span>
-                                    <span className="bg-red-50 border border-red-200 text-red-600 px-2 py-0.5 rounded font-mono">{log.oldValue || "empty"}</span>
-                                    <span className="text-gray-400">→</span>
-                                    <span className="bg-green-50 border border-green-200 text-green-700 px-2 py-0.5 rounded font-mono">{log.newValue || "empty"}</span>
-                                  </div>
-                                </div>
+                                <div className="w-full border-t border-gray-200 my-2" />
+
+                                {/* Try to parse and show structured changes */}
+                                {(() => {
+                                  const oldParsed = parseAndFormatValue(log.oldValue);
+                                  const newParsed = parseAndFormatValue(log.newValue);
+
+                                  // If both are objects, show field-by-field comparison
+                                  if (typeof oldParsed === 'object' && typeof newParsed === 'object' &&
+                                    oldParsed !== null && newParsed !== null) {
+                                    const changes = getChangedFields(oldParsed, newParsed);
+
+                                    return (
+                                      <div className="w-full">
+                                        <div className="text-[10px] text-gray-400 uppercase mb-2">Field Changes</div>
+                                        <div className="space-y-3">
+                                          {changes.map((change, idx) => (
+                                            <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200">
+                                              <div className="text-[13px] font-semibold text-gray-800 mb-2">
+                                                {change.field}
+                                              </div>
+                                              <div className="flex items-start gap-4">
+                                                <div className="flex-1">
+                                                  <div className="text-[10px] text-gray-400 uppercase mb-1">Old Value</div>
+                                                  <pre className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
+                                                    {formatValueDisplay(change.oldValue) || 'empty'}
+                                                  </pre>
+                                                </div>
+                                                <div className="flex items-center pt-4">
+                                                  <span className="text-gray-400 text-[20px]">→</span>
+                                                </div>
+                                                <div className="flex-1">
+                                                  <div className="text-[10px] text-gray-400 uppercase mb-1">New Value</div>
+                                                  <pre className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
+                                                    {formatValueDisplay(change.newValue) || 'empty'}
+                                                  </pre>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  // Fallback: Show full values if parsing fails
+                                  return (
+                                    <div className="w-full">
+                                      <div className="text-[10px] text-gray-400 uppercase mb-2">Field Changes</div>
+                                      <div className="bg-white rounded-lg p-3 border border-gray-200">
+                                        <div className="text-[13px] font-semibold text-gray-800 mb-2">
+                                          {log.fieldName}
+                                        </div>
+                                        <div className="flex items-start gap-4">
+                                          <div className="flex-1">
+                                            <div className="text-[10px] text-gray-400 uppercase mb-1">Old Value</div>
+                                            <pre className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
+                                              {log.oldValue ? log.oldValue : 'empty'}
+                                            </pre>
+                                          </div>
+                                          <div className="flex items-center pt-4">
+                                            <span className="text-gray-400 text-[20px]">→</span>
+                                          </div>
+                                          <div className="flex-1">
+                                            <div className="text-[10px] text-gray-400 uppercase mb-1">New Value</div>
+                                            <pre className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
+                                              {log.newValue ? log.newValue : 'empty'}
+                                            </pre>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                               </>
                             )}
+
+                            {/* User Agent */}
                             {log.userAgent && (
                               <>
-                                <div className="h-8 w-px bg-gray-300 shrink-0" />
-                                <div className="w-[250px]">
+                                <div className="w-full border-t border-gray-200 my-2" />
+                                <div className="w-full">
                                   <div className="text-[10px] text-gray-400 uppercase mb-1 flex items-center gap-1">
                                     <ComputerOutlinedIcon className="!w-3" /> User Agent
                                   </div>

@@ -38,7 +38,7 @@ import {
   CloseOutlined,
   WorkOutlined,
 } from '@mui/icons-material';
-import { type Employee, type PolicyAssignment, EmploymentType } from '../../types/policy';
+import { type Employee, type PolicyAssignment, EmployeeCategory, EmploymentType } from '../../types/policy';
 
 interface PolicyConflict {
   conflictingAssignmentId: string;
@@ -69,7 +69,8 @@ const typeIcons: Record<string, React.ReactNode> = {
   DEPARTMENT: <BusinessIcon />,
   DESIGNATION: <BadgeIcon />,
   EMPLOYMENT_TYPE: <GroupIcon />,
-  EMPLOYEE_TEMPLATE: <WorkOutlined />,
+  // EMPLOYEE_TEMPLATE: <WorkOutlined />,
+  EMPLOYEE_GROUP: <WorkOutlined />,
   SPECIFIC_EMPLOYEES: <PersonIcon />,
 };
 
@@ -92,7 +93,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
   policyVersionId,
   readOnly = false,
 }) => {
-  
+
   // Lookup data
   const [branches, setBranches] = useState<Branches[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -150,9 +151,13 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       case 'DESIGNATION':
         return designations.map(d => ({ id: d.id, name: d.name }));
       case 'EMPLOYMENT_TYPE':
-        return employmentTypes.map(e => ({ id: e.id, name: e.name }));
-      case 'EMPLOYEE_TEMPLATE':
+        return employmentTypes.map(e => ({ id: e.name, name: e.name }));
+      // case 'EMPLOYEE_TEMPLATE':
+      //   return templates.map(t => ({ id: t.name, name: t.name }));
+       case 'EMPLOYEE_GROUP':
         return templates.map(t => ({ id: t.id, name: t.name }));
+      case 'EMPLOYEE_CATEGORY':
+        return [{ id: 'Staff', name: 'Staff' },{ id: 'Labour', name: 'Labour' }];
       default:
         return [];
     }
@@ -178,10 +183,14 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       return `${assignment.template} (Template)`;
     }
     if (assignment.employeeGroupId) {
-      return `Employee Group: ${assignment.employeeGroupId}`;
+       const des = templates.find(d => d.id === assignment.employeeGroupId);
+      return `${des?.name || assignment.employeeGroupId} (Employee Group)`;
     }
     if (assignment.employeeId) {
-      return `Specific Employee: ${assignment.employeeId}`;
+      return `${assignment.employeeName} (Specific Employee)`;
+    }
+    if (assignment.employeeCategory) {
+      return `${assignment.employeeCategory} (Employee Category)`;
     }
     return 'All Employees (Company-wide)';
   };
@@ -199,14 +208,15 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
           : assignment.departmentId ? 'DEPARTMENT'
             : assignment.designationId ? 'DESIGNATION'
               : assignment.employmentType ? 'EMPLOYMENT_TYPE'
-                : assignment.template ? 'EMPLOYEE_TEMPLATE'
+                // : assignment.template ? 'EMPLOYEE_TEMPLATE'
+                : assignment.employeeGroupId ? 'EMPLOYEE_GROUP'
                   : 'SPECIFIC_EMPLOYEES',
         values: [
           assignment.branchId ||
           assignment.departmentId ||
           assignment.designationId ||
           assignment.employmentType ||
-          assignment.template ||
+          // assignment.template ||
           assignment.employeeGroupId ||
           assignment.employeeId ||
           '',
@@ -279,8 +289,10 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       case 'DEPARTMENT': data.departmentId = formData.values[0]; break;
       case 'DESIGNATION': data.designationId = formData.values[0]; break;
       case 'EMPLOYMENT_TYPE': data.employmentType = formData.values[0] as EmploymentType; break;
-      case 'EMPLOYEE_TEMPLATE': data.template = formData.values[0]; break;
+      case 'EMPLOYEE_GROUP': data.employeeGroupId = formData.values[0]; break;
+      // case 'EMPLOYEE_TEMPLATE': data.template = formData.values[0]; break;
       case 'SPECIFIC_EMPLOYEES': data.employeeId = formData.values[0]; break;
+      case 'EMPLOYEE_CATEGORY': data.employeeCategory = formData.values[0] as EmployeeCategory; break;
     }
     return data;
   };
@@ -373,7 +385,8 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                                 : assignment.designationId ? 'DESIGNATION'
                                   : assignment.employmentType ? 'EMPLOYMENT_TYPE'
                                     : assignment.template ? 'EMPLOYEE_TEMPLATE'
-                                      : assignment.employeeGroupId ? 'SPECIFIC_EMPLOYEES'
+                                      : assignment.employeeGroupId ? 'EMPLOYEE_GROUP'
+                                       : assignment.employeeCategory ? 'EMPLOYEE_CATEGORY'
                                         : 'SPECIFIC_EMPLOYEES'
                           ]}
                           <Typography variant="subtitle2">
@@ -427,7 +440,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
           <Grid container spacing={2} sx={{ mt: 1 }}>
 
             {/* Assignment Type */}
-            <Grid size={{ xs: 12, md:6 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
                 <InputLabel>Assignment Type</InputLabel>
                 <Select
@@ -448,7 +461,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
             </Grid>
 
             {/* Value selector — EmployeeSelector for SPECIFIC_EMPLOYEES, Select for the rest */}
-            <Grid size={{ xs: 12, md:6 }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               {formData.type === 'SPECIFIC_EMPLOYEES' ? (
                 <EmployeeSelector
                   // companyId={companyId}
@@ -484,48 +497,48 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
 
             {/* Effective dates */}
             <LocalizationProvider dateAdapter={AdapterDayjs}>
-                {/* Effective dates */}
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <DatePicker
-                    label="Effective From"
-                    value={formData.effectiveFrom ? dayjs(formData.effectiveFrom) : null}
-                    onChange={(newValue) => {
-                      setFormData({
-                        ...formData,
-                        effectiveFrom: newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
-                      });
-                      resetConflicts();
-                    }}
-                    maxDate={formData.effectiveTo ? dayjs(formData.effectiveTo) : undefined}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        margin: "normal",
-                      },
-                    }}
-                  />
-                </Grid>
+              {/* Effective dates */}
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <DatePicker
+                  label="Effective From"
+                  value={formData.effectiveFrom ? dayjs(formData.effectiveFrom) : null}
+                  onChange={(newValue) => {
+                    setFormData({
+                      ...formData,
+                      effectiveFrom: newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
+                    });
+                    resetConflicts();
+                  }}
+                  maxDate={formData.effectiveTo ? dayjs(formData.effectiveTo) : undefined}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      margin: "normal",
+                    },
+                  }}
+                />
+              </Grid>
 
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <DatePicker
-                    label="Effective To"
-                    value={formData.effectiveTo ? dayjs(formData.effectiveTo) : null}
-                    onChange={(newValue) => {
-                      setFormData({
-                        ...formData,
-                        effectiveTo: newValue ? dayjs(newValue).format("YYYY-MM-DD") : undefined
-                      });
-                      resetConflicts();
-                    }}
-                    minDate={formData.effectiveFrom ? dayjs(formData.effectiveFrom) : undefined}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        margin: "normal",
-                      },
-                    }}
-                  />
-                </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <DatePicker
+                  label="Effective To"
+                  value={formData.effectiveTo ? dayjs(formData.effectiveTo) : null}
+                  onChange={(newValue) => {
+                    setFormData({
+                      ...formData,
+                      effectiveTo: newValue ? dayjs(newValue).format("YYYY-MM-DD") : undefined
+                    });
+                    resetConflicts();
+                  }}
+                  minDate={formData.effectiveFrom ? dayjs(formData.effectiveFrom) : undefined}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      margin: "normal",
+                    },
+                  }}
+                />
+              </Grid>
             </LocalizationProvider>
 
             {/* Priority slider */}

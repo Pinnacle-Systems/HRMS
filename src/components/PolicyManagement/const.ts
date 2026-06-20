@@ -113,7 +113,9 @@ export const typeLabels: Record<string, string> = {
   DEPARTMENT: "Department",
   DESIGNATION: "Designation",
   EMPLOYMENT_TYPE: "Employment Type",
-  EMPLOYEE_TEMPLATE: "Template",
+  EMPLOYEE_CATEGORY: "Category",
+  // EMPLOYEE_TEMPLATE: "Template",
+  EMPLOYEE_GROUP: "Group",
   SPECIFIC_EMPLOYEES: "Specific Employee",
 };
 

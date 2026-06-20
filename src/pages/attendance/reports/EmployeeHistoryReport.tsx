@@ -5,7 +5,7 @@ import {
 import { attendanceService } from "../../../services/modules/attendance";
 import type { EmployeeHistoryRow, AttendanceStatus } from "../../../services/modules/attendance";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { ReportLayout, FilterField, inputCls } from "./ReportLayout";
+import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG,
@@ -16,7 +16,6 @@ import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import { MOCK_EMPLOYEES } from "../../../services/modules/attendanceMockData";
 import { getRowColor } from "../../const";
 
 interface Props { onBack: () => void }
@@ -29,10 +28,10 @@ export function EmployeeHistoryReport({ onBack }: Props) {
   const [rows, setRows] = useState<EmployeeHistoryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(31);
+  const [limit, setLimit] = useState(20);
   const [generating, setGenerating] = useState(false);
 
-  const employeeId = selectedEmployee?.id ?? MOCK_EMPLOYEES[0].id;
+  const employeeId = selectedEmployee?.id ?? '';
   const params = { employeeId, fromDate, toDate };
 
   const summary = {
@@ -149,9 +148,9 @@ export function EmployeeHistoryReport({ onBack }: Props) {
                 </TableCell>
                 <TableCell>{r.dayOfWeek}</TableCell>
                 <TableCell>{r.shiftCode}</TableCell>
-                <TableCell>{formatTime(r.checkInTime)}</TableCell>
-                <TableCell>{formatTime(r.checkOutTime)}</TableCell>
-                <TableCell>{r.workedMinutes ? formatMinutes(r.workedMinutes) : "—"}</TableCell>
+                <TableCell>{r.checkInTime ? formatTime(r.checkInTime) : '-'}</TableCell>
+                <TableCell>{r.checkOutTime ? formatTime(r.checkOutTime) : '-'}</TableCell>
+                <TableCell>{r.workedMinutes ? formatMinutes(r.workedMinutes) : "-"}</TableCell>
                 <TableCell>
                   {r.lateMinutes > 0 ? <span className="text-amber-600">{formatMinutes(r.lateMinutes)}</span> : "-"}
                 </TableCell>

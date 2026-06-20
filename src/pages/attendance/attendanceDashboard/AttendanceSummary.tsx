@@ -37,7 +37,7 @@ interface StatCardProps {
 
 const StatCard = ({ label, value, icon, color, percentage }: StatCardProps) => {
   return (
-    <div className="bg-white rounded-lg border border-gray-100 px-2 py-2.5 hover:shadow-sm transition-shadow duration-200
+    <div className="bg-white rounded-lg border border-gray-200 px-2 py-2.5 hover:shadow-sm transition-shadow duration-200
      flex-1 min-w-[80px] max-w-[170px]">
       <div className="flex items-center justify-between mb-0.5">
         <span className="text-[9px] font-medium text-gray-500 uppercase tracking-wider truncate">
@@ -95,8 +95,6 @@ export function AttendanceSummary() {
       });
       const data = res?.data?.data ?? res?.data;
       setSummary(data?.summary ?? data ?? null);
-      setTrends(data?.trends ?? []);
-      setDeptData(data?.departmentWise ?? []);
     } catch {
       showSnackbar("Failed to load attendance summary", "error");
     } finally {
@@ -104,6 +102,55 @@ export function AttendanceSummary() {
       hideSpinner();
     }
   }, [selectedDate, departmentId, branchId]);
+
+  const getRegisterContent = async (params: Record<string, any>) => {
+    const res: any = await attendanceService.getRegister(params);
+    const data = res?.data?.data ?? res?.data;
+    return (Array.isArray(data) ? data : data?.content ?? []) as { status: string; department?: string }[];
+  };
+
+  const loadTrends = useCallback(async () => {
+    try {
+      const dates = Array.from({ length: 7 }, (_, i) => dayjs(selectedDate).subtract(6 - i, "day").format("YYYY-MM-DD"));
+      const trendRows: DailyTrend[] = await Promise.all(
+        dates.map(async (d) => {
+          const content = await getRegisterContent({ startDate: d,endDate: d, size: 1000 });
+          return {
+            date: d,
+            present: content.filter((r) => ["present", "checked_in", "checked_out", "late"].includes(r.status)).length,
+            absent: content.filter((r) => r.status === "absent").length,
+            late: content.filter((r) => r.status === "late").length,
+          };
+        })
+      );
+      setTrends(trendRows);
+    } catch {
+      setTrends([]);
+    }
+  }, [selectedDate]);
+
+  const loadDepartmentWise = useCallback(async () => {
+    if (departments.length === 0) return;
+    try {
+      const content = await getRegisterContent({ startDate: selectedDate,endDate: selectedDate, size: 1000 });      
+      const departmentWise: DepartmentWiseSummary[] = departments
+        .map((dept) => {
+          const deptRecords = content.filter((r) => r.department === dept.departmentName);
+          const present = deptRecords.filter((r) => ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)).length;
+          return {
+            department: dept.departmentName,
+            total: deptRecords.length,
+            present,
+            absent: deptRecords.length - present,
+            attendancePercentage: deptRecords.length ? Math.round((present / deptRecords.length) * 1000) / 10 : 0,
+          };
+        })
+        .filter((d) => d.total > 0);
+      setDeptData(departmentWise);
+    } catch {
+      setDeptData([]);
+    }
+  }, [selectedDate, departments]);
 
   const fetchMasterData = async () => {
     try {
@@ -120,7 +167,12 @@ export function AttendanceSummary() {
 
   useEffect(() => {
     loadSummary();
-  }, [loadSummary]);
+    loadTrends();
+  }, [loadSummary, loadTrends]);
+
+  useEffect(() => {
+    loadDepartmentWise();
+  }, [loadDepartmentWise]);
 
   useEffect(() => {
     fetchMasterData();
@@ -148,7 +200,7 @@ export function AttendanceSummary() {
       ) : summary ? (
         <>
           {/* Attendance % Banner */}
-          <div className="border-2 border-primary rounded-lg py-3 px-5 pt-0 flex items-center justify-between">
+          <div className="border-2 border-primary rounded-lg py-3 px-5 pt-0 flex items-center justify-between bg-white-50">
             <div className="flex items-center gap-5">
               <div className="flex items-center gap-3">
                 <TrendingUpOutlined className="text-primary" fontSize="large" />
@@ -159,7 +211,7 @@ export function AttendanceSummary() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-3 dark:bg-head p-2 pt-5 rounded-md">
+              <div className="flex items-center justify-between mt-3 p-2 pt-5 rounded-md">
                 <div className="grid grid-cols-3 items-center gap-3">
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
@@ -291,7 +343,7 @@ export function AttendanceSummary() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Pie Chart */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <div className="font-semibold text-gray-700 mb-3 text-sm">Today's Distribution</div>
+              <div className="font-semibold text-gray-700 mb-3 text-sm">Distribution</div>
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={240}>
                   <PieChart>

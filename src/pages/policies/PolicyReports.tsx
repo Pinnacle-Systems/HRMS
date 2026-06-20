@@ -98,6 +98,9 @@ interface AuditItem {
   actionBy: string;
   actionDate: string;
   remarks: string | null;
+  versionNo: number;
+  policyName: string;
+  actionByName: string;
 }
 
 interface DashboardData {
@@ -670,8 +673,8 @@ export default function PolicyReports() {
                     <TableRow>
                       <TableCell className="!font-semibold !text-[11px]">#</TableCell>
                       <TableCell className="!font-semibold !text-[11px]">Action</TableCell>
-                      <TableCell className="!font-semibold !text-[11px]">Policy ID</TableCell>
-                      <TableCell className="!font-semibold !text-[11px]">Version ID</TableCell>
+                      <TableCell className="!font-semibold !text-[11px]">Policy Name</TableCell>
+                      <TableCell className="!font-semibold !text-[11px]">Version No</TableCell>
                       <TableCell className="!font-semibold !text-[11px]">Remarks</TableCell>
                       <TableCell className="!font-semibold !text-[11px]">Action By</TableCell>
                       <TableCell className="!font-semibold !text-[11px]">Date</TableCell>
@@ -690,14 +693,15 @@ export default function PolicyReports() {
                           <TableCell className="!text-[11px]">{i + 1}</TableCell>
                           <TableCell><ActionChip type={a.actionType} /></TableCell>
                           <TableCell className="!text-[10px] text-gray-400 font-mono">
-                            {a.policyId.slice(0, 8)}…
+                            {a.policyName}
                           </TableCell>
                           <TableCell className="!text-[10px] text-gray-400 font-mono">
-                            {a.versionId.slice(0, 8)}…
+                            {a.versionNo}
                           </TableCell>
                           <TableCell className="!text-[11px] text-gray-600">{a.remarks ?? "—"}</TableCell>
                            <TableCell className="!text-[10px] text-gray-400 font-mono">
-                            {a.actionBy.slice(0, 8)}…
+                            {/* {a.actionByName.slice(0, 8)}… */}
+                            {a.actionByName}
                           </TableCell>
                           <TableCell className="!text-[11px] text-gray-400 whitespace-nowrap">
                             {dayjs(a.actionDate).format("DD MMM YYYY HH:mm")}

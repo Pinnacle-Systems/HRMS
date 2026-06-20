@@ -15,7 +15,7 @@ export interface ShiftFormData {
   color: string;
   weeklyOff: string[];
   description: string;
-  nightShift: boolean;
+  isNightShift: boolean;
   templateId: string;
 }
 

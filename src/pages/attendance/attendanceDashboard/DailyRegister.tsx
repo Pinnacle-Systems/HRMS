@@ -9,7 +9,7 @@ import {
   LoginOutlined, LogoutOutlined, RefreshOutlined, CheckCircleOutlined,
   FilterListOutlined, GroupOutlined, EventNoteOutlined, CloseOutlined,
   WbSunnyOutlined, InfoOutlined,
-  
+
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -117,7 +117,7 @@ export function DailyRegister() {
     showSpinner();
     try {
       const res: any = await attendanceService.getRegister({
-        date,
+        startDate: date,
         departmentId: departmentId || undefined,
         branchId: branchId || undefined,
         status: statusFilter || undefined,
@@ -140,8 +140,8 @@ export function DailyRegister() {
       const res: any = await attendanceService.getToday({ date });
       const data = res?.data?.data ?? res?.data;
       setTodaySummary(data ?? null);
-    } catch {
-      // non-critical
+    } catch (err: any) {
+      showSnackbar(err.message, "error");
     }
   }, [date]);
 
@@ -149,10 +149,10 @@ export function DailyRegister() {
     try {
       const d = dayjs(date);
       const res: any = await attendanceService.getHolidays({ year: d.year(), month: d.month() + 1 });
-      const data = res?.data?.data ?? res?.data;
+      const data = res?.data?.holidays ?? res?.data;
       setHolidays(Array.isArray(data) ? data : []);
-    } catch {
-      // non-critical
+    } catch (err: any) {
+      showSnackbar(err.message, "error");
     }
   }, [date]);
 
@@ -195,7 +195,7 @@ export function DailyRegister() {
     try {
       if (punchType === "checkIn") {
         await attendanceService.checkIn({
-          employeeId: "ed665db9-2746-459b-b2ef-53aed4852e61",
+          employeeId: punchEmployee.employeeId,
           checkInTime: punchTime,
           markedBy: session?.user.userId,
           remarks: punchRemarks || undefined,
@@ -204,7 +204,7 @@ export function DailyRegister() {
         await attendanceService.checkOut({
           employeeId: punchEmployee.employeeId,
           checkOutTime: punchTime,
-          markedBy: "admin",
+          markedBy: session?.user.userId,
           remarks: punchRemarks || undefined,
         });
       }
@@ -304,11 +304,12 @@ export function DailyRegister() {
   return (
     <div className="p-4 space-y-3">
       {/* Summary cards */}
+      <div className="text-[12px] font-bold text-gray-500"> Today's Summary</div>
       {statCards.length > 0 && (
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
           {statCards.map(({ label, value, color, border }) => (
             <div key={label} className={`border ${border} rounded-lg p-3 text-center`}>
-              <div className={`text-xl font-bold ${color}`}>{value}</div>
+              <div className={`text-xl font-bold ${color}`}>{value ? value : 0}</div>
               <div className="text-xs text-gray-500 mt-0.5">{label}</div>
             </div>
           ))}
@@ -416,6 +417,7 @@ export function DailyRegister() {
         >
           <span className="text-sm font-medium">Holiday: {todayHoliday?.name}</span>
           {todayHoliday?.type && <span className="text-xs text-gray-500 ml-2">({todayHoliday?.type})</span>}
+          <div>Applicable Departments</div>
         </Alert>
       )}
 
@@ -449,7 +451,7 @@ export function DailyRegister() {
 
       {/* Register Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer className='max-h-[calc(100vh-540px)]'>
+        <TableContainer className={`${(todayHoliday && selected.size > 0) ? 'max-h-[calc(100vh-545px)]' : (selected.size > 0 || todayHoliday) ? 'max-h-[calc(100vh-480px)]' : 'max-h-[calc(100vh-420px)]'}`}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -506,16 +508,16 @@ export function DailyRegister() {
                     </TableCell>
                     <TableCell>{emp.department}</TableCell>
                     <TableCell>{emp.shiftCode}</TableCell>
-                    <TableCell className=" text-gray-500">{formatTime(emp.shiftStart)}</TableCell>
+                    <TableCell className=" text-gray-500">{emp.shiftStart ? formatTime(emp.shiftStart) : '-'}</TableCell>
                     <TableCell>
                       {emp.checkInTime
                         ? <span className="text-green-700 font-semibold">{formatTime(emp.checkInTime)}</span>
-                        : <span className="text-red-400">—</span>}
+                        : <span className="text-red-400">-</span>}
                     </TableCell>
                     <TableCell>
                       {emp.checkOutTime
                         ? <span className="text-blue-600 font-semibold">{formatTime(emp.checkOutTime)}</span>
-                        : <span className="text-gray-300">—</span>}
+                        : <span >-</span>}
                     </TableCell>
                     <TableCell>
                       <span className={` px-2 py-0.5 rounded-full font-medium whitespace-nowrap

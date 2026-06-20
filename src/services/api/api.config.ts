@@ -152,6 +152,26 @@ class ApiService {
     window.URL.revokeObjectURL(downloadUrl);
   }
 
+  // Download a file from a server-relative path (e.g. a fileUrl returned by an export endpoint)
+  async downloadFromPath(path: string, filename: string): Promise<void> {
+    const origin = (API_CONFIG.baseURL || import.meta.env.VITE_API_URL).replace(/\/api\/?$/, "");
+    const fullUrl = `${origin}${path}`;
+    const response = await this.axiosInstance.get(fullUrl, {
+      responseType: "blob",
+      baseURL: "",
+    });
+
+    const blob = new Blob([response.data]);
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
   // Set auth token
   setAuthToken(token: string | null) {
     if (token) {

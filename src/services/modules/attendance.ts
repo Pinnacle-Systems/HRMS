@@ -191,6 +191,8 @@ export interface FinalisedPeriod {
   finalisedBy?: string;
   finalisedAt?: string;
   createdAt: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface ProcessResult {
@@ -262,7 +264,7 @@ export interface CheckOutPayload {
   employeeId: string;
   checkOutTime: string;
   reason?: string;
-  markedBy: string;
+  markedBy?: string;
   remarks?: string;
 }
 
@@ -285,12 +287,19 @@ export interface FinalisePayload {
   year: number;
   remarks?: string;
   approvedBy?: string;
+  status?: string;
 }
 
 export interface UnlockPayload {
   periodId: string;
   reason: string;
   unlockedBy: string;
+}
+export interface LockPayload {
+  startDate: string,
+  endDate: string,
+  reason: string;
+  lockedBy: string;
 }
 
 // ── Query Params ───────────────────────────────────────────────────────────
@@ -453,23 +462,23 @@ export const attendanceService = {
   },
 
   async getSummary(params?: SummaryQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockSummary(params), "Summary loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockSummary(params), "Summary loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_SUMMARY, { params });
   },
 
   async getDetailed(params?: AttendanceDetailedQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockDetailed(params), "Attendance records loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockDetailed(params), "Attendance records loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_DETAILED, { params });
   },
 
   async getEmployeeAttendance(employeeId: string, params?: { fromDate?: string; toDate?: string }) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockEmployeeAttendance(employeeId, params), "Employee attendance loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockEmployeeAttendance(employeeId, params), "Employee attendance loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_EMPLOYEE_ATTENDANCE(employeeId), { params });
   },
 
@@ -481,30 +490,30 @@ export const attendanceService = {
   },
 
   async getMuster(params: MusterQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockMuster(params), "Muster register loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockMuster(params), "Muster register loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_MUSTER, { params });
   },
 
   async getMonthlyRegister(params?: Record<string, any>) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockMonthlyRegister(params as any), "Monthly register loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockMonthlyRegister(params as any), "Monthly register loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_MONTHLY_REGISTER, { params });
   },
 
   async getAttendanceInfo(employeeId: string) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockAttendanceInfo(employeeId), "Attendance info loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockAttendanceInfo(employeeId), "Attendance info loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_ATTENDANCE_INFO(employeeId));
   },
 
   async getHolidays(params?: { year?: number; month?: number }) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockHolidays(params), "Holidays loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockHolidays(params), "Holidays loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_HOLIDAYS, { params });
   },
 
@@ -516,16 +525,16 @@ export const attendanceService = {
   },
 
   async getCorrectionById(id: string) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockCorrectionById(id), "Correction request loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockCorrectionById(id), "Correction request loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_CORRECTIONS_BYID(id));
   },
 
   async getFinalisedPeriods(params?: { year?: number }) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockFinalisedPeriods(params), "Finalised periods loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockFinalisedPeriods(params), "Finalised periods loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_FINALISED, { params });
   },
 
@@ -545,9 +554,9 @@ export const attendanceService = {
   },
 
   async checkOut(payload: CheckOutPayload) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.mockCheckOut(payload), "Check-out recorded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.mockCheckOut(payload), "Check-out recorded");
+    // }
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_CHECKOUT, payload);
   },
 
@@ -566,100 +575,108 @@ export const attendanceService = {
   },
 
   async processAttendance(payload: ProcessAttendancePayload) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.postMockProcessResult(payload), "Attendance processed");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.postMockProcessResult(payload), "Attendance processed");
+    // }
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_PROCESS, payload);
   },
 
   async bulkProcess(payload: BulkProcessPayload) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(
-        Mock.postMockProcessResult({ fromDate: payload.processDate, toDate: payload.processDate, employeeIds: payload.employeeIds }),
-        "Bulk attendance processed"
-      );
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(
+    //     Mock.postMockProcessResult({ fromDate: payload.processDate, toDate: payload.processDate, employeeIds: payload.employeeIds }),
+    //     "Bulk attendance processed"
+    //   );
+    // }
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_BULK_PROCESS, payload);
   },
 
   async finalise(payload: FinalisePayload) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.postMockFinalise(payload), "Period finalised");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.postMockFinalise(payload), "Period finalised");
+    // }
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_FINALISE, payload);
   },
 
   async unlock(payload: UnlockPayload) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.postMockUnlock(payload), "Period unlocked");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.postMockUnlock(payload), "Period unlocked");
+    // }
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_UNLOCK, payload);
+  },
+
+   async lock(payload: LockPayload) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_LOCK, payload);
+  },
+
+   async getAllLocks() {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_LOCKS);
   },
 
   // ── Reports ──
   async getReportMonthlySummary(params: MonthYearQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportMonthlySummary(params as any), "Monthly summary report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportMonthlySummary(params as any), "Monthly summary report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_MONTHLY_SUMMARY, { params });
   },
 
   async getReportLateArrival(params: LateArrivalQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportLateArrival(params as any), "Late arrival report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportLateArrival(params as any), "Late arrival report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LATE_ARRIVAL, { params });
   },
 
   async getReportOvertime(params: OvertimeQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportOvertime(params as any), "Overtime report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportOvertime(params as any), "Overtime report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_OVERTIME, { params });
   },
 
   async getReportAbsenteeism(params: AbsenteeismQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportAbsenteeism(params as any), "Absenteeism report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportAbsenteeism(params as any), "Absenteeism report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_ABSENTEEISM, { params });
   },
 
   async getReportIrregularPunch(params: DateRangeQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportIrregularPunch(params as any), "Irregular punch report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportIrregularPunch(params as any), "Irregular punch report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_IRREGULAR_PUNCH, { params });
   },
 
   async getReportDepartmentWise(params: DateRangeQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportDepartmentWise(), "Department-wise report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportDepartmentWise(), "Department-wise report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_DEPARTMENT_WISE, { params });
   },
 
   async getReportEmployeeHistory(params: EmployeeHistoryQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportEmployeeHistory(params), "Employee history report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportEmployeeHistory(params), "Employee history report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_EMPLOYEE_HISTORY, { params });
   },
 
   async getReportLeaveUtilization(params: LeaveUtilizationQuery) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return Mock.mockResponse(Mock.getMockReportLeaveUtilization(params as any), "Leave utilization report loaded");
-    }
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockReportLeaveUtilization(params as any), "Leave utilization report loaded");
+    // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LEAVE_UTILIZATION, { params });
   },
 
   async exportReport(type: string, format: "excel" | "pdf" | "csv", params: Record<string, any>) {
-    if (USE_MOCK_ATTENDANCE_SERVICE) {
-      return { data: Mock.mockExportReport(type, format) };
-    }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_EXPORT(type, format), {
-      params,
-      responseType: "blob",
-    });
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return { data: Mock.mockExportReport(type, format) };
+    // }
+    return apiService.get<{ success: boolean; message: string; data: { fileUrl: string } }>(
+      API_ENDPOINTS.ATTENDANCE.REPORT_EXPORT(type, format),
+      { params }
+    );
   },
 };

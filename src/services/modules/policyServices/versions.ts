@@ -8,7 +8,7 @@ export const policyVersionService = {
 
   async createPolicyVersion(
     policyId: string,
-    payload: { changeLog: string; configJson: Record<string, unknown> },
+    payload: { changeLog: string; configJson: Record<string, unknown>, effectiveFrom?: string, effectiveTo?: string },
   ) {
     return apiService.post(API_ENDPOINTS.POLICY.CREATE_VERSION(policyId), payload);
   },

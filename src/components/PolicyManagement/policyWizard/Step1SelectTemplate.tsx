@@ -270,7 +270,7 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
 
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
                         <Chip
-                          label={getDomainName(template.domainId)}
+                          label={template.domainName}
                           size="small"
                           color="primary"
                           variant="outlined"

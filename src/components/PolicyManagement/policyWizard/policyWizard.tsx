@@ -155,6 +155,8 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
       const newVersion: any = await policyService.createPolicyVersion(policyId, {
         changeLog: 'Initial policy version',
         configJson: completeConfig as unknown as Record<string, unknown>,
+        effectiveFrom: policyDefinition.effectiveFrom,
+        effectiveTo: policyDefinition.effectiveTo,
       });
       const versionId: string = newVersion.data?.id || newVersion.id;
 

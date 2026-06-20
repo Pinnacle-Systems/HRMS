@@ -176,7 +176,7 @@ export function AttendanceDetailed() {
         </div>
 
         {/* Filter Body */}
-        <div className="p-4 pt-5">
+        <div className="p-4 pt-5 bg-white-50">
           <div className="flex items-center justify-between gap-3">
             <div className="grid grid-cols-3 gap-3">
               <div className="w-[250px]">
@@ -424,7 +424,7 @@ export function AttendanceDetailed() {
                   label="Requested Check-in"
                   value={correctionForm.requestedCheckIn ? dayjs(correctionForm.requestedCheckIn) : null}
                   onChange={(newValue) => {
-                    setCorrectionForm((f) => ({...f, requestedCheckIn:newValue ? dayjs(newValue).format('YYYY-MM-DDTHH:mm:ss') : ''}));
+                    setCorrectionForm((f) => ({...f, requestedCheckIn:newValue ? dayjs(newValue).toISOString() : ''}));
                   }}
                   slotProps={{
                     textField: {
@@ -438,7 +438,7 @@ export function AttendanceDetailed() {
                   label="Requested Check-out"
                   value={correctionForm.requestedCheckOut ? dayjs(correctionForm.requestedCheckOut) : null}
                   onChange={(newValue) => {
-                    setCorrectionForm((f) => ({...f, requestedCheckOut:newValue ? dayjs(newValue).format('YYYY-MM-DDTHH:mm:ss') : ''}));
+                    setCorrectionForm((f) => ({...f, requestedCheckOut:newValue ? dayjs(newValue).toISOString() : ''}));
                   }}
                   slotProps={{
                     textField: {

@@ -37,9 +37,11 @@ export interface Shift {
   color: string;
   description: string;
   // active: boolean;
-  nightShift: boolean;
+  isNightShift: boolean;
   isActive: boolean;
   templateId: string;
+  advancedConfigTypes: [];
+  templateName?: string;
 }
 
 // Pagination response for shifts
@@ -155,6 +157,7 @@ export interface SwapRequest {
   decidedBy?: string;
   decisionReason?: string;
   createdAt: string;
+  decidedByName?: string
 }
 
 export interface ScheduleStats {

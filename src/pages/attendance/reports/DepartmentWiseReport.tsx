@@ -31,7 +31,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
     setGenerating(true);
     try {
       const res: any = await attendanceService.getReportDepartmentWise(params);
-      const data = res?.data?.data ?? res?.data;
+      const data = res?.data?.departments ?? res?.data;
       setRows(Array.isArray(data) ? data : []);
     } catch {
       showSnackbar("Failed to generate report", "error");
@@ -126,7 +126,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
               {rows.map((r, i) => (
                 <TableRow key={r.department} sx={getRowColor(i)}>
                   <TableCell>{i+1}</TableCell>
-                  <TableCell className="!font-semibold">{r.department}</TableCell>
+                  <TableCell>{r.department}</TableCell>
                   <TableCell className="!text-center">{r.totalEmployees}</TableCell>
                   <TableCell className="!text-center">{r.totalWorkingDays}</TableCell>
                   <TableCell className="!text-center !font-semibold"><span className="text-green-600">{r.totalPresentDays}</span></TableCell>
@@ -146,7 +146,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
               {/* Totals row */}
               <TableRow className="bg-gray-100 border-t-2 border-gray-300">
                 <TableCell></TableCell>
-                <TableCell className="!font-bold text-gray-700">Total</TableCell>
+                <TableCell className="text-gray-700">Total</TableCell>
                 <TableCell className="!text-center !font-bold">{rows.reduce((s, r) => s + r.totalEmployees, 0)}</TableCell>
                 <TableCell className="!text-center !font-bold">—</TableCell>
                 <TableCell className="!text-center !font-bold text-green-700"><span className="text-green-700">{rows.reduce((s, r) => s + r.totalPresentDays, 0)}</span></TableCell>

@@ -195,6 +195,8 @@ export const API_ENDPOINTS = {
     WITHDRAW: (id: string) => `/leaves/${id}/actions/revoke`,
     CANCEL_REQUEST: (id: string) => `/leaves/${id}/actions/revoke`,
     OVERRIDE: (id: string) => `/leaves/${id}/actions/force-approve`,
+    UPCOMING_LEAVES: "/leave/upcoming-leaves",
+    PENDING_APPROVALS: "/leave/pending-approvals",
   },
 
   LEAVE_TYPE: {
@@ -233,6 +235,7 @@ export const API_ENDPOINTS = {
     BY_ID: (id: string) => `/holidays/${id}`,
     UPDATE: (id: string) => `/holidays/${id}`,
     DELETE: (id: string) => `/holidays/${id}`,
+    UPCOMING_HOLIDAYS: "/holidays/upcoming",
   },
 
   HOLIDAY_IMPORT: {
@@ -262,6 +265,13 @@ export const API_ENDPOINTS = {
 
   LEAVE_ACCRUAL: {
     RUN: "/leave-accruals/run",
+  },
+
+  EMP_OPERATIONAL_LIST: {
+    ANNIVERSARIES: "/employees/work-anniversaries",
+    BIRTHDAYS: "/employees/upcoming-birthdays",
+    RESIGNATIONS: "/employees/recent-resignations",
+    JOINERS: "/employees/recent-joiners",
   },
 
   ONBOARDING: {
@@ -359,7 +369,8 @@ export const API_ENDPOINTS = {
     CREATE_VERSION: (id: string) => `/policies/${id}/versions`,
     UPDATE_VALIDATE_CONFIG: (id: string) => `/policies/${id}/validate-config`,
     UPDATE: (id: string) => `/policies/${id}`,
-    CREATE_VALIDATE_CONFIG: (did: string) => `/policy-domains/${did}/validate-config`,
+    CREATE_VALIDATE_CONFIG: (did: string) =>
+      `/policy-domains/${did}/validate-config`,
 
     TEMPLATES: {
       DELETE: (id: string) => `/policy-templates/${id}`,
@@ -563,16 +574,19 @@ export const API_ENDPOINTS = {
     GET_CORRECTIONS: "/attendance/corrections",
     GET_CORRECTIONS_BYID: (id: string) => `/attendance/corrections/${id}`,
     POST_DAILY_STATUS: "/attendance/daily-status",
-    POST_CORRECTION_APPROVE: (id: string) => `/attendance/corrections/${id}/approve`,
+    POST_CORRECTION_APPROVE: (id: string) =>
+      `/attendance/corrections/${id}/approve`,
     POST_CORRECTION_REQ: "/attendance/correction/request",
     POST_CHECKIN: "/attendance/check-in",
 
     GET_SUMMARY: "/attendance/summary",
     GET_DETAILED: "/attendance/detailed",
-    GET_EMPLOYEE_ATTENDANCE: (employeeId: string) => `/attendance/employee/${employeeId}`,
+    GET_EMPLOYEE_ATTENDANCE: (employeeId: string) =>
+      `/attendance/employee/${employeeId}`,
     GET_MUSTER: "/attendance/muster",
     GET_MONTHLY_REGISTER: "/attendance/monthly-register",
-    GET_ATTENDANCE_INFO: (employeeId: string) => `/attendance/info/${employeeId}`,
+    GET_ATTENDANCE_INFO: (employeeId: string) =>
+      `/attendance/info/${employeeId}`,
     GET_HOLIDAYS: "/attendance/holidays",
     GET_FINALISED: "/attendance/finalised",
 
@@ -582,6 +596,9 @@ export const API_ENDPOINTS = {
     POST_FINALISE: "/attendance/finalise",
     POST_UNLOCK: "/attendance/unlock",
 
+    GET_LOCKS: "/attendance/locks",
+    POST_LOCK: "/attendance/lock",
+
     REPORT_MONTHLY_SUMMARY: "/attendance/reports/monthly-summary",
     REPORT_LATE_ARRIVAL: "/attendance/reports/late-arrivals",
     REPORT_OVERTIME: "/attendance/reports/overtime",
@@ -590,6 +607,41 @@ export const API_ENDPOINTS = {
     REPORT_DEPARTMENT_WISE: "/attendance/reports/department-wise",
     REPORT_EMPLOYEE_HISTORY: "/attendance/reports/employee-history",
     REPORT_LEAVE_UTILIZATION: "/attendance/reports/leave-utilization",
-    REPORT_EXPORT: (type: string, format: string) => `/attendance/reports/${type}/export?format=${format}`,
+    REPORT_EXPORT: (type: string, format: string) =>
+      `/attendance/reports/${type}/export?format=${format}`,
+  },
+
+  DASHBOARD: {
+    PREFERENCES: (page:string) => `dashboard/${page}/preferences`,
+    PAGE: (page:string) => `dashboard/${page}`,
+    WIDGETS: (page:string) => `dashboard/${page}/widgets`,
+    CONTEXT: (page:string) => `dashboard/${page}/context`,
+    GET: "dashboard/pages",
+    POST_DRILLDOWN: (page:string,wid:string) => `dashboard/${page}/widgets/${wid}/drilldown`,
+    POST_PREFERENCE: (page:string) => `dashboard/${page}/preferences/reset`,
+    UPDATE_PREFERENCE: (page:string) => `dashboard/${page}/preferences`,
+
+    BI_ASYNC_EXP: {
+      GET_JOB: (jobref:string) => `/bi/exports/${jobref}`,
+      DOWNLOAD: (jobref:string) => `/bi/exports/${jobref}/download`,
+      POST: (id:string) => `/bi/datasets/${id}/exports`,
+    },
+    REPORTS: {
+      DELETE: (id:string) => `/bi/reports/${id}`,
+      GET_BY_ID: (id:string) => `/bi/reports/${id}`,
+      GET: "/bi/reports",
+      CREATE: "/bi/reports",
+      RUN: (id:string) => `/bi/reports/${id}/run`,
+      EXPORTS: (id:string) => `/bi/reports/${id}/exports`,
+      UPDATE: (id:string) => `/bi/reports/${id}`,
+    },
+    BI_QUERY_ENGINE: {
+       GET: "/bi/datasets",
+       GET_BY_ID: (id:string) => `/bi/datasets/${id}/schema`,
+       GET_PRESETS: (id:string,pid:string) => `/bi/datasets/${id}/presets/${pid}`,
+       POST_QUERY: (id:string) => `/bi/datasets/${id}/query`,
+       QUERY_VALIDATE: (id:string) => `/bi/datasets/${id}/query/validate`,
+    },
+
   }
 };

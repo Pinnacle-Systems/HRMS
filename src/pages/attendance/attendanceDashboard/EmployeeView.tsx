@@ -19,7 +19,6 @@ import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { MOCK_EMPLOYEES } from "../../../services/modules/attendanceMockData";
 import LoginOutlined from "@mui/icons-material/LoginOutlined";
 import { getRowColor } from "../../const";
 
@@ -41,7 +40,7 @@ export function EmployeeView() {
     }
     // Load info card
     setInfoLoading(true);
-    attendanceService.getAttendanceInfo(MOCK_EMPLOYEES[1].id).then((res: any) => {
+    attendanceService.getAttendanceInfo(selectedEmployee.id).then((res: any) => {
       const data = res?.data?.data ?? res?.data;
       setAttendanceInfo(data ?? null);
     }).catch(() => {
@@ -51,7 +50,7 @@ export function EmployeeView() {
     // Load attendance records
     setLoading(true);
     try {
-      const res: any = await attendanceService.getEmployeeAttendance(MOCK_EMPLOYEES[1].id, {
+      const res: any = await attendanceService.getEmployeeAttendance(selectedEmployee.id, {
         fromDate,
         toDate,
       });
@@ -78,7 +77,7 @@ export function EmployeeView() {
   return (
     <div className="p-4 space-y-4">
       {/* Search Panel */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-white-50 border border-gray-200 rounded-lg p-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-[260px]">
             <EmployeeSelector
@@ -130,7 +129,7 @@ export function EmployeeView() {
               </div>
               <div>
                 <div className="font-bold text-gray-800 text-[12px]">{attendanceInfo.employeeName}</div>
-                <div className="text-[12px] text-gray-400 !font-mono">{attendanceInfo.employeeCode}</div>
+                <div className="text-[12px] text-gray-400">{attendanceInfo.employeeCode}</div>
               </div>
             </div>
 
@@ -191,7 +190,7 @@ export function EmployeeView() {
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Check-in</div>
-                  <div className="text-sm font-semibold text-emerald-700 font-mono">{formatTime(attendanceInfo.todayCheckIn)}</div>
+                  <div className="text-sm font-semibold text-emerald-700">{formatTime(attendanceInfo.todayCheckIn)}</div>
                 </div>
               </div>
             )}
@@ -240,7 +239,7 @@ export function EmployeeView() {
           {loading ? (
             <div className="flex justify-center py-12"><CircularProgress /></div>
           ) : (
-            <TableContainer>
+            <TableContainer className="max-h-[calc(100vh-500px)] overflow-auto">
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
@@ -264,37 +263,39 @@ export function EmployeeView() {
                         {dayjs(r.attendanceDate).format("ddd")}
                       </TableCell>
                       <TableCell>{r.shiftCode}</TableCell>
-                      <TableCell className="!font-mono">
+                      <TableCell>
                         {r.checkInTime
                           ? <span className="text-green-700">{formatTime(r.checkInTime)}</span>
-                          : <span className="text-gray-300">—</span>}
-                      </TableCell>
-                      <TableCell className="!font-mono">
-                        {r.checkOutTime
-                          ? <span className="text-blue-700">{formatTime(r.checkOutTime)}</span>
-                          : <span className="text-gray-300">—</span>}
+                          : <span>-</span>}
                       </TableCell>
                       <TableCell>
-                        {r.workedMinutes ? formatMinutes(r.workedMinutes) : "—"}
+                        {r.checkOutTime
+                          ? <span className="text-blue-700">{formatTime(r.checkOutTime)}</span>
+                          : <span>-</span>}
+                      </TableCell>
+                      <TableCell>
+                        {r.workedMinutes ? formatMinutes(r.workedMinutes) : "-"}
                       </TableCell>
                       <TableCell>
                         {r.lateMinutes > 0
                           ? <span className="text-amber-600">{formatMinutes(r.lateMinutes)}</span>
-                          : "—"}
+                          : "-"}
                       </TableCell>
                       <TableCell>
                         {r.overtimeMinutes > 0
                           ? <span className="text-orange-600">{formatMinutes(r.overtimeMinutes)}</span>
-                          : "—"}
+                          : "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell  sx={{
+                        padding: '8px !important',
+                      }}>
                         <span className={` px-2 py-0.5 rounded-lg whitespace-nowrap
                           ${ATTENDANCE_STATUS_BG[r.status as AttendanceStatus] ?? "bg-gray-100 text-gray-600"}`}>
                           {ATTENDANCE_STATUS_LABELS[r.status as AttendanceStatus] ?? r.status}
                         </span>
                       </TableCell>
                       <TableCell className="max-w-[120px] truncate" title={r.remarks}>
-                        {r.remarks || "—"}
+                        {r.remarks || "-"}
                       </TableCell>
                     </TableRow>
                   ))}

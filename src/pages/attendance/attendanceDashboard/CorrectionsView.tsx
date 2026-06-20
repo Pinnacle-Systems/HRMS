@@ -8,7 +8,7 @@ import {
 } from "@mui/material";
 import {
   VisibilityOutlined, CheckOutlined, CloseOutlined,
-   FilterListOutlined,
+  FilterListOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -186,7 +186,7 @@ export function CorrectionsView() {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer>
+        <TableContainer className="max-h-[calc(100vh-335px)]">
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
@@ -211,23 +211,25 @@ export function CorrectionsView() {
               ) : (
                 corrections.map((c, index) => (
                   <TableRow key={c.id} hover sx={getRowColor(index)}>
-                    <TableCell className="text-gray-800">{index + 1}</TableCell>
-                    <TableCell className="font-medium text-gray-800 whitespace-nowrap">{c.employeeName}</TableCell>
-                    <TableCell className="text-gray-600 font-mono">{c.employeeCode}</TableCell>
-                    <TableCell className="text-gray-600 whitespace-nowrap">
+                    <TableCell >{index + 1}</TableCell>
+                    <TableCell className="whitespace-nowrap">{c.employeeName}</TableCell>
+                    <TableCell>{c.employeeCode}</TableCell>
+                    <TableCell className="whitespace-nowrap">
                       {dayjs(c.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
-                    <TableCell className="!font-mono text-gray-600">{formatTime(c.currentCheckIn)}</TableCell>
-                    <TableCell className="!font-mono text-gray-600">{formatTime(c.currentCheckOut)}</TableCell>
-                    <TableCell className="!font-mono text-green-700 font-semibold">{formatTime(c.requestedCheckIn)}</TableCell>
-                    <TableCell className="!font-mono text-green-700 font-semibold">{formatTime(c.requestedCheckOut)}</TableCell>
-                    <TableCell className="text-gray-600 max-w-[150px] truncate" title={c.reason}>{c.reason}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-0.5 rounded-full font-medium capitalize ${STATUS_STYLES[c.status]}`}>
+                    <TableCell>{c.currentCheckIn ? formatTime(c.currentCheckIn) : '-'}</TableCell>
+                    <TableCell>{c.currentCheckOut ? formatTime(c.currentCheckOut) : '-'}</TableCell>
+                    <TableCell><span className="text-green-700"> {formatTime(c.requestedCheckIn)}</span></TableCell>
+                    <TableCell> <span className="text-green-700">{formatTime(c.requestedCheckOut)}</span></TableCell>
+                    <TableCell className="max-w-[150px] truncate" title={c.reason}>{c.reason}</TableCell>
+                    <TableCell sx={{
+                      padding: '8px !important',
+                    }}>
+                      <span className={`px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[c.status]}`}>
                         {c.status}
                       </span>
                     </TableCell>
-                    <TableCell className="text-gray-500 whitespace-nowrap">
+                    <TableCell className="whitespace-nowrap">
                       {dayjs(c.createdAt).format("DD MMM, h:mm A")}
                     </TableCell>
                     <TableCell>
@@ -277,7 +279,7 @@ export function CorrectionsView() {
         <DialogTitle className="flex items-center justify-between border-b border-gray-200">
           <span>Correction Request Details</span>
           <IconButton size="small" onClick={() => setDetailOpen(false)}>
-            <CloseOutlined fontSize="small" className="text-gray-800"/>
+            <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
@@ -331,7 +333,7 @@ export function CorrectionsView() {
         <DialogTitle className="flex items-center justify-between !p-2 !border-b !border-gray-200">
           <span className="!pl-4">{approveStatus === "approved" ? "Approve" : "Reject"} Correction</span>
           <IconButton size="small" onClick={() => setApproveOpen(false)}>
-            <CloseOutlined fontSize="small" className="text-gray-800"/>
+            <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent>

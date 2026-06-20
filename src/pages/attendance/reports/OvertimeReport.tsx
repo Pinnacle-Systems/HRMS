@@ -51,7 +51,7 @@ export function OvertimeReport({ onBack }: Props) {
     setGenerating(true);
     try {
       const res: any = await attendanceService.getReportOvertime({ ...params, page: p - 1, size: l });
-      const data = res?.data?.data ?? res?.data;
+      const data = res?.data?.employees ?? res?.data;
       setRows(Array.isArray(data) ? data : data?.content ?? []);
       setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
     } catch {

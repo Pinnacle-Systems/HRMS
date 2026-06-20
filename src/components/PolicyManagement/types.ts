@@ -143,7 +143,9 @@ export interface AssignmentFormData {
     | "DESIGNATION"
     | "EMPLOYMENT_TYPE"
     | "EMPLOYEE_TEMPLATE"
-    | "SPECIFIC_EMPLOYEES";
+    | "SPECIFIC_EMPLOYEES"
+    | "EMPLOYEE_GROUP"
+    | "EMPLOYEE_CATEGORY";
   values: string[];
   priority: number;
   effectiveFrom: string;

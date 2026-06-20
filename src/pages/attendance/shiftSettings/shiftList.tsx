@@ -83,7 +83,7 @@ export const ShiftList = () => {
     color: '#3b82f6',
     weeklyOff: ['MON'],
     description: '',
-    nightShift: false
+    isNightShift: false
   });
 
   const handlePageChange = (newPage: number) => {
@@ -146,7 +146,15 @@ export const ShiftList = () => {
         shiftService.getShiftStats(),
         shiftService.getShiftTypes(),
       ]);
-      setShifts(shiftsData.content ?? []);
+      console.log(template);
+
+      const shiftsWithTemplateName =
+        shiftsData?.content?.map((shift) => ({
+          ...shift,
+          templateName:
+            template.find((t) => t.id === shift.templateId)?.name ?? '-',
+        })) ?? [];
+      setShifts(shiftsWithTemplateName);
       setTotal(shiftsData.totalElements || 0);
       setStats(statsData);
       setShiftTypes(shiftType.data);
@@ -169,12 +177,22 @@ export const ShiftList = () => {
     }
   };
 
+  // useEffect(() => {
+  //   Promise.resolve().then(() => {
+  //     fetchMasterData();
+  //     fetchData();
+  //   });
+  // }, [page, limit, searchTerm]);
+
   useEffect(() => {
-    Promise.resolve().then(() => {
+    fetchMasterData();
+  }, []);
+
+  useEffect(() => {
+    if (template.length > 0) {
       fetchData();
-      fetchMasterData();
-    });
-  }, [page, limit, searchTerm]);
+    }
+  }, [template, page, limit, searchTerm]);
 
   const handleSave = async () => {
     if (!formData.shiftName || !formData.shiftCode || !formData.startTime || !formData.endTime) {
@@ -192,7 +210,7 @@ export const ShiftList = () => {
       color: formData.color,
       description: formData.description,
       isActive: formData.isActive,
-      nightShift: formData.shiftType.toLowerCase() === 'night'
+      isNightShift: formData.shiftType.toLowerCase() === 'night'
     };
     try {
       showSpinner();
@@ -228,7 +246,7 @@ export const ShiftList = () => {
       color: '#3b82f6',
       weeklyOff: ['MON'],
       description: '',
-      nightShift: false,
+      isNightShift: false,
       templateId: 'Staff',
     });
   };
@@ -247,7 +265,7 @@ export const ShiftList = () => {
       color: shift.color,
       weeklyOff: shift.weeklyOff,
       description: shift.description || '',
-      nightShift: shift.nightShift,
+      isNightShift: shift.isNightShift,
       templateId: shift.templateId || 'Staff',
     });
     setIsDialogOpen(true);
@@ -262,6 +280,9 @@ export const ShiftList = () => {
     shift.shiftName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     shift.shiftCode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  console.log(filteredShifts);
+
 
   const statsCards = [
     { label: 'Total Shifts', value: stats.totalShifts, icon: <TimeIcon />, color: 'red' },
@@ -404,8 +425,8 @@ export const ShiftList = () => {
                   </div>
                 </TableCell>
                 <TableCell>{shift.totalHours}h</TableCell>
-                <TableCell>template</TableCell>
-                <TableCell>type</TableCell>
+                <TableCell>{shift.templateName}</TableCell>
+                <TableCell>{shift?.advancedConfigTypes}</TableCell>
                 <TableCell>
                   <Chip
                     size="small"
@@ -430,12 +451,12 @@ export const ShiftList = () => {
                   <div className="flex gap-1 justify-center">
                     <Tooltip title="Edit Basic Info">
                       <IconButton size="small" onClick={() => handleEdit(shift)} color="primary" disabled={!shift.isActive}>
-                        <EditIcon fontSize="small"/>
+                        <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Advanced Configuration">
                       <IconButton size="small" onClick={() => handleAdvancedConfig(shift)} disabled={!shift.isActive}>
-                        <SettingsIcon fontSize="small" className={`${!shift.isActive ? 'text-gray-500' :'!text-primary'}`} />
+                        <SettingsIcon fontSize="small" className={`${!shift.isActive ? 'text-gray-500' : '!text-primary'}`} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete">
@@ -585,7 +606,7 @@ export const ShiftList = () => {
                     onChange={(e) => setFormData({ ...formData, weeklyOff: e.target.value as string[] })}
                     renderValue={(selected) => <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(selected as string[]).map((value) => (
-                        <Chip key={value} label={value} size="small" className='text-gray-800 bg-gray-100'/>
+                        <Chip key={value} label={value} size="small" className='text-gray-800 bg-gray-100' />
                       ))}
                     </Box>}
                   >
@@ -619,7 +640,7 @@ export const ShiftList = () => {
                       setFormData({
                         ...formData,
                         shiftType: newType,
-                        nightShift: newType.toLowerCase() === 'night'
+                        isNightShift: newType.toLowerCase() === 'night'
                       });
                     }}
                   >

@@ -210,8 +210,8 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{version.createdBy}</TableCell>
-                  <TableCell>{version.approvedBy || '-'}</TableCell>
+                  <TableCell>{version.createdByName}</TableCell>
+                  <TableCell>{version.approvedByName || '-'}</TableCell>
                   <TableCell>
                     <Tooltip title={formatDate(version.createdAt)}>
                       <span>{formatDate(version.createdAt)}</span>

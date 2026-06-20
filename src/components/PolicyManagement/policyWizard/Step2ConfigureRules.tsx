@@ -166,6 +166,8 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
             const res: any = await policyService.createPolicyVersion(policyId, {
               changeLog: 'Config update',
               configJson,
+              // effectiveFrom,
+              // effectiveTo
             });
             const newId = res.data?.id ?? res.id;
             newDraftVersionId.current = newId;
@@ -186,9 +188,9 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
 
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 2000);
-      } catch(error:any) {
+      } catch (error: any) {
         setSaveStatus('error');
-        showSnackbar(error.message,'error')
+        showSnackbar(error.message, 'error')
       }
     }, 800);
   }, [versionId, policyId, policyStatus, template?.domainId, onVersionCreated]);

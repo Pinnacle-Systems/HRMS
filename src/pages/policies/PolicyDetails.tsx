@@ -220,7 +220,7 @@ export default function PolicyDetails() {
                       <Typography variant="caption" color="text.secondary">
                         Created By
                       </Typography>
-                      <Typography variant="body2">{policy.createdBy}</Typography>
+                      <Typography variant="body2">{policy.createdByName}</Typography>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
@@ -287,7 +287,7 @@ export default function PolicyDetails() {
                               size="small"
                             />
                           </TableCell>
-                          <TableCell>{version.createdBy}</TableCell>
+                          <TableCell>{version.createdByName}</TableCell>
                           <TableCell>
                             {version.status === 'PENDING_APPROVAL' && (
                               <>
@@ -343,17 +343,17 @@ export default function PolicyDetails() {
                                   : assignment.departmentId ? 'Department'
                                     : assignment.designationId ? 'Designation'
                                       : assignment.employmentType ? 'Employment Type'
-                                        : assignment.employeeGroupId ? 'Employee Group'
+                                        : assignment.employeeGroupId ? 'Template'
                                           : assignment.employeeId ? 'Specific Employee'
                                             : 'All Employees'}
                               </TableCell>
                               <TableCell>
-                                {assignment.branchId ||
-                                  assignment.departmentId ||
-                                  assignment.designationId ||
-                                  assignment.employmentType ||
-                                  assignment.employeeGroupId ||
-                                  assignment.employeeId ||
+                                {assignment.branchId ? assignment.branchName : 
+                                  assignment.departmentId ? assignment.departmentName :
+                                  assignment.designationId ? assignment.designationName :
+                                  assignment.employmentType ? assignment.employmentTypeName :
+                                  assignment.employeeGroupId ? assignment.employeeGroupName :
+                                  assignment.employeeId ? assignment.employeeName :
                                   'Company-wide'}
                               </TableCell>
                               <TableCell>{assignment.priority}</TableCell>
@@ -398,7 +398,7 @@ export default function PolicyDetails() {
                                 <TableCell>
                                   <Chip label={log.actionType} size="small" variant="outlined" className='text-gray-800'/>
                                 </TableCell>
-                                <TableCell>{log.actionBy}</TableCell>
+                                <TableCell>{log.actionByName}</TableCell>
                                 <TableCell>{formatDateTime(log.actionDate)}</TableCell>
                                 <TableCell>{log.remarks || '-'}</TableCell>
                               </TableRow>

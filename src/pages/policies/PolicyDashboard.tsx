@@ -260,7 +260,7 @@ export default function PolicyDashboard() {
                   <div className="flex items-center justify-between">
                     <div className="mb-1">
                       <div className="text-[11px] text-gray-500 mb-1 whitespace-nowrap">{stat.label}</div>
-                      <div className="text-[12px] font-bold">
+                      <div className="text-[12px] font-bold text-gray-800">
                         {count}
                       </div>
                     </div>
@@ -397,7 +397,7 @@ export default function PolicyDashboard() {
                             size="small"
                             variant="outlined"
                             className='!text-gray-800 !font-mono'
-                            label={policy.domainId || 'N/A'}
+                            label={policy.domainName || 'N/A'}
                           />
                         </TableCell>
                         <TableCell>
@@ -407,7 +407,7 @@ export default function PolicyDashboard() {
                           )}
                         </TableCell>
                         <TableCell>{getStatusChip(policy.status)}</TableCell>
-                        <TableCell>{policy.createdBy || 'N/A'}</TableCell>
+                        <TableCell>{policy.createdByName || 'N/A'}</TableCell>
                         <TableCell>
                           {policy.effectiveFrom ? dayjs(policy.effectiveFrom).format("DD MMM YYYY") : 'N/A'}
                         </TableCell>

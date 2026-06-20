@@ -5,6 +5,7 @@ import {
   PictureAsPdfOutlined, TableViewOutlined, RefreshOutlined,
 } from "@mui/icons-material";
 import { attendanceService } from "../../../services/modules/attendance";
+import { apiService } from "../../../services/api/api.config";
 import { useUI } from "../../../context/Snackbar";
 
 interface ExportConfig {
@@ -43,19 +44,13 @@ export function ReportLayout({
     if (!exportConfig) return;
     try {
       showSnackbar(`Generating ${format.toUpperCase()}...`, "info");
-      const res: any = await attendanceService.exportReport(
+      const res = await attendanceService.exportReport(
         exportConfig.reportType,
         format,
         exportConfig.params
       );
-      const blob = new Blob([res.data]);
       const ext = format === "excel" ? "xlsx" : format;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${exportConfig.reportType}-report.${ext}`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await apiService.downloadFromPath(res.data.fileUrl, `${exportConfig.reportType}-report.${ext}`);
     } catch {
       showSnackbar(`Failed to export ${format.toUpperCase()}`, "error");
     }

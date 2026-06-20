@@ -548,7 +548,7 @@ export const ShiftSwapRequests = () => {
               {selectedRequest.decidedAt && (
                 <div className="bg-head rounded p-3 text-[12px] space-y-1">
                   <div className="text-[12px] font-semibold text-gray-600">Decision</div>
-                  {selectedRequest.decidedBy && <div className="text-gray-600">By: {selectedRequest.decidedBy}</div>}
+                  {selectedRequest.decidedBy && <div className="text-gray-600">By: {selectedRequest.decidedByName}</div>}
                   <div className="text-gray-500 text-[12px]">{dayjs(selectedRequest.decidedAt).format('DD MMM YYYY, HH:mm')}</div>
                   {selectedRequest.decisionReason && (
                     <div className="text-gray-600">Reason: {selectedRequest.decisionReason}</div>

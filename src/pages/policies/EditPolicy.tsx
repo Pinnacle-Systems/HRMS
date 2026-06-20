@@ -16,6 +16,7 @@ import {
   DialogActions,
   TextField,
   Chip,
+  Grid,
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
 import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';
@@ -26,6 +27,10 @@ import type { PolicyDefinition, PolicyVersion, PolicyAssignment } from '../../ty
 import { useUI } from '../../context/Snackbar';
 import { getStatusColor, type TabPanelProps } from './const';
 import { policyService } from '../../services';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DatePicker } from '@mui/x-date-pickers';
+import dayjs from 'dayjs';
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, index, value }) => {
   return (
@@ -47,6 +52,8 @@ export default function EditPolicy() {
   const [createVersionDialogOpen, setCreateVersionDialogOpen] = useState(false);
   const [newVersionConfig, setNewVersionConfig] = useState<any>(null);
   const [changeLog, setChangeLog] = useState('');
+  const [effectiveFrom, setEffectiveFrom] = useState('');
+  const [effectiveTo, setEffectiveTo] = useState('');
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
 
   useEffect(() => {
@@ -241,6 +248,8 @@ export default function EditPolicy() {
       const payload: any = {
         changeLog,
         configJson: newVersionConfig,
+        effectiveFrom,
+        effectiveTo
       }
       const newVersion: any = await policyService.createPolicyVersion(id!, payload);
       const newStatus = newVersion?.data?.status;
@@ -404,10 +413,47 @@ export default function EditPolicy() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Alert severity="warning" sx={{ mb: 4 }}>
+          <Alert severity="warning" sx={{ mb: 2 }}>
             This will create a new draft version based on the restored configuration.
             You will need to review, approve, and activate it separately.
           </Alert>
+
+          {/* Effective dates */}
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            {/* Effective dates */}
+            <div className='grid grid-cols-2 gap-5 mb-4'>
+              <DatePicker
+                label="Effective From"
+                value={effectiveFrom ? dayjs(effectiveFrom) : null}
+                onChange={(newValue) => {
+                  setEffectiveFrom(
+                   newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
+                  );
+                }}
+                maxDate={effectiveTo ? dayjs(effectiveTo) : undefined}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    margin: "normal",
+                  },
+                }}
+              />
+               <DatePicker
+                label="Effective To"
+                value={effectiveTo ? dayjs(effectiveTo) : null}
+                onChange={(newValue) => {
+                  setEffectiveTo(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+                }}
+                minDate={effectiveFrom ? dayjs(effectiveFrom) : undefined}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    margin: "normal",
+                  },
+                }}
+              />
+            </div>
+          </LocalizationProvider>
           <TextField
             fullWidth
             multiline
