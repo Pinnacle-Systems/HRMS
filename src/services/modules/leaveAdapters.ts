@@ -1,15 +1,18 @@
 import type {
   CompOffCredit,
-  CompOffCreditRequest,
+  // CompOffCreditRequest,
   CompOffCreditStatus,
   Holiday,
   HolidayCalendar,
+  // LeaveAccrualRunResult,
   LeaveBalance,
   LeaveDayType,
+  LeavePolicyRule,
+  LeavePolicyRuleType,
   LeaveRequest,
   LeaveRequestStatus,
   LeaveType,
-  WorkCalendar,
+  // WorkCalendar,
 } from "./leaveTypes";
 
 export type LeaveRequestDateResponse = {
@@ -78,12 +81,17 @@ export type LeaveTypeResponse = {
   name?: string;
   description?: string;
   paid?: boolean;
-  isPaid?: boolean;
   enabled?: boolean;
-  active?: boolean;
+  active: boolean;
   color?: string;
-  maxDaysPerRequest?: number;
-  requiresDocumentAfterDays?: number;
+  allowHalfDay: boolean;
+  allowNegativeBalance: boolean;
+  encashable: boolean;
+  payrollTreatment: string;
+  requiresAttachment: boolean;
+  requiresHrVerification: boolean;
+  // maxDaysPerRequest?: number;
+  // requiresDocumentAfterDays?: number;
 };
 
 export type LeaveBalanceResponse = {
@@ -135,13 +143,22 @@ export type HolidayCalendarResponse = {
   holidays?: HolidayResponse[];
 };
 
+export type WorkCalendarDayResponse = {
+  id?: string;
+  dayOfWeek?: string;
+  workingType?: "OFF" | "FULL" | "HALF";
+  workingHours?: number;
+};
+
 export type WorkCalendarResponse = {
   id?: string;
-  name?: string;
-  locations?: string[];
-  weeklyOffs?: string[];
-  workingHoursPerDay?: number;
+  calendarName?: string;
+  days?: WorkCalendarDayResponse[];
   active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  branchName?: string;
+  branchId?: string;
 };
 
 export type CompOffResponse = {
@@ -160,6 +177,31 @@ export type CompOffResponse = {
   leaveTypeId?: string;
   leaveTypeCode?: string;
   submittedAt?: string;
+  actionedAt: string;
+  actionedBy: string;
+  actionComments: string;
+};
+
+export type LeavePolicyRuleResponse = {
+  id?: string;
+  leavePolicyId?: string;
+  ruleType?: string;
+  value?: number;
+  unit?: string;
+  condition?: string;
+  description?: string;
+  active?: boolean;
+};
+
+export type LeaveAccrualRunResponse = {
+  runId?: string;
+  id?: string;
+  month?: string;
+  employeesProcessed?: number;
+  totalDaysAccrued?: number;
+  errors?: string[];
+  status?: string;
+  runAt?: string;
 };
 
 function asString(value: unknown, fallback = "") {
@@ -200,7 +242,7 @@ function mapLeaveStatus(value: unknown): LeaveRequestStatus {
     : "PENDING";
 }
 
-function mapCompOffStatus(value: unknown): CompOffCreditRequest["status"] {
+function mapCompOffStatus(value: unknown): CompOffCredit["currentStatus"] {
   const normalized = asString(value, "PENDING").toUpperCase();
   if (normalized === "APPROVED" || normalized === "REJECTED") {
     return normalized;
@@ -225,9 +267,32 @@ function mapCreditStatus(value: unknown): CompOffCreditStatus {
     : "PENDING";
 }
 
-function mapHolidayType(value: unknown): Holiday["type"] {
+function mapLeavePolicyRuleType(value: unknown): LeavePolicyRuleType {
+  const normalized = asString(value, "ACCRUAL").toUpperCase();
+  const types: LeavePolicyRuleType[] = [
+    "ACCRUAL",
+    "CARRY_FORWARD",
+    "ENCASHMENT",
+    "MIN_SERVICE",
+    "MAX_CONSECUTIVE_DAYS",
+    "NOTICE_PERIOD",
+  ];
+  return types.includes(normalized as LeavePolicyRuleType)
+    ? (normalized as LeavePolicyRuleType)
+    : "ACCRUAL";
+}
+
+// function mapAccrualRunStatus(value: unknown): LeaveAccrualRunResult["status"] {
+//   const normalized = asString(value, "COMPLETED").toUpperCase();
+//   if (normalized === "FAILED" || normalized === "PARTIAL") {
+//     return normalized;
+//   }
+//   return "COMPLETED";
+// }
+
+function mapHolidayType(value: unknown): Holiday["holidayType"] {
   const normalized = asString(value, "PUBLIC").toUpperCase();
-  const types: Holiday["type"][] = [
+  const types: Holiday["holidayType"][] = [
     "PUBLIC",
     "COMPANY",
     "OPTIONAL",
@@ -235,8 +300,8 @@ function mapHolidayType(value: unknown): Holiday["type"] {
     "NATIONAL",
     "REGIONAL",
   ];
-  return types.includes(normalized as Holiday["type"])
-    ? (normalized as Holiday["type"])
+  return types.includes(normalized as Holiday["holidayType"])
+    ? (normalized as Holiday["holidayType"])
     : "PUBLIC";
 }
 
@@ -283,6 +348,7 @@ export function mapLeaveRequestResponseToViewModel(
     dates,
     approvals,
     approverRemarks: firstRemark?.actionComments ?? firstRemark?.remarks,
+    currentStatus: "",
   };
 }
 
@@ -294,11 +360,17 @@ export function mapLeaveTypeResponseToViewModel(
     code: asString(dto.code),
     name: asString(dto.name),
     description: asString(dto.description),
-    paid: asBoolean(dto.paid, asBoolean(dto.isPaid, true)),
-    enabled: asBoolean(dto.enabled, asBoolean(dto.active, true)),
-    color: asString(dto.color, "#e16a3d"),
-    maxDaysPerRequest: dto.maxDaysPerRequest,
-    requiresDocumentAfterDays: dto.requiresDocumentAfterDays,
+    paid: asBoolean(dto.paid, asBoolean(dto.paid, true)),
+    active: asBoolean(dto.active, asBoolean(dto.active, true)),
+    allowHalfDay: false,
+    allowNegativeBalance: false,
+    encashable: false,
+    payrollTreatment: "PAID",
+    requiresAttachment: false,
+    requiresHrVerification: false,
+    // color: asString(dto.color, "#e16a3d"),
+    // maxDaysPerRequest: dto.maxDaysPerRequest,
+    // requiresDocumentAfterDays: dto.requiresDocumentAfterDays,
   };
 }
 
@@ -328,7 +400,11 @@ export function mapLeaveBalanceResponseToViewModel(
     adjusted: asNumber(dto.adjustedDays),
     available,
     balance: available,
-    year: asNumber(dto.year, new Date().getFullYear()),
+    leaveYear: asNumber(dto.year, new Date().getFullYear()),
+    accruedDays: asNumber(dto.accruedDays),
+    closingBalance: available,
+    consumedDays: asNumber(dto.consumedDays),
+    openingBalance: asNumber(dto.openingBalance),
   };
 }
 
@@ -337,16 +413,17 @@ export function mapHolidayResponseToViewModel(dto: HolidayResponse): Holiday {
   const locations = dto.locations?.join(", ");
   return {
     id: asString(dto.id),
-    name: asString(dto.holidayName ?? dto.name),
-    date: asString(dto.holidayDate ?? dto.date),
-    type:
+    holidayName: asString(dto.holidayName ?? dto.name),
+    holidayDate: asString(dto.holidayDate ?? dto.date),
+    holidayType:
       dto.optionalHoliday || dto.optional
         ? "OPTIONAL"
         : mapHolidayType(dto.holidayType ?? dto.type),
     location: locations ?? branchName ?? asString(dto.location),
-    calendarId: dto.holidayCalendarId ?? dto.calendarId,
+    holidayCalendarId: dto.holidayCalendarId ?? dto.calendarId,
     calendarName: dto.holidayCalendarName ?? dto.calendarName,
     active: asBoolean(dto.active, true),
+    optionalHoliday: asBoolean(dto.optionalHoliday, true),
   };
 }
 
@@ -356,7 +433,7 @@ export function mapHolidayCalendarResponseToViewModel(
   const branchName = asString(dto.branchName);
   return {
     id: asString(dto.id),
-    name: asString(dto.calendarName ?? dto.name),
+    calendarName: asString(dto.calendarName ?? dto.name),
     year: asNumber(dto.year, new Date().getFullYear()),
     locations: dto.locations ?? (branchName ? [branchName] : []),
     holidays: (dto.holidays ?? []).map(mapHolidayResponseToViewModel),
@@ -368,22 +445,24 @@ export function mapHolidayCalendarResponseToViewModel(
   };
 }
 
-export function mapWorkCalendarResponseToViewModel(
-  dto: WorkCalendarResponse,
-): WorkCalendar {
-  return {
-    id: asString(dto.id),
-    name: asString(dto.name),
-    locations: dto.locations ?? [],
-    weeklyOffs: dto.weeklyOffs ?? [],
-    workingHoursPerDay: asNumber(dto.workingHoursPerDay),
-    active: asBoolean(dto.active, true),
-  };
-}
+// export function mapWorkCalendarResponseToViewModel(
+//   dto: WorkCalendarResponse,
+// ): WorkCalendar {
+//   return {
+//     id: asString(dto.id),
+//     calendarName: asString(dto.calendarName),
+//     branchName: asString(dto.branchName),
+//     branchId: asString(dto.branchId),
+//     days: dto.days  ?? [],
+//     // weeklyOffs: dto.weeklyOffs ?? [],
+//     // workingHoursPerDay: asNumber(dto.workingHoursPerDay),
+//     active: asBoolean(dto.active, true),
+//   };
+// }
 
 export function mapCompOffResponseToViewModel(
   dto: CompOffResponse,
-): CompOffCreditRequest {
+): CompOffCredit {
   const sessionType = mapSession(dto.sessionType);
   const creditDays = asNumber(dto.creditDays);
   const approverName = dto.approverName;
@@ -395,19 +474,52 @@ export function mapCompOffResponseToViewModel(
     employeeName: dto.employeeName,
     workedDate: asString(dto.workedDate),
     sessionType,
-    workedSession: sessionType,
+    // workedSession: sessionType,
     creditDays,
     requestedDays: creditDays,
     reason: asString(dto.reason),
-    status: mapCompOffStatus(dto.currentStatus),
-    submittedOn: asString(dto.submittedAt),
+    currentStatus: mapCompOffStatus(dto.currentStatus),
+    submittedAt: asString(dto.submittedAt),
     approverId: dto.approverId,
     approverName,
-    approver: asString(approverName),
+    // approver: asString(approverName),
     leaveTypeId: dto.leaveTypeId,
     leaveTypeCode: dto.leaveTypeCode,
+    actionedAt: dto.actionedAt,
+    actionedBy: dto.actionedBy,
+    actionComments: dto.actionComments,
+    expiryDate: asString(dto.expiryDate),
   };
 }
+
+export function mapLeavePolicyRuleResponseToViewModel(
+  dto: LeavePolicyRuleResponse,
+): LeavePolicyRule {
+  return {
+    id: asString(dto.id),
+    leavePolicyId: asString(dto.leavePolicyId),
+    ruleType: mapLeavePolicyRuleType(dto.ruleType),
+    value: dto.value,
+    unit: dto.unit,
+    condition: dto.condition,
+    description: dto.description,
+    active: asBoolean(dto.active, true),
+  };
+}
+
+// export function mapLeaveAccrualRunResponseToViewModel(
+//   dto: LeaveAccrualRunResponse,
+// ): LeaveAccrualRunResult {
+//   return {
+//     runId: asString(dto.runId ?? dto.id),
+//     month: asString(dto.month),
+//     employeesProcessed: asNumber(dto.employeesProcessed),
+//     totalDaysAccrued: asNumber(dto.totalDaysAccrued),
+//     errors: dto.errors,
+//     status: mapAccrualRunStatus(dto.status),
+//     runAt: asString(dto.runAt),
+//   };
+// }
 
 export function mapCompOffResponseToCreditViewModel(
   dto: CompOffResponse,
@@ -422,16 +534,20 @@ export function mapCompOffResponseToCreditViewModel(
     employeeName: dto.employeeName,
     workedDate: asString(dto.workedDate),
     sessionType,
-    workedSession: sessionType,
+    // workedSession: sessionType,
     creditDays,
-    creditedDays: creditDays,
+    // creditedDays: creditDays,
     expiryDate: asString(dto.expiryDate),
-    status: mapCreditStatus(dto.currentStatus),
+    currentStatus: mapCreditStatus(dto.currentStatus),
     reason: asString(dto.reason),
     approverId: dto.approverId,
     approverName: dto.approverName,
     leaveTypeId: dto.leaveTypeId,
     leaveTypeCode: dto.leaveTypeCode,
     approvedBy: dto.approverName,
+    actionedAt: dto.actionedAt,
+    actionedBy: dto.actionedBy,
+    actionComments: dto.actionComments,
+    requestedDays: creditDays,
   };
 }

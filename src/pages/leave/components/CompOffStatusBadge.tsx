@@ -14,6 +14,7 @@ const toneClasses: Record<LeaveStatusTone, string> = {
   success: "!bg-green-50 !text-green-700",
   warning: "!bg-yellow-50 !text-yellow-700",
   error: "!bg-red-50 !text-red-700",
+  secondary: "!bg-blue-50 !text-blue-700",
 };
 
 export default function CompOffStatusBadge({

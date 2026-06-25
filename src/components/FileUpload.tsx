@@ -3,6 +3,7 @@ import { Box, Typography, Button, IconButton, Paper } from '@mui/material';
 import Close from "@mui/icons-material/Close";
 import CloudUpload from "@mui/icons-material/CloudUpload";
 import PictureAsPdf from "@mui/icons-material/PictureAsPdf";
+import TableChartIcon from "@mui/icons-material/TableChart";
 import { companyService } from '../services/modules/company';
 import { useUI } from '../context/Snackbar';
 
@@ -28,11 +29,13 @@ export const FileUpload = ({
   companyId = ""
 }: FileUploadProps) => {
   const [preview, setPreview] = useState<string>('');
+  const [fileName, setFileName] = useState<string>('');
   const { showSnackbar, hideSpinner, showSpinner } = useUI();
 
   useEffect(() => {
     if (!value) {
       setPreview('');
+      setFileName('');
       return;
     }
     if (typeof value === 'string') {
@@ -42,11 +45,13 @@ export const FileUpload = ({
         processedUrl = `${value}${value.includes("?") ? "&" : "?"}v=${Date.now()}`;
       }
       setPreview(processedUrl);
+      setFileName(processedUrl);
       return;
     }
     if (value instanceof File) {
       const objectUrl = URL.createObjectURL(value);
       setPreview(objectUrl);
+      setFileName(value.name);
       return () => URL.revokeObjectURL(objectUrl);
     }
   }, [value]);
@@ -56,6 +61,8 @@ export const FileUpload = ({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    console.log(file);
+    
     if (!file) return;
 
     // Check file size
@@ -66,7 +73,9 @@ export const FileUpload = ({
 
     // Check file type
     const allowedTypes = accept.split(',');
-    if (!allowedTypes.some(type => file.type.match(type.trim()))) {
+    console.log(allowedTypes);
+    
+    if (!allowedTypes.some(type => file.name.match(type.trim()) || file.type.match(type.trim()))) {
       setError(`Invalid file type. Allowed: ${accept}`);
       return;
     }
@@ -88,6 +97,7 @@ export const FileUpload = ({
 
   const handleRemove = async () => {
     setPreview('');
+    setFileName('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -124,6 +134,20 @@ export const FileUpload = ({
     (preview.includes('blob:') && preview.includes('image'))
   );
 
+  const getFileType = () => {
+    if (!fileName) return null;
+    const lowercaseFileName = fileName.toLowerCase();
+    if (lowercaseFileName.match(/\.(xlsx?|csv)(\?.*)?$/i)) {
+      return 'excel';
+    }
+    if (lowercaseFileName.match(/\.pdf(\?.*)?$/i)) {
+      return 'pdf';
+    }
+    return null;
+  };
+
+  const fileType = getFileType();
+
   return (
     <Paper variant="outlined" className={`${compact ? "p-3" : "p-4"} bg-white`}>
       <Typography variant="subtitle2" className={`font-semibold !text-gray-800 ${compact ? "!mb-1" : "!mb-2"}`}>
@@ -139,6 +163,14 @@ export const FileUpload = ({
                 alt={label}
                 className={`${compact ? "w-24 h-24" : label == 'Signature' ? "w-40" : 'w-16'} object-cover rounded-lg border border-gray-200`}
               />
+            ) : fileType === 'excel' ? (
+              <Box className={`${compact ? "w-24 h-24" : "w-32"} flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
+                <TableChartIcon className="!w-12 !h-12 text-green-600" />
+              </Box>
+            ) : fileType === 'pdf' ? (
+              <Box className={`${compact ? "w-24 h-24" : "w-32"} flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
+                <PictureAsPdf className="!w-12 !h-12 text-red-500" />
+              </Box>
             ) : (
               <Box className={`${compact ? "w-24 h-24" : "w-32"} flex items-center justify-center bg-gray-100 rounded-lg border border-gray-200`}>
                 <PictureAsPdf className="!w-12 !h-12 text-red-500" />

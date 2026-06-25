@@ -11,12 +11,12 @@ export const useLeaveTypesList = (enabled: boolean) => {
   const fetchLeaveTypes = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await leaveService.getLeaveTypes({
+      const response:any = await leaveService.getLeaveTypes({
         page: 0,
         size: 50,
         sort: "name,ASC",
       });
-      setLeaveTypes(response.data?.content ?? []);
+      setLeaveTypes(response.data ?? response.data?.content ?? []);
     } catch (err: any) {
       showSnackbar(err?.message || "Failed to load leave types", "error");
     } finally {

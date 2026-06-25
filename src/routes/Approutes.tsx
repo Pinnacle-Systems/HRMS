@@ -24,6 +24,20 @@ const LeavePlaceholderPage = lazy(() => import("../pages/leave/LeavePlaceholderP
 const ManagerLeaveApprovalsPage = lazy(() => import("../pages/leave/ManagerLeaveApprovalsPage"));
 const MyLeaveDashboard = lazy(() => import("../pages/leave/MyLeaveDashboard"));
 const MyLeaveRequestsPage = lazy(() => import("../pages/leave/MyLeaveRequestsPage"));
+const UpcomingEventsPage = lazy(() => import("../pages/leave/UpcomingEventsPage"));
+const TeamCalendarPage = lazy(() => import("../pages/leave/TeamCalendarPage"));
+const TeamSummaryPage = lazy(() => import("../pages/leave/TeamSummaryPage"));
+const HrLeaveRequestsPage = lazy(() => import("../pages/leave/HrLeaveRequestsPage"));
+const HrLeaveBalancesPage = lazy(() => import("../pages/leave/HrLeaveBalancesPage"));
+const HrLeaveAdjustmentsPage = lazy(() => import("../pages/leave/HrLeaveAdjustmentsPage"));
+const HrLopReviewPage = lazy(() => import("../pages/leave/HrLopReviewPage"));
+const HrPayrollInputsPage = lazy(() => import("../pages/leave/HrPayrollInputsPage"));
+const HrLeaveReportsPage = lazy(() => import("../pages/leave/HrLeaveReportsPage"));
+const AdminLeaveTypesPage = lazy(() => import("../pages/leave/AdminLeaveTypesPage"));
+const AdminLeavePoliciesPage = lazy(() => import("../pages/leave/AdminLeavePoliciesPage"));
+const AdminHolidayCalendarsPage = lazy(() => import("../pages/leave/AdminHolidayCalendarsPage"));
+const AdminWorkCalendarsPage = lazy(() => import("../pages/leave/AdminWorkCalendarsPage"));
+const AdminWorkflowsPage = lazy(() => import("../pages/leave/AdminWorkflowsPage"));
 const Login = lazy(() => import("../pages/auth/Login/Login"));
 const MfaPage = lazy(() => import("../pages/auth/MfaPage"));
 const Payroll = lazy(() => import("../pages/payroll/payroll"));
@@ -60,9 +74,23 @@ const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
   apply: <ApplyLeavePage />,
   myRequests: <MyLeaveRequestsPage />,
+  hrUpcomingEvents: <UpcomingEventsPage />,
   holidayCalendar: <HolidayCalendarPage />,
   compOffs: <CompOffsPage />,
   managerApprovals: <ManagerLeaveApprovalsPage />,
+  teamCalendar: <TeamCalendarPage />,
+  teamSummary: <TeamSummaryPage />,
+  hrRequests: <HrLeaveRequestsPage />,
+  hrBalances: <HrLeaveBalancesPage />,
+  hrAdjustments: <HrLeaveAdjustmentsPage />,
+  hrLopReview: <HrLopReviewPage />,
+  hrPayrollInputs: <HrPayrollInputsPage />,
+  hrReports: <HrLeaveReportsPage />,
+  adminLeaveTypes: <AdminLeaveTypesPage />,
+  adminPolicies: <AdminLeavePoliciesPage />,
+  adminHolidayCalendars: <AdminHolidayCalendarsPage />,
+  adminWorkCalendars: <AdminWorkCalendarsPage />,
+  adminWorkflows: <AdminWorkflowsPage />,
 };
 
 function getLeaveRouteElement(route: LeaveRouteConfig) {

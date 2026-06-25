@@ -16,6 +16,7 @@ import { attendanceService } from "../../../services/modules/attendance";
 import type { FinalisedPeriod } from "../../../services/modules/attendance";
 import { MONTHS, FINALISATION_STATUS_COLORS, FINALISATON_STATUS_LABELS, getCurrentMonthYear } from "./const";
 import dayjs from "dayjs";
+import { useAuth } from "../../../auth/authContext";
 
 const CHECKLIST = [
   "All attendance records have been reviewed",
@@ -36,12 +37,12 @@ export function PeriodFinalisation() {
   const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => false));
   const [remarks, setRemarks] = useState("");
   const [finalising, setFinalising] = useState(false);
-  const [unlocking, setUnlocking] = useState(false);
+  const [_unlocking, _setUnlocking] = useState(false);
 
   // Unlock dialog
-  const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
-  const [unlockPeriod, setUnlockPeriod] = useState<FinalisedPeriod | null>(null);
-  const [unlockReason, setUnlockReason] = useState("");
+  const [_unlockDialogOpen, _setUnlockDialogOpen] = useState(false);
+  // const [unlockPeriod, setUnlockPeriod] = useState<FinalisedPeriod | null>(null);
+  // const [unlockReason, setUnlockReason] = useState("");
 
   const loadPeriods = useCallback(async () => {
     showSpinner();
@@ -56,8 +57,22 @@ export function PeriodFinalisation() {
     }
   }, [year]);
 
+  const getLocks = useCallback(async () => {
+    showSpinner();
+    try {
+      // const res: any = await attendanceService.getAllLocks();
+      // const data = res?.data?.data ?? res?.data;
+      // setFinalisedPeriods(Array.isArray(data) ? data : []);
+    } catch {
+      showSnackbar("Failed to load locks", "error");
+    } finally {
+      hideSpinner();
+    }
+  }, []);
+
   useEffect(() => {
     loadPeriods();
+    getLocks();
   }, [loadPeriods]);
 
   const currentPeriod = finalisedPeriods.find((p) => p.month === month && p.year === year);
@@ -92,34 +107,109 @@ export function PeriodFinalisation() {
     });
   }
 
-  function openUnlock(period: FinalisedPeriod) {
-    setUnlockPeriod(period);
-    setUnlockReason("");
-    setUnlockDialogOpen(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'lock' | 'unlock'>('unlock');
+  const [selectedPeriod, setSelectedPeriod] = useState<FinalisedPeriod | null>(null);
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { session } = useAuth();
+
+  // function openUnlock(period: FinalisedPeriod) {
+  //   setUnlockPeriod(period);
+  //   setUnlockReason("");
+  //   setUnlockDialogOpen(true);
+  // }
+
+  function openDialog(mode: 'lock' | 'unlock', period: FinalisedPeriod) {
+    setDialogMode(mode);
+    setSelectedPeriod(period);
+    setReason("");
+    setDialogOpen(true);
   }
 
-  async function handleUnlock() {
-    if (!unlockReason.trim()) {
-      showSnackbar("Unlock reason is required", "warning");
+  function getMonthDateRange(year: number, month: number) {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    const formatDate = (date: Date) => {
+       const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+    };
+    return {
+      startDate: formatDate(startDate),
+      endDate: formatDate(endDate)
+    };
+  }
+
+  async function handleSubmit() {
+    if (!reason.trim()) {
+      showSnackbar(
+        dialogMode === 'unlock' ? "Unlock reason is required" : "Lock reason is required",
+        "warning"
+      );
       return;
     }
-    if (!unlockPeriod) return;
-    setUnlocking(true);
+    if (!selectedPeriod) return;
+
+    setIsSubmitting(true);
     try {
-      await attendanceService.unlock({
-        periodId: unlockPeriod.id,
-        reason: unlockReason,
-        unlockedBy: "current-user",
-      });
-      showSnackbar("Period unlocked for editing", "success");
-      setUnlockDialogOpen(false);
+      if (dialogMode === 'unlock') {
+        await attendanceService.unlock({
+          periodId: selectedPeriod.id,
+          reason: reason,
+          unlockedBy: session?.user?.userId || "system",
+        });
+        await attendanceService.finalise({ month, year,status: "pending_approval" });
+        showSnackbar("Period unlocked successfully", "success");
+      } else {
+        const { startDate, endDate } = getMonthDateRange(
+         selectedPeriod.year,
+         selectedPeriod.month
+        );
+        await attendanceService.lock({
+          startDate: startDate,
+          endDate: endDate,
+          lockedBy: session?.user?.userId || "system",
+          reason: reason,
+        });
+        await attendanceService.finalise({ month, year, status: "locked" });
+        showSnackbar("Period locked successfully", "success");
+      }
+      setDialogOpen(false);
       loadPeriods();
-    } catch {
-      showSnackbar("Failed to unlock period", "error");
+    } catch (error: any) {
+      showSnackbar(
+        error?.message || (dialogMode === 'unlock' ? "Failed to unlock period" : "Failed to lock period"),
+        "error"
+      );
     } finally {
-      setUnlocking(false);
+      setIsSubmitting(false);
     }
   }
+
+  // async function handleUnlock() {
+  //   if (!unlockReason.trim()) {
+  //     showSnackbar("Unlock reason is required", "warning");
+  //     return;
+  //   }
+  //   if (!unlockPeriod) return;
+  //   setUnlocking(true);
+  //   try {
+  //     await attendanceService.unlock({
+  //       periodId: unlockPeriod.id,
+  //       reason: unlockReason,
+  //       unlockedBy: "current-user",
+  //     });
+  //     showSnackbar("Period unlocked for editing", "success");
+  //     setUnlockDialogOpen(false);
+  //     loadPeriods();
+  //   } catch {
+  //     showSnackbar("Failed to unlock period", "error");
+  //   } finally {
+  //     setUnlocking(false);
+  //   }
+  // }
 
   const isFutureMonth = dayjs(`${year}-${month}-01`).isAfter(dayjs(), "month");
 
@@ -199,6 +289,7 @@ export function PeriodFinalisation() {
               <span className="text-xs">This period is finalised and locked.</span>
             </Alert>
           ) : (
+            !currentPeriod?.status &&
             <>
               {/* Checklist */}
               <div className="space-y-2">
@@ -288,8 +379,15 @@ export function PeriodFinalisation() {
                     </span>
                     {(period.status === "locked" || period.status === "approved") && (
                       <Tooltip title="Unlock Period">
-                        <IconButton size="small" onClick={() => openUnlock(period)}>
+                        <IconButton size="small" onClick={() => openDialog('unlock', period)}>
                           <LockOpenOutlined fontSize="small" className="text-primary" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {(period.status === "pending_approval") && (
+                      <Tooltip title="Lock Period">
+                        <IconButton size="small" onClick={() => openDialog('lock', period)}>
+                          <LockOutlined fontSize="small" className="text-primary" />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -302,7 +400,7 @@ export function PeriodFinalisation() {
       </div>
 
       {/* Unlock Dialog */}
-      <Dialog open={unlockDialogOpen} onClose={() => setUnlockDialogOpen(false)} maxWidth="xs" fullWidth>
+      {/* <Dialog open={unlockDialogOpen} onClose={() => setUnlockDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
           <span className="!ml-4">Unlock Period</span>
           <IconButton size="small" onClick={() => setUnlockDialogOpen(false)}>
@@ -339,6 +437,56 @@ export function PeriodFinalisation() {
             disabled={unlocking || !unlockReason.trim()}
           >
             {unlocking ? "Unlocking..." : "Confirm Unlock"}
+          </Button>
+        </DialogActions>
+      </Dialog> */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
+          <span className="!ml-4">{dialogMode === 'unlock' ? 'Unlock' : 'Lock'} Period</span>
+          <IconButton size="small" onClick={() => setDialogOpen(false)}>
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent className="!p-4">
+          <div className="space-y-5 pt-1">
+            <Alert severity={dialogMode === 'unlock' ? 'warning' : 'info'} sx={{ py: 0.5 }}>
+              <span className="text-xs">
+                {dialogMode === 'unlock' ? (
+                  <>Unlocking <b>{selectedPeriod?.periodLabel}</b> will allow edits. All payroll-linked data may be affected.</>
+                ) : (
+                  <>Locking <b>{selectedPeriod?.periodLabel}</b> will prevent further edits until approved.</>
+                )}
+              </span>
+            </Alert>
+            <TextField
+              label={dialogMode === 'unlock' ? "Reason for Unlock" : "Reason for Lock"}
+              fullWidth
+              multiline
+              required
+              rows={3}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={dialogMode === 'unlock' ? "Why are you unlocking this period?" : "Why are you locking this period?"}
+            />
+          </div>
+        </DialogContent>
+        <DialogActions className="!p-4 !border-t !border-gray-200">
+          <Button
+            size="small"
+            variant="outlined"
+            className="!border-gray-200 !text-gray-800"
+            onClick={() => setDialogOpen(false)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            className={`!bg-${dialogMode === 'unlock' ? 'warning' : 'primary'}`}
+            onClick={handleSubmit}
+            disabled={isSubmitting || !reason.trim()}
+          >
+            {isSubmitting ? (dialogMode === 'unlock' ? 'Unlocking...' : 'Locking...') : (dialogMode === 'unlock' ? 'Confirm Unlock' : 'Confirm Lock')}
           </Button>
         </DialogActions>
       </Dialog>

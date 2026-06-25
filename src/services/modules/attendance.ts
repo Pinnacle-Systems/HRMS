@@ -1,6 +1,6 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
-import * as Mock from "./attendanceMockData";
+// import * as Mock from "./attendanceMockData";
 
 /**
  * ── MOCK MODE ────────────────────────────────────────────────────────────

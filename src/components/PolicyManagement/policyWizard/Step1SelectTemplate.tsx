@@ -47,7 +47,7 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
   const [domain, setDomain] = useState<string>(policyDomain || '');
   const [templateDialog, setTemplateDialog] = useState<{ open: boolean; editTemplate: PolicyTemplate | null }>({ open: false, editTemplate: null });
   const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
-  const { domains, getDomainName } = usePolicyDomains();
+  const { domains } = usePolicyDomains();
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionMenuTemplate, setActionMenuTemplate] = useState<PolicyTemplate | null>(null);
 

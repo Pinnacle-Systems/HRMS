@@ -36,7 +36,7 @@ export function ReportLayout({
   generating = false,
   hasData = false,
   exportConfig,
-  totalRecords,
+  // totalRecords,
 }: ReportLayoutProps) {
   const { showSnackbar } = useUI();
 

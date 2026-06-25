@@ -204,7 +204,7 @@ export const EmployeeAsyncCombobox = ({
 
   const selectedOption = selectedFallback
     ? options.find((option) => getEmployeeKey(option) === getEmployeeKey(selectedFallback)) ||
-      selectedFallback
+    selectedFallback
     : null;
 
   const handleOpen = () => {
@@ -322,6 +322,11 @@ export const EmployeeAsyncCombobox = ({
           error={error || Boolean(fetchError)}
           helperText={helper}
           size={size}
+          sx={{
+            "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
+              padding: '10px !important'
+            }
+          }}
           slotProps={{
             ...params.slotProps,
             input: {

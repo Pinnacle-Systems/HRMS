@@ -14,14 +14,14 @@ const toneClasses: Record<LeaveStatusTone, string> = {
   success: "!bg-green-50 !text-green-700",
   warning: "!bg-yellow-50 !text-yellow-700",
   error: "!bg-red-50 !text-red-700",
+  secondary: "!bg-blue-50 !text-blue-600"
 };
 
 export default function HolidayTypeBadge({
   type,
   size = "small",
 }: HolidayTypeBadgeProps) {
-  const meta = getHolidayTypeMeta(type);
-
+  const meta = getHolidayTypeMeta(type);  
   return (
     <Chip
       size={size}

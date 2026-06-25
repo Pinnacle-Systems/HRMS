@@ -197,6 +197,7 @@ export const API_ENDPOINTS = {
     OVERRIDE: (id: string) => `/leaves/${id}/actions/force-approve`,
     UPCOMING_LEAVES: "/leave/upcoming-leaves",
     PENDING_APPROVALS: "/leave/pending-approvals",
+    DELETE: (id: string) => `/leaves/${id}`,
   },
 
   LEAVE_TYPE: {
@@ -252,7 +253,7 @@ export const API_ENDPOINTS = {
 
   COMP_OFF: {
     BASE: "/comp-offs",
-    BY_ID: (id: string) => `/comp-offs/${id}`,
+    // BY_ID: (id: string) => `/comp-offs/${id}`,
     GET_BY_ID: (id: string) => `/comp-offs/${id}`,
     APPROVE: (id: string) => `/comp-offs/${id}/actions/approve`,
     REJECT: (id: string) => `/comp-offs/${id}/actions/reject`,

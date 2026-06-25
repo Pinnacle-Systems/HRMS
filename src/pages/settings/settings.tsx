@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import {
   Button,
@@ -8,7 +8,8 @@ import {
 } from "@mui/material";
 import ArrowDropDown from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUp from "@mui/icons-material/ArrowDropUp";
-import { tabs } from "./const";
+import { getFilteredTabs, tabs } from "./const";
+import { useAuth } from "../../auth/authContext";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -16,6 +17,20 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("general");
   const [openDropdown, setOpenDropdown] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { session } = useAuth();
+  const user = session?.user;
+   const userRoles = user?.roles || [];
+
+    const filteredTabs = useMemo(() => {
+    return getFilteredTabs(userRoles);
+  }, [userRoles]);
+  
+
+  useEffect(() => {
+    if (filteredTabs.length > 0 && !activeTab) {
+      setActiveTab(filteredTabs[0].id);
+    }
+  }, [filteredTabs, activeTab]);
 
   const routeTabId = useMemo(() => {
     const currentPath = location.pathname;
@@ -26,11 +41,35 @@ export default function Settings() {
         }
       }
     }
-    return "general";
-  }, [location.pathname]);
+    return filteredTabs.length > 0 ? filteredTabs[0].id : "general";
+  }, [location.pathname,filteredTabs]);
 
   const selectedTabId = openDropdown ? activeTab : routeTabId;
-  const currentTab = tabs.find((tab) => tab.id === selectedTabId)!;
+   const currentTab = filteredTabs.find((tab) => tab.id === selectedTabId);
+
+   useEffect(() => {
+    if (filteredTabs.length > 0) {
+      const currentPath = location.pathname;
+      let hasAccess = false;
+      
+      for (const tab of filteredTabs) {
+        for (const option of tab.options) {
+          if (currentPath === option.path) {
+            hasAccess = true;
+            break;
+          }
+        }
+        if (hasAccess) break;
+      }
+
+      if (!hasAccess) {
+        const firstTab = filteredTabs[0];
+        if (firstTab && firstTab.options.length > 0) {
+          navigate(firstTab.options[0].path);
+        }
+      }
+    }
+  }, [location.pathname, filteredTabs, navigate]);
 
   const handleTabClick = (
     event: React.MouseEvent<HTMLElement>,
@@ -57,11 +96,35 @@ export default function Settings() {
     setAnchorEl(null);
   };
 
+  if (filteredTabs.length === 0) {
+    return (
+      <div className="p-4 text-center">
+        <div className="text-red-500 text-md">
+          Access Denied
+        </div>
+        <div className="text-gray-500 mt-1">
+          You don't have permission to view any settings.
+        </div>
+        <div className="block text-gray-700 mt-2 text-sm">
+          Roles: {userRoles.join(', ') || 'None'}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
+      {/* <div className="flex items-center flex-wrap gap-1 mb-1">
+        <Chip 
+          label={`Role: ${userRoles.join(', ')}`} 
+          size="small" 
+          color="primary" 
+          variant="outlined"
+        />
+      </div> */}
       {/* Horizontal Tabs */}
-      <div className="flex mb-3 gap-1">
-        {tabs.map((tab) => (
+      <div className="flex gap-1">
+        {filteredTabs.map((tab) => (
           <Button
             key={tab.id}
             onClick={(e) => handleTabClick(e, tab.id)}
@@ -108,7 +171,7 @@ export default function Settings() {
       </Menu>
 
       {/* Content Area */}
-      <div className="border-t border-gray-300 mt-4">
+      <div className="border-t border-gray-300">
         {/* Outlet with ref */}
         <div className="">
           <Outlet />

@@ -66,6 +66,9 @@ export default function Layout() {
   const [policyOpen, setPolicyOpen] = useState(
     location.pathname.startsWith("/policies")
   );
+  const [leaveOpen, setLeaveOpen] = useState(
+    location.pathname.startsWith("/leaves")
+  );
   const handleDrawerToggle = () => {
     setOpen(!open);
   };
@@ -139,6 +142,18 @@ export default function Layout() {
       icon: <AssignmentOutlinedIcon />,
       path: "/leaves/my-dashboard",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+      children: [
+        { text: "My Leave", path: "/leaves/my-dashboard" },
+        ...(user?.roles.some((role) => role === "MANAGER" || role === "ADMIN")
+          ? [{ text: "Manager Approvals", path: "/leaves/approvals" }]
+          : []),
+        ...(user?.roles.some((role) => role === "HR" || role === "ADMIN")
+          ? [{ text: "HR Requests", path: "/leaves/hr/requests" }]
+          : []),
+        ...(user?.roles.includes("ADMIN")
+          ? [{ text: "Leave Settings", path: "/leaves/admin/leave-types" }]
+          : []),
+      ],
     },
     {
       text: "Attendance",
@@ -192,7 +207,7 @@ export default function Layout() {
     {
       text: "Settings",
       icon: <SettingsOutlinedIcon />,
-      path: "/settings/general/company-settings",
+      path: user?.roles.includes('ADMIN') ? "/settings/general/company-settings" : "/settings/general/audit-logs",
       roles: ["HR", "ADMIN"],
     },
     {
@@ -238,7 +253,9 @@ export default function Layout() {
   };
 
   useEffect(() => {
-    fetchCompanyData();
+    if (user?.roles.includes('ADMIN')) {
+      fetchCompanyData();
+    }
   }, [])
 
   return (
@@ -266,15 +283,21 @@ export default function Layout() {
             </IconButton>
             <Box className="flex items-center gap-2">
               {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div> */}
-              <img src={companyInfo.logoUrl} alt="logo" width="20px" />
-              <div className="font-bold text-gray-700">
-                Vibe<span className="text-primary">HR</span>
-              </div>
-              {user && (
-                <div className="text-[10px] text-gray-400 leading-3">
-                  {getWorkspaceLabel(user)}
+              <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
+              <div>
+                <div className="font-bold text-gray-700">
+                  Vibe<span className="text-primary">HR</span>
                 </div>
-              )}
+                <div className="flex items-center justify-center gap-2">
+                  <div className="text-[12px] text-gray-800">{companyInfo.companyName}</div>
+                  {user && (
+                    <div className="text-[10px] text-gray-400 leading-3">
+                      {getWorkspaceLabel(user)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </Box>
           </Box>
 
@@ -362,12 +385,15 @@ export default function Layout() {
           </ListItemIcon>
           <div className="text-gray-800 ">My Profile</div>
         </MenuItem>
-        <MenuItem onClick={() => navigate("/settings/general/company-settings")} className="bg-white-50">
-          <ListItemIcon>
-            <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
-          </ListItemIcon>
-          <div className="text-gray-800 ">Company Settings</div>
-        </MenuItem>
+        {
+          user?.roles.includes("ADMIN") &&
+          <MenuItem onClick={() => navigate("/settings/general/company-settings")} className="bg-white-50">
+            <ListItemIcon>
+              <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
+            </ListItemIcon>
+            <div className="text-gray-800 ">Company Settings</div>
+          </MenuItem>
+        }
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
           <ListItemIcon>
             <HistoryOutlinedIcon className="!w-4 dark:text-primary" />
@@ -454,10 +480,17 @@ export default function Layout() {
                         if (item.text === "Attendance") {
                           setAttendanceOpen((prev) => !prev);
                           setPolicyOpen(false);
+                          setLeaveOpen(false);
                         }
                         if (item.text === "Policy Engine") {
                           setPolicyOpen((prev) => !prev);
                           setAttendanceOpen(false);
+                          setLeaveOpen(false);
+                        }
+                        if (item.text === "Leave") {
+                          setLeaveOpen((prev) => !prev);
+                          setAttendanceOpen(false);
+                          setPolicyOpen(false);
                         }
                         return;
                       }
@@ -492,7 +525,8 @@ export default function Layout() {
                     {item.children &&
                       open &&
                       ((item.text === 'Attendance' && (attendanceOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
-                        (item.text === 'Policy Engine' && (policyOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)))}
+                        (item.text === 'Policy Engine' && (policyOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
+                        (item.text === 'Leave' && (leaveOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)))}
                   </ListItemButton>
                 </ListItem>
               </Tooltip>
@@ -541,6 +575,46 @@ export default function Layout() {
               {/* Policies Sub Menu */}
               {item.text === 'Policy Engine' && item.children && (
                 <Collapse in={policyOpen && open} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding>
+                    {item.children.map((child: any) => (
+                      <ListItemButton
+                        key={child.path}
+                        sx={{ pl: 2 }}
+                        className={`min-h-[40px] text-sm ${location.pathname === child.path
+                          ? "text-primary !bg-primary-50"
+                          : "text-gray-400"
+                          }`}
+                        onClick={() => navigate(child.path)}
+                      >
+                        <ListItemIcon
+                          sx={{
+                            minWidth: 30,
+                            color:
+                              location.pathname === child.path
+                                ? "#2563eb"
+                                : "#9ca3af",
+                          }}
+                        >
+                          {child.icon}
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={child.text}
+                          className="text-gray-800"
+                          sx={{
+                            "& .MuiTypography-root": {
+                              fontSize: "12px",
+                            },
+                          }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              )}
+
+              {/* Leave Sub Menu */}
+              {item.text === 'Leave' && item.children && (
+                <Collapse in={leaveOpen && open} timeout="auto" unmountOnExit>
                   <List component="div" disablePadding>
                     {item.children.map((child: any) => (
                       <ListItemButton

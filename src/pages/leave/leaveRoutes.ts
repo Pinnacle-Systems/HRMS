@@ -6,6 +6,7 @@ export type LeaveRouteId =
   | "myDashboard"
   | "apply"
   | "myRequests"
+  | "hrUpcomingEvents"
   | "holidayCalendar"
   | "compOffs"
   | "managerApprovals"
@@ -100,7 +101,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Team leave visibility and calendar overlays will appear here.",
     group: "manager",
     allowedRoles: ["ADMIN", "MANAGER"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "teamSummary",
@@ -109,7 +110,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Team leave summaries and trends will appear here.",
     group: "manager",
     allowedRoles: ["ADMIN", "MANAGER"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "hrRequests",
@@ -118,7 +119,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "HR-wide leave request administration will appear here.",
     group: "hr",
     allowedRoles: ["ADMIN", "HR"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "hrBalances",
@@ -127,7 +128,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Leave balance review and correction tools will appear here.",
     group: "hr",
     allowedRoles: ["ADMIN", "HR"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "hrAdjustments",
@@ -136,7 +137,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Manual leave adjustment workflows will appear here.",
     group: "hr",
     allowedRoles: ["ADMIN", "HR"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "hrLopReview",
@@ -145,7 +146,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Loss-of-pay review queues will appear here.",
     group: "hr",
     allowedRoles: ["ADMIN", "HR"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "hrPayrollInputs",
@@ -154,7 +155,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Leave-related payroll input exports and checks will appear here.",
     group: "hr",
     allowedRoles: ["ADMIN", "HR"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "hrReports",
@@ -163,7 +164,16 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "HR leave reports and download actions will appear here.",
     group: "hr",
     allowedRoles: ["ADMIN", "HR"],
-    isImplemented: false,
+    isImplemented: true,
+  },
+  {
+    id: "hrUpcomingEvents",
+    path: "/leaves/hr/upcoming-events",
+    label: "Upcoming Events",
+    description: "View your upcoming approved leaves and company holidays in one place.",
+    group: "hr",
+    allowedRoles: ["ADMIN", "HR"],
+    isImplemented: true,
   },
   {
     id: "adminLeaveTypes",
@@ -172,17 +182,17 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Admin leave type setup will appear here.",
     group: "admin",
     allowedRoles: ["ADMIN"],
-    isImplemented: false,
+    isImplemented: true,
   },
-  {
-    id: "adminPolicies",
-    path: "/leaves/admin/policies",
-    label: "Policies",
-    description: "Leave policy configuration shells will appear here.",
-    group: "admin",
-    allowedRoles: ["ADMIN"],
-    isImplemented: false,
-  },
+  // {
+  //   id: "adminPolicies",
+  //   path: "/leaves/admin/policies",
+  //   label: "Policies",
+  //   description: "Leave policy configuration shells will appear here.",
+  //   group: "admin",
+  //   allowedRoles: ["ADMIN"],
+  //   isImplemented: true,
+  // },
   {
     id: "adminHolidayCalendars",
     path: "/leaves/admin/holiday-calendars",
@@ -190,7 +200,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Holiday calendar configuration will appear here.",
     group: "admin",
     allowedRoles: ["ADMIN"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "adminWorkCalendars",
@@ -199,7 +209,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Work calendar setup and assignment shells will appear here.",
     group: "admin",
     allowedRoles: ["ADMIN"],
-    isImplemented: false,
+    isImplemented: true,
   },
   {
     id: "adminWorkflows",
@@ -208,7 +218,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     description: "Leave approval workflow configuration will appear here.",
     group: "admin",
     allowedRoles: ["ADMIN"],
-    isImplemented: false,
+    isImplemented: true,
   },
 ];
 

@@ -9,7 +9,7 @@ import {
 import { attendanceService } from "../../../services/modules/attendance";
 import type { LateArrivalRow } from "../../../services/modules/attendance";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { ReportLayout, FilterField, inputCls } from "./ReportLayout";
+import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import { formatTime, formatMinutes } from "../attendanceDashboard/const";
 import { departmentService } from "../../../services/modules/department";

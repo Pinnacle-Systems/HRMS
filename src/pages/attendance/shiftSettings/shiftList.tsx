@@ -146,8 +146,6 @@ export const ShiftList = () => {
         shiftService.getShiftStats(),
         shiftService.getShiftTypes(),
       ]);
-      console.log(template);
-
       const shiftsWithTemplateName =
         shiftsData?.content?.map((shift) => ({
           ...shift,
@@ -280,9 +278,6 @@ export const ShiftList = () => {
     shift.shiftName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     shift.shiftCode?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  console.log(filteredShifts);
-
 
   const statsCards = [
     { label: 'Total Shifts', value: stats.totalShifts, icon: <TimeIcon />, color: 'red' },
@@ -426,7 +421,7 @@ export const ShiftList = () => {
                 </TableCell>
                 <TableCell>{shift.totalHours}h</TableCell>
                 <TableCell>{shift.templateName}</TableCell>
-                <TableCell>{shift?.advancedConfigTypes}</TableCell>
+                <TableCell>{shift?.advancedConfigTypes.length ? shift?.advancedConfigTypes : '-'}</TableCell>
                 <TableCell>
                   <Chip
                     size="small"

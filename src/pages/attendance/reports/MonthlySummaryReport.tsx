@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   FormControl,
-  InputLabel,
   MenuItem,
   Select,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,

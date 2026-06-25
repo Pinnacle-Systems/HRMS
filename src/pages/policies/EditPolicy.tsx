@@ -16,7 +16,6 @@ import {
   DialogActions,
   TextField,
   Chip,
-  Grid,
 } from '@mui/material';
 import { NavigateNext as NavigateNextIcon } from '@mui/icons-material';
 import { PolicyWizard } from '../../components/PolicyManagement/policyWizard/policyWizard';

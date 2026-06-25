@@ -1377,7 +1377,7 @@ const EditableTableGroup = ({
             setSelectedFile(null);
             setNewItemData({})
           }}>
-            <MaterialModule.CloseOutlined className="text-gray-800"/>
+            <MaterialModule.CloseOutlined className="text-gray-800" />
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
@@ -1782,6 +1782,7 @@ export default function EmployeeDetails() {
         esiNumber: updatedData.esiNumber,
         esiJoiningDate: updatedData.esiJoiningDate,
         esiRelievingDate: updatedData.esiRelievingDate,
+        template: updatedData.templateId
       };
       if (Object.keys(payload).length) {
         await employeeService.updateEmployee(id, payload);
@@ -2059,7 +2060,8 @@ export default function EmployeeDetails() {
         idCardNo: updatedData.idCardNo,
         midNo: updatedData.midNo,
         oldIdNo: updatedData.oldIdNo,
-        relievedDate: updatedData.relievedDate
+        relievedDate: updatedData.relievedDate,
+        template: updatedData.templateId
       }
       if (Object.keys(payload).length) {
         await employeeService.updateAdminInfo(id, payload);
@@ -3129,8 +3131,8 @@ export default function EmployeeDetails() {
               <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">
                 {([
                   { key: 'effective', label: 'Effective Policies' },
-                  { key: 'assigned',  label: 'All Assigned Policies' },
-                  { key: 'history',   label: 'Policy History' },
+                  { key: 'assigned', label: 'All Assigned Policies' },
+                  { key: 'history', label: 'Policy History' },
                 ] as const).map(({ key, label }) => (
                   <Button
                     key={key}
@@ -3208,7 +3210,7 @@ export default function EmployeeDetails() {
                             </MaterialModule.TableRow>
                           </MaterialModule.TableHead>
                           <MaterialModule.TableBody>
-                            {empPolicies.map((p: any,index: any) => (
+                            {empPolicies.map((p: any, index: any) => (
                               <MaterialModule.TableRow key={p.id || index} sx={getRowColor(index)}>
                                 <MaterialModule.TableCell>{index + 1}</MaterialModule.TableCell>
                                 <MaterialModule.TableCell>{p.policyName || p.name || '—'}</MaterialModule.TableCell>
@@ -3288,7 +3290,7 @@ export default function EmployeeDetails() {
         <div className="flex items-center justify-between border-b border-gray-200 p-2 pl-5">
           <div className="font-medium">Audit Log  <span className="text-primary font-bold">({employee.name})</span></div>
           <MaterialModule.IconButton onClick={() => setAuditLogOpen(false)}>
-            <MaterialModule.CloseOutlined className="text-gray-800"/>
+            <MaterialModule.CloseOutlined className="text-gray-800" />
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent className="!p-2 border border-gray-200 m-3 bg-gray-200 !overflow-hidden">

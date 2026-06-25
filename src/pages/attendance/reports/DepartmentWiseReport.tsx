@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { attendanceService } from "../../../services/modules/attendance";
 import type { DepartmentWiseRow } from "../../../services/modules/attendance";
-import { ReportLayout, FilterField, inputCls } from "./ReportLayout";
+import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
