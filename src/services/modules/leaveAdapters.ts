@@ -64,7 +64,7 @@ export type LeaveRequestResponse = {
   currentStatus?: string;
   currentApproverId?: string;
   currentApproverName?: string;
-  payrollTreatment?: string;
+  payrollTreatment: string;
   lop?: boolean;
   cancellationRequested?: boolean;
   submittedAt?: string;
@@ -236,6 +236,7 @@ function mapLeaveStatus(value: unknown): LeaveRequestStatus {
     "CANCEL_REQUESTED",
     "CANCELLED",
     "CONVERTED_TO_LOP",
+    "CLARIFICATION_REQUESTED"
   ];
   return statuses.includes(normalized as LeaveRequestStatus)
     ? (normalized as LeaveRequestStatus)
@@ -349,6 +350,7 @@ export function mapLeaveRequestResponseToViewModel(
     approvals,
     approverRemarks: firstRemark?.actionComments ?? firstRemark?.remarks,
     currentStatus: "",
+    payrollTreatment: dto.payrollTreatment
   };
 }
 

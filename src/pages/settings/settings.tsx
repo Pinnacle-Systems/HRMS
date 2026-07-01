@@ -32,8 +32,14 @@ export default function Settings() {
     }
   }, [filteredTabs, activeTab]);
 
+  const isCategoryItemsPath = (path: string) =>
+    path.startsWith("/settings/employee/category-items");
+
   const routeTabId = useMemo(() => {
     const currentPath = location.pathname;
+    if (isCategoryItemsPath(currentPath)) {
+      return "employee";
+    }
     for (const tab of tabs) {
       for (const option of tab.options) {
         if (currentPath === option.path) {
@@ -42,7 +48,7 @@ export default function Settings() {
       }
     }
     return filteredTabs.length > 0 ? filteredTabs[0].id : "general";
-  }, [location.pathname,filteredTabs]);
+  }, [location.pathname, filteredTabs]);
 
   const selectedTabId = openDropdown ? activeTab : routeTabId;
    const currentTab = filteredTabs.find((tab) => tab.id === selectedTabId);
@@ -52,14 +58,18 @@ export default function Settings() {
       const currentPath = location.pathname;
       let hasAccess = false;
       
-      for (const tab of filteredTabs) {
-        for (const option of tab.options) {
-          if (currentPath === option.path) {
-            hasAccess = true;
-            break;
+      if (isCategoryItemsPath(currentPath)) {
+        hasAccess = true;
+      } else {
+        for (const tab of filteredTabs) {
+          for (const option of tab.options) {
+            if (currentPath === option.path) {
+              hasAccess = true;
+              break;
+            }
           }
+          if (hasAccess) break;
         }
-        if (hasAccess) break;
       }
 
       if (!hasAccess) {

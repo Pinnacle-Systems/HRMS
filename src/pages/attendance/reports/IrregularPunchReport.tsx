@@ -6,11 +6,11 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from "@mui/material";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { IrregularPunchRow } from "../../../services/modules/attendance";
+import type { IrregularPunchRow } from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
-import { formatTime } from "../attendanceDashboard/const";
+import { formatTime } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import type { Department } from "../../employees/type";
 import dayjs from "dayjs";

@@ -1,457 +1,41 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
-// import * as Mock from "./attendanceMockData";
-
-/**
- * ── MOCK MODE ────────────────────────────────────────────────────────────
- * Set VITE_USE_MOCK_ATTENDANCE_SERVICE=true in .env to serve every
- * attendanceService call from in-memory mock data (see attendanceMockData.ts)
- * instead of hitting the real backend. Flip it to false the moment the real
- * endpoints are ready — no other code changes are needed.
- *
- * To permanently remove mocking later: set the flag to false, verify the app
- * end-to-end, then delete attendanceMockData.ts and strip the
- * `if (USE_MOCK_ATTENDANCE_SERVICE) { ... }` blocks below.
- * ────────────────────────────────────────────────────────────────────────
- */
+import type {
+  SummaryQuery,
+  AttendanceDetailedQuery,
+  MusterQuery,
+  DailyStatusPayload,
+  CheckInPayload,
+  CheckOutPayload,
+  CorrectionRequestPayload,
+  CorrectionApprovePayload,
+  ProcessAttendancePayload,
+  BulkProcessPayload,
+  FinalisePayload,
+  UnlockPayload,
+  LockPayload,
+  MonthYearQuery,
+  LateArrivalQuery,
+  OvertimeQuery,
+  AbsenteeismQuery,
+  DateRangeQuery,
+  EmployeeHistoryQuery,
+  LeaveUtilizationQuery,
+  PayrollConsolidated,
+  OvertimeCalculateParams,
+  LopCalculateParams,
+  ExportMonthlyParams,
+  RemoteCheckinApproveParams,
+  SendRemindersParams,
+  OvertimeApproveParams,
+  ImportPunchesParams,
+  ImportFileParams,
+  BulkCheckinParams,
+} from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
 
-// ── Enums ──────────────────────────────────────────────────────────────────
-
-export type AttendanceStatus =
-  | "checked_in"
-  | "checked_out"
-  | "absent"
-  | "present"
-  | "late"
-  | "half_day"
-  | "on_duty"
-  | "leave"
-  | "permission"
-  | "holiday"
-  | "weekly_off"
-  | "irregular";
-
-export type AttendanceCategory = "regular" | "irregular" | "on_duty" | "leave";
-
-export type CorrectionStatus = "pending" | "approved" | "rejected";
-
-export type FinalisationStatus = "draft" | "pending_approval" | "approved" | "locked";
-
-// ── Core Models ────────────────────────────────────────────────────────────
-
-export interface AttendanceRecord {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department?: string;
-  designation?: string;
-  attendanceDate: string;
-  checkInTime: string | null;
-  checkOutTime: string | null;
-  shiftCode: string;
-  shiftStart?: string;
-  shiftEnd?: string;
-  status: AttendanceStatus;
-  category?: AttendanceCategory;
-  workedMinutes: number;
-  lateMinutes: number;
-  earlyOutMinutes: number;
-  overtimeMinutes: number;
-  checkInWithinGeofence: boolean;
-  checkOutWithinGeofence: boolean;
-  checkInPhotoUrl?: string;
-  checkOutPhotoUrl?: string;
-  remarks?: string;
-  processedBy?: string;
-  processedAt?: string;
-  finalised?: boolean;
-  finalisedBy?: string;
-  finalisedAt?: string;
-}
-
-export interface CorrectionRequest {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  attendanceDate: string;
-  currentCheckIn: string | null;
-  currentCheckOut: string | null;
-  requestedCheckIn: string;
-  requestedCheckOut: string;
-  reason: string;
-  supportingDocument?: string;
-  source?: string;
-  status: CorrectionStatus;
-  requestedBy: string;
-  approverRemarks?: string;
-  approvedBy?: string;
-  decidedAt?: string;
-  createdAt: string;
-}
-
-export interface AttendanceSummary {
-  date: string;
-  totalEmployees: number;
-  present: number;
-  absent: number;
-  late: number;
-  earlyOut: number;
-  onDuty: number;
-  onLeave: number;
-  permission: number;
-  overtime: number;
-  holiday: number;
-  weeklyOff: number;
-  halfDay: number;
-  irregular: number;
-  attendancePercentage: number;
-}
-
-export interface DailyTrend {
-  date: string;
-  present: number;
-  absent: number;
-  late: number;
-}
-
-export interface DepartmentWiseSummary {
-  department: string;
-  total: number;
-  present: number;
-  absent: number;
-  attendancePercentage: number;
-}
-
-export interface MusterCell {
-  date: string;
-  status: AttendanceStatus | null;
-  checkIn?: string;
-  checkOut?: string;
-  workedMinutes?: number;
-}
-
-export interface MusterRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  designation: string;
-  attendance: MusterCell[];
-  totalPresent: number;
-  totalAbsent: number;
-  totalLeave: number;
-  totalOT: number;
-  totalLate: number;
-  attendancePercentage: number;
-}
-
-export interface MusterData {
-  month: number;
-  year: number;
-  workingDays: number;
-  holidays: string[];
-  weeklyOffs: string[];
-  employees: MusterRow[];
-}
-
-export interface EmployeeAttendanceInfo {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  designation: string;
-  shiftCode: string;
-  shiftName: string;
-  shiftStart: string;
-  shiftEnd: string;
-  weeklyOff: string[];
-  todayStatus: AttendanceStatus;
-  todayCheckIn?: string;
-  todayCheckOut?: string;
-  workedMinutesToday: number;
-  pendingCorrections: number;
-  pendingLeaves: number;
-}
-
-export interface FinalisedPeriod {
-  id: string;
-  month: number;
-  year: number;
-  periodLabel: string;
-  status: FinalisationStatus;
-  totalEmployees: number;
-  totalPresentDays: number;
-  totalAbsentDays: number;
-  totalLeaveDays: number;
-  totalOTHours: number;
-  finalisedBy?: string;
-  finalisedAt?: string;
-  createdAt: string;
-  startDate: string;
-  endDate: string;
-}
-
-export interface ProcessResult {
-  processDate: string;
-  totalEmployees: number;
-  processed: number;
-  skipped: number;
-  errors: number;
-  employees: {
-    employeeId: string;
-    employeeName: string;
-    employeeCode: string;
-    status: AttendanceStatus;
-    checkInTime?: string;
-    checkOutTime?: string;
-    shiftCode: string;
-  }[];
-}
-
-export interface DailyStatusEmployee {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  status: AttendanceStatus;
-  checkInTime: string;
-  checkOutTime: string;
-  shiftCode: string;
-}
-
-export interface DailyStatusData {
-  processDate: string;
-  totalEmployees: number;
-  employees: DailyStatusEmployee[];
-}
-
-// ── Payloads ───────────────────────────────────────────────────────────────
-
-export interface DailyStatusPayload {
-  processDate: string;
-  employeeIds: string[];
-}
-
-export interface CorrectionApprovePayload {
-  status: CorrectionStatus;
-  approverRemarks: string;
-  approvedBy: string;
-}
-
-export interface CorrectionRequestPayload {
-  employeeId: string;
-  attendanceDate: string;
-  currentCheckIn: string | null;
-  currentCheckOut: string | null;
-  requestedCheckIn: string;
-  requestedCheckOut: string;
-  reason: string;
-  supportingDocument?: string;
-}
-
-export interface CheckInPayload {
-  employeeId: string;
-  checkInTime: string;
-  reason?: string;
-  markedBy?: string;
-  remarks?: string;
-}
-
-export interface CheckOutPayload {
-  employeeId: string;
-  checkOutTime: string;
-  reason?: string;
-  markedBy?: string;
-  remarks?: string;
-}
-
-export interface ProcessAttendancePayload {
-  fromDate: string;
-  toDate: string;
-  employeeIds?: string[];
-  departmentId?: string;
-  reprocess?: boolean;
-}
-
-export interface BulkProcessPayload {
-  processDate: string;
-  employeeIds: string[];
-  reprocess?: boolean;
-}
-
-export interface FinalisePayload {
-  month: number;
-  year: number;
-  remarks?: string;
-  approvedBy?: string;
-  status?: string;
-}
-
-export interface UnlockPayload {
-  periodId: string;
-  reason: string;
-  unlockedBy: string;
-}
-export interface LockPayload {
-  startDate: string,
-  endDate: string,
-  reason: string;
-  lockedBy: string;
-}
-
-// ── Query Params ───────────────────────────────────────────────────────────
-
-export interface AttendanceDetailedQuery {
-  fromDate?: string;
-  toDate?: string;
-  departmentId?: string;
-  shiftCode?: string;
-  status?: AttendanceStatus;
-  search?: string;
-  page?: number;
-  size?: number;
-}
-
-export interface MusterQuery {
-  month: number;
-  year: number;
-  departmentId?: string;
-  branchId?: string;
-}
-
-export interface SummaryQuery {
-  date?: string;
-  departmentId?: string;
-  branchId?: string;
-}
-
-// ── Report Models ──────────────────────────────────────────────────────────
-
-export interface MonthlySummaryRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  designation: string;
-  presentDays: number;
-  absentDays: number;
-  lateDays: number;
-  earlyOutDays: number;
-  halfDays: number;
-  leaveDays: number;
-  onDutyDays: number;
-  permissionDays: number;
-  otHours: number;
-  totalWorkedHours: number;
-  attendancePercentage: number;
-  lossOfPayDays: number;
-}
-
-export interface LateArrivalRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  attendanceDate: string;
-  shiftCode: string;
-  shiftStartTime: string;
-  checkInTime: string;
-  lateMinutes: number;
-}
-
-export interface OvertimeRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  attendanceDate: string;
-  shiftCode: string;
-  shiftEndTime: string;
-  checkOutTime: string;
-  overtimeMinutes: number;
-}
-
-export interface AbsenteeismRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  totalWorkingDays: number;
-  presentDays: number;
-  absentDays: number;
-  leaveDays: number;
-  lopDays: number;
-  absenteeismRate: number;
-  consecutiveAbsences: number;
-  absentDates: string[];
-}
-
-export interface IrregularPunchRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  attendanceDate: string;
-  checkInTime: string | null;
-  checkOutTime: string | null;
-  missingPunch: "check_in" | "check_out" | "both";
-  shiftCode: string;
-}
-
-export interface DepartmentWiseRow {
-  department: string;
-  totalEmployees: number;
-  totalWorkingDays: number;
-  totalPresentDays: number;
-  totalAbsentDays: number;
-  totalLateDays: number;
-  totalOtHours: number;
-  averageAttendance: number;
-}
-
-export interface EmployeeHistoryRow {
-  attendanceDate: string;
-  dayOfWeek: string;
-  checkInTime: string | null;
-  checkOutTime: string | null;
-  shiftCode: string;
-  status: AttendanceStatus;
-  workedMinutes: number;
-  lateMinutes: number;
-  earlyOutMinutes: number;
-  overtimeMinutes: number;
-  remarks?: string;
-}
-
-export interface LeaveUtilizationRow {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  leaveType: string;
-  openingBalance: number;
-  accrued: number;
-  taken: number;
-  encashed: number;
-  lapsed: number;
-  closingBalance: number;
-}
-
-// ── Report Query Params ────────────────────────────────────────────────────
-
-export interface MonthYearQuery { month: number; year: number; departmentId?: string; branchId?: string; }
-export interface DateRangeQuery { fromDate: string; toDate: string; departmentId?: string; branchId?: string; page?: number; size?: number; }
-export interface LateArrivalQuery extends DateRangeQuery { minLateMinutes?: number; }
-export interface OvertimeQuery extends DateRangeQuery { minOtMinutes?: number; }
-export interface AbsenteeismQuery extends MonthYearQuery { minAbsentDays?: number; }
-export interface EmployeeHistoryQuery { employeeId: string; fromDate: string; toDate: string; page?: number; size?: number; }
-export interface LeaveUtilizationQuery extends MonthYearQuery { leaveTypeId?: string; }
-
 // ── Service ────────────────────────────────────────────────────────────────
-
 export const attendanceService = {
   // ── GET ──
   async getToday(params?: Record<string, any>) {
@@ -475,11 +59,17 @@ export const attendanceService = {
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_DETAILED, { params });
   },
 
-  async getEmployeeAttendance(employeeId: string, params?: { fromDate?: string; toDate?: string }) {
+  async getEmployeeAttendance(
+    employeeId: string,
+    params?: { fromDate?: string; toDate?: string },
+  ) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockEmployeeAttendance(employeeId, params), "Employee attendance loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_EMPLOYEE_ATTENDANCE(employeeId), { params });
+    return apiService.get(
+      API_ENDPOINTS.ATTENDANCE.GET_EMPLOYEE_ATTENDANCE(employeeId),
+      { params },
+    );
   },
 
   async getRegister(params?: Record<string, any>) {
@@ -500,14 +90,18 @@ export const attendanceService = {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockMonthlyRegister(params as any), "Monthly register loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_MONTHLY_REGISTER, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_MONTHLY_REGISTER, {
+      params,
+    });
   },
 
   async getAttendanceInfo(employeeId: string) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockAttendanceInfo(employeeId), "Attendance info loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_ATTENDANCE_INFO(employeeId));
+    return apiService.get(
+      API_ENDPOINTS.ATTENDANCE.GET_ATTENDANCE_INFO(employeeId),
+    );
   },
 
   async getHolidays(params?: { year?: number; month?: number }) {
@@ -564,14 +158,20 @@ export const attendanceService = {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.postMockRequestCorrection(payload), "Correction request submitted");
     // }
-    return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_CORRECTION_REQ, payload);
+    return apiService.post(
+      API_ENDPOINTS.ATTENDANCE.POST_CORRECTION_REQ,
+      payload,
+    );
   },
 
   async approveCorrection(id: string, payload: CorrectionApprovePayload) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.postMockApproveCorrection(id, payload), "Correction request updated");
     // }
-    return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_CORRECTION_APPROVE(id), payload);
+    return apiService.post(
+      API_ENDPOINTS.ATTENDANCE.POST_CORRECTION_APPROVE(id),
+      payload,
+    );
   },
 
   async processAttendance(payload: ProcessAttendancePayload) {
@@ -605,11 +205,11 @@ export const attendanceService = {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_UNLOCK, payload);
   },
 
-   async lock(payload: LockPayload) {
+  async lock(payload: LockPayload) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_LOCK, payload);
   },
 
-   async getAllLocks() {
+  async getAllLocks() {
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_LOCKS);
   },
 
@@ -618,14 +218,18 @@ export const attendanceService = {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportMonthlySummary(params as any), "Monthly summary report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_MONTHLY_SUMMARY, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_MONTHLY_SUMMARY, {
+      params,
+    });
   },
 
   async getReportLateArrival(params: LateArrivalQuery) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportLateArrival(params as any), "Late arrival report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LATE_ARRIVAL, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LATE_ARRIVAL, {
+      params,
+    });
   },
 
   async getReportOvertime(params: OvertimeQuery) {
@@ -639,44 +243,163 @@ export const attendanceService = {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportAbsenteeism(params as any), "Absenteeism report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_ABSENTEEISM, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_ABSENTEEISM, {
+      params,
+    });
   },
 
   async getReportIrregularPunch(params: DateRangeQuery) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportIrregularPunch(params as any), "Irregular punch report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_IRREGULAR_PUNCH, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_IRREGULAR_PUNCH, {
+      params,
+    });
   },
 
   async getReportDepartmentWise(params: DateRangeQuery) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportDepartmentWise(), "Department-wise report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_DEPARTMENT_WISE, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_DEPARTMENT_WISE, {
+      params,
+    });
   },
 
   async getReportEmployeeHistory(params: EmployeeHistoryQuery) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportEmployeeHistory(params), "Employee history report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_EMPLOYEE_HISTORY, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_EMPLOYEE_HISTORY, {
+      params,
+    });
   },
 
   async getReportLeaveUtilization(params: LeaveUtilizationQuery) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockReportLeaveUtilization(params as any), "Leave utilization report loaded");
     // }
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LEAVE_UTILIZATION, { params });
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LEAVE_UTILIZATION, {
+      params,
+    });
   },
 
-  async exportReport(type: string, format: "excel" | "pdf" | "csv", params: Record<string, any>) {
+  async exportReport(
+    type: string,
+    format: "excel" | "pdf" | "csv",
+    params: Record<string, any>,
+  ) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return { data: Mock.mockExportReport(type, format) };
     // }
-    return apiService.get<{ success: boolean; message: string; data: { fileUrl: string } }>(
-      API_ENDPOINTS.ATTENDANCE.REPORT_EXPORT(type, format),
-      { params }
-    );
+    return apiService.get<{
+      success: boolean;
+      message: string;
+      data: { fileUrl: string };
+    }>(API_ENDPOINTS.ATTENDANCE.REPORT_EXPORT(type, format), { params });
+  },
+
+  async getPayrollConsolidated(params: PayrollConsolidated) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.PAYROLL_CONSOLIDATE, {
+      params,
+    });
+  },
+
+  async getShiftSchedule(employeeId: string, params?: { days?: number }) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.SHIFT_SCHEDULE(employeeId), {
+      params,
+    });
+  },
+
+  async getRemoteCheckins(params?: { status?: string }) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REMOTE_CHECKINS, { params });
+  },
+
+  async calculateOvertime(params: OvertimeCalculateParams) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.OT_CALCULATE, { params });
+  },
+
+  async getOvertimeApprovalRequired(params: {
+    managerId?: string;
+    departmentId?: string;
+    dateRangeStart?: string;
+  }) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.OT_APPROVAL_REQ, { params });
+  },
+
+  async calculateLop(params: LopCalculateParams) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.LOP_CALCULATE, { params });
+  },
+
+  async exportMonthly(params: ExportMonthlyParams) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY, { params });
+  //   const response = await apiService.axiosInstance.get(
+  //   API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY,
+  //   {
+  //     params: {
+  //       ...params,
+  //     },
+  //   }
+  // );
+  
+  // return response.data;
+  },
+
+  async getEmployeesOnLeaveToday(params?: {
+    departmentId?: string;
+    leaveType?: string;
+  }) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.LEAVE_TODAY, { params });
+  },
+
+  // async getDashboardSummary(params?: {
+  //   date?: string;
+  //   departmentId?: string;
+  //   period?: "daily" | "weekly" | "monthly";
+  // }) {
+  //   return apiService.get(API_ENDPOINTS.ATTENDANCE./dashboard/summary", { params });
+  // },
+
+  async getCalendarHolidays(params?: {
+    year?: number;
+    state?: string;
+    holidayType?: string;
+  }) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.CALENDAR_HOLIDAYS, {
+      params,
+    });
+  },
+
+  async approveRemoteCheckin(id: string, data: RemoteCheckinApproveParams) {
+    return apiService.put(API_ENDPOINTS.ATTENDANCE.REM_CHK_APPROVE(id), data);
+  },
+
+  async rejectRemoteCheckin(id: string, data: RemoteCheckinApproveParams) {
+    return apiService.put(API_ENDPOINTS.ATTENDANCE.REM_CHK_REJECT(id), data);
+  },
+
+  async sendReminders(data: SendRemindersParams) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.SEND_REMINDERS, data);
+  },
+
+  async approveOvertime(id: string, data: OvertimeApproveParams) {
+    return apiService.put(API_ENDPOINTS.ATTENDANCE.OT_APPROVE(id), data);
+  },
+
+  async importAttendance(data: ImportPunchesParams) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.IMPORT, data);
+  },
+
+  async  importAttendanceFile(params: ImportFileParams, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.IMPORT_FILE, formData, {
+      params,
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  async bulkCheckin(data: BulkCheckinParams) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.BULK_CHECKIN, data);
   },
 };

@@ -18,8 +18,10 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
   multiple,
   filter,
   label = 'Select Employee',
+  noLabel,
   placeholder = 'Search employees…',
   pageSize = 20,
+  isManager,
 }) => {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Employee[]>([]);
@@ -47,6 +49,12 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
         search: searchTermRef.current || undefined,
       });
       let list: any = response.data.content || [];
+       if (isManager) {
+        list = list.filter((emp: Employee) => 
+          emp.designation?.toLowerCase().includes('manager')
+        );
+      }
+      
       if (filter) {
         list = list.filter(filter);
       }
@@ -141,10 +149,20 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
             </Avatar>
             <Box>
               <Typography variant="body2">{option.name}</Typography>
+
               <Typography variant="caption" color="text.secondary" className='text-gray-500'>
-                {option.employeeId}
-                {option.department ? ' ·' + option.department : ''}
-                {option.designation ? ' ·' + option.designation : ''}
+                {/* {isManager ? '' : option.employeeId}
+                {isManager ? '' : option.department ? ' ·' + option.department : ''}
+                {option.designation ? ' ·' + option.designation : ''} */}
+                {isManager ? (
+                  option.designation || ''
+                ) : (
+                  <>
+                    {option.employeeId}
+                    {option.department ? ' ·' + option.department : ''}
+                    {option.designation ? ' ·' + option.designation : ''}
+                  </>
+                )}
               </Typography>
             </Box>
           </Box>
@@ -153,7 +171,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={noLabel ? '' : label}
           placeholder={placeholder}
           // helperText={loading ? 'Loading employees...' : `${options.length} employee(s) loaded`}
           slotProps={{

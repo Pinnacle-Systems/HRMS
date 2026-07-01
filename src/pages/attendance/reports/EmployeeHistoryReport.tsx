@@ -3,14 +3,14 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from "@mui/material";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { EmployeeHistoryRow, AttendanceStatus } from "../../../services/modules/attendance";
+import type { EmployeeHistoryRow, AttendanceStatus } from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG,
   formatTime, formatMinutes,
-} from "../attendanceDashboard/const";
+} from "../const";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";

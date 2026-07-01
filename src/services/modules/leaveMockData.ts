@@ -1,16 +1,16 @@
-import type {
-  // CompOffCredit,
-  // CompOffCreditRequest,
-  // HolidayCalendar,
-  // LeaveBalance,
-  // LeaveLedgerEntry,
-  // LeavePolicy,
-  // LeaveRequest,
-  // LeaveType,
-  PayrollLeaveInput,
-  // TeamCalendarEntry,
-  // WorkCalendar,
-} from "./leaveTypes";
+// import type {
+//   // CompOffCredit,
+//   // CompOffCreditRequest,
+//   // HolidayCalendar,
+//   // LeaveBalance,
+//   // LeaveLedgerEntry,
+//   // LeavePolicy,
+//   // LeaveRequest,
+//   // LeaveType,
+//   PayrollLeaveInput,
+//   // TeamCalendarEntry,
+//   // WorkCalendar,
+// } from "./leaveTypes";
 
 // export const mockLeaveTypes: LeaveType[] = [
 //   {
@@ -757,27 +757,27 @@ import type {
 //   },
 // ];
 
-export const mockPayrollLeaveInputs: PayrollLeaveInput[] = [
-  {
-    id: "pli-2026-04-100",
-    employeeId: "emp-100",
-    employeeCode: "PNI001",
-    employeeName: "Aarav Menon",
-    month: "2026-04",
-    lopDays: 0,
-    paidLeaveDays: 2,
-    compOffDays: 0,
-    remarks: "Ready for payroll",
-  },
-  {
-    id: "pli-2026-04-104",
-    employeeId: "emp-104",
-    employeeCode: "PNI041",
-    employeeName: "Karthik Subramanian",
-    month: "2026-04",
-    lopDays: 2,
-    paidLeaveDays: 0,
-    compOffDays: 0,
-    remarks: "Pending cancellation review",
-  },
-];
+// export const mockPayrollLeaveInputs: PayrollLeaveInput[] = [
+//   {
+//     id: "pli-2026-04-100",
+//     employeeId: "emp-100",
+//     employeeCode: "PNI001",
+//     employeeName: "Aarav Menon",
+//     month: "2026-04",
+//     lopDays: 0,
+//     paidLeaveDays: 2,
+//     // compOffDays: 0,
+//     remarks: "Ready for payroll",
+//   },
+//   {
+//     id: "pli-2026-04-104",
+//     employeeId: "emp-104",
+//     employeeCode: "PNI041",
+//     employeeName: "Karthik Subramanian",
+//     month: "2026-04",
+//     lopDays: 2,
+//     paidLeaveDays: 0,
+//     compOffDays: 0,
+//     remarks: "Pending cancellation review",
+//   },
+// ];

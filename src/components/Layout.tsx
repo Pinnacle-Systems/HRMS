@@ -140,10 +140,12 @@ export default function Layout() {
     {
       text: "Leave",
       icon: <AssignmentOutlinedIcon />,
-      path: "/leaves/my-dashboard",
+      path: user?.roles.includes('ADMIN') ? "/leaves/approvals" : "/leaves/my-dashboard",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
       children: [
-        { text: "My Leave", path: "/leaves/my-dashboard" },
+         ...(user?.roles.some((role) => role !== "ADMIN")
+          ? [  { text: "My Leave", path: "/leaves/my-dashboard" },]
+          : []),
         ...(user?.roles.some((role) => role === "MANAGER" || role === "ADMIN")
           ? [{ text: "Manager Approvals", path: "/leaves/approvals" }]
           : []),
@@ -166,9 +168,21 @@ export default function Layout() {
           path: "/attendance/shifts",
         },
         {
-          text: "Attendance Management",
-          path: "/attendance/list",
+          text: "Attendance Overview",
+          path: "/attendance/overview",
         },
+         {
+          text: "Attendance Records",
+          path: "/attendance/records",
+        },
+         {
+          text: "Attendance Management",
+          path: "/attendance/management",
+        },
+         {
+          text: "Attendance Processing",
+          path: "/attendance/process",
+        },  
         {
           text: "Reports",
           path: "/attendance/reports",
@@ -445,14 +459,14 @@ export default function Layout() {
             marginTop: "64px",
             height: "calc(100% - 64px)",
             position: "fixed",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
           },
         }}
         open={open}
       >
-        <List>
+        <List className="!pb-0">
           {open && (
-            <Box className="p-3">
+            <Box className="px-3 py-1">
               <Box className="flex items-center gap-1 shadow-sm">
                 <img src={logo} className="!w-6 !h-6 mr-2"></img>
                 <Box>
@@ -469,7 +483,7 @@ export default function Layout() {
               <Tooltip title={!open ? item.text : ""}>
                 <ListItem disablePadding className="block whitespace-nowrap">
                   <ListItemButton
-                    className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
+                    className={`min-h-[30px] px-2.5 py-1 text-sm ${location.pathname === item.path ||
                       location.pathname.startsWith(`${item.path}/`)
                       ? "text-primary !bg-primary-50"
                       : "text-gray-400"
@@ -491,6 +505,7 @@ export default function Layout() {
                           setLeaveOpen((prev) => !prev);
                           setAttendanceOpen(false);
                           setPolicyOpen(false);
+                          navigate(item.path);
                         }
                         return;
                       }
@@ -621,7 +636,7 @@ export default function Layout() {
                         key={child.path}
                         sx={{ pl: 2 }}
                         className={`min-h-[40px] text-sm ${location.pathname === child.path
-                          ? "text-primary !bg-primary-50"
+                          ? "!bg-primary-50"
                           : "text-gray-400"
                           }`}
                         onClick={() => navigate(child.path)}

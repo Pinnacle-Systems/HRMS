@@ -49,7 +49,8 @@ import { shiftService, type Shift } from "../../services/modules/shifts";
 import { auditLogService } from "../../services/modules/auditLogs";
 import { Button } from "@mui/material";
 import { policyService } from "../../services";
-import { PolicyDomain } from "../../types/policy";
+import { PolicyDomain, type Employee } from "../../types/policy";
+import { EmployeeSelector } from "../../components/PolicyManagement/Common/EmployeeSelector";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -466,30 +467,84 @@ const EditableGroup = ({
                       //   // sx={commonSx}
                       //   />
                       // ) 
-                      : (
-                        <MaterialModule.TextField
-                          size="small"
-                          value={editData[field.key] || ""}
-                          multiline={field.multiline || false}
-                          rows={field.multiline ? 3 : 1}
-                          disabled={field.disabled || (
-                            editData?.aadhaarNumber &&
-                            lockableFields.includes(field.key)
-                          )}
-                          slotProps={{
-                            htmlInput: {
-                              maxLength: field.key === "aadhaarNumber" ? 12 : undefined,
-                            },
+                      : field.type === "user" ? (
+                        <EmployeeSelector
+                          value={(() => {
+                            if (editData.managerId && editData.managerName) {
+                              return {
+                                id: editData.managerId,
+                                name: editData.managerName,
+                                employeeId: editData.managerId,
+                                emailAddress: '',
+                                mobileNumber: '',
+                                designation: '',
+                                department: '',
+                                branch: '',
+                                employeeStatus: '',
+                                joiningDate: '',
+                                createdAt: '',
+                                isActive: true,
+                                companyId: '',
+                                employmentType: '',
+                                employeeCategory: '',
+                                isOnProbation: false,
+                              } as unknown as Employee;
+                            }
+                            return null;
+                          })()}
+                          onChange={(newValue) => {
+                            if (Array.isArray(newValue)) {
+                              const ids = newValue.map(emp => emp.id);
+                              const names = newValue.map(emp => emp.name);
+                              setEditData((prev: any) => ({
+                                ...prev,
+                                [field.key]: names.join(', '),
+                                [`${field.key}Ids`]: ids,
+                              }));
+                            } else if (newValue) {
+                              setEditData((prev: any) => ({
+                                ...prev,
+                                [field.key]: newValue.name,
+                                managerId: newValue.id,
+                                managerName: newValue.name,
+                              }));
+                            } else {
+                              setEditData((prev: any) => ({
+                                ...prev,
+                                [field.key]: '',
+                                managerId: null,
+                                managerName: '',
+                              }));
+                            }
                           }}
-                          onChange={(e) => {
-                            field.key != 'aadhaarNumber' ? setEditData({
-                              ...editData,
-                              [field.key]: e.target.value,
-                            }) : getAadhaar(e.target.value)
-                          }}
-                          fullWidth
+                          noLabel= {true}
+                          isManager= {true}
                         />
-                      )}
+                      )
+                        : (
+                          <MaterialModule.TextField
+                            size="small"
+                            value={editData[field.key] || ""}
+                            multiline={field.multiline || false}
+                            rows={field.multiline ? 3 : 1}
+                            disabled={field.disabled || (
+                              editData?.aadhaarNumber &&
+                              lockableFields.includes(field.key)
+                            )}
+                            slotProps={{
+                              htmlInput: {
+                                maxLength: field.key === "aadhaarNumber" ? 12 : undefined,
+                              },
+                            }}
+                            onChange={(e) => {
+                              field.key != 'aadhaarNumber' ? setEditData({
+                                ...editData,
+                                [field.key]: e.target.value,
+                              }) : getAadhaar(e.target.value)
+                            }}
+                            fullWidth
+                          />
+                        )}
                   </div>
                 ) : (
                   <div className="text-[12px] text-ellipsis overflow-hidden text-gray-800 mt-1">
@@ -501,7 +556,7 @@ const EditableGroup = ({
                           : "No"
                         : field.type === "select"
                           ? editData[field.key] || (isEditing ? "" : "-")
-                          : editData[field.key] || "-"}
+                          : field.type === "user" ? editData.managerName : editData[field.key] || "-"}
                   </div>
                 )}
               </div>
@@ -1710,7 +1765,7 @@ export default function EmployeeDetails() {
         empTypeId: updatedData.empTypeId,
         departmentId: updatedData.departmentId,
         branchId: updatedData.branchId,
-        managerId: updatedData.reportingManager,
+        managerId: updatedData.managerId,
         bandId: updatedData.bandId,
         joiningDate: updatedData.joiningDate,
         confirmationDate: updatedData.confirmationDate,
@@ -2038,7 +2093,7 @@ export default function EmployeeDetails() {
         empTypeId: updatedData.empTypeId,
         departmentId: updatedData.departmentId,
         branchId: updatedData.branchId,
-        managerId: updatedData.reportingManager,
+        managerId: updatedData.managerId,
         bandId: updatedData.bandId,
         joiningDate: updatedData.joiningDate,
         confirmationDate: updatedData.confirmationDate,

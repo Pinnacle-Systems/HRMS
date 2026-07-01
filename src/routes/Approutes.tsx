@@ -17,27 +17,27 @@ import {
 const Employees = lazy(() => import("../pages/employees/employeeManagement"));
 const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword/ForgotPassword"));
 const Home = lazy(() => import("../pages/home/home"));
-const ApplyLeavePage = lazy(() => import("../pages/leave/ApplyLeavePage"));
-const CompOffsPage = lazy(() => import("../pages/leave/CompOffsPage"));
-const HolidayCalendarPage = lazy(() => import("../pages/leave/HolidayCalendarPage"));
+const ApplyLeavePage = lazy(() => import("../pages/leave/EmployeeComponents/ApplyLeavePage"));
+const CompOffsPage = lazy(() => import("../pages/leave/EmployeeComponents/CompOffsPage"));
+const HolidayCalendarPage = lazy(() => import("../pages/leave/EmployeeComponents/HolidayCalendarPage"));
 const LeavePlaceholderPage = lazy(() => import("../pages/leave/LeavePlaceholderPage"));
-const ManagerLeaveApprovalsPage = lazy(() => import("../pages/leave/ManagerLeaveApprovalsPage"));
-const MyLeaveDashboard = lazy(() => import("../pages/leave/MyLeaveDashboard"));
-const MyLeaveRequestsPage = lazy(() => import("../pages/leave/MyLeaveRequestsPage"));
-const UpcomingEventsPage = lazy(() => import("../pages/leave/UpcomingEventsPage"));
-const TeamCalendarPage = lazy(() => import("../pages/leave/TeamCalendarPage"));
-const TeamSummaryPage = lazy(() => import("../pages/leave/TeamSummaryPage"));
-const HrLeaveRequestsPage = lazy(() => import("../pages/leave/HrLeaveRequestsPage"));
-const HrLeaveBalancesPage = lazy(() => import("../pages/leave/HrLeaveBalancesPage"));
-const HrLeaveAdjustmentsPage = lazy(() => import("../pages/leave/HrLeaveAdjustmentsPage"));
-const HrLopReviewPage = lazy(() => import("../pages/leave/HrLopReviewPage"));
-const HrPayrollInputsPage = lazy(() => import("../pages/leave/HrPayrollInputsPage"));
-const HrLeaveReportsPage = lazy(() => import("../pages/leave/HrLeaveReportsPage"));
-const AdminLeaveTypesPage = lazy(() => import("../pages/leave/AdminLeaveTypesPage"));
-const AdminLeavePoliciesPage = lazy(() => import("../pages/leave/AdminLeavePoliciesPage"));
-const AdminHolidayCalendarsPage = lazy(() => import("../pages/leave/AdminHolidayCalendarsPage"));
-const AdminWorkCalendarsPage = lazy(() => import("../pages/leave/AdminWorkCalendarsPage"));
-const AdminWorkflowsPage = lazy(() => import("../pages/leave/AdminWorkflowsPage"));
+const ManagerLeaveApprovalsPage = lazy(() => import("../pages/leave/ManagerComponents/ManagerLeaveApprovalsPage"));
+const MyLeaveDashboard = lazy(() => import("../pages/leave/EmployeeComponents/MyLeaveDashboard"));
+const MyLeaveRequestsPage = lazy(() => import("../pages/leave/EmployeeComponents/MyLeaveRequestsPage"));
+const UpcomingEventsPage = lazy(() => import("../pages/leave/HrComponents/UpcomingEventsPage"));
+const TeamCalendarPage = lazy(() => import("../pages/leave/ManagerComponents/TeamCalendarPage"));
+const TeamSummaryPage = lazy(() => import("../pages/leave/ManagerComponents/TeamSummaryPage"));
+const HrLeaveRequestsPage = lazy(() => import("../pages/leave//HrComponents/HrLeaveRequestsPage"));
+const HrLeaveBalancesPage = lazy(() => import("../pages/leave/HrComponents/HrLeaveBalancesPage"));
+const HrLeaveAdjustmentsPage = lazy(() => import("../pages/leave/HrComponents/HrLeaveAdjustmentsPage"));
+const HrLopReviewPage = lazy(() => import("../pages/leave/HrComponents/HrLopReviewPage"));
+const HrPayrollInputsPage = lazy(() => import("../pages/leave/HrComponents/HrPayrollInputsPage"));
+const HrLeaveReportsPage = lazy(() => import("../pages/leave/HrComponents/HrLeaveReportsPage"));
+const AdminLeaveTypesPage = lazy(() => import("../pages/leave/AdminComponents/AdminLeaveTypesPage"));
+const AdminLeavePoliciesPage = lazy(() => import("../pages/leave/AdminComponents/AdminLeavePoliciesPage"));
+const AdminHolidayCalendarsPage = lazy(() => import("../pages/leave/AdminComponents/AdminHolidayCalendarsPage"));
+const AdminWorkCalendarsPage = lazy(() => import("../pages/leave/AdminComponents/AdminWorkCalendarsPage"));
+const AdminWorkflowsPage = lazy(() => import("../pages/leave/AdminComponents/AdminWorkflowsPage"));
 const Login = lazy(() => import("../pages/auth/Login/Login"));
 const MfaPage = lazy(() => import("../pages/auth/MfaPage"));
 const Payroll = lazy(() => import("../pages/payroll/payroll"));
@@ -58,7 +58,6 @@ const OnBoardingProcess = lazy(() => import("../pages/settings/employee/onBoardi
 const Documentation = lazy(() => import("../pages/documentation/doc"));
 const ShiftSettings = lazy(() => import("../pages/attendance/shiftSettings/shiftSettings"));
 const AttendanceReports = lazy(() => import("../pages/attendance/attendanceReport"));
-const AttendanceList = lazy(() => import("../pages/attendance/attendanceList"));
 const PolicyDashboard = lazy(() => import("../pages/policies/PolicyDashboard"));
 const CreatePolicy = lazy(() => import("../pages/policies/CreatePolicy"));
 const EditPolicy = lazy(() => import("../pages/policies/EditPolicy"));
@@ -69,6 +68,10 @@ const AuditLogs = lazy(() => import("../pages/settings/general/auditLogs"));
 const AllowanceComponents = lazy(() => import("../pages/settings/policy/allowanceComponents"));
 const DeductionComponents = lazy(() => import("../pages/settings/policy/deductionComponents"));
 const ExpenseCategory = lazy(() => import("../pages/settings/policy/expenseCategory"));
+const AttendanceOverview = lazy(() => import("../pages/attendance/attendanceOverview"));
+const AttendanceManagement = lazy(() => import("../pages/attendance/attendanceManagement"));
+const AttendanceProcessing = lazy(() => import("../pages/attendance/attendanceProcessing"));
+const AttendanceRecords = lazy(() => import("../pages/attendance/attendanceRecords"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -263,7 +266,10 @@ function AppRoutesContent() {
 
               <Route element={<ProtectedRoute allowedRoles={["HR", "ADMIN"]} />}>
                 <Route path="attendance/shifts" element={<ShiftSettings />} />
-                <Route path="attendance/list" element={<AttendanceList />} />
+                <Route path="attendance/overview" element={<AttendanceOverview />} />
+                <Route path="attendance/management" element={<AttendanceManagement />} />
+                <Route path="attendance/process" element={<AttendanceProcessing />} />
+                <Route path="attendance/records" element={<AttendanceRecords />} />
                 <Route path="attendance/reports" element={<AttendanceReports />} />
                 {/* </Route> */}
                 <Route path="payroll" element={<Payroll />} />

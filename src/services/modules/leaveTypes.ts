@@ -9,7 +9,9 @@ export type LeaveRequestStatus =
   | "WITHDRAWN"
   | "CANCEL_REQUESTED"
   | "CANCELLED"
+  | "CLARIFICATION_REQUESTED"
   | "CONVERTED_TO_LOP";
+
 
 export type LeaveDayType = "FULL_DAY" | "FIRST_HALF" | "SECOND_HALF";
 
@@ -63,7 +65,7 @@ export type LeaveRequest = {
   dates?: any[];
   approvals?: any[];
   approverRemarks?: string;
-  payrollTreatment?: string;
+  payrollTreatment: string;
   lop?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -178,6 +180,7 @@ export type HolidayCalendar = {
   active?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  holidaysCount?: number;
 };
 
 export type Holidays = {
@@ -239,8 +242,15 @@ export type PayrollLeaveInput = {
   month: string;
   lopDays: number;
   paidLeaveDays: number;
-  compOffDays: number;
   remarks: string;
+  payrollMonth: string;
+  status: string;
+  branchId: string;
+  departmentId: string;
+  locked: boolean;
+  lockedBy: string;
+  lockedAt: string;
+  totalLeaveDays: number;
 };
 
 export type CompOffCreditStatus =
@@ -342,13 +352,12 @@ export type HolidayImportResult = {
 
 export type PayrollLeaveSummary = {
   employeeId: string;
-  employeeCode: string;
-  employeeName: string;
-  month: string;
-  totalLopDays: number;
-  totalPaidLeaveDays: number;
-  totalCompOffDays: number;
-  totalEncashedDays: number;
+  periodFrom: string;
+  periodTo: string;
+  totalLeaveDays: number;
+  paidLeaveDays: number;
+  lopDays: number;
+  byLeaveType: string[];
 };
 
 export type LeaveAccrualRunRequest = {
@@ -403,6 +412,8 @@ export type LeaveListParams = {
   to?: string;
   daysAhead?: number;
   days?: number;
+  payrollMonth?: string;
+  branchId?: string;
 };
 
 export type PageResponse<T> = {
@@ -413,4 +424,197 @@ export type PageResponse<T> = {
   size: number;
 };
 
+export type HolidayImport = {
+  holidayCalendarId: string;
+  holidayName: string;
+  holidayDate: string;
+  holidayType: string;
+  optionalHoliday: boolean;
+  active: boolean;
+}
+
+export type CompOffBalance = {
+  employeeId: string;
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  approvedCreditDays: number;
+  pendingCreditDays: number;
+  approvedCount: number;
+  pendingCount: number;
+  currentLeaveBalance: number;
+}
+
 export type LeaveApiResponse<T> = ApiResponse<T>;
+export interface PayrollInput {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  payrollMonth: string;
+  branchId: string;
+  departmentId: string;
+  paidLeaveDays: number;
+  lopDays: number;
+  totalLeaveDays: number;
+  status: string;
+  locked: boolean;
+  lockedBy: string;
+  lockedAt: string;
+  generatedAt: string;
+}
+
+export interface LeaveEncashment {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  leaveYear: number;
+  days: number;
+  perDayRate: number;
+  amount: number;
+  payrollMonth: string;
+  status: string;
+  settlement: boolean;
+  notes: string;
+  createdAt: string;
+}
+
+export interface LeaveEncashmentPreview {
+  employeeId: string;
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  leaveYear: number;
+  encashable: boolean;
+  availableDays: number;
+  encashableDays: number;
+  perDayRate: number;
+  amount: number;
+}
+
+export interface FinalSettlementProcess {
+  employeeId: string;
+  employeeName: string;
+  processed: boolean;
+  perDayRate: number;
+  totalEncashDays: number;
+  totalEncashAmount: number;
+  totalLapseDays: number;
+  totalRecoverDays: number;
+  lines: FinalSettlementLine[];
+}
+
+export interface FinalSettlementLine {
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  leaveYear: number;
+  closingBalance: number;
+  encashable: boolean;
+  action: string;
+  days: number;
+  amount: number;
+}
+
+export interface PayrollInputFilter {
+  payrollMonth?: string;
+  branchId?: string;
+  departmentId?: string;
+  employeeId?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}
+
+export interface LeaveEncashmentFilter {
+  employeeId?: string;
+  payrollMonth?: string;
+  page?: number;
+  size?: number;
+  sort?: string[];
+}
+
+export interface LockUnlockPayload {
+  payrollMonth: string;
+  branchId?: string;
+  departmentId?: string;
+}
+
+export interface GeneratePayload {
+  payrollMonth: string;
+  branchId?: string;
+  departmentId?: string;
+}
+
+export interface LeaveEncashmentPayload {
+  employeeId: string;
+  leaveTypeId: string;
+  leaveYear: number;
+  days: number;
+  perDayRate: number;
+  payrollMonth: string;
+  notes: string;
+}
+
+export interface FinalSettlementPayload {
+  perDayRate: number;
+  payrollMonth: string;
+  lapseNonEncashable: boolean;
+  notes: string;
+}
+
+export interface TeamCalendarLeaveRequest {
+  id: string;
+  requestNumber: string;
+  employeeId: string;
+  employeeName: string;
+  leaveTypeId: string;
+  leaveTypeCode: string;
+  leaveTypeName: string;
+  originalLeaveTypeId: string;
+  fromDate: string;
+  toDate: string;
+  fromSession: string;
+  toSession: string;
+  totalDays: number;
+  appliedReason: string;
+  attachmentIds: string[];
+  emergencyContactNumber: string;
+  currentStatus: string;
+  currentApproverId: string;
+  currentApproverName: string;
+  payrollTreatment: string;
+  lop: boolean;
+  cancellationRequested: boolean;
+  submittedAt: string;
+  approvedAt: string;
+  hrVerified: boolean;
+  hrVerifiedBy: string;
+  hrVerifiedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  dates: TeamCalendarDate[];
+  approvals: TeamCalendarApproval[];
+}
+
+export interface TeamCalendarDate {
+  id: string;
+  leaveDate: string;
+  sessionType: string;
+  holiday: boolean;
+  weeklyOff: boolean;
+  calculatedLeaveDays: number;
+}
+
+export interface TeamCalendarApproval {
+  id: string;
+  approverEmployeeId: string;
+  approverName: string;
+  approvalLevel: number;
+  actionTaken: string;
+  actionComments: string;
+  actionAt: string;
+}

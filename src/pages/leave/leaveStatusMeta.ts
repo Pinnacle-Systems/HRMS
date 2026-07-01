@@ -24,6 +24,7 @@ export const leaveRequestStatusOptions: LeaveRequestStatus[] = [
   "CANCEL_REQUESTED",
   "CANCELLED",
   "CONVERTED_TO_LOP",
+  "CLARIFICATION_REQUESTED"
 ];
 
 export const leaveStatusMeta: Record<string, LeaveStatusMeta> = {
@@ -40,6 +41,7 @@ export const leaveStatusMeta: Record<string, LeaveStatusMeta> = {
   CANCEL_REQUESTED: { label: "Cancellation Requested", tone: "warning" },
   CANCELLED: { label: "Cancelled", tone: "neutral" },
   CONVERTED_TO_LOP: { label: "Converted to LOP", tone: "error" },
+  CLARIFICATION_REQUESTED: { label: "Clarification Request", tone: "warning" }
 };
 
 function formatUnknownStatus(status: string) {

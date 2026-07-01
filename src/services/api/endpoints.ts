@@ -117,8 +117,12 @@ export const API_ENDPOINTS = {
     GET_EMERGENCY: (id: string) => `/employees/${id}/emergency-contacts`,
     GET_ADDRESS: (id: string) => `/employees/${id}/addresses`,
     GET_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
+
     LEAVE_BALANCES: (id: string) => `/employees/${id}/leave-balances`,
     LEAVE_LEDGER: (id: string) => `/employees/${id}/leave-ledger`,
+    LEAVES: (id: string) => `/employees/${id}/leaves`,
+    COMP_OFF_BALANCE: (id: string) => `/employees/${id}/comp-off-balances`,
+    LEAVE_ADJUSTMENTS: (id: string) => `/employees/${id}/leave-adjustments`,
 
     PATCH_PF: (id: string) => `/employees/${id}/pf`,
     PATCH_PERSONAL: (id: string) => `/employees/${id}/personal`,
@@ -138,7 +142,6 @@ export const API_ENDPOINTS = {
     POST_EMERGENCY: (id: string) => `/employees/${id}/emergency-contacts`,
     POST_ADDRESS: (id: string) => `/employees/${id}/addresses`,
     POST_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
-    LEAVE_ADJUSTMENTS: (id: string) => `/employees/${id}/leave-adjustments`,
     BULK_UPLOAD: "/employees/bulk-upload",
     BULK_UPLOAD_TEMPLATE: "/employees/bulk-upload/template",
 
@@ -181,8 +184,8 @@ export const API_ENDPOINTS = {
 
   LEAVE: {
     BASE: "/leaves",
-    MY_APPROVALS: "/leaves/approvals/my",
-    BY_ID: (id: string) => `/leaves/${id}`,
+    // MY_APPROVALS: "/leaves/approvals/my",
+    PATCH_DRAFT: (id: string) => `/leaves/${id}`,
     GET_BY_ID: (id: string) => `/leaves/${id}`,
     CALCULATE: "/leaves/calculate",
     APPROVE: (id: string) => `/leaves/${id}/actions/approve`,
@@ -192,12 +195,34 @@ export const API_ENDPOINTS = {
     REVOKE: (id: string) => `/leaves/${id}/actions/revoke`,
     FORCE_APPROVE: (id: string) => `/leaves/${id}/actions/force-approve`,
     CONVERT_TO_LOP: (id: string) => `/leaves/${id}/actions/convert-to-lop`,
-    WITHDRAW: (id: string) => `/leaves/${id}/actions/revoke`,
-    CANCEL_REQUEST: (id: string) => `/leaves/${id}/actions/revoke`,
-    OVERRIDE: (id: string) => `/leaves/${id}/actions/force-approve`,
+    WITHDRAW: (id: string) => `/leaves/${id}/withdraw`,
+    // CANCEL_REQUEST: (id: string) => `/leaves/${id}/actions/revoke`,
+    CANCEL_REQUEST: (id: string) => `/leaves/${id}/cancel-request`,
+    OVERRIDE: (id: string) => `/leaves/${id}/override`,
     UPCOMING_LEAVES: "/leave/upcoming-leaves",
     PENDING_APPROVALS: "/leave/pending-approvals",
     DELETE: (id: string) => `/leaves/${id}`,
+
+    TEAM_CALENDAR: "/leaves/team-calendar",
+    HR_VERIFY: (id: string) => `/leaves/${id}/hr-verify`,
+    GET_MY: "/leaves/my",
+    GET_APPROVALS: "/leaves/approvals",
+    GET_APPROVALS_BYID: (id: string) => `/leaves/approvals/${id}`,
+
+    PAYROLL: {
+      LEAVE_INPUTS: "/payroll/leave-inputs",
+      LEAVE_SUMMARY: "/payroll/leave-summary",
+      GET_LEAVE_ENCASHMENT: "/payroll/leave-encashments",
+      LOCK: "/payroll/leave-inputs/lock",
+      UNLOCK: "/payroll/leave-inputs/unlock",
+      GENERATE: "/payroll/leave-inputs/generate",
+      POST_LV_ENCASHMENT: "/payroll/leave-encashments",
+      PREVIEW: "/payroll/leave-encashments/preview",
+      FS_LV_PROCESS: (empId: string) =>
+        `/payroll/final-settlements/${empId}/leave-process`,
+      FS_LV_PREVIEW: (empId: string) =>
+        `/payroll/final-settlements/${empId}/leave-preview`,
+    },
   },
 
   LEAVE_TYPE: {
@@ -257,11 +282,6 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (id: string) => `/comp-offs/${id}`,
     APPROVE: (id: string) => `/comp-offs/${id}/actions/approve`,
     REJECT: (id: string) => `/comp-offs/${id}/actions/reject`,
-  },
-
-  PAYROLL: {
-    LEAVE_INPUTS: "/payroll/leave-inputs",
-    LEAVE_SUMMARY: "/payroll/leave-summary",
   },
 
   LEAVE_ACCRUAL: {
@@ -610,39 +630,81 @@ export const API_ENDPOINTS = {
     REPORT_LEAVE_UTILIZATION: "/attendance/reports/leave-utilization",
     REPORT_EXPORT: (type: string, format: string) =>
       `/attendance/reports/${type}/export?format=${format}`,
+
+    PAYROLL_CONSOLIDATE: "/integration/payroll/consolidated",
+
+    SHIFT_SCHEDULE: (employeeId: string) =>
+      `/attendance/shift/schedule/${employeeId}`,
+    REMOTE_CHECKINS: "attendance/remote-checkins",
+    OT_CALCULATE: "/attendance/overtime/calculate",
+    OT_APPROVAL_REQ: "/attendance/overtime/approval/required",
+    LOP_CALCULATE: "/attendance/lop/calculate",
+    EXPORT_MONTHLY: "/attendance/export/monthly",
+    LEAVE_TODAY: "/attendance/employees/on-leave/today",
+    // DASHBOARD: "/attendance/dashboard/summary",
+    CALENDAR_HOLIDAYS: "/attendance/calendar/holidays",
+    REM_CHK_REJECT: (id: string) => `/attendance/remote-checkins/${id}/reject`,
+    REM_CHK_APPROVE: (id: string) =>
+      `/attendance/remote-checkins/${id}/approve`,
+    SEND_REMINDERS: "/attendance/reminders/send",
+    OT_APPROVE: (id: string) => `/attendance/overtime/${id}/approve`,
+    IMPORT: "/attendance/import",
+    IMPORT_FILE: "/attendance/import/file",
+    BULK_CHECKIN: "/attendance/bulk-checkin",
+
+    BIOMETRIC: {
+      GET_DEVICES: "/integration/biometric/devices",
+      GET_DEVICE_BYID: (id: string) => `/integration/biometric/devices/${id}`,
+      SYNC: "/integration/biometric/sync/status",
+      HEALTH: (id: string) => `/integration/biometric/devices/${id}/health`,
+      POST_WEBHOOK: "/integration/biometric/webhook",
+      POST_SYNC: "/integration/biometric/sync",
+      POST_MAP: "/integration/biometric/map",
+      POST_DEVICE: "/integration/biometric/devices",
+      UPDATE_DEVICE: (id: string) => `/integration/biometric/devices/${id}`,
+    },
+
+    DATA_INTEGRITY: {
+      CONFLICTS: "/integration/attendance/conflicts",
+      LOG_ERROR: "/integration/logs/error",
+      CONSOLIDATE: "/integration/attendance/consolidate",
+      CON_RESOLVE: (id: string) =>
+        `/integration/attendance/conflicts/${id}/resolve`,
+    },
   },
 
   DASHBOARD: {
-    PREFERENCES: (page:string) => `dashboard/${page}/preferences`,
-    PAGE: (page:string) => `dashboard/${page}`,
-    WIDGETS: (page:string) => `dashboard/${page}/widgets`,
-    CONTEXT: (page:string) => `dashboard/${page}/context`,
+    PREFERENCES: (page: string) => `dashboard/${page}/preferences`,
+    PAGE: (page: string) => `dashboard/${page}`,
+    WIDGETS: (page: string) => `dashboard/${page}/widgets`,
+    CONTEXT: (page: string) => `dashboard/${page}/context`,
     GET: "dashboard/pages",
-    POST_DRILLDOWN: (page:string,wid:string) => `dashboard/${page}/widgets/${wid}/drilldown`,
-    POST_PREFERENCE: (page:string) => `dashboard/${page}/preferences/reset`,
-    UPDATE_PREFERENCE: (page:string) => `dashboard/${page}/preferences`,
+    POST_DRILLDOWN: (page: string, wid: string) =>
+      `dashboard/${page}/widgets/${wid}/drilldown`,
+    POST_PREFERENCE: (page: string) => `dashboard/${page}/preferences/reset`,
+    UPDATE_PREFERENCE: (page: string) => `dashboard/${page}/preferences`,
 
     BI_ASYNC_EXP: {
-      GET_JOB: (jobref:string) => `/bi/exports/${jobref}`,
-      DOWNLOAD: (jobref:string) => `/bi/exports/${jobref}/download`,
-      POST: (id:string) => `/bi/datasets/${id}/exports`,
+      GET_JOB: (jobref: string) => `/bi/exports/${jobref}`,
+      DOWNLOAD: (jobref: string) => `/bi/exports/${jobref}/download`,
+      POST: (id: string) => `/bi/datasets/${id}/exports`,
     },
     REPORTS: {
-      DELETE: (id:string) => `/bi/reports/${id}`,
-      GET_BY_ID: (id:string) => `/bi/reports/${id}`,
+      DELETE: (id: string) => `/bi/reports/${id}`,
+      GET_BY_ID: (id: string) => `/bi/reports/${id}`,
       GET: "/bi/reports",
       CREATE: "/bi/reports",
-      RUN: (id:string) => `/bi/reports/${id}/run`,
-      EXPORTS: (id:string) => `/bi/reports/${id}/exports`,
-      UPDATE: (id:string) => `/bi/reports/${id}`,
+      RUN: (id: string) => `/bi/reports/${id}/run`,
+      EXPORTS: (id: string) => `/bi/reports/${id}/exports`,
+      UPDATE: (id: string) => `/bi/reports/${id}`,
     },
     BI_QUERY_ENGINE: {
-       GET: "/bi/datasets",
-       GET_BY_ID: (id:string) => `/bi/datasets/${id}/schema`,
-       GET_PRESETS: (id:string,pid:string) => `/bi/datasets/${id}/presets/${pid}`,
-       POST_QUERY: (id:string) => `/bi/datasets/${id}/query`,
-       QUERY_VALIDATE: (id:string) => `/bi/datasets/${id}/query/validate`,
+      GET: "/bi/datasets",
+      GET_BY_ID: (id: string) => `/bi/datasets/${id}/schema`,
+      GET_PRESETS: (id: string, pid: string) =>
+        `/bi/datasets/${id}/presets/${pid}`,
+      POST_QUERY: (id: string) => `/bi/datasets/${id}/query`,
+      QUERY_VALIDATE: (id: string) => `/bi/datasets/${id}/query/validate`,
     },
-
-  }
+  },
 };

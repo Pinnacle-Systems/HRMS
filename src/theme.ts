@@ -293,6 +293,9 @@ const theme = createTheme({
         input: {
           color: "var(--text-primary)",
         },
+        notchedOutline: {
+          maxWidth: 'none !important',
+        },
         root: {
           "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
             borderColor: "#02afff !important",
@@ -314,6 +317,9 @@ const theme = createTheme({
           // notchedOutline: {
           //   borderColor: "var(--border-color) !important",
           // },
+          '& legend': {
+            maxWidth: '0 !important',
+          },
         },
       },
     },
@@ -397,6 +403,14 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           width: "100%",
+        },
+      },
+    },
+
+    MuiTable: {
+      styleOverrides: {
+        root: {
+          // width: "max-content !important"
         },
       },
     },

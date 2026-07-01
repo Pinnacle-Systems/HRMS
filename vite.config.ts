@@ -1,8 +1,24 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config'  // Keep this for test config
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: [
+      '@mui/x-date-pickers',
+      '@mui/x-date-pickers/AdapterDayjs',
+      'dayjs',
+    ],
+  },
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 100,
+    },
+    hmr: {
+      overlay: true,
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

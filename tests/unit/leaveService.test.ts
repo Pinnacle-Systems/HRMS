@@ -59,7 +59,7 @@ describe("leaveService manager approvals", () => {
         size: 20,
         sort: "createdAt,DESC",
       },
-      "manager-from-session",
+      // "manager-from-session",
     );
 
     expect(apiGet).toHaveBeenCalledWith(

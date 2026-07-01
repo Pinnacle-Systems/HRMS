@@ -7,11 +7,11 @@ import {
   TextField,
 } from "@mui/material";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { LateArrivalRow } from "../../../services/modules/attendance";
+import type { LateArrivalRow } from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
-import { formatTime, formatMinutes } from "../attendanceDashboard/const";
+import { formatTime, formatMinutes } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import type { Department } from "../../employees/type";
 import dayjs from "dayjs";

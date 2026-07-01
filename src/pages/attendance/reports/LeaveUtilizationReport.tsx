@@ -6,11 +6,11 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from "@mui/material";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { LeaveUtilizationRow } from "../../../services/modules/attendance";
+import type { LeaveUtilizationRow } from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
-import { MONTHS, getCurrentMonthYear } from "../attendanceDashboard/const";
+import { MONTHS, getCurrentMonthYear } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import { leaveService } from "../../../services/modules/leave";
 import type { Department } from "../../employees/type";

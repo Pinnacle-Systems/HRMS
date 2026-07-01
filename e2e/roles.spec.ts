@@ -284,6 +284,19 @@ function hasPermissions(
   );
 }
 
+function getSettingsRedirectPath(roles: E2ERole[]) {
+  return roles.includes("ADMIN")
+    ? "/settings/general/company-settings"
+    : "/settings/general/audit-logs";
+}
+
+function getExpectedRouteContent(route: { path: string; content: string }, roles: E2ERole[]) {
+  if (route.path === "/settings") {
+    return roles.includes("ADMIN") ? "Company Settings" : "Audit Logs";
+  }
+  return route.content;
+}
+
 test.describe("role and permission access matrix", () => {
   for (const scenario of roleScenarios) {
     test(`${scenario.name} uses highest-priority dashboard and combined nav`, async ({
@@ -337,9 +350,17 @@ test.describe("role and permission access matrix", () => {
         await page.goto(route.path);
 
         if (isAllowed) {
-          await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+          const expectedPath =
+            route.path === "/settings"
+              ? getSettingsRedirectPath(scenario.roles)
+              : route.path;
+
+          await expect(page).toHaveURL(new RegExp(`${expectedPath}$`));
           await expect(
-            page.getByRole("main").getByText(route.content).first(),
+            page
+              .getByRole("main")
+              .getByText(getExpectedRouteContent(route, scenario.roles))
+              .first(),
           ).toBeVisible();
         } else {
           await expect(page).toHaveURL(/\/unauthorized$/);

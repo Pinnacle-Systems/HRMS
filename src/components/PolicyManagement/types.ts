@@ -118,6 +118,8 @@ export interface EmployeeSelectorProps {
   label?: string;
   placeholder?: string;
   pageSize?: number;
+  noLabel?: boolean
+  isManager?: boolean
 }
 
 export interface PolicyAssignmentGridProps {

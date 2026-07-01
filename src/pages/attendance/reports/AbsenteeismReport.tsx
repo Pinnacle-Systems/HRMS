@@ -8,11 +8,11 @@ import {
 } from "@mui/material";
 import { KeyboardArrowDownOutlined, KeyboardArrowRightOutlined } from "@mui/icons-material";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { AbsenteeismRow } from "../../../services/modules/attendance";
+import type { AbsenteeismRow } from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
-import { MONTHS, getCurrentMonthYear } from "../attendanceDashboard/const";
+import { MONTHS, getCurrentMonthYear } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import type { Department } from "../../employees/type";
 import dayjs from "dayjs";

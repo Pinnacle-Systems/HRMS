@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { DepartmentWiseRow } from "../../../services/modules/attendance";
+import type { DepartmentWiseRow } from "../../../services/modules/attendanceTypes";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import dayjs from "dayjs";

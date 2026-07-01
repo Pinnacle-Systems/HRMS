@@ -21,7 +21,7 @@ import {
   type LeaveTypeResponse,
   // type WorkCalendarResponse,
 } from "./leaveAdapters";
-import { mockPayrollLeaveInputs } from "./leaveMockData";
+// import { mockPayrollLeaveInputs } from "./leaveMockData";
 import type {
   // CompOffCredit,
   // CompOffCreditRequest,
@@ -46,6 +46,17 @@ import type {
   Holiday,
   HolidayCalendar,
   WorkCalendar,
+  HolidayImport,
+  CompOffBalance,
+  PayrollInput,
+  PayrollInputFilter,
+  LeaveEncashmentFilter,
+  LeaveEncashment,
+  GeneratePayload,
+  LockUnlockPayload,
+  FinalSettlementPayload,
+  LeaveEncashmentPayload,
+  PayrollLeaveInput,
 } from "./leaveTypes";
 
 export const USE_MOCK_LEAVE_SERVICE =
@@ -295,60 +306,60 @@ function mockResponse<T>(data: T, message = "Success"): LeaveApiResponse<T> {
   };
 }
 
-function normalizePage(params?: LeaveListParams) {
-  return {
-    page: params?.page ?? 0,
-    size: params?.size ?? 20,
-  };
-}
+// function normalizePage(params?: LeaveListParams) {
+//   return {
+//     page: params?.page ?? 0,
+//     size: params?.size ?? 20,
+//   };
+// }
 
-function applySearch<T>(items: T[], search?: string): T[] {
-  if (!search?.trim()) {
-    return items;
-  }
+// function applySearch<T>(items: T[], search?: string): T[] {
+//   if (!search?.trim()) {
+//     return items;
+//   }
 
-  const normalized = search.trim().toLowerCase();
-  return items.filter((item) =>
-    JSON.stringify(item).toLowerCase().includes(normalized),
-  );
-}
+//   const normalized = search.trim().toLowerCase();
+//   return items.filter((item) =>
+//     JSON.stringify(item).toLowerCase().includes(normalized),
+//   );
+// }
 
-function applySort<T>(items: T[], sort?: string): T[] {
-  if (!sort) {
-    return items;
-  }
+// function applySort<T>(items: T[], sort?: string): T[] {
+//   if (!sort) {
+//     return items;
+//   }
 
-  const [field, direction = "ASC"] = sort.split(",");
-  if (!field) {
-    return items;
-  }
+//   const [field, direction = "ASC"] = sort.split(",");
+//   if (!field) {
+//     return items;
+//   }
 
-  return [...items].sort((left, right) => {
-    const leftValue = String((left as Record<string, unknown>)[field] ?? "");
-    const rightValue = String((right as Record<string, unknown>)[field] ?? "");
-    const result = leftValue.localeCompare(rightValue, undefined, {
-      numeric: true,
-      sensitivity: "base",
-    });
-    return direction.toUpperCase() === "DESC" ? -result : result;
-  });
-}
+//   return [...items].sort((left, right) => {
+//     const leftValue = String((left as Record<string, unknown>)[field] ?? "");
+//     const rightValue = String((right as Record<string, unknown>)[field] ?? "");
+//     const result = leftValue.localeCompare(rightValue, undefined, {
+//       numeric: true,
+//       sensitivity: "base",
+//     });
+//     return direction.toUpperCase() === "DESC" ? -result : result;
+//   });
+// }
 
-function paginate<T>(items: T[], params?: LeaveListParams): PageResponse<T> {
-  const { page, size } = normalizePage(params);
-  const searched = applySearch(items, params?.search);
-  const sorted = applySort(searched, params?.sort);
-  const start = page * size;
-  const content = sorted.slice(start, start + size);
+// function paginate<T>(items: T[], params?: LeaveListParams): PageResponse<T> {
+//   const { page, size } = normalizePage(params);
+//   const searched = applySearch(items, params?.search);
+//   const sorted = applySort(searched, params?.sort);
+//   const start = page * size;
+//   const content = sorted.slice(start, start + size);
 
-  return {
-    content,
-    totalElements: sorted.length,
-    totalPages: Math.ceil(sorted.length / size),
-    page,
-    size,
-  };
-}
+//   return {
+//     content,
+//     totalElements: sorted.length,
+//     totalPages: Math.ceil(sorted.length / size),
+//     page,
+//     size,
+//   };
+// }
 
 function buildLeaveRequestApiParams(params?: LeaveListParams) {
   if (!params) {
@@ -358,9 +369,9 @@ function buildLeaveRequestApiParams(params?: LeaveListParams) {
   const { status, fromDate, toDate, ...rest } = params;
   return {
     ...rest,
-    currentStatus: status,
-    startDate: fromDate,
-    endDate: toDate,
+    status: status,
+    fromDate: fromDate,
+    toDate: toDate,
   };
 }
 
@@ -539,38 +550,68 @@ class LeaveService {
     // return mockResponse(paginate(requests, params), "Leave requests loaded");
   }
 
-  async getManagerLeaveApprovals(params?: LeaveListParams) {
-    if (!USE_MOCK_LEAVE_SERVICE) {
-      return this.getLeaves(params);
+  async getMyLeaves(params?: LeaveListParams) {
+    const response = await apiService.get<
+      ApiEnvelope<
+        SwaggerPageResponse<LeaveRequestResponse> | LeaveRequestResponse[]
+      >
+    >(API_ENDPOINTS.LEAVE.GET_MY, {
+      params: buildLeaveRequestApiParams(params),
+    });
+    const mappedResponse = apiMappedPageResponse(
+      response,
+      mapLeaveRequestResponseToViewModel,
+      "Leave requests loaded",
+    );
+    if (!mappedResponse.data) {
+      return mappedResponse;
     }
 
-    return this.getLeaves({
-      ...params,
-      managerId: params?.managerId ?? DEFAULT_MOCK_MANAGER_ID,
-    });
+    const content = filterLeaveRequests(mappedResponse.data.content, params);
+    return {
+      ...mappedResponse,
+      data: {
+        ...mappedResponse.data,
+        content,
+        totalElements: mappedResponse.data.totalElements,
+        totalPages: mappedResponse.data.page,
+      },
+    };
+  }
+
+  async getManagerLeaveApprovals(params?: LeaveListParams) {
+    // if (!USE_MOCK_LEAVE_SERVICE) {
+    return this.getLeaves(params);
+    // }
+
+    // return this.getLeaves({
+    // ...params,
+    // managerId: params?.managerId ?? DEFAULT_MOCK_MANAGER_ID,
+    // });
+    // return await apiService.get(API_ENDPOINTS.LEAVE.GET_APPROVALS, {params})
   }
 
   async getMyManagerLeaveApprovals(
     params?: LeaveListParams,
-    managerEmployeeId?: string,
+    // managerEmployeeId?: string,
   ) {
     // if (!USE_MOCK_LEAVE_SERVICE) {
-      if (managerEmployeeId) {
-        return this.getLeaves({ ...params, managerId: managerEmployeeId });
-      }
+    // if (managerEmployeeId) {
+    return this.getLeaves({ ...params });
+    // }
 
-      const response = await apiService.get<
-        ApiEnvelope<
-          SwaggerPageResponse<LeaveRequestResponse> | LeaveRequestResponse[]
-        >
-      >(API_ENDPOINTS.LEAVE.MY_APPROVALS, {
-        params: buildLeaveRequestApiParams(params),
-      });
-      return apiMappedPageResponse(
-        response,
-        mapLeaveRequestResponseToViewModel,
-        "Leave approvals loaded",
-      );
+    // const response = await apiService.get<
+    //   ApiEnvelope<
+    //     SwaggerPageResponse<LeaveRequestResponse> | LeaveRequestResponse[]
+    //   >
+    // >(API_ENDPOINTS.LEAVE.MY_APPROVALS, {
+    //   params: buildLeaveRequestApiParams(params),
+    // });
+    // return apiMappedPageResponse(
+    //   response,
+    //   mapLeaveRequestResponseToViewModel,
+    //   "Leave approvals loaded",
+    // );
     // }
 
     // const managerId = managerEmployeeId ?? params?.managerId;
@@ -767,12 +808,9 @@ class LeaveService {
     return apiService.post(API_ENDPOINTS.LEAVE.CALCULATE, payload);
   }
 
-  async getMyLeaves(params?: LeaveListParams) {
-    const employeeId =
-      params?.employeeId ??
-      (USE_MOCK_LEAVE_SERVICE ? MOCK_EMPLOYEE_ID : undefined);
-    return this.getLeaves({ ...params, employeeId });
-  }
+  // async getMyLeaves(params?: LeaveListParams) {
+  //   return this.getLeaves({ ...params });
+  // }
 
   async withdrawLeave(
     id: string,
@@ -961,7 +999,7 @@ class LeaveService {
 
   async getUpcomingLeaves(params?: LeaveListParams) {
     return await apiService.get(API_ENDPOINTS.LEAVE.UPCOMING_LEAVES, {
-          params
+      params,
     });
     // return apiOperationalListResponse(
     //   response,
@@ -971,7 +1009,9 @@ class LeaveService {
   }
 
   async getPendingApprovals(params?: LeaveListParams) {
-    return await apiService.get(API_ENDPOINTS.LEAVE.PENDING_APPROVALS, {params})
+    return await apiService.get(API_ENDPOINTS.LEAVE.PENDING_APPROVALS, {
+      params,
+    });
     // if (!USE_MOCK_LEAVE_SERVICE) {
     // const response = await apiService.get<
     //   ApiEnvelope<
@@ -1023,12 +1063,12 @@ class LeaveService {
     if (!USE_MOCK_LEAVE_SERVICE) {
       const response = await apiService.get<
         ApiEnvelope<SwaggerPageResponse<LeaveLedgerEntry>>
-      >(API_ENDPOINTS.EMPLOYEE.LEAVE_LEDGER(employeeId), { 
-         params: {
-        // ...params,
-        leaveYear: params?.leaveYear ?? new Date().getFullYear(),
-      },
-       });
+      >(API_ENDPOINTS.EMPLOYEE.LEAVE_LEDGER(employeeId), {
+        params: {
+          // ...params,
+          leaveYear: params?.leaveYear ?? new Date().getFullYear(),
+        },
+      });
       return apiPageResponse(response, "Leave ledger loaded");
     }
 
@@ -1038,16 +1078,44 @@ class LeaveService {
     // return mockResponse(paginate(ledger, params), "Leave ledger loaded");
   }
 
+  async getEmployeeLeaves(
+    employeeId: string,
+    params?: {
+      status?: string;
+      page?: number;
+      size?: number;
+      sort?: string[];
+    },
+  ) {
+    const response = await apiService.get<
+      ApiEnvelope<SwaggerPageResponse<LeaveRequest>>
+    >(API_ENDPOINTS.EMPLOYEE.LEAVES(employeeId), {
+      params: {
+        ...params,
+        page: params?.page ?? 0,
+        size: params?.size ?? 20,
+      },
+    });
+    return apiPageResponse(response, "Employee leaves loaded");
+  }
+
+  async getEmployeeCompOffBalances(employeeId: string) {
+    const response = await apiService.get<ApiEnvelope<CompOffBalance[]>>(
+      API_ENDPOINTS.EMPLOYEE.COMP_OFF_BALANCE(employeeId),
+    );
+    return apiResponse(response, "Comp-off balances loaded");
+  }
+
   async createLeaveAdjustment(
     employeeId: string,
     payload: LeaveAdjustmentPayload,
   ) {
     // if (!USE_MOCK_LEAVE_SERVICE) {
-      const response = (await apiService.post(
-        API_ENDPOINTS.EMPLOYEE.LEAVE_ADJUSTMENTS(employeeId),
-        payload,
-      )) as ApiEnvelope<LeaveLedgerEntry>;
-      return apiResponse(response, "Leave adjustment created");
+    const response = (await apiService.post(
+      API_ENDPOINTS.EMPLOYEE.LEAVE_ADJUSTMENTS(employeeId),
+      payload,
+    )) as ApiEnvelope<LeaveLedgerEntry>;
+    return apiResponse(response, "Leave adjustment created");
     // }
 
     // const entry: LeaveLedgerEntry = {
@@ -1618,7 +1686,7 @@ class LeaveService {
 
   async getUpcomingHolidays(params?: LeaveListParams) {
     return await apiService.get(API_ENDPOINTS.HOLIDAY.UPCOMING_HOLIDAYS, {
-      params
+      params,
     });
     // return apiOperationalListResponse(
     //   response,
@@ -1627,16 +1695,23 @@ class LeaveService {
     // );
   }
 
-  async importHolidays(file: File, calendarId: string) {
-    // if (!USE_MOCK_LEAVE_SERVICE) {
-    // NOTE: response shape inferred from endpoint name, verify against backend swagger
-    const response = (await apiService.upload(
+  async importHolidays(calendarId: string, payload: HolidayImport) {
+    // return await apiService.post(API_ENDPOINTS.HOLIDAY_IMPORT.BASE, {params},payload)
+    const response = (await apiService.post(
       API_ENDPOINTS.HOLIDAY_IMPORT.BASE,
-      file,
-      "file",
-      { calendarId },
+      payload,
+      { params: { calendarId } },
     )) as ApiEnvelope<HolidayImportResult>;
     return apiResponse(response, "Holidays imported");
+    // if (!USE_MOCK_LEAVE_SERVICE) {
+    // NOTE: response shape inferred from endpoint name, verify against backend swagger
+    // const response = (await apiService.upload(
+    //   API_ENDPOINTS.HOLIDAY_IMPORT.BASE,
+    //   file,
+    //   "file",
+    //   { calendarId },
+    // )) as ApiEnvelope<HolidayImportResult>;
+    // return apiResponse(response, "Holidays imported");
     // }
 
     // const result: HolidayImportResult = {
@@ -1666,12 +1741,12 @@ class LeaveService {
 
   async getCompOffCredits(params?: LeaveListParams) {
     // if (!USE_MOCK_LEAVE_SERVICE) {
-     return await apiService.get(API_ENDPOINTS.COMP_OFF.BASE, { params });
-      // return apiMappedPageResponse(
-      //   response,
-        // mapCompOffResponseToCreditViewModel,
-        // "Comp-off credits loaded",
-      // );
+    return await apiService.get(API_ENDPOINTS.COMP_OFF.BASE, { params });
+    // return apiMappedPageResponse(
+    //   response,
+    // mapCompOffResponseToCreditViewModel,
+    // "Comp-off credits loaded",
+    // );
     // }
 
     // const credits = mockCompOffCredits.filter(
@@ -1682,7 +1757,6 @@ class LeaveService {
     //   "Comp-off credits loaded",
     // );
   }
-  
 
   // async getCompOffCreditRequests(params?: LeaveListParams) {
   //   // if (!USE_MOCK_LEAVE_SERVICE) {
@@ -1706,7 +1780,7 @@ class LeaveService {
   // }
 
   async requestCompOffCredit(payload: CompOffCreditRequestPayload) {
-     return await apiService.post(API_ENDPOINTS.COMP_OFF.BASE, payload);
+    return await apiService.post(API_ENDPOINTS.COMP_OFF.BASE, payload);
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = (await apiService.post(API_ENDPOINTS.COMP_OFF.BASE, {
     //     workedDate: payload.workedDate,
@@ -1826,16 +1900,16 @@ class LeaveService {
     // );
   }
 
-  async getTeamCalendar(_params?: LeaveListParams) {
-    // if (!USE_MOCK_LEAVE_SERVICE) {
-    throw new Error("getTeamCalendar: real API not implemented");
-    // }
+  // async getTeamCalendar(_params?: LeaveListParams) {
+  //   // if (!USE_MOCK_LEAVE_SERVICE) {
+  //   throw new Error("getTeamCalendar: real API not implemented");
+  //   // }
 
-    // return mockResponse(
-    //   paginate(mockTeamCalendar, params),
-    //   "Team calendar loaded",
-    // );
-  }
+  //   // return mockResponse(
+  //   //   paginate(mockTeamCalendar, params),
+  //   //   "Team calendar loaded",
+  //   // );
+  // }
 
   async getWorkCalendars() {
     return await apiService.get(API_ENDPOINTS.WORK_CALENDAR.BASE);
@@ -1867,7 +1941,6 @@ class LeaveService {
     //     "Work calendar loaded",
     //   );
     // }
-
     // const calendar = mockWorkCalendars.find((item) => item.id === id);
     // return mockResponse(
     //   calendar ?? null,
@@ -1902,7 +1975,10 @@ class LeaveService {
   }
 
   async updateWorkCalendar(id: string, payload: Partial<WorkCalendar>) {
-     return await apiService.put(API_ENDPOINTS.WORK_CALENDAR.UPDATE(id), payload);
+    return await apiService.put(
+      API_ENDPOINTS.WORK_CALENDAR.UPDATE(id),
+      payload,
+    );
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = (await apiService.put(
     //     API_ENDPOINTS.WORK_CALENDAR.UPDATE(id),
@@ -1941,26 +2017,28 @@ class LeaveService {
 
   async getPayrollLeaveInputs(params?: LeaveListParams) {
     // if (!USE_MOCK_LEAVE_SERVICE) {
-    //   const response = await apiService.get<
-    //     ApiEnvelope<SwaggerPageResponse<PayrollLeaveInput>>
-    //   >(API_ENDPOINTS.PAYROLL.LEAVE_INPUTS, { params });
-    //   return apiPageResponse(response, "Payroll leave inputs loaded");
+    const response = await apiService.get<
+      ApiEnvelope<SwaggerPageResponse<PayrollLeaveInput>>
+    >(API_ENDPOINTS.LEAVE.PAYROLL.LEAVE_INPUTS, { params });
+    return apiPageResponse(response, "Payroll leave inputs loaded");
     // }
 
-    return mockResponse(
-      paginate(mockPayrollLeaveInputs, params),
-      "Payroll leave inputs loaded",
-    );
+    // return mockResponse(
+    //   paginate(mockPayrollLeaveInputs, params),
+    //   "Payroll leave inputs loaded",
+    // );
   }
 
   async getPayrollLeaveSummary(params?: LeaveListParams) {
-    return await apiService.get(API_ENDPOINTS.PAYROLL.LEAVE_SUMMARY, { params });
+    return await apiService.get(API_ENDPOINTS.LEAVE.PAYROLL.LEAVE_SUMMARY, {
+      params,
+    });
     // if (!USE_MOCK_LEAVE_SERVICE) {
-      // NOTE: response shape inferred from PayrollLeaveInput, verify against backend swagger
-      // const response = await apiService.get<
-      //   ApiEnvelope<SwaggerPageResponse<PayrollLeaveSummary>>
-      // >(API_ENDPOINTS.PAYROLL.LEAVE_SUMMARY, { params });
-      // return apiPageResponse(response, "Payroll leave summary loaded");
+    // NOTE: response shape inferred from PayrollLeaveInput, verify against backend swagger
+    // const response = await apiService.get<
+    //   ApiEnvelope<SwaggerPageResponse<PayrollLeaveSummary>>
+    // >(API_ENDPOINTS.PAYROLL.LEAVE_SUMMARY, { params });
+    // return apiPageResponse(response, "Payroll leave summary loaded");
     // }
 
     // const byEmployeeMonth = new Map<string, PayrollLeaveSummary>();
@@ -1991,11 +2069,8 @@ class LeaveService {
     // );
   }
 
-  async runLeaveAccrual(
-    params: LeaveAccrualRunRequest
-  ){
-
-    return await apiService.post(API_ENDPOINTS.LEAVE_ACCRUAL.RUN,params)
+  async runLeaveAccrual(params: LeaveAccrualRunRequest) {
+    return await apiService.post(API_ENDPOINTS.LEAVE_ACCRUAL.RUN, params);
     // if (!USE_MOCK_LEAVE_SERVICE) {
     // NOTE: response shape inferred from endpoint name, verify against backend swagger
     // const response = (await apiService.post(
@@ -2041,7 +2116,10 @@ class LeaveService {
   }
 
   async getUpcomingWorkAnniversaries(params?: LeaveListParams) {
-    return await apiService.get(API_ENDPOINTS.EMP_OPERATIONAL_LIST.ANNIVERSARIES, { params })
+    return await apiService.get(
+      API_ENDPOINTS.EMP_OPERATIONAL_LIST.ANNIVERSARIES,
+      { params },
+    );
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = await apiService.get<
     //     ApiEnvelope<
@@ -2059,7 +2137,9 @@ class LeaveService {
   }
 
   async getUpcomingBirthdays(params?: LeaveListParams) {
-        return await apiService.get(API_ENDPOINTS.EMP_OPERATIONAL_LIST.BIRTHDAYS, { params })
+    return await apiService.get(API_ENDPOINTS.EMP_OPERATIONAL_LIST.BIRTHDAYS, {
+      params,
+    });
 
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = await apiService.get<
@@ -2078,7 +2158,10 @@ class LeaveService {
   }
 
   async getRecentResignations(params?: LeaveListParams) {
-        return await apiService.get(API_ENDPOINTS.EMP_OPERATIONAL_LIST.RESIGNATIONS, { params })
+    return await apiService.get(
+      API_ENDPOINTS.EMP_OPERATIONAL_LIST.RESIGNATIONS,
+      { params },
+    );
 
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = await apiService.get<
@@ -2097,7 +2180,9 @@ class LeaveService {
   }
 
   async getRecentJoiners(params?: LeaveListParams) {
-        return await apiService.get(API_ENDPOINTS.EMP_OPERATIONAL_LIST.JOINERS, { params })
+    return await apiService.get(API_ENDPOINTS.EMP_OPERATIONAL_LIST.JOINERS, {
+      params,
+    });
 
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = await apiService.get<
@@ -2113,6 +2198,96 @@ class LeaveService {
     //   paginate(mockRecentJoiners, params),
     //   "Recent joiners loaded",
     // );
+  }
+
+  async getLeaveInputs(params?: PayrollInputFilter) {
+    const response = await apiService.get<
+      ApiEnvelope<SwaggerPageResponse<PayrollInput>>
+    >(API_ENDPOINTS.LEAVE.PAYROLL.LEAVE_INPUTS, {
+      params: {
+        ...params,
+        page: params?.page ?? 0,
+        size: params?.size ?? 20,
+      },
+    });
+    return response;
+  }
+
+  async getLeaveEncashments(params?: LeaveEncashmentFilter) {
+    const response = await apiService.get<
+      ApiEnvelope<SwaggerPageResponse<LeaveEncashment>>
+    >(API_ENDPOINTS.LEAVE.PAYROLL.GET_LEAVE_ENCASHMENT, {
+      params: {
+        ...params,
+        page: params?.page ?? 0,
+        size: params?.size ?? 20,
+      },
+    });
+    return response;
+  }
+
+  async generateLeaveInputs(payload: GeneratePayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.GENERATE,
+      payload,
+    );
+    return response;
+  }
+
+  async lockLeaveInputs(payload: LockUnlockPayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.LOCK,
+      payload,
+    );
+    return response;
+  }
+
+  async unlockLeaveInputs(payload: LockUnlockPayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.UNLOCK,
+      payload,
+    );
+    return response;
+  }
+
+  async createLeaveEncashment(payload: LeaveEncashmentPayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.POST_LV_ENCASHMENT,
+      payload,
+    );
+    return response;
+  }
+
+  async previewLeaveEncashment(payload: LeaveEncashmentPayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.PREVIEW,
+      payload,
+    );
+    return response;
+  }
+
+  async processFinalSettlement(empId: string, payload: FinalSettlementPayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.FS_LV_PROCESS(empId),
+      payload,
+    );
+    return response;
+  }
+
+  async previewFinalSettlement(empId: string, payload: FinalSettlementPayload) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.PAYROLL.FS_LV_PREVIEW(empId),
+      payload,
+    );
+    return response;
+  }
+
+  async getTeamCalendar(params: {
+    fromDate: string;
+    toDate: string;
+    departmentId?: string;
+  }) {
+    return apiService.get(API_ENDPOINTS.LEAVE.TEAM_CALENDAR, { params });
   }
 }
 
