@@ -114,7 +114,7 @@ export const DeviceManagement: React.FC = () => {
   const syncFrequencies = [1, 5, 10, 15, 30, 60];
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [_selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedMenuDevice, setSelectedMenuDevice] = useState<BiometricDevice | null>(null);
 
 

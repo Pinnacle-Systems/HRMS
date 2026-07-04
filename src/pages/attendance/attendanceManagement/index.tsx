@@ -1,14 +1,9 @@
 import { useState } from "react";
 import { Box } from "@mui/material";
 import {
-  DashboardOutlined, FormatListBulletedOutlined, TableChartOutlined,
-  PlayCircleOutlined, LockOutlined, EditNoteOutlined,
-  HowToRegOutlined, PersonSearchOutlined,
-  SummarizeOutlined,
+  EditNoteOutlined,
   LocationOnOutlined,
   AccessTimeOutlined,
-  BeachAccessOutlined,
-  EventNoteOutlined,
   MoneyOffCsredOutlined,
   FingerprintOutlined,
   OfflinePinOutlined,

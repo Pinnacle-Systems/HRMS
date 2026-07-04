@@ -57,8 +57,7 @@ export function AttendanceConsolidated() {
   const [includeLop, setIncludeLop] = useState(true);
 
   const [lopDialogOpen, setLopDialogOpen] = useState(false);
-  const [lopCalculations, setLopCalculations] = useState<any[]>([]);
-  const [loadingLop, setLoadingLop] = useState(false);
+  const [lopCalculations, _setLopCalculations] = useState<any[]>([]);
   // const [lopParams, setLopParams] = useState<LopCalculateParams>({
   //   startDate: dayjs().startOf("month").format("YYYY-MM-DD"),
   //   endDate: dayjs().format("YYYY-MM-DD"),
@@ -703,9 +702,7 @@ export function AttendanceConsolidated() {
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
-          {loadingLop ? (
-            <div className="text-center py-8">Calculating...</div>
-          ) : lopCalculations.length === 0 ? (
+          {lopCalculations.length === 0 ? (
             <div className="text-center py-8 text-gray-400">No LOP data found</div>
           ) : (
             <TableContainer>

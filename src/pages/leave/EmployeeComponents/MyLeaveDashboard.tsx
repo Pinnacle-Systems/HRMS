@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -34,7 +34,6 @@ import {
   leaveTableHeaderRowSx,
   leaveTableSx,
 } from "../components/leaveTableStyles";
-import { isUpcomingApprovedLeave } from "../leaveRules";
 import { formatDate } from "../leaveFormatters";
 import { getRowColor } from "../../const";
 
@@ -141,14 +140,14 @@ export default function MyLeaveDashboard() {
   //   [balances],
   // );
 
-  const upcomingLeaves = useMemo(() => {
-    return requests
-      .filter((request) => isUpcomingApprovedLeave(request))
-      .sort(
-        (left, right) =>
-          new Date(left.fromDate).getTime() - new Date(right.fromDate).getTime(),
-      );
-  }, [requests]);
+  // const upcomingLeaves = useMemo(() => {
+  //   return requests
+  //     .filter((request) => isUpcomingApprovedLeave(request))
+  //     .sort(
+  //       (left, right) =>
+  //         new Date(left.fromDate).getTime() - new Date(right.fromDate).getTime(),
+  //     );
+  // }, [requests]);
 
   const totalAvailable = balances.reduce(
     (sum, item) => sum + item.closingBalance,

@@ -63,11 +63,11 @@ export default function UpcomingEventsCard({
   );
 
   // Use real leaves if available, otherwise use mock leaves
-  const leaves = useMemo(() => {
-    if (realLeaves.length > 0) {
-      return realLeaves;
-    }
-  }, [realLeaves]);
+  // const leaves = useMemo(() => {
+  //   if (realLeaves.length > 0) {
+  //     return realLeaves;
+  //   }
+  // }, [realLeaves]);
 
   // Combine leaves and holidays for display
   const allEvents = useMemo(() => {

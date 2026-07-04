@@ -1,4 +1,3 @@
-// src/features/attendance/pages/LopManagement/LopManagement.tsx
 import { useState } from "react";
 import {
   Button,
@@ -13,7 +12,6 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Tooltip,
   Chip,
   Card,
   CardContent,
@@ -22,12 +20,7 @@ import {
   LinearProgress,
 } from "@mui/material";
 import {
-  TrendingDownOutlined,
   CloseOutlined,
-  FileDownloadOutlined,
-  CalendarTodayOutlined,
-  PersonOutlined,
-  BusinessOutlined,
   EventBusyOutlined,
   MoneyOffCsredOutlined,
   MoneyOff,

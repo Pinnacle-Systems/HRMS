@@ -114,8 +114,12 @@ describe("leaveService real-API guards", () => {
 
   it("getTeamCalendar throws when USE_MOCK_LEAVE_SERVICE is false", async () => {
     const { leaveService } = await importLeaveService(false);
-    await expect(leaveService.getTeamCalendar()).rejects.toThrow(
-      "getTeamCalendar: real API not implemented",
-    );
+    await expect(
+      leaveService.getTeamCalendar({
+        fromDate: "",
+        toDate: "",
+        departmentId: "",
+      }),
+    ).rejects.toThrow("getTeamCalendar: real API not implemented");
   });
 });

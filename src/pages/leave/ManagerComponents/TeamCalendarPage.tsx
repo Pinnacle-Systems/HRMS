@@ -40,7 +40,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
 import type { TeamCalendarLeaveRequest } from "../../../services/modules/leaveTypes";
 import { leaveService } from "../../../services";
-import { GlobalPagination } from "../../../components/GlobalPagination";
 
 export default function TeamCalendarPage() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();

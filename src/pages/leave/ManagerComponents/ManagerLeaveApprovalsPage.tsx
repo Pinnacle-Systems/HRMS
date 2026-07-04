@@ -55,8 +55,6 @@ import {
 } from "../leaveStatusMeta";
 import { getTeamOverlap } from "../leaveRules";
 import dayjs from "dayjs";
-import { departmentService } from "../../../services/modules/department";
-import type { Department } from "../../employees/type";
 import { getRowColor } from "../../const";
 import {
   AttachFileOutlined,
@@ -105,7 +103,7 @@ export default function ManagerLeaveApprovalsPage() {
   const [actionComments, setActionComments] = useState("");
   const [actionError, setActionError] = useState("");
   const currentManagerEmployeeId = resolveEmployeeIdFromSession(session);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  // const [departments, setDepartments] = useState<Department[]>([]);
   const [actionAnchorEl, setActionAnchorEl] = useState<HTMLElement | null>(
     null,
   );
@@ -113,20 +111,20 @@ export default function ManagerLeaveApprovalsPage() {
   const isAdmin = session?.user.roles.includes("ADMIN");
   const [manager, setManager] = useState<any>(null);
 
-  const getDepartments = async () => {
-    try {
-      const response: any = await departmentService.getActiveDepartments();
-      setDepartments(response.data.content || response.data || []);
-    } catch (error: any) {
-      console.error("Failed to load departments:", error.message);
-    }
-  };
+  // const getDepartments = async () => {
+  //   try {
+  //     const response: any = await departmentService.getActiveDepartments();
+  //     setDepartments(response.data.content || response.data || []);
+  //   } catch (error: any) {
+  //     console.error("Failed to load departments:", error.message);
+  //   }
+  // };
 
-  useEffect(() => {
-    if (isAdmin) {
-      getDepartments();
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (isAdmin) {
+  //     getDepartments();
+  //   }
+  // }, []);
 
   const loadRequests = async () => {
     setLoading(true);

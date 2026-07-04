@@ -61,7 +61,6 @@ import type {
 
 export const USE_MOCK_LEAVE_SERVICE =
   import.meta.env.VITE_USE_MOCK_LEAVE_SERVICE === "true";
-const MOCK_EMPLOYEE_ID = "emp-100";
 export const DEFAULT_MOCK_MANAGER_ID = "emp-200";
 
 type CreateLeaveRequestPayload = Partial<LeaveRequest>;

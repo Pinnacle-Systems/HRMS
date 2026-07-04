@@ -23,10 +23,26 @@ test.describe("mocked admin flow", () => {
     await expect(page.getByText("Employee Management").first()).toBeVisible();
     await page.getByText("Employee Management").first().hover(); // Dismiss tooltips
 
+    // Leave - Role-based navigation
+    const roles = await page.evaluate(() => {
+      const session = localStorage.getItem("hrms.auth.session");
+      return session ? JSON.parse(session).user?.roles : [];
+    });
+
     await page.getByText("Leave").click();
-    await expect(page).toHaveURL(/\/leaves\/my-dashboard$/);
-    await expect(page.getByText("My Leave").first()).toBeVisible();
-    await page.getByText("My Leave").first().hover(); // Dismiss tooltips
+
+    if (roles?.includes("ADMIN")) {
+      await page.getByText("Manager Approvals").click();
+      await expect(page).toHaveURL(/\/leaves\/approvals$/);
+      await expect(page.getByText("Leave Approval Inbox").first()).toBeVisible();
+    } else {
+      await page.getByText("My Dashboard").click();
+      await expect(page).toHaveURL(/\/leaves\/my-dashboard$/);
+      await expect(page.getByText("My Leave").first()).toBeVisible();
+    }
+    // await expect(page).toHaveURL(/\/leaves\/my-dashboard$/);
+    // await expect(page.getByText("My Leave").first()).toBeVisible();
+    // await page.getByText("My Leave").first().hover(); // Dismiss tooltips
 
     await page.getByText("Payroll", { exact: true }).click();
     await expect(page).toHaveURL(/\/payroll$/);

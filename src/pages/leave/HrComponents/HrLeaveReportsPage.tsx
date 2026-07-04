@@ -2518,18 +2518,18 @@ export default function HrLeaveReportsPage() {
   // const uniqueEmployeesCount = groupedBalanceData.length;
 
   // Chart data - Top employees by total balance
-  const balanceChartData = groupedBalanceData
-    .sort((a, b) => b.totalBalance - a.totalBalance)
-    .slice(0, 10)
-    .map((item) => ({
-      name:
-        item.employeeName.length > 12
-          ? item.employeeName.substring(0, 12) + "..."
-          : item.employeeName,
-      balance: item.totalBalance,
-      fullName: item.employeeName,
-      employeeCode: item.employeeCode,
-    }));
+  // const balanceChartData = groupedBalanceData
+  //   .sort((a, b) => b.totalBalance - a.totalBalance)
+  //   .slice(0, 10)
+  //   .map((item) => ({
+  //     name:
+  //       item.employeeName.length > 12
+  //         ? item.employeeName.substring(0, 12) + "..."
+  //         : item.employeeName,
+  //     balance: item.totalBalance,
+  //     fullName: item.employeeName,
+  //     employeeCode: item.employeeCode,
+  //   }));
 
   // Compute monthly trend data from live leave requests
   const monthlyTrendData = useMemo(() => {
@@ -4149,43 +4149,43 @@ export default function HrLeaveReportsPage() {
   };
 
   // First, create a more detailed balance chart data with leave types
-  const balanceChartDataWithTypes = useMemo(() => {
-    // Get top employees by total balance
-    const topEmployees = groupedBalanceData
-      .sort((a, b) => b.totalBalance - a.totalBalance)
-      .slice(0, 10);
+  // const balanceChartDataWithTypes = useMemo(() => {
+  //   // Get top employees by total balance
+  //   const topEmployees = groupedBalanceData
+  //     .sort((a, b) => b.totalBalance - a.totalBalance)
+  //     .slice(0, 10);
 
-    // Transform data for stacked bar chart
-    return topEmployees.map((employee) => {
-      const dataPoint: any = {
-        name:
-          employee.employeeName.length > 12
-            ? employee.employeeName.substring(0, 12) + "..."
-            : employee.employeeName,
-        fullName: employee.employeeName,
-        employeeCode: employee.employeeCode,
-        totalBalance: employee.totalBalance,
-      };
+  //   // Transform data for stacked bar chart
+  //   return topEmployees.map((employee) => {
+  //     const dataPoint: any = {
+  //       name:
+  //         employee.employeeName.length > 12
+  //           ? employee.employeeName.substring(0, 12) + "..."
+  //           : employee.employeeName,
+  //       fullName: employee.employeeName,
+  //       employeeCode: employee.employeeCode,
+  //       totalBalance: employee.totalBalance,
+  //     };
 
-      // Add each leave type as a separate data point
-      employee.leaveTypes.forEach((type: any) => {
-        dataPoint[type.typeCode] = type.balance;
-      });
+  //     // Add each leave type as a separate data point
+  //     employee.leaveTypes.forEach((type: any) => {
+  //       dataPoint[type.typeCode] = type.balance;
+  //     });
 
-      return dataPoint;
-    });
-  }, [groupedBalanceData]);
+  //     return dataPoint;
+  //   });
+  // }, [groupedBalanceData]);
 
   // Get unique leave type codes for the legend
-  const leaveTypeCodes = useMemo(() => {
-    const codes = new Set();
-    groupedBalanceData.forEach((employee: any) => {
-      employee.leaveTypes.forEach((type: any) => {
-        codes.add(type.typeCode);
-      });
-    });
-    return Array.from(codes);
-  }, [groupedBalanceData]);
+  // const leaveTypeCodes = useMemo(() => {
+  //   const codes = new Set();
+  //   groupedBalanceData.forEach((employee: any) => {
+  //     employee.leaveTypes.forEach((type: any) => {
+  //       codes.add(type.typeCode);
+  //     });
+  //   });
+  //   return Array.from(codes);
+  // }, [groupedBalanceData]);
 
   // Generate colors for each leave type
   const leaveTypeColors: { [key: string]: string } = {

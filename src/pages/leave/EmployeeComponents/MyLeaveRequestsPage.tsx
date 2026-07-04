@@ -511,7 +511,7 @@ export default function MyLeaveRequestsPage() {
     }
   };
 
-  const handleSave = async (req: LeaveRequest) => {
+  const handleSave = async (_req: LeaveRequest) => {
     // if (!validate(mode)) {
     //   showSnackbar("Please fix validation errors before saving", "error");
     //   return;
@@ -528,18 +528,18 @@ export default function MyLeaveRequestsPage() {
       // } else if (uploadedAttachmentIds.length > 0) {
       //   attachmentIds = uploadedAttachmentIds;
       // }
-      const payload = {
-        employeeId: currentEmployeeId,
-        leaveTypeId: req.leaveTypeId || leaveTypeId,
-        fromDate: req.fromDate,
-        toDate: req.toDate,
-        fromSession: req.fromSession,
-        toSession: req.toSession,
-        appliedReason: req.appliedReason,
-        draft: false,
-        // attachmentIds: attachmentIds,
-        // approverId: approverId || undefined,
-      };
+      // const payload = {
+      //   employeeId: currentEmployeeId,
+      //   leaveTypeId: req.leaveTypeId || leaveTypeId,
+      //   fromDate: req.fromDate,
+      //   toDate: req.toDate,
+      //   fromSession: req.fromSession,
+      //   toSession: req.toSession,
+      //   appliedReason: req.appliedReason,
+      //   draft: false,
+      //   // attachmentIds: attachmentIds,
+      //   // approverId: approverId || undefined,
+      // };
       // const response = await leaveService.createLeaveRequest(payload);
       // if (response.success) {
       //   showSnackbar("Leave request submitted successfully", "success");

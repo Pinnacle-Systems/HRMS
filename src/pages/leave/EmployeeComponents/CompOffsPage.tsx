@@ -13,11 +13,7 @@ import {
   TableHead,
   TableRow,
   TextField,
-  FormControl,
-  InputLabel,
   Select,
-  Chip,
-  Tooltip,
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
@@ -257,17 +253,17 @@ export default function CompOffsPage() {
   };
 
   // Get status color for chips
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, any> = {
-      AVAILABLE: "success",
-      PENDING: "warning",
-      APPROVED: "info",
-      REJECTED: "error",
-      EXPIRED: "default",
-      USED: "secondary",
-    };
-    return colors[status] || "default";
-  };
+  // const getStatusColor = (status: string) => {
+  //   const colors: Record<string, any> = {
+  //     AVAILABLE: "success",
+  //     PENDING: "warning",
+  //     APPROVED: "info",
+  //     REJECTED: "error",
+  //     EXPIRED: "default",
+  //     USED: "secondary",
+  //   };
+  //   return colors[status] || "default";
+  // };
 
   return (
     <LeavePageShell

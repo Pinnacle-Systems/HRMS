@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, type JSX } from "react";
+import { useMemo, useState, useRef, type JSX } from "react";
 import dayjs, { Dayjs } from "dayjs";
 import { Tooltip } from "@mui/material";
 import type { LeaveDayType } from "../../../services/modules/leaveTypes";
@@ -46,7 +46,7 @@ export function CalendarView({
   maxDate = dayjs().add(365, 'day'),
   excludedDates = [],
   disabledDates = [],
-  leaveTypeId,
+  // leaveTypeId,
   onCalculate,
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(dayjs());
@@ -236,7 +236,7 @@ export function CalendarView({
   };
 
   // Handle click for session selection or single date
-  const handleDateClick = (date: Dayjs, e: React.MouseEvent) => {
+  const handleDateClick = (date: Dayjs, _e: React.MouseEvent) => {
     if (isDragging) return;
     if (date.isBefore(minDate, 'day') || date.isAfter(maxDate, 'day')) return;
     if (excludedDates.includes(date.format('YYYY-MM-DD'))) return;

@@ -4,14 +4,11 @@ import {
     DashboardOutlined,
     BeachAccessOutlined,
     EventNoteOutlined,
-    FingerprintOutlined,
 } from "@mui/icons-material";
 import type { TabPanelProps } from "../types";
 import { HolidayCalendar } from "./HolidayCalendar";
 import { LeaveToday } from "./LeaveToday";
 import { AttendanceSummary } from "./AttendanceSummary";
-import { DeviceManagement } from "../attendanceManagement/BiometricDevice";
-
 
 function TabPanel({ children, value, index }: TabPanelProps) {
     return (
