@@ -6,7 +6,7 @@ import {
   FormControl, InputLabel, Select, MenuItem,
 } from "@mui/material";
 import {
-  AccessTimeOutlined, CalculateOutlined, CloseOutlined,
+  CalculateOutlined, CloseOutlined,
   FilterListOutlined, RefreshOutlined,
   VisibilityOutlined,
 } from "@mui/icons-material";
@@ -18,9 +18,9 @@ import { departmentService } from "../../../services/modules/department";
 import type { Department } from "../../employees/type";
 import dayjs from "dayjs";
 import { getRowColor } from "../../const";
-import type { OvertimeCalculateParams } from "../../../services/modules/attendanceTypes";
 import { useOvertimeCalculator } from "../../../hooks/useOTCalculator";
 import { OvertimeCalculatorDialog } from "./OvertimeCalculatorDialog";
+import { useAuth } from "../../../auth/authContext";
 
 interface OvertimeRecord {
   // recordId: string;
@@ -39,83 +39,6 @@ interface OvertimeRecord {
   otApprovalStatus: string;
   otApprovedBy?: string;
   otRemarks: string;
-}
-
-const mockOvertimeData = {
-  "success": true,
-  "message": "Overtime records fetched successfully",
-  "data": {
-    "dateRangeStart": "2026-06-01",
-    "total": 5,
-    "items": [
-      {
-        "recordId": "ot-001",
-        "employeeId": "emp-1001",
-        "employeeName": "Rajesh Kumar",
-        "employeeCode": "EMP001",
-        "department": "Engineering",
-        "attendanceDate": "2026-06-01",
-        "overtimeMinutes": 120,
-        "overtimeHours": 2,
-        "otApprovalStatus": "approved",
-        "otApprovedBy": "HOD-01",
-        "otRemarks": "Project deadline completion"
-      },
-      {
-        "recordId": "ot-002",
-        "employeeId": "emp-1001",
-        "employeeName": "Rajesh Kumar",
-        "employeeCode": "EMP001",
-        "department": "Engineering",
-        "attendanceDate": "2026-06-02",
-        "overtimeMinutes": 90,
-        "overtimeHours": 1.5,
-        "otApprovalStatus": "pending",
-        "otApprovedBy": null,
-        "otRemarks": "Client demo preparation"
-      },
-      {
-        "recordId": "ot-003",
-        "employeeId": "emp-1001",
-        "employeeName": "Rajesh Kumar",
-        "employeeCode": "EMP001",
-        "department": "Engineering",
-        "attendanceDate": "2026-06-05",
-        "overtimeMinutes": 180,
-        "overtimeHours": 3,
-        "otApprovalStatus": "pending",
-        "otApprovedBy": null,
-        "otRemarks": "Production deployment support"
-      },
-      {
-        "recordId": "ot-004",
-        "employeeId": "emp-1001",
-        "employeeName": "Rajesh Kumar",
-        "employeeCode": "EMP001",
-        "department": "Engineering",
-        "attendanceDate": "2026-06-08",
-        "overtimeMinutes": 60,
-        "overtimeHours": 1,
-        "otApprovalStatus": "rejected",
-        "otApprovedBy": "HOD-01",
-        "otRemarks": "Not approved due to policy violation"
-      },
-      {
-        "recordId": "ot-005",
-        "employeeId": "emp-1001",
-        "employeeName": "Rajesh Kumar",
-        "employeeCode": "EMP001",
-        "department": "Engineering",
-        "attendanceDate": "2026-06-10",
-        "overtimeMinutes": 150,
-        "overtimeHours": 2.5,
-        "otApprovalStatus": "approved",
-        "otApprovedBy": "HOD-01",
-        "otRemarks": "Critical bug fix"
-      }
-    ]
-  },
-  "timestamp": "2026-06-29T05:56:29.785Z"
 }
 
 export function OvertimeManagement() {
@@ -141,6 +64,7 @@ export function OvertimeManagement() {
   const [selectedRecord, setSelectedRecord] = useState<OvertimeRecord | null>(null);
   const [approveRemarks, setApproveRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { session } = useAuth();
 
   const {
     loading: calculating,
@@ -162,9 +86,8 @@ export function OvertimeManagement() {
         departmentId: departmentId || undefined,
         dateRangeStart: dayjs().startOf("month").format("YYYY-MM-DD"),
       });
-      const data = res?.data?.data ?? res?.data;
-      // setRecords(Array.isArray(data) ? data : data?.content ?? []);
-      setRecords(mockOvertimeData.data.items as OvertimeRecord[] || [])
+      const data = res?.data?.items ?? res?.data;
+      setRecords(Array.isArray(data) ? data : data?.content ?? []);
       setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
     } catch {
       showSnackbar("Failed to load overtime records", "error");
@@ -193,9 +116,9 @@ export function OvertimeManagement() {
     setSubmitting(true);
     try {
       await attendanceService.approveOvertime(selectedRecord.recordId, {
-        status: "approved",
+        status: "APPROVED",
         remarks: approveRemarks,
-        approvedBy: "",
+        approvedBy: session?.user.userId,
       });
       showSnackbar("Overtime approved", "success");
       setDetailOpen(false);
@@ -216,9 +139,9 @@ export function OvertimeManagement() {
     setSubmitting(true);
     try {
       await attendanceService.approveOvertime(selectedRecord.recordId, {
-        status: "rejected",
+        status: "REJECTED",
         remarks: approveRemarks,
-        approvedBy: "",
+        approvedBy: session?.user.userId,
       });
       showSnackbar("Overtime rejected", "info");
       setDetailOpen(false);
@@ -354,7 +277,7 @@ export function OvertimeManagement() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                {["S No", "Employee", "Code", "Department", "Attendance Date", "Overtime Minutes", "OT Hours", "OT ApprovedBy", "otRemarks", "Status", "Actions"].map((h) => (
+                {["S No", "Employee","Department", "Attendance Date", "Overtime Minutes", "OT Hours", "OT ApprovedBy", "otRemarks", "Status", "Actions"].map((h) => (
                   <TableCell key={h} className="!font-bold">{h}</TableCell>
                 ))}
               </TableRow>
@@ -376,10 +299,8 @@ export function OvertimeManagement() {
                 records.map((r, i) => (
                   <TableRow key={r.recordId} hover sx={getRowColor(i)}>
                     <TableCell>{i + 1}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.employeeName}</TableCell>
-                    <TableCell>{r.employeeCode}</TableCell>
-                    <TableCell>{r.department}</TableCell>
-
+                    <TableCell className="whitespace-nowrap">{r.employeeName} <span className="text-gray-500 text-[10px]">({r.employeeCode})</span></TableCell>
+                    <TableCell>{r.department || '-'}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {dayjs(r.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
@@ -389,8 +310,8 @@ export function OvertimeManagement() {
                     <TableCell className="font-semibold text-orange-600">
                       {r.overtimeHours.toFixed(1)}h
                     </TableCell>
-                    <TableCell>{r.otApprovedBy}</TableCell>
-                    <TableCell>{r.otRemarks}</TableCell>
+                    <TableCell>{r.otApprovedBy || '-'}</TableCell>
+                    <TableCell>{r.otRemarks || '-'}</TableCell>
 
                     <TableCell>
                       <Chip
@@ -452,12 +373,12 @@ export function OvertimeManagement() {
                 ].map(([label, value]) => (
                   <div key={label} className="bg-head rounded p-2">
                     <div className="text-gray-500 text-[12px]">{label}</div>
-                    <div className="text-gray-800 text-[12px] font-medium">{value}</div>
+                    <div className="text-gray-800 text-[12px] font-medium">{value || '-'}</div>
                   </div>
                 ))}
               </div>
 
-              {selectedRecord.otApprovalStatus === "pending" && (
+              {selectedRecord.otApprovalStatus !== "pending" && (
                 <TextField
                   label={selectedRecord.otApprovalStatus === "pending" ? "Remarks (optional)" : "Remarks"}
                   fullWidth
@@ -480,7 +401,7 @@ export function OvertimeManagement() {
           >
             Close
           </Button>
-          {selectedRecord?.otApprovalStatus === "pending" && (
+          {selectedRecord?.otApprovalStatus !== "pending" && (
             <>
               <Button
                 variant="contained"

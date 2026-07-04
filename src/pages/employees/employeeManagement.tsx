@@ -57,8 +57,11 @@ export default function EmployeeManagement() {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
+  // const [sortBy, setSortBy] = useState("");
+  // const [sortOrder, setSortOrder] = useState("");
+  const [sortCriteria, setSortCriteria] = useState<Array<{ field: string, order: 'ASC' | 'DESC' }>>([
+    { field: 'createdAt', order: 'DESC' }
+  ]);
 
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
@@ -270,14 +273,38 @@ export default function EmployeeManagement() {
     return activeFilters?.rules.length || 0;
   };
 
+  // Toggle sort for a field
+  const toggleSort = (field: string) => {
+    setSortCriteria(prev => {
+      const existingIndex = prev.findIndex(s => s.field === field);
+      if (existingIndex >= 0) {
+        const currentOrder = prev[existingIndex].order;
+        if (currentOrder === 'ASC') {
+          const newCriteria = [...prev];
+          newCriteria[existingIndex] = { field, order: 'DESC' };
+          return newCriteria;
+        }
+        else if (currentOrder === 'DESC') {
+          return prev.filter(s => s.field !== field);
+        }
+      } else {
+        return [...prev, { field, order: 'ASC' }];
+      }
+      return prev;
+    });
+    setPage(0);
+  };
+
   // Fetch employees
   const getEmployees = async () => {
     showSpinner();
     try {
+      const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
+
       const params: EmployeeListQuery = {
         page,
         size: limit,
-        sort: `${sortBy},${sortOrder}`,
+        sort: sortParams,
         ...buildEmployeeServerFilterParams(activeFilters),
       };
       if (searchTerm) params.search = searchTerm;
@@ -336,11 +363,12 @@ export default function EmployeeManagement() {
   }, [
     page,
     limit,
-    sortBy,
-    sortOrder,
+    // sortBy,
+    // sortOrder,
     searchTerm,
     activeFilters,
     includeInactive,
+    sortCriteria,
   ]);
 
   // Update filter fields when master data changes
@@ -361,21 +389,34 @@ export default function EmployeeManagement() {
   //   // Update filterFields state if needed
   // }, [departments, designations, branches]);
 
-  const handleSortChange = (
-    newSortBy: string,
-    newSortOrder?: "ASC" | "DESC",
-  ) => {
-    setSortBy(newSortBy);
-    setSortOrder(newSortOrder || "ASC");
-    setPage(0);
-  };
+  // const handleSortChange = (
+  //   newSortBy: string,
+  //   newSortOrder?: "ASC" | "DESC",
+  // ) => {
+  //   // setSortBy(newSortBy);
+  //   // setSortOrder(newSortOrder || "ASC");
+  //   setPage(0);
+  //   toggleSort(newSortBy);
+  // };
 
   const getSortIcon = (column: string) => {
-    if (sortBy !== column) return null;
-    return sortOrder === "ASC" ? (
+    const sortCriterion = sortCriteria.find(s => s.field === column);
+    if (!sortCriterion) return null;
+    const orderIcon = sortCriterion.order === "ASC" ? (
       <MaterialModule.ArrowUpward fontSize="small" className="ml-1" />
     ) : (
       <MaterialModule.ArrowDownward fontSize="small" className="ml-1" />
+    );
+    const orderNumber = sortCriteria.findIndex(s => s.field === column) + 1;
+
+    return (
+      <span className="flex items-center">
+        {orderIcon}
+        <span className="text-[10px] text-gray-400 ml-0.5">({sortCriterion.order})</span>
+        {sortCriteria.length > 1 && (
+          <span className="text-[10px] text-gray-400 ml-0.5">{orderNumber}</span>
+        )}
+      </span>
     );
   };
 
@@ -776,9 +817,12 @@ export default function EmployeeManagement() {
         showSnackbar(`Employee exported as ${format.toUpperCase()}`, "success");
       } else {
         // Export all employees
+        const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
+
         const params: any = {
           search: searchTerm || undefined,
-          sort: `${sortBy},${sortOrder}`,
+          // sort: `${sortBy},${sortOrder}`,
+          sort: sortParams,
           ...buildEmployeeServerFilterParams(activeFilters),
         };
 
@@ -1045,21 +1089,25 @@ export default function EmployeeManagement() {
           <MaterialModule.TableHead>
             <MaterialModule.TableRow>
               <MaterialModule.TableCell
-                className="!font-semibold text-gray-800 "
+                className="!font-semibold text-gray-800 cursor-pointer"
+                title="Sort by Created At"
+                onClick={() =>
+                  toggleSort("createdAt")
+                }
                 sx={{
                   ...stickyHeaderLeftSx,
                   minWidth: "70px",
                 }}
               >
-                S No
+                <div className="flex items-center gap-1">
+                  S No
+                  {getSortIcon("createdAt")}
+                </div>
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="nth-c !font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
-                  handleSortChange(
-                    "employeeId",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
+                  toggleSort("employeeId")
                 }
               >
                 <div className="flex items-center gap-1">
@@ -1070,7 +1118,7 @@ export default function EmployeeManagement() {
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
-                  handleSortChange("name", sortOrder === "ASC" ? "DESC" : "ASC")
+                  toggleSort("name")
                 }
               >
                 <div className="flex items-center gap-1">
@@ -1081,10 +1129,7 @@ export default function EmployeeManagement() {
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
-                  handleSortChange(
-                    "emailAddress",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
+                  toggleSort("emailAddress")
                 }
               >
                 <div className="flex items-center gap-1">
@@ -1095,10 +1140,7 @@ export default function EmployeeManagement() {
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
-                  handleSortChange(
-                    "mobileNumber",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
+                  toggleSort("mobileNumber")
                 }
               >
                 <div className="flex items-center gap-1">
@@ -1108,12 +1150,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "designation",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "designation",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Designation
@@ -1122,12 +1164,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "department",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "department",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Department
@@ -1136,12 +1178,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "branch",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "branch",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Branch
@@ -1151,10 +1193,7 @@ export default function EmployeeManagement() {
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
-                  handleSortChange(
-                    "joiningDate",
-                    sortOrder === "ASC" ? "DESC" : "ASC",
-                  )
+                  toggleSort("joiningDate")
                 }
               >
                 <div className="flex items-center gap-1">
@@ -1164,12 +1203,12 @@ export default function EmployeeManagement() {
               </MaterialModule.TableCell>
               <MaterialModule.TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   handleSortChange(
-                //     "employeeStatus",
-                //     sortOrder === "ASC" ? "DESC" : "ASC",
-                //   )
-                // }
+              // onClick={() =>
+              //   handleSortChange(
+              //     "employeeStatus",
+              //     sortOrder === "ASC" ? "DESC" : "ASC",
+              //   )
+              // }
               >
                 <div className="flex items-center gap-1">
                   Status
@@ -1821,7 +1860,7 @@ export default function EmployeeManagement() {
             rows={3}
             onChange={(e) => setAdminRemarks(e.target.value)}
             className="!mt-5 !text-[12px]"
-         />
+          />
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button
@@ -1983,11 +2022,10 @@ export default function EmployeeManagement() {
             <div className="mt-4 space-y-4">
               {/* Upload Summary */}
               <div
-                className={`border rounded-lg p-4 ${
-                  uploadResult?.failureCount && uploadResult?.failureCount > 0
-                    ? "border-orange-200 bg-orange-50"
-                    : "border-green-200 bg-green-50"
-                }`}
+                className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
+                  ? "border-orange-200 bg-orange-50"
+                  : "border-green-200 bg-green-50"
+                  }`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -2003,7 +2041,7 @@ export default function EmployeeManagement() {
                     label={uploadResult.status || "COMPLETED"}
                     color={
                       uploadResult?.failureCount &&
-                      uploadResult?.failureCount > 0
+                        uploadResult?.failureCount > 0
                         ? "warning"
                         : "success"
                     }

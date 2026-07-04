@@ -187,18 +187,18 @@ export default function AdminWorkCalendarsPage() {
       active: form.active ?? true,
     };
 
-    const minimalPayload:any = {
-      "calendarName": "TEST MINIMAL",
-      "branchId": "9a022aea-93f4-4c7a-92ea-bf1178928c24",
-      "days": [
-        {
-          "dayOfWeek": "MONDAY",
-          "workingType": "FULL",
-          "workingHours": 8
-        }
-      ],
-      "active": true
-    };
+    // const minimalPayload:any = {
+    //   "calendarName": "TEST MINIMAL",
+    //   "branchId": "9a022aea-93f4-4c7a-92ea-bf1178928c24",
+    //   "days": [
+    //     {
+    //       "dayOfWeek": "MONDAY",
+    //       "workingType": "FULL",
+    //       "workingHours": 8
+    //     }
+    //   ],
+    //   "active": true
+    // };
 
     // Debug log
     console.log("Submitting payload:", JSON.stringify(payload, null, 2));
@@ -206,7 +206,7 @@ export default function AdminWorkCalendarsPage() {
     showSpinner();
     try {
       const response: any = editingId
-        ? await leaveService.updateWorkCalendar(editingId, minimalPayload)
+        ? await leaveService.updateWorkCalendar(editingId, payload)
         : await leaveService.createWorkCalendar(payload);
 
       if (response.success) {

@@ -223,6 +223,23 @@ export const API_ENDPOINTS = {
       FS_LV_PREVIEW: (empId: string) =>
         `/payroll/final-settlements/${empId}/leave-preview`,
     },
+
+    ATTACHMENTS: {
+      DELETE:(id: string, attId: string) => `/leaves/${id}/attachments/${attId}`,
+      GET_BY_ID:(id: string) => `/leaves/${id}/attachments`,
+      UPLOAD: (id: string) => `/leaves/${id}/attachments`,
+    },
+
+    REPORTS: {
+      LEAVE_USAGE: "/reports/leave-usage",
+      LEAVE_PENDING_APPROVALS: "/reports/leave-pending-approvals",
+      LEAVE_LOP: "/reports/leave-lop",
+      LEAVE_COMP_OFF: "/reports/leave-comp-offs",
+      LEAVE_BALANCE: "/reports/leave-balances",
+      GET_EXPORTS: (id: string) => `/reports/exports/${id}`,
+      DOWNLOAD_EXPORT: (id: string) => `/reports/exports/${id}/download`,
+      POST_EXPORT: "/reports/exports",
+    }
   },
 
   LEAVE_TYPE: {
@@ -278,10 +295,14 @@ export const API_ENDPOINTS = {
 
   COMP_OFF: {
     BASE: "/comp-offs",
-    // BY_ID: (id: string) => `/comp-offs/${id}`,
     GET_BY_ID: (id: string) => `/comp-offs/${id}`,
-    APPROVE: (id: string) => `/comp-offs/${id}/actions/approve`,
+    GET_MY: "/comp-offs/my",
+    GET_APPROVALS: "/comp-offs/approvals",
+    CRE_REQ_REJECT: (id: string) => `/comp-offs/credit-requests/${id}/reject`,
     REJECT: (id: string) => `/comp-offs/${id}/actions/reject`,
+    CRE_REQ_APPROVE: (id: string) => `/comp-offs/credit-requests/${id}/approve`,
+    APPROVE: (id: string) => `/comp-offs/${id}/actions/approve`,
+    POST_CREDIT_REQ: "/comp-offs/credit-requests",
   },
 
   LEAVE_ACCRUAL: {

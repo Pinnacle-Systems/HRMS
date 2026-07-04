@@ -12,7 +12,6 @@ import {
   Chip,
 } from "@mui/material";
 import {
-
   History,
   TrendingUp,
   TrendingDown,
@@ -58,13 +57,11 @@ export default function HrLeaveAdjustmentsPage() {
     try {
       const [balanceResponse, ledgerResponse]: any = await Promise.all([
         leaveService.getEmployeeLeaveBalances(id),
-        leaveService.getEmployeeLeaveLedger(id,
-          //   {
-          //   page: 0,
-          //   size: 50,
-          //   sort: "transactionDate,DESC",
-          // }
-        ),
+        leaveService.getEmployeeLeaveLedger(id, {
+          page: 0,
+          size: 50,
+          sort: "transactionDate,DESC",
+        }),
       ]);
       setBalances(balanceResponse.data?.content ?? []);
       setLedger(ledgerResponse.data?.content ?? []);
@@ -151,11 +148,13 @@ export default function HrLeaveAdjustmentsPage() {
     (entry) => entry.transactionType === "ADJUSTMENT",
   );
   // Calculate stats from adjustment entries
-  const totalCredits = adjustmentEntries.reduce((sum, entry) =>
-    entry.creditDays ? sum + entry.creditDays : sum, 0
+  const totalCredits = adjustmentEntries.reduce(
+    (sum, entry) => (entry.creditDays ? sum + entry.creditDays : sum),
+    0,
   );
-  const totalDebits = adjustmentEntries.reduce((sum, entry) =>
-    entry.debitDays ? sum + entry.debitDays : sum, 0
+  const totalDebits = adjustmentEntries.reduce(
+    (sum, entry) => (entry.debitDays ? sum + entry.debitDays : sum),
+    0,
   );
 
   return (
@@ -194,7 +193,6 @@ export default function HrLeaveAdjustmentsPage() {
           helperText={errors.employee}
         />
       </div>
-
 
       {/* Adjustment Form */}
       <div className="bg-gradient-to-r from-primary-50 to-primary-50 border border-primary-100 rounded-xl p-4 mb-4">
@@ -274,7 +272,6 @@ export default function HrLeaveAdjustmentsPage() {
         </div> */}
       </div>
 
-      
       {/* Summary Cards */}
       {hasData && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 text-gray-800">
@@ -340,9 +337,11 @@ export default function HrLeaveAdjustmentsPage() {
             <TableHead>
               <TableRow className="bg-gray-50">
                 <TableCell className="!font-semibold">Leave Type</TableCell>
+                <TableCell className="!font-semibold">
+                  Opening Balance
+                </TableCell>
+                <TableCell className="!font-semibold">Consumed</TableCell>
                 <TableCell className="!font-semibold">Available</TableCell>
-                <TableCell className="!font-semibold">Pending</TableCell>
-                <TableCell className="!font-semibold">Adjusted</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -360,20 +359,28 @@ export default function HrLeaveAdjustmentsPage() {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell>{balance.openingBalance || 0}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={balance.consumedDays}
+                        size="small"
+                        className="!bg-red-50 !text-red-700 !border-red-200"
+                      />
+                    </TableCell>
+
                     <TableCell>
                       <Chip
                         label={balance.balance}
                         size="small"
-                        className={`font-semibold ${balance.balance > 2
-                          ? "!bg-green-50 !text-green-700 !border-green-200"
-                          : balance.balance > 0
-                            ? "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
-                            : "!bg-red-50 !text-red-700 !border-red-200"
-                          }`}
+                        className={`font-semibold ${
+                          balance.balance > 2
+                            ? "!bg-green-50 !text-green-700 !border-green-200"
+                            : balance.balance > 0
+                              ? "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
+                              : "!bg-red-50 !text-red-700 !border-red-200"
+                        }`}
                       />
                     </TableCell>
-                    <TableCell>{balance.pending || 0}</TableCell>
-                    <TableCell>{balance.adjusted || 0}</TableCell>
                   </TableRow>
                 ))}
               {!loading && balances.length === 0 && (
@@ -413,29 +420,15 @@ export default function HrLeaveAdjustmentsPage() {
             </span>
           )}
         </div>
-        <TableContainer
-
-          className="overflow-auto border border-gray-200 rounded-sm"
-
-        >
+        <TableContainer className="overflow-auto border border-gray-200 rounded-sm">
           <Table>
             <TableHead>
               <TableRow className="bg-gray-50">
-                <TableCell className="!font-bold">
-                  Date
-                </TableCell>
-                <TableCell className="!font-bold">
-                  Leave Type
-                </TableCell>
-                <TableCell className="!font-bold">
-                  Type
-                </TableCell>
-                <TableCell className="!font-bold">
-                  Days
-                </TableCell>
-                <TableCell className="!font-bold">
-                  Reason
-                </TableCell>
+                <TableCell className="!font-bold">Transaction Date</TableCell>
+                <TableCell className="!font-bold">Leave Type</TableCell>
+                <TableCell className="!font-bold">Type</TableCell>
+                <TableCell className="!font-bold">Days</TableCell>
+                <TableCell className="!font-bold">Reason</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -467,12 +460,15 @@ export default function HrLeaveAdjustmentsPage() {
                     </TableCell>
                     <TableCell>
                       <span
-                        className={`text-[12px] font-semibold ${entry.creditDays > 0
-                          ? "!text-green-600"
-                          : "!text-red-600"
-                          }`}
+                        className={`text-[12px] font-semibold ${
+                          entry.creditDays > 0
+                            ? "!text-green-600"
+                            : "!text-red-600"
+                        }`}
                       >
-                        {entry.creditDays > 0 ? `+${entry.creditDays}` : `-${entry.debitDays}`}
+                        {entry.creditDays > 0
+                          ? `+${entry.creditDays}`
+                          : `-${entry.debitDays}`}
                       </span>
                     </TableCell>
                     <TableCell>

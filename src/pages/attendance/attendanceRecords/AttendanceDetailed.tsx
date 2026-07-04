@@ -243,7 +243,7 @@ export function AttendanceDetailed() {
             <TableHead>
               <TableRow>
                 {[
-                  "S No", "Emp Code", "Name", "Department", "Date",
+                  "S No",  "Name", "Date",
                   "Shift", "Check In", "Check Out",
                   "Worked", "Late", "Early Out", "OT", "Status", "Actions",
                 ].map((h) => (
@@ -273,23 +273,29 @@ export function AttendanceDetailed() {
                 records.map((r, index) => (
                   <TableRow key={r.id || index} hover sx={getRowColor(index)}>
                     <TableCell>{index + 1}</TableCell>
-                    <TableCell>{r.employeeCode}</TableCell>
+                    {/* <TableCell>{r.employeeCode}</TableCell> */}
                     <TableCell className="whitespace-nowrap">
-                      {r.employeeName}
+                      <div className="grid">
+                        <div>{r.employeeName}  <span className="text-[10px] text-gray-500">({r.employeeCode})</span></div>
+                        <div className="text-blue-500"> {r.department ?? "-"}</div>
+                      </div>
                     </TableCell>
-                    <TableCell>{r.department ?? "—"}</TableCell>
+                    {/* <TableCell>{r.department ?? "-"}</TableCell> */}
                     <TableCell className=" whitespace-nowrap">
                       {dayjs(r.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
-                    <TableCell>{r.shiftCode}</TableCell>
-                    <TableCell className="!font-mono">
-                      {formatTime(r.checkInTime)}
-                    </TableCell>
-                    <TableCell className="!font-mono">
-                      {formatTime(r.checkOutTime)}
+                    <TableCell>
+                      <div>{r.shiftCode || '-'}</div>
+                      {r.shiftStart && <span className="text-primary">{r.shiftStart} - {r.shiftEnd}</span>}
                     </TableCell>
                     <TableCell>
-                      {formatMinutes(r.workedMinutes)}
+                      {r.checkInTime ? formatTime(r.checkInTime) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {r.checkOutTime ? formatTime(r.checkOutTime) : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {r.workedMinutes ? formatMinutes(r.workedMinutes) : '-'}
                     </TableCell>
                     <TableCell>
                       {r.lateMinutes > 0 ? (

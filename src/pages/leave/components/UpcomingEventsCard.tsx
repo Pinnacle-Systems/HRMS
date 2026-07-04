@@ -23,11 +23,12 @@ export interface UpcomingEvent {
   name: string;
   fromDate: string;
   toDate: string;
-  days?: number;
-  location?: string;
+  totalDays?: number;
+  holidayType?: string;
   status?: string;
   approver?: string;
   daysFromToday?: number;
+  employeeCode?: string;
 }
 
 interface UpcomingEventsCardProps {
@@ -38,76 +39,6 @@ interface UpcomingEventsCardProps {
   onDaysAheadChange: (days: number) => void;
   onRefresh?: () => void;
 }
-
-// Mock data for leaves only (used when API returns no data)
-const MOCK_LEAVES: UpcomingEvent[] = [
-  {
-    id: "1",
-    type: "leave",
-    name: "Annual Leave",
-    fromDate: "2026-07-10",
-    toDate: "2026-07-12",
-    days: 3,
-    status: "APPROVED",
-    approver: "John Manager",
-    daysFromToday: 16,
-  },
-  {
-    id: "2",
-    type: "leave",
-    name: "Sick Leave",
-    fromDate: "2026-07-15",
-    toDate: "2026-07-15",
-    days: 1,
-    status: "PENDING",
-    approver: "Sarah HR",
-    daysFromToday: 21,
-  },
-  {
-    id: "3",
-    type: "leave",
-    name: "Casual Leave",
-    fromDate: "2026-07-20",
-    toDate: "2026-07-21",
-    days: 2,
-    status: "APPROVED",
-    approver: "Mike Supervisor",
-    daysFromToday: 26,
-  },
-  {
-    id: "4",
-    type: "leave",
-    name: "Study Leave",
-    fromDate: "2026-08-01",
-    toDate: "2026-08-05",
-    days: 5,
-    status: "PENDING",
-    approver: "HR Team",
-    daysFromToday: 38,
-  },
-  {
-    id: "7",
-    type: "leave",
-    name: "Maternity Leave",
-    fromDate: "2026-08-20",
-    toDate: "2026-09-20",
-    days: 30,
-    status: "APPROVED",
-    approver: "HR Manager",
-    daysFromToday: 57,
-  },
-  {
-    id: "8",
-    type: "leave",
-    name: "Bereavement Leave",
-    fromDate: "2026-06-28",
-    toDate: "2026-06-29",
-    days: 2,
-    status: "APPROVED",
-    approver: "Team Lead",
-    daysFromToday: 4,
-  },
-];
 
 export default function UpcomingEventsCard({
   events: propEvents = [],
@@ -136,14 +67,12 @@ export default function UpcomingEventsCard({
     if (realLeaves.length > 0) {
       return realLeaves;
     }
-    // If no real leaves, use mock data
-    return MOCK_LEAVES;
   }, [realLeaves]);
 
   // Combine leaves and holidays for display
   const allEvents = useMemo(() => {
-    return [...leaves, ...realHolidays];
-  }, [leaves, realHolidays]);
+    return [...realLeaves, ...realHolidays];
+  }, [realLeaves, realHolidays]);
 
   // Update local state when prop changes
   useEffect(() => {
@@ -246,13 +175,12 @@ export default function UpcomingEventsCard({
               <div
                 className={`
                 w-2 h-2 rounded-full flex-shrink-0
-                ${
-                  isPast
+                ${isPast
                     ? "bg-gray-300"
                     : isLeave
                       ? "bg-blue-500"
                       : "bg-primary"
-                }
+                  }
               `}
               />
 
@@ -262,11 +190,12 @@ export default function UpcomingEventsCard({
                   <span className="text-[12px] font-medium text-gray-800">
                     {event.name}
                   </span>
+                  <span className="text-[12px] text-gray-400">({event.employeeCode})</span>
                   {event.status && getStatusIcon(event.status)}
-                  {!isLeave && event.location && (
+                  {!isLeave && event.holidayType && (
                     <Chip
                       size="small"
-                      label={event.location}
+                      label={event.holidayType}
                       sx={{
                         height: 18,
                         fontSize: "9px",
@@ -285,9 +214,10 @@ export default function UpcomingEventsCard({
                       <> → {formatDate(event.toDate)}</>
                     )}
                   </span>
+                  {event.totalDays}
 
-                  {event.days && (
-                    <span className="text-gray-400">• {event.days}d</span>
+                  {event.totalDays && (
+                    <span className="text-gray-400">• {event.totalDays}dddddddd</span>
                   )}
 
                   {event.approver && (
@@ -301,13 +231,12 @@ export default function UpcomingEventsCard({
                 <div
                   className={`
                   text-[12px] font-medium px-2 py-0.5 rounded-full flex-shrink-0
-                  ${
-                    daysRemaining <= 3
+                  ${daysRemaining <= 3
                       ? "bg-red-100 text-red-700"
                       : daysRemaining <= 7
                         ? "bg-amber-100 text-amber-700"
                         : "bg-green-100 text-green-700"
-                  }
+                    }
                 `}
                 >
                   {daysRemaining === 0 ? "Today" : `${daysRemaining}d`}
@@ -434,11 +363,6 @@ export default function UpcomingEventsCard({
               <EventNoteIcon className="!text-blue-500 !w-4" />
               <span className="text-[12px] font-semibold text-gray-700">
                 Upcoming Leaves
-                {realLeaves.length === 0 && (
-                  <span className="ml-1 text-[12px] text-gray-400 font-normal">
-                    (Mock Data)
-                  </span>
-                )}
               </span>
               <Chip
                 size="small"
@@ -477,9 +401,6 @@ export default function UpcomingEventsCard({
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-blue-500" />
                   {leaveEvents.length} leaves
-                  {realLeaves.length === 0 && (
-                    <span className="text-gray-300 text-[9px]">(mock)</span>
-                  )}
                 </span>
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-primary" />

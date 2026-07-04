@@ -36,9 +36,10 @@ export default function UpcomingEventsPage() {
                 name: leave.leaveTypeName,
                 fromDate: leave.fromDate,
                 toDate: leave.toDate,
-                days: leave.days,
+                days: leave.totalDays,
                 status: leave.status,
                 approver: leave.managerName,
+                employeeCode: leave.employeeCode,
             }));
 
             // Map holidays to events
@@ -48,8 +49,8 @@ export default function UpcomingEventsPage() {
                 name: holiday.holidayName,
                 fromDate: holiday.holidayDate,
                 toDate: holiday.holidayDate,
-                location: holiday.holidayType === 'OPTIONAL' ? 'Optional' : 'Restricted',
-                daysFromToday: holiday.daysFromToday, // Use the daysFromToday from API
+                holidayType: holiday.holidayType,
+                daysFromToday: holiday.daysFromToday,
             }));
 
             const allEvents = [...leaveEvents, ...holidayEvents];

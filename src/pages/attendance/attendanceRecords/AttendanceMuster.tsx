@@ -10,7 +10,7 @@ import {
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { attendanceService } from "../../../services/modules/attendance";
-import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG } from "../const";
+// import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG } from "../const";
 import { MUSTER_STATUS_CELL, MUSTER_STATUS_ABBR, MONTHS, getDaysInMonth, getCurrentMonthYear } from "../const";
 import type { Branches, Department } from "../../employees/type";
 import { departmentService } from "../../../services/modules/department";
@@ -18,18 +18,18 @@ import { branchService } from "../../../services/modules/branch";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { formatDateTime } from "../../../utils/dateFormatter";
-import type { AttendanceStatus, MusterRow } from "../../../services/modules/attendanceTypes";
+import type { MusterRow } from "../../../services/modules/attendanceTypes";
 
 const LEGEND = [
   { abbr: "P", label: "Present", color: "bg-green-500" },
   { abbr: "A", label: "Absent", color: "bg-red-500" },
   { abbr: "L", label: "Late", color: "bg-amber-400" },
-  { abbr: "H", label: "Half Day", color: "bg-purple-400" },
+  { abbr: "H", label: "Half Day", color: "bg-blue-700" },
   { abbr: "OD", label: "On Duty", color: "bg-cyan-500" },
   { abbr: "LV", label: "Leave", color: "bg-violet-400" },
-  { abbr: "PM", label: "Permission", color: "bg-orange-400" },
+  { abbr: "PM", label: "Permission", color: "bg-orange-500" },
   { abbr: "HO", label: "Holiday", color: "bg-slate-300" },
-  { abbr: "WO", label: "Weekly Off", color: "bg-amber-200" },
+  { abbr: "WO", label: "Weekly Off", color: "bg-gray-200" },
   { abbr: "IR", label: "Irregular", color: "bg-pink-400" },
 ];
 
@@ -169,19 +169,38 @@ export function AttendanceMuster() {
 
 
   const handleExport = async () => {
-    if (viewMode === "muster") {
-      try {
-        await attendanceService.exportMonthly({
-          month,
-          year,
-          departmentId: departmentId || undefined,
-          branchId: branchId || undefined,
-        });
-        showSnackbar(`Muster exported successfully for ${MONTHS[month - 1]} ${year}`, "success");
-      } catch (err: any) {
-        showSnackbar(err?.message || "Export failed", "error");
+    // if (viewMode === "muster") {
+    showSpinner()
+    try {
+      const response:any = await attendanceService.exportMonthly({
+        month,
+        year,
+        departmentId: departmentId || undefined,
+        branchId: branchId || undefined,
+        exportFormat: 'excel'
+      });
+      const fileUrl = response?.data?.fileUrl;
+      if (fileUrl) {
+        const fileResponse = await fetch(fileUrl);
+        const blob = await fileResponse.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `attendance_${year}_${month}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        showSnackbar('File downloaded successfully!', 'success');
+      } else {
+        showSnackbar('File URL not found', 'error');
       }
+      showSnackbar(`Muster exported successfully for ${MONTHS[month - 1]} ${year}`, "success");
+    } catch (err: any) {
+      showSnackbar(err?.message || "Export failed", "error");
+    } finally {
+      hideSpinner()
     }
+    // }
   };
 
   return (
@@ -275,33 +294,48 @@ export function AttendanceMuster() {
             <div className="flex justify-center py-16 text-gray-400 text-sm">No register data for selected period</div>
           ) : (
             <>
-              <TableContainer className="max-h-[calc(100vh-375px)]">
+              <TableContainer className="max-h-[calc(100vh-400px)]">
                 <Table stickyHeader>
                   <TableHead>
                     <TableRow>
-                      {["S No", "Emp Code", "Name", "Department", "Designation", "Shift",
-                        "Present", "Absent", "Late", "Leave", "On Duty", "Half Day", "OT (h)", "Att %", "Status"].map(h => (
-                          <TableCell key={h} className="!font-bold whitespace-nowrap">{h}</TableCell>
+                      {["S No", "Name", "Designation",
+                        "Present", "Absent", "Late", "Half Day", "On Duty", "Leave", "Permission", "EarlyOut", "Lop", "Worked(h)", "OT (h)", "OT (m)", "Att %"].map((h, i) => (
+                          <TableCell key={h} className={`${i == 0 ? 'left-0 sticky bg-inherit !z-50' : i == 1 ? 'left-[58px] sticky bg-inherit !z-50' : i == 2 ? 'left-[168px] sticky bg-inherit !z-50' :
+                            i == 15 ? 'right-0 sticky bg-inherit !z-50' : ''} !font-bold whitespace-nowrap`}>{h}</TableCell>
                         ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {pagedRegisterRows.map((r: any, i: number) => (
-                      <TableRow key={r.employeeId ?? i} hover sx={getRowColor(i)}>
-                        <TableCell >{(registerPage - 1) * registerLimit + i + 1}</TableCell>
-                        <TableCell>{r.employeeCode}</TableCell>
-                        <TableCell className="text-gray-800 whitespace-nowrap">{r.employeeName}</TableCell>
-                        <TableCell>{r.department}</TableCell>
-                        <TableCell>{r.designation}</TableCell>
-                        <TableCell>{r.shiftCode}</TableCell>
+                      <TableRow key={r.employeeId ?? i} sx={getRowColor(i)} className="bg-inherit">
+                        <TableCell className="sticky left-0 z-20 bg-inherit" >{(registerPage - 1) * registerLimit + i + 1}</TableCell>
+                        <TableCell className="sticky left-[58px] bg-inherit z-20 text-gray-800 whitespace-nowrap">
+                          <div className="grid">
+                            <div>{r.employeeName} </div>
+                            <span className="text-primary text-[10px]">{r.employeeCode}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="sticky left-[168px] bg-inherit z-20">
+                          <div className="grid">
+                            <div>{r.designation || '-'} </div>
+                            <span className="text-blue-500 text-[10px]">{r.department}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="!text-center"><span className="!text-green-600 !font-bold">{r.totalPresent ?? r.presentDays ?? "—"}</span></TableCell>
                         <TableCell className="!text-center"><span className="!text-red-500 !font-bold">{r.totalAbsent ?? r.absentDays ?? "—"}</span></TableCell>
                         <TableCell className="!text-center"><span className="!text-amber-400 !font-bold">{r.totalLate ?? r.lateDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-violet-400 !font-bold">{r.totalLeave ?? r.leaveDays ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-blue-500 !font-bold">{r.totalHalfDay ?? r.halfDays ?? "—"}</span></TableCell>
                         <TableCell className="!text-center"><span className="!text-cyan-500 !font-bold">{r.totalOnDuty ?? r.onDutyDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-purple-300 !font-bold">{r.totalHalfDay ?? r.halfDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center">{((r.totalOT ?? r.totalOtMinutes ?? 0) / 60).toFixed(1)}</TableCell>
-                        <TableCell className="!text-center" sx={{
+
+                        <TableCell className="!text-center"><span className="!text-violet-400 !font-bold">{r.totalLeave ?? r.leaveDays ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-orange-500 !font-bold">{r.permissionDays ?? "—"}</span></TableCell>
+
+                        <TableCell className="!text-center"><span className="!text-sky-500 !font-bold">{r.earlyOutDays ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-red-600 !font-bold">{r.lossOfPayDays ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-emerald-500 !font-bold">{r.totalWorkedHours ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center">{r.otHours ?? 0}</TableCell>
+                        <TableCell className="!text-center">{((r.otHours ?? 0) * 60).toFixed(0)}</TableCell>
+                        <TableCell className="!text-center sticky right-0 z-20 bg-inherit" sx={{
                           padding: '8px !important',
                         }}>
                           <span className={`px-2 py-0.5 !my-2 rounded-full font-semibold ${(r.attendancePercentage ?? 0) >= 90 ? "bg-green-100 text-green-700"
@@ -310,14 +344,14 @@ export function AttendanceMuster() {
                             {(r.attendancePercentage ?? 0).toFixed(1)}%
                           </span>
                         </TableCell>
-                        <TableCell>
+                        {/* <TableCell>
                           {r.status && (
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap
                             ${ATTENDANCE_STATUS_BG[r.status as AttendanceStatus] ?? "bg-gray-100 text-gray-600"}`}>
                               {ATTENDANCE_STATUS_LABELS[r.status as AttendanceStatus] ?? r.status}
                             </span>
                           )}
-                        </TableCell>
+                        </TableCell> */}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -342,21 +376,21 @@ export function AttendanceMuster() {
             <div className="flex justify-center py-16 text-gray-400 text-sm">No data for selected period</div>
           ) : (
             <>
-              <div className="overflow-x-auto max-h-[calc(100vh-375px)]">
+              <div className="overflow-x-auto max-h-[calc(100vh-400px)]">
                 <table className="text-xs border-collapse min-w-full">
                   <thead>
                     {/* Day numbers row */}
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="sticky left-0 z-20 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
+                      <th className="sticky left-0 top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
                         Code
                       </th>
-                      <th className="sticky left-[50px] z-20 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
+                      <th className="sticky left-[50px] top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
                         Employee
                       </th>
                       {dayNumbers.map((d) => (
                         <th
                           key={d}
-                          className={`px-1 py-1 text-center font-semibold min-w-[32px] border-r border-gray-100
+                          className={`sticky top-0 z-20  bg-gray-50 px-1 py-1 text-center font-semibold min-w-[32px] border-r border-gray-100
                         ${isHoliday(d) ? "bg-slate-100 text-slate-500" : ""}
                         ${isWeeklyOff(d) ? "bg-gray-100 text-gray-400" : ""}
                       `}
@@ -365,11 +399,12 @@ export function AttendanceMuster() {
                           <div className="text-[9px] font-normal text-gray-400">{getDayLabel(d)}</div>
                         </th>
                       ))}
-                      <th className="px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
-                      <th className="px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
-                      <th className="px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
-                      <th className="px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
-                      <th className="px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">Att%</th>
+                      <th className="sticky top-0 right-[216px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
+                      <th className="sticky top-0 right-[180px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
+                      <th className="sticky top-0 right-[144px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
+                      <th className="sticky top-0 right-[95px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
+                      <th className="sticky top-0 right-[43px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(m)</th>
+                      <th className="sticky top-0 right-0 z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">Att%</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -414,15 +449,19 @@ export function AttendanceMuster() {
                             </Tooltip>
                           );
                         })}
-                        <td className="px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
+                        <td className="sticky right-[216px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
                           {emp.totalPresent}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
-                        <td className="px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
-                        <td className="px-2 py-1.5 text-center text-orange-600">
-                          {(emp.totalOT / 60).toFixed(1)}
+                        <td className="sticky right-[180px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
+                        <td className="sticky right-[144px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
+                        <td className="sticky right-[95px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
+                          {/* {(emp.totalOT / 60).toFixed(1)} */}
+                          {emp.totalOT}
                         </td>
-                        <td className="px-2 py-1.5 text-center">
+                        <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
+                          {(emp.totalOT * 60).toFixed(0)}
+                        </td>
+                        <td className="sticky right-0 z-10 bg-inherit px-2 py-1.5 text-center">
                           <span className={`text-xs font-semibold ${emp.attendancePercentage >= 90 ? "text-green-600" : emp.attendancePercentage >= 75 ? "text-amber-600" : "text-red-500"}`}>
                             {emp.attendancePercentage.toFixed(0)}%
                           </span>
@@ -448,7 +487,7 @@ export function AttendanceMuster() {
                           </td>
                         );
                       })}
-                      <td colSpan={5} className="bg-gray-100 border-l border-gray-200" />
+                      <td colSpan={5} className="sticky right-0 z-30 bg-gray-100 border-l border-gray-200" />
                     </tr>
                   </tfoot>
                 </table>

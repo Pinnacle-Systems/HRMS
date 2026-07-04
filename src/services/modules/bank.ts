@@ -36,11 +36,11 @@ class BankService {
     );
   }
 
-  async createBranch(payload: Record<string, unknown>) {
+  async createBank(payload: Record<string, unknown>) {
     return apiService.post(API_ENDPOINTS.BANK.CREATE, payload);
   }
 
-  async updateBranch(id: string | number, payload: Record<string, unknown>) {
+  async updateBank(id: string | number, payload: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.BANK.UPDATE(String(id)), payload);
   }
 }

@@ -120,6 +120,7 @@ export interface EmployeeSelectorProps {
   pageSize?: number;
   noLabel?: boolean
   isManager?: boolean
+  isHR?: boolean
 }
 
 export interface PolicyAssignmentGridProps {

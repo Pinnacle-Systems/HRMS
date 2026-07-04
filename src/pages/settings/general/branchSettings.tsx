@@ -44,14 +44,19 @@ import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
 import { sortOptions, type Branch, type BankDetail } from "./type";
-import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from "../../const";
+import {
+  getRowColor,
+  getStickyLeftSx,
+  getStickyRightSx,
+  stickyHeaderLeftSx,
+  stickyHeaderRightSx,
+} from "../../const";
 // import { LocationMap } from "../../../components/Location";
 import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { companyService } from "../../../services/modules/company";
 import { selectSx } from "../../../const";
-
 
 export default function BranchSettings() {
   // Pagination & Sorting State
@@ -71,7 +76,9 @@ export default function BranchSettings() {
 
   // Bank State
   const [expandedBranchId, setExpandedBranchId] = useState<string | null>(null);
-  const [banksByBranch, setBanksByBranch] = useState<Record<string, BankDetail[]>>({});
+  const [banksByBranch, setBanksByBranch] = useState<
+    Record<string, BankDetail[]>
+  >({});
   const [bankDialogOpen, setBankDialogOpen] = useState(false);
   const [editingBank, setEditingBank] = useState<BankDetail | null>(null);
   const [bankFormData, setBankFormData] = useState<Partial<BankDetail>>({});
@@ -94,7 +101,7 @@ export default function BranchSettings() {
     esiCode: "",
     esiLocation: "",
     contactEmail: "",
-    contactNumber: ""
+    contactNumber: "",
   });
 
   // Fetch branches with pagination, sorting, and search
@@ -114,9 +121,9 @@ export default function BranchSettings() {
         setBranches(response.data.content || response.data || []);
         setTotal(
           response.data.totalElements ||
-          response.data.total ||
-          response.data.length ||
-          0,
+            response.data.total ||
+            response.data.length ||
+            0,
         );
       }
     } catch (error: any) {
@@ -130,9 +137,9 @@ export default function BranchSettings() {
     try {
       await branchService.createDefaultBranch();
     } catch (error: any) {
-      showSnackbar(error.message, 'error');
+      showSnackbar(error.message, "error");
     }
-  }
+  };
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -144,10 +151,10 @@ export default function BranchSettings() {
   const generateMapFromAddress = async (address: string) => {
     const encodedAddress = encodeURIComponent(address);
     setMapUrl(
-      `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+      `https://maps.google.com/maps?q=${encodedAddress}&t=&z=15&ie=UTF8&iwloc=&output=embed`,
     );
     setGoogleMapLink(
-      `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
+      `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`,
     );
     try {
       // Fetch latitude & longitude
@@ -157,7 +164,7 @@ export default function BranchSettings() {
           headers: {
             Accept: "application/json",
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -186,7 +193,6 @@ export default function BranchSettings() {
     return () => clearTimeout(timeout);
   }, [formData.branchAddress]);
 
-
   const handlePageChange = (newPage: number) => {
     setPage(newPage - 1);
   };
@@ -196,7 +202,10 @@ export default function BranchSettings() {
     setPage(0);
   };
 
-  const handleSortChange = (newSortBy: string, newSortOrder?: "ASC" | "DESC") => {
+  const handleSortChange = (
+    newSortBy: string,
+    newSortOrder?: "ASC" | "DESC",
+  ) => {
     setSortBy(newSortBy);
     setSortOrder(newSortOrder || "ASC");
     setPage(0);
@@ -214,9 +223,9 @@ export default function BranchSettings() {
       setSelectedBranchHead(
         branch.branchHeadId
           ? {
-            id: branch.branchHeadId,
-            name: String(branch.branchHeadName || branch.branchHeadId),
-          }
+              id: branch.branchHeadId,
+              name: String(branch.branchHeadName || branch.branchHeadId),
+            }
           : null,
       );
     } else {
@@ -236,7 +245,7 @@ export default function BranchSettings() {
         esiCode: "",
         esiLocation: "",
         contactEmail: "",
-        contactNumber: ""
+        contactNumber: "",
       });
     }
     setShowMap(false);
@@ -277,7 +286,7 @@ export default function BranchSettings() {
           const lng = position.coords.longitude;
           try {
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
             );
             const data = await response.json();
             const address = data?.display_name || "";
@@ -289,10 +298,10 @@ export default function BranchSettings() {
             }));
             setShowMap(true);
             setMapUrl(
-              `https://maps.google.com/maps?q=${lat},${lng}&t=&z=15&ie=UTF8&iwloc=&output=embed`
+              `https://maps.google.com/maps?q=${lat},${lng}&t=&z=15&ie=UTF8&iwloc=&output=embed`,
             );
             setGoogleMapLink(
-              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+              `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
             );
             showSnackbar("Location fetched successfully!", "success");
           } catch (error) {
@@ -303,20 +312,21 @@ export default function BranchSettings() {
         (error: any) => {
           showSnackbar(
             error.message || "Failed to fetch location. Please enable GPS.",
-            "error"
+            "error",
           );
-        }
+        },
       );
     } else {
-      showSnackbar(
-        "Geolocation is not supported by this browser.",
-        "error"
-      );
+      showSnackbar("Geolocation is not supported by this browser.", "error");
     }
   };
 
   const handleSave = async () => {
-    if (!formData.branchName || !formData.branchCode || !formData.branchAddress) {
+    if (
+      !formData.branchName ||
+      !formData.branchCode ||
+      !formData.branchAddress
+    ) {
       showSnackbar("Please fill all required fields", "error");
       return;
     }
@@ -339,27 +349,30 @@ export default function BranchSettings() {
           contactEmail: selectedBranchHead?.emailAddress,
           contactNumber: selectedBranchHead?.mobileNumber,
         };
-        const res: any = await branchService.updateBranch(editingBranch.id, updatedValues);
+        const res: any = await branchService.updateBranch(
+          editingBranch.id,
+          updatedValues,
+        );
         if (res.success) {
           showSnackbar(res.message, "success");
         }
       } else {
         const payload = {
-          "branchName": formData.branchName,
-          "branchAddress": formData.branchAddress,
-          "latitude": formData.latitude,
-          "longitude": formData.longitude,
-          "radius": formData.radius,
-          "branchHeadId": formData.branchHeadId,
-          "branchCode": formData.branchCode,
-          "active": formData.active,
+          branchName: formData.branchName,
+          branchAddress: formData.branchAddress,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          radius: formData.radius,
+          branchHeadId: formData.branchHeadId,
+          branchCode: formData.branchCode,
+          active: formData.active,
           pfCode: formData.pfCode,
           esiCode: formData.esiCode,
           pfLocation: formData.pfLocation,
           esiLocation: formData.esiLocation,
           contactEmail: selectedBranchHead?.emailAddress,
           contactNumber: selectedBranchHead?.mobileNumber,
-        }
+        };
         const res: any = await branchService.createBranch(payload);
         if (res.success) {
           showSnackbar(res.message, "success");
@@ -402,7 +415,10 @@ export default function BranchSettings() {
     try {
       const res: any = await branchService.toggleBranchById(branch.id);
       if (res.success) {
-        showSnackbar(`Branch ${!branch.active ? "activated" : "deactivated"} successfully!`, "success");
+        showSnackbar(
+          `Branch ${!branch.active ? "activated" : "deactivated"} successfully!`,
+          "success",
+        );
         await getBranches();
       }
     } catch (error: any) {
@@ -428,13 +444,13 @@ export default function BranchSettings() {
     );
   };
 
-  const [companyId, setCompanyId] = useState<string>('');
+  const [companyId, setCompanyId] = useState<string>("");
   const fetchCompanyInfo = async () => {
     try {
       const companyData: any = await companyService.getCompany();
-      setCompanyId(companyData.data.length ? companyData.data?.[0].id : '');
+      setCompanyId(companyData.data.length ? companyData.data?.[0].id : "");
     } catch (err: any) {
-      showSnackbar(err.message || "Failed to fetch company info", 'error');
+      showSnackbar(err.message || "Failed to fetch company info", "error");
     }
   };
 
@@ -483,7 +499,12 @@ export default function BranchSettings() {
   };
 
   const handleSaveBank = async () => {
-    if (!bankFormData.bankName || !bankFormData.accountNumber || !bankFormData.ifscCode || !bankFormData.accountHolderName) {
+    if (
+      !bankFormData.bankName ||
+      !bankFormData.accountNumber ||
+      !bankFormData.ifscCode ||
+      !bankFormData.accountHolderName
+    ) {
       showSnackbar("Please fill all required fields", "error");
       return;
     }
@@ -498,13 +519,13 @@ export default function BranchSettings() {
         accountType: bankFormData.accountType,
         isPrimary: bankFormData.isPrimary,
         branchId: currentBranchForBank,
-        companyId: companyId
+        companyId: companyId,
       };
       if (editingBank) {
-        const res: any = await bankService.updateBranch(editingBank.id, payload);
+        const res: any = await bankService.updateBank(editingBank.id, payload);
         if (res.success) showSnackbar(res.message || "Bank updated", "success");
       } else {
-        const res: any = await bankService.createBranch(payload);
+        const res: any = await bankService.createBank(payload);
         if (res.success) showSnackbar(res.message || "Bank added", "success");
       }
       await loadBanksForBranch(currentBranchForBank);
@@ -550,12 +571,21 @@ export default function BranchSettings() {
     }
   };
 
-  const handleToggleBankStatus = async (bank: BankDetail, status: BankStatus) => {
+  const handleToggleBankStatus = async (
+    bank: BankDetail,
+    status: BankStatus,
+  ) => {
+    console.log(bank.isPrimary,status);
+    
     showSpinner();
     try {
-      await bankService.updateStatus(bank.id, status);
-      showSnackbar("Bank status updated", "success");
-      await loadBanksForBranch(bank.branchId);
+      if ((status == "ACTIVE" || status == "INACTIVE") && !bank.isPrimary) {
+        await bankService.updateStatus(bank.id, status);
+        showSnackbar("Bank status updated", "success");
+        await loadBanksForBranch(bank.branchId);
+      } else{
+        showSnackbar("Set another account as primary before deactivating this account.",'info')
+      }
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
@@ -572,7 +602,11 @@ export default function BranchSettings() {
             {getCurrentRouteLabel()}
           </span>
         </div>
-        <Button variant="contained" onClick={() => handleOpenDialog()} className="!bg-primary">
+        <Button
+          variant="contained"
+          onClick={() => handleOpenDialog()}
+          className="!bg-primary"
+        >
           Add New Branch
         </Button>
       </div>
@@ -593,29 +627,69 @@ export default function BranchSettings() {
             currentSortBy={sortBy}
             currentSortOrder={sortOrder === "ASC" ? "asc" : "desc"}
             onSortChange={(newSortBy, newSortOrder) => {
-              handleSortChange(newSortBy, newSortOrder === "asc" ? "ASC" : "DESC");
+              handleSortChange(
+                newSortBy,
+                newSortOrder === "asc" ? "ASC" : "DESC",
+              );
             }}
           />
         </div>
 
         {/* Branches Table */}
-        <TableContainer
-          className="h-[calc(100vh-290px)] overflow-auto ">
-          <Table stickyHeader className="border border-gray-200 bg-white-50 rounded-sm">
+        <TableContainer className="h-[calc(100vh-290px)] overflow-auto ">
+          <Table
+            stickyHeader
+            className="border border-gray-200 bg-white-50 rounded-sm"
+          >
             <TableHead className="bg-gray-100">
               <TableRow className="bg-gray-100 !text-primary">
-                <TableCell className="!font-semibold text-gray-800" sx={{
-                  ...stickyHeaderLeftSx,
-                  minWidth: "70px",
-                }}>S No</TableCell>
-                <TableCell className="nth-c !font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchName", sortOrder === "ASC" ? "DESC" : "ASC")}>
-                  <div className="flex items-center gap-1">Branch Name {getSortIcon("branchName")}</div>
+                <TableCell
+                  className="!font-semibold text-gray-800"
+                  sx={{
+                    ...stickyHeaderLeftSx,
+                    minWidth: "70px",
+                  }}
+                >
+                  S No
                 </TableCell>
-                <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchCode", sortOrder === "ASC" ? "DESC" : "ASC")}>
-                  <div className="flex items-center gap-1">Branch Code {getSortIcon("branchCode")}</div>
+                <TableCell
+                  className="nth-c !font-semibold text-gray-800 cursor-pointer hover:bg-gray-200"
+                  onClick={() =>
+                    handleSortChange(
+                      "branchName",
+                      sortOrder === "ASC" ? "DESC" : "ASC",
+                    )
+                  }
+                >
+                  <div className="flex items-center gap-1">
+                    Branch Name {getSortIcon("branchName")}
+                  </div>
                 </TableCell>
-                <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("branchAddress", sortOrder === "ASC" ? "DESC" : "ASC")}>
-                  <div className="flex items-center gap-1">Address {getSortIcon("branchAddress")}</div>
+                <TableCell
+                  className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200"
+                  onClick={() =>
+                    handleSortChange(
+                      "branchCode",
+                      sortOrder === "ASC" ? "DESC" : "ASC",
+                    )
+                  }
+                >
+                  <div className="flex items-center gap-1">
+                    Branch Code {getSortIcon("branchCode")}
+                  </div>
+                </TableCell>
+                <TableCell
+                  className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200"
+                  onClick={() =>
+                    handleSortChange(
+                      "branchAddress",
+                      sortOrder === "ASC" ? "DESC" : "ASC",
+                    )
+                  }
+                >
+                  <div className="flex items-center gap-1">
+                    Address {getSortIcon("branchAddress")}
+                  </div>
                 </TableCell>
                 <TableCell className="!font-semibold text-gray-800">
                   <div className="flex items-center gap-1">Branch Head</div>
@@ -638,15 +712,33 @@ export default function BranchSettings() {
                 <TableCell className="!font-semibold text-gray-800">
                   <div className="flex items-center gap-1">ESI Location</div>
                 </TableCell>
-                <TableCell className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200" onClick={() => handleSortChange("radius", sortOrder === "ASC" ? "DESC" : "ASC")}>
-                  <div className="flex items-center gap-1">Radius (km) {getSortIcon("radius")}</div>
+                <TableCell
+                  className="!font-semibold text-gray-800 cursor-pointer hover:bg-gray-200"
+                  onClick={() =>
+                    handleSortChange(
+                      "radius",
+                      sortOrder === "ASC" ? "DESC" : "ASC",
+                    )
+                  }
+                >
+                  <div className="flex items-center gap-1">
+                    Radius (km) {getSortIcon("radius")}
+                  </div>
                 </TableCell>
-                <TableCell className="nth-d !font-semibold text-gray-800">Status</TableCell>
-                <TableCell align="center" className="!font-semibold text-gray-800" sx={{
-                  ...stickyHeaderRightSx,
-                  minWidth: "70px",
-                  zIndex: 5
-                }}>Actions</TableCell>
+                <TableCell className="nth-d !font-semibold text-gray-800">
+                  Status
+                </TableCell>
+                <TableCell
+                  align="center"
+                  className="!font-semibold text-gray-800"
+                  sx={{
+                    ...stickyHeaderRightSx,
+                    minWidth: "70px",
+                    zIndex: 5,
+                  }}
+                >
+                  Actions
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -654,25 +746,61 @@ export default function BranchSettings() {
                 <React.Fragment key={branch.id}>
                   {/* Branch Row */}
                   <TableRow hover sx={getRowColor(index)}>
-                    <TableCell className="font-medium text-gray-800" sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}>
+                    <TableCell
+                      className="font-medium text-gray-800"
+                      sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}
+                    >
                       {page * limit + index + 1}
                     </TableCell>
-                    <TableCell sx={{ ...getStickyLeftSx(index), left: "70px", minWidth: "100px" }}>
+                    <TableCell
+                      sx={{
+                        ...getStickyLeftSx(index),
+                        left: "70px",
+                        minWidth: "100px",
+                      }}
+                    >
                       {branch.branchName}
                     </TableCell>
-                    <TableCell className="font-medium text-gray-800">{branch.branchCode}</TableCell>
-                    <TableCell className="max-w-xs truncate text-gray-800" title={branch.branchAddress}>
+                    <TableCell className="font-medium text-gray-800">
+                      {branch.branchCode}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-xs truncate text-gray-800"
+                      title={branch.branchAddress}
+                    >
                       {branch.branchAddress}
                     </TableCell>
-                    <TableCell className="text-gray-800">{branch.branchHeadName}</TableCell>
-                    <TableCell className="text-gray-800">{branch.contactEmail}</TableCell>
-                    <TableCell className="text-gray-800">{branch.contactNumber}</TableCell>
-                    <TableCell className="text-gray-800">{branch.pfCode}</TableCell>
-                    <TableCell className="text-gray-800">{branch.pfLocation}</TableCell>
-                    <TableCell className="text-gray-800">{branch.esiCode}</TableCell>
-                    <TableCell className="text-gray-800">{branch.esiLocation}</TableCell>
-                    <TableCell className="text-gray-800">{branch.radius} km</TableCell>
-                    <TableCell sx={{ ...getStickyRightSx(index), right: "75px", minWidth: "70px" }}>
+                    <TableCell className="text-gray-800">
+                      {branch.branchHeadName}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.contactEmail}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.contactNumber}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.pfCode}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.pfLocation}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.esiCode}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.esiLocation}
+                    </TableCell>
+                    <TableCell className="text-gray-800">
+                      {branch.radius} km
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        ...getStickyRightSx(index),
+                        right: "75px",
+                        minWidth: "70px",
+                      }}
+                    >
                       <Chip
                         label={branch.active ? "Active" : "Inactive"}
                         color={branch.active ? "success" : "error"}
@@ -681,20 +809,47 @@ export default function BranchSettings() {
                         className="cursor-pointer"
                       />
                     </TableCell>
-                    <TableCell className="!flex" sx={{ ...getStickyRightSx(index), minWidth: "50px" }}>
+                    <TableCell
+                      className="!flex"
+                      sx={{ ...getStickyRightSx(index), minWidth: "50px" }}
+                    >
                       <Tooltip title="Edit">
-                        <IconButton size="small" color="primary" className="" onClick={() => handleOpenDialog(branch)}>
-                          <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          className=""
+                          onClick={() => handleOpenDialog(branch)}
+                        >
+                          <EditIcon
+                            className="!w-4"
+                            sx={{ color: "#0087ff" }}
+                          />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(branch.id, branch.branchName)}>
-                          <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() =>
+                            handleDelete(branch.id, branch.branchName)
+                          }
+                        >
+                          <DeleteIcon
+                            className="!w-4"
+                            sx={{ color: "#ef4444" }}
+                          />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Bank Details">
-                        <IconButton size="small" onClick={() => toggleExpand(branch.id)}>
-                          {expandedBranchId === branch.id ? <ExpandLessIcon className="!w-4 text-gray-800" /> : <ExpandMoreIcon className="!w-4 text-gray-800" />}
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleExpand(branch.id)}
+                        >
+                          {expandedBranchId === branch.id ? (
+                            <ExpandLessIcon className="!w-4 text-gray-800" />
+                          ) : (
+                            <ExpandMoreIcon className="!w-4 text-gray-800" />
+                          )}
                         </IconButton>
                       </Tooltip>
                     </TableCell>
@@ -703,7 +858,12 @@ export default function BranchSettings() {
                   {/* Bank Details Expand Row */}
                   <TableRow>
                     <TableCell colSpan={8} sx={{ p: 0, border: 0 }}>
-                      <Collapse in={expandedBranchId === branch.id} timeout="auto" unmountOnExit className="!w-max">
+                      <Collapse
+                        in={expandedBranchId === branch.id}
+                        timeout="auto"
+                        unmountOnExit
+                        className="!w-max"
+                      >
                         <Box sx={{ m: 2 }}>
                           <div className="flex items-center justify-between gap-4 mb-2">
                             <div className="flex items-center gap-2 text-[13px] font-semibold text-blue-700">
@@ -729,16 +889,27 @@ export default function BranchSettings() {
                           ) : (
                             <div className="flex flex-col rounded-lg border border-gray-200 overflow-hidden bg-white">
                               {(banksByBranch[branch.id] || []).map((bank) => (
-                                <div key={bank.id} className={`flex items-center gap-6 px-4 py-3 ${bank.isPrimary ? "bg-blue-50/40" : ""}`}>
+                                <div
+                                  key={bank.id}
+                                  className={`flex items-center gap-6 px-4 py-3 ${bank.isPrimary ? "bg-blue-50/40" : ""}`}
+                                >
                                   {/* Icon + Bank Name */}
                                   <div className="flex items-center gap-2 w-[160px] shrink-0">
-                                    <div className={`p-1.5 rounded-lg ${bank.isPrimary ? "bg-blue-100" : "bg-gray-100"}`}>
-                                      <AccountBalanceIcon className={`!w-4 !h-4 ${bank.isPrimary ? "text-blue-600" : "text-gray-500"}`} />
+                                    <div
+                                      className={`p-1.5 rounded-lg ${bank.isPrimary ? "bg-blue-100" : "bg-gray-100"}`}
+                                    >
+                                      <AccountBalanceIcon
+                                        className={`!w-4 !h-4 ${bank.isPrimary ? "text-blue-600" : "text-gray-500"}`}
+                                      />
                                     </div>
                                     <div>
-                                      <div className="text-[12px] font-semibold text-gray-800 truncate max-w-[110px]">{bank.bankName}</div>
+                                      <div className="text-[12px] font-semibold text-gray-800 truncate max-w-[110px]">
+                                        {bank.bankName}
+                                      </div>
                                       {bank.isPrimary && (
-                                        <span className="text-[9px] bg-blue-100 text-blue-600 font-bold px-1.5 py-0.5 rounded-full">PRIMARY</span>
+                                        <span className="text-[9px] bg-blue-100 text-blue-600 font-bold px-1.5 py-0.5 rounded-full">
+                                          PRIMARY
+                                        </span>
                                       )}
                                     </div>
                                   </div>
@@ -749,26 +920,46 @@ export default function BranchSettings() {
                                   {/* Details Grid */}
                                   <div className="flex gap-6 flex-wrap">
                                     <div>
-                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Account Holder</div>
-                                      <div className="text-[12px] text-gray-700 font-medium">{bank.accountHolderName}</div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+                                        Account Holder
+                                      </div>
+                                      <div className="text-[12px] text-gray-700 font-medium">
+                                        {bank.accountHolderName}
+                                      </div>
                                     </div>
                                     <div>
-                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Account No.</div>
-                                      <div className="text-[12px] font-mono font-semibold text-gray-800">{bank.accountNumber}</div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+                                        Account No.
+                                      </div>
+                                      <div className="text-[12px] font-mono font-semibold text-gray-800">
+                                        {bank.accountNumber}
+                                      </div>
                                     </div>
                                     <div>
-                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">IFSC</div>
-                                      <div className="text-[12px] font-mono text-gray-700">{bank.ifscCode}</div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+                                        IFSC
+                                      </div>
+                                      <div className="text-[12px] font-mono text-gray-700">
+                                        {bank.ifscCode}
+                                      </div>
                                     </div>
                                     {bank.branchName && (
                                       <div>
-                                        <div className="text-[10px] text-gray-400 uppercase tracking-wide">Bank Branch</div>
-                                        <div className="text-[12px] text-gray-700">{bank.branchName}</div>
+                                        <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+                                          Bank Branch
+                                        </div>
+                                        <div className="text-[12px] text-gray-700">
+                                          {bank.branchName}
+                                        </div>
                                       </div>
                                     )}
                                     <div>
-                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">Account Type</div>
-                                      <div className="text-[12px] text-gray-700">{bank.accountType}</div>
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+                                        Account Type
+                                      </div>
+                                      <div className="text-[12px] text-gray-700">
+                                        {bank.accountType}
+                                      </div>
                                     </div>
                                   </div>
 
@@ -780,22 +971,61 @@ export default function BranchSettings() {
                                     <Chip
                                       label={bank.status || "ACTIVE"}
                                       size="small"
-                                      color={bank.status === "INACTIVE" ? "error" : "success"}
-                                      onClick={() => handleToggleBankStatus(bank, bank.status === "INACTIVE" ? 'ACTIVE' : 'INACTIVE')}
+                                      color={
+                                        bank.status === "INACTIVE"
+                                          ? "error"
+                                          : "success"
+                                      }
+                                      onClick={() =>
+                                        handleToggleBankStatus(
+                                          bank,
+                                          bank.status === "INACTIVE"
+                                            ? "ACTIVE"
+                                            : "INACTIVE",
+                                        )
+                                      }
                                       className="cursor-pointer !text-[10px] !h-6 !w-16"
                                     />
-                                    <Tooltip title={bank.isPrimary ? "Primary Account" : "Set as Primary"}>
+                                    <Tooltip
+                                      title={
+                                        bank.isPrimary
+                                          ? "Primary Account"
+                                          : bank.status === "ACTIVE"
+                                            ? "Set as Primary"
+                                            : "Inactive bank"
+                                      }
+                                    >
                                       <span>
-                                        <IconButton size="small" onClick={() => !bank.isPrimary && handleSetPrimary(bank)} disabled={bank.isPrimary}>
-                                          {bank.isPrimary
-                                            ? <StarIcon className="!w-4 !text-yellow-500" />
-                                            : <StarBorderIcon className="!w-4 text-gray-400" />}
+                                        <IconButton
+                                          size="small"
+                                          onClick={() =>
+                                            !bank.isPrimary &&
+                                            handleSetPrimary(bank)
+                                          }
+                                          disabled={
+                                            bank.isPrimary ||
+                                            bank.status == "INACTIVE"
+                                          }
+                                        >
+                                          {bank.isPrimary ? (
+                                            <StarIcon className="!w-4 !text-yellow-500" />
+                                          ) : (
+                                            <StarBorderIcon className="!w-4 text-gray-400" />
+                                          )}
                                         </IconButton>
                                       </span>
                                     </Tooltip>
                                     <Tooltip title="Edit">
-                                      <IconButton size="small" onClick={() => handleOpenBankDialog(branch.id, bank)}>
-                                        <EditIcon className="!w-4" sx={{ color: "#0087ff" }} />
+                                      <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                          handleOpenBankDialog(branch.id, bank)
+                                        }
+                                      >
+                                        <EditIcon
+                                          className="!w-4"
+                                          sx={{ color: "#0087ff" }}
+                                        />
                                       </IconButton>
                                     </Tooltip>
                                     {/* <Tooltip title="Delete">
@@ -817,7 +1047,9 @@ export default function BranchSettings() {
             </TableBody>
           </Table>
           {branches.length === 0 && (
-            <div className="bg-white border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500">No branches found</div>
+            <div className="bg-white border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500">
+              No branches found
+            </div>
           )}
         </TableContainer>
 
@@ -836,9 +1068,16 @@ export default function BranchSettings() {
       </div>
 
       {/* Add/Edit Branch Dialog with Integrated Map */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" sx={commonsx}>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        sx={commonsx}
+      >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-gray-800 ml-4">{editingBranch ? "Edit Branch" : "Add New Branch"}</div>
+          <div className="text-gray-800 ml-4">
+            {editingBranch ? "Edit Branch" : "Add New Branch"}
+          </div>
           <IconButton onClick={handleCloseDialog}>
             <CloseOutlined className="!text-gray-800" />
           </IconButton>
@@ -899,8 +1138,7 @@ export default function BranchSettings() {
                 </Button>
               </div>
 
-              {
-                showMap &&
+              {showMap && (
                 <LocationMap
                   mapUrl={mapUrl}
                   googleMapLink={googleMapLink}
@@ -909,7 +1147,7 @@ export default function BranchSettings() {
                     width: "100%",
                   }}
                 />
-              }
+              )}
             </div>
 
             {/* Latitude & Longitude Fields */}
@@ -996,7 +1234,6 @@ export default function BranchSettings() {
                   required
                 />
               </div>
-
             </div>
 
             {/* ESI Code & Location */}
@@ -1028,7 +1265,13 @@ export default function BranchSettings() {
 
             <div>
               <FormControlLabel
-                control={<Switch checked={formData.active || false} onChange={handleSwitchChange} color="primary" />}
+                control={
+                  <Switch
+                    checked={formData.active || false}
+                    onChange={handleSwitchChange}
+                    color="primary"
+                  />
+                }
                 label="Active"
                 className="text-gray-800"
               />
@@ -1036,17 +1279,30 @@ export default function BranchSettings() {
           </div>
         </DialogContent>
         <DialogActions className="!p-4 !border-t !border-gray-300">
-          <Button onClick={handleCloseDialog} variant="outlined" className="!text-gray-800 !border-gray-300">
+          <Button
+            onClick={handleCloseDialog}
+            variant="outlined"
+            className="!text-gray-800 !border-gray-300"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} variant="contained" className="!bg-primary">
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            className="!bg-primary"
+          >
             {editingBranch ? "Update" : "Save"} Branch
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Add / Edit Bank Dialog */}
-      <Dialog open={bankDialogOpen} onClose={handleCloseBankDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={bankDialogOpen}
+        onClose={handleCloseBankDialog}
+        maxWidth="sm"
+        fullWidth
+      >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="flex items-center gap-2 text-gray-800 ml-4">
             <AccountBalanceIcon className="!w-4" />
@@ -1062,35 +1318,54 @@ export default function BranchSettings() {
               fullWidth
               label="Bank Name"
               value={bankFormData.bankName || ""}
-              onChange={(e) => setBankFormData((p) => ({ ...p, bankName: e.target.value }))}
+              onChange={(e) =>
+                setBankFormData((p) => ({ ...p, bankName: e.target.value }))
+              }
               required
             />
             <TextField
               fullWidth
               label="Account Holder Name"
               value={bankFormData.accountHolderName || ""}
-              onChange={(e) => setBankFormData((p) => ({ ...p, accountHolderName: e.target.value }))}
+              onChange={(e) =>
+                setBankFormData((p) => ({
+                  ...p,
+                  accountHolderName: e.target.value,
+                }))
+              }
               required
             />
             <TextField
               fullWidth
               label="Account Number"
               value={bankFormData.accountNumber || ""}
-              onChange={(e) => setBankFormData((p) => ({ ...p, accountNumber: e.target.value }))}
+              onChange={(e) =>
+                setBankFormData((p) => ({
+                  ...p,
+                  accountNumber: e.target.value,
+                }))
+              }
               required
             />
             <TextField
               fullWidth
               label="IFSC Code"
               value={bankFormData.ifscCode || ""}
-              onChange={(e) => setBankFormData((p) => ({ ...p, ifscCode: e.target.value.toUpperCase() }))}
+              onChange={(e) =>
+                setBankFormData((p) => ({
+                  ...p,
+                  ifscCode: e.target.value.toUpperCase(),
+                }))
+              }
               required
             />
             <TextField
               fullWidth
               label="Bank Branch Name"
               value={bankFormData.branchName || ""}
-              onChange={(e) => setBankFormData((p) => ({ ...p, branchName: e.target.value }))}
+              onChange={(e) =>
+                setBankFormData((p) => ({ ...p, branchName: e.target.value }))
+              }
             />
             <FormControl fullWidth>
               <InputLabel>Account Type</InputLabel>
@@ -1098,7 +1373,12 @@ export default function BranchSettings() {
                 value={bankFormData.accountType || "SAVINGS"}
                 label="Account Type"
                 sx={selectSx}
-                onChange={(e) => setBankFormData((p) => ({ ...p, accountType: e.target.value }))}
+                onChange={(e) =>
+                  setBankFormData((p) => ({
+                    ...p,
+                    accountType: e.target.value,
+                  }))
+                }
               >
                 <MenuItem value="SAVINGS">Savings</MenuItem>
                 <MenuItem value="CURRENT">Current</MenuItem>
@@ -1114,8 +1394,14 @@ export default function BranchSettings() {
                 control={
                   <Switch
                     checked={bankFormData.isPrimary || false}
-                    onChange={(e) => setBankFormData((p) => ({ ...p, isPrimary: e.target.checked }))}
+                    onChange={(e) =>
+                      setBankFormData((p) => ({
+                        ...p,
+                        isPrimary: e.target.checked,
+                      }))
+                    }
                     color="primary"
+                    disabled={bankFormData.status == "INACTIVE"}
                   />
                 }
                 label="Set as Primary Account"
@@ -1124,10 +1410,18 @@ export default function BranchSettings() {
           </div>
         </DialogContent>
         <DialogActions className="!p-4 border-t border-gray-300">
-          <Button onClick={handleCloseBankDialog} variant="outlined" className="!text-gray-800 !border-gray-300">
+          <Button
+            onClick={handleCloseBankDialog}
+            variant="outlined"
+            className="!text-gray-800 !border-gray-300"
+          >
             Cancel
           </Button>
-          <Button onClick={handleSaveBank} variant="contained" className="!bg-primary">
+          <Button
+            onClick={handleSaveBank}
+            variant="contained"
+            className="!bg-primary"
+          >
             {editingBank ? "Update" : "Save"} Bank
           </Button>
         </DialogActions>

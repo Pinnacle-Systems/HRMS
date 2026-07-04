@@ -6,22 +6,10 @@ import {
   Select,
   MenuItem,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  DialogActions,
-  Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Tooltip,
-  Chip,
-  TextField,
 } from "@mui/material";
 import {
   PlayArrowOutlined, CheckCircleOutlined, ErrorOutlined,
   WarningAmberOutlined, InfoOutlined,
-  CloseOutlined,
-  Add,
-  PunchClockOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -35,13 +23,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
-import {
-  CloudUploadOutlined,
-  InsertDriveFileOutlined
-} from "@mui/icons-material";
-
-import { DateTimePicker } from "@mui/x-date-pickers";
-import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 
 
 export function ProcessAttendance() {
@@ -62,9 +43,6 @@ export function ProcessAttendance() {
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<ProcessResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-
-
 
   async function handleProcess() {
     if (!fromDate || !toDate) {
@@ -115,8 +93,6 @@ export function ProcessAttendance() {
       },
     });
   }
-
-
 
   return (
     <div className="p-4 space-y-4">

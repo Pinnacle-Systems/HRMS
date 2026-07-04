@@ -7,8 +7,10 @@ import {
   Chip,
 } from "@mui/material";
 import {
-  VisibilityOutlined, CheckOutlined, CloseOutlined,
+  VisibilityOutlined, CloseOutlined,
   FilterListOutlined,
+  CheckCircleOutlined,
+  CancelOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -190,7 +192,7 @@ export function CorrectionsView() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                {["S No", "Employee", "Code", "Date", "Current In", "Current Out", "Requested In", "Requested Out", "Reason", "Status", "Requested At", "Actions"].map((h) => (
+                {["S No", "Employee Name", "Date", "In Time", "Out Time", "Reason","Source", "Status", "Requested At", "Actions"].map((h) => (
                   <TableCell key={h} className="bg-gray-50 text-gray-600 font-semibold text-xs whitespace-nowrap">
                     {h}
                   </TableCell>
@@ -212,16 +214,24 @@ export function CorrectionsView() {
                 corrections.map((c, index) => (
                   <TableRow key={c.id} hover sx={getRowColor(index)}>
                     <TableCell >{index + 1}</TableCell>
-                    <TableCell className="whitespace-nowrap">{c.employeeName}</TableCell>
-                    <TableCell>{c.employeeCode}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {c.employeeName} <span className="text-gray-500 text-[10px]">({c.employeeCode})</span>
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {dayjs(c.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
-                    <TableCell>{c.currentCheckIn ? formatTime(c.currentCheckIn) : '-'}</TableCell>
-                    <TableCell>{c.currentCheckOut ? formatTime(c.currentCheckOut) : '-'}</TableCell>
-                    <TableCell><span className="text-green-700"> {formatTime(c.requestedCheckIn)}</span></TableCell>
-                    <TableCell> <span className="text-green-700">{formatTime(c.requestedCheckOut)}</span></TableCell>
-                    <TableCell className="max-w-[150px] truncate" title={c.reason}>{c.reason}</TableCell>
+                    <TableCell>
+                      <div className="text-green-700" title="Current In Time">{c.currentCheckIn ? formatTime(c.currentCheckIn) : '-'}</div>
+                      <div className={`${c.currentCheckIn == c.requestedCheckIn ? 'text-green-700' : 'text-red-500'}`} title="Requested In Time"> {formatTime(c.requestedCheckIn)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-green-700" title="Current Out Time"> {c.currentCheckOut ? formatTime(c.currentCheckOut) : '-'}</div>
+                      <div className={`${c.currentCheckOut == c.requestedCheckOut ? 'text-green-700' : 'text-red-500'}`} title="Requested Out Time">{formatTime(c.requestedCheckOut)}</div>
+                    </TableCell>
+                    {/* <TableCell><span className="text-green-700"> {formatTime(c.requestedCheckIn)}</span></TableCell>
+                    <TableCell> <span className="text-green-700">{formatTime(c.requestedCheckOut)}</span></TableCell> */}
+                    <TableCell className="max-w-[250px] truncate" title={c.reason}>{c.reason}</TableCell>
+                    <TableCell>{c.source}</TableCell>
                     <TableCell sx={{
                       padding: '8px !important',
                     }}>
@@ -233,7 +243,7 @@ export function CorrectionsView() {
                       {dayjs(c.createdAt).format("DD MMM, h:mm A")}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center">
                         <Tooltip title="View Details">
                           <IconButton size="small" onClick={() => openDetail(c)}>
                             <VisibilityOutlined className="text-primary !w-4" />
@@ -243,12 +253,12 @@ export function CorrectionsView() {
                           <>
                             <Tooltip title="Approve">
                               <IconButton size="small" onClick={() => openApprove(c, "approved")}>
-                                <CheckOutlined className="text-green-500 !w-4" />
+                                <CheckCircleOutlined className="text-green-600 !w-4" />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Reject">
                               <IconButton size="small" onClick={() => openApprove(c, "rejected")}>
-                                <CloseOutlined className="text-red-500 !w-4" />
+                                <CancelOutlined className="text-red-500 !w-4" />
                               </IconButton>
                             </Tooltip>
                           </>

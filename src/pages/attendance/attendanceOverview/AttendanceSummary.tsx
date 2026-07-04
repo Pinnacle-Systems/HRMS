@@ -95,15 +95,38 @@ export function AttendanceSummary() {
       setSummary(data?.summary ?? data ?? null);
     } catch {
       showSnackbar("Failed to load attendance summary", "error");
+       setSummary(null);
     } finally {
       hideSpinner();
     }
   }, [selectedDate, departmentId, branchId]);
 
+  // const getRegisterContent = async (params: Record<string, any>) => {
+  //   const res: any = await attendanceService.getRegister(params);
+  //   const data = res?.data?.data ?? res?.data;
+  //   return (Array.isArray(data) ? data : data?.content ?? []) as { status: string; department?: string }[];
+  // };
   const getRegisterContent = async (params: Record<string, any>) => {
-    const res: any = await attendanceService.getRegister(params);
-    const data = res?.data?.data ?? res?.data;
-    return (Array.isArray(data) ? data : data?.content ?? []) as { status: string; department?: string }[];
+    try {
+      const res: any = await attendanceService.getRegister({
+        startDate: params.startDate || selectedDate,
+        endDate: params.endDate || selectedDate,
+        departmentId: params.departmentId || departmentId || undefined,
+        branchId: params.branchId || branchId || undefined,
+      });
+      const data = res?.data?.data ?? res?.data;
+      return (Array.isArray(data) ? data : data?.content ?? []) as { 
+        status: string; 
+        department?: string;
+        employeeId?: string;
+        employeeName?: string;
+        departmentId?: string;
+        branchId?: string;
+      }[];
+    } catch (error) {
+      console.error('Error fetching register:', error);
+      return [];
+    }
   };
 
   const loadTrends = useCallback(async () => {
@@ -111,10 +134,11 @@ export function AttendanceSummary() {
       const dates = Array.from({ length: 7 }, (_, i) => dayjs(selectedDate).subtract(6 - i, "day").format("YYYY-MM-DD"));
       const trendRows: DailyTrend[] = await Promise.all(
         dates.map(async (d) => {
-          const content = await getRegisterContent({ startDate: d,endDate: d, size: 1000 });
+          const content = await getRegisterContent({ startDate: d,endDate: d, departmentId: departmentId || undefined,
+            branchId: branchId || undefined, });
           return {
             date: d,
-            present: content.filter((r) => ["present", "checked_in", "checked_out", "late"].includes(r.status)).length,
+            present: content.filter((r) => ["present", "checked_in", "checked_out", "late","on_duty"].includes(r.status)).length,
             absent: content.filter((r) => r.status === "absent").length,
             late: content.filter((r) => r.status === "late").length,
           };
@@ -127,12 +151,25 @@ export function AttendanceSummary() {
   }, [selectedDate]);
 
   const loadDepartmentWise = useCallback(async () => {
-    if (departments.length === 0) return;
+    if (departments.length === 0) {
+      await fetchMasterData();
+      return;
+    }
     try {
-      const content = await getRegisterContent({ startDate: selectedDate,endDate: selectedDate, size: 1000 });      
+      const content = await getRegisterContent({ startDate: selectedDate,endDate: selectedDate, departmentId: departmentId || undefined,
+        branchId: branchId || undefined, });  
+        let filteredContent = content;
+         if (departmentId) {
+        const selectedDept = departments.find(d => d.id === departmentId);
+        if (selectedDept) {
+          filteredContent = content.filter(r => r.department === selectedDept.departmentName);
+        }
+      }    
       const departmentWise: DepartmentWiseSummary[] = departments
         .map((dept) => {
-          const deptRecords = content.filter((r) => r.department === dept.departmentName);
+          const deptRecords = filteredContent.filter((r) => r.department === dept.departmentName);
+                    if (deptRecords.length === 0) return null;
+
           const present = deptRecords.filter((r) => ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)).length;
           return {
             department: dept.departmentName,
@@ -142,38 +179,43 @@ export function AttendanceSummary() {
             attendancePercentage: deptRecords.length ? Math.round((present / deptRecords.length) * 1000) / 10 : 0,
           };
         })
+        .filter((d): d is DepartmentWiseSummary => d !== null)
         .filter((d) => d.total > 0);
+            departmentWise.sort((a, b) => b.attendancePercentage - a.attendancePercentage);
+
       setDeptData(departmentWise);
     } catch {
       setDeptData([]);
     }
-  }, [selectedDate, departments]);
+  }, [selectedDate, departments,departmentId, branchId,]);
 
-  const fetchMasterData = async () => {
+  const fetchMasterData = useCallback(async () => {
     try {
       const depRes: any = await departmentService.getActiveDepartments();
       const depData = depRes.data?.content || depRes.data || [];
-      setDepartments(depData);
+      setDepartments(Array.isArray(depData) ? depData : []);
       const branRes: any = await branchService.getActiveBranches();
       const branData = branRes.data?.content || branRes.data || [];
-      setBranches(branData);
+      setBranches(Array.isArray(branData) ? branData : []);
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }
-  };
+  },[]);
 
   useEffect(() => {
-    loadSummary();
-    loadTrends();
-  }, [loadSummary, loadTrends]);
+    const loadAllData = async () => {
+      await Promise.all([
+        loadSummary(),
+        loadTrends(),
+        loadDepartmentWise()
+      ]);
+    };
+    loadAllData();
+  }, [loadSummary, loadTrends, loadDepartmentWise]);
 
-  useEffect(() => {
-    loadDepartmentWise();
-  }, [loadDepartmentWise]);
-
-  useEffect(() => {
+   useEffect(() => {
     fetchMasterData();
-  }, []);
+  }, [fetchMasterData]);
 
   const pieData = summary
     ? [

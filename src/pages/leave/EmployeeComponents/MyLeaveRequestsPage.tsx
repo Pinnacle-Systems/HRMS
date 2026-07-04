@@ -29,6 +29,7 @@ import { useUI } from "../../../context/Snackbar";
 import { leaveService } from "../../../services/modules/leave";
 import type {
   LeaveBalance,
+  LeaveDayType,
   LeaveRequest,
   LeaveRequestStatus,
   LeaveType,
@@ -52,6 +53,7 @@ import {
   CancelOutlined,
   CheckCircleOutlineOutlined,
   DeleteOutlineOutlined,
+  EditOutlined,
   HelpOutlined,
   SaveAltOutlined,
 } from "@mui/icons-material";
@@ -63,6 +65,21 @@ import {
   stickyHeaderLeftSx,
   stickyHeaderRightSx,
 } from "../../const";
+import SendOutlined from "@mui/icons-material/SendOutlined";
+import AttachFileOutlined from "@mui/icons-material/AttachFileOutlined";
+import { FileUpload } from "../../../components/FileUpload";
+
+type Attachment = {
+  id: string;
+  employeeId: string;
+  documentName: string;
+  documentType: string;
+  fileUrl: string;
+  fileSize: number;
+  uploadedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export default function MyLeaveRequestsPage() {
   const navigate = useNavigate();
@@ -89,6 +106,37 @@ export default function MyLeaveRequestsPage() {
   );
   const [actionRequest, setActionRequest] = useState<LeaveRequest | null>(null);
   const currentEmployeeId = session?.user.userId ?? "";
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editRequest, setEditRequest] = useState<LeaveRequest | null>(null);
+  const [editForm, setEditForm] = useState<{
+    leaveTypeId: string;
+    fromDate: Dayjs | null;
+    fromSession: LeaveDayType;
+    toDate: Dayjs | null;
+    toSession: LeaveDayType;
+    appliedReason: string;
+    emergencyContact: string;
+  }>({
+    leaveTypeId: "",
+    fromDate: null,
+    fromSession: "FULL_DAY",
+    toDate: null,
+    toSession: "FULL_DAY",
+    appliedReason: "",
+    emergencyContact: "",
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+  const sessionOptions = [
+    { value: "FULL_DAY", label: "Full Day" },
+    { value: "FIRST_HALF", label: "First Half" },
+    { value: "SECOND_HALF", label: "Second Half" },
+  ];
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<
+    string | null
+  >(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
 
   const loadRequests = async () => {
     setLoading(true);
@@ -121,7 +169,7 @@ export default function MyLeaveRequestsPage() {
     let isMounted = true;
     const loadLeaveTypes = async () => {
       try {
-        const response:any = await leaveService.getLeaveTypes({
+        const response: any = await leaveService.getLeaveTypes({
           page: 0,
           size: 50,
           sort: "name,ASC",
@@ -162,6 +210,15 @@ export default function MyLeaveRequestsPage() {
   const openDetail = async (request: LeaveRequest) => {
     setSelectedRequest(request);
     try {
+      try {
+        const attachmentResponse: any = await leaveService.getLeaveAttachments(
+          request.id,
+        );
+        setAttachments(attachmentResponse.data || []);
+      } catch (error) {
+        console.error("Failed to load attachments:", error);
+        setAttachments([]);
+      }
       const [balanceResponse, _calculationResponse]: any = await Promise.all([
         leaveService.getEmployeeLeaveBalances(request.employeeId),
         leaveService.calculateLeaveDays({
@@ -182,6 +239,88 @@ export default function MyLeaveRequestsPage() {
       setDetailBalance(null);
       // setDetailCalculation(null);
     }
+  };
+
+  const handleUploadAttachment = async (file: File | string) => {
+    if (!selectedRequest) return;
+    if (typeof file === "string") {
+      showSnackbar("Invalid file selected", "error");
+      return;
+    }
+    setUploadingAttachment(true);
+    showSpinner();
+    try {
+      const attachmentData = {
+        file: file,
+        documentName: `Attachment_${Date.now()}`,
+        documentType: "LEAVE_ATTACHMENT",
+      };
+      const response: any = await leaveService.uploadLeaveAttachment(
+        selectedRequest.id,
+        attachmentData,
+      );
+      if (response.data?.id) {
+        // Add the new attachment to the list
+        const newAttachment: Attachment = {
+          id: response.data.id,
+          employeeId: selectedRequest.employeeId,
+          documentName: attachmentData.documentName,
+          documentType: attachmentData.documentType,
+          fileUrl: response.data.fileUrl || "",
+          fileSize: file.size || 0,
+          uploadedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setAttachments((prev) => [...prev, newAttachment]);
+        showSnackbar("Attachment uploaded successfully!", "success");
+      } else {
+        throw new Error("No attachment ID returned from server");
+      }
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      showSnackbar(error.message || "Failed to upload attachment", "error");
+    } finally {
+      hideSpinner();
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!selectedRequest) return;
+    setDeletingAttachmentId(attachmentId);
+    showSpinner();
+    try {
+      const response: any = await leaveService.deleteLeaveAttachment(
+        selectedRequest.id,
+        attachmentId,
+      );
+      if (response.success) {
+        setAttachments((prev) => prev.filter((att) => att.id !== attachmentId));
+        showSnackbar("Attachment deleted successfully!", "success");
+      } else {
+        throw new Error(response.message || "Failed to delete attachment");
+      }
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      showSnackbar(error.message || "Failed to delete attachment", "error");
+    } finally {
+      hideSpinner();
+      setDeletingAttachmentId(null);
+    }
+  };
+
+  const confirmDeleteAttachment = (
+    attachmentId: string,
+    attachmentName: string,
+  ) => {
+    showConfirmDialog({
+      title: "Delete Attachment",
+      message: `Are you sure you want to delete "${attachmentName}"?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: () => handleDeleteAttachment(attachmentId),
+    });
   };
 
   const confirmWithdraw = (request: LeaveRequest) => {
@@ -276,6 +415,211 @@ export default function MyLeaveRequestsPage() {
     setFromDate(null);
     setToDate(null);
     setPage(0);
+  };
+
+  const handleEditRequest = (request: LeaveRequest) => {
+    closeActionMenu();
+    setEditRequest(request);
+    // Populate form with existing data
+    setEditForm({
+      leaveTypeId: request.leaveTypeId || "",
+      fromDate: request.fromDate ? dayjs(request.fromDate) : null,
+      fromSession: request.fromSession || "FULL_DAY",
+      toDate: request.toDate ? dayjs(request.toDate) : null,
+      toSession: request.toSession || "FULL_DAY",
+      appliedReason: request.reason || request.appliedReason || "",
+      emergencyContact: request.emergencyContactNumber || "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditRequest(null);
+    setEditErrors({});
+  };
+
+  const handleEditChange = <TKey extends keyof typeof editForm>(
+    key: TKey,
+    value: (typeof editForm)[TKey],
+  ) => {
+    setEditForm((current) => ({ ...current, [key]: value }));
+    setEditErrors((current) => ({ ...current, [key]: "" }));
+  };
+
+  const validateEdit = () => {
+    const errors: Record<string, string> = {};
+    if (!editForm.leaveTypeId) errors.leaveTypeId = "Leave type is required";
+    if (!editForm.fromDate) errors.fromDate = "From date is required";
+    if (!editForm.toDate) errors.toDate = "To date is required";
+    if (
+      editForm.fromDate &&
+      editForm.toDate &&
+      editForm.toDate.isBefore(editForm.fromDate, "day")
+    ) {
+      errors.toDate = "To date cannot be before from date";
+    }
+    if (!editForm.appliedReason.trim()) {
+      errors.appliedReason = "Reason is required";
+    }
+    setEditErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveEdit = async () => {
+    if (!validateEdit()) {
+      showSnackbar("Please fix validation errors", "error");
+      return;
+    }
+
+    setSavingEdit(true);
+    showSpinner();
+    try {
+      if (!editRequest) {
+        throw new Error("No request to edit");
+      }
+
+      const payload = {
+        leaveTypeId: editForm.leaveTypeId,
+        fromDate: editForm.fromDate?.format("YYYY-MM-DD"),
+        toDate: editForm.toDate?.format("YYYY-MM-DD"),
+        fromSession: editForm.fromSession,
+        toSession: editForm.toSession,
+        appliedReason: editForm.appliedReason,
+        emergencyContactNumber: editForm.emergencyContact.trim() || undefined,
+        // status: "DRAFT" as LeaveRequestStatus,
+        // attachmentIds: editRequest.attachmentIds || [],
+      };
+
+      const response: any = await leaveService.patchDraft(
+        editRequest.id,
+        payload,
+      );
+
+      if (response.success) {
+        showSnackbar("Draft updated successfully", "success");
+        handleCloseEditDialog();
+        await loadRequests(); // Reload the list
+      } else {
+        throw new Error(response.message || "Failed to update draft");
+      }
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to update draft", "error");
+    } finally {
+      hideSpinner();
+      setSavingEdit(false);
+    }
+  };
+
+  const handleSave = async (req: LeaveRequest) => {
+    // if (!validate(mode)) {
+    //   showSnackbar("Please fix validation errors before saving", "error");
+    //   return;
+    // }
+    // setSubmitMode(mode);
+    showSpinner();
+    try {
+      if (!currentEmployeeId) {
+        throw new Error("Current employee id is unavailable");
+      }
+      // let attachmentIds: string[] = [];
+      // if (form.attachment && typeof form.attachment === "string") {
+      //   attachmentIds = [form.attachment];
+      // } else if (uploadedAttachmentIds.length > 0) {
+      //   attachmentIds = uploadedAttachmentIds;
+      // }
+      const payload = {
+        employeeId: currentEmployeeId,
+        leaveTypeId: req.leaveTypeId || leaveTypeId,
+        fromDate: req.fromDate,
+        toDate: req.toDate,
+        fromSession: req.fromSession,
+        toSession: req.toSession,
+        appliedReason: req.appliedReason,
+        draft: false,
+        // attachmentIds: attachmentIds,
+        // approverId: approverId || undefined,
+      };
+      // const response = await leaveService.createLeaveRequest(payload);
+      // if (response.success) {
+      //   showSnackbar("Leave request submitted successfully", "success");
+      // }
+    } catch (err: any) {
+      showSnackbar(err?.message || "Failed to save leave request", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const renderAttachments = () => {
+    if (attachments.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-6 border-2 border-dashed border-gray-200 rounded bg-gray-50/50">
+          <AttachFileOutlined className="w-6 h-6 text-gray-300 mb-1" />
+          <span className="text-[11px] text-gray-500">
+            No attachments uploaded
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {attachments.map((attachment) => (
+          <div
+            key={attachment.id}
+            className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200 hover:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-primary-600 text-xs">📄</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[11px] font-medium text-gray-800 truncate">
+                  {attachment.documentName || `Attachment`}
+                </div>
+                <div className="text-[10px] text-gray-500">
+                  {(attachment.fileSize / 1024).toFixed(1)} KB
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+              {attachment.fileUrl && (
+                <Button
+                  size="small"
+                  variant="text"
+                  className="!text-primary !min-w-0 !p-1 !text-[11px]"
+                  href={attachment.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View
+                </Button>
+              )}
+              <Tooltip title="Delete attachment">
+                <IconButton
+                  size="small"
+                  className="!text-red-500 !min-w-0 !p-1 hover:!bg-red-50"
+                  onClick={() =>
+                    confirmDeleteAttachment(
+                      attachment.id,
+                      attachment.documentName,
+                    )
+                  }
+                  disabled={deletingAttachmentId === attachment.id}
+                >
+                  <DeleteOutlineOutlined className="w-4 h-4" />
+                </IconButton>
+              </Tooltip>
+            </div>
+          </div>
+        ))}
+        <div className="text-[10px] text-gray-500 mt-2 flex items-center gap-1">
+          <span>📎</span>
+          <span>{attachments.length} file(s) attached</span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -683,7 +1027,7 @@ export default function MyLeaveRequestsPage() {
                 renderValue: (value: unknown) =>
                   value
                     ? leaveTypes.find((leaveType) => leaveType.id === value)
-                        ?.name
+                      ?.name
                     : "All Leave Types",
               },
             }}
@@ -696,9 +1040,7 @@ export default function MyLeaveRequestsPage() {
             <MenuItem value="">All Leave Types</MenuItem>
             {leaveTypes.map((leaveType) => (
               <MenuItem key={leaveType.id} value={leaveType.id}>
-                <div className="flex items-center gap-2">
-                  {leaveType.name}
-                </div>
+                <div className="flex items-center gap-2">{leaveType.name}</div>
               </MenuItem>
             ))}
           </TextField>
@@ -750,7 +1092,10 @@ export default function MyLeaveRequestsPage() {
 
       {/* Enhanced Table with better styling */}
       <TableContainer className="max-w-full overflow-auto h-[calc(100vh-430px)] overflow-auto">
-        <Table stickyHeader className="border border-gray-200 rounded-sm bg-white-50">
+        <Table
+          stickyHeader
+          className="border border-gray-200 rounded-sm bg-white-50"
+        >
           <TableHead>
             <TableRow>
               <TableCell
@@ -827,12 +1172,7 @@ export default function MyLeaveRequestsPage() {
                   </TableCell>
                   <TableCell>{formatDate(request.appliedOn)}</TableCell>
                   <TableCell>
-                    <div>
-                      {request.managerName?.charAt(0) || "-"}
-                      <span className="text-gray-700 text-[12px]">
-                        {request.managerName}
-                      </span>
-                    </div>
+                    <div>{request.managerName || "-"}</div>
                   </TableCell>
                   <TableCell
                     sx={{
@@ -904,15 +1244,35 @@ export default function MyLeaveRequestsPage() {
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
         {actionRequest && actionRequest.status == "DRAFT" && (
-          <MenuItem
-            onClick={() => {
-              handleDelete(actionRequest);
-            }}
-            className="hover:bg-blue-50 transition-colors"
-          >
-            <DeleteOutlineOutlined className="!w-4 !h-4 mr-2 text-red-500" />
-            Delete
-          </MenuItem>
+          <>
+            <MenuItem
+              onClick={() => {
+                handleEditRequest(actionRequest);
+              }}
+              className="hover:bg-blue-50 transition-colors"
+            >
+              <EditOutlined className="!w-4 !h-4 mr-2 text-blue-500" />
+              Edit
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleSave(actionRequest);
+              }}
+              className="hover:bg-blue-50 transition-colors"
+            >
+              <SendOutlined className="!w-4 !h-4 mr-2 text-green-600" />
+              Submit
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleDelete(actionRequest);
+              }}
+              className="hover:bg-blue-50 transition-colors"
+            >
+              <DeleteOutlineOutlined className="!w-4 !h-4 mr-2 text-red-500" />
+              Delete
+            </MenuItem>
+          </>
         )}
         {canWithdraw && actionRequest && (
           <MenuItem
@@ -1085,6 +1445,42 @@ export default function MyLeaveRequestsPage() {
               </div>
             </div>
 
+            {/* Attachments Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] text-gray-800 uppercase tracking-wider">
+                  Attachments
+                </div>
+                {attachments.length > 0 && (
+                  <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                    {attachments.length} file(s)
+                  </span>
+                )}
+              </div>
+              <div className="mb-3 border-dashed border border-gray-200 rounded-md p-2">
+                <FileUpload
+                  label=""
+                  value=""
+                  onChange={handleUploadAttachment}
+                  accept="image/*,application/pdf"
+                  maxSize={5}
+                  compact
+                  description={
+                    uploadingAttachment
+                      ? "⏳ Uploading..."
+                      : "Upload PDF, JPG, PNG (Max 5MB)"
+                  }
+                />
+                {uploadingAttachment && (
+                  <div className="text-[10px] text-blue-600 mt-1 flex items-center gap-1">
+                    <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    Uploading attachment...
+                  </div>
+                )}
+              </div>
+              {renderAttachments()}
+            </div>
+
             {/* Day-wise Breakup - Simple */}
             <div className="bg-white rounded-lg border border-gray-200 p-3">
               <div className="flex items-center justify-between mb-2">
@@ -1099,11 +1495,10 @@ export default function MyLeaveRequestsPage() {
                 {selectedRequest.dates?.map((date: any) => (
                   <div
                     key={date.id}
-                    className={`px-2.5 py-1 rounded-md text-[10px]  ${
-                      date.weeklyOff || date.holiday
+                    className={`px-2.5 py-1 rounded-md text-[10px]  ${date.weeklyOff || date.holiday
                         ? "bg-gray-100 text-gray-800"
                         : "bg-primary-50 text-primary-700"
-                    }`}
+                      }`}
                   >
                     {formatDate(date.leaveDate)}
                     {date.weeklyOff && " (W)"}
@@ -1144,13 +1539,12 @@ export default function MyLeaveRequestsPage() {
                   (approval: any, _index: number) => (
                     <div key={approval.id} className="flex items-center gap-3">
                       <div
-                        className={`w-2 h-2 rounded-full ${
-                          approval.actionTaken === "APPROVED"
+                        className={`w-2 h-2 rounded-full ${approval.actionTaken === "APPROVED"
                             ? "bg-emerald-500"
                             : approval.actionTaken === "REJECTED"
                               ? "bg-red-500"
                               : "bg-amber-500"
-                        }`}
+                          }`}
                       ></div>
                       <div className="flex-1 flex items-center justify-between">
                         <div>
@@ -1158,13 +1552,12 @@ export default function MyLeaveRequestsPage() {
                             {approval.approverName || "Manager"}
                           </span>
                           <span
-                            className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${
-                              approval.actionTaken === "APPROVED"
+                            className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${approval.actionTaken === "APPROVED"
                                 ? "bg-emerald-50 text-emerald-600"
                                 : approval.actionTaken === "REJECTED"
                                   ? "bg-red-50 text-red-600"
                                   : "bg-amber-50 text-amber-600"
-                            }`}
+                              }`}
                           >
                             {approval.actionTaken}
                           </span>
@@ -1200,6 +1593,236 @@ export default function MyLeaveRequestsPage() {
               )}
             </div>
           </div>
+        )}
+      </DetailsDialog>
+
+      {/* Edit Draft Dialog */}
+      <DetailsDialog
+        open={editDialogOpen}
+        title="Edit Leave Draft"
+        onClose={handleCloseEditDialog}
+        maxWidth="md"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outlined"
+              className="!text-gray-600 !border-gray-200 hover:!bg-gray-50"
+              onClick={handleCloseEditDialog}
+              disabled={savingEdit}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              className="!bg-primary"
+              onClick={handleSaveEdit}
+              disabled={savingEdit}
+              startIcon={savingEdit ? undefined : <SaveAltOutlined />}
+            >
+              {savingEdit ? "Saving..." : "Update Draft"}
+            </Button>
+          </div>
+        }
+      >
+        {editRequest && (
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <div className="space-y-4">
+              {/* Leave Type */}
+              <div>
+                <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                  Leave Type <span className="text-red-500">*</span>
+                </label>
+                <TextField
+                  select
+                  fullWidth
+                  value={editForm.leaveTypeId}
+                  error={Boolean(editErrors.leaveTypeId)}
+                  helperText={editErrors.leaveTypeId}
+                  onChange={(event) =>
+                    handleEditChange("leaveTypeId", event.target.value)
+                  }
+                  size="small"
+                  sx={selectSx}
+                >
+                  {leaveTypes.map((leaveType) => (
+                    <MenuItem key={leaveType.id} value={leaveType.id}>
+                      {leaveType.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </div>
+
+              {/* Date Range - Two Columns */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                    From Date <span className="text-red-500">*</span>
+                  </label>
+                  <DatePicker
+                    value={editForm.fromDate}
+                    format="DD MMM YYYY"
+                    onChange={(value) =>
+                      handleEditChange("fromDate", dayjs(value))
+                    }
+                    slots={{
+                      openPickerIcon: CalendarMonthOutlinedIcon,
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        error: Boolean(editErrors.fromDate),
+                        helperText: editErrors.fromDate,
+                      },
+                      openPickerButton: {
+                        color: "primary",
+                        edge: "end",
+                      },
+                      actionBar: {
+                        actions: ["clear", "today", "accept"],
+                      },
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                    To Date <span className="text-red-500">*</span>
+                  </label>
+                  <DatePicker
+                    value={editForm.toDate}
+                    minDate={editForm.fromDate ?? undefined}
+                    format="DD MMM YYYY"
+                    onChange={(value) =>
+                      handleEditChange("toDate", dayjs(value))
+                    }
+                    slots={{
+                      openPickerIcon: CalendarMonthOutlinedIcon,
+                    }}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        size: "small",
+                        error: Boolean(editErrors.toDate),
+                        helperText: editErrors.toDate,
+                      },
+                      openPickerButton: {
+                        color: "primary",
+                        edge: "end",
+                      },
+                      actionBar: {
+                        actions: ["clear", "today", "accept"],
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Session - Two Columns */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                    From Session <span className="text-red-500">*</span>
+                  </label>
+                  <TextField
+                    select
+                    fullWidth
+                    value={editForm.fromSession}
+                    onChange={(event) =>
+                      handleEditChange(
+                        "fromSession",
+                        event.target.value as LeaveDayType,
+                      )
+                    }
+                    size="small"
+                    sx={selectSx}
+                  >
+                    {sessionOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </div>
+                <div>
+                  <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                    To Session <span className="text-red-500">*</span>
+                  </label>
+                  <TextField
+                    select
+                    fullWidth
+                    value={editForm.toSession}
+                    onChange={(event) =>
+                      handleEditChange(
+                        "toSession",
+                        event.target.value as LeaveDayType,
+                      )
+                    }
+                    size="small"
+                    sx={selectSx}
+                  >
+                    {sessionOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                  Reason <span className="text-red-500">*</span>
+                </label>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  placeholder="Brief reason for leave..."
+                  value={editForm.appliedReason}
+                  error={Boolean(editErrors.appliedReason)}
+                  helperText={editErrors.appliedReason}
+                  onChange={(event) =>
+                    handleEditChange("appliedReason", event.target.value)
+                  }
+                  size="small"
+                />
+              </div>
+
+              {/* Emergency Contact */}
+              <div>
+                <label className="text-[12px] font-medium text-gray-700 block mb-1">
+                  Emergency Contact{" "}
+                  <span className="text-gray-400">(Optional)</span>
+                </label>
+                <TextField
+                  fullWidth
+                  placeholder="Phone number"
+                  value={editForm.emergencyContact}
+                  error={Boolean(editErrors.emergencyContact)}
+                  helperText={editErrors.emergencyContact}
+                  onChange={(event) =>
+                    handleEditChange("emergencyContact", event.target.value)
+                  }
+                  size="small"
+                />
+              </div>
+
+              {/* Attachment Info - Read-only */}
+              {editRequest.attachmentIds &&
+                editRequest.attachmentIds.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="text-[11px] text-blue-700 flex items-center gap-2">
+                      <span>📎</span>
+                      <span>
+                        {editRequest.attachmentIds.length} attachment(s) already
+                        uploaded
+                      </span>
+                    </div>
+                  </div>
+                )}
+            </div>
+          </LocalizationProvider>
         )}
       </DetailsDialog>
     </LeavePageShell>

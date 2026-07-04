@@ -64,20 +64,37 @@ export function EmployeeView() {
   }
 
   // Computed summary from loaded records
-  const summary = records.length > 0 ? {
-    present: records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length,
-    absent: records.filter(r => r.status === "absent").length,
-    late: records.filter(r => r.status === "late").length,
-    leave: records.filter(r => r.status === "leave").length,
-    totalOT: records.reduce((s, r) => s + r.overtimeMinutes, 0),
-    totalWorked: records.reduce((s, r) => s + r.workedMinutes, 0),
-    workingDays: records.filter(r => !["holiday", "weekly_off"].includes(r.status)).length,
-  } : null;
+ const summary = records.length > 0 ? {
+  present: records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length,
+  absent: records.filter(r => r.status === "absent").length,
+  late: records.filter(r => r.status === "late").length,
+  leave: records.filter(r => r.status === "leave").length,
+  onDuty: records.filter(r => r.status === "on_duty").length,
+  permission: records.filter(r => r.status === "permission").length,
+  holiday: records.filter(r => r.status === "holiday").length,
+  weeklyOff: records.filter(r => r.status === "weekly_off").length,
+  totalOT: records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0),
+  totalWorked: records.reduce((sum, r) => sum + (r.workedMinutes || 0), 0),
+  totalLateMinutes: records.reduce((sum, r) => sum + (r.lateMinutes || 0), 0),
+  totalEarlyOutMinutes: records.reduce((sum, r) => sum + (r.earlyOutMinutes || 0), 0),
+  workingDays: records.filter(r => !["holiday", "weekly_off"].includes(r.status)).length,
+  totalEmployees: records.length,
+  // Additional useful metrics
+  presentPercentage: records.length > 0 
+    ? Math.round((records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length / records.length) * 100) 
+    : 0,
+  latePercentage: records.length > 0 
+    ? Math.round((records.filter(r => r.status === "late").length / records.length) * 100) 
+    : 0,
+  absentPercentage: records.length > 0 
+    ? Math.round((records.filter(r => r.status === "absent").length / records.length) * 100) 
+    : 0,
+} : null;
 
   return (
     <div className="p-4 space-y-4">
       {/* Search Panel */}
-      <div className="bg-white-50 border border-gray-200 rounded-lg p-4">
+      <div className="bg-white-50 border border-gray-200 rounded-lg p-4 pt-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-[260px]">
             <EmployeeSelector
@@ -143,7 +160,7 @@ export function EmployeeView() {
               </div>
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Department</div>
-                <div className="text-[12px] font-medium text-gray-700">{attendanceInfo.department}</div>
+                <div className="text-[12px] font-medium text-gray-700">{attendanceInfo.department} ({attendanceInfo.designation})</div>
               </div>
             </div>
 
@@ -153,11 +170,11 @@ export function EmployeeView() {
                 <ScheduleOutlined fontSize="small" className="text-purple-600" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Shift</div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Shift - [{attendanceInfo.shiftCode}]</div>
                 <div className="text-[12px] font-medium text-gray-700">
                   {attendanceInfo.shiftName}
                   <span className="text-gray-400 font-normal text-xs ml-1">
-                    ({formatTime(attendanceInfo.shiftStart)} – {formatTime(attendanceInfo.shiftEnd)})
+                    ({attendanceInfo.shiftStart} – {attendanceInfo.shiftEnd})
                   </span>
                 </div>
               </div>
@@ -209,30 +226,49 @@ export function EmployeeView() {
                 </div>
               </div>
             )}
+
+             {/* Pending Leaves Badge */}
+            {attendanceInfo.pendingLeaves > 0 && (
+              <div className="ml-auto">
+                <div className="flex items-center gap-2 bg-violet-50 border border-violet-200/60 rounded-full px-3 py-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                  </span>
+                  <span className="text-xs font-medium text-violet-700">
+                    {attendanceInfo.pendingLeaves} pending leave{attendanceInfo.pendingLeaves > 1 ? "s" : ""}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : null}
 
       {/* Summary chips */}
-      {summary && (
-        <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
-          {[
-            { label: "Working Days", value: summary.workingDays, color: "text-gray-700", bg: "bg-gray-100" },
-            { label: "Present", value: summary.present, color: "text-green-600", bg: "bg-green-50" },
-            { label: "Absent", value: summary.absent, color: "text-red-500", bg: "bg-red-50" },
-            { label: "Late", value: summary.late, color: "text-amber-600", bg: "bg-amber-50" },
-            { label: "Leave", value: summary.leave, color: "text-violet-600", bg: "bg-violet-50" },
-            { label: "Total OT", value: formatMinutes(summary.totalOT), color: "text-orange-600", bg: "bg-orange-50" },
-            { label: "Worked", value: formatMinutes(summary.totalWorked), color: "text-blue-600", bg: "bg-blue-50" },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`${bg} rounded-lg p-2 text-center`}>
-              <div className={`text-base font-bold ${color}`}>{value}</div>
-              <div className={`text-[10px] ${color} mt-0.5`}>{label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
+     {summary && (
+  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
+    {[
+      { label: "Working Days", value: summary.workingDays, color: "text-gray-700", bg: "bg-gray-100" },
+      { label: "Present", value: summary.present, color: "text-green-600", bg: "bg-green-50" },
+      { label: "Absent", value: summary.absent, color: "text-red-500", bg: "bg-red-50" },
+      { label: "Late (min)", value: summary.totalLateMinutes || 0, color: "text-amber-600", bg: "bg-amber-50" },
+      { label: "Early Out", value: summary.totalEarlyOutMinutes || 0, color: "text-sky-600", bg: "bg-sky-50" },
+      { label: "Leave", value: summary.leave, color: "text-violet-600", bg: "bg-violet-50" },
+      { label: "On Duty", value: summary.onDuty, color: "text-cyan-600", bg: "bg-cyan-50" },
+      { label: "Permission", value: summary.permission, color: "text-pink-600", bg: "bg-pink-50" },
+      { label: "Holiday", value: summary.holiday, color: "text-indigo-600", bg: "bg-indigo-50" },
+      { label: "Weekly Off", value: summary.weeklyOff, color: "text-gray-600", bg: "bg-gray-50" },
+      { label: "OT (min)", value: summary.totalOT || 0, color: "text-orange-600", bg: "bg-orange-50" },
+      { label: "Worked (min)", value: summary.totalWorked || 0, color: "text-blue-600", bg: "bg-blue-50" },
+    ].map(({ label, value, color, bg }) => (
+      <div key={label} className={`${bg} rounded-lg p-2 text-center`}>
+        <div className={`text-base font-bold ${color}`}>{value}</div>
+        <div className={`text-[10px] ${color} mt-0.5`}>{label}</div>
+      </div>
+    ))}
+  </div>
+)}
       {/* Attendance records table */}
       {(loading || records.length > 0) && (
         <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
@@ -243,7 +279,7 @@ export function EmployeeView() {
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    {["S No","Date", "Day", "Shift", "Check In", "Check Out", "Worked", "Late", "OT", "Status", "Remarks"].map(h => (
+                    {["S No","Date", "Day", "Check In", "Check Out", "Worked", "Late","Early Out", "OT", "Status"].map(h => (
                       <TableCell key={h} className="!font-bold whitespace-nowrap">{h}</TableCell>
                     ))}
                   </TableRow>
@@ -262,8 +298,8 @@ export function EmployeeView() {
                       <TableCell >
                         {dayjs(r.attendanceDate).format("ddd")}
                       </TableCell>
-                      <TableCell>{r.shiftCode}</TableCell>
-                      <TableCell>
+                      {/* <TableCell>{r.shiftCode}</TableCell> */}
+                      <TableCell> 
                         {r.checkInTime
                           ? <span className="text-green-700">{formatTime(r.checkInTime)}</span>
                           : <span>-</span>}
@@ -282,6 +318,11 @@ export function EmployeeView() {
                           : "-"}
                       </TableCell>
                       <TableCell>
+                        {r.earlyOutMinutes > 0
+                          ? <span className="text-amber-600">{formatMinutes(r.earlyOutMinutes)}</span>
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
                         {r.overtimeMinutes > 0
                           ? <span className="text-orange-600">{formatMinutes(r.overtimeMinutes)}</span>
                           : "-"}
@@ -294,9 +335,9 @@ export function EmployeeView() {
                           {ATTENDANCE_STATUS_LABELS[r.status as AttendanceStatus] ?? r.status}
                         </span>
                       </TableCell>
-                      <TableCell className="max-w-[120px] truncate" title={r.remarks}>
+                      {/* <TableCell className="max-w-[120px] truncate" title={r.remarks}>
                         {r.remarks || "-"}
-                      </TableCell>
+                      </TableCell> */}
                     </TableRow>
                   ))}
                 </TableBody>

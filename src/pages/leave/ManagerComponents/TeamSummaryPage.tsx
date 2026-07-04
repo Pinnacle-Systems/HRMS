@@ -12,17 +12,17 @@ import {
   CardContent,
   LinearProgress,
 } from "@mui/material";
-import { useAuth } from "../../auth/authContext";
-import { resolveEmployeeIdFromSession } from "../../auth/sessionIdentity";
-import DataState from "../../components/DataState";
-import { useUI } from "../../context/Snackbar";
-import { leaveService } from "../../services/modules/leave";
+import { useAuth } from "../../../auth/authContext";
+import { resolveEmployeeIdFromSession } from "../../../auth/sessionIdentity";
+import DataState from "../../../components/DataState";
+import { useUI } from "../../../context/Snackbar";
+import { leaveService } from "../../../services/modules/leave";
 import type {
   LeaveRequest,
   LeaveType,
-} from "../../services/modules/leaveTypes";
-import LeavePageShell from "./components/LeavePageShell";
-import { getLeaveStatusMeta } from "./leaveStatusMeta";
+} from "../../../services/modules/leaveTypes";
+import LeavePageShell from "../components/LeavePageShell";
+import { getLeaveStatusMeta } from "../leaveStatusMeta";
 // import {
 //   leaveTableBodyCellSx,
 //   leaveTableClassName,
@@ -42,7 +42,7 @@ import PendingIcon from "@mui/icons-material/Pending";
 // import BeachAccessIcon from "@mui/icons-material/BeachAccess";
 // import WorkIcon from "@mui/icons-material/Work";
 // import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
-import { getRowColor } from "../const";
+import { getRowColor } from "../../const";
 
 export default function TeamSummaryPage() {
   const theme = useTheme();
@@ -154,6 +154,8 @@ export default function TeamSummaryPage() {
         return theme.palette.error.main;
       case "DRAFT":
         return theme.palette.grey[500];
+      case "CLARIFICATION_REQUESTED":
+        return theme.palette.secondary.main;
       default:
         return theme.palette.info.main;
     }
@@ -170,6 +172,8 @@ export default function TeamSummaryPage() {
         return alpha(theme.palette.error.main, 0.08);
       case "DRAFT":
         return alpha(theme.palette.grey[500], 0.08);
+      case "CLARIFICATION_REQUESTED":
+        return alpha(theme.palette.secondary.main, 0.08);
       default:
         return alpha(theme.palette.info.main, 0.08);
     }

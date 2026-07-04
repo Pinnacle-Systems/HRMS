@@ -70,7 +70,17 @@ export type LeaveRequest = {
   createdAt?: string;
   updatedAt?: string;
   cancellationRequested?: string;
-  currentStatus: string;
+  currentStatus: LeaveRequestStatus;
+  attachmentIds?: string[];
+  attachments?: {
+    id: string;
+    documentName: string;
+    fileUrl: string;
+    documentType?: string;
+  }[];
+  hrVerified?: boolean;
+  hrVerifiedBy?: string;
+  hrVerifiedAt?: string;
 };
 
 export type LeaveBalance = {

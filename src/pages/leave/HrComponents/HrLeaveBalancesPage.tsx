@@ -35,9 +35,7 @@ import type {
 } from "../../../services/modules/leaveTypes";
 import LeavePageShell from "../components/LeavePageShell";
 import { formatDate } from "../leaveFormatters";
-import {
-  leaveTableBodyCellSx,
-} from "../components/leaveTableStyles";
+import { leaveTableBodyCellSx } from "../components/leaveTableStyles";
 import { getRowColor } from "../../const";
 
 // Helper to get color based on balance status
@@ -79,8 +77,19 @@ const SummaryCard = ({
     <CardContent className="p-4 !bg-white">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-[12px] font-medium text-gray-500">{title}{subtitle && <span className="text-[10px] ml-2 text-gray-500">({subtitle})</span>}</div>
-          <div className={`text-2xl font-bold text-gray-800 text-${color} mt-1`}>{value} </div>
+          <div className="text-[12px] font-medium text-gray-500">
+            {title}
+            {subtitle && (
+              <span className="text-[10px] ml-2 text-gray-500">
+                ({subtitle})
+              </span>
+            )}
+          </div>
+          <div
+            className={`text-2xl font-bold text-gray-800 text-${color} mt-1`}
+          >
+            {value}{" "}
+          </div>
           {/* {subtitle && (
             <div className="text-[12px] text-gray-500 mt-0.5"></div>
           )} */}
@@ -143,23 +152,24 @@ const BalanceRow = ({
             className="!bg-red-50 !text-red-700 !border-red-200"
           />
         </TableCell>
-        <TableCell sx={leaveTableBodyCellSx}>
+        {/* <TableCell sx={leaveTableBodyCellSx}>
           <Chip
             label={balance.pending || 0}
             size="small"
             className="!bg-yellow-50 !text-yellow-700 !border-yellow-200"
           />
-        </TableCell>
+        </TableCell> */}
         <TableCell sx={leaveTableBodyCellSx}>
           <Chip
             label={available}
             size="small"
-            className={`font-semibold ${color === "success"
-              ? "!bg-green-50 !text-green-700 !border-green-200"
-              : color === "warning"
-                ? "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
-                : "!bg-red-50 !text-red-700 !border-red-200"
-              }`}
+            className={`font-semibold ${
+              color === "success"
+                ? "!bg-green-50 !text-green-700 !border-green-200"
+                : color === "warning"
+                  ? "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
+                  : "!bg-red-50 !text-red-700 !border-red-200"
+            }`}
           />
         </TableCell>
         <TableCell sx={leaveTableBodyCellSx}>
@@ -205,7 +215,9 @@ export default function HrLeaveBalancesPage() {
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [ledger, setLedger] = useState<LeaveLedgerEntry[]>([]);
   const [employeeLeaves, setEmployeeLeaves] = useState<LeaveRequest[]>([]);
-  const [employeeCompOffBalances, setEmployeeCompOffBalances] = useState<CompOffBalance[]>([]);
+  const [employeeCompOffBalances, setEmployeeCompOffBalances] = useState<
+    CompOffBalance[]
+  >([]);
   const [loading, setLoading] = useState(false);
 
   const handleEmployeeChange = async (id: string | null, name?: string) => {
@@ -220,17 +232,20 @@ export default function HrLeaveBalancesPage() {
     setLoading(true);
     showSpinner();
     try {
-      const [empLeaveResponse,compOffBalanceResponse,balanceResponse, ledgerResponse]: any = await Promise.all([
+      const [
+        empLeaveResponse,
+        compOffBalanceResponse,
+        balanceResponse,
+        ledgerResponse,
+      ]: any = await Promise.all([
         leaveService.getEmployeeLeaves(id),
         leaveService.getEmployeeCompOffBalances(id),
         leaveService.getEmployeeLeaveBalances(id),
-        leaveService.getEmployeeLeaveLedger(id,
-          //   {
-          //   page: 0,
-          //   size: 20,
-          //   sort: "transactionDate,DESC",
-          // }
-        ),
+        leaveService.getEmployeeLeaveLedger(id, {
+          page: 0,
+          size: 20,
+          sort: "transactionDate,DESC",
+        }),
       ]);
       setEmployeeLeaves(empLeaveResponse.data?.content ?? []);
       setEmployeeCompOffBalances(compOffBalanceResponse.data?.content ?? []);
@@ -261,7 +276,10 @@ export default function HrLeaveBalancesPage() {
   //   0,
   // );
   const recentLeaves = employeeLeaves.slice(0, 5);
-  const hasData = balances.length > 0 || employeeCompOffBalances.length > 0 || employeeLeaves.length > 0;
+  const hasData =
+    balances.length > 0 ||
+    employeeCompOffBalances.length > 0 ||
+    employeeLeaves.length > 0;
 
   return (
     <LeavePageShell
@@ -329,25 +347,37 @@ export default function HrLeaveBalancesPage() {
             <TableHead>
               <TableRow className="bg-gray-50">
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">Leave Type</span>
+                  <span className="!font-semibold text-gray-800">
+                    Leave Type
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">Current Balance</span>
+                  <span className="!font-semibold text-gray-800">
+                    Current Balance
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">Approved Days</span>
+                  <span className="!font-semibold text-gray-800">
+                    Approved Days
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">Pending Days</span>
+                  <span className="!font-semibold text-gray-800">
+                    Pending Days
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">Pending Requests</span>
+                  <span className="!font-semibold text-gray-800">
+                    Pending Requests
+                  </span>
                 </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {employeeCompOffBalances.map((balance, index) => (
-                <TableRow key={`${balance.employeeId}-${balance.leaveTypeId}-${index}`}>
+                <TableRow
+                  key={`${balance.employeeId}-${balance.leaveTypeId}-${index}`}
+                >
                   <TableCell className="px-4 py-3">
                     <span className="text-[12px] text-gray-700">
                       {balance.leaveTypeName || balance.leaveTypeCode}
@@ -413,13 +443,15 @@ export default function HrLeaveBalancesPage() {
             <TableHead>
               <TableRow className="bg-gray-50">
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">From</span>
+                  <span className="!font-semibold text-gray-800">Date</span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">To</span>
+                  <span className="!font-semibold text-gray-800">Session</span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
-                  <span className="!font-semibold text-gray-800">Leave Type</span>
+                  <span className="!font-semibold text-gray-800">
+                    Leave Type
+                  </span>
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
                   <span className="!font-semibold text-gray-800">Status</span>
@@ -427,25 +459,51 @@ export default function HrLeaveBalancesPage() {
                 <TableCell className="px-4 py-2.5">
                   <span className="!font-semibold text-gray-800">Days</span>
                 </TableCell>
+                <TableCell className="px-4 py-2.5">
+                  <span className="!font-semibold text-gray-800">Pay Status</span>
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {recentLeaves.map((leave, index) => (
-                <TableRow key={`${leave.id}-${index}`}>
-                  <TableCell className="px-4 py-3">
-                    <span className="text-[12px] text-gray-700">{formatDate(leave.fromDate)}</span>
+                <TableRow key={`${leave.id}-${index}`} sx={getRowColor(index)}>
+                  <TableCell className="!px-4 !py-3">
+                    <span className="text-[12px] text-gray-700 py-4">
+                      {formatDate(leave.fromDate)}
+                      {leave.fromDate !== leave.toDate ? ` - ${formatDate(leave.toDate)}` : ""}
+                    </span>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <span className="text-[12px] text-gray-700">{formatDate(leave.toDate)}</span>
+                    <span className="text-[12px] text-gray-700">
+                      {leave.fromSession && leave.toSession
+                        ? `${leave.fromSession} - ${leave.toSession}`
+                        : "-"}
+                    </span>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <span className="text-[12px] text-gray-700">{leave.leaveTypeName}</span>
+                    <span className="text-[12px] text-gray-700">
+                      {leave.leaveTypeName}
+                    </span>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <span className="text-[12px] text-gray-700">{leave.status}</span>
+                    <span className="text-[12px] text-gray-700">
+                      {leave.currentStatus || leave.status || "-"}
+                    </span>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <span className="text-[12px] text-gray-700">{leave.days}</span>
+                    <Chip
+                      label={leave.totalDays}
+                      size="small"
+                      className= {`${leave.totalDays && leave.totalDays > 10 ? "!text-red-500 !bg-red-100" : 
+                        leave.totalDays && leave.totalDays > 5 ? "!text-yellow-600 !bg-yellow-200" : "!text-blue-500 !bg-blue-100"}`}
+                    />
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <span className={` text-[12px] px-2 py-1 rounded-full font-medium
+                      ${leave.payrollTreatment ? "text-green-700 bg-green-100" : "text-red-500 bg-red-100"}
+                    `}>
+                      {leave.payrollTreatment || "-"}
+                    </span>
                   </TableCell>
                 </TableRow>
               ))}
@@ -502,9 +560,9 @@ export default function HrLeaveBalancesPage() {
                 <TableCell className="px-4 py-2.5">
                   <span className="!font-semibold text-gray-800">Availed</span>
                 </TableCell>
-                <TableCell className="px-4 py-2.5">
+                {/* <TableCell className="px-4 py-2.5">
                   <span className="!font-semibold text-gray-800">Pending</span>
-                </TableCell>
+                </TableCell> */}
                 <TableCell className="px-4 py-2.5">
                   <span className="!font-semibold text-gray-800">
                     Available
@@ -585,10 +643,15 @@ export default function HrLeaveBalancesPage() {
                   <span className="!font-semibold">Transaction</span>
                 </TableCell>
                 <TableCell>
-                  <span className="!font-semibold">Days</span>
+                  <span className="!font-semibold">Credit Days</span>
                 </TableCell>
                 <TableCell>
-                  <span className="!font-semibold">Balance</span>
+                  <span className="!font-semibold">Debit Days</span>
+                </TableCell>
+                <TableCell>
+                  <span className="!font-semibold">
+                    Balance After Transaction
+                  </span>
                 </TableCell>
                 <TableCell>
                   <span className="!font-semibold">Remarks</span>
@@ -614,17 +677,23 @@ export default function HrLeaveBalancesPage() {
                     </TableCell>
                     <TableCell>
                       <span
-                        className={`text-[12px] px-2 py-1 rounded-full font-medium ${entry.transactionType === "ACCRUAL"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-red-100 text-red-700"
-                          }`}
+                        className={`text-[12px] px-2 py-1 rounded-full font-medium ${
+                          entry.transactionType === "ACCRUAL"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
                       >
                         {entry.transactionType}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-3 text-center">
                       <span className="text-[12px] font-semibold text-gray-700">
-                        {entry.days || 0}
+                        {entry.creditDays || 0}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3 text-center">
+                      <span className="text-[12px] font-semibold text-gray-700">
+                        {entry.debitDays || 0}
                       </span>
                     </TableCell>
                     <TableCell className="px-4 py-3 text-right">
@@ -634,7 +703,7 @@ export default function HrLeaveBalancesPage() {
                     </TableCell>
                     <TableCell>
                       <span className="text-[12px] text-gray-500">
-                        {entry.remarks || "-"}
+                        {entry.notes || "-"}
                       </span>
                     </TableCell>
                   </TableRow>

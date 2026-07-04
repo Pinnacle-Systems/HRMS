@@ -349,7 +349,7 @@ export function mapLeaveRequestResponseToViewModel(
     dates,
     approvals,
     approverRemarks: firstRemark?.actionComments ?? firstRemark?.remarks,
-    currentStatus: "",
+    currentStatus: dto.currentStatus as LeaveRequestStatus,
     payrollTreatment: dto.payrollTreatment
   };
 }

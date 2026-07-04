@@ -23,6 +23,7 @@ import {
   Chip,
   Box,
   LinearProgress,
+  Autocomplete,
 } from "@mui/material";
 import {
   LoginOutlined,
@@ -35,16 +36,15 @@ import {
   CloseOutlined,
   WbSunnyOutlined,
   InfoOutlined,
-  QrCodeScannerOutlined,
   CloudUploadOutlined,
   PunchClockOutlined,
   InsertDriveFileOutlined,
   Add,
+  PlaylistAddCheckCircleOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
 import type { AttendanceStatus } from "../../../services/modules/attendanceTypes";
-import { GlobalPagination } from "../../../components/GlobalPagination";
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
@@ -122,8 +122,8 @@ export function DailyRegister() {
   const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
-  const [limit, setLimit] = useState(20);
+  // const [page, setPage] = useState(0);
+  // const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
@@ -144,13 +144,13 @@ export function DailyRegister() {
 
   // Bulk status dialog
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  // const [bulkStatus, setBulkStatus] = useState<AttendanceStatus>("present");
   const [bulkRemarks, setBulkRemarks] = useState("");
   const [bulkCheckinOpen, setBulkCheckinOpen] = useState(false);
   const [bulkCheckinEmployees, setBulkCheckinEmployees] = useState<any[]>([]);
   const [bulkCheckinTime, setBulkCheckinTime] = useState(dayjs().toISOString());
   const [bulkCheckinRemarks, setBulkCheckinRemarks] = useState("");
   const [bulkCheckinSubmitting, setBulkCheckinSubmitting] = useState(false);
+  const [selectAllChecked, setSelectAllChecked] = useState(false);
 
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState("");
@@ -167,14 +167,14 @@ export function DailyRegister() {
     try {
       const res: any = await attendanceService.getRegister({
         startDate: date,
+        endDate: date,
         departmentId: departmentId || undefined,
         branchId: branchId || undefined,
         status: statusFilter || undefined,
-        page,
-        size: limit,
       });
       const data = res?.data?.data ?? res?.data;
-      setEmployees(Array.isArray(data) ? data : (data?.content ?? []));
+      const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
+      setEmployees(employeesData);
       setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
     } catch {
       showSnackbar("Failed to load daily register", "error");
@@ -182,7 +182,7 @@ export function DailyRegister() {
       setLoading(false);
       hideSpinner();
     }
-  }, [date, departmentId, branchId, statusFilter, page, limit]);
+  }, [date, departmentId, branchId, statusFilter]);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -259,7 +259,7 @@ export function DailyRegister() {
   function openPunch(emp: RegisterEmployee, type: "checkIn" | "checkOut") {
     setPunchEmployee(emp);
     setPunchType(type);
-    setPunchTime(dayjs().format("YYYY-MM-DDTHH:mm"));
+    setPunchTime(dayjs().toISOString());
     setPunchRemarks("");
     setPunchDialogOpen(true);
   }
@@ -267,7 +267,6 @@ export function DailyRegister() {
   async function submitPunch() {
     if (!punchEmployee || !punchTime) return;
     setSubmitting(true);
-    // punchEmployee.employeeId
     try {
       if (punchType === "checkIn") {
         await attendanceService.checkIn({
@@ -303,12 +302,15 @@ export function DailyRegister() {
 
   // ── Bulk daily status ─────────────────────────────────────────────────────
   async function submitBulkStatus() {
-    if (selected.size === 0) return;
+    if (selected.size === 0) {
+      showSnackbar("Select at least one employee", "warning");
+      return;
+    }
     setSubmitting(true);
     try {
       await attendanceService.postDailyStatus({
         processDate: date,
-        employeeIds: ["ed665db9-2746-459b-b2ef-53aed4852e61"],
+        employeeIds: Array.from(selected),
       });
       showSnackbar(
         `Daily status posted for ${selected.size} employees`,
@@ -362,21 +364,9 @@ export function DailyRegister() {
     });
   }
 
-  function handleAddBulkEmployee(employee: any) {
-    if (!employee) return;
-    if (bulkCheckinEmployees.find((e) => e.id === employee.id)) {
-      showSnackbar("Employee already added", "warning");
-      return;
-    }
-    setBulkCheckinEmployees([...bulkCheckinEmployees, employee]);
-  }
-
-  function handleRemoveBulkEmployee(id: string) {
-    setBulkCheckinEmployees(bulkCheckinEmployees.filter((e) => e.id !== id));
-  }
-
-  async function submitBulkCheckin() {
-    if (bulkCheckinEmployees.length === 0) {
+  // ── Bulk Check-in ──────────────────────────────────────────────────────────
+  async function submitBulkCheckin(employeesToCheckin = bulkCheckinEmployees) {
+    if (employeesToCheckin.length === 0) {
       showSnackbar("Select at least one employee", "warning");
       return;
     }
@@ -385,18 +375,20 @@ export function DailyRegister() {
     showSpinner();
     try {
       await attendanceService.bulkCheckin({
-        employeeIds: bulkCheckinEmployees.map((e) => e.id),
+        employeeIds: employeesToCheckin.map((e) => e.employeeId),
         checkinTime: bulkCheckinTime,
         reason: bulkCheckinRemarks,
         markedBy: session?.user.userId || "system",
       });
       showSnackbar(
-        `Bulk check-in successful for ${bulkCheckinEmployees.length} employees`,
+        `Bulk check-in successful for ${employeesToCheckin.length} employees`,
         "success",
       );
       setBulkCheckinEmployees([]);
       setBulkCheckinRemarks("");
       setBulkCheckinOpen(false);
+      setSelectAllChecked(false);
+      setSelected(new Set());
       loadRegister();
       loadTodaySummary();
     } catch (err: any) {
@@ -410,6 +402,7 @@ export function DailyRegister() {
     }
   }
 
+  // ── Selection Handlers ────────────────────────────────────────────────────
   function toggleSelect(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -421,18 +414,199 @@ export function DailyRegister() {
   function toggleSelectAll() {
     if (selected.size === employees.length) {
       setSelected(new Set());
+      setSelectAllChecked(false);
     } else {
       setSelected(new Set(employees.map((e) => e.employeeId)));
+      setSelectAllChecked(true);
     }
   }
 
-  const handlePageChange = (p: number) => {
-    setPage(p - 1);
+  // ── Reminder Handlers ────────────────────────────────────────────────────
+  async function handleSendReminders() {
+    if (!reminderMessage.trim()) {
+      showSnackbar("Please enter a reminder message", "warning");
+      return;
+    }
+
+    setSendingReminders(true);
+    showSpinner();
+    try {
+      await attendanceService.sendReminders({
+        recipientType: reminderType,
+        reminderMessage: reminderMessage,
+        employeeIds: employeesToRem.map((e) => e.id),
+        sendVia: sendVia,
+      });
+      showSnackbar(`Reminders sent successfully`, "success");
+      setReminderDialogOpen(false);
+      setReminderMessage("");
+      setEmployeesToRem([]);
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to send reminders",
+        "error",
+      );
+    } finally {
+      setSendingReminders(false);
+      hideSpinner();
+    }
+  }
+
+  // const handleAddEmployee = (employee: any) => {
+  //   if (!employee) return;
+  //   if (employeesToRem.find((e) => e.id === employee.id)) {
+  //     showSnackbar("Employee already added", "warning");
+  //     return;
+  //   }
+  //   setEmployeesToRem([...employeesToRem, employee]);
+  // };
+
+  // const handleRemoveEmployee = (id: string) => {
+  //   setEmployeesToRem(employeesToRem.filter((e) => e.id !== id));
+  // };
+
+  const handleSendViaChange = (event: any) => {
+    const value = event.target.value;
+    if (value.length === 0) {
+      showSnackbar("Please select at least one channel", "warning");
+      return;
+    }
+    setSendVia(value);
   };
-  const handleLimitChange = (l: number) => {
-    setLimit(l);
-    setPage(0);
-  };
+
+  // ── Import Handlers ──────────────────────────────────────────────────────
+  async function handleImportFile() {
+    if (!importFile) {
+      showSnackbar("Please select a file to import", "warning");
+      return;
+    }
+
+    setImporting(true);
+    setImportResult(null);
+    showSpinner();
+
+    try {
+      const res: any = await attendanceService.importAttendanceFile(
+        { format: "", source: "" },
+        importFile,
+      );
+      const data = res?.data?.data ?? res?.data;
+      setImportResult({
+        success: data?.success || 0,
+        failed: data?.failed || 0,
+        errors: data?.errors || [],
+      });
+      showSnackbar(
+        `Imported ${data?.success || 0} records successfully`,
+        data?.failed > 0 ? "warning" : "success",
+      );
+      loadRegister();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to import attendance",
+        "error",
+      );
+    } finally {
+      setImporting(false);
+      hideSpinner();
+    }
+  }
+
+  // ── Punch Import Handlers ────────────────────────────────────────────────
+  function addPunchEntry() {
+    setPunchEntries([
+      ...punchEntries,
+      {
+        id: Date.now().toString(),
+        employeeId: "",
+        employeeCode: "",
+        employeeName: "",
+        employeeData: null,
+        timestamp: dayjs().toISOString(),
+        deviceId: "",
+      },
+    ]);
+  }
+
+  function updatePunchEntry(index: number, field: string, value: string) {
+    const updated = [...punchEntries];
+    updated[index] = { ...updated[index], [field]: value };
+    setPunchEntries(updated);
+  }
+
+  function removePunchEntry(index: number) {
+    setPunchEntries(punchEntries.filter((_, i) => i !== index));
+  }
+
+  function handleEmployeeSelect(val: any, index: number) {
+    const updated = [...punchEntries];
+    updated[index] = {
+      ...updated[index],
+      employeeId: val?.id || "",
+      employeeName: val?.name || "",
+      employeeData: val,
+      employeeCode: val?.employeeId || val?.employeeCode || "",
+    };
+    setPunchEntries(updated);
+  }
+
+  function clearPunchEntries() {
+    setPunchEntries([]);
+    setPunchImportResult(null);
+  }
+
+  async function handleBatchPunchImport() {
+    const validEntries = punchEntries.filter(
+      (e) => e.employeeId && e.timestamp,
+    );
+
+    if (validEntries.length === 0) {
+      showSnackbar("Please add at least one valid punch entry", "warning");
+      return;
+    }
+
+    setPunchImporting(true);
+    showSpinner();
+
+    try {
+      const payload = {
+        source: punchSource,
+        punches: validEntries.map((e) => ({
+          employeeId: e.employeeId,
+          employeeCode: e.employeeCode || undefined,
+          timestamp: e.timestamp,
+          deviceId: e.deviceId || undefined,
+        })),
+      };
+
+      const res: any = await attendanceService.importAttendance(payload);
+      const data = res?.data?.data ?? res?.data;
+      setPunchImportResult(data);
+      showSnackbar(
+        data?.message ||
+        `Imported ${data?.totalPunches || 0} punches successfully`,
+        data?.errors > 0 ? "warning" : "success",
+      );
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to import punches",
+        "error",
+      );
+    } finally {
+      setPunchImporting(false);
+      hideSpinner();
+    }
+  }
+
+  // const handlePageChange = (p: number) => {
+  //   setPage(p - 1);
+  // };
+  // const handleLimitChange = (l: number) => {
+  //   setLimit(l);
+  //   setPage(0);
+  // };
 
   const statCards = todaySummary
     ? [
@@ -475,189 +649,31 @@ export function DailyRegister() {
     ]
     : [];
 
-  async function handleSendReminders() {
-    if (!reminderMessage.trim()) {
-      showSnackbar("Please enter a reminder message", "warning");
-      return;
-    }
-
-    setSendingReminders(true);
-    showSpinner();
-    try {
-      await attendanceService.sendReminders({
-        recipientType: reminderType,
-        reminderMessage: reminderMessage,
-        employeeIds: employeesToRem.map((e) => e.id),
-        sendVia: sendVia,
-      });
-      showSnackbar(`Reminders sent successfully`, "success");
-      setReminderDialogOpen(false);
-      setReminderMessage("");
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to send reminders",
-        "error",
-      );
-    } finally {
-      setSendingReminders(false);
-      hideSpinner();
-    }
-  }
-
-  const handleAddEmployee = (employee: any) => {
-    console.log(employee);
-
+  const handleEmployee = async (employee:any) => {
     if (!employee) return;
-    if (employeesToRem.find((e) => e.id === employee.id)) {
+    if (employeesToRem.find(e => e.employeeId === employee.id)) {
       showSnackbar("Employee already added", "warning");
       return;
     }
     setEmployeesToRem([...employeesToRem, employee]);
-  };
-
-  const handleRemoveEmployee = (id: string) => {
-    setEmployeesToRem(employeesToRem.filter((e) => e.id !== id));
-  };
-
-  const handleSendViaChange = (event: any) => {
-    const value = event.target.value;
-    if (value.length === 0) {
-      showSnackbar("Please select at least one channel", "warning");
-      return;
-    }
-    setSendVia(value);
-  };
-
-  async function handleImportFile() {
-    if (!importFile) {
-      showSnackbar("Please select a file to import", "warning");
-      return;
-    }
-
-    setImporting(true);
-    setImportResult(null);
-    showSpinner();
-
-    try {
-      const res: any = await attendanceService.importAttendanceFile(
-        { format: "", source: "" },
-        importFile,
-      );
-      const data = res?.data?.data ?? res?.data;
-      setImportResult({
-        success: data?.success || 0,
-        failed: data?.failed || 0,
-        errors: data?.errors || [],
-      });
-      showSnackbar(
-        `Imported ${data?.success || 0} records successfully`,
-        data?.failed > 0 ? "warning" : "success",
-      );
-      // if (data?.success > 0) {
-      //   loadRegister();
-      // }
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to import attendance",
-        "error",
-      );
-    } finally {
-      setImporting(false);
-      hideSpinner();
+    if (!selected.has(employee.id)) {
+      const newSelected = new Set(selected);
+      newSelected.add(employee.id);
+      setSelected(newSelected);
     }
   }
 
-  function addPunchEntry() {
-    setPunchEntries([
-      ...punchEntries,
-      {
-        employeeId: "",
-        employeeCode: "",
-        employeeName: "",
-        employeeData: null,
-        timestamp: dayjs().toISOString(),
-        deviceId: "",
-      },
-    ]);
+  // When opening the reminder dialog, pre-populate with selected employees
+const handleOpenReminderDialog = () => {
+  if (selected.size > 0) {
+    // Get selected employees from the employees list
+    const selectedEmployees = employees.filter(emp => selected.has(emp.employeeId));
+    setEmployeesToRem(selectedEmployees);
+  } else {
+    setEmployeesToRem([]);
   }
-
-  function updatePunchEntry(index: number, field: string, value: string) {
-    const updated = [...punchEntries];
-    updated[index] = { ...updated[index], [field]: value };
-    setPunchEntries(updated);
-  }
-
-  function removePunchEntry(index: number) {
-    setPunchEntries(punchEntries.filter((_, i) => i !== index));
-  }
-
-  function handleEmployeeSelect(val: any, index: number) {
-    console.log(val);
-
-    const updated = [...punchEntries];
-    updated[index] = {
-      ...updated[index],
-      employeeId: val?.id || "",
-      employeeName: val?.name || "",
-      employeeData: val,
-      employeeCode: val?.employeeId || val?.employeeCode || "",
-    };
-    setPunchEntries(updated);
-  }
-
-  function clearPunchEntries() {
-    setPunchEntries([]);
-    setPunchImportResult(null);
-  }
-
-  async function handleBatchPunchImport() {
-    // Filter out entries without employeeId or timestamp
-    const validEntries = punchEntries.filter(
-      (e) => e.employeeId && e.timestamp,
-    );
-
-    if (validEntries.length === 0) {
-      showSnackbar("Please add at least one valid punch entry", "warning");
-      return;
-    }
-
-    setPunchImporting(true);
-    showSpinner();
-
-    try {
-      const payload = {
-        source: punchSource,
-        punches: validEntries.map((e) => ({
-          employeeId: e.employeeId,
-          employeeCode: e.employeeCode || undefined,
-          timestamp: e.timestamp,
-          deviceId: e.deviceId || undefined,
-        })),
-      };
-
-      const res: any = await attendanceService.importAttendance(payload);
-      const data = res?.data?.data ?? res?.data;
-      setPunchImportResult(data);
-      showSnackbar(
-        data?.message ||
-        `Imported ${data?.totalPunches || 0} punches successfully`,
-        data?.errors > 0 ? "warning" : "success",
-      );
-
-      // Optionally refresh data after successful import
-      // if (data?.totalPunches > 0) {
-      // Refresh your register or summary here
-      // }
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to import punches",
-        "error",
-      );
-    } finally {
-      setPunchImporting(false);
-      hideSpinner();
-    }
-  }
+  setReminderDialogOpen(true);
+};
 
   return (
     <div className="p-4 space-y-3">
@@ -677,15 +693,6 @@ export function DailyRegister() {
           >
             Import from File
           </Button>
-          {/* <Tooltip title="Import Punches">
-            <IconButton
-              size="small"
-              onClick={() => setPunchImportOpen(true)}
-              className="border border-gray-300"
-            >
-              <PunchClockOutlined className="!w-4" className="text-primary" />
-            </IconButton>
-          </Tooltip> */}
           <Button
             size="small"
             variant="outlined"
@@ -696,16 +703,17 @@ export function DailyRegister() {
             Import Punches
           </Button>
           <Button
-            size="small"
-            variant="contained"
-            className="!bg-primary"
-            startIcon={<NotificationsActiveOutlined className="!w-4" />}
-            onClick={() => setReminderDialogOpen(true)}
-          >
-            Send Reminders
-          </Button>
+  size="small"
+  variant="contained"
+  className="!bg-primary"
+  startIcon={<NotificationsActiveOutlined className="!w-4" />}
+  onClick={handleOpenReminderDialog}
+>
+  Send Reminders {selected.size > 0 && `(${selected.size})`}
+</Button>
         </div>
       </div>
+
       {statCards.length > 0 && (
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
           {statCards.map(({ label, value, color, border }) => (
@@ -723,32 +731,28 @@ export function DailyRegister() {
       )}
 
       {/* Date + Filters */}
-      <div className="flex items-center gap-3 border border-gray-200 p-2 rounded-md justify-between">
+      <div className="flex items-center gap-3 border border-gray-200 p-2 rounded-md justify-between flex-wrap">
         <div className="flex items-center gap-2">
           <FilterListOutlined className="text-gray-600" fontSize="small" />
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             <DatePicker
-              className="!w-[450px]"
+              // className="!w-[150px]"
               value={date ? dayjs(date) : null}
               onChange={(newValue) => {
                 setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+                // setPage(0);
               }}
-              maxDate={new Date() ? dayjs(new Date()) : undefined}
-              slotProps={{
-                textField: {
-                  size: "small",
-                },
-              }}
+              maxDate={dayjs()}
             />
           </LocalizationProvider>
-          <FormControl>
+          <FormControl sx={{ minWidth: 150 }}>
             <InputLabel>Department</InputLabel>
             <Select
               value={departmentId}
               label="Department"
               onChange={(e) => {
                 setDepartmentId(e.target.value);
-                setPage(0);
+                // setPage(0);
               }}
               sx={selectSx}
             >
@@ -761,14 +765,14 @@ export function DailyRegister() {
             </Select>
           </FormControl>
 
-          <FormControl>
+          <FormControl sx={{ minWidth: 150 }}>
             <InputLabel>Branch</InputLabel>
             <Select
               value={branchId}
               label="Branch"
               onChange={(e) => {
                 setBranchId(e.target.value);
-                setPage(0);
+                // setPage(0);
               }}
               sx={selectSx}
             >
@@ -782,9 +786,9 @@ export function DailyRegister() {
           </FormControl>
         </div>
 
-        <div className="flex">
-          {/* Status quick chips with improved styling */}
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status quick chips */}
+          <div className="flex items-center gap-1 flex-wrap">
             {STATUS_CHIP_OPTIONS.slice(0, 5).map((o) => (
               <Chip
                 key={o.value}
@@ -794,49 +798,40 @@ export function DailyRegister() {
                 color={statusFilter === o.value ? "primary" : "default"}
                 onClick={() => {
                   setStatusFilter(o.value);
-                  setPage(0);
+                  // setPage(0);
                 }}
-                className="cursor-pointer transition-all duration-200 hover:scale-105 text-gray-800"
+                className="cursor-pointer text-gray-800"
                 sx={{
                   borderRadius: "8px",
                   fontWeight: statusFilter === o.value ? 600 : 400,
                   ...(statusFilter === o.value && {
-                    background:
-                      "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
                     color: "white",
                     "&:hover": {
-                      background:
-                        "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                      background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
                     },
-                  }),
-                  ...(statusFilter !== o.value && {
-                    borderColor: "#e2e8f0",
                   }),
                 }}
               />
             ))}
           </div>
 
-          {/* Action buttons with modern styling */}
-          <div className="ml-3 flex items-center gap-1">
-            <Tooltip title="Refresh data" arrow>
-              <IconButton
-                size="small"
-                onClick={() => {
-                  loadRegister();
-                  loadTodaySummary();
-                }}
-                // className="hover:bg-gradient-to-br hover:from-blue-50 hover:to-indigo-50 transition-all duration-200"
-                sx={{
-                  borderRadius: "10px",
-                  padding: "8px",
-                  "&:hover": { transform: "rotate(90deg)" },
-                }}
-              >
-                <RefreshOutlined fontSize="small" className="text-gray-500" />
-              </IconButton>
-            </Tooltip>
-          </div>
+          <Tooltip title="Refresh data" arrow>
+            <IconButton
+              size="small"
+              onClick={() => {
+                loadRegister();
+                loadTodaySummary();
+              }}
+              sx={{
+                borderRadius: "10px",
+                padding: "8px",
+                "&:hover": { transform: "rotate(90deg)" },
+              }}
+            >
+              <RefreshOutlined fontSize="small" className="text-gray-500" />
+            </IconButton>
+          </Tooltip>
         </div>
       </div>
 
@@ -846,7 +841,6 @@ export function DailyRegister() {
           severity="info"
           icon={<WbSunnyOutlined className="!w-4" />}
           sx={{ py: 0.5 }}
-          className="flex items-center"
         >
           <span className="text-sm font-medium">
             Holiday: {todayHoliday?.name}
@@ -856,30 +850,30 @@ export function DailyRegister() {
               ({todayHoliday?.type})
             </span>
           )}
-          <div>Applicable Departments</div>
         </Alert>
       )}
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-2 bg-primary/5 border border-gray-200 rounded-lg px-3 py-2">
+        <div className="flex items-center gap-2 bg-primary/5 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
           <GroupOutlined fontSize="small" className="text-primary" />
-          <span className="text-sm text-primary font-medium">
+          <span className="text-[12px] text-blue-500 font-bold">
             {selected.size} selected
           </span>
-          <div className="flex items-center gap-2 ml-2">
+          <div className="flex items-center gap-2 ml-2 flex-wrap">
             <Button
               size="small"
               variant="outlined"
+              className="!text-primary !border-primary"
               startIcon={<EventNoteOutlined fontSize="small" />}
               onClick={() => setBulkDialogOpen(true)}
             >
-              Post Daily Status
+              Daily Status
             </Button>
             <Button
               size="small"
               variant="outlined"
-              // className="!text-primary !border-primary"
+              className="!text-primary !border-primary"
               startIcon={<CheckCircleOutlined fontSize="small" />}
               onClick={handleBulkProcess}
             >
@@ -887,13 +881,18 @@ export function DailyRegister() {
             </Button>
             <Button
               size="small"
-              variant="outlined"
-              startIcon={<QrCodeScannerOutlined fontSize="small" />}
+              variant="contained"
+              className="!bg-primary"
+              startIcon={<PlaylistAddCheckCircleOutlined fontSize="small" />}
               onClick={() => setBulkCheckinOpen(true)}
             >
               Bulk Check-in
             </Button>
-            <Button size="small" onClick={() => setSelected(new Set())}>
+            <Button size="small" variant="outlined"
+              className="!text-gray-800 !border-gray-200" onClick={() => {
+                setSelected(new Set());
+                setSelectAllChecked(false);
+              }}>
               Clear
             </Button>
           </div>
@@ -903,7 +902,12 @@ export function DailyRegister() {
       {/* Register Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <TableContainer
-          className={`${todayHoliday && selected.size > 0 ? "max-h-[calc(100vh-545px)]" : selected.size > 0 || todayHoliday ? "max-h-[calc(100vh-480px)]" : "max-h-[calc(100vh-420px)]"}`}
+          className={`${todayHoliday && selected.size > 0
+              ? "max-h-[calc(100vh-565px)]"
+              : selected.size > 0 || todayHoliday
+                ? "max-h-[calc(100vh-520px)]"
+                : "max-h-[calc(100vh-440px)]"
+            }`}
         >
           <Table size="small" stickyHeader>
             <TableHead>
@@ -911,7 +915,8 @@ export function DailyRegister() {
                 <TableCell padding="checkbox" className="bg-gray-50">
                   <Checkbox
                     size="small"
-                    className="!text-gray-500"
+                    // className="!text-gray-500"
+                    color="primary"
                     indeterminate={
                       selected.size > 0 && selected.size < employees.length
                     }
@@ -927,11 +932,11 @@ export function DailyRegister() {
                   "Name",
                   "Department",
                   "Shift",
-                  "Shift Start",
+                  "Shift Time",
                   "Check In",
                   "Check Out",
                   "Status",
-                  "Actions",
+                  "Action",
                 ].map((h) => (
                   <TableCell key={h} className="!font-bold">
                     {h}
@@ -942,28 +947,24 @@ export function DailyRegister() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    align="center"
-                    className="py-8 text-gray-400 text-sm"
-                  >
-                    Loading register...
-                  </TableCell>
+                  {/* <TableCell colSpan={10} align="center" className="py-8">
+                    <div className="flex items-center justify-center">
+                      <LinearProgress className="w-32" />
+                    </div>
+                  </TableCell> */}
                 </TableRow>
               ) : employees.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    align="center"
-                    className="py-8 text-gray-400 text-sm"
-                  >
-                    No records for {dayjs(date).format("DD MMM YYYY")}
+                  <TableCell colSpan={11} align="center" className="py-8">
+                    <div className="text-[12px] text-gray-400 pt-7">
+                      No records for {dayjs(date).format("DD MMM YYYY")}
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 employees.map((emp, i) => (
                   <TableRow
-                    key={emp.employeeId}
+                    key={emp.employeeId || i}
                     hover
                     selected={selected.has(emp.employeeId)}
                     sx={getRowColor(i)}
@@ -971,7 +972,8 @@ export function DailyRegister() {
                     <TableCell padding="checkbox">
                       <Checkbox
                         size="small"
-                        className="!text-gray-500"
+                        // className="!text-gray-500"
+                        color="primary"
                         checked={selected.has(emp.employeeId)}
                         onChange={() => toggleSelect(emp.employeeId)}
                       />
@@ -981,10 +983,10 @@ export function DailyRegister() {
                     <TableCell className="whitespace-nowrap">
                       {emp.employeeName}
                     </TableCell>
-                    <TableCell>{emp.department}</TableCell>
-                    <TableCell>{emp.shiftCode}</TableCell>
-                    <TableCell className=" text-gray-500">
-                      {emp.shiftStart ? formatTime(emp.shiftStart) : "-"}
+                    <TableCell>{emp.department || '-'}</TableCell>
+                    <TableCell>{emp.shiftCode || '-'}</TableCell>
+                    <TableCell className="text-gray-500">
+                      {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
                     </TableCell>
                     <TableCell>
                       {emp.checkInTime ? (
@@ -1006,44 +1008,52 @@ export function DailyRegister() {
                     </TableCell>
                     <TableCell>
                       <span
-                        className={` px-2 py-0.5 rounded-full font-medium whitespace-nowrap
+                        className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap
                         ${ATTENDANCE_STATUS_BG[emp.status] ?? "bg-gray-100 text-gray-600"}`}
                       >
                         {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        {!emp.checkInTime && (
-                          <Tooltip title="Mark Check-in">
-                            <IconButton
-                              size="small"
-                              onClick={() => openPunch(emp, "checkIn")}
-                              className="!text-green-700"
-                            >
-                              <LoginOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {emp.checkInTime && !emp.checkOutTime && (
-                          <Tooltip title="Mark Check-out">
-                            <IconButton
-                              size="small"
-                              onClick={() => openPunch(emp, "checkOut")}
-                              className="!text-blue-600"
-                            >
-                              <LogoutOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {emp.checkInTime && emp.checkOutTime && (
-                          <Tooltip title="Marked">
-                            <IconButton size="small" className="!text-primary">
-                              <CheckCircleOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </div>
+                      {emp.status !== 'leave' ? (
+                        <div className="flex items-center gap-1">
+                          {!emp.checkInTime && (
+                            <Tooltip title="Mark Check-in">
+                              <IconButton
+                                size="small"
+                                onClick={() => openPunch(emp, "checkIn")}
+                                className="!text-green-700"
+                              >
+                                <LoginOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {emp.checkInTime && !emp.checkOutTime && (
+                            <Tooltip title="Mark Check-out">
+                              <IconButton
+                                size="small"
+                                onClick={() => openPunch(emp, "checkOut")}
+                                className="!text-blue-600"
+                              >
+                                <LogoutOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {emp.checkInTime && emp.checkOutTime && (
+                            <Tooltip title="Marked">
+                              <IconButton size="small" className="!text-primary">
+                                <CheckCircleOutlined fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </div>
+                      ) : (
+                        <Tooltip title="On Leave">
+                          <IconButton size="small" className="!text-violet-700">
+                            <CheckCircleOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -1051,7 +1061,11 @@ export function DailyRegister() {
             </TableBody>
           </Table>
         </TableContainer>
-        {total > 0 && (
+        <div className="text-end text-gray-500 p-2 text-[12px]">
+          Showing {total} records
+        </div>
+        {/* Uncomment pagination if needed */}
+        {/* {total > 0 && (
           <GlobalPagination
             total={total}
             page={page + 1}
@@ -1061,8 +1075,10 @@ export function DailyRegister() {
             pageSizeOptions={[10, 20, 50, 100]}
             showTotal={true}
           />
-        )}
+        )} */}
       </div>
+
+      {/* ─── DIALOGS ─── */}
 
       {/* Check-in / Check-out Dialog */}
       <Dialog
@@ -1093,9 +1109,7 @@ export function DailyRegister() {
             )}
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DateTimePicker
-                label={
-                  punchType === "checkIn" ? "Check-in Time" : "Check-out Time"
-                }
+                label={punchType === "checkIn" ? "Check-in Time" : "Check-out Time"}
                 value={punchTime ? dayjs(punchTime) : null}
                 onChange={(newValue) => {
                   setPunchTime(newValue ? dayjs(newValue).toISOString() : "");
@@ -1130,12 +1144,9 @@ export function DailyRegister() {
           <Button
             variant="contained"
             className="!bg-primary"
-            color={punchType === "checkIn" ? "success" : "primary"}
             onClick={submitPunch}
             disabled={submitting || !punchTime}
-            startIcon={
-              punchType === "checkIn" ? <LoginOutlined /> : <LogoutOutlined />
-            }
+            startIcon={punchType === "checkIn" ? <LoginOutlined /> : <LogoutOutlined />}
           >
             {submitting
               ? "Saving..."
@@ -1154,20 +1165,14 @@ export function DailyRegister() {
         fullWidth
       >
         <div className="flex items-center border-gray-200 border-b justify-between p-2">
-          <span className="text-gray-800 ml-4 text-[12px]">
-            Post Daily Status
-          </span>
+          <span className="text-gray-800 ml-4 text-[12px]">Daily Status</span>
           <IconButton size="small" onClick={() => setBulkDialogOpen(false)}>
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </div>
         <DialogContent>
-          <div className="space-y-3 pt-1">
-            <Alert
-              severity="info"
-              icon={<InfoOutlined fontSize="small" />}
-              sx={{ py: 0.5 }}
-            >
+          <div className="space-y-6 pt-1 ">
+            <Alert severity="info" icon={<InfoOutlined fontSize="small" />} sx={{ py: 0.5 }}>
               <span className="text-xs">
                 Posting status for <b>{selected.size}</b> employees on{" "}
                 <b>{dayjs(date).format("DD MMM YYYY")}</b>
@@ -1199,58 +1204,122 @@ export function DailyRegister() {
             disabled={submitting}
             startIcon={<EventNoteOutlined />}
           >
-            {submitting ? "Posting..." : "Post Status"}
+            {submitting ? "Posting..." : "Post Daily Status"}
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Bulk Check-in Dialog */}
       <Dialog
         open={bulkCheckinOpen}
-        onClose={() => setBulkCheckinOpen(false)}
+        onClose={() => {
+          setBulkCheckinOpen(false);
+          setBulkCheckinEmployees([]);
+          setSelectAllChecked(false);
+        }}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
           <span className="!pl-4 flex items-center gap-2">
-            <QrCodeScannerOutlined className="text-primary" />
+            <PlaylistAddCheckCircleOutlined className="text-primary" />
             Bulk Check-in
           </span>
-          <IconButton size="small" onClick={() => setBulkCheckinOpen(false)}>
+          <IconButton size="small" onClick={() => {
+            setBulkCheckinOpen(false);
+            setBulkCheckinEmployees([]);
+            setSelectAllChecked(false);
+          }}>
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
-          <div className="space-y-4">
-            <EmployeeSelector
-              value={null}
-              onChange={handleAddBulkEmployee}
-              label="Search & Add Employee"
+          <div className="space-y-8">
+            {/* Employee Selection */}
+            <Autocomplete
+              multiple
+              options={[
+                {
+                  employeeId: "ALL",
+                  employeeName: "Select All",
+                  department: "",
+                  employeeCode: "ALL"
+                },
+                ...employees.filter((emp) => emp.status !== 'leave'),
+              ]}
+              disableCloseOnSelect
+              value={bulkCheckinEmployees}
+              getOptionLabel={(option) =>
+                `${option.employeeName} ${option.department ? `- ${option.department}` : ""}`
+              }
+              onChange={(_, value) => {
+                const ids = value.map((v) => v.employeeId);
+
+                if (ids.includes("ALL")) {
+                  if (bulkCheckinEmployees.length === employees.length) {
+                    setBulkCheckinEmployees([]);
+                    setSelectAllChecked(false);
+                  } else {
+                    const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                    setBulkCheckinEmployees(nonLeaveEmployees);
+                    setSelectAllChecked(true);
+                  }
+                } else {
+                  setBulkCheckinEmployees(value);
+                  setSelectAllChecked(value.length === employees.filter((emp) => emp.status !== 'leave').length);
+                }
+              }}
+              renderOption={(props, option) => {
+                const { key, ...optionProps } = props;
+                const isAll = option.employeeId === "ALL";
+                const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                const isChecked = isAll
+                  ? bulkCheckinEmployees.length === nonLeaveEmployees.length
+                  : bulkCheckinEmployees.some((emp) => emp.employeeId === option.employeeId);
+
+                return (
+                  <li key={key} {...optionProps} className='!p-2 !flex !items-start'>
+                    <Checkbox
+                      className='!grid !items-start !justify-start !py-0'
+                      checked={isChecked}
+                    />
+                    <div>
+                      <div className="text-[12px]">
+                        {option.employeeName} {!isAll && `- ${option.employeeCode}`}
+                      </div>
+                      {!isAll && (
+                        <span className='text-[10px] text-gray-500'>
+                          {option.department ? option.department : ''}
+                        </span>
+                      )}
+                      {isAll && (
+                        <span className='text-[10px] text-gray-500'>
+                          Select all {nonLeaveEmployees.length} employees
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Search & Add Employees"
+                  placeholder="Type employee name or code..."
+                />
+              )}
+              className="w-full"
             />
 
             {bulkCheckinEmployees.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 border border-gray-200 rounded-lg p-2 min-h-[40px]">
-                {bulkCheckinEmployees.map((emp) => (
-                  <Chip
-                    key={emp.id}
-                    label={`${emp.employeeName} (${emp.employeeCode})`}
-                    size="small"
-                    onDelete={() => handleRemoveBulkEmployee(emp.id)}
-                  />
-                ))}
-                {bulkCheckinEmployees.length === 0 && (
-                  <span className="text-xs text-gray-400">
-                    No employees added
-                  </span>
-                )}
-              </div>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                <span className="text-xs">
+                  {bulkCheckinEmployees.length === employees.filter((emp) => emp.status !== 'leave').length
+                    ? `All ${bulkCheckinEmployees.length} employees selected`
+                    : `${bulkCheckinEmployees.length} employee${bulkCheckinEmployees.length !== 1 ? "s" : ""} selected`}
+                </span>
+              </Alert>
             )}
-
-            <Alert severity="info" sx={{ py: 0.5 }}>
-              <span className="text-xs">
-                {bulkCheckinEmployees.length} employee
-                {bulkCheckinEmployees.length !== 1 ? "s" : ""} selected
-              </span>
-            </Alert>
 
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DateTimePicker
@@ -1270,7 +1339,6 @@ export function DailyRegister() {
               fullWidth
               multiline
               rows={2}
-              size="small"
               value={bulkCheckinRemarks}
               onChange={(e) => setBulkCheckinRemarks(e.target.value)}
             />
@@ -1280,7 +1348,11 @@ export function DailyRegister() {
           <Button
             variant="outlined"
             className="!border-gray-200 !text-gray-800"
-            onClick={() => setBulkCheckinOpen(false)}
+            onClick={() => {
+              setBulkCheckinOpen(false);
+              setBulkCheckinEmployees([]);
+              setSelectAllChecked(false);
+            }}
             disabled={bulkCheckinSubmitting}
           >
             Cancel
@@ -1288,22 +1360,35 @@ export function DailyRegister() {
           <Button
             variant="contained"
             className="!bg-primary"
-            onClick={submitBulkCheckin}
+            onClick={() => {
+              const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+              const employeesToCheckin = selectAllChecked
+                ? nonLeaveEmployees
+                : bulkCheckinEmployees;
+              submitBulkCheckin(employeesToCheckin);
+            }}
             disabled={
-              bulkCheckinSubmitting || bulkCheckinEmployees.length === 0
+              bulkCheckinSubmitting ||
+              (bulkCheckinEmployees.length === 0 && !selectAllChecked)
             }
           >
             {bulkCheckinSubmitting
               ? "Processing..."
-              : `Check-in ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}
+              : `Check-in ${selectAllChecked
+                ? `All ${employees.filter((emp) => emp.status !== 'leave').length} Employees`
+                : `${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}`}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add reminder dialog */}
+      {/* Send Reminders Dialog */}
       <Dialog
         open={reminderDialogOpen}
-        onClose={() => setReminderDialogOpen(false)}
+        onClose={() => {
+          setReminderDialogOpen(false);
+          setEmployeesToRem([]);
+          setReminderMessage("");
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1312,38 +1397,89 @@ export function DailyRegister() {
             <NotificationsActiveOutlined className="text-primary" />
             Send Reminders
           </span>
-          <IconButton size="small" onClick={() => setReminderDialogOpen(false)}>
+          <IconButton size="small" onClick={() => {
+            setReminderDialogOpen(false);
+            setEmployeesToRem([]);
+            setReminderMessage("");
+          }}>
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
           <div className="grid gap-6">
-            <div>
-              <EmployeeSelector
-                value={null}
-                onChange={handleAddEmployee}
-                label="Search & Add Employee"
-              />
+            {/* Show selected count and info */}
+            {selected.size > 0 && (
+              <Alert severity="info" className="flex items-center">
+                <div className="flex items-center justify-between">
+                  <div className="text-[12px]">
+                    <strong>{selected.size}</strong> employee{selected.size !== 1 ? 's' : ''} selected from table
+                  </div>
+                  <Button
+                    variant="outlined"
+                    className="!text-primary !ml-6 !border-primary"
+                    onClick={() => {
+                      setEmployeesToRem([]);
+                      setSelected(new Set());
+                    }}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              </Alert>
+            )}
 
+            {/* Employee Selector */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-gray-700">Recipients</span>
+                {selected.size > 0 && (
+                  <span className="text-xs text-primary font-medium">
+                    {employeesToRem.length} employees selected
+                  </span>
+                )}
+              </div>
+
+              {/* Show selected employees as chips */}
               {employeesToRem.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 border mt-2 border-gray-200 rounded-lg p-2 min-h-[40px]">
+                <div className="flex flex-wrap gap-1.5 border border-gray-200 rounded-lg p-2 min-h-[40px] max-h-[150px] overflow-y-auto">
                   {employeesToRem.map((emp) => (
                     <Chip
-                      key={emp.id}
-                      label={`${emp.name}`}
+                      key={emp.employeeId}
+                      label={`${emp.employeeName || emp.name} (${emp.employeeCode || emp.employeeId})`}
                       size="small"
-                      onDelete={() => handleRemoveEmployee(emp.id)}
+                      onDelete={() => {
+                        setEmployeesToRem(employeesToRem.filter(e => e.employeeId !== emp.employeeId));
+                        const newSelected = new Set(selected);
+                        newSelected.delete(emp.employeeId);
+                        setSelected(newSelected);
+                      }}
+                      color="primary"
+                      variant="outlined"
                     />
                   ))}
-                  {employeesToRem.length === 0 && (
-                    <span className="text-xs text-gray-400">
-                      No employees added
-                    </span>
-                  )}
                 </div>
               )}
+
+              {employeesToRem.length === 0 && (
+                <div className="text-xs text-gray-400 mt-2">
+                  {selected.size === 0
+                    ? "No employees selected. Search and add employees below, or select from the table."
+                    : "Click 'Clear Selection' to remove all selected employees"}
+                </div>
+              )}
+
+              {/* Employee Selector - only show when no employees are selected or to add more */}
+              <div className="mt-3">
+                <EmployeeSelector
+                  value={null}
+                  onChange={handleEmployee}
+                  label="Search & Add More Employees"
+                  placeholder="Type employee name or code..."
+                />
+              </div>
             </div>
 
+            {/* Reminder Type */}
             <FormControl fullWidth size="small">
               <InputLabel>Reminder Type</InputLabel>
               <Select
@@ -1357,6 +1493,7 @@ export function DailyRegister() {
               </Select>
             </FormControl>
 
+            {/* Send Via */}
             <FormControl fullWidth size="small">
               <InputLabel>Send Via</InputLabel>
               <Select
@@ -1373,18 +1510,12 @@ export function DailyRegister() {
                           key={value}
                           label={value.charAt(0).toUpperCase() + value.slice(1)}
                           size="small"
+                          className="bg-gray-100 text-gray-800"
                         />
                       ))}
                     </Box>
                   );
                 }}
-              // MenuProps={{
-              //   PaperProps: {
-              //     style: {
-              //       maxHeight: 200,
-              //     },
-              //   },
-              // }}
               >
                 <MenuItem value="email">Email</MenuItem>
                 <MenuItem value="sms">SMS</MenuItem>
@@ -1392,23 +1523,25 @@ export function DailyRegister() {
               </Select>
             </FormControl>
 
-            {selected.size > 0 && (
-              <Alert severity="info">
-                <span className="text-xs">
-                  Sending to {selected.size} selected employee
-                  {selected.size !== 1 ? "s" : ""}
+            {/* Summary of recipients */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-600">Total Recipients:</span>
+                <span className="font-bold text-gray-800">{employeesToRem.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-[12px] mt-1">
+                <span className="text-gray-600">From Table Selection:</span>
+                <span className="font-bold text-primary">{selected.size}</span>
+              </div>
+              <div className="flex items-center justify-between text-[12px] mt-1">
+                <span className="text-gray-600">Manually Added:</span>
+                <span className="font-bold text-gray-800">
+                  {employeesToRem.length - selected.size}
                 </span>
-              </Alert>
-            )}
+              </div>
+            </div>
 
-            {selected.size === 0 && departmentId && (
-              <Alert severity="info">
-                <span className="text-xs">
-                  Sending to all employees in the department
-                </span>
-              </Alert>
-            )}
-
+            {/* Message */}
             <TextField
               label="Message"
               fullWidth
@@ -1425,7 +1558,11 @@ export function DailyRegister() {
           <Button
             variant="outlined"
             className="!border-gray-200 !text-gray-800"
-            onClick={() => setReminderDialogOpen(false)}
+            onClick={() => {
+              setReminderDialogOpen(false);
+              setEmployeesToRem([]);
+              setReminderMessage("");
+            }}
             disabled={sendingReminders}
           >
             Cancel
@@ -1434,15 +1571,17 @@ export function DailyRegister() {
             variant="contained"
             className="!bg-primary"
             onClick={handleSendReminders}
-            disabled={sendingReminders || !reminderMessage.trim()}
+            disabled={sendingReminders || !reminderMessage.trim() || employeesToRem.length === 0}
             startIcon={<NotificationsActiveOutlined />}
           >
-            {sendingReminders ? "Sending..." : "Send Reminders"}
+            {sendingReminders
+              ? "Sending..."
+              : `Send to ${employeesToRem.length} Employee${employeesToRem.length !== 1 ? 's' : ''}`}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add import dialog component */}
+      {/* Import from File Dialog */}
       <Dialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
@@ -1458,7 +1597,7 @@ export function DailyRegister() {
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
-        <DialogContent className="!p-4">
+        <DialogContent className="!p-6">
           <div className="space-y-4">
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
@@ -1484,15 +1623,10 @@ export function DailyRegister() {
                 }}
                 className="hidden"
               />
-              <label htmlFor="import-file" className="cursor-pointer">
-                <InsertDriveFileOutlined
-                  className="text-gray-400"
-                  fontSize="large"
-                />
+              <label htmlFor="import-file" className="cursor-pointer block">
+                <InsertDriveFileOutlined className="text-gray-400" fontSize="large" />
                 <div className="text-sm text-gray-600 mt-2">
-                  {importFile
-                    ? importFile.name
-                    : "Click to select file (Excel/CSV)"}
+                  {importFile ? importFile.name : "Click to select file (Excel/CSV)"}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
                   Supported formats: .xlsx, .xls, .csv
@@ -1502,12 +1636,9 @@ export function DailyRegister() {
 
             {importResult && (
               <div className="space-y-2">
-                <Alert
-                  severity={importResult.failed > 0 ? "warning" : "success"}
-                >
+                <Alert severity={importResult.failed > 0 ? "warning" : "success"}>
                   <span className="text-sm">
-                    Success: {importResult.success} | Failed:{" "}
-                    {importResult.failed}
+                    Success: {importResult.success} | Failed: {importResult.failed}
                   </span>
                 </Alert>
                 {importResult.errors.length > 0 && (
@@ -1566,15 +1697,15 @@ export function DailyRegister() {
                 clearPunchEntries();
               }}
             >
-              <CloseOutlined fontSize="small" />
+              <CloseOutlined fontSize="small" className="text-gray-800" />
             </IconButton>
           </div>
         </DialogTitle>
 
-        <DialogContent className="!px-4 !py-2">
+        <DialogContent className="!p-4">
           <div className="space-y-3">
             {/* Toolbar */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <FormControl size="small" className="!min-w-[140px]">
                 <Select
                   value={punchSource}
@@ -1625,13 +1756,13 @@ export function DailyRegister() {
                 {punchEntries.map((entry, index) => (
                   <div
                     key={entry.id || index}
-                    className="grid grid-cols-12 gap-2 px-3 py-2 items-center border-b border-gray-100 last:border-0 hover:bg-gray-50/50"
+                    className="grid grid-cols-12 gap-2 px-3 py-2 items-center border-b border-gray-100 last:border-0"
                   >
                     <span className="col-span-1 text-xs text-gray-400">{index + 1}</span>
 
                     <div className="col-span-4">
                       <EmployeeSelector
-                        value={entry.name}
+                        value={entry.employeeData || null}
                         onChange={(val) => handleEmployeeSelect(val, index)}
                       />
                     </div>
@@ -1690,7 +1821,7 @@ export function DailyRegister() {
                 severity={punchImportResult.errors > 0 ? "warning" : "success"}
                 className="!py-1"
               >
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-4 text-sm flex-wrap">
                   <span>Total: <strong>{punchImportResult.totalPunches}</strong></span>
                   <span>•</span>
                   <span>Days: <strong>{punchImportResult.daysImported}</strong></span>

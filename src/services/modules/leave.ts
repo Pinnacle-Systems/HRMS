@@ -70,6 +70,11 @@ type LeaveActionPayload = {
   lopLeaveTypeId?: string;
 };
 
+type HrVerificationPayload = {
+  comments?: string;
+  verified?: boolean;
+};
+
 type CreateLeaveRequestApiPayload = {
   leaveTypeId?: string;
   fromDate?: string;
@@ -82,6 +87,7 @@ type CreateLeaveRequestApiPayload = {
   approverId?: string;
   holidayCalendarId?: string;
   workCalendarId?: string;
+  attachmentIds?: string[];
 };
 
 // type LeaveCalculationResponse = {
@@ -579,16 +585,26 @@ class LeaveService {
     };
   }
 
-  async getManagerLeaveApprovals(params?: LeaveListParams) {
+  async getManagerLeaveApprovals(
+    params?: LeaveListParams,
+    managerEmployeeId?: string,
+    isAdmin?: boolean,
+  ) {
     // if (!USE_MOCK_LEAVE_SERVICE) {
-    return this.getLeaves(params);
+    // return this.getLeaves(params);
     // }
 
     // return this.getLeaves({
     // ...params,
     // managerId: params?.managerId ?? DEFAULT_MOCK_MANAGER_ID,
     // });
-    // return await apiService.get(API_ENDPOINTS.LEAVE.GET_APPROVALS, {params})
+    if (managerEmployeeId || isAdmin) {
+      return this.getLeaves(params);
+    } else {
+      return await apiService.get(API_ENDPOINTS.LEAVE.GET_APPROVALS, {
+        params,
+      });
+    }
   }
 
   async getMyManagerLeaveApprovals(
@@ -642,6 +658,7 @@ class LeaveService {
       emergencyContactNumber: payload.emergencyContactNumber,
       draft: payload.status === "DRAFT",
       approverId: payload.approverId,
+      attachmentIds: payload.attachmentIds,
     };
     const response = (await apiService.post(
       API_ENDPOINTS.LEAVE.BASE,
@@ -806,6 +823,10 @@ class LeaveService {
 
   async calculateLeaveDays(payload: LeaveCalculationRequest) {
     return apiService.post(API_ENDPOINTS.LEAVE.CALCULATE, payload);
+  }
+
+  async patchDraft(id: string, payload: CreateLeaveRequestPayload) {
+    return apiService.patch(API_ENDPOINTS.LEAVE.PATCH_DRAFT(id), payload);
   }
 
   // async getMyLeaves(params?: LeaveListParams) {
@@ -997,6 +1018,22 @@ class LeaveService {
     // );
   }
 
+  async sendToHrVerification(
+    id: string,
+    payload?: HrVerificationPayload,
+  ): Promise<LeaveApiResponse<LeaveRequest>> {
+    // if (!USE_MOCK_LEAVE_SERVICE) {
+    const response = (await apiService.post(
+      API_ENDPOINTS.LEAVE.HR_VERIFY(id),
+      payload ?? {},
+    )) as ApiEnvelope<LeaveRequestResponse>;
+    return apiMappedResponse(
+      response,
+      mapLeaveRequestResponseToViewModel,
+      "Sent to HR for verification",
+    );
+  }
+
   async getUpcomingLeaves(params?: LeaveListParams) {
     return await apiService.get(API_ENDPOINTS.LEAVE.UPCOMING_LEAVES, {
       params,
@@ -1065,7 +1102,7 @@ class LeaveService {
         ApiEnvelope<SwaggerPageResponse<LeaveLedgerEntry>>
       >(API_ENDPOINTS.EMPLOYEE.LEAVE_LEDGER(employeeId), {
         params: {
-          // ...params,
+          ...params,
           leaveYear: params?.leaveYear ?? new Date().getFullYear(),
         },
       });
@@ -2288,6 +2325,128 @@ class LeaveService {
     departmentId?: string;
   }) {
     return apiService.get(API_ENDPOINTS.LEAVE.TEAM_CALENDAR, { params });
+  }
+
+  async uploadLeaveAttachment(
+    id: string,
+    payload: { documentName: string; documentType?: string; file: File },
+  ) {
+    const formData = new FormData();
+    formData.append("file", payload.file);
+    formData.append("documentName", payload.documentName);
+    if (payload.documentType) {
+      formData.append("documentType", payload.documentType);
+    }
+
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.ATTACHMENTS.UPLOAD(id),
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response;
+  }
+
+  async deleteLeaveAttachment(id: string, attachmentId: string) {
+    const response = await apiService.delete(
+      API_ENDPOINTS.LEAVE.ATTACHMENTS.DELETE(id, attachmentId),
+    );
+    return response;
+  }
+
+  async getLeaveAttachments(id: string) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.ATTACHMENTS.GET_BY_ID(id),
+    );
+    return response;
+  }
+
+  async getLeaveUsageReport(filters: {
+    from?: string;
+    to?: string;
+    employeeId?: string;
+  }) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.LEAVE_USAGE,
+      { params: filters },
+    );
+    return response;
+  }
+
+  async getLeavePendingApprovalsReport(filters: {
+    from?: string;
+    to?: string;
+  }) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.LEAVE_PENDING_APPROVALS,
+      { params: filters },
+    );
+    return response;
+  }
+
+  async getLeaveLopReport(filters: { from?: string; to?: string }) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.LEAVE_LOP,
+      { params: filters },
+    );
+    return response;
+  }
+
+  async getLeaveCompOffReport(filters: { status?: string }) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.LEAVE_COMP_OFF,
+      { params: filters },
+    );
+    return response;
+  }
+
+  async getLeaveBalanceReport(filters: { year?: number; employeeId?: string }) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.LEAVE_BALANCE,
+      { params: filters },
+    );
+    return response;
+  }
+
+  async exportReport(payload: {
+    reportType:
+      | "LEAVE_BALANCE"
+      | "LEAVE_USAGE"
+      | "LEAVE_LOP"
+      | "LEAVE_PENDING_APPROVALS"
+      | "LEAVE_COMP_OFFS";
+    format: "csv" | "xlsx";
+    filters?: {
+      leaveYear?: number;
+      employeeId?: string;
+      branchId?: string;
+      from?: string;
+      to?: string;
+    };
+  }) {
+    const response = await apiService.post(
+      API_ENDPOINTS.LEAVE.REPORTS.POST_EXPORT,
+      payload,
+    );
+    return response;
+  }
+
+  async getExportStatus(jobRef: string) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.GET_EXPORTS(jobRef),
+    );
+    return response;
+  }
+
+  async downloadExport(jobRef: string) {
+    const response = await apiService.get(
+      API_ENDPOINTS.LEAVE.REPORTS.DOWNLOAD_EXPORT(jobRef),
+      { responseType: "blob" },
+    );
+    return response;
   }
 }
 

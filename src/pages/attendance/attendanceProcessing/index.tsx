@@ -1,14 +1,8 @@
 import { useState } from "react";
 import { Box } from "@mui/material";
 import {
-  DashboardOutlined, FormatListBulletedOutlined, TableChartOutlined,
-  PlayCircleOutlined, LockOutlined, EditNoteOutlined,
-  HowToRegOutlined, PersonSearchOutlined,
-  SummarizeOutlined,
-  LocationOnOutlined,
-  AccessTimeOutlined,
-  BeachAccessOutlined,
-  EventNoteOutlined,
+  PlayCircleOutlined, LockOutlined, SummarizeOutlined,
+
 } from "@mui/icons-material";
 import type { TabPanelProps } from "../shiftSettings/types";
 import { AttendanceConsolidated } from "./Consolidated";
@@ -24,21 +18,28 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 }
 
 const TABS = [
+
+   {
+    label: "Process Attendance",
+    icon: <PlayCircleOutlined className="!w-4" />,
+    component: <ProcessAttendance />,
+  },
    {
     label: "Consolidate",
     icon: <SummarizeOutlined className="!w-4" />,
     component: <AttendanceConsolidated />,
   }, 
-  {
-    label: "Process Attendance",
-    icon: <PlayCircleOutlined className="!w-4" />,
-    component: <ProcessAttendance />,
-  },
+ 
   {
     label: "Period Finalisation",
     icon: <LockOutlined className="!w-4" />,
     component: <PeriodFinalisation />,
   }, 
+  //  {
+  //   label: "Generate",
+  //   icon: <LockOutlined className="!w-4" />,
+  //   component: <AttendanceGenerate />,
+  // }, 
 ];
 
 export default function AttendanceProcessing() {

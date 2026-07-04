@@ -22,6 +22,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
   placeholder = 'Search employees…',
   pageSize = 20,
   isManager,
+  isHR,
 }) => {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Employee[]>([]);
@@ -51,7 +52,14 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
       let list: any = response.data.content || [];
        if (isManager) {
         list = list.filter((emp: Employee) => 
-          emp.designation?.toLowerCase().includes('manager')
+          emp.designation?.toLowerCase().includes('manager')  &&
+          !emp.designation?.toLowerCase().includes('hr')
+        );
+      }
+
+      if (isHR) {
+        list = list.filter((emp: Employee) => 
+          emp.designation?.toLowerCase().includes('hr')
         );
       }
       

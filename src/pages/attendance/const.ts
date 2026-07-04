@@ -21,7 +21,7 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   absent: "#e66262",
   present: "#10d3a2",
   late: "#f1aa30",
-  half_day: "#a855f7",
+  half_day: "#1d4ed8",
   on_duty: "#44bacf",
   leave: "#8b5cf6",
   permission: "#f97316",
@@ -51,13 +51,13 @@ export const MUSTER_STATUS_CELL: Record<string, string> = {
   checked_out: "bg-blue-500 text-white",
   absent: "bg-red-500 text-white",
   late: "bg-amber-400 text-white",
-  half_day: "bg-purple-400 text-white",
+  half_day: "bg-blue-700 text-white",
   on_duty: "bg-cyan-500 text-white",
   leave: "bg-violet-400 text-white",
-  permission: "bg-orange-400 text-white",
+  permission: "bg-orange-500 text-white",
   holiday: "bg-slate-300 text-slate-700",
   weekly_off: "bg-gray-200 text-gray-500",
-  irregular: "bg-pink-400 text-white",
+  irregular: "bg-pink-500 text-white",
 };
 
 export const MUSTER_STATUS_ABBR: Record<string, string> = {

@@ -16,6 +16,7 @@ interface Holiday {
   name: string;
   type: string;
   state?: string;
+  optional?: boolean;
 }
 
 export function HolidayCalendar() {
@@ -23,7 +24,7 @@ export function HolidayCalendar() {
 
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [year, setYear] = useState(dayjs().year());
-  const [state, setState] = useState("");
+  // const [state, setState] = useState("");
   const [loading, setLoading] = useState(false);
 
   const loadHolidays = async () => {
@@ -31,7 +32,7 @@ export function HolidayCalendar() {
     try {
       const res: any = await attendanceService.getCalendarHolidays({
         year,
-        state: state || undefined,
+        // state: state || undefined,
       });
       const data = res?.data?.holidays ?? res?.data;
       setHolidays(Array.isArray(data) ? data : []);
@@ -44,7 +45,7 @@ export function HolidayCalendar() {
 
   useEffect(() => {
     loadHolidays();
-  }, [year, state]);
+  }, [year]);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
@@ -80,7 +81,7 @@ export function HolidayCalendar() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                {["S No", "Date", "Day", "Name", "Type"].map((h) => (
+                {["S No", "Date", "Day", "Name","Optional", "Type"].map((h) => (
                   <TableCell key={h} className="!font-bold">{h}</TableCell>
                 ))}
               </TableRow>
@@ -94,6 +95,9 @@ export function HolidayCalendar() {
                   </TableCell>
                   <TableCell>{dayjs(h.date).format("ddd")}</TableCell>
                   <TableCell className="font-medium">{h.name}</TableCell>
+                  <TableCell>
+                    <Chip label={h.optional === true ? "Yes" : "No"} size="small" variant="outlined" color={h.optional === true ? "success" : "error"} />
+                  </TableCell>
                   <TableCell>
                     <Chip label={h.type} size="small" variant="outlined" />
                   </TableCell>

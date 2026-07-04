@@ -28,7 +28,6 @@ import {
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 
-// import type { PayrollConsolidatedData, PayrollConsolidatedParams } from "../../../services/modules/attendance";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -36,10 +35,8 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { getRowColor } from "../../const";
-import type { LopCalculateParams, PayrollConsolidated, PayrollConsolidatedData } from "../../../services/modules/attendanceTypes";
+import type { PayrollConsolidated, PayrollConsolidatedData } from "../../../services/modules/attendanceTypes";
 import { attendanceService } from "../../../services/modules/attendance";
-import { TrendingDownOutlined } from "@mui/icons-material";
-
 
 export function AttendanceConsolidated() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -62,11 +59,11 @@ export function AttendanceConsolidated() {
   const [lopDialogOpen, setLopDialogOpen] = useState(false);
   const [lopCalculations, setLopCalculations] = useState<any[]>([]);
   const [loadingLop, setLoadingLop] = useState(false);
-  const [lopParams, setLopParams] = useState<LopCalculateParams>({
-    startDate: dayjs().startOf("month").format("YYYY-MM-DD"),
-    endDate: dayjs().format("YYYY-MM-DD"),
-    employeeId: "",
-  });
+  // const [lopParams, setLopParams] = useState<LopCalculateParams>({
+  //   startDate: dayjs().startOf("month").format("YYYY-MM-DD"),
+  //   endDate: dayjs().format("YYYY-MM-DD"),
+  //   employeeId: "",
+  // });
 
   // Summary statistics
   const [_summary, setSummary] = useState({
@@ -471,7 +468,7 @@ export function AttendanceConsolidated() {
                     <TableCell>{r.paidLeaveDays}</TableCell>
                     <TableCell>{r.holidayDays}</TableCell>
                     <TableCell>{r.weeklyOffDays}</TableCell>
-                    <TableCell>{formatHours(r.totalWorkedHours)}</TableCell>
+                    <TableCell>{r.totalWorkedHours}</TableCell>
                     <TableCell>
                       <span className="text-blue-600 font-medium">
                         {r.payableDays}
@@ -489,7 +486,7 @@ export function AttendanceConsolidated() {
                     <TableCell>
                       {r.overtimeHours > 0 ? (
                         <span className="text-orange-600 font-medium">
-                          {formatHours(r.overtimeHours)}
+                          {r.overtimeHours}
                         </span>
                       ) : (
                         "-"

@@ -923,7 +923,6 @@ export default function AdminHolidayCalendarsPage() {
             }}
             required
             fullWidth
-            size="small"
           >
             {calendars.map((calendar) => (
               <MenuItem key={calendar.id} value={calendar.id}>

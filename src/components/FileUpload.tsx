@@ -154,7 +154,7 @@ export const FileUpload = ({
         {label}
       </Typography>
 
-      {preview ? (
+      {preview && label ? (
         <>
           <Box className="relative inline-block">
             {isImage ? (
@@ -188,9 +188,9 @@ export const FileUpload = ({
       ) : (
         <Button
           variant="outlined"
-          startIcon={<CloudUpload />}
+          startIcon={<CloudUpload className="!w-4 !h-4 !text-primary" />}
           onClick={() => fileInputRef.current?.click()}
-          className={`normal-case ${compact ? "!mb-1" : "!mb-2"}`}
+          className={`normal-case !text-primary !border-primary ${compact ? "!mb-1" : "!mb-2"}`}
         >
           Choose File
         </Button>
@@ -205,7 +205,7 @@ export const FileUpload = ({
       />
 
       {description && (
-        <Typography variant="caption" className="text-gray-500 block mt-2">
+        <Typography variant="caption" className="text-gray-500 !text-[10px] block mt-2">
           {description}
         </Typography>
       )}

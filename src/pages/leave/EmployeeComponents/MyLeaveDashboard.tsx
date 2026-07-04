@@ -38,13 +38,13 @@ import { isUpcomingApprovedLeave } from "../leaveRules";
 import { formatDate } from "../leaveFormatters";
 import { getRowColor } from "../../const";
 
-const balanceOrder = [
-  "Casual Leave",
-  "Sick Leave",
-  "Earned Leave",
-  "Comp-Off",
-  "Optional Holiday",
-];
+// const balanceOrder = [
+//   "Casual Leave",
+//   "Sick Leave",
+//   "Earned Leave",
+//   "Comp-Off",
+//   "Optional Holiday",
+// ];
 
 export default function MyLeaveDashboard() {
   const navigate = useNavigate();
@@ -131,15 +131,15 @@ export default function MyLeaveDashboard() {
     };
   }, [currentUserId]);
 
-  const orderedBalances = useMemo(
-    () =>
-      [...balances].sort(
-        (left, right) =>
-          balanceOrder.indexOf(left.leaveTypeName) -
-          balanceOrder.indexOf(right.leaveTypeName),
-      ),
-    [balances],
-  );
+  // const orderedBalances = useMemo(
+  //   () =>
+  //     [...balances].sort(
+  //       (left, right) =>
+  //         balanceOrder.indexOf(left.leaveTypeName) -
+  //         balanceOrder.indexOf(right.leaveTypeName),
+  //     ),
+  //   [balances],
+  // );
 
   const upcomingLeaves = useMemo(() => {
     return requests
@@ -150,11 +150,12 @@ export default function MyLeaveDashboard() {
       );
   }, [requests]);
 
-  const totalAvailable = orderedBalances.reduce(
-    (sum, item) => sum + item.balance,
+  const totalAvailable = balances.reduce(
+    (sum, item) => sum + item.closingBalance,
     0,
   );
-  const totalPending = orderedBalances.reduce((sum, item) => sum + item.pending, 0);
+  const totalPending = requests.filter((request) => request.status === "PENDING").length;
+  console.log("totalPending", totalPending, requests);
 
   return (
     // <LeavePageShell
@@ -478,7 +479,7 @@ export default function MyLeaveDashboard() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-[12px] font-medium text-gray-500">Pending Approval</div>
+                  <div className="text-[12px] font-medium text-gray-500">Pending Approval (This Month)</div>
                   <div className="text-3xl font-bold text-amber-600 mt-1.5">
                     {totalPending}<span className="text-[10px] font-normal ml-2 text-gray-400">days currently reserved</span>
                   </div>
@@ -519,7 +520,7 @@ export default function MyLeaveDashboard() {
               </div>
             </div>
             <div className="p-3">
-              {orderedBalances.length === 0 ? (
+              {balances.length === 0 ? (
                 <DataState
                   compact
                   type="empty"
@@ -528,10 +529,10 @@ export default function MyLeaveDashboard() {
               ) : (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {orderedBalances.map((balance) => (
+                    {balances.map((balance) => (
                       <div key={balance.leaveTypeId} className="bg-white rounded-lg border border-gray-200 hover:border-primary/30 p-3 transition-all duration-200 group">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]" title={balance.leaveTypeName}>
+                          <span className="text-xs font-medium text-gray-700 whitespace-nowrap max-w-[120px]" title={balance.leaveTypeName}>
                             {balance.leaveTypeName}<span className="text-[12px] ml-2 font-bold text-gray-500">[{balance.balance}]</span>
                           </span>
                           <Button variant="outlined" className="!h-5 !px-2 !text-[12px] !text-primary !border-primary"  onClick={() => navigate("/leaves/apply",{

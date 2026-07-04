@@ -22,6 +22,7 @@ import TrackChangesOutlined from "@mui/icons-material/TrackChanges";
 import PolicyOutlined from "@mui/icons-material/PolicyOutlined";
 import KeyboardReturnOutlined from "@mui/icons-material/KeyboardReturnOutlined";
 import { MonetizationOnOutlined, ReceiptLong, RemoveCircleOutlined } from "@mui/icons-material";
+import { useAuth } from "../auth/authContext";
 
 interface SearchItem {
   label: string;
@@ -30,6 +31,7 @@ interface SearchItem {
   category: string;
   icon: React.ReactNode;
   keywords?: string[];
+  roles: string[];
 }
 
 const ALL_ITEMS: SearchItem[] = [
@@ -40,6 +42,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Navigation",
     icon: <DashboardOutlinedIcon fontSize="small" />,
     keywords: ["dashboard", "overview", "home"],
+    roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "Employees",
@@ -48,6 +51,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Navigation",
     icon: <PeopleAltOutlinedIcon fontSize="small" />,
     keywords: ["staff", "people", "team", "hr"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Leave Dashboard",
@@ -56,6 +60,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Leave",
     icon: <AssignmentOutlinedIcon fontSize="small" />,
     keywords: ["time off", "vacation", "absence", "leave"],
+    roles: ["HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "Apply Leave",
@@ -64,6 +69,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Leave",
     icon: <AssignmentOutlinedIcon fontSize="small" />,
     keywords: ["request", "apply", "leave", "absence"],
+    roles: ["HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "My Leave Requests",
@@ -72,6 +78,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Leave",
     icon: <AssignmentOutlinedIcon fontSize="small" />,
     keywords: ["leave", "requests", "history"],
+    roles: ["HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "Leave Approvals",
@@ -80,6 +87,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Leave",
     icon: <AssignmentOutlinedIcon fontSize="small" />,
     keywords: ["approve", "manager", "leave", "requests"],
+    roles: ["ADMIN", "MANAGER"],
   },
   {
     label: "Holiday Calendar",
@@ -88,6 +96,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Leave",
     icon: <AssignmentOutlinedIcon fontSize="small" />,
     keywords: ["calendar", "holidays", "public"],
+    roles: ["HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "Comp Offs",
@@ -96,6 +105,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Leave",
     icon: <AssignmentOutlinedIcon fontSize="small" />,
     keywords: ["compensatory", "comp off", "overtime"],
+    roles: ["HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "Shift Management",
@@ -104,14 +114,16 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Attendance",
     icon: <TrackChangesOutlined fontSize="small" />,
     keywords: ["shift", "schedule", "roster"],
+    roles: ["ADMIN", "HR"],
   },
   {
-    label: "Attendance List",
+    label: "Attendance Process",
     description: "Employee attendance records",
-    path: "/attendance/list",
+    path: "/attendance/process",
     category: "Attendance",
     icon: <TrackChangesOutlined fontSize="small" />,
     keywords: ["attendance", "check-in", "check-out", "records"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Attendance Reports",
@@ -120,6 +132,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Attendance",
     icon: <TrackChangesOutlined fontSize="small" />,
     keywords: ["attendance", "report", "analytics"],
+    roles: ["ADMIN", "HR"],
   },
   // {
   //   label: "Shift Roster",
@@ -160,6 +173,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Payroll",
     icon: <AttachMoneyOutlinedIcon fontSize="small" />,
     keywords: ["salary", "pay", "compensation", "payslip"],
+    roles: ["ADMIN"],
   },
   {
     label: "Policy Dashboard",
@@ -168,6 +182,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Policy Engine",
     icon: <PolicyOutlined fontSize="small" />,
     keywords: ["policy", "rules", "engine"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Policy Simulator",
@@ -176,6 +191,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Policy Engine",
     icon: <PolicyOutlined fontSize="small" />,
     keywords: ["simulate", "test", "policy", "preview"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Company Settings",
@@ -184,6 +200,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["company", "settings", "configuration"],
+    roles: ["ADMIN"],
   },
   {
     label: "Branch Settings",
@@ -192,6 +209,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["branch", "office", "location"],
+    roles: ["ADMIN"],
   },
   {
     label: "Audit Logs",
@@ -200,6 +218,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["audit", "logs", "history", "activity"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Department Settings",
@@ -208,6 +227,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["department", "team", "org"],
+    roles: ["ADMIN"],
   },
   {
     label: "Onboarding Settings",
@@ -216,6 +236,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["onboarding", "new hire", "joining"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Payroll Settings",
@@ -224,6 +245,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["payroll", "salary", "deduction", "settings"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "My Profile",
@@ -232,6 +254,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Account",
     icon: <PeopleAltOutlinedIcon fontSize="small" />,
     keywords: ["profile", "account", "personal", "me"],
+    roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
   },
   {
     label: "Allowance Master",
@@ -240,6 +263,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Master",
     icon: <MonetizationOnOutlined fontSize="small" />,
     keywords: ["allowance", "benefits", "perks", "compensation", "payroll"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Deduction Master",
@@ -248,6 +272,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Master",
     icon: <RemoveCircleOutlined fontSize="small" />,
     keywords: ["deduction", "tax", "contributions", "salary", "payroll"],
+    roles: ["ADMIN", "HR"],
   },
   {
     label: "Expense Category Master",
@@ -256,6 +281,7 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Master",
     icon: <ReceiptLong fontSize="small" />,
     keywords: ["expense", "category", "claims", "reimbursement", "settings"],
+    roles: ["ADMIN", "HR"],
   },
 ];
 
@@ -282,6 +308,9 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
+  const { session } = useAuth();
+  const userRole = session?.user.roles || []; 
+
   const search = useCallback((q: string) => {
     if (!q.trim()) {
       setResults([]);
@@ -291,14 +320,22 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     const lower = q.toLowerCase();
     const filtered = ALL_ITEMS.filter(
       (item) =>
+       {
+        const hasAccess = userRole.some((role: string) => 
+      item.roles.includes(role)
+    );
+        const matchesSearch = 
         item.label.toLowerCase().includes(lower) ||
         item.description?.toLowerCase().includes(lower) ||
         item.category.toLowerCase().includes(lower) ||
-        item.keywords?.some((k) => k.includes(lower))
+        item.keywords?.some((k) => k.includes(lower));
+      
+      return hasAccess && matchesSearch;
+       }
     );
     setResults(filtered);
     setActiveIndex(0);
-  }, []);
+  }, [userRole]);
 
   useEffect(() => {
     search(query);

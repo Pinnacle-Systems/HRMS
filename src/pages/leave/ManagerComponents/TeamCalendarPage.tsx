@@ -446,8 +446,8 @@ export default function TeamCalendarPage() {
                           label={approval.actionTaken}
                           size="small"
                           color={
-                            approval.actionTaken === 'approved' ? 'success' :
-                              approval.actionTaken === 'rejected' ? 'error' : 'warning'
+                            approval.actionTaken === 'APPROVED' ? 'success' :
+                              approval.actionTaken === 'REJECTED' ? 'error' : 'info'
                           }
                         />
                         {approval.actionComments && (

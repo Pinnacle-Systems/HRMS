@@ -3,6 +3,16 @@ import type { ShiftCategoryConfig } from './types';
 
 export const days = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 
+export const dayMapping: Record<string, string> = {
+  "Monday": "MON",
+  "Tuesday": "TUE",
+  "Wednesday": "WED",
+  "Thursday": "THU",
+  "Friday": "FRI",
+  "Saturday": "SAT",
+  "Sunday": "SUN"
+};
+
 export const getShiftTypeClass = (type: string) => {
   switch (type?.toLowerCase()) {
     case "night":

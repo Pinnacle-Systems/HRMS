@@ -123,6 +123,7 @@ export function PeriodFinalisation() {
   function openDialog(mode: 'lock' | 'unlock', period: FinalisedPeriod) {
     setDialogMode(mode);
     setSelectedPeriod(period);
+    setMonth(period.month)
     setReason("");
     setDialogOpen(true);
   }
@@ -380,14 +381,14 @@ export function PeriodFinalisation() {
                     {(period.status === "locked" || period.status === "approved") && (
                       <Tooltip title="Unlock Period">
                         <IconButton size="small" onClick={() => openDialog('unlock', period)}>
-                          <LockOpenOutlined fontSize="small" className="text-primary" />
+                          <LockOutlined fontSize="small" className="text-primary" />
                         </IconButton>
                       </Tooltip>
                     )}
                     {(period.status === "pending_approval") && (
                       <Tooltip title="Lock Period">
                         <IconButton size="small" onClick={() => openDialog('lock', period)}>
-                          <LockOutlined fontSize="small" className="text-primary" />
+                          <LockOpenOutlined fontSize="small" className="text-primary" />
                         </IconButton>
                       </Tooltip>
                     )}

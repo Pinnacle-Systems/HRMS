@@ -100,11 +100,11 @@ export const ShiftRoster = () => {
       setDepartments(depData);
       const shiftRes: any = await shiftService.getShiftDropdown();
       const shiftData = shiftRes.data?.content || shiftRes.data || [];
-      const updatedShifts = shiftData.map((shift: any) => ({
-        ...shift,
-        weeklyOff: ["SUN"],
-      }));
-      setShifts(updatedShifts);
+      // const updatedShifts = shiftData.map((shift: any) => ({
+      //   ...shift,
+      //   // weeklyOff: ["SUN"],
+      // }));
+      setShifts(shiftData);
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }
@@ -220,10 +220,10 @@ export const ShiftRoster = () => {
   };
 
   const handleBulkAssignSubmit = async () => {
-    if (!bulkAssignShift) {
-      showSnackbar('Please select a shift', 'error');
-      return;
-    }
+    // if (!bulkAssignShift) {
+    //   showSnackbar('Please select a shift', 'error');
+    //   return;
+    // }
     if (bulkAssignEmployees.length === 0) {
       showSnackbar('Please select at least one employee', 'error');
       return;
@@ -736,6 +736,7 @@ export const ShiftRoster = () => {
             <FormControl fullWidth>
               <InputLabel>Select Shift</InputLabel>
               <Select value={bulkAssignShift} onChange={(e) => setBulkAssignShift(e.target.value)} label="Select Shift" sx={selectSx}>
+                <MenuItem value="">Select</MenuItem>
                 {shifts.map((shift) => (
                   <MenuItem key={shift.id} value={shift.shiftCode}>{shift.shiftName}</MenuItem>
                 ))}

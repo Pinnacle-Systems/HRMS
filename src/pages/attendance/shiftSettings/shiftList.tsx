@@ -44,7 +44,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { useUI } from '../../../context/Snackbar';
 import type { Category, Shift, ShiftStats } from '../../../services/modules/shifts';
-import { days, getShiftTypeClass, colorClasses, formatTimeTo12Hour } from './const';
+import { days, getShiftTypeClass, colorClasses, formatTimeTo12Hour, dayMapping } from './const';
 import { shiftService } from '../../../services/modules/shifts';
 import { GlobalPagination } from '../../../components/GlobalPagination';
 import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from '../../const';
@@ -250,6 +250,9 @@ export const ShiftList = () => {
   };
 
   const handleEdit = (shift: Shift) => {
+    const mappedWeeklyOff = shift.weeklyOff?.map((day: string) => 
+    dayMapping[day] || day
+  ) || [];
     setEditingShift(shift);
     setFormData({
       shiftName: shift.shiftName,
@@ -261,7 +264,7 @@ export const ShiftList = () => {
       // breakTime: shift.breakTime,
       isActive: shift.isActive,
       color: shift.color,
-      weeklyOff: shift.weeklyOff,
+      weeklyOff: mappedWeeklyOff,
       description: shift.description || '',
       isNightShift: shift.isNightShift,
       templateId: shift.templateId || 'Staff',

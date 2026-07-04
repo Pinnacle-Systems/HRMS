@@ -569,7 +569,7 @@ export interface RemoteCheckinApproveParams {
 
 export interface OvertimeApproveParams {
   status: string;
-  approvedBy: string;
+  approvedBy?: string;
   remarks: string;
 }
 

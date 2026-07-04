@@ -203,15 +203,15 @@ export const DeviceManagement: React.FC = () => {
     setSelectedDevice(null);
   };
 
-  const handleOpenSyncDialog = () => {
-    setSyncFormData({
-      deviceId: devices.length > 0 ? devices[0].id : "",
-      startDate: "",
-      endDate: "",
-    });
-    setSyncErrors({});
-    setOpenSyncDialog(true);
-  };
+  // const handleOpenSyncDialog = () => {
+  //   setSyncFormData({
+  //     deviceId: devices.length > 0 ? devices[0].id : "",
+  //     startDate: "",
+  //     endDate: "",
+  //   });
+  //   setSyncErrors({});
+  //   setOpenSyncDialog(true);
+  // };
 
   const handleCloseSyncDialog = () => {
     setOpenSyncDialog(false);
