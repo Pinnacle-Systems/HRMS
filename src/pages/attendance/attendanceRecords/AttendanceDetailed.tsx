@@ -177,9 +177,9 @@ export function AttendanceDetailed() {
 
         {/* Filter Body */}
         <div className="p-4 pt-5 bg-white-50">
-          <div className="flex items-center justify-between gap-3">
+          <div className="grid grid-cols-1 gap-y-5 md:grid-cols-2 items-center">
             <div className="grid grid-cols-3 gap-3">
-              <div className="w-[250px]">
+              <div className="">
                 <EmployeeSelector
                   value={selectedEmployee}
                   onChange={setSelectedEmployee}
@@ -211,7 +211,7 @@ export function AttendanceDetailed() {
             </div>
 
             {/* Filters Group */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end gap-2">
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <div className="flex items-center gap-2">
                   <DatePicker
@@ -265,8 +265,8 @@ export function AttendanceDetailed() {
                 </TableRow>
               ) : records.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} align="center" className="!py-8 text-gray-400 text-sm">
-                    No records found
+                  <TableCell colSpan={13} align="center">
+                    <div className="!py-8 text-gray-400 text-sm">No records found</div>
                   </TableCell>
                 </TableRow>
               ) : (

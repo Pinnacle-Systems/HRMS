@@ -67,3 +67,27 @@ export interface OnboardingProgress {
   overallProgress: number;
   estimatedCompletion: string;
 }
+
+export interface OnboardingAssignment {
+  onboardingId: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  employeeEmail: string;
+  branchId: string;
+  branchName: string;
+  departmentId: string;
+  departmentName: string;
+  overallStatus: 'IN_PROGRESS' | 'COMPLETED' | 'PENDING' | 'OVERDUE' | 'SCHEDULED';
+  assignedAt: string;
+  welcomeEmailSentAt: string;
+  totalChecklists: number;
+  completedChecklists: number;
+  overallProgressPercent: number;
+  isActive: boolean;
+  // Additional fields for display
+  checklistName?: string;
+  startDate?: string;
+  expectedEndDate?: string;
+  progress?: any;
+}

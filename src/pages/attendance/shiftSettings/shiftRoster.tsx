@@ -98,7 +98,7 @@ export const ShiftRoster = () => {
       const depRes: any = await departmentService.getActiveDepartments();
       const depData = depRes.data?.content || depRes.data || [];
       setDepartments(depData);
-      const shiftRes: any = await shiftService.getShiftDropdown();
+      const shiftRes: any = await shiftService.getShiftDropdown({isActive:true});
       const shiftData = shiftRes.data?.content || shiftRes.data || [];
       // const updatedShifts = shiftData.map((shift: any) => ({
       //   ...shift,

@@ -226,7 +226,7 @@ export const onBoardService = {
         return response;
     },
 
-    async reorderTasks(checklistId: string, data: { taskIds: string[] }) {
+    async reorderTasks(checklistId: string, data: Array<{taskId: string, sortOrder: number}>) {
         const response = await apiService.patch(API_ENDPOINTS.ONBOARDING.PATCH_REORDER(checklistId), data);
         return response;
     },
@@ -301,10 +301,11 @@ export const onBoardService = {
         return response;
     },
 
-    async sendWelcomeMessage(employeeId: string) {
+    async sendWelcomeMessage(payload: any) {
         const response = await apiService.post(
             API_ENDPOINTS.ONBOARDING.SEND_WELCOME,
-            buildSendWelcomePayload(employeeId),
+            // buildSendWelcomePayload(employeeId),
+             payload 
         );
         return response;
     },

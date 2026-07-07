@@ -30,6 +30,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
+// import { useAuth } from '../../auth/authContext';
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, index, value }) => {
   return (
@@ -191,15 +192,20 @@ export default function EditPolicy() {
   // full diff — same as handleViewVersion, this is just an optional hook.
   const handleCompareVersions = (_version1: PolicyVersion, _version2: PolicyVersion) => { };
 
-  const handleExportVersion = (version: PolicyVersion) => {
-    const dataStr = JSON.stringify(version.configJson, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-    const exportFileDefaultName = `policy_${policy?.policyName}_v${version.versionNo}.json`;
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-  };
+  // const handleExportVersion = async (version: PolicyVersion) => {
+  //   const dataStr = JSON.stringify(version.configJson, null, 2);
+  //   const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+  //   const exportFileDefaultName = `policy_${policy?.policyName}_v${version.versionNo}.json`;
+  //   const linkElement = document.createElement('a');
+  //   linkElement.setAttribute('href', dataUri);
+  //   linkElement.setAttribute('download', exportFileDefaultName);
+  //   linkElement.click();
+  //   // try {
+  //   //   await policyVersionService.exportConfigurtion(session?.accessToken)
+  //   // } catch (error) {
+      
+  //   // }
+  // };
 
   const handleAddAssignment = async (assignment: Partial<PolicyAssignment>) => {
     try {
@@ -371,7 +377,7 @@ export default function EditPolicy() {
                 onArchiveVersion={handleArchiveVersion}
                 onExpireVersion={handleExpireVersion}
                 onCompareVersions={handleCompareVersions}
-                onExportVersion={handleExportVersion}
+                // onExportVersion={handleExportVersion}
               />
             </TabPanel>
 

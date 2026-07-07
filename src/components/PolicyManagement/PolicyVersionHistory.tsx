@@ -28,7 +28,6 @@ import {
   Cancel as RejectIcon,
   Archive as ArchiveIcon,
   TimerOff as ExpireIcon,
-  Download as DownloadIcon,
   MoreVert as MoreIcon,
   Analytics as AnalyticsIcon,
   PlayArrow,
@@ -61,7 +60,7 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
   onArchiveVersion,
   onExpireVersion,
   onCompareVersions,
-  onExportVersion,
+  // onExportVersion,
 }) => {
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
 
@@ -112,10 +111,10 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
     handleMenuClose();
   };
 
-  const handleExportClick = (version: PolicyVersion) => {
-    onExportVersion?.(version);
-    handleMenuClose();
-  };
+  // const handleExportClick = (version: PolicyVersion) => {
+  //   onExportVersion?.(version);
+  //   handleMenuClose();
+  // };
 
   const handleRejectClick = (version: PolicyVersion) => {
     setRejectingVersion(version);
@@ -274,12 +273,12 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
             Expire Version
           </MenuItem>
         )}
-        {onExportVersion && selectedVersionForMenu && (
+        {/* {onExportVersion && selectedVersionForMenu && (
           <MenuItem onClick={() => handleExportClick(selectedVersionForMenu)}>
             <DownloadIcon fontSize="small" sx={{ mr: 1, color: 'dodgerblue' }} />
             Export Configuration
           </MenuItem>
-        )}
+        )} */}
         {selectedVersionForMenu && (
           <MenuItem onClick={() => handleImpactAnalysisClick(selectedVersionForMenu)}>
             <AnalyticsIcon fontSize="small" sx={{ mr: 1, color: 'purple' }} />

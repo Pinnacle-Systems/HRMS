@@ -4,8 +4,6 @@ import {
     Tabs,
     Tab,
     Box,
-    Card,
-    CardContent,
     IconButton,
     Tooltip,
 } from "@mui/material";
@@ -221,7 +219,7 @@ const OnBoardingProcess = () => {
             </div>
 
             {/* Quick Stats Footer (Optional) */}
-            {activeTab === 1 && (
+            {/* {activeTab === 1 && (
                 <div className="fixed bottom-4 right-4">
                     <Card className="shadow-lg">
                         <CardContent className="py-2 px-4">
@@ -242,7 +240,7 @@ const OnBoardingProcess = () => {
                         </CardContent>
                     </Card>
                 </div>
-            )}
+            )} */}
         </div>
     );
 };

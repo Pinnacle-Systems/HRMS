@@ -90,17 +90,47 @@ export const employeeColumns = [
   { key: "noticePeriod", label: "Notice Period (days)" },
   { key: "department", label: "Department", type: "select" },
   { key: "designation", label: "Designation", type: "select" },
-  { key: "grade", label: "Grade", type: "select", categoryKey: "GRADE", isPolicy: false },
-  { key: "band", label: "Band / Pay Category", type: "select", categoryKey: "BAND", isPolicy: false },
+  {
+    key: "grade",
+    label: "Grade",
+    type: "select",
+    categoryKey: "GRADE",
+    isPolicy: false,
+  },
+  {
+    key: "band",
+    label: "Band / Pay Category",
+    type: "select",
+    categoryKey: "BAND",
+    isPolicy: false,
+  },
   { key: "manager", label: "Reporting Manager", type: "user" },
   { key: "empType", label: "Employment Type", type: "select" },
   { key: "template", label: "Template", type: "select" },
   { key: "branch", label: "Branch", type: "select" },
   // { key: "attendanceSchema", label: "Shift Schema", type: "select" },
-  { key: "bonusPolicy", label: "Bonus Policy", type: "select", categoryKey: "BONUS_POLICY", isPolicy: true },
-  { key: "otPolicy", label: "OT Policy", type: "select", categoryKey: "OT_POLICY", isPolicy: true },
+  {
+    key: "bonusPolicy",
+    label: "Bonus Policy",
+    type: "select",
+    categoryKey: "BONUS_POLICY",
+    isPolicy: true,
+  },
+  {
+    key: "otPolicy",
+    label: "OT Policy",
+    type: "select",
+    categoryKey: "OT_POLICY",
+    isPolicy: true,
+  },
   { key: "otAmount", label: "OT Amount" },
-  { key: "vehicleType", label: "Vehicle Type", type: "select", categoryKey: "VEHICLE_TYPE", isPolicy: false },
+  {
+    key: "vehicleType",
+    label: "Vehicle Type",
+    type: "select",
+    categoryKey: "VEHICLE_TYPE",
+    isPolicy: false,
+  },
   // { key: "firstAidTrainee", label: "First Aid Trainee" },
   // { key: "employeeIdentity", label: "Employee Identity" },
   // { key: "employeeReferenceNumber", label: "Employee Reference Number" },
@@ -327,12 +357,43 @@ export const commonsx = {
 };
 
 export const lockableFields = [
-    "name",
-    "dateOfBirth",
-    "gender",
-    "fathersName",
-    "address1",
-    "city",
-    "state",
-    "pincode"
-  ]
+  "name",
+  "dateOfBirth",
+  "gender",
+  "fathersName",
+  "address1",
+  "city",
+  "state",
+  "pincode",
+];
+
+export const getDomainColor = (domainCode: string) => {
+  const colors: Record<string, string> = {
+    LEAVE: "#e3f2fd",
+    ATTENDANCE: "#e8f5e9",
+    PAYROLL: "#fff3e0",
+    DEDUCTION: "#fce4ec",
+    BONUS: "#f3e5f5",
+    ALLOWANCE: "#e0f7fa",
+    PROBATION: "#fff8e1",
+    EMPLOYMENT: "#e8eaf6",
+    NOTICE_PERIOD: "#efebe9",
+    OFFBOARDING: "#fbe9e7",
+    ONBOARDING: "#e0f2f1",
+    EXPENSE: "#fff3e0",
+    HOLIDAY: "#e8eaf6",
+    LOAN_ADVANCE: "#fce4ec",
+    OVERTIME: "#e3f2fd",
+    WORK_FROM_HOME: "#e8f5e9",
+    POLICY: "#f3e5f5",
+  };
+  return colors[domainCode] || "#f5f5f5";
+};
+
+export const getPriorityColor = (priority: number) => {
+  if (priority === 0) return "#9e9e9e";
+  if (priority <= 10) return "#4caf50";
+  if (priority <= 30) return "#2196f3";
+  if (priority <= 50) return "#ff9800";
+  return "#f44336";
+};

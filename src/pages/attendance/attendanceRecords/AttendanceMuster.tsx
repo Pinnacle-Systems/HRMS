@@ -399,10 +399,10 @@ export function AttendanceMuster() {
                           <div className="text-[9px] font-normal text-gray-400">{getDayLabel(d)}</div>
                         </th>
                       ))}
-                      <th className="sticky top-0 right-[216px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
-                      <th className="sticky top-0 right-[180px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
-                      <th className="sticky top-0 right-[144px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
-                      <th className="sticky top-0 right-[95px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
+                      <th className="sticky top-0 right-[214px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
+                      <th className="sticky top-0 right-[178px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
+                      <th className="sticky top-0 right-[142px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
+                      <th className="sticky top-0 right-[94px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
                       <th className="sticky top-0 right-[43px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(m)</th>
                       <th className="sticky top-0 right-0 z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">Att%</th>
                     </tr>
@@ -449,12 +449,12 @@ export function AttendanceMuster() {
                             </Tooltip>
                           );
                         })}
-                        <td className="sticky right-[216px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
+                        <td className="sticky right-[214px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
                           {emp.totalPresent}
                         </td>
-                        <td className="sticky right-[180px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
-                        <td className="sticky right-[144px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
-                        <td className="sticky right-[95px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
+                        <td className="sticky right-[178px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
+                        <td className="sticky right-[142px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
+                        <td className="sticky right-[94px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
                           {/* {(emp.totalOT / 60).toFixed(1)} */}
                           {emp.totalOT}
                         </td>
@@ -487,7 +487,7 @@ export function AttendanceMuster() {
                           </td>
                         );
                       })}
-                      <td colSpan={5} className="sticky right-0 z-30 bg-gray-100 border-l border-gray-200" />
+                      <td colSpan={6} className="sticky right-0 z-30 bg-gray-100 border-l border-gray-200" />
                     </tr>
                   </tfoot>
                 </table>

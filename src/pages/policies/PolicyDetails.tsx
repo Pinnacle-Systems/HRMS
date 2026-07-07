@@ -113,6 +113,7 @@ export default function PolicyDetails() {
     try {
       const res: any = await policyService.activateVersion(versionId);
       await syncPolicyStatus(res?.data?.status ?? 'ACTIVE');
+      await policyService.createNotify(versionId,{message: `Activated new version for policy ${policy?.policyName}`,channel:"push"})
       showSnackbar('Version activated successfully', 'success');
       loadPolicyData();
     } catch (error: any) {

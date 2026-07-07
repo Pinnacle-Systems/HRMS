@@ -76,4 +76,9 @@ export const policyCrudService = {
   async getPolicyAudit(policyId: string) {
     return apiService.get(API_ENDPOINTS.POLICY.GET_AUDIT(policyId));
   },
+
+  // Notification
+   async getPolicyNotifications() {
+    return apiService.get(API_ENDPOINTS.POLICY.NOTIFICATION.GET);
+  },
 };

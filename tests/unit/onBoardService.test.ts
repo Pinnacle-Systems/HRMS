@@ -218,9 +218,13 @@ describe("onBoardService Swagger payload adapters", () => {
     apiPatch.mockResolvedValue({ data: {} });
 
     await onBoardService.completeTask("task-instance-1");
-    await onBoardService.reorderTasks("checklist-1", {
-      taskIds: ["task-template-1", "task-template-2"],
-    });
+    // await onBoardService.reorderTasks("checklist-1", {
+    //   taskIds: ["task-template-1", "task-template-2"],
+    // });
+    await onBoardService.reorderTasks("checklist-1", [
+      { taskId: "task-template-1", sortOrder: 0 },
+      { taskId: "task-template-2", sortOrder: 1 },
+    ]);
 
     expect(apiPatch).toHaveBeenCalledWith(
       "/onboarding/task/task-instance-1/complete",

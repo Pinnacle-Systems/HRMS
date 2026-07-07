@@ -235,7 +235,7 @@ export function CorrectionsView() {
                     <TableCell sx={{
                       padding: '8px !important',
                     }}>
-                      <span className={`px-2 py-0.5 rounded-full capitalize ${STATUS_STYLES[c.status]}`}>
+                      <span className={`px-2 py-1 rounded-full capitalize ${STATUS_STYLES[c.status]}`}>
                         {c.status}
                       </span>
                     </TableCell>

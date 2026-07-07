@@ -3,7 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import MaterialModule from "../../materialModule";
 import { employeeService } from "../../services/modules/employees";
 import { useUI } from "../../context/Snackbar";
-import { toTitleCase, type Branches, type Department, type EmployeeDetails, type TabPanelProps } from "./type";
+import {
+  toTitleCase,
+  type Branches,
+  type Department,
+  type EmployeeDetails,
+  type TabPanelProps,
+} from "./type";
 import {
   aadhaarColumns,
   addressColumns,
@@ -31,6 +37,8 @@ import {
   commonSx,
   commonsx,
   lockableFields,
+  getPriorityColor,
+  getDomainColor,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -38,16 +46,40 @@ import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { categoryService } from "../../services/modules/category";
 import { DynamicSelectWithAdd } from "../../components/SelectField";
-import { getCategoryName, getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from "../const";
+import {
+  getCategoryName,
+  getRowColor,
+  getStickyLeftSx,
+  getStickyRightSx,
+  stickyHeaderLeftSx,
+  stickyHeaderRightSx,
+} from "../const";
 import { useMasterData } from "../../hooks/useMasterData";
 import { MasterSelect } from "../../components/MasterSelect";
 import { departmentService } from "../../services/modules/department";
 import { branchService } from "../../services/modules/branch";
 import { formatDate, formatDateTime } from "../../utils/dateFormatter";
-import { AttachFileOutlined, KeyboardArrowDown, KeyboardArrowUp, AssignmentOutlined as PolicyIcon } from "@mui/icons-material";
+import {
+  AttachFileOutlined,
+  CloseOutlined,
+  ExpandMoreOutlined,
+  KeyboardArrowDown,
+  KeyboardArrowUp,
+  AssignmentOutlined as PolicyIcon,
+  SettingsOutlined,
+} from "@mui/icons-material";
 import { shiftService, type Shift } from "../../services/modules/shifts";
 import { auditLogService } from "../../services/modules/auditLogs";
-import { Button } from "@mui/material";
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  Typography,
+} from "@mui/material";
 import { policyService } from "../../services";
 import { PolicyDomain, type Employee } from "../../types/policy";
 import { EmployeeSelector } from "../../components/PolicyManagement/Common/EmployeeSelector";
@@ -62,7 +94,9 @@ function TabPanel(props: TabPanelProps) {
       aria-labelledby={`employee-tab-${index}`}
       {...other}
     >
-      {value === index && <MaterialModule.Box sx={{ py: 0 }}>{children}</MaterialModule.Box>}
+      {value === index && (
+        <MaterialModule.Box sx={{ py: 0 }}>{children}</MaterialModule.Box>
+      )}
     </div>
   );
 }
@@ -77,7 +111,7 @@ const EditableGroup = ({
   categoryOptions,
   categories,
   refreshCategoryOptions,
-  document
+  document,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -106,21 +140,21 @@ const EditableGroup = ({
   };
 
   const getFieldOptions = (fieldKey: string, fieldLabel: string) => {
-    if (fieldKey == 'department') {
+    if (fieldKey == "department") {
       return department.map((opt: any) => ({
         value: opt.id,
         label: opt.departmentName,
-      }))
-    } else if (fieldKey == 'branch') {
+      }));
+    } else if (fieldKey == "branch") {
       return branch.map((opt: any) => ({
         value: opt.id,
         label: opt.branchName,
-      }))
-    } else if (fieldKey == 'attendanceSchema') {
+      }));
+    } else if (fieldKey == "attendanceSchema") {
       return shifts.map((opt: any) => ({
         value: opt.id,
         label: opt.shiftName,
-      }))
+      }));
     } else {
       const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
       const category = Object.keys(categoryOptions).find(
@@ -139,14 +173,14 @@ const EditableGroup = ({
   };
 
   const getSelectOptions = (fieldKey: string, fieldLabel: string) => {
-    if (fieldKey == 'department') {
-      return department.map((opt: any) => opt.departmentName)
+    if (fieldKey == "department") {
+      return department.map((opt: any) => opt.departmentName);
     }
-    if (fieldKey == 'branch') {
-      return branch.map((opt: any) => opt.branchName)
+    if (fieldKey == "branch") {
+      return branch.map((opt: any) => opt.branchName);
     }
-    if (fieldKey == 'attendanceSchema') {
-      return shifts.map((opt: any) => opt.shiftName)
+    if (fieldKey == "attendanceSchema") {
+      return shifts.map((opt: any) => opt.shiftName);
     }
     const categoryName = getCategoryName(fieldKey, fieldLabel, categories);
     const category = Object.keys(categoryOptions).find(
@@ -159,7 +193,7 @@ const EditableGroup = ({
     if (fieldKey === "documentType") {
       if (document) {
         options = options.filter((opt: any) =>
-          opt.name.toLowerCase().includes(document.toLowerCase())
+          opt.name.toLowerCase().includes(document.toLowerCase()),
         );
       }
     }
@@ -181,7 +215,8 @@ const EditableGroup = ({
     try {
       showSpinner();
       const categoriesResponse: any = await categoryService.getCategories();
-      const categories = categoriesResponse.data.content || categoriesResponse.data || [];
+      const categories =
+        categoriesResponse.data.content || categoriesResponse.data || [];
       const categoryName = getCategoryName(fieldKey, "", categories);
       const category = categories.find(
         (cat: any) =>
@@ -207,8 +242,7 @@ const EditableGroup = ({
     }
   };
 
-  useEffect(() => {
-  }, [categoryOptions]);
+  useEffect(() => {}, [categoryOptions]);
 
   const getMasterData = async () => {
     try {
@@ -236,7 +270,7 @@ const EditableGroup = ({
   };
 
   useEffect(() => {
-    if (title === 'Employee Details') {
+    if (title === "Employee Details") {
       getMasterData();
     }
     getDocuments();
@@ -246,7 +280,7 @@ const EditableGroup = ({
     const normalizedTitle = title.toLowerCase().replace("details", "").trim();
     const normalizedDocType = opt.documentType?.toLowerCase().trim();
     return normalizedDocType.includes(normalizedTitle);
-  })
+  });
 
   const handleUploadAttachment = () => {
     const initialData: any = {};
@@ -275,8 +309,9 @@ const EditableGroup = ({
           // if (error?.success) {
           // getAadhaar()
           showSnackbar(
-            error.message || "OCR unavailable. Please enter Aadhaar number manually.",
-            "info"
+            error.message ||
+              "OCR unavailable. Please enter Aadhaar number manually.",
+            "info",
           );
           // } else {
           //   showSnackbar(
@@ -288,8 +323,7 @@ const EditableGroup = ({
         }
       }
       await getDocuments();
-      showSnackbar("Attachment added successfully!", "success"
-      );
+      showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
       showSnackbar(error.message || "Failed to add attachment", "error");
     } finally {
@@ -309,9 +343,9 @@ const EditableGroup = ({
         employeeId: editData?.id || null,
       };
       const response: any = await employeeService.getAadhaarDetails(payload);
-      showSnackbar(response.message, 'success');
+      showSnackbar(response.message, "success");
     } catch (error: any) {
-      showSnackbar(error.message || "Unable to fetch Aadhaar details", 'error');
+      showSnackbar(error.message || "Unable to fetch Aadhaar details", "error");
     }
   };
 
@@ -320,7 +354,10 @@ const EditableGroup = ({
       <div>
         <div className="flex justify-between items-center mb-3">
           <div className="font-semibold flex items-center gap-2">
-            <div className="bg-primary-50 p-1 rounded-lg !text-primary"> {icon} </div>
+            <div className="bg-primary-50 p-1 rounded-lg !text-primary">
+              {" "}
+              {icon}{" "}
+            </div>
             <div className="text-primary-dark "> {title}</div>
             <div>
               {matchedDocs.map((item: any) => (
@@ -338,39 +375,64 @@ const EditableGroup = ({
           </div>
           {!isEditing ? (
             <div className="flex items-center gap-1">
-              {document &&
+              {document && (
                 <MaterialModule.Tooltip title="Add Attachments">
-                  <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
-                    <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                  <MaterialModule.IconButton
+                    size="small"
+                    onClick={() => handleUploadAttachment()}
+                  >
+                    <AttachFileOutlined
+                      fontSize="small"
+                      className="text-gray-800 !w-4"
+                    />
                   </MaterialModule.IconButton>
                 </MaterialModule.Tooltip>
-              }
+              )}
               <MaterialModule.Tooltip title="Edit">
-                <MaterialModule.IconButton size="small" onClick={() => setIsEditing(true)}>
-                  <MaterialModule.EditIcon fontSize="small" className="text-gray-800 !w-4" />
+                <MaterialModule.IconButton
+                  size="small"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <MaterialModule.EditIcon
+                    fontSize="small"
+                    className="text-gray-800 !w-4"
+                  />
                 </MaterialModule.IconButton>
               </MaterialModule.Tooltip>
             </div>
           ) : (
             <div className="flex gap-1">
-              {document &&
+              {document && (
                 <MaterialModule.Tooltip title="Add Attachments">
-                  <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
-                    <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                  <MaterialModule.IconButton
+                    size="small"
+                    onClick={() => handleUploadAttachment()}
+                  >
+                    <AttachFileOutlined
+                      fontSize="small"
+                      className="text-gray-800 !w-4"
+                    />
                   </MaterialModule.IconButton>
                 </MaterialModule.Tooltip>
-              }
+              )}
               <MaterialModule.Tooltip title="Save Changes">
-                <MaterialModule.IconButton size="small" onClick={handleSave} color="success">
+                <MaterialModule.IconButton
+                  size="small"
+                  onClick={handleSave}
+                  color="success"
+                >
                   <MaterialModule.SaveIcon fontSize="small" />
                 </MaterialModule.IconButton>
               </MaterialModule.Tooltip>
               <MaterialModule.Tooltip title="Cancel">
-                <MaterialModule.IconButton size="small" onClick={handleCancel} color="error">
+                <MaterialModule.IconButton
+                  size="small"
+                  onClick={handleCancel}
+                  color="error"
+                >
                   <MaterialModule.CancelIcon fontSize="small" />
                 </MaterialModule.IconButton>
               </MaterialModule.Tooltip>
-
             </div>
           )}
         </div>
@@ -393,13 +455,16 @@ const EditableGroup = ({
                           onChange={(e) =>
                             setEditData({
                               ...editData,
-                              [field.key]: e ? dayjs(e).format("YYYY-MM-DD") : "",
+                              [field.key]: e
+                                ? dayjs(e).format("YYYY-MM-DD")
+                                : "",
                             })
                           }
-                          disabled={field.disabled || (
-                            editData?.aadhaarNumber &&
-                            lockableFields.includes(field.key)
-                          )}
+                          disabled={
+                            field.disabled ||
+                            (editData?.aadhaarNumber &&
+                              lockableFields.includes(field.key))
+                          }
                           slotProps={{
                             textField: {
                               fullWidth: true,
@@ -427,13 +492,12 @@ const EditableGroup = ({
                       <DynamicSelectWithAdd
                         label=""
                         title={field.label}
-                        value={
-                          editData[field.key] || ""
+                        value={editData[field.key] || ""}
+                        disabled={
+                          field.disabled ||
+                          (editData?.aadhaarNumber &&
+                            lockableFields.includes(field.key))
                         }
-                        disabled={field.disabled || (
-                          editData?.aadhaarNumber &&
-                          lockableFields.includes(field.key)
-                        )}
                         onChange={(value) => {
                           const id = getOptionIdFromName(
                             field.key,
@@ -450,101 +514,109 @@ const EditableGroup = ({
                         onAddOption={(newOption) =>
                           handleAddOption(field.key, newOption)
                         }
-                        showAddButton={(field.key == 'branch' || field.key == 'department' || field.key == 'attendanceSchema') ? false : true}
+                        showAddButton={
+                          field.key == "branch" ||
+                          field.key == "department" ||
+                          field.key == "attendanceSchema"
+                            ? false
+                            : true
+                        }
                       />
-                    )
-                      // : field.type === "master-select" ? (
-                      //   <MasterSelect
-                      //     label={field.label}
-                      //     value={editData[field.key] || ""}
-                      //     onChange={(newValue: any) =>
-                      //       handleMasterDataChange(field.key, newValue)
-                      //     }
-                      //     countries={field.key === "country" ? countries : []}
-                      //     states={field.key === "state" ? states : []}
-                      //     cities={field.key === "city" ? cities : []}
-                      //     disabled={loading}
-                      //   // sx={commonSx}
-                      //   />
-                      // ) 
-                      : field.type === "user" ? (
-                        <EmployeeSelector
-                          value={(() => {
-                            if (editData.managerId && editData.managerName) {
-                              return {
-                                id: editData.managerId,
-                                name: editData.managerName,
-                                employeeId: editData.managerId,
-                                emailAddress: '',
-                                mobileNumber: '',
-                                designation: '',
-                                department: '',
-                                branch: '',
-                                employeeStatus: '',
-                                joiningDate: '',
-                                createdAt: '',
-                                isActive: true,
-                                companyId: '',
-                                employmentType: '',
-                                employeeCategory: '',
-                                isOnProbation: false,
-                              } as unknown as Employee;
-                            }
-                            return null;
-                          })()}
-                          onChange={(newValue) => {
-                            if (Array.isArray(newValue)) {
-                              const ids = newValue.map(emp => emp.id);
-                              const names = newValue.map(emp => emp.name);
-                              setEditData((prev: any) => ({
-                                ...prev,
-                                [field.key]: names.join(', '),
-                                [`${field.key}Ids`]: ids,
-                              }));
-                            } else if (newValue) {
-                              setEditData((prev: any) => ({
-                                ...prev,
-                                [field.key]: newValue.name,
-                                managerId: newValue.id,
-                                managerName: newValue.name,
-                              }));
-                            } else {
-                              setEditData((prev: any) => ({
-                                ...prev,
-                                [field.key]: '',
-                                managerId: null,
-                                managerName: '',
-                              }));
-                            }
-                          }}
-                          noLabel= {true}
-                          isManager= {true}
-                        />
-                      )
-                        : (
-                          <MaterialModule.TextField
-                            size="small"
-                            value={editData[field.key] || ""}
-                            multiline={field.multiline || false}
-                            rows={field.multiline ? 3 : 1}
-                            disabled={field.disabled || (
-                              editData?.aadhaarNumber &&
-                              lockableFields.includes(field.key)
-                            )}
-                            slotProps={{
-                              htmlInput: {
-                                maxLength: field.key === "aadhaarNumber" ? 12 : undefined,
-                              },
-                            }}
-                            onChange={(e) => {
-                              field.key != 'aadhaarNumber' ? setEditData({
+                    ) : // : field.type === "master-select" ? (
+                    //   <MasterSelect
+                    //     label={field.label}
+                    //     value={editData[field.key] || ""}
+                    //     onChange={(newValue: any) =>
+                    //       handleMasterDataChange(field.key, newValue)
+                    //     }
+                    //     countries={field.key === "country" ? countries : []}
+                    //     states={field.key === "state" ? states : []}
+                    //     cities={field.key === "city" ? cities : []}
+                    //     disabled={loading}
+                    //   // sx={commonSx}
+                    //   />
+                    // )
+                    field.type === "user" ? (
+                      <EmployeeSelector
+                        value={(() => {
+                          if (editData.managerId && editData.managerName) {
+                            return {
+                              id: editData.managerId,
+                              name: editData.managerName,
+                              employeeId: editData.managerId,
+                              emailAddress: "",
+                              mobileNumber: "",
+                              designation: "",
+                              department: "",
+                              branch: "",
+                              employeeStatus: "",
+                              joiningDate: "",
+                              createdAt: "",
+                              isActive: true,
+                              companyId: "",
+                              employmentType: "",
+                              employeeCategory: "",
+                              isOnProbation: false,
+                            } as unknown as Employee;
+                          }
+                          return null;
+                        })()}
+                        onChange={(newValue) => {
+                          if (Array.isArray(newValue)) {
+                            const ids = newValue.map((emp) => emp.id);
+                            const names = newValue.map((emp) => emp.name);
+                            setEditData((prev: any) => ({
+                              ...prev,
+                              [field.key]: names.join(", "),
+                              [`${field.key}Ids`]: ids,
+                            }));
+                          } else if (newValue) {
+                            setEditData((prev: any) => ({
+                              ...prev,
+                              [field.key]: newValue.name,
+                              managerId: newValue.id,
+                              managerName: newValue.name,
+                            }));
+                          } else {
+                            setEditData((prev: any) => ({
+                              ...prev,
+                              [field.key]: "",
+                              managerId: null,
+                              managerName: "",
+                            }));
+                          }
+                        }}
+                        noLabel={true}
+                        isManager={true}
+                      />
+                    ) : (
+                      <MaterialModule.TextField
+                        size="small"
+                        value={editData[field.key] || ""}
+                        multiline={field.multiline || false}
+                        rows={field.multiline ? 3 : 1}
+                        disabled={
+                          field.disabled ||
+                          (editData?.aadhaarNumber &&
+                            lockableFields.includes(field.key))
+                        }
+                        slotProps={{
+                          htmlInput: {
+                            maxLength:
+                              field.key === "aadhaarNumber" ? 12 : undefined,
+                          },
+                        }}
+                        onChange={(e) => {
+                          field.key != "aadhaarNumber"
+                            ? setEditData({
                                 ...editData,
                                 [field.key]: e.target.value,
-                              }) : getAadhaar(e.target.value)
-                            }}
-                            fullWidth
-                          />
-                        )}
+                              })
+                            : getAadhaar(e.target.value);
+                        }}
+                        fullWidth
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="text-[12px] text-ellipsis overflow-hidden text-gray-800 mt-1">
@@ -556,7 +628,9 @@ const EditableGroup = ({
                           : "No"
                         : field.type === "select"
                           ? editData[field.key] || (isEditing ? "" : "-")
-                          : field.type === "user" ? editData.managerName : editData[field.key] || "-"}
+                          : field.type === "user"
+                            ? editData.managerName
+                            : editData[field.key] || "-"}
                   </div>
                 )}
               </div>
@@ -619,9 +693,7 @@ const EditableGroup = ({
                         variant="outlined"
                         startIcon={<MaterialModule.AttachmentIcon />}
                       >
-                        {selectedFile
-                          ? selectedFile.name
-                          : "Choose File"}
+                        {selectedFile ? selectedFile.name : "Choose File"}
                       </MaterialModule.Button>
                     </label>
 
@@ -636,7 +708,6 @@ const EditableGroup = ({
                     label={field.label}
                     title={field.label}
                     value={attachmentData[field.key] || ""}
-
                     onChange={(value) => {
                       const id = getOptionIdFromName(
                         field.key,
@@ -655,7 +726,8 @@ const EditableGroup = ({
                       handleAddOption(field.key, newOption)
                     }
                     showAddButton={true}
-                  />) : (
+                  />
+                ) : (
                   <MaterialModule.TextField
                     label={field.label}
                     value={attachmentData[field.key] || ""}
@@ -688,7 +760,7 @@ const EditableGroup = ({
             variant="contained"
             className="!bg-primary"
             onClick={() => {
-              handleAddAttachment(attachmentData)
+              handleAddAttachment(attachmentData);
               setAttachmentDialogOpen(false);
             }}
           >
@@ -713,7 +785,7 @@ const EditableTableGroup = ({
   categoryOptions,
   categories,
   refreshCategoryOptions,
-  document
+  document,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -726,9 +798,9 @@ const EditableTableGroup = ({
   const isMasterTab = title === "Addresses";
   const [dialogFields, setDialogFields] = useState(addDialogFields);
   const { id } = useParams();
-  const [dialogType, setDialogType] = useState<
-    "add" | "edit" | "attachment"
-  >("add");
+  const [dialogType, setDialogType] = useState<"add" | "edit" | "attachment">(
+    "add",
+  );
 
   const handleSave = () => {
     onSave(editData);
@@ -740,11 +812,7 @@ const EditableTableGroup = ({
     setIsEditing(false);
   };
 
-  const handleCellChange = (
-    rowIndex: number,
-    field: string,
-    value: any
-  ) => {
+  const handleCellChange = (rowIndex: number, field: string, value: any) => {
     setEditData((prev: any[]) => {
       const updated = [...prev];
 
@@ -837,7 +905,7 @@ const EditableTableGroup = ({
     if (fieldKey === "documentType") {
       if (document) {
         options = options.filter((opt: any) =>
-          opt.name.toLowerCase().includes(document)
+          opt.name.toLowerCase().includes(document),
         );
       }
     }
@@ -866,9 +934,7 @@ const EditableTableGroup = ({
       } else {
         options = Object.values(cityOptionsMap).flat();
       }
-      const option = options.find(
-        (opt: any) => opt.id === value
-      );
+      const option = options.find((opt: any) => opt.id === value);
 
       return option?.name || "";
     } else {
@@ -882,7 +948,8 @@ const EditableTableGroup = ({
     try {
       showSpinner();
       const categoriesResponse: any = await categoryService.getCategories();
-      const categories = categoriesResponse.data.content || categoriesResponse.data || [];
+      const categories =
+        categoriesResponse.data.content || categoriesResponse.data || [];
       const categoryName = getCategoryName(fieldKey, "", categories);
       const category = categories.find(
         (cat: any) =>
@@ -910,12 +977,8 @@ const EditableTableGroup = ({
   // ====================== STATES ======================
   const [stateOptionsMap, setStateOptionsMap] = useState<any>({});
   const [cityOptionsMap, setCityOptionsMap] = useState<any>({});
-  const {
-    countries,
-    loading,
-    fetchStatesByCountry,
-    fetchCitiesByState,
-  } = useMasterData(isMasterTab);
+  const { countries, loading, fetchStatesByCountry, fetchCitiesByState } =
+    useMasterData(isMasterTab);
 
   useEffect(() => {
     setEditData(data);
@@ -929,12 +992,14 @@ const EditableTableGroup = ({
     for (let i = 0; i < editData.length; i++) {
       const row = editData[i];
       // LOAD STATES for this row
-      if (row.country && !stateOptionsMap[i]) { // Only load if not already loaded
+      if (row.country && !stateOptionsMap[i]) {
+        // Only load if not already loaded
         const statesData = await fetchStatesByCountry(row.country);
         newStateMap[i] = statesData || [];
       }
       // LOAD CITIES for this row
-      if (row.state && !cityOptionsMap[i]) { // Only load if not already loaded
+      if (row.state && !cityOptionsMap[i]) {
+        // Only load if not already loaded
         const citiesData = await fetchCitiesByState(row.state);
         newCityMap[i] = citiesData || [];
       }
@@ -952,7 +1017,11 @@ const EditableTableGroup = ({
     loadExistingMasterData();
   }, [isEditing]);
 
-  const handleMasterDataChange = async (rowIndex: any, key: string, value: string) => {
+  const handleMasterDataChange = async (
+    rowIndex: any,
+    key: string,
+    value: string,
+  ) => {
     if (rowIndex !== undefined) {
       if (key === "country" && value) {
         setEditData((prev: any[]) => {
@@ -1046,13 +1115,13 @@ const EditableTableGroup = ({
 
   const handleAddAttachment = async (newItem: any) => {
     setAddDialogOpen(false);
-    setSelectedFile(null)
+    setSelectedFile(null);
     showSpinner();
     try {
       if (!newItem.documentType) {
-        showSnackbar('Document Type is Mandatory', 'warning')
-        return
-      };
+        showSnackbar("Document Type is Mandatory", "warning");
+        return;
+      }
       await employeeService.addAttachment(id, newItem);
       showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
@@ -1064,70 +1133,87 @@ const EditableTableGroup = ({
 
   const tablesx = {
     padding: !isEditing ? "8px 16px !important" : "2px 2px 2px 16px !important",
-  }
+  };
 
   return (
     <div className="p-4 border rounded-lg mt-3 shadow-sm border-gray-300">
-      {
-        !data || data.length === 0 &&
-        <div>
-          <div className="flex justify-between items-center mb-3">
-            <div className="font-semibold flex items-center gap-2">
-              <div className="bg-primary-50 p-1 rounded-lg !text-primary"> {icon} </div>
-              <div className="text-primary-dark "> {title} </div>
+      {!data ||
+        (data.length === 0 && (
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <div className="font-semibold flex items-center gap-2">
+                <div className="bg-primary-50 p-1 rounded-lg !text-primary">
+                  {" "}
+                  {icon}{" "}
+                </div>
+                <div className="text-primary-dark "> {title} </div>
+              </div>
+              <MaterialModule.Button
+                startIcon={
+                  <MaterialModule.AddIcon
+                    sx={{ color: "var(--color-primary)" }}
+                  />
+                }
+                size="small"
+                onClick={handleAddClick}
+                variant="outlined"
+                sx={{
+                  color: "var(--color-primary)",
+                  borderColor: "var(--color-primary)",
+                }}
+              >
+                Add {title}
+              </MaterialModule.Button>
             </div>
-            <MaterialModule.Button
-              startIcon={<MaterialModule.AddIcon sx={{ color: "var(--color-primary)" }} />}
-              size="small"
-              onClick={handleAddClick}
-              variant="outlined"
-              sx={{
-                color: "var(--color-primary)",
-                borderColor: "var(--color-primary)",
-              }}
-            >
-              Add {title}
-            </MaterialModule.Button>
+            <div className="text-center text-gray-500 py-4">
+              No {title.toLowerCase()} found
+            </div>
           </div>
-          <div className="text-center text-gray-500 py-4">
-            No {title.toLowerCase()} found
-          </div>
-        </div>
-      }
-      {
-        (data && data.length > 0) &&
+        ))}
+      {data && data.length > 0 && (
         <div>
           <div className="flex justify-between items-center mb-3">
             <div className="font-semibold flex items-center gap-2">
-              <div className="bg-primary-50 p-1 rounded-lg !text-primary"> {icon} </div>
+              <div className="bg-primary-50 p-1 rounded-lg !text-primary">
+                {" "}
+                {icon}{" "}
+              </div>
               <div className="text-primary-dark "> {title} </div>
             </div>
             <div className="flex gap-1">
               {!isEditing ? (
                 <>
                   <div className="flex items-center gap-1 border border-gray-300 rounded">
-                    {document &&
+                    {document && (
                       <>
                         <MaterialModule.Tooltip title="Add Attachments">
-                          <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
-                            <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                          <MaterialModule.IconButton
+                            size="small"
+                            onClick={() => handleUploadAttachment()}
+                          >
+                            <AttachFileOutlined
+                              fontSize="small"
+                              className="text-gray-800 !w-4"
+                            />
                           </MaterialModule.IconButton>
                         </MaterialModule.Tooltip>
                         <div className="border-l border-gray-300 h-5" />
                       </>
-                    }
+                    )}
                     <MaterialModule.Tooltip title="Add">
                       <MaterialModule.Button
                         size="small"
                         onClick={handleAddClick}
                         className="!min-w-0"
                       >
-                        <MaterialModule.AddIcon fontSize="small" className="text-gray-800" />
+                        <MaterialModule.AddIcon
+                          fontSize="small"
+                          className="text-gray-800"
+                        />
                       </MaterialModule.Button>
                     </MaterialModule.Tooltip>
 
-                    {
-                      title != 'Attachments' &&
+                    {title != "Attachments" && (
                       <>
                         <div className="border-l border-gray-300 h-5" />
                         <MaterialModule.Tooltip title="Edit">
@@ -1142,67 +1228,104 @@ const EditableTableGroup = ({
                             />
                           </MaterialModule.Button>
                         </MaterialModule.Tooltip>
-
                       </>
-                    }
+                    )}
                   </div>
                 </>
               ) : (
                 <>
-                  {document &&
+                  {document && (
                     <MaterialModule.Tooltip title="Add Attachments">
-                      <MaterialModule.IconButton size="small" onClick={() => handleUploadAttachment()}>
-                        <AttachFileOutlined fontSize="small" className="text-gray-800 !w-4" />
+                      <MaterialModule.IconButton
+                        size="small"
+                        onClick={() => handleUploadAttachment()}
+                      >
+                        <AttachFileOutlined
+                          fontSize="small"
+                          className="text-gray-800 !w-4"
+                        />
                       </MaterialModule.IconButton>
                     </MaterialModule.Tooltip>
-
-                  }
+                  )}
                   <MaterialModule.Tooltip title="Save Changes">
-                    <MaterialModule.IconButton size="small" onClick={handleSave} color="primary">
+                    <MaterialModule.IconButton
+                      size="small"
+                      onClick={handleSave}
+                      color="primary"
+                    >
                       <MaterialModule.SaveIcon fontSize="small" />
                     </MaterialModule.IconButton>
                   </MaterialModule.Tooltip>
 
                   <MaterialModule.Tooltip title="Cancel">
-                    <MaterialModule.IconButton size="small" onClick={handleCancel} color="error">
+                    <MaterialModule.IconButton
+                      size="small"
+                      onClick={handleCancel}
+                      color="error"
+                    >
                       <MaterialModule.CancelIcon fontSize="small" />
                     </MaterialModule.IconButton>
                   </MaterialModule.Tooltip>
-
                 </>
               )}
             </div>
           </div>
 
           <div>
-            <MaterialModule.TableContainer component={MaterialModule.Paper} elevation={0} className="border border-gray-200">
+            <MaterialModule.TableContainer
+              component={MaterialModule.Paper}
+              elevation={0}
+              className="border border-gray-200"
+            >
               <MaterialModule.Table>
                 <MaterialModule.TableHead className="bg-gray-100">
                   <MaterialModule.TableRow>
-                    <MaterialModule.TableCell sx={{
-                      ...stickyHeaderLeftSx,
-                      minWidth: "70px",
-                    }}>S No</MaterialModule.TableCell>
+                    <MaterialModule.TableCell
+                      sx={{
+                        ...stickyHeaderLeftSx,
+                        minWidth: "70px",
+                      }}
+                    >
+                      S No
+                    </MaterialModule.TableCell>
                     {columns.map((col: any) => (
-                      <MaterialModule.TableCell key={col.key} sx={{
-                        background: "#f3f4f6",
-                        minWidth: "180px",
-                      }}>{col.label}</MaterialModule.TableCell>
+                      <MaterialModule.TableCell
+                        key={col.key}
+                        sx={{
+                          background: "#f3f4f6",
+                          minWidth: "180px",
+                        }}
+                      >
+                        {col.label}
+                      </MaterialModule.TableCell>
                     ))}
-                    {(isEditing || title == 'Attachments') && <MaterialModule.TableCell sx={{
-                      ...stickyHeaderRightSx,
-                      minWidth: "100px",
-                    }}>Actions</MaterialModule.TableCell>}
+                    {(isEditing || title == "Attachments") && (
+                      <MaterialModule.TableCell
+                        sx={{
+                          ...stickyHeaderRightSx,
+                          minWidth: "100px",
+                        }}
+                      >
+                        Actions
+                      </MaterialModule.TableCell>
+                    )}
                   </MaterialModule.TableRow>
                 </MaterialModule.TableHead>
                 <MaterialModule.TableBody className="bg-white-50">
                   {editData.map((row: any, rowIndex: number) => (
-                    <MaterialModule.TableRow key={row.id || rowIndex} sx={getRowColor(rowIndex)}>
-                      <MaterialModule.TableCell sx={{
-                        ...tablesx,
-                        ...getStickyLeftSx(rowIndex),
-                        minWidth: "70px",
-                      }}>{rowIndex + 1}</MaterialModule.TableCell>
+                    <MaterialModule.TableRow
+                      key={row.id || rowIndex}
+                      sx={getRowColor(rowIndex)}
+                    >
+                      <MaterialModule.TableCell
+                        sx={{
+                          ...tablesx,
+                          ...getStickyLeftSx(rowIndex),
+                          minWidth: "70px",
+                        }}
+                      >
+                        {rowIndex + 1}
+                      </MaterialModule.TableCell>
                       {columns.map((col: any) => (
                         <MaterialModule.TableCell
                           key={col.key}
@@ -1218,10 +1341,16 @@ const EditableTableGroup = ({
                                 label=""
                                 title={col.label}
                                 value={
-                                  col.options ? col.options.find(
-                                    (opt: string) =>
-                                      opt.toLowerCase() === String(row[col.key]).toLowerCase()
-                                  ) || "" : getOptionNameFromId(col.key, row[col.key]) || ""
+                                  col.options
+                                    ? col.options.find(
+                                        (opt: string) =>
+                                          opt.toLowerCase() ===
+                                          String(row[col.key]).toLowerCase(),
+                                      ) || ""
+                                    : getOptionNameFromId(
+                                        col.key,
+                                        row[col.key],
+                                      ) || ""
                                 }
                                 onChange={(value) => {
                                   if (col.options) {
@@ -1235,15 +1364,24 @@ const EditableTableGroup = ({
                                     handleCellChange(rowIndex, col.key, id);
                                   }
                                 }}
-                                options={col.options ? col.options : getSelectOptions(col.key, col.label)}
+                                options={
+                                  col.options
+                                    ? col.options
+                                    : getSelectOptions(col.key, col.label)
+                                }
                                 onAddOption={(newOption) =>
                                   handleAddOption(col.key, newOption)
                                 }
-                                showAddButton={(col.key == 'nomineeName' || col.options) ? false : true}
+                                showAddButton={
+                                  col.key == "nomineeName" || col.options
+                                    ? false
+                                    : true
+                                }
                                 sx={{
-                                  ...commonSx, "& .MuiSelect-select": {
+                                  ...commonSx,
+                                  "& .MuiSelect-select": {
                                     padding: "5px !important",
-                                    width: "150px !important"
+                                    width: "150px !important",
                                   },
                                 }}
                               />
@@ -1289,9 +1427,7 @@ const EditableTableGroup = ({
                               />
                             ) : col.type === "master-select" ? (
                               <MasterSelect
-                                type={
-                                  col.key
-                                }
+                                type={col.key}
                                 countries={countries}
                                 states={stateOptionsMap[rowIndex] || []}
                                 cities={cityOptionsMap[rowIndex] || []}
@@ -1300,15 +1436,16 @@ const EditableTableGroup = ({
                                   handleMasterDataChange(
                                     rowIndex,
                                     col.key,
-                                    newValue
+                                    newValue,
                                   )
                                 }
                                 disabled={loading}
                                 // label={col.label + "j"}
                                 sx={{
-                                  ...commonSx, "& .MuiSelect-select": {
+                                  ...commonSx,
+                                  "& .MuiSelect-select": {
                                     padding: "5px !important",
-                                    width: "150px !important"
+                                    width: "150px !important",
                                   },
                                 }}
                               />
@@ -1332,7 +1469,7 @@ const EditableTableGroup = ({
                                   },
                                   "& .MuiInputBase-input": {
                                     padding: "5px",
-                                    width: "150px !important"
+                                    width: "150px !important",
                                   },
                                 }}
                               />
@@ -1356,8 +1493,13 @@ const EditableTableGroup = ({
                                 ) : (
                                   <span className="text-red-500">No</span>
                                 )
-                              ) : (col.type === "select" || col.type === 'master-select') ? (
-                                col.options ? toTitleCase(row[col.key]) : getOptionNameFromId(col.key, row[col.key])
+                              ) : col.type === "select" ||
+                                col.type === "master-select" ? (
+                                col.options ? (
+                                  toTitleCase(row[col.key])
+                                ) : (
+                                  getOptionNameFromId(col.key, row[col.key])
+                                )
                               ) : (
                                 row[col.key] || "-"
                               )}
@@ -1366,11 +1508,13 @@ const EditableTableGroup = ({
                         </MaterialModule.TableCell>
                       ))}
                       {isEditing ? (
-                        <MaterialModule.TableCell sx={{
-                          ...tablesx,
-                          ...getStickyRightSx(rowIndex),
-                          minWidth: "50px",
-                        }}>
+                        <MaterialModule.TableCell
+                          sx={{
+                            ...tablesx,
+                            ...getStickyRightSx(rowIndex),
+                            minWidth: "50px",
+                          }}
+                        >
                           <MaterialModule.IconButton
                             size="small"
                             onClick={() => handleDeleteRow(rowIndex)}
@@ -1380,16 +1524,19 @@ const EditableTableGroup = ({
                           </MaterialModule.IconButton>
                         </MaterialModule.TableCell>
                       ) : null}
-                      {
-                        title == 'Attachments' &&
-                        <MaterialModule.TableCell sx={{
-                          ...tablesx,
-                          ...getStickyRightSx(rowIndex),
-                          minWidth: "50px",
-                        }}>
+                      {title == "Attachments" && (
+                        <MaterialModule.TableCell
+                          sx={{
+                            ...tablesx,
+                            ...getStickyRightSx(rowIndex),
+                            minWidth: "50px",
+                          }}
+                        >
                           <MaterialModule.IconButton
                             size="small"
-                            onClick={() => { handleEditClick(row); }}
+                            onClick={() => {
+                              handleEditClick(row);
+                            }}
                             color="primary"
                           >
                             <MaterialModule.EditIcon fontSize="small" />
@@ -1401,9 +1548,8 @@ const EditableTableGroup = ({
                           >
                             <MaterialModule.DeleteIcon fontSize="small" />
                           </MaterialModule.IconButton>
-
                         </MaterialModule.TableCell>
-                      }
+                      )}
                     </MaterialModule.TableRow>
                   ))}
                 </MaterialModule.TableBody>
@@ -1411,11 +1557,15 @@ const EditableTableGroup = ({
             </MaterialModule.TableContainer>
           </div>
         </div>
-      }
+      )}
 
       <MaterialModule.Dialog
         open={addDialogOpen}
-        onClose={() => { setAddDialogOpen(false); setSelectedFile(null); setNewItemData({}) }}
+        onClose={() => {
+          setAddDialogOpen(false);
+          setSelectedFile(null);
+          setNewItemData({});
+        }}
         maxWidth="sm"
         sx={commonsx}
       >
@@ -1427,11 +1577,13 @@ const EditableTableGroup = ({
                 ? `Edit ${title}`
                 : `Add ${title}`}
           </span>
-          <MaterialModule.IconButton onClick={() => {
-            setAddDialogOpen(false);
-            setSelectedFile(null);
-            setNewItemData({})
-          }}>
+          <MaterialModule.IconButton
+            onClick={() => {
+              setAddDialogOpen(false);
+              setSelectedFile(null);
+              setNewItemData({});
+            }}
+          >
             <MaterialModule.CloseOutlined className="text-gray-800" />
           </MaterialModule.IconButton>
         </div>
@@ -1470,14 +1622,16 @@ const EditableTableGroup = ({
                     value={
                       field.options
                         ? field.options.find(
-                          (opt: string) =>
-                            opt.toLowerCase() ===
-                            String(newItemData[field.key] || "").toLowerCase()
-                        ) || ""
+                            (opt: string) =>
+                              opt.toLowerCase() ===
+                              String(
+                                newItemData[field.key] || "",
+                              ).toLowerCase(),
+                          ) || ""
                         : getOptionNameFromId(
-                          field.key,
-                          newItemData[field.key],
-                        ) || ""
+                            field.key,
+                            newItemData[field.key],
+                          ) || ""
                     }
                     onChange={(value) => {
                       if (field.options) {
@@ -1497,11 +1651,17 @@ const EditableTableGroup = ({
                         });
                       }
                     }}
-                    options={field.options ? field.options : getSelectOptions(field.key, field.label)}
+                    options={
+                      field.options
+                        ? field.options
+                        : getSelectOptions(field.key, field.label)
+                    }
                     onAddOption={(newOption) =>
                       handleAddOption(field.key, newOption)
                     }
-                    showAddButton={(field.key == 'nomineeName' || field.options) ? false : true}
+                    showAddButton={
+                      field.key == "nomineeName" || field.options ? false : true
+                    }
                     required={field.required}
                   />
                 ) : field.type === "boolean" ? (
@@ -1515,7 +1675,6 @@ const EditableTableGroup = ({
                             [field.key]: e.target.checked,
                           })
                         }
-
                       />
                     }
                     label="Primary"
@@ -1524,19 +1683,13 @@ const EditableTableGroup = ({
                 ) : field.type === "master-select" ? (
                   <div style={{ minWidth: "200px" }}>
                     <MasterSelect
-                      type={
-                        field.key
-                      }
+                      type={field.key}
                       countries={countries}
                       states={stateOptionsMap["new"] || []}
                       cities={cityOptionsMap["new"] || []}
                       value={newItemData[field.key] || ""}
                       onChange={(newValue: any) =>
-                        handleMasterDataChange(
-                          undefined,
-                          field.key,
-                          newValue
-                        )
+                        handleMasterDataChange(undefined, field.key, newValue)
                       }
                       disabled={loading}
                       label={field.label}
@@ -1547,7 +1700,7 @@ const EditableTableGroup = ({
                   <>
                     <input
                       accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
-                      style={{ display: 'none' }}
+                      style={{ display: "none" }}
                       id={`file-upload-${field.key}`}
                       type="file"
                       onChange={(e) => {
@@ -1556,7 +1709,7 @@ const EditableTableGroup = ({
                           setNewItemData({
                             ...newItemData,
                             [field.key]: file,
-                            documentName: file.name
+                            documentName: file.name,
                           });
                           setSelectedFile(file);
                         }
@@ -1605,7 +1758,8 @@ const EditableTableGroup = ({
         <MaterialModule.DialogActions className="!p-3 !border-t !border-gray-200">
           <MaterialModule.Button
             onClick={() => {
-              setAddDialogOpen(false); setSelectedFile(null);
+              setAddDialogOpen(false);
+              setSelectedFile(null);
               setNewItemData({});
             }}
             variant="outlined"
@@ -1624,13 +1778,11 @@ const EditableTableGroup = ({
             variant="contained"
             className="!bg-primary"
           >
-            {
-              dialogType === "attachment"
-                ? "Upload"
-                : dialogType === "edit"
-                  ? "Update"
-                  : "Add"
-            }
+            {dialogType === "attachment"
+              ? "Upload"
+              : dialogType === "edit"
+                ? "Update"
+                : "Add"}
           </MaterialModule.Button>
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
@@ -1653,10 +1805,17 @@ export default function EmployeeDetails() {
   // Policy tab state
   const [empPolicies, setEmpPolicies] = useState<any[]>([]);
   const [empPolicyHistory, setEmpPolicyHistory] = useState<any[]>([]);
-  const [effectivePolicies, setEffectivePolicies] = useState<Record<string, any>>({});
+  const [effectivePolicies, setEffectivePolicies] = useState<
+    Record<string, any>
+  >({});
   const [policyLoading, setPolicyLoading] = useState(false);
   const [policyError, setPolicyError] = useState<string | null>(null);
-  const [policySection, setPolicySection] = useState<'effective' | 'assigned' | 'history'>('effective');
+  const [policySection, setPolicySection] = useState<
+    "effective" | "assigned" | "history"
+  >("effective");
+
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
 
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
@@ -1665,12 +1824,27 @@ export default function EmployeeDetails() {
     { label: "Employee Details", icon: <MaterialModule.Person2TwoTone /> },
     { label: "Training Details", icon: <MaterialModule.AccountBalanceIcon /> },
     { label: "Previous Employment", icon: <MaterialModule.WorkHistoryIcon /> },
-    { label: "Identification Details", icon: <MaterialModule.WorkHistoryIcon /> },
+    {
+      label: "Identification Details",
+      icon: <MaterialModule.WorkHistoryIcon />,
+    },
     { label: "Family Details", icon: <MaterialModule.FamilyIcon /> },
     { label: "Nominations", icon: <MaterialModule.AccountBalanceIcon /> },
     { label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
     { label: "Policies", icon: <PolicyIcon /> },
   ];
+
+  const viewPolicyConfig = (policy: any) => {
+    setSelectedPolicy(policy);
+    setConfigDialogOpen(true);
+  };
+
+  // const formatConfigValue = (value: any): string => {
+  //   if (value === null || value === undefined) return "—";
+  //   if (typeof value === "boolean") return value ? "Yes" : "No";
+  //   if (typeof value === "object") return JSON.stringify(value, null, 2);
+  //   return value.toString();
+  // };
 
   const fetchEmployeeDetails = async () => {
     showSpinner();
@@ -1695,7 +1869,8 @@ export default function EmployeeDetails() {
         const itemsResponse: any = await categoryService.getCategoryItems(
           category.id,
         );
-        optionsMap[category.categoryName] = itemsResponse.data.content || itemsResponse.data || [];
+        optionsMap[category.categoryName] =
+          itemsResponse.data.content || itemsResponse.data || [];
       }
       setCategoryOptions(optionsMap);
     } catch (error) {
@@ -1710,7 +1885,7 @@ export default function EmployeeDetails() {
     }
   }, [id]);
 
-  useEffect(() => { }, [categoryOptions]);
+  useEffect(() => {}, [categoryOptions]);
 
   const fetchLogs = async () => {
     showSpinner();
@@ -1797,10 +1972,11 @@ export default function EmployeeDetails() {
         backgroundVerificationCompletedOn:
           updatedData.backgroundVerificationCompletedOn
             ? new Date(
-              updatedData.backgroundVerificationCompletedOn
-            ).toISOString()
+                updatedData.backgroundVerificationCompletedOn,
+              ).toISOString()
             : null,
-        backgroundVerificationIndicator: updatedData.backgroundVerificationIndicator,
+        backgroundVerificationIndicator:
+          updatedData.backgroundVerificationIndicator,
         agencyName: updatedData.agencyName,
         backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
         bankAccountNumber: updatedData.bankAccountNumber,
@@ -1837,7 +2013,7 @@ export default function EmployeeDetails() {
         esiNumber: updatedData.esiNumber,
         esiJoiningDate: updatedData.esiJoiningDate,
         esiRelievingDate: updatedData.esiRelievingDate,
-        template: updatedData.templateId
+        template: updatedData.templateId,
       };
       if (Object.keys(payload).length) {
         await employeeService.updateEmployee(id, payload);
@@ -1851,7 +2027,9 @@ export default function EmployeeDetails() {
     }
   };
 
-  const handleProfileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file || !employee?.id) return;
     try {
@@ -1872,13 +2050,18 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.emergencyContacts || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
         ) {
-          const matchValue = (originalItem.relationship == item.relationship && originalItem.relationshipId == item.relationshipId) ?
-            originalItem.relationshipId : item.relationship;
+          const matchValue =
+            originalItem.relationship == item.relationship &&
+            originalItem.relationshipId == item.relationshipId
+              ? originalItem.relationshipId
+              : item.relationship;
           const updatedItem = {
             name: item.name,
             relationshipId: matchValue,
@@ -1945,7 +2128,9 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.addresses || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
@@ -2011,15 +2196,23 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.qualifications || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
         ) {
-          const matchValue = (originalItem.qualificationType == item.qualificationType && originalItem.qualificationTypeId == item.qualificationTypeId) ?
-            originalItem.qualificationTypeId : item.qualificationType;
-          const matchValue1 = (originalItem.qualificationArea == item.qualificationArea && originalItem.qualificationAreaId == item.qualificationAreaId) ?
-            originalItem.qualificationAreaId : item.qualificationArea;
+          const matchValue =
+            originalItem.qualificationType == item.qualificationType &&
+            originalItem.qualificationTypeId == item.qualificationTypeId
+              ? originalItem.qualificationTypeId
+              : item.qualificationType;
+          const matchValue1 =
+            originalItem.qualificationArea == item.qualificationArea &&
+            originalItem.qualificationAreaId == item.qualificationAreaId
+              ? originalItem.qualificationAreaId
+              : item.qualificationArea;
           const updatedItem = {
             qualificationTypeId: matchValue,
             qualificationAreaId: matchValue1,
@@ -2116,8 +2309,8 @@ export default function EmployeeDetails() {
         midNo: updatedData.midNo,
         oldIdNo: updatedData.oldIdNo,
         relievedDate: updatedData.relievedDate,
-        template: updatedData.templateId
-      }
+        template: updatedData.templateId,
+      };
       if (Object.keys(payload).length) {
         await employeeService.updateAdminInfo(id, payload);
         await fetchEmployeeDetails();
@@ -2136,14 +2329,18 @@ export default function EmployeeDetails() {
     try {
       const payload = {
         pfEligible: updatedData.pfEligible || employee.pfEligible,
-        excessEpfEligible: updatedData.excessEpfEligible || employee.excessEpfEligible,
-        excessEpsEligible: updatedData.excessEpsEligible || employee.excessEpsEligible,
-        existingEpsMember: updatedData.existingEpsMember || employee.existingEpsMember,
+        excessEpfEligible:
+          updatedData.excessEpfEligible || employee.excessEpfEligible,
+        excessEpsEligible:
+          updatedData.excessEpsEligible || employee.excessEpsEligible,
+        existingEpsMember:
+          updatedData.existingEpsMember || employee.existingEpsMember,
         esiEligible: updatedData.esiEligible || employee.esiEligible,
         lwfCovered: updatedData.lwfCovered || employee.lwfCovered,
         esiNumber: updatedData.esiNumber || employee.esiNumber,
         esiJoiningDate: updatedData.esiJoiningDate || employee.esiJoiningDate,
-        esiRelievingDate: updatedData.esiRelievingDate || employee.esiRelievingDate,
+        esiRelievingDate:
+          updatedData.esiRelievingDate || employee.esiRelievingDate,
       };
       await employeeService.updateEligibilityInfo(id, payload);
       await fetchEmployeeDetails();
@@ -2164,10 +2361,11 @@ export default function EmployeeDetails() {
         backgroundVerificationCompletedOn:
           updatedData.backgroundVerificationCompletedOn
             ? new Date(
-              updatedData.backgroundVerificationCompletedOn
-            ).toISOString()
+                updatedData.backgroundVerificationCompletedOn,
+              ).toISOString()
             : null,
-        backgroundVerificationIndicator: updatedData.backgroundVerificationIndicator,
+        backgroundVerificationIndicator:
+          updatedData.backgroundVerificationIndicator,
         agencyName: updatedData.agencyName,
         backgroundCheckRemarks: updatedData.backgroundCheckRemarks,
       };
@@ -2187,7 +2385,9 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.trainingDetails || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
@@ -2200,7 +2400,7 @@ export default function EmployeeDetails() {
             certificateNo: item.certificateNo,
             remarks: item.remarks,
             durationHours: Number(item.durationHours),
-            conductedBy: item.conductedBy
+            conductedBy: item.conductedBy,
           };
           await employeeService.updateTrainingDetail(id, item.id, updatedItem);
           await fetchEmployeeDetails();
@@ -2259,7 +2459,9 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.previousEmployments || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
         if (
           originalItem &&
           JSON.stringify(originalItem) !== JSON.stringify(item)
@@ -2299,10 +2501,7 @@ export default function EmployeeDetails() {
   const handleAddPreviousEmployment = async (newItem: any) => {
     showSpinner();
     try {
-      await employeeService.addPreviousEmployment(
-        id,
-        newItem,
-      );
+      await employeeService.addPreviousEmployment(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Previous employment added successfully!", "success");
     } catch (error: any) {
@@ -2372,18 +2571,26 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.pfAccounts || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
-        if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
-          const matchValue = (originalItem.pfScheme == item.pfScheme && originalItem.pfSchemeId == item.pfSchemeId) ?
-            originalItem.pfSchemeId : item.pfScheme;
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
+        if (
+          originalItem &&
+          JSON.stringify(originalItem) !== JSON.stringify(item)
+        ) {
+          const matchValue =
+            originalItem.pfScheme == item.pfScheme &&
+            originalItem.pfSchemeId == item.pfSchemeId
+              ? originalItem.pfSchemeId
+              : item.pfScheme;
           const updatedItem = {
-            "pfNumber": item.pfNumber,
-            "uan": item.uan,
-            "pfSchemeId": matchValue,
-            "fromDate": item.fromDate,
-            "toDate": item.toDate,
-            "remarks": item.remarks,
-            "current": item.current
+            pfNumber: item.pfNumber,
+            uan: item.uan,
+            pfSchemeId: matchValue,
+            fromDate: item.fromDate,
+            toDate: item.toDate,
+            remarks: item.remarks,
+            current: item.current,
           };
           await employeeService.updatePfAccount(id, item.id, updatedItem);
           await fetchEmployeeDetails();
@@ -2443,10 +2650,13 @@ export default function EmployeeDetails() {
     try {
       const payload = {
         panNumber: updatedData.panNumber || employee.panNumber,
-        aadhaarEnrolmentNo: updatedData.aadhaarEnrolmentNo || employee.aadhaarEnrolmentNo,
-        nameAsOnAadhaar: updatedData.nameAsOnAadhaar || employee.nameAsOnAadhaar,
+        aadhaarEnrolmentNo:
+          updatedData.aadhaarEnrolmentNo || employee.aadhaarEnrolmentNo,
+        nameAsOnAadhaar:
+          updatedData.nameAsOnAadhaar || employee.nameAsOnAadhaar,
         aadhaarNumber: updatedData.aadhaarNumber || employee.aadhaarNumber,
-        universalAccountNumber: updatedData.universalAccountNumber || employee.universalAccountNumber,
+        universalAccountNumber:
+          updatedData.universalAccountNumber || employee.universalAccountNumber,
         pranNumber: updatedData.pranNumber || employee.pranNumber,
         nameAsPerPran: updatedData.nameAsPerPran || employee.nameAsPerPran,
         passportNumber: updatedData.passportNumber || employee.passportNumber,
@@ -2459,10 +2669,14 @@ export default function EmployeeDetails() {
         placeOfIssue: updatedData.placeOfIssue || employee.placeOfIssue,
         dateOfIssue: updatedData.dateOfIssue || employee.dateOfIssue,
         expiryDate: updatedData.expiryDate || employee.expiryDate,
-        insuranceNumber: updatedData.insuranceNumber || employee.insuranceNumber,
-        nameInInsurance: updatedData.nameInInsurance || employee.nameInInsurance,
-        insuranceValidFrom: updatedData.insuranceValidFrom || employee.insuranceValidFrom,
-        insuranceValidTo: updatedData.insuranceValidTo || employee.insuranceValidTo,
+        insuranceNumber:
+          updatedData.insuranceNumber || employee.insuranceNumber,
+        nameInInsurance:
+          updatedData.nameInInsurance || employee.nameInInsurance,
+        insuranceValidFrom:
+          updatedData.insuranceValidFrom || employee.insuranceValidFrom,
+        insuranceValidTo:
+          updatedData.insuranceValidTo || employee.insuranceValidTo,
       };
       await employeeService.updateIdentityInfo(id, payload);
       await fetchEmployeeDetails();
@@ -2499,14 +2713,28 @@ export default function EmployeeDetails() {
     try {
       const originalData = employee?.familyMembers || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
-        if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
-          const matchValue = (originalItem.relationship == item.relationship && originalItem.relationshipId == item.relationshipId) ?
-            originalItem.relationshipId : item.relationship;
-          const matchGender = (originalItem.gender == item.gender && originalItem.genderId == item.genderId) ?
-            originalItem.genderId : item.gender;
-          const matchBg = (originalItem.bloodGroup == item.bloodGroup && originalItem.bloodGroupId == item.bloodGroupId) ?
-            originalItem.bloodGroupId : item.bloodGroup;
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
+        if (
+          originalItem &&
+          JSON.stringify(originalItem) !== JSON.stringify(item)
+        ) {
+          const matchValue =
+            originalItem.relationship == item.relationship &&
+            originalItem.relationshipId == item.relationshipId
+              ? originalItem.relationshipId
+              : item.relationship;
+          const matchGender =
+            originalItem.gender == item.gender &&
+            originalItem.genderId == item.genderId
+              ? originalItem.genderId
+              : item.gender;
+          const matchBg =
+            originalItem.bloodGroup == item.bloodGroup &&
+            originalItem.bloodGroupId == item.bloodGroupId
+              ? originalItem.bloodGroupId
+              : item.bloodGroup;
           const updatedItem = {
             name: item.name,
             relationshipId: matchValue,
@@ -2574,25 +2802,23 @@ export default function EmployeeDetails() {
   // Nominations
   const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [expandedAuditFields, setExpandedAuditFields] = useState<Set<string>>(new Set());
+  const [expandedAuditFields, setExpandedAuditFields] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
 
   const getTotalSharePercentage = (
     nominations: any[],
     nominationType: string,
-    excludeId?: string
+    excludeId?: string,
   ) => {
     return nominations
       .filter(
         (item) =>
-          item.nominationType === nominationType &&
-          item.id !== excludeId
+          item.nominationType === nominationType && item.id !== excludeId,
       )
-      .reduce(
-        (sum, item) => sum + Number(item.sharePercentage || 0),
-        0
-      );
+      .reduce((sum, item) => sum + Number(item.sharePercentage || 0), 0);
   };
 
   const fetchFamilyMembers = async () => {
@@ -2614,38 +2840,49 @@ export default function EmployeeDetails() {
     if (tabValue === 8) {
       fetchFamilyMembers();
     }
-  }, [tabValue])
+  }, [tabValue]);
 
   useEffect(() => {
     if (tabValue === 9) {
       fetchEmployeeDetails();
     }
-  }, [tabValue])
+  }, [tabValue]);
 
   useEffect(() => {
     if (tabValue !== 10 || !id) return;
     setPolicyLoading(true);
     setPolicyError(null);
-    const keyDomains = [PolicyDomain.LEAVE, PolicyDomain.EXPENSE, PolicyDomain.OVERTIME, PolicyDomain.ATTENDANCE, PolicyDomain.PAYROLL];
+    const keyDomains = [
+      PolicyDomain.LEAVE,
+      PolicyDomain.EXPENSE,
+      PolicyDomain.OVERTIME,
+      PolicyDomain.ATTENDANCE,
+      PolicyDomain.PAYROLL,
+    ];
     Promise.all([
       policyService.getEmployeePolicies(id),
       policyService.getEmployeePolicyHistory(id),
-      Promise.all(keyDomains.map(domain =>
-        policyService.getEffectivePolicy(id, domain)
-          .then((res: any) => ({ domain, data: res.data ?? null }))
-          .catch(() => ({ domain, data: null }))
-      )),
+      Promise.all(
+        keyDomains.map((domain) =>
+          policyService
+            .getEffectivePolicy(id, domain)
+            .then((res: any) => ({ domain, data: res.data ?? null }))
+            .catch(() => ({ domain, data: null })),
+        ),
+      ),
     ])
       .then(([policiesRes, historyRes, effectiveRes]: any) => {
         setEmpPolicies(policiesRes.data ?? []);
         setEmpPolicyHistory(historyRes.data ?? []);
         const effectiveMap: Record<string, any> = {};
-        (effectiveRes as Array<{ domain: string; data: any }>).forEach(({ domain, data }) => {
-          if (data) effectiveMap[domain] = data;
-        });
+        (effectiveRes as Array<{ domain: string; data: any }>).forEach(
+          ({ domain, data }) => {
+            if (data) effectiveMap[domain] = data;
+          },
+        );
         setEffectivePolicies(effectiveMap);
       })
-      .catch(() => setPolicyError('Failed to load policy data'))
+      .catch(() => setPolicyError("Failed to load policy data"))
       .finally(() => setPolicyLoading(false));
   }, [tabValue, id]);
 
@@ -2659,30 +2896,34 @@ export default function EmployeeDetails() {
     try {
       for (const type of nominationTypes) {
         const typeItems = updatedData.filter(
-          (item) => item.nominationType === type
+          (item) => item.nominationType === type,
         );
         const total = typeItems.reduce(
-          (sum, item) =>
-            sum + Number(item.sharePercentage || 0),
-          0
+          (sum, item) => sum + Number(item.sharePercentage || 0),
+          0,
         );
         if (total > 100) {
           showSnackbar(
             `${type} nomination percentage cannot exceed 100%`,
-            "error"
+            "error",
           );
           return;
         }
       }
       const originalData = employee?.nominations || [];
       for (const item of updatedData) {
-        const originalItem = originalData.find((orig: any) => orig.id === item.id);
-        if (originalItem && JSON.stringify(originalItem) !== JSON.stringify(item)) {
+        const originalItem = originalData.find(
+          (orig: any) => orig.id === item.id,
+        );
+        if (
+          originalItem &&
+          JSON.stringify(originalItem) !== JSON.stringify(item)
+        ) {
           const payload = {
-            "nomineeName": item.nomineeName,
-            "sharePercentage": Number(item.sharePercentage),
-            "nominationType": item.nominationType
-          }
+            nomineeName: item.nomineeName,
+            sharePercentage: Number(item.sharePercentage),
+            nominationType: item.nominationType,
+          };
           await employeeService.updateNomination(id, item.id, payload);
           await fetchEmployeeDetails();
         }
@@ -2701,13 +2942,13 @@ export default function EmployeeDetails() {
       newItem.sharePercentage = Number(newItem.sharePercentage);
       const existingTotal = getTotalSharePercentage(
         employee?.nominations || [],
-        newItem.nominationType
+        newItem.nominationType,
       );
       const remaining = 100 - existingTotal;
       if (newItem.sharePercentage > remaining) {
         showSnackbar(
           `Only ${remaining}% remaining for ${newItem.nominationType}`,
-          "error"
+          "error",
         );
         return;
       }
@@ -2730,7 +2971,7 @@ export default function EmployeeDetails() {
         showSpinner();
         try {
           await employeeService.deleteNomination(id, itemId);
-          await fetchEmployeeDetails()
+          await fetchEmployeeDetails();
           showSnackbar("Nomination deleted successfully!", "success");
         } catch (error: any) {
           showSnackbar(error.message || "Failed to delete nomination", "error");
@@ -2746,9 +2987,9 @@ export default function EmployeeDetails() {
     showSpinner();
     try {
       if (!newItem.documentType) {
-        showSnackbar('Document Type is Mandatory', 'warning')
-        return
-      };
+        showSnackbar("Document Type is Mandatory", "warning");
+        return;
+      }
       await employeeService.addAttachment(id, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Attachment added successfully!", "success");
@@ -2818,8 +3059,12 @@ export default function EmployeeDetails() {
               {/* Hover Overlay */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer">
-                <MaterialModule.CameraAlt className="!text-white" sx={{ "& svg": { color: "white" } }} />
+                className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
+              >
+                <MaterialModule.CameraAlt
+                  className="!text-white"
+                  sx={{ "& svg": { color: "white" } }}
+                />
               </div>
 
               {/* Hidden File Input */}
@@ -2856,7 +3101,13 @@ export default function EmployeeDetails() {
             </div>
           </div>
           <div>
-            <Button variant="outlined" className="!text-primary !border-primary" onClick={handleOpenAuditLog}>Audit Log</Button>
+            <Button
+              variant="outlined"
+              className="!text-primary !border-primary"
+              onClick={handleOpenAuditLog}
+            >
+              Audit Log
+            </Button>
           </div>
         </MaterialModule.CardContent>
       </MaterialModule.Card>
@@ -3184,18 +3435,24 @@ export default function EmployeeDetails() {
             <div className="p-4">
               {/* Section toggle buttons */}
               <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">
-                {([
-                  { key: 'effective', label: 'Effective Policies' },
-                  { key: 'assigned', label: 'All Assigned Policies' },
-                  { key: 'history', label: 'Policy History' },
-                ] as const).map(({ key, label }) => (
+                {(
+                  [
+                    { key: "effective", label: "Effective Policies" },
+                    { key: "assigned", label: "All Assigned Policies" },
+                    { key: "history", label: "Policy History" },
+                  ] as const
+                ).map(({ key, label }) => (
                   <Button
                     key={key}
                     size="small"
-                    variant={policySection === key ? 'contained' : 'outlined'}
+                    variant={policySection === key ? "contained" : "outlined"}
                     onClick={() => setPolicySection(key)}
-                    className={policySection === key ? '!bg-primary !text-white' : '!text-gray-600 !border-gray-300'}
-                    sx={{ textTransform: 'none', borderRadius: 2, px: 2 }}
+                    className={
+                      policySection === key
+                        ? "!bg-primary !text-white"
+                        : "!text-gray-600 !border-gray-300"
+                    }
+                    sx={{ textTransform: "none", borderRadius: 2, px: 2 }}
                   >
                     {label}
                   </Button>
@@ -3208,47 +3465,69 @@ export default function EmployeeDetails() {
                 </div>
               )}
               {policyError && (
-                <MaterialModule.Alert severity="error">{policyError}</MaterialModule.Alert>
+                <MaterialModule.Alert severity="error">
+                  {policyError}
+                </MaterialModule.Alert>
               )}
 
               {!policyLoading && !policyError && (
                 <>
                   {/* Effective Policies */}
-                  {policySection === 'effective' && (
-                    Object.keys(effectivePolicies).length === 0 ? (
-                      <MaterialModule.Alert severity="info">No effective policies found for this employee.</MaterialModule.Alert>
+                  {policySection === "effective" &&
+                    (Object.keys(effectivePolicies).length === 0 ? (
+                      <MaterialModule.Alert severity="info">
+                        No effective policies found for this employee.
+                      </MaterialModule.Alert>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {Object.entries(effectivePolicies).map(([domain, policy]: [string, any]) => (
-                          <MaterialModule.Card key={domain} variant="outlined" className="!rounded-lg !bg-white">
-                            <MaterialModule.CardContent className="!py-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <MaterialModule.Chip label={domain} size="small" className="!bg-primary !text-white !text-[11px]" />
-                                {policy.status && (
-                                  <MaterialModule.Chip label={policy.status} size="small" color="success" variant="outlined" />
-                                )}
-                              </div>
-                              <div className="text-[13px] font-medium text-gray-800">
-                                {policy.policyName || '—'}
-                              </div>
-                              {policy.policyCode && (
-                                <div className="text-[11px] text-gray-400">{policy.policyCode}</div>
-                              )}
-                              {policy.effectiveFrom && (
-                                <div className="text-[11px] text-gray-500 mt-1">
-                                  From: {formatDate(policy.effectiveFrom)}
-                                  {policy.effectiveTo ? ` → ${formatDate(policy.effectiveTo)}` : ' — Ongoing'}
+                        {Object.entries(effectivePolicies).map(
+                          ([domain, policy]: [string, any]) => (
+                            <MaterialModule.Card
+                              key={domain}
+                              variant="outlined"
+                              className="!rounded-lg !bg-white"
+                            >
+                              <MaterialModule.CardContent className="!py-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <MaterialModule.Chip
+                                    label={domain}
+                                    size="small"
+                                    className="!bg-primary !text-white !text-[11px]"
+                                  />
+                                  {policy.status && (
+                                    <MaterialModule.Chip
+                                      label={policy.status}
+                                      size="small"
+                                      color="success"
+                                      variant="outlined"
+                                    />
+                                  )}
                                 </div>
-                              )}
-                            </MaterialModule.CardContent>
-                          </MaterialModule.Card>
-                        ))}
+                                <div className="text-[13px] font-medium text-gray-800">
+                                  {policy.policyName || "—"}
+                                </div>
+                                {policy.policyCode && (
+                                  <div className="text-[11px] text-gray-400">
+                                    {policy.policyCode}
+                                  </div>
+                                )}
+                                {policy.effectiveFrom && (
+                                  <div className="text-[11px] text-gray-500 mt-1">
+                                    From: {formatDate(policy.effectiveFrom)}
+                                    {policy.effectiveTo
+                                      ? ` → ${formatDate(policy.effectiveTo)}`
+                                      : " — Ongoing"}
+                                  </div>
+                                )}
+                              </MaterialModule.CardContent>
+                            </MaterialModule.Card>
+                          ),
+                        )}
                       </div>
-                    )
-                  )}
+                    ))}
 
                   {/* All Assigned Policies */}
-                  {policySection === 'assigned' && (
+                  {/* {policySection === 'assigned' && (
                     empPolicies.length === 0 ? (
                       <MaterialModule.Alert severity="info">No policies assigned to this employee.</MaterialModule.Alert>
                     ) : (
@@ -3283,51 +3562,411 @@ export default function EmployeeDetails() {
                         </MaterialModule.Table>
                       </MaterialModule.TableContainer>
                     )
-                  )}
-
-                  {/* Policy History */}
-                  {policySection === 'history' && (
-                    empPolicyHistory.length === 0 ? (
-                      <MaterialModule.Alert severity="info">No policy history found for this employee.</MaterialModule.Alert>
+                  )} */}
+                  {policySection === "assigned" &&
+                    (empPolicies.length === 0 ? (
+                      <MaterialModule.Alert severity="info">
+                        No policies assigned to this employee.
+                      </MaterialModule.Alert>
                     ) : (
-                      <MaterialModule.TableContainer className="bg-white border border-gray-200 rounded-md !max-h-[335px]">
+                      <MaterialModule.TableContainer className="bg-white border border-gray-200 rounded-md !max-h-[calc(100vh-440px)]">
                         <MaterialModule.Table stickyHeader size="small">
-                          <MaterialModule.TableHead sx={{ bgcolor: 'action.hover' }}>
+                          <MaterialModule.TableHead
+                            sx={{ bgcolor: "action.hover" }}
+                          >
                             <MaterialModule.TableRow>
-                              <MaterialModule.TableCell>S No</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Policy Name</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Domain</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Version</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Assigned From</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Assigned To</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Status</MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                S No
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                Policy Name
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                Domain
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                Version
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                Priority
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                Applied Via
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              >
+                                Effective From
+                              </MaterialModule.TableCell>
+                              <MaterialModule.TableCell
+                                sx={{ fontWeight: "bold" }}
+                              ></MaterialModule.TableCell>
                             </MaterialModule.TableRow>
                           </MaterialModule.TableHead>
                           <MaterialModule.TableBody>
-                            {empPolicyHistory.map((h: any, i: number) => (
-                              <MaterialModule.TableRow key={h.id ?? i} sx={getRowColor(i)}>
-                                <MaterialModule.TableCell>{i + 1}</MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{h.policyName || h.name || '—'}</MaterialModule.TableCell>
+                            {empPolicies.map((p: any, index: any) => (
+                              <MaterialModule.TableRow
+                                key={p.policyId || p.id || index}
+                                sx={getRowColor(index)}
+                              >
                                 <MaterialModule.TableCell>
-                                  <MaterialModule.Chip label={h.domainCode} size="small" variant="outlined" className="!text-gray-800" />
+                                  {index + 1}
                                 </MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{h.policyVersion ? `v${h.policyVersion}` : '—'}</MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{h.effectiveFrom ? formatDate(h.effectiveFrom) : '—'}</MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{h.effectiveTo ? formatDate(h.effectiveTo) : '—'}</MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <div>{p.policyName || p.name || "—"}</div>
+                                </MaterialModule.TableCell>
                                 <MaterialModule.TableCell>
                                   <MaterialModule.Chip
-                                    label={h.status || '—'}
-                                    size="small" className="!text-gray-800"
-                                    color={h.status === 'ACTIVE' ? 'success' : 'default'}
+                                    label={p.domainCode || "—"}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{
+                                      backgroundColor: getDomainColor(
+                                        p.domainCode,
+                                      ),
+                                      fontWeight: 500,
+                                      fontSize: "11px",
+                                    }}
                                   />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <MaterialModule.Chip
+                                    label={
+                                      p.policyVersion
+                                        ? `v${p.policyVersion}`
+                                        : "—"
+                                    }
+                                    size="small"
+                                    color="primary"
+                                    variant="outlined"
+                                    className="!text-gray-800"
+                                    sx={{ fontWeight: 500 }}
+                                  />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <Chip
+                                    label={
+                                      p.priority !== undefined
+                                        ? p.priority
+                                        : "0"
+                                    }
+                                    size="small"
+                                    sx={{
+                                      backgroundColor: getPriorityColor(
+                                        p.priority,
+                                      ),
+                                      color: "white",
+                                      fontWeight: 500,
+                                      fontSize: "11px",
+                                    }}
+                                  />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <MaterialModule.Chip
+                                    label={
+                                      p.appliedViaScope || "SYSTEM_DEFAULT"
+                                    }
+                                    size="small"
+                                    variant="outlined"
+                                    className="!text-gray-800"
+                                    sx={{
+                                      fontSize: "11px",
+                                      textTransform: "capitalize",
+                                    }}
+                                  />
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <div>
+                                    {p.effectiveFrom
+                                      ? formatDate(p.effectiveFrom)
+                                      : "—"}
+                                  </div>
+                                </MaterialModule.TableCell>
+                                <MaterialModule.TableCell>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => viewPolicyConfig(p)}
+                                    title="View Config"
+                                  >
+                                    <SettingsOutlined
+                                      fontSize="small"
+                                      className="text-primary"
+                                    />
+                                  </IconButton>
                                 </MaterialModule.TableCell>
                               </MaterialModule.TableRow>
                             ))}
                           </MaterialModule.TableBody>
                         </MaterialModule.Table>
                       </MaterialModule.TableContainer>
-                    )
-                  )}
+                    ))}
+
+                  {/* Policy History */}
+                  {policySection === "history" &&
+                    (empPolicyHistory.length === 0 ? (
+                      <MaterialModule.Alert severity="info">
+                        No policy history found for this employee.
+                      </MaterialModule.Alert>
+                    ) : (
+                      <Box>
+                        {Object.entries(
+                          empPolicyHistory.reduce(
+                            (groups: Record<string, any[]>, policy: any) => {
+                              const key = policy.domainCode || "Other";
+                              if (!groups[key]) {
+                                groups[key] = [];
+                              }
+                              groups[key].push(policy);
+                              return groups;
+                            },
+                            {} as Record<string, any[]>,
+                          ),
+                        ).map(([domainCode, policies]) => (
+                          <Accordion
+                            key={domainCode}
+                            defaultExpanded={false}
+                            className="border border-gray-200 mb-4"
+                            sx={{
+                              "&:before": { display: "none" },
+                            }}
+                          >
+                            <AccordionSummary
+                              expandIcon={<ExpandMoreOutlined />}
+                              sx={{
+                                bgcolor: getDomainColor(domainCode),
+                                borderRadius: "4px 4px 0 0",
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 2,
+                                  width: "100%",
+                                }}
+                              >
+                                <Typography
+                                  variant="subtitle1"
+                                  sx={{ fontWeight: 600 }}
+                                >
+                                  {domainCode}
+                                </Typography>
+                                <Chip
+                                  label={`${policies.length} policies`}
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                />
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  sx={{ ml: "auto" }}
+                                >
+                                  Latest: v
+                                  {Math.max(
+                                    ...policies.map(
+                                      (p) => p.policyVersion || 0,
+                                    ),
+                                  )}
+                                </Typography>
+                              </Box>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ p: 0 }}>
+                              <MaterialModule.TableContainer className="bg-white  !max-h-[335px]">
+                                <MaterialModule.Table stickyHeader size="small">
+                                  <MaterialModule.TableHead
+                                    sx={{ bgcolor: "action.hover" }}
+                                  >
+                                    <MaterialModule.TableRow>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        #
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Policy Name
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Version
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Priority
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Applied Via
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Effective From
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Effective To
+                                      </MaterialModule.TableCell>
+                                      <MaterialModule.TableCell
+                                        sx={{ fontWeight: "bold" }}
+                                      >
+                                        Status
+                                      </MaterialModule.TableCell>
+                                    </MaterialModule.TableRow>
+                                  </MaterialModule.TableHead>
+                                  <MaterialModule.TableBody>
+                                    {policies
+                                      .sort(
+                                        (a, b) =>
+                                          (b.policyVersion || 0) -
+                                          (a.policyVersion || 0),
+                                      )
+                                      .map((policy: any, index: number) => {
+                                        const isActive =
+                                          policy.effectiveFrom &&
+                                          new Date(policy.effectiveFrom) <=
+                                            new Date();
+                                        const isExpired =
+                                          policy.effectiveTo &&
+                                          new Date(policy.effectiveTo) <
+                                            new Date();
+                                        const status = isExpired
+                                          ? "EXPIRED"
+                                          : isActive
+                                            ? "ACTIVE"
+                                            : "SCHEDULED";
+
+                                        return (
+                                          <MaterialModule.TableRow
+                                            key={`${policy.versionId || policy.id || index}-${policy.assignmentId || index}-${index}`}
+                                            sx={{
+                                              ...getRowColor(index),
+                                              opacity: isExpired ? 0.6 : 1,
+                                              backgroundColor: isExpired
+                                                ? "#f5f5f5"
+                                                : undefined,
+                                            }}
+                                          >
+                                            <MaterialModule.TableCell>
+                                              {index + 1}
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              <Typography
+                                                variant="body2"
+                                                sx={{ fontWeight: 500 }}
+                                              >
+                                                {policy.policyName ||
+                                                  policy.name ||
+                                                  "—"}
+                                              </Typography>
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              <Chip
+                                                label={`v${policy.policyVersion || 1}`}
+                                                size="small"
+                                                color="primary"
+                                                className="!bg-primary"
+                                                variant={
+                                                  isActive
+                                                    ? "filled"
+                                                    : "outlined"
+                                                }
+                                              />
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              <Chip
+                                                label={
+                                                  policy.priority !== undefined
+                                                    ? policy.priority
+                                                    : "0"
+                                                }
+                                                size="small"
+                                                sx={{
+                                                  backgroundColor:
+                                                    getPriorityColor(
+                                                      policy.priority,
+                                                    ),
+                                                  color: "white",
+                                                  fontWeight: 500,
+                                                  fontSize: "11px",
+                                                }}
+                                              />
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              <Chip
+                                                label={
+                                                  policy.appliedViaScope?.replace(
+                                                    "_",
+                                                    " ",
+                                                  ) || "System Default"
+                                                }
+                                                size="small"
+                                                variant="outlined"
+                                                className="text-gray-800"
+                                                sx={{
+                                                  fontSize: "10px",
+                                                  textTransform: "capitalize",
+                                                }}
+                                              />
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              {policy.effectiveFrom
+                                                ? formatDate(
+                                                    policy.effectiveFrom,
+                                                  )
+                                                : "—"}
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              {policy.effectiveTo
+                                                ? formatDate(policy.effectiveTo)
+                                                : "Ongoing"}
+                                            </MaterialModule.TableCell>
+                                            <MaterialModule.TableCell>
+                                              <Chip
+                                                label={status}
+                                                size="small"
+                                                color={
+                                                  status === "ACTIVE"
+                                                    ? "success"
+                                                    : status === "EXPIRED"
+                                                      ? "error"
+                                                      : "warning"
+                                                }
+                                                sx={{
+                                                  fontWeight: 500,
+                                                  fontSize: "11px",
+                                                }}
+                                              />
+                                            </MaterialModule.TableCell>
+                                          </MaterialModule.TableRow>
+                                        );
+                                      })}
+                                  </MaterialModule.TableBody>
+                                </MaterialModule.Table>
+                              </MaterialModule.TableContainer>
+                            </AccordionDetails>
+                          </Accordion>
+                        ))}
+                      </Box>
+                    ))}
                 </>
               )}
             </div>
@@ -3343,130 +3982,265 @@ export default function EmployeeDetails() {
         fullWidth
       >
         <div className="flex items-center justify-between border-b border-gray-200 p-2 pl-5">
-          <div className="font-medium">Audit Log  <span className="text-primary font-bold">({employee.name})</span></div>
+          <div className="font-medium">
+            Audit Log{" "}
+            <span className="text-primary font-bold">({employee.name})</span>
+          </div>
           <MaterialModule.IconButton onClick={() => setAuditLogOpen(false)}>
             <MaterialModule.CloseOutlined className="text-gray-800" />
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent className="!p-2 border border-gray-200 m-3 bg-gray-200 !overflow-hidden">
           {auditLogs.length === 0 ? (
-            <div className="text-center text-gray-400 py-16 text-sm">No audit records found.</div>
-          ) : (() => {
-            const grouped = Object.entries(
-              auditLogs.reduce((acc: Record<string, any[]>, log: any) => {
-                const key = log.fieldName || "-";
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(log);
-                return acc;
-              }, {})
-            ).map(([field, logs]) => ({
-              field,
-              logs: [...logs].sort((a, b) =>
-                new Date(b.changedOn || 0).getTime() - new Date(a.changedOn || 0).getTime()
-              ),
-            })).sort((a, b) =>
-              new Date(b.logs[0]?.changedOn || 0).getTime() - new Date(a.logs[0]?.changedOn || 0).getTime()
-            );
+            <div className="text-center text-gray-400 py-16 text-sm">
+              No audit records found.
+            </div>
+          ) : (
+            (() => {
+              const grouped = Object.entries(
+                auditLogs.reduce((acc: Record<string, any[]>, log: any) => {
+                  const key = log.fieldName || "-";
+                  if (!acc[key]) acc[key] = [];
+                  acc[key].push(log);
+                  return acc;
+                }, {}),
+              )
+                .map(([field, logs]) => ({
+                  field,
+                  logs: [...logs].sort(
+                    (a, b) =>
+                      new Date(b.changedOn || 0).getTime() -
+                      new Date(a.changedOn || 0).getTime(),
+                  ),
+                }))
+                .sort(
+                  (a, b) =>
+                    new Date(b.logs[0]?.changedOn || 0).getTime() -
+                    new Date(a.logs[0]?.changedOn || 0).getTime(),
+                );
 
-            return (
-              <div style={{ height: "calc(100vh - 250px)", overflowY: "auto" }}>
-                {grouped.map((group) => {
-                  const latest = group.logs[0];
-                  const isExpanded = expandedAuditFields.has(group.field);
-                  const hasPrevious = group.logs.length > 1;
+              return (
+                <div
+                  style={{ height: "calc(100vh - 250px)", overflowY: "auto" }}
+                >
+                  {grouped.map((group) => {
+                    const latest = group.logs[0];
+                    const isExpanded = expandedAuditFields.has(group.field);
+                    const hasPrevious = group.logs.length > 1;
 
-                  return (
-                    <div key={group.field} className="border-b border-gray-200 bg-white">
-                      {/* Main row */}
+                    return (
                       <div
-                        onClick={() => {
-                          if (!hasPrevious) return;
-                          setExpandedAuditFields((prev) => {
-                            const next = new Set(prev);
-                            next.has(group.field) ? next.delete(group.field) : next.add(group.field);
-                            return next;
-                          });
-                        }}
-                        className={`flex items-center gap-4 py-2 px-4 cursor-pointer ${isExpanded ? "bg-sky-200/50 dark:bg-sky-900" : "var(--bg-white)"}`}>
-                        {/* Expand icon */}
-                        <div className="flex items-center text-gray-500">
-                          {hasPrevious
-                            ? isExpanded ? <KeyboardArrowUp style={{ fontSize: 16 }} /> : <KeyboardArrowDown style={{ fontSize: 16 }} />
-                            : <div className="w-[20px]"></div>}
-                        </div>
-
-                        {/* Field name */}
-                        <div className="w-[250px]">
-                          <span className="text-[12px] text-gray-800">{group.field}</span>
-                          {hasPrevious && (
-                            <span className="ml-2 font-mono text-primary bg-primary-100 px-2 py-1 rounded-lg text-[10px]">
-                              {group.logs.length - 1}x
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Old → New */}
-                        <div className="flex flex-1 items-center gap-4">
-                          <div className="text-[12px]  w-[230px] ">
-                            <div className="text-gray-500">Previous Value</div>
-                            <span className="text-red-500 whitespace-nowrap overflow-hidden text-ellipsis ">{latest.oldValue || "—"}</span>
+                        key={group.field}
+                        className="border-b border-gray-200 bg-white"
+                      >
+                        {/* Main row */}
+                        <div
+                          onClick={() => {
+                            if (!hasPrevious) return;
+                            setExpandedAuditFields((prev) => {
+                              const next = new Set(prev);
+                              next.has(group.field)
+                                ? next.delete(group.field)
+                                : next.add(group.field);
+                              return next;
+                            });
+                          }}
+                          className={`flex items-center gap-4 py-2 px-4 cursor-pointer ${isExpanded ? "bg-sky-200/50 dark:bg-sky-900" : "var(--bg-white)"}`}
+                        >
+                          {/* Expand icon */}
+                          <div className="flex items-center text-gray-500">
+                            {hasPrevious ? (
+                              isExpanded ? (
+                                <KeyboardArrowUp style={{ fontSize: 16 }} />
+                              ) : (
+                                <KeyboardArrowDown style={{ fontSize: 16 }} />
+                              )
+                            ) : (
+                              <div className="w-[20px]"></div>
+                            )}
                           </div>
-                          <span className="text-gray-500 w-[20px]">→</span>
-                          <div className="text-[12px] w-[230px] ">
-                            <div className="text-gray-500">Current Value</div>
-                            <span className="text-green-600 whitespace-nowrap overflow-hidden text-ellipsis">
-                              {latest.newValue || "—"}
+
+                          {/* Field name */}
+                          <div className="w-[250px]">
+                            <span className="text-[12px] text-gray-800">
+                              {group.field}
                             </span>
+                            {hasPrevious && (
+                              <span className="ml-2 font-mono text-primary bg-primary-100 px-2 py-1 rounded-lg text-[10px]">
+                                {group.logs.length - 1}x
+                              </span>
+                            )}
                           </div>
-                        </div>
 
-                        {/* Changed by + date */}
-                        <div className="text-right flex flex-col gap-1">
-                          <span className="text-[11px] text-gray-500 font-bold">{latest.changedBy?.userName || "—"}</span>
-                          <span className="text-[10px] text-gray-500 whitespace-nowrap">{latest.changedOn ? formatDateTime(latest.changedOn) : "—"}</span>
-                        </div>
-                      </div>
-
-                      {/* History entries */}
-                      <MaterialModule.Collapse in={isExpanded} unmountOnExit className="!bg-white">
-                        <div className="bg-head px-8 pt-0 border-t border-gray-200">
-                          {group.logs.slice(1).map((log: any, j: number) => (
-                            <div key={log.id || `${group.field}-${j}`}
-                              className={`flex items-center gap-4 p-2 relative ${j < group.logs.length - 2 ? "border-b border-gray-200" : "none"}`}
-                            >
-                              {/* timeline dot */}
-                              <div className="text-[10px] text-gray-500"></div>
-
-                              {/* Field (muted) */}
-                              <div className="w-[250px]">
-                                <span className="text-[11px] text-gray-500">{group.field}</span>
+                          {/* Old → New */}
+                          <div className="flex flex-1 items-center gap-4">
+                            <div className="text-[12px]  w-[230px] ">
+                              <div className="text-gray-500">
+                                Previous Value
                               </div>
-
-                              {/* Old → New */}
-                              <div className="flex flex-1 items-center gap-4">
-                                <span className="text-[10px] text-gray-500 whitespace-nowrap w-[225px] overflow-hidden text-ellipsis">{log.oldValue || "—"}</span>
-                                <span className="text-gray-500 w-[20px]">→</span>
-                                <span className="text-[10px] text-gray-500 whitespace-nowrap w-[225px] overflow-hidden text-ellipsis">{log.newValue || "—"}</span>
-                              </div>
-
-                              {/* Changed by + date */}
-                              <div className="text-right flex flex-col gap-1">
-                                <span className="text-[11px] text-gray-500 font-bold">{log.changedBy?.userName || "—"}</span>
-                                <span className="text-[10px] text-gray-500 whitespace-nowrap">{log.changedOn ? formatDateTime(log.changedOn) : "—"}</span>
-                              </div>
+                              <span className="text-red-500 whitespace-nowrap overflow-hidden text-ellipsis ">
+                                {latest.oldValue || "—"}
+                              </span>
                             </div>
-                          ))}
+                            <span className="text-gray-500 w-[20px]">→</span>
+                            <div className="text-[12px] w-[230px] ">
+                              <div className="text-gray-500">Current Value</div>
+                              <span className="text-green-600 whitespace-nowrap overflow-hidden text-ellipsis">
+                                {latest.newValue || "—"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Changed by + date */}
+                          <div className="text-right flex flex-col gap-1">
+                            <span className="text-[11px] text-gray-500 font-bold">
+                              {latest.changedBy?.userName || "—"}
+                            </span>
+                            <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                              {latest.changedOn
+                                ? formatDateTime(latest.changedOn)
+                                : "—"}
+                            </span>
+                          </div>
                         </div>
-                      </MaterialModule.Collapse>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
+
+                        {/* History entries */}
+                        <MaterialModule.Collapse
+                          in={isExpanded}
+                          unmountOnExit
+                          className="!bg-white"
+                        >
+                          <div className="bg-head px-8 pt-0 border-t border-gray-200">
+                            {group.logs.slice(1).map((log: any, j: number) => (
+                              <div
+                                key={log.id || `${group.field}-${j}`}
+                                className={`flex items-center gap-4 p-2 relative ${j < group.logs.length - 2 ? "border-b border-gray-200" : "none"}`}
+                              >
+                                {/* timeline dot */}
+                                <div className="text-[10px] text-gray-500"></div>
+
+                                {/* Field (muted) */}
+                                <div className="w-[250px]">
+                                  <span className="text-[11px] text-gray-500">
+                                    {group.field}
+                                  </span>
+                                </div>
+
+                                {/* Old → New */}
+                                <div className="flex flex-1 items-center gap-4">
+                                  <span className="text-[10px] text-gray-500 whitespace-nowrap w-[225px] overflow-hidden text-ellipsis">
+                                    {log.oldValue || "—"}
+                                  </span>
+                                  <span className="text-gray-500 w-[20px]">
+                                    →
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 whitespace-nowrap w-[225px] overflow-hidden text-ellipsis">
+                                    {log.newValue || "—"}
+                                  </span>
+                                </div>
+
+                                {/* Changed by + date */}
+                                <div className="text-right flex flex-col gap-1">
+                                  <span className="text-[11px] text-gray-500 font-bold">
+                                    {log.changedBy?.userName || "—"}
+                                  </span>
+                                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                                    {log.changedOn
+                                      ? formatDateTime(log.changedOn)
+                                      : "—"}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </MaterialModule.Collapse>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
+          )}
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!px-4 !py-2">
-          <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={() => setAuditLogOpen(false)}>Close</Button>
+          <Button
+            variant="outlined"
+            className="!text-gray-800 !border-gray-200"
+            onClick={() => setAuditLogOpen(false)}
+          >
+            Close
+          </Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
+
+      {/* Policy Configuration Dialog with Sections */}
+      <MaterialModule.Dialog
+        open={configDialogOpen}
+        onClose={() => setConfigDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <MaterialModule.DialogTitle className="border-b border-gray-200 !p-2">
+          <Box className="flex items-center justify-between ml-6">
+            <Box>
+              <Typography variant="h6">
+                {selectedPolicy?.policyName || "Policy Configuration"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {selectedPolicy?.domainCode} • version
+                {selectedPolicy?.policyVersion}
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setConfigDialogOpen(false)}>
+              <CloseOutlined className="text-gray-800" />
+            </IconButton>
+          </Box>
+        </MaterialModule.DialogTitle>
+
+        <MaterialModule.DialogContent className="!p-4">
+          {selectedPolicy?.config ? (
+            <Box>
+              {Object.entries(selectedPolicy.config).map(([key, value]) => (
+                <div
+                  key={key}
+                  className="p-4 mb-2 bg-head border border-gray-200"
+                >
+                  <div className="capitalize text-primary font-bold mb-2 text-[12px]">
+                    {key.replace(/([A-Z])/g, " $1").trim()}
+                  </div>
+                  <pre
+                    style={{
+                      margin: 0,
+                      fontFamily: "monospace",
+                      fontSize: "12px",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      lineHeight: 1.6,
+                      padding: "12px",
+                      borderRadius: "4px",
+                    }}
+                    className="bg-white border border-gray-200"
+                  >
+                    {typeof value === "object"
+                      ? JSON.stringify(value, null, 2)
+                      : String(value)}
+                  </pre>
+                </div>
+              ))}
+            </Box>
+          ) : (
+            <div>No configuration available</div>
+          )}
+        </MaterialModule.DialogContent>
+
+        <MaterialModule.DialogActions className="border-t !border-gray-200 !p-4">
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            onClick={() => setConfigDialogOpen(false)}
+          >
+            Close
+          </Button>
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
     </div>

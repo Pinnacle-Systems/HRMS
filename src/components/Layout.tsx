@@ -40,14 +40,24 @@ import {
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
 import logo from "../assets/logo.jpg"
-import { DarkModeOutlined, HistoryOutlined as HistoryOutlinedIcon, LightModeOutlined, PolicyOutlined, PowerSettingsNewOutlined, SearchOutlined, TrackChangesOutlined } from "@mui/icons-material";
+import { CloseOutlined, DarkModeOutlined, HistoryOutlined as HistoryOutlinedIcon, LightModeOutlined, PolicyOutlined, PowerSettingsNewOutlined, SearchOutlined, TrackChangesOutlined } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useTheme } from "../context/themeContext";
-import { Chip } from "@mui/material";
+import { Chip, MenuList, Typography } from "@mui/material";
 import { companyService } from "../services/modules/company";
+import { policyService } from "../services";
 const drawerWidth = 220;
+
+interface Notification {
+  id: string;
+  policyId: string;
+  versionId: string;
+  notifiedBy: string;
+  notifiedAt: string;
+  message: string;
+}
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
@@ -69,6 +79,13 @@ export default function Layout() {
   const [leaveOpen, setLeaveOpen] = useState(
     location.pathname.startsWith("/leaves")
   );
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState<Partial<any>>({});
+
   const handleDrawerToggle = () => {
     setOpen(!open);
   };
@@ -104,6 +121,60 @@ export default function Layout() {
   const handleMyProfile = async () => {
     handleProfileMenuClose();
     navigate("/profile");
+  };
+
+  const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
+    setNotificationAnchorEl(event.currentTarget);
+    fetchNotifications();
+  };
+
+  const handleNotificationClose = () => {
+    setNotificationAnchorEl(null);
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      setIsLoadingNotifications(true);
+      const response: any = await policyService.getPolicyNotifications();
+      const notificationData = response.data || [];
+      setNotifications(notificationData);
+      // Set unread count (you can implement read/unread logic here)
+      setUnreadCount(notificationData.length);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
+    }
+  };
+
+  const markNotificationAsRead = async (_notificationId: string) => {
+    // Implement mark as read API call if needed
+    // For now, just remove from unread count
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNotificationItemClick = (notification: Notification) => {
+    // Navigate to the policy or relevant page
+    if (notification.policyId) {
+      navigate(`/policies/${notification.policyId}`);
+    }
+    markNotificationAsRead(notification.id);
+    handleNotificationClose();
+  };
+
+  const formatNotificationTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   useEffect(() => {
@@ -143,8 +214,8 @@ export default function Layout() {
       path: user?.roles.includes('ADMIN') ? "/leaves/approvals" : "/leaves/my-dashboard",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
       children: [
-         ...(user?.roles.some((role) => role !== "ADMIN")
-          ? [  { text: "My Leave", path: "/leaves/my-dashboard" },]
+        ...(user?.roles.some((role) => role !== "ADMIN")
+          ? [{ text: "My Leave", path: "/leaves/my-dashboard" },]
           : []),
         ...(user?.roles.some((role) => role === "MANAGER" || role === "ADMIN")
           ? [{ text: "Manager Approvals", path: "/leaves/approvals" }]
@@ -171,18 +242,18 @@ export default function Layout() {
           text: "Attendance Overview",
           path: "/attendance/overview",
         },
-         {
+        {
           text: "Attendance Records",
           path: "/attendance/records",
         },
-         {
+        {
           text: "Attendance Management",
           path: "/attendance/management",
         },
-         {
+        {
           text: "Attendance Processing",
           path: "/attendance/process",
-        },  
+        },
         {
           text: "Reports",
           path: "/attendance/reports",
@@ -240,19 +311,6 @@ export default function Layout() {
     : [];
   const avatarInitial = user?.email?.charAt(0).toUpperCase() || "U";
 
-  const notifications = [
-    { id: 1, message: "New employee joined", time: "5 min ago", read: false },
-    { id: 2, message: "Task assigned to you", time: "1 hour ago", read: false },
-    { id: 3, message: "Meeting at 3 PM", time: "2 hours ago", read: true },
-    { id: 4, message: "Salary processed", time: "1 day ago", read: true },
-  ];
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
-
-  });
-
   const fetchCompanyData = async () => {
     try {
       const companyData: any = await companyService.getCompany();
@@ -270,6 +328,7 @@ export default function Layout() {
     if (user?.roles.includes('ADMIN')) {
       fetchCompanyData();
     }
+    fetchNotifications();
   }, [])
 
   return (
@@ -338,6 +397,7 @@ export default function Layout() {
                 size="small"
                 aria-label="show notifications"
                 color="inherit"
+                onClick={handleNotificationClick}
               >
                 <Badge badgeContent={unreadCount} className="text-primary">
                   <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
@@ -421,6 +481,157 @@ export default function Layout() {
           </ListItemIcon>
           <div>Logout</div>
         </MenuItem>
+      </Menu>
+
+      {/* Notification Menu */}
+      <Menu
+        anchorEl={notificationAnchorEl}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        keepMounted
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        open={Boolean(notificationAnchorEl)}
+        onClose={handleNotificationClose}
+        sx={{
+          '& .MuiPaper-root': {
+            maxHeight: "450px !important",
+            width: "500px !important",
+            p: 0,
+            overflow: 'hidden',
+            borderRadius: 2,
+          }
+        }}
+      >
+        {/* Header */}
+        <Box sx={{
+          p: 1,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }} className="border-b border-gray-200">
+          <Typography variant="subtitle1" className="!ml-2" sx={{ fontWeight: 'bold' }}>
+            Notifications
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {notifications.length > 0 && (
+              <Typography
+                variant="caption"
+                sx={{
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' }
+                }}
+                className="text-primary"
+                onClick={() => {
+                  setUnreadCount(0);
+                  // await markAllNotificationsAsRead();
+                }}
+              >
+                Mark all as read
+              </Typography>
+            )}
+            <IconButton size="small" onClick={handleNotificationClose}>
+              <CloseOutlined fontSize="small" className="text-gray-800" />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* Notification List */}
+        {isLoadingNotifications ? (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            {/* <CircularProgress size={24} sx={{ mb: 1 }} /> */}
+            <Typography variant="body2" color="text.secondary">
+              Loading notifications...
+            </Typography>
+          </Box>
+        ) : notifications.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <NotificationsNoneOutlinedIcon sx={{ fontSize: 40, mb: 1 }} />
+            <Typography variant="body2" color="text.secondary">
+              No notifications
+            </Typography>
+          </Box>
+        ) : (
+          <MenuList sx={{ p: 0, overflow: 'auto', maxHeight: "calc(100vh - 525px) !important" }}>
+            {notifications.map((notification) => (
+              <MenuItem
+                key={notification.id}
+                onClick={() => handleNotificationItemClick(notification)}
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  p: 2,
+                  '&:hover': {
+                    backgroundColor: 'var(--head) !important',
+                  },
+                  '&:last-child': {
+                    borderBottom: 'none',
+                  }
+                }}
+                className="!border-b !border-gray-200"
+
+              >
+                <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-between', mb: 0.5 }}>
+                  <ListItemText
+                    primary={
+                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                        {notification.message.toLowerCase().includes('policy') ? 'Policy' : 'New'} Update
+                      </Typography>
+                    }
+                    secondary={
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {notification.message}
+                      </Typography>
+                    }
+                  />
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mt: 0.5 }}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Typography variant="caption" color="primary" sx={{ cursor: 'pointer' }}>
+                      View Details
+                    </Typography>
+                    {notification.message.toLowerCase().includes('policy') && (
+                      <Chip
+                        label="Policy"
+                        size="small"
+                        color="primary"
+                        variant="filled"
+                        className="!bg-primary"
+                        sx={{ fontSize: '10px', height: 20 }}
+                      />
+                    )}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatNotificationTime(notification.notifiedAt)}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </MenuList>
+        )}
+
+        {/* Footer */}
+        {notifications.length > 0 && (
+          <Box sx={{
+            p: 1.5,
+            textAlign: 'center',
+          }} className="border-t border-gray-200">
+            <Typography
+              variant="caption"
+              className="text-primary"
+              sx={{
+                cursor: 'pointer',
+                fontWeight: 500,
+                '&:hover': { textDecoration: 'underline' }
+              }}
+              onClick={() => {
+                handleNotificationClose();
+                // navigate('/notifications');
+              }}
+            >
+              View all notifications
+            </Typography>
+          </Box>
+        )}
       </Menu>
 
       {/* Theme Settings Popover */}

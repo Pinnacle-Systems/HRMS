@@ -273,7 +273,7 @@ export function OvertimeManagement() {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer className="max-h-[calc(100vh-420px)]">
+        <TableContainer className="max-h-[calc(100vh-485px)]">
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
