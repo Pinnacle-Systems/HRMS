@@ -46,6 +46,8 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/org/departments/${id}`,
     GET_BY_ID: (id: string) => `/org/departments/${id}`,
     BASE: "/org/departments",
+    DROPDOWN: "/org/departments/dropdown",
+    GET_USAGE: (id: string) => `/org/departments/${id}/usage`,
     GET_BY_BRANCHID: (bid: string) => `/org/departments/by-branch/${bid}`,
     GET_ACTIVE: "/org/departments/active",
     PATCH: (id: string) => `/org/departments/${id}/toggle-active`,
@@ -70,6 +72,10 @@ export const API_ENDPOINTS = {
     UPDATECAT: (id: string) => `/org/category/${id}`,
     UPDATECATITEM: (id: string, cid: string) =>
       `/org/category/${cid}/items/${id}`,
+
+    GET_CAT_USAGE: (id: string) => `/org/category/${id}/usage`,
+    GET_ITEM_USAGE: (id: string, cid: string) =>
+      `/org/category/${cid}/items/${id}/usage`,
   },
 
   COMPANY: {
@@ -225,8 +231,9 @@ export const API_ENDPOINTS = {
     },
 
     ATTACHMENTS: {
-      DELETE:(id: string, attId: string) => `/leaves/${id}/attachments/${attId}`,
-      GET_BY_ID:(id: string) => `/leaves/${id}/attachments`,
+      DELETE: (id: string, attId: string) =>
+        `/leaves/${id}/attachments/${attId}`,
+      GET_BY_ID: (id: string) => `/leaves/${id}/attachments`,
       UPLOAD: (id: string) => `/leaves/${id}/attachments`,
     },
 
@@ -239,7 +246,7 @@ export const API_ENDPOINTS = {
       GET_EXPORTS: (id: string) => `/reports/exports/${id}`,
       DOWNLOAD_EXPORT: (id: string) => `/reports/exports/${id}/download`,
       POST_EXPORT: "/reports/exports",
-    }
+    },
   },
 
   LEAVE_TYPE: {
@@ -378,10 +385,14 @@ export const API_ENDPOINTS = {
     UPDATE_ROTATION: (id: string) => `/shift-rotations/${id}`,
 
     GET_ROSTER: "/shift-roster",
+    GET_PUBLISH_STATUS: "/shift-roster/publish-status",
     EXPORT_PDF: "/shift-roster/export/pdf",
     EXPORT_EXCEL: "/shift-roster/export/excel",
     GET_ALERTS: "/shift-roster/alerts",
+
+    UNPUBLISH: "/shift-roster/unpublish",
     PUBLISH: "/shift-roster/publish",
+
     COPY_PREV_WEEK: "/shift-roster/copy-previous-week",
     BULK_ASSIGN: "/shift-roster/bulk-assign",
     UPDATE_EMP_ROSTER: (eid: string) => `/shift-roster/${eid}`,
@@ -389,6 +400,10 @@ export const API_ENDPOINTS = {
     GET_SCHEDULE: "/shift-schedule",
     GET_UPCOMING: "/shift-schedule/upcoming",
     GET_SCHEDULE_STATS: "/shift-schedule/stats",
+
+    GET_NOTIFICATION_TEMP: "/shift-schedule/notification-templates",
+    GET_NOTIFICATION: "/shift-schedule/notification-status",
+
     EXPORT_SCHEDULE_PDF: "/shift-schedule/export/pdf",
     EXPORT_SCHEDULE_Excel: "/shift-schedule/export/excel",
     GET_COUNT: "/shift-schedule/distribution",
@@ -404,6 +419,7 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (id: string) => `/policies/${id}`,
     BASE: "/policies",
     GET_VERSIONS: (id: string) => `/policies/${id}/versions`,
+    GET_EMPLOYEES: (id: string) => `/policies/${id}/employees`,
     GET_AUDIT: (id: string) => `/policies/${id}/audit`,
     COMPANY_POLICY: (id: string) => `/policies/company/${id}`,
     GET_BY_DOMAIN: (domain: string) => `/policies/by-domain/${domain}`,
@@ -695,15 +711,15 @@ export const API_ENDPOINTS = {
   },
 
   DASHBOARD: {
-    PREFERENCES: (page: string) => `dashboard/${page}/preferences`,
-    PAGE: (page: string) => `dashboard/${page}`,
-    WIDGETS: (page: string) => `dashboard/${page}/widgets`,
-    CONTEXT: (page: string) => `dashboard/${page}/context`,
-    GET: "dashboard/pages",
+    GET_PREFERENCES: (page: string) => `dashboard/${page}/preferences`,
+    GET_DASHBOARD: (page: string) => `dashboard/${page}`,
+    GET_WIDGETS: (page: string) => `dashboard/${page}/widgets`,
+    GET_CONTEXT: (page: string) => `dashboard/${page}/context`,
+    GET_PAGES: "dashboard/pages",
     POST_DRILLDOWN: (page: string, wid: string) =>
       `dashboard/${page}/widgets/${wid}/drilldown`,
-    POST_PREFERENCE: (page: string) => `dashboard/${page}/preferences/reset`,
-    UPDATE_PREFERENCE: (page: string) => `dashboard/${page}/preferences`,
+    RESET_PREFERENCES: (page: string) => `dashboard/${page}/preferences/reset`,
+    UPDATE_PREFERENCES: (page: string) => `dashboard/${page}/preferences`,
 
     BI_ASYNC_EXP: {
       GET_JOB: (jobref: string) => `/bi/exports/${jobref}`,
@@ -727,5 +743,14 @@ export const API_ENDPOINTS = {
       POST_QUERY: (id: string) => `/bi/datasets/${id}/query`,
       QUERY_VALIDATE: (id: string) => `/bi/datasets/${id}/query/validate`,
     },
+  },
+
+  FISCAL_YEARS: {
+    DELETE: (cid: string, id: string) => `/org/company/${cid}/fiscal-years/${id}`,
+    GET: (cid: string) => `/org/company/${cid}/fiscal-years`,
+    GET_ACTIVE: (cid: string) => `/org/company/${cid}/fiscal-years/active`,
+    CREATE: (cid: string) => `/org/company/${cid}/fiscal-years`,
+    UPDATE: (cid: string, id: string) => `/org/company/${cid}/fiscal-years/${id}`,
+    ACTIVATE: (cid: string, id: string) => `/org/company/${cid}/fiscal-years/${id}/activate`,
   },
 };

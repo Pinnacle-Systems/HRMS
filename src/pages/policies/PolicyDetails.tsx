@@ -28,6 +28,7 @@ import {
   History as HistoryIcon,
   Assignment as AssignmentIcon,
   PlayArrow as TestIcon,
+  CloseOutlined,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PolicyDefinition, PolicyVersion, PolicyAssignment, PolicyAuditLog } from '../../types/policy';
@@ -203,7 +204,7 @@ export default function PolicyDetails() {
                       <Typography variant="caption" color="text.secondary">
                         Domain
                       </Typography>
-                      <div> <Chip label={policy.domain} size="small" className='bg-gray-100 text-gray-800' /></div>
+                      <div> <Chip label={policy.domainName} size="small" className='bg-gray-100 text-gray-800' /></div>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <Typography variant="caption" color="text.secondary">
@@ -496,8 +497,13 @@ export default function PolicyDetails() {
 
       {/* Reject Version Dialog */}
       <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Reject Version</DialogTitle>
-        <DialogContent>
+        <DialogTitle className='text-gray-800 flex items-center justify-between border-b border-gray-200 !p-2'>
+          <div className='!ml-4'>Reject Version</div>
+          <IconButton>
+            <CloseOutlined  className='text-gray-800 !w-4'/>
+          </IconButton>
+        </DialogTitle>
+        <DialogContent className='!p-4'>
           <TextField
             fullWidth
             multiline
@@ -509,7 +515,7 @@ export default function PolicyDetails() {
             sx={{ mt: 1 }}
           />
         </DialogContent>
-        <DialogActions className='!p-4'>
+        <DialogActions className='!p-4 border-t border-gray-200'>
           <Button onClick={() => setRejectDialogOpen(false)} variant='outlined' className='!border-gray-200 !text-gray-800'>Cancel</Button>
           <Button onClick={handleReject} variant="contained" color="error">
             Reject

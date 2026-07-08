@@ -295,11 +295,12 @@ function mapHolidayType(value: unknown): Holiday["holidayType"] {
   const normalized = asString(value, "PUBLIC").toUpperCase();
   const types: Holiday["holidayType"][] = [
     "PUBLIC",
-    "COMPANY",
+    // "COMPANY",
     "OPTIONAL",
     "RESTRICTED",
-    "NATIONAL",
-    "REGIONAL",
+    // "NATIONAL",
+    // "REGIONAL",
+    "FLOATING",
   ];
   return types.includes(normalized as Holiday["holidayType"])
     ? (normalized as Holiday["holidayType"])

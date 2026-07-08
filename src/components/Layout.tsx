@@ -40,7 +40,7 @@ import {
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
 import logo from "../assets/logo.jpg"
-import { CloseOutlined, DarkModeOutlined, HistoryOutlined as HistoryOutlinedIcon, LightModeOutlined, PolicyOutlined, PowerSettingsNewOutlined, SearchOutlined, TrackChangesOutlined } from "@mui/icons-material";
+import { CloseOutlined, DarkModeOutlined, HistoryOutlined as HistoryOutlinedIcon, InfoOutlined, LightModeOutlined, PolicyOutlined, PowerSettingsNewOutlined, SearchOutlined, TrackChangesOutlined } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
@@ -200,6 +200,12 @@ export default function Layout() {
       icon: <DashboardOutlinedIcon />,
       path: user ? getDefaultRoute(user) : "/home",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "My Info",
+      icon: <InfoOutlined />,
+      path:  "/home",
+      roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
     {
       text: "Employees",

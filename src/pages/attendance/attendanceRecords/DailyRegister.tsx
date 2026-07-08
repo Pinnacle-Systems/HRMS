@@ -840,13 +840,13 @@ const handleOpenReminderDialog = () => {
         <Alert
           severity="info"
           icon={<WbSunnyOutlined className="!w-4" />}
-          sx={{ py: 0.5 }}
+          // sx={{ py: 0.5 }}
         >
-          <span className="text-sm font-medium">
+          <span className="text-[12px] font-bold mr-2">
             Holiday: {todayHoliday?.name}
           </span>
           {todayHoliday?.type && (
-            <span className="text-xs text-gray-500 ml-2">
+            <span className="text-xs text-primary">
               ({todayHoliday?.type})
             </span>
           )}

@@ -7,6 +7,7 @@ export type LeaveStatusTone =
   | "warning"
   | "error"
   | "secondary"
+  | "primary"
   | "neutral";
 
 export type LeaveStatusMeta = {

@@ -578,7 +578,15 @@ class ShiftService {
     );
   }
 
-  async sendShiftNotifications(data: any) {
+  async getNotificationTemplate() {
+    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION_TEMP);
+  }
+
+   async getNotificationStatus(params: any) {
+    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION,{params});
+  }
+
+   async sendShiftNotifications(data: any) {
     return apiService.post(API_ENDPOINTS.SHIFTS.SEND_NOTIFY, data);
   }
 

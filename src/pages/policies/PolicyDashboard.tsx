@@ -26,7 +26,6 @@ import {
   MoreVert as MoreIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon,
   CheckCircle as ActiveIcon,
   Pending as PendingIcon,
   Schedule as ScheduledIcon,
@@ -34,6 +33,7 @@ import {
   Policy as TotalIcon,
   Drafts as DraftIcon,
   ErrorOutlined as ExpiredIcon,
+  VisibilityOutlined,
 } from '@mui/icons-material';
 import { policyService } from '../../services/modules/policy';
 import { type PolicyDefinition, PolicyDomain, PolicyStatus } from '../../types/policy';
@@ -423,7 +423,7 @@ export default function PolicyDashboard() {
                             className='!text-primary'
                             onClick={() => handleView(policy)}
                           >
-                            <ViewIcon />
+                            <VisibilityOutlined />
                           </IconButton>
                           <IconButton
                             size="small"

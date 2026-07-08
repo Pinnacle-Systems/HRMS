@@ -1,5 +1,23 @@
 import { useEffect, useState } from "react";
-import { TextField, Box, Button, Select, FormControl, InputLabel, MenuItem, FormHelperText } from "@mui/material";
+import {
+  TextField,
+  Box,
+  Button,
+  Select,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  FormHelperText,
+  Typography,
+  Chip,
+  Stack,
+  Alert,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+} from "@mui/material";
 import {
   companyFieldsWithSections,
   fileUploadFields,
@@ -19,6 +37,9 @@ import { MasterSelect } from "../../../components/MasterSelect";
 import LocationMap from "../../../components/Map";
 import dayjs from "dayjs";
 import { selectSx } from "../../../const";
+import { fiscalYearService } from "../../../services/modules/fiscalYear";
+import { formatDate } from "../../leave/leaveFormatters";
+import { CloseOutlined } from "@mui/icons-material";
 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
@@ -38,8 +59,16 @@ const CompanySettings = () => {
     fetchCitiesByState,
   } = useMasterData();
   const [mapUrl, setMapUrl] = useState("");
-
   const [googleMapLink, setGoogleMapLink] = useState("");
+  const [fiscalYears, setFiscalYears] = useState<any[]>([]);
+  const [fiscalYearForm, setFiscalYearForm] = useState({
+    id: "",
+    yearLabel: "",
+    startDate: "",
+    endDate: "",
+  });
+  const [fiscalYearLoading, setFiscalYearLoading] = useState(false);
+  const [fiscalYearDialogOpen, setFiscalYearDialogOpen] = useState(false);
 
   const generateMapFromAddress = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
@@ -86,6 +115,119 @@ const CompanySettings = () => {
     setCompanyInfo({ ...companyInfo, [key]: value });
     const error = validateField(key, value as string);
     setErrors((prev) => ({ ...prev, [key]: error }));
+  };
+
+  const resetFiscalYearForm = () => {
+    setFiscalYearForm({ id: "", yearLabel: "", startDate: "", endDate: "" });
+  };
+
+  const handleFiscalYearFieldChange = (key: keyof typeof fiscalYearForm, value: string) => {
+    setFiscalYearForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const fetchFiscalYears = async () => {
+    if (!companyInfo.id) {
+      setFiscalYears([]);
+      return;
+    }
+    setFiscalYearLoading(true);
+    try {
+      const response: any = await fiscalYearService.getFiscalYears(companyInfo.id);
+      if (response?.success) {
+        const data = Array.isArray(response.data) ? response.data : [];
+        setFiscalYears(data);
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to load fiscal years", "error");
+    } finally {
+      setFiscalYearLoading(false);
+    }
+  };
+
+  const handleFiscalYearSubmit = async () => {
+    if (!companyInfo.id) {
+      showSnackbar("Please save company information before managing fiscal years", "warning");
+      return;
+    }
+    const { yearLabel, startDate, endDate } = fiscalYearForm;
+    if (!yearLabel.trim() || !startDate || !endDate) {
+      showSnackbar("Please complete year label, start date and end date", "warning");
+      return;
+    }
+    if (dayjs(startDate).isAfter(dayjs(endDate))) {
+      showSnackbar("Start date cannot be later than end date", "warning");
+      return;
+    }
+    setFiscalYearLoading(true);
+    try {
+      const payload = {
+        yearLabel: yearLabel.trim(),
+        startDate,
+        endDate,
+      };
+      const response: any = fiscalYearForm.id
+        ? await fiscalYearService.updateFiscalYear(companyInfo.id, fiscalYearForm.id, payload)
+        : await fiscalYearService.createFiscalYear(companyInfo.id, payload);
+
+      if (response?.success) {
+        showSnackbar(
+          fiscalYearForm.id ? "Fiscal year updated successfully" : "Fiscal year created successfully",
+          "success",
+        );
+        resetFiscalYearForm();
+        await fetchFiscalYears();
+      } else {
+        showSnackbar(response?.message || "Unable to save fiscal year", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to save fiscal year", "error");
+    } finally {
+      setFiscalYearLoading(false);
+    }
+  };
+
+  const handleActivateFiscalYear = async (yearId: string) => {
+    if (!companyInfo.id) return;
+    setFiscalYearLoading(true);
+    try {
+      const response: any = await fiscalYearService.activateFiscalYear(companyInfo.id, yearId);
+      if (response?.success) {
+        showSnackbar("Fiscal year activated successfully", "success");
+        await fetchFiscalYears();
+      } else {
+        showSnackbar(response?.message || "Unable to activate fiscal year", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to activate fiscal year", "error");
+    } finally {
+      setFiscalYearLoading(false);
+    }
+  };
+
+  const handleDeleteFiscalYear = async (yearId: string) => {
+    if (!companyInfo.id) return;
+    showConfirmDialog({
+      title: "Delete Fiscal Year",
+      message: "Are you sure you want to delete this fiscal year?",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setFiscalYearLoading(true);
+        try {
+          const response: any = await fiscalYearService.deleteFiscalYear(companyInfo.id, yearId);
+          if (response?.success) {
+            showSnackbar("Fiscal year deleted successfully", "success");
+            await fetchFiscalYears();
+          } else {
+            showSnackbar(response?.message || "Unable to delete fiscal year", "error");
+          }
+        } catch (error: any) {
+          showSnackbar(error?.message || "Unable to delete fiscal year", "error");
+        } finally {
+          setFiscalYearLoading(false);
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -232,6 +374,12 @@ const CompanySettings = () => {
   useEffect(() => {
     fetchCompanyInfo();
   }, []);
+
+  useEffect(() => {
+    if (companyInfo.id) {
+      void fetchFiscalYears();
+    }
+  }, [companyInfo.id]);
 
   const handleSave = async () => {
     const newErrors: Record<string, string> = {};
@@ -579,6 +727,11 @@ const CompanySettings = () => {
           <span className="text-primary font-medium">
             {getCurrentRouteLabel()}
           </span>
+          <div className="text-sky-500 text-[12px] underline ml-3 cursor-pointer"
+            onClick={() => setFiscalYearDialogOpen(true)}
+          >
+            Manage Fiscal Years
+          </div>
         </div>
         {/* Action Buttons */}
         <div className="flex gap-3">
@@ -673,28 +826,164 @@ const CompanySettings = () => {
           })}
         </div>
 
-        {
-          companyInfo.id &&
-          <Box className="mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {fileUploadFields.map((field) => (
-                <FileUpload
-                  key={field.key}
-                  label={field.label}
-                  value={field.key === "logoUrl" ? logoFile : signatureFile}
-                  onChange={(file) => handleFileChange(field.key, file)}
-                  accept={field.accept}
-                  maxSize={field.maxSize}
-                  description={field.description}
-                  companyId={companyInfo.id}
-                />
-              ))}
-            </div>
-          </Box>
-        }
+        {companyInfo.id && (
+          <>
+            <Box className="mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fileUploadFields.map((field) => (
+                  <FileUpload
+                    key={field.key}
+                    label={field.label}
+                    value={field.key === "logoUrl" ? logoFile : signatureFile}
+                    onChange={(file) => handleFileChange(field.key, file)}
+                    accept={field.accept}
+                    maxSize={field.maxSize}
+                    description={field.description}
+                    companyId={companyInfo.id}
+                  />
+                ))}
+              </div>
+            </Box>
+           
+            {/* Fiscal Year Dialog */}
+            <Dialog
+              open={fiscalYearDialogOpen}
+              onClose={() => setFiscalYearDialogOpen(false)}
+              maxWidth="md"
+              fullWidth
+            >
+              <DialogTitle className="!p-2 border-b border-gray-200">
+                <Box className="flex items-center justify-between !ml-4">
+                  <div>
+                    <Typography variant="h6">Fiscal Year Management</Typography>
+                    <Typography variant="body2" color="text.secondary" className="!text-[10px]">
+                      Manage payroll and reporting periods for this company.
+                    </Typography>
+                  </div>
+                  <IconButton onClick={() => setFiscalYearDialogOpen(false)}>
+                    <CloseOutlined className="text-gray-800"/>
+                  </IconButton>
+                </Box>
+              </DialogTitle>
+              <DialogContent className="!p-4 !mt-2">
+                <div className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <TextField
+                      label="Year Label"
+                      value={fiscalYearForm.yearLabel}
+                      onChange={(e) => handleFiscalYearFieldChange("yearLabel", e.target.value)}
+                      placeholder="e.g. 2024-25"
+                      fullWidth
+                    />
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        label="Start Date"
+                        value={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : null}
+                        onChange={(newValue) =>
+                          handleFiscalYearFieldChange("startDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
+                        }
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        label="End Date"
+                        value={fiscalYearForm.endDate ? dayjs(fiscalYearForm.endDate) : null}
+                        onChange={(newValue) =>
+                          handleFiscalYearFieldChange("endDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
+                        }
+                        slotProps={{
+                          textField: {
+                            fullWidth: true,
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </div>
+
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <Button
+                      variant="contained"
+                      className="!bg-primary"
+                      onClick={handleFiscalYearSubmit}
+                      disabled={fiscalYearLoading}
+                    >
+                      {fiscalYearForm.id ? "Update Fiscal Year" : "Create Fiscal Year"}
+                    </Button>
+                    {fiscalYearForm.id && (
+                      <Button variant="outlined" color="warning" onClick={resetFiscalYearForm}>
+                        Cancel Edit
+                      </Button>
+                    )}
+                  </Stack>
+
+                  {fiscalYearLoading && !fiscalYears.length && (
+                    <Alert severity="info">Loading fiscal years…</Alert>
+                  )}
+
+                  {!fiscalYearLoading && fiscalYears.length === 0 && (
+                    <Alert severity="info">No fiscal years have been created yet for this company.</Alert>
+                  )}
+
+                  {fiscalYears.length > 0 && (
+                    <div className="space-y-2 !h-[calc(100vh-470px)] overflow-auto">
+                      {fiscalYears.map((year: any) => (
+                        <div key={year.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Typography variant="subtitle2">Year Label : {year.yearLabel}</Typography>
+                              {year.active ? <Chip label="Active" color="success" size="small" /> : <Chip label="Inactive" size="small" color="error" />}
+                            </div>
+                            <Typography variant="body2" color="text.secondary" className="!mt-1">
+                              {year.startDate ? formatDate(year.startDate) : ''}  -  {year.endDate ? formatDate(year.endDate) : ''}
+                            </Typography>
+                          </div>
+                          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                            {!year.active && (
+                              <Button size="small" variant="outlined" color="success" onClick={() => handleActivateFiscalYear(year.id)}>
+                                Set Active
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() =>
+                                setFiscalYearForm({
+                                  id: year.id,
+                                  yearLabel: year.yearLabel,
+                                  startDate: year.startDate,
+                                  endDate: year.endDate,
+                                })
+                              }
+                            >
+                              Edit
+                            </Button>
+                            <Button size="small" color="error" variant="outlined" onClick={() => handleDeleteFiscalYear(year.id)}>
+                              Delete
+                            </Button>
+                          </Stack>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+              <DialogActions className="border-t border-gray-200 !p-4">
+                <Button onClick={() => setFiscalYearDialogOpen(false)} variant="outlined" className="!text-gray-800 !border-gray-200">Close</Button>
+              </DialogActions>
+            </Dialog>
+          </>
+        )}
       </div>
     </>
+
+    
   );
+  
 };
 
 export default CompanySettings;

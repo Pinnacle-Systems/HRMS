@@ -17,6 +17,7 @@ import {
 const Employees = lazy(() => import("../pages/employees/employeeManagement"));
 const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword/ForgotPassword"));
 const Home = lazy(() => import("../pages/home/home"));
+const BIWorkspacePage = lazy(() => import("../pages/home/BiWorkspacePage.tsx"));
 const ApplyLeavePage = lazy(() => import("../pages/leave/EmployeeComponents/ApplyLeavePage"));
 const CompOffsPage = lazy(() => import("../pages/leave/EmployeeComponents/CompOffsPage"));
 const HolidayCalendarPage = lazy(() => import("../pages/leave/EmployeeComponents/HolidayCalendarPage"));
@@ -151,6 +152,7 @@ function AppRoutesContent() {
                 }
               >
                 <Route path="home" element={<Home />} />
+                <Route path="bi-workspace" element={<BIWorkspacePage />} />
                 <Route path="leave" element={<Navigate to="/leaves/my-dashboard" replace />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="documentation" element={<Documentation />} />

@@ -101,7 +101,7 @@ export const ShiftScheduleView = () => {
   // const [notificationMessage, setNotificationMessage] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const [notificationChannel, setNotificationChannel] = useState<'email' | 'sms' | 'push'>('email');
-  // const [lastNotificationDate, setLastNotificationDate] = useState<string | null>(null);
+  const [_lastNotificationDate, setLastNotificationDate] = useState<string | null>(null);
   const [notificationStats, setNotificationStats] = useState<{
     sent: number;
     failed: number;
@@ -120,6 +120,7 @@ export const ShiftScheduleView = () => {
         fetchScheduleStats(),
         fetchShiftDistribution(),
         fetchUpcomingShifts(),
+        getNotificationTemplates()
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -131,7 +132,7 @@ export const ShiftScheduleView = () => {
 
   const fetchMasterData = async () => {
     try {
-      const deptRes: any = await departmentService.getDepartments();
+      const deptRes: any = await departmentService.getActiveDepartments();
       const departmentsData = deptRes.data?.content || deptRes.data || [];
       setDepartment(departmentsData);
 
@@ -232,6 +233,17 @@ export const ShiftScheduleView = () => {
     }
   };
 
+  // Get notification templates
+  const getNotificationTemplates = async () => {
+    try {
+      const response: any = await shiftService.getNotificationTemplate();
+      const data = response.data;
+      console.log(data);      
+    } catch (error) {
+      console.error('Error checking notification status:', error);
+    }
+  };
+
   // Handle swap request status update
   const handleUpdateSwapRequestStatus = async (id: string, status: "APPROVED" | "REJECTED" | "CANCELLED",) => {
     setSwapActionLoading(true);
@@ -276,7 +288,7 @@ export const ShiftScheduleView = () => {
         failed: 0,
         timestamp: new Date().toISOString()
       });
-      // setLastNotificationDate(new Date().toISOString());
+      setLastNotificationDate(new Date().toISOString());
 
       showSnackbar(
         `Notifications sent successfully to ${Object.keys(notificationCount).length} recipients`,
@@ -339,17 +351,17 @@ export const ShiftScheduleView = () => {
     }
   };
 
-  const checkNotificationStatus = async (_date: string) => {
-    // try {
-    //   const response = await shiftService.getNotificationStatus({ date });
-    //   const data = response.data;
-    //   if (data && data.sent > 0) {
-    //     setLastNotificationDate(data.timestamp);
-    //     setNotificationStats(data);
-    //   }
-    // } catch (error) {
-    //   console.error('Error checking notification status:', error);
-    // }
+  const checkNotificationStatus = async (date: string) => {
+    try {
+      const response:any = await shiftService.getNotificationStatus({ date });
+      const data = response.data;
+      if (data && data.sent > 0) {
+        setLastNotificationDate(data.timestamp);
+        setNotificationStats(data);
+      }
+    } catch (error) {
+      console.error('Error checking notification status:', error);
+    }
   };
 
   useEffect(() => {
@@ -634,12 +646,12 @@ export const ShiftScheduleView = () => {
                 </Button>
               </div>
               {notificationStats && (
-                <div className="mt-2 p-2 bg-blue-50 rounded text-xs">
+                <div className="!mt-4 p-2 bg-blue-100/50 border border-blue-500 rounded text-xs">
                   <div className="font-semibold text-blue-800">Last Notification</div>
-                  <div className="text-gray-600">
+                  <div className="text-gray-800">
                     Sent: {notificationStats.sent} employees
                   </div>
-                  <div className="text-gray-600 text-[10px]">
+                  <div className="text-gray-800 text-[10px]">
                     {dayjs(notificationStats.timestamp).format('MMM DD, HH:mm')}
                   </div>
                 </div>
@@ -754,7 +766,7 @@ export const ShiftScheduleView = () => {
       {/* Notifications Dialog */}
       <Dialog open={notificationDialogOpen} onClose={() => setNotificationDialogOpen(false)} maxWidth="sm" fullWidth>
         <div className="flex items-center p-2 justify-between border-b border-gray-300">
-          <div className="text-gray-800 ml-4">
+          <div className="text-gray-800 ml-4 text-[12px]">
             Send Shift Notifications
           </div>
           <IconButton onClick={() => setNotificationDialogOpen(false)}>

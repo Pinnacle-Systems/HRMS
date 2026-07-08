@@ -78,7 +78,7 @@ export const ShiftList = () => {
     startTime: dayjs('2000-01-01 09:00'),
     endTime: dayjs('2000-01-01 18:00'),
     shiftType: 'General',
-    templateId: 'Staff',
+    templateId: '',
     isActive: true,
     color: '#3b82f6',
     weeklyOff: ['MON'],
@@ -193,7 +193,7 @@ export const ShiftList = () => {
   }, [template, page, limit, searchTerm]);
 
   const handleSave = async () => {
-    if (!formData.shiftName || !formData.shiftCode || !formData.startTime || !formData.endTime) {
+    if (!formData.shiftName || !formData.shiftCode || !formData.startTime || !formData.endTime || !formData.templateId) {
       showSnackbar('Please fill all required fields', 'error');
       return;
     }
@@ -245,7 +245,7 @@ export const ShiftList = () => {
       weeklyOff: ['MON'],
       description: '',
       isNightShift: false,
-      templateId: 'Staff',
+      templateId: '',
     });
   };
 
@@ -267,7 +267,7 @@ export const ShiftList = () => {
       weeklyOff: mappedWeeklyOff,
       description: shift.description || '',
       isNightShift: shift.isNightShift,
-      templateId: shift.templateId || 'Staff',
+      templateId: shift.templateId,
     });
     setIsDialogOpen(true);
   };
@@ -382,7 +382,7 @@ export const ShiftList = () => {
               <TableCell className='!font-semibold'>Type</TableCell>
               <TableCell className='!font-semibold'>Shift Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
-              <TableCell className='!font-semibold'>Status</TableCell>
+              <TableCell className='!font-semibold !sticky !right-[124px] !z-[100]'>Status</TableCell>
               <TableCell className='!font-semibold' sx={{
                 ...stickyHeaderRightSx,
                 minWidth: "100px",
@@ -434,7 +434,7 @@ export const ShiftList = () => {
                   />
                 </TableCell>
                 <TableCell>{shift.weeklyOff?.join(', ') || 'None'}</TableCell>
-                <TableCell>
+                <TableCell className='!sticky !right-[124px] !z-[100] bg-inherit'>
                   <Chip
                     size="small"
                     label={shift.isActive ? 'Active' : 'Inactive'}
@@ -507,7 +507,7 @@ export const ShiftList = () => {
       {/* Create/Edit Shift Dialog */}
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" sx={commonsx}>
         <div className="flex items-center p-2 justify-between border-b border-gray-300">
-          <div className="text-gray-800 ml-4">
+          <div className="text-gray-800 ml-4 text-[12px]">
             {editingShift ? 'Edit Shift' : 'Create New Shift'}
           </div>
           <IconButton onClick={() => setIsDialogOpen(false)}>

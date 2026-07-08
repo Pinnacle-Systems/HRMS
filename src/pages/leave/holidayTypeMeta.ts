@@ -9,6 +9,7 @@ export const holidayTypeMeta: Record<string, HolidayTypeMeta> = {
   OPTIONAL: { label: "Optional Holiday", tone: "default" },
   RESTRICTED: { label: "Restricted Holiday", tone: "error" },
   REGIONAL: { label: "Regional Holiday", tone: "warning" },
+  FLOATING: { label: "Float Holiday", tone: "primary" },
 };
 
 function formatUnknownType(type: string) {

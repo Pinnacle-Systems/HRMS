@@ -57,11 +57,12 @@ import { selectSx } from "../../../const";
 
 const holidayTypes: Holiday["holidayType"][] = [
   "PUBLIC",
-  "COMPANY",
+  // "COMPANY",
   "OPTIONAL",
   "RESTRICTED",
-  "NATIONAL",
-  "REGIONAL",
+  // "NATIONAL",
+  // "REGIONAL",
+  "FLOATING"
 ];
 
 const emptyCalendarForm: Partial<HolidayCalendar> & { locationsText?: string } =
@@ -575,7 +576,7 @@ export default function AdminHolidayCalendarsPage() {
         fullWidth
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-gray-800 ml-4">
+          <div className="text-gray-800 ml-4 text-[12px]">
             {editingCalendarId
               ? "Edit Holiday Calendar"
               : "Add Holiday Calendar"}
@@ -699,7 +700,7 @@ export default function AdminHolidayCalendarsPage() {
         fullWidth
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-gray-800 ml-4">
+          <div className="text-gray-800 ml-4 text-[12px]">
             Holidays - {selectedCalendar?.calendarName || ""}
           </div>
           <IconButton onClick={closeHolidaysDialog}>

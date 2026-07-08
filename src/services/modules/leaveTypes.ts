@@ -167,11 +167,12 @@ export type Holiday = {
   holidayDate: string;
   holidayType:
     | "PUBLIC"
-    | "COMPANY"
+    // | "COMPANY"
     | "OPTIONAL"
     | "RESTRICTED"
-    | "NATIONAL"
-    | "REGIONAL";
+    // | "NATIONAL"
+    | "FLOATING";
+    // | "REGIONAL";
   location: string;
   holidayCalendarId?: string;
   calendarName?: string;

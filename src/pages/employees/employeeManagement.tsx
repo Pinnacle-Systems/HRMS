@@ -339,7 +339,7 @@ export default function EmployeeManagement() {
   // Fetch departments and designations
   const getMasterData = async () => {
     try {
-      const deptRes: any = await departmentService.getDepartments();
+      const deptRes: any = await departmentService.getActiveDepartments();
       setDepartments(deptRes.data.content || deptRes.data || []);
       const branchRes: any = await branchService.getDropdownBranches();
       setBranches(branchRes.data.content || branchRes.data || []);
