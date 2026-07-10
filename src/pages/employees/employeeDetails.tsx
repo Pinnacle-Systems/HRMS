@@ -65,6 +65,7 @@ import {
   ExpandMoreOutlined,
   KeyboardArrowDown,
   KeyboardArrowUp,
+  PhotoCameraOutlined,
   AssignmentOutlined as PolicyIcon,
   SettingsOutlined,
 } from "@mui/icons-material";
@@ -83,6 +84,7 @@ import {
 import { policyService } from "../../services";
 import { PolicyDomain, type Employee } from "../../types/policy";
 import { EmployeeSelector } from "../../components/PolicyManagement/Common/EmployeeSelector";
+import { WebcamCapture } from "./webCam";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -786,6 +788,7 @@ const EditableTableGroup = ({
   categories,
   refreshCategoryOptions,
   document,
+  error
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -1179,6 +1182,9 @@ const EditableTableGroup = ({
                 {icon}{" "}
               </div>
               <div className="text-primary-dark "> {title} </div>
+              { error &&
+                <span className="text-[12px] bg-red-100 p-1 rounded-md text-red-500">{error}</span>
+              }
             </div>
             <div className="flex gap-1">
               {!isEditing ? (
@@ -1817,6 +1823,12 @@ export default function EmployeeDetails() {
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
 
+  const [uanError, setUANError] = useState("");
+
+const [webcamOpen, setWebcamOpen] = useState(false);
+
+
+
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
     { label: "Addresses", icon: <MaterialModule.LocationIcon /> },
@@ -1833,6 +1845,24 @@ export default function EmployeeDetails() {
     { label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
     { label: "Policies", icon: <PolicyIcon /> },
   ];
+
+// New state (add alongside existing useState hooks in EmployeeDetails)
+const handleWebcamCapture = async (file: File) => {
+  try {
+    showSpinner();
+    await employeeService.uploadPhoto(employee.id, file);
+    showSnackbar("Profile photo uploaded successfully", "success");
+    await fetchEmployeeDetails();
+  } catch (error: any) {
+    showSnackbar(error.message || "Failed to upload photo", "error");
+  } finally {
+    hideSpinner();
+  }
+};
+
+
+
+
 
   const viewPolicyConfig = (policy: any) => {
     setSelectedPolicy(policy);
@@ -2607,6 +2637,19 @@ export default function EmployeeDetails() {
   const handleAddPf = async (newItem: any) => {
     showSpinner();
     try {
+      const existingPfAccounts = employee?.pfAccounts || [];
+      const existingPfWithUan = existingPfAccounts.find(
+        (pf: any) => pf.uan
+      );
+      if (existingPfWithUan && newItem.uan) {
+        const existingUan = existingPfWithUan.uan;
+        const newUan = newItem.uan;
+        if (existingUan !== newUan) {
+          setUANError(`UAN mismatch! Existing UAN is ${existingUan}. Please use the same UAN for all PF accounts.`)
+          hideSpinner();
+          return;
+        }
+      }
       newItem["pfSchemeId"] = newItem.pfScheme;
       delete newItem.pfScheme;
       await employeeService.addPfAccount(id, newItem);
@@ -2618,6 +2661,14 @@ export default function EmployeeDetails() {
       hideSpinner();
     }
   };
+
+  useEffect(() => {
+    if (uanError) {
+      setTimeout(() => {
+        setUANError("")
+      }, 5000);
+    }
+  }, [uanError])
 
   const handleDeletePf = async (itemId: string) => {
     showConfirmDialog({
@@ -3044,73 +3095,93 @@ export default function EmployeeDetails() {
       </div>
 
       {/* Profile Header */}
-      <MaterialModule.Card className="mb-2 bg-white">
-        <MaterialModule.CardContent className="py-2 px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative group">
-              <MaterialModule.Avatar
-                src={employee.photoUrl}
-                className="!w-16 !h-16 !bg-primary text-2xl cursor-pointer"
-              >
-                {employee.firstName?.charAt(0)}
-                {employee.lastName?.charAt(0)}
-              </MaterialModule.Avatar>
+     <MaterialModule.Card className="mb-2 bg-white">
+  <MaterialModule.CardContent className="py-2 px-6 flex items-center justify-between">
+    <div className="flex items-center gap-4">
+      <div className="relative group">
+        <MaterialModule.Avatar
+          src={employee.photoUrl}
+          className="!w-16 !h-16 !bg-primary text-2xl cursor-pointer"
+        >
+          {employee.firstName?.charAt(0)}
+          {employee.lastName?.charAt(0)}
+        </MaterialModule.Avatar>
 
-              {/* Hover Overlay */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
-              >
-                <MaterialModule.CameraAlt
-                  className="!text-white"
-                  sx={{ "& svg": { color: "white" } }}
-                />
-              </div>
+        {/* Hover Overlay with multiple options */}
+        <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 cursor-pointer">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+            className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            title="Upload from device"
+          >
+            <MaterialModule.CameraAlt className="!text-white !w-4 !h-4" />
+          </div>
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              setWebcamOpen(true);
+            }}
+            className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            title="Capture with webcam"
+          >
+            <PhotoCameraOutlined className="!text-white !w-4 !h-4" />
+          </div>
+        </div>
 
-              {/* Hidden File Input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={handleProfileUpload}
-              />
-            </div>
-            <div>
-              <div className="font-bold text-gray-800">{employee.name}</div>
-              <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <MaterialModule.Chip
-                  label={`ID: ${employee.employeeId}`}
-                  size="small"
-                  color="primary"
-                  className="!bg-primary"
-                />
-                <MaterialModule.Chip
-                  label={employee.emailAddress}
-                  size="small"
-                  variant="outlined"
-                  className="text-gray-700"
-                />
-                <MaterialModule.Chip
-                  label={employee.mobileNumber}
-                  size="small"
-                  variant="outlined"
-                  className="text-gray-700"
-                />
-              </div>
-            </div>
-          </div>
-          <div>
-            <Button
-              variant="outlined"
-              className="!text-primary !border-primary"
-              onClick={handleOpenAuditLog}
-            >
-              Audit Log
-            </Button>
-          </div>
-        </MaterialModule.CardContent>
-      </MaterialModule.Card>
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={handleProfileUpload}
+        />
+      </div>
+      <div>
+        <div className="font-bold text-gray-800">{employee.name}</div>
+        <div className="flex items-center gap-3 mt-2 flex-wrap">
+          <MaterialModule.Chip
+            label={`ID: ${employee.employeeId}`}
+            size="small"
+            color="primary"
+            className="!bg-primary"
+          />
+          <MaterialModule.Chip
+            label={employee.emailAddress}
+            size="small"
+            variant="outlined"
+            className="text-gray-700"
+          />
+          <MaterialModule.Chip
+            label={employee.mobileNumber}
+            size="small"
+            variant="outlined"
+            className="text-gray-700"
+          />
+        </div>
+      </div>
+    </div>
+    <div>
+      <Button
+        variant="outlined"
+        className="!text-primary !border-primary"
+        onClick={handleOpenAuditLog}
+      >
+        Audit Log
+      </Button>
+    </div>
+  </MaterialModule.CardContent>
+</MaterialModule.Card>
+
+<WebcamCapture
+  open={webcamOpen}
+  onClose={() => setWebcamOpen(false)}
+  onCapture={handleWebcamCapture}
+  title="Capture Profile Photo"
+/>
 
       {/* Tabs Navigation */}
       <div className="">
@@ -3281,6 +3352,7 @@ export default function EmployeeDetails() {
             />
             <EditableTableGroup
               title="PF Details"
+              error={uanError}
               icon={<MaterialModule.Person2Outlined />}
               data={employee.pfAccounts || []}
               columns={pfColumns}
