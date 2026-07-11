@@ -4,7 +4,7 @@ export const API_ENDPOINTS = {
     LOGOUT: "/auth/logout",
     REFRESH: "/auth/refresh-token",
     FORGOT_PASSWORD: "/auth/forgot-password",
-    PROFILE: "/auth/profile",
+    PROFILE: "/auth/profile", // Supports both GET and PUT
     VERIFY_OTP: "/auth/verify-otp",
     MFA_VERIFY: "/auth/mfa/verify",
     MFA_SETUP: "/auth/mfa/setup",
@@ -15,6 +15,9 @@ export const API_ENDPOINTS = {
     SET_PASSWORD: "/auth/set-password",
     PERMISSIONS: "/auth/permissions",
     PHOTO: "/auth/profile/picture",
+    VERIFY_INVITE: (token: string) => `/auth/verify-invite/${token}`,
+    SIGNUP: "/auth/signup",
+    ACTIVATE_INVITE: "/auth/activate-invite"
   },
 
   LOGIN_HISTORY: {

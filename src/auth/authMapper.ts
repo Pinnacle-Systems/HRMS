@@ -126,6 +126,14 @@ export function mapLoginResponseToOutcome(
   if (data.accessToken) {
     const session = mapAuthResponseToSession(data);
 
+    if (data.mfaSetupRequired) {
+      return {
+        type: "authenticated",
+        session,
+        mfaSetupRequired: true
+      }
+    }
+
     if (data.mustChangePassword) {
       return {
         type: "mustChangePassword",

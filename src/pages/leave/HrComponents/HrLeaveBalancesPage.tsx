@@ -509,7 +509,7 @@ export default function HrLeaveBalancesPage() {
               ))}
               {!loading && recentLeaves.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="p-8">
+                  <TableCell colSpan={6} className="p-8">
                     <DataState
                       compact
                       type="empty"

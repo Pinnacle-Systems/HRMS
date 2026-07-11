@@ -21,7 +21,7 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import TrackChangesOutlined from "@mui/icons-material/TrackChanges";
 import PolicyOutlined from "@mui/icons-material/PolicyOutlined";
 import KeyboardReturnOutlined from "@mui/icons-material/KeyboardReturnOutlined";
-import { MonetizationOnOutlined, ReceiptLong, RemoveCircleOutlined } from "@mui/icons-material";
+import { AdjustOutlined, BalanceOutlined, BarChartOutlined, CalendarMonthOutlined, CalendarTodayOutlined, CalendarViewDayOutlined, CategoryOutlined, EditDocument, EventOutlined, FingerprintOutlined, MonetizationOnOutlined, PasswordOutlined, ReceiptLong, RemoveCircleOutlined, ReportOutlined, RequestQuoteOutlined, ReviewsOutlined, SummarizeOutlined } from "@mui/icons-material";
 import { useAuth } from "../auth/authContext";
 
 interface SearchItem {
@@ -108,6 +108,118 @@ const ALL_ITEMS: SearchItem[] = [
     roles: ["HR", "MANAGER", "EMPLOYEE"],
   },
   {
+    label: "Team Calendar",
+    description: "See who is on leave across your team",
+    path: "/leaves/team-calendar",
+    category: "Leave",
+    icon: <CalendarMonthOutlined fontSize="small" />,
+    keywords: ["calendar", "team", "leave"],
+    roles: ["ADMIN", "MANAGER"],
+  },
+  {
+    label: "Team Summary",
+    description: "Leave counts and day totals across your team",
+    path: "/leaves/team-summary",
+    category: "Leave",
+    icon: <SummarizeOutlined fontSize="small" />,
+    keywords: ["summary", "team", "leave"],
+    roles: ["ADMIN", "MANAGER"],
+  },
+  {
+    label: "HR Requests",
+    description: "HR-wide leave request administration and comp-off approvals",
+    path: "/leaves/hr/requests",
+    category: "Leave",
+    icon: <RequestQuoteOutlined fontSize="small" />,
+    keywords: ["request", "hr", "leave"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Leave Balances",
+    description: "Review balances and ledger history for any employee",
+    path: "/leaves/hr/balances",
+    category: "Leave",
+    icon: <BalanceOutlined fontSize="small" />,
+    keywords: ["balance", "hr", "leave"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Leave Adjustments",
+    description: "Manually credit or debit an employee's leave balance",
+    path: "/leaves/hr/adjustments",
+    category: "Leave",
+    icon: <AdjustOutlined fontSize="small" />,
+    keywords: ["adjustments", "hr", "leave"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "LOP Review",
+    description: "Review pending requests and convert insufficient-balance leave to loss of pay",
+    path: "/leaves/hr/lop-review",
+    category: "Leave",
+    icon: <ReviewsOutlined fontSize="small" />,
+    keywords: ["lop", "review", "hr", "leave"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Payroll Inputs",
+    description: "Leave-related payroll inputs and monthly rollups",
+    path: "/leaves/hr/payroll-inputs",
+    category: "Leave",
+    icon: <ReviewsOutlined fontSize="small" />,
+    keywords: ["payroll", "inputs", "hr", "leave", "encashments", "settlements"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Upcoming Events",
+    description: "View your upcoming approved leaves and company holidays",
+    path: "/leaves/hr/upcoming-events",
+    category: "Leave",
+    icon: <EventOutlined fontSize="small" />,
+    keywords: ["event", "upcoming", "hr", "leave"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Leave Reports",
+    path: "/leaves/hr/reports",
+    category: "Leave",
+    icon: <ReportOutlined fontSize="small" />,
+    keywords: ["reports", "dashboard", "hr", "leave", "analytics", "anniversary", "birthday", "joiners", "resignation", "events"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Leave Types",
+    path: "/leaves/admin/leave-types",
+    category: "Leave",
+    icon: <CategoryOutlined fontSize="small" />,
+    keywords: ["types", "list", "admin", "leave"],
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Holiday Calendars",
+    path: "/leaves/admin/holiday-calendars",
+    category: "Leave",
+    icon: <CalendarTodayOutlined fontSize="small" />,
+    keywords: ["holiday", "calendar", "admin", "leave"],
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Work Calendars",
+    path: "/leaves/admin/work-calendars",
+    category: "Leave",
+    icon: <CalendarViewDayOutlined fontSize="small" />,
+    keywords: ["work", "calendar", "admin", "leave"],
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Run Accrual",
+    path: "/leaves/admin/workflows",
+    category: "Leave",
+    icon: <CategoryOutlined fontSize="small" />,
+    keywords: ["run", "accrual", "workflow", "admin", "leave"],
+    roles: ["ADMIN"],
+  },
+  {
     label: "Shift Management",
     description: "View and manage work shifts",
     path: "/attendance/shifts",
@@ -117,12 +229,39 @@ const ALL_ITEMS: SearchItem[] = [
     roles: ["ADMIN", "HR"],
   },
   {
+    label: "Attendance Overview",
+    description: "View real-time attendance summary, today's leave status, and holiday calendar",
+    path: "/attendance/overview",
+    category: "Attendance",
+    icon: <DashboardOutlinedIcon fontSize="small" />,
+    keywords: ["attendance", "summary", "leave today", "today", "holiday"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Attendance Records",
+    description: "Access and manage daily, detailed, muster, and employee-wise attendance records",
+    path: "/attendance/records",
+    category: "Attendance",
+    icon: <BarChartOutlined fontSize="small" />,
+    keywords: ["attendance", "records", "muster", "register", "view"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
     label: "Attendance Process",
     description: "Employee attendance records",
     path: "/attendance/process",
     category: "Attendance",
     icon: <TrackChangesOutlined fontSize="small" />,
-    keywords: ["attendance", "check-in", "check-out", "records"],
+    keywords: ["attendance", "check-in", "check-out", "consolidate", "process", "finalisation", "lock"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Attendance Management",
+    description: "Handle corrections, remote check-ins, Device, OT & LOP",
+    path: "/attendance/management",
+    category: "Attendance",
+    icon: <FingerprintOutlined fontSize="small" />,
+    keywords: ["attendance", "device", "corrections", "lop", "overtime", "ot", "lop", "biometric", "sync"],
     roles: ["ADMIN", "HR"],
   },
   {
@@ -194,12 +333,21 @@ const ALL_ITEMS: SearchItem[] = [
     roles: ["ADMIN", "HR"],
   },
   {
+    label: "Policy Reports",
+    description: "nsights across policy assignments, simulations, conflicts and audit activity",
+    path: "/policies/reports",
+    category: "Policy Engine",
+    icon: <ReportOutlined fontSize="small" />,
+    keywords: ["reports", "analytics", "policy", "preview"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
     label: "Company Settings",
     description: "Manage company-wide configuration",
     path: "/settings/general/company-settings",
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
-    keywords: ["company", "settings", "configuration"],
+    keywords: ["company", "settings", "configuration", "fiscal", "years"],
     roles: ["ADMIN"],
   },
   {
@@ -209,6 +357,15 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["branch", "office", "location"],
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Password Config",
+    description: "Configure authentication and password security settings",
+    path: "/settings/general/password-config",
+    category: "Settings",
+    icon: <PasswordOutlined fontSize="small" />,
+    keywords: ["password", "config", "rules"],
     roles: ["ADMIN"],
   },
   {
@@ -227,6 +384,15 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["department", "team", "org"],
+    roles: ["ADMIN"],
+  },
+  {
+    label: "Categories",
+    description: "Manage categories with items",
+    path: "/settings/employee/category-settings",
+    category: "Settings",
+    icon: <CategoryOutlined fontSize="small" />,
+    keywords: ["category", "items", "org"],
     roles: ["ADMIN"],
   },
   {
@@ -283,6 +449,15 @@ const ALL_ITEMS: SearchItem[] = [
     keywords: ["expense", "category", "claims", "reimbursement", "settings"],
     roles: ["ADMIN", "HR"],
   },
+  {
+    label: "Documentation",
+    description: "Guide to use the app",
+    path: "/documentation",
+    category: "Documentation",
+    icon: <EditDocument fontSize="small" />,
+    keywords: ["doc", "help", "documentation"],
+    roles: ["ADMIN", "HR", "EMPLOYEE", "MANAGER"],
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -293,7 +468,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   "Policy Engine": "#9c27b0",
   Settings: "#03af98",
   Account: "#1976d2",
-  Master: "#df9a07"
+  Master: "#df9a07",
+  Documentation: "#df075a"
 };
 
 interface GlobalSearchProps {
@@ -309,7 +485,7 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const navigate = useNavigate();
 
   const { session } = useAuth();
-  const userRole = session?.user.roles || []; 
+  const userRole = session?.user.roles || [];
 
   const search = useCallback((q: string) => {
     if (!q.trim()) {
@@ -319,19 +495,18 @@ export default function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     }
     const lower = q.toLowerCase();
     const filtered = ALL_ITEMS.filter(
-      (item) =>
-       {
-        const hasAccess = userRole.some((role: string) => 
-      item.roles.includes(role)
-    );
-        const matchesSearch = 
-        item.label.toLowerCase().includes(lower) ||
-        item.description?.toLowerCase().includes(lower) ||
-        item.category.toLowerCase().includes(lower) ||
-        item.keywords?.some((k) => k.includes(lower));
-      
-      return hasAccess && matchesSearch;
-       }
+      (item) => {
+        const hasAccess = userRole.some((role: string) =>
+          item.roles.includes(role)
+        );
+        const matchesSearch =
+          item.label.toLowerCase().includes(lower) ||
+          item.description?.toLowerCase().includes(lower) ||
+          item.category.toLowerCase().includes(lower) ||
+          item.keywords?.some((k) => k.includes(lower));
+
+        return hasAccess && matchesSearch;
+      }
     );
     setResults(filtered);
     setActiveIndex(0);

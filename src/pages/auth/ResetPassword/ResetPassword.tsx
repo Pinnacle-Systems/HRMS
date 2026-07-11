@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { authService } from "../../../services/modules/auth";
 import { useUI } from "../../../context/Snackbar";
 import reset from '../../../assets/reset.png';
@@ -12,6 +12,9 @@ import {
 } from "../../../utils/passwordPolicyValidation";
 
 export default function ResetPassword() {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const tokenFromUrl = searchParams.get("token");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [visible1, setVisible1] = useState(false);
@@ -22,7 +25,7 @@ export default function ResetPassword() {
   );
   // const [passwordMatch, setPasswordMatch] = useState(true);
   // const navigate = useNavigate();
-  const token = localStorage.getItem("resetToken");
+  const token = tokenFromUrl || localStorage.getItem("resetToken");
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const passwordValidationMessages = validatePasswordAgainstPolicy(
     newPassword,
@@ -32,6 +35,10 @@ export default function ResetPassword() {
   const isPasswordValid = passwordValidationMessages.length === 0;
 
   useEffect(() => {
+    if (!token) {
+      showSnackbar("Reset token is missing. Please open the reset link again.", "warning");
+    }
+
     let isMounted = true;
 
     passwordPolicyService
@@ -50,7 +57,7 @@ export default function ResetPassword() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [showSnackbar, token]);
 
   // useEffect(() => {
   //   if (confirmPassword !== "") {
@@ -62,6 +69,11 @@ export default function ResetPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!token) {
+      showSnackbar("Reset token is missing. Please use the password reset link from your email.", "warning");
+      return;
+    }
+
     if (!isPasswordValid) {
       showSnackbar("Please meet all password requirements", "warning");
       return;
@@ -75,15 +87,15 @@ export default function ResetPassword() {
     // }, 3000);
     showSpinner();
     try {
-      await authService.resetPassword({
-        resetToken: token,
+      const response = await authService.resetPassword({
+        resetToken: token || "",
         newPassword,
         confirmPassword,
       });
-      // if (response.success) {
-      //   // navigate("/home");
-      //   showSnackbar(response.message, "success");
-      // }
+      if (response.success) {
+        showSnackbar(response.message || "Password updated successfully.", "success");
+        setSubmitted(true);
+      }
     } catch (err: unknown) {
       showSnackbar(err instanceof Error ? err.message : 'An error occurred', "error");
     } finally {

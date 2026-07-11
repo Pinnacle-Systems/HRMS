@@ -420,7 +420,7 @@ export function mapHolidayResponseToViewModel(dto: HolidayResponse): Holiday {
     holidayDate: asString(dto.holidayDate ?? dto.date),
     holidayType:
       dto.optionalHoliday || dto.optional
-        ? "OPTIONAL"
+        ? "PUBLIC"
         : mapHolidayType(dto.holidayType ?? dto.type),
     location: locations ?? branchName ?? asString(dto.location),
     holidayCalendarId: dto.holidayCalendarId ?? dto.calendarId,

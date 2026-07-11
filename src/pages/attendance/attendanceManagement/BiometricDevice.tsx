@@ -47,6 +47,8 @@ import {
   PlayForWorkOutlined,
   HealthAndSafetyOutlined,
   MoreVertOutlined,
+  Person as PersonIcon,
+  Send as SendIcon,
 } from "@mui/icons-material";
 import {
   biometricService,
@@ -55,6 +57,7 @@ import {
   type DeviceHealth,
   type SyncStatus,
 } from "../../../services/modules/biometricDevice";
+import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { useUI } from "../../../context/Snackbar";
 import { getRowColor } from "../../const";
 import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -104,6 +107,26 @@ export const DeviceManagement: React.FC = () => {
     startDate: "",
     endDate: "",
   });
+  const [openMapDialog, setOpenMapDialog] = useState(false);
+  const [mappingLoading, setMappingLoading] = useState(false);
+  const [mappingFormData, setMappingFormData] = useState({
+    deviceId: "",
+    deviceEmployeeCode: "",
+    hrmsEmployeeId: "",
+    isActive: true,
+  });
+  const [mappingErrors, setMappingErrors] = useState<Record<string, string>>({});
+  const [selectedMappingEmployee, setSelectedMappingEmployee] = useState<any>(null);
+  const [openWebhookDialog, setOpenWebhookDialog] = useState(false);
+  const [webhookLoading, setWebhookLoading] = useState(false);
+  const [webhookFormData, setWebhookFormData] = useState({
+    deviceSerial: "",
+    employeeCode: "",
+    punchTime: dayjs().toISOString(),
+    punchType: "check_in" as "check_in" | "check_out" | "break_in" | "break_out",
+    verificationMode: "fingerprint" as "fingerprint" | "card" | "face" | "pin",
+  });
+  const [webhookErrors, setWebhookErrors] = useState<Record<string, string>>({});
   const [syncErrors, setSyncErrors] = useState<Record<string, string>>({});
   const [activeSyncs, setActiveSyncs] = useState<Record<string, SyncStatus>>(
     {},
@@ -216,6 +239,124 @@ export const DeviceManagement: React.FC = () => {
   const handleCloseSyncDialog = () => {
     setOpenSyncDialog(false);
     setSyncErrors({});
+  };
+
+  const handleOpenMapDialog = (device: BiometricDevice) => {
+    setMappingFormData({
+      deviceId: device.id,
+      deviceEmployeeCode: "",
+      hrmsEmployeeId: "",
+      isActive: true,
+    });
+    setSelectedMappingEmployee(null);
+    setMappingErrors({});
+    setOpenMapDialog(true);
+  };
+
+  const handleCloseMapDialog = () => {
+    setOpenMapDialog(false);
+    setMappingErrors({});
+    setSelectedMappingEmployee(null);
+  };
+
+  const handleOpenWebhookDialog = (device: BiometricDevice) => {
+    setWebhookFormData({
+      deviceSerial: device.deviceSerial || "",
+      employeeCode: "",
+      punchTime: dayjs().toISOString(),
+      punchType: "check_in",
+      verificationMode: "fingerprint",
+    });
+    setWebhookErrors({});
+    setOpenWebhookDialog(true);
+  };
+
+  const handleCloseWebhookDialog = () => {
+    setOpenWebhookDialog(false);
+    setWebhookErrors({});
+  };
+
+  const handleWebhookFormChange =
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      setWebhookFormData({ ...webhookFormData, [field]: event.target.value });
+      if (webhookErrors[field]) {
+        setWebhookErrors({ ...webhookErrors, [field]: "" });
+      }
+    };
+
+  const validateWebhookForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!webhookFormData.deviceSerial.trim()) {
+      errors.deviceSerial = "Device serial is required";
+    }
+    if (!webhookFormData.employeeCode.trim()) {
+      errors.employeeCode = "Employee code is required";
+    }
+    if (!webhookFormData.punchTime) {
+      errors.punchTime = "Punch time is required";
+    }
+
+    setWebhookErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleProcessWebhook = async () => {
+    if (!validateWebhookForm()) return;
+
+    setWebhookLoading(true);
+    try {
+      const response = await biometricService.processWebhookPunch(webhookFormData);
+      showSnackbar(
+        response?.message || "Webhook processed successfully",
+        response?.accepted ? "success" : "warning",
+      );
+      handleCloseWebhookDialog();
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to process webhook", "error");
+    } finally {
+      setWebhookLoading(false);
+    }
+  };
+
+  const handleMappingFormChange =
+    (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value =
+        event.target.type === "checkbox"
+          ? event.target.checked
+          : event.target.value;
+      setMappingFormData({ ...mappingFormData, [field]: value });
+      if (mappingErrors[field]) {
+        setMappingErrors({ ...mappingErrors, [field]: "" });
+      }
+    };
+
+  const validateMappingForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!mappingFormData.deviceId) errors.deviceId = "Device is required";
+    if (!mappingFormData.deviceEmployeeCode.trim()) {
+      errors.deviceEmployeeCode = "Device employee code is required";
+    }
+    if (!mappingFormData.hrmsEmployeeId) {
+      errors.hrmsEmployeeId = "HRMS employee is required";
+    }
+
+    setMappingErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveMapping = async () => {
+    if (!validateMappingForm()) return;
+
+    setMappingLoading(true);
+    try {
+      await biometricService.mapEmployeeToDevice(mappingFormData);
+      showSnackbar("Employee mapping saved successfully", "success");
+      handleCloseMapDialog();
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to save employee mapping", "error");
+    } finally {
+      setMappingLoading(false);
+    }
   };
 
   const handleSyncFormChange =
@@ -930,6 +1071,208 @@ export const DeviceManagement: React.FC = () => {
     );
   };
 
+  const renderMapDialog = () => (
+    <Dialog
+      open={openMapDialog}
+      onClose={handleCloseMapDialog}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle className="border-b !border-gray-200 !p-2">
+        <div className="ml-4">Map Device Employee</div>
+      </DialogTitle>
+      <DialogContent className="!p-4">
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          Link the device employee code to the correct HRMS employee before syncing punches.
+        </Typography>
+        <Grid container spacing={3} sx={{ mt: 1 }}>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              select
+              label="Device"
+              value={mappingFormData.deviceId}
+              onChange={handleMappingFormChange("deviceId")}
+              error={!!mappingErrors.deviceId}
+              helperText={mappingErrors.deviceId}
+              required
+            >
+              {devices.map((device) => (
+                <MenuItem key={device.id} value={device.id}>
+                  {device.deviceName} ({device.deviceSerial})
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              label="Device Employee Code"
+              value={mappingFormData.deviceEmployeeCode}
+              onChange={handleMappingFormChange("deviceEmployeeCode")}
+              error={!!mappingErrors.deviceEmployeeCode}
+              helperText={mappingErrors.deviceEmployeeCode}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <EmployeeSelector
+              value={selectedMappingEmployee}
+              onChange={(employee: any) => {
+                setSelectedMappingEmployee(employee);
+                setMappingFormData({
+                  ...mappingFormData,
+                  hrmsEmployeeId: employee?.id || "",
+                });
+                if (mappingErrors.hrmsEmployeeId) {
+                  setMappingErrors({ ...mappingErrors, hrmsEmployeeId: "" });
+                }
+              }}
+              label="HRMS Employee"
+              placeholder="Search employee"
+            />
+            {mappingErrors.hrmsEmployeeId && (
+              <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
+                {mappingErrors.hrmsEmployeeId}
+              </Typography>
+            )}
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={mappingFormData.isActive}
+                  onChange={handleMappingFormChange("isActive")}
+                  color="primary"
+                />
+              }
+              label="Active mapping"
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions className="!border-t border-gray-200 !p-4">
+        <Button
+          onClick={handleCloseMapDialog}
+          disabled={mappingLoading}
+          variant="outlined"
+          className="!border-gray-200 !text-gray-800"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSaveMapping}
+          variant="contained"
+          disabled={mappingLoading}
+          className="!bg-primary"
+          startIcon={mappingLoading ? <CircularProgress size={20} /> : null}
+        >
+          {mappingLoading ? "Saving..." : "Save Mapping"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  const renderWebhookDialog = () => (
+    <Dialog
+      open={openWebhookDialog}
+      onClose={handleCloseWebhookDialog}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle className="border-b !border-gray-200 !p-2">
+        <div className="ml-4">Process Webhook Punch</div>
+      </DialogTitle>
+      <DialogContent className="!p-4">
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          Send a biometric punch event to the HRMS webhook endpoint for processing.
+        </Typography>
+        <Grid container spacing={3} sx={{ mt: 1 }}>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              label="Device Serial"
+              value={webhookFormData.deviceSerial}
+              onChange={handleWebhookFormChange("deviceSerial")}
+              error={!!webhookErrors.deviceSerial}
+              helperText={webhookErrors.deviceSerial}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              label="Employee Code"
+              value={webhookFormData.employeeCode}
+              onChange={handleWebhookFormChange("employeeCode")}
+              error={!!webhookErrors.employeeCode}
+              helperText={webhookErrors.employeeCode}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              label="Punch Time"
+              value={webhookFormData.punchTime}
+              onChange={handleWebhookFormChange("punchTime")}
+              error={!!webhookErrors.punchTime}
+              helperText={webhookErrors.punchTime}
+              required
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              select
+              label="Punch Type"
+              value={webhookFormData.punchType}
+              onChange={handleWebhookFormChange("punchType")}
+            >
+              <MenuItem value="check_in">Check In</MenuItem>
+              <MenuItem value="check_out">Check Out</MenuItem>
+              <MenuItem value="break_in">Break In</MenuItem>
+              <MenuItem value="break_out">Break Out</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              select
+              label="Verification Mode"
+              value={webhookFormData.verificationMode}
+              onChange={handleWebhookFormChange("verificationMode")}
+            >
+              <MenuItem value="fingerprint">Fingerprint</MenuItem>
+              <MenuItem value="card">Card</MenuItem>
+              <MenuItem value="face">Face</MenuItem>
+              <MenuItem value="pin">PIN</MenuItem>
+            </TextField>
+          </Grid>
+        </Grid>
+      </DialogContent>
+      <DialogActions className="!border-t border-gray-200 !p-4">
+        <Button
+          onClick={handleCloseWebhookDialog}
+          disabled={webhookLoading}
+          variant="outlined"
+          className="!border-gray-200 !text-gray-800"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleProcessWebhook}
+          variant="contained"
+          disabled={webhookLoading}
+          className="!bg-primary"
+          startIcon={webhookLoading ? <CircularProgress size={20} /> : <SendIcon />}
+        >
+          {webhookLoading ? "Processing..." : "Send Webhook"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
   const renderSyncDialog = () => (
     <Dialog
       open={openSyncDialog}
@@ -1408,6 +1751,34 @@ export const DeviceManagement: React.FC = () => {
           onClick={() => {
             handleMenuClose();
             if (selectedMenuDevice) {
+              handleOpenMapDialog(selectedMenuDevice);
+            }
+          }}
+        >
+          <ListItemIcon>
+            <PersonIcon fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText>Map Employee</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            if (selectedMenuDevice) {
+              handleOpenWebhookDialog(selectedMenuDevice);
+            }
+          }}
+        >
+          <ListItemIcon>
+            <SendIcon fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText>Process Webhook</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            if (selectedMenuDevice) {
               setSyncFormData({
                 deviceId: selectedMenuDevice.id,
                 startDate: "",
@@ -1462,6 +1833,8 @@ export const DeviceManagement: React.FC = () => {
 
       {/* Dialogs */}
       {renderDeviceForm()}
+      {renderMapDialog()}
+      {renderWebhookDialog()}
       {renderSyncDialog()}
       {renderDeviceDetails()}
     </Box>

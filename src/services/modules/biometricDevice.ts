@@ -1,6 +1,24 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+interface ApiEnvelope<T> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+  timestamp?: string;
+}
+
+function unwrapApiData<T>(response: unknown): T {
+  if (response && typeof response === "object") {
+    const envelope = response as ApiEnvelope<T>;
+    if (envelope && typeof envelope === "object" && "data" in envelope && envelope.data !== undefined) {
+      return envelope.data as T;
+    }
+  }
+
+  return response as T;
+}
+
 export interface BiometricDevice {
   isActive: boolean;
   id: string;
@@ -99,54 +117,53 @@ export interface CreateDeviceRequest {
   isActive: boolean;
 }
 
-
 // BiometricService.ts - Complete service class
 export const biometricService = {
 
   async getAllDevices(params?: any): Promise<BiometricDevice[]> {
-    const response:any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_DEVICES, {params});
-    return response.data;
+    const response: any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_DEVICES, { params });
+    return unwrapApiData<BiometricDevice[]>(response) ?? [];
   },
 
   async getDeviceById(id: string): Promise<BiometricDevice> {
-    const response:any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_DEVICE_BYID(id));
-    return response.data;
+    const response: any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_DEVICE_BYID(id));
+    return unwrapApiData<BiometricDevice>(response);
   },
 
   async getSyncStatus(deviceId: string, syncId: string): Promise<SyncStatus> {
-    const response:any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.SYNC, {
-      params: { deviceId, syncId }
+    const response: any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.SYNC, {
+      params: { deviceId, syncId },
     });
-    return response.data;
+    return unwrapApiData<SyncStatus>(response);
   },
 
   async checkDeviceHealth(id: string): Promise<DeviceHealth> {
-    const response:any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.HEALTH(id));
-    return response.data;
+    const response: any = await apiService.get(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.HEALTH(id));
+    return unwrapApiData<DeviceHealth>(response);
   },
 
   async processWebhookPunch(data: WebhookPunchData): Promise<WebhookResponse> {
-    const response:any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_WEBHOOK, data);
-    return response.data;
+    const response: any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_WEBHOOK, data);
+    return unwrapApiData<WebhookResponse>(response);
   },
 
   async initiateSync(data: SyncRequest): Promise<SyncStatus> {
-    const response:any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_SYNC, data);
-    return response.data;
+    const response: any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_SYNC, data);
+    return unwrapApiData<SyncStatus>(response);
   },
 
   async mapEmployeeToDevice(data: EmployeeMapRequest): Promise<EmployeeMapResponse> {
-    const response:any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_MAP, data);
-    return response.data;
+    const response: any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_MAP, data);
+    return unwrapApiData<EmployeeMapResponse>(response);
   },
 
   async registerDevice(data: CreateDeviceRequest): Promise<BiometricDevice> {
-    const response:any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_DEVICE, data);
-    return response.data;
+    const response: any = await apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_DEVICE, data);
+    return unwrapApiData<BiometricDevice>(response);
   },
 
   async updateDevice(id: string, data: Partial<CreateDeviceRequest>): Promise<BiometricDevice> {
-    const response:any = await apiService.put(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.UPDATE_DEVICE(id), data);
-    return response.data;
-  }
-}
+    const response: any = await apiService.put(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.UPDATE_DEVICE(id), data);
+    return unwrapApiData<BiometricDevice>(response);
+  },
+};

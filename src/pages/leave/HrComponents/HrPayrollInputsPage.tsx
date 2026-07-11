@@ -988,13 +988,13 @@ export default function HrPayrollInputsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {!loading && inputs.length === 0 && (
+              {!loading && employeeName && encashments.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={8} className="p-8">
                     <DataState
                       compact
                       type="empty"
-                      title="No payroll leave inputs found."
+                      title="No encashment details found."
                     />
                   </TableCell>
                 </TableRow>

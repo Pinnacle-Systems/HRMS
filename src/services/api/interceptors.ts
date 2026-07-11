@@ -52,6 +52,35 @@ type RefreshResponseData = {
   };
 };
 
+const PUBLIC_ROUTE_PATHS = new Set(["/login", "/forgot-password", "/reset-password", "/verify-otp", "/mfa", "/select-tenant", "/unauthorized"]);
+const PUBLIC_REQUEST_PATHS = [
+  API_ENDPOINTS.AUTH.LOGIN,
+  API_ENDPOINTS.AUTH.FORGOT_PASSWORD,
+  API_ENDPOINTS.AUTH.VERIFY_OTP,
+  API_ENDPOINTS.AUTH.MFA_VERIFY,
+  API_ENDPOINTS.AUTH.MFA_SETUP,
+  API_ENDPOINTS.AUTH.MFA_RESENDOTP,
+  API_ENDPOINTS.AUTH.MFA_ENABLE,
+  API_ENDPOINTS.AUTH.SELECT_TENANT,
+  API_ENDPOINTS.AUTH.SET_PASSWORD,
+  API_ENDPOINTS.AUTH.VERIFY_INVITE(""),
+  API_ENDPOINTS.AUTH.SIGNUP,
+  API_ENDPOINTS.AUTH.ACTIVATE_INVITE,
+  API_ENDPOINTS.PASSWORD_POLICY.BASE,
+];
+
+function isPublicRequest(requestUrl: string): boolean {
+  if (!requestUrl) {
+    return false;
+  }
+
+  const normalizedUrl = requestUrl.startsWith("http")
+    ? new URL(requestUrl, window.location.origin).pathname
+    : requestUrl;
+
+  return PUBLIC_REQUEST_PATHS.some((path) => normalizedUrl.includes(path));
+}
+
 const processQueue = (error: unknown | null, token: string | null = null) => {
   failedQueue.forEach((promise) => {
     if (error) {
@@ -116,6 +145,8 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
       const originalRequest = error.config as RetryRequestConfig;
       const requestUrl = originalRequest?.url || "";
       const isRefreshRequest = requestUrl.includes(API_ENDPOINTS.AUTH.REFRESH);
+      const isPublicRoute = typeof window !== "undefined" && PUBLIC_ROUTE_PATHS.has(window.location.pathname);
+      const isPublicRequestUrl = isPublicRequest(requestUrl);
       const metadata = originalRequest?.metadata;
 
       logger.warn("API request failed", {
@@ -131,6 +162,14 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         !originalRequest._retry &&
         !isRefreshRequest
       ) {
+        if (isPublicRoute || isPublicRequestUrl) {
+          logger.info("Skipping login redirect for public auth request", {
+            url: requestUrl,
+            pathname: typeof window !== "undefined" ? window.location.pathname : undefined,
+          });
+          return Promise.reject(error);
+        }
+
         if (isRefreshing) {
           logger.info("Queueing request while token refresh is in progress", {
             url: requestUrl,

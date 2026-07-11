@@ -9,14 +9,57 @@ import {
   updateAccessToken,
 } from "./authSession";
 import type {
+  ActivateInviteRequest,
   ApiResponse,
   AuthResponse,
   AuthSession,
   LoginApiResponse,
   LoginOutcome,
   LoginRequest,
+  MfaEnableRequest,
+  MfaSetupRequest,
+  MfaSetupResponse,
+  MfaVerifyRequest,
+  PasswordChangeRequest,
+  ProfilePictureResponse,
   SelectTenantRequest,
+  SetPasswordRequest,
+  SignupRequest,
+  UserProfile,
+  VerifyOtpRequest,
 } from "./authTypes";
+
+export function buildLoginRequest(params: {
+  loginId?: string;
+  password?: string;
+  mobileNumber?: string;
+  mobileOtp?: string;
+  tenantId?: string;
+}): LoginRequest {
+  const request: LoginRequest = {};
+
+  if (params.tenantId) {
+    request.tenantId = params.tenantId;
+  }
+
+  if (params.loginId) {
+    request.loginId = params.loginId;
+  }
+
+  if (params.password) {
+    request.password = params.password;
+  }
+
+  if (params.mobileNumber) {
+    request.mobileNumber = params.mobileNumber;
+  }
+
+  if (params.mobileOtp) {
+    request.mobileOtp = params.mobileOtp;
+  }
+
+  return request;
+}
 
 export async function login(request: LoginRequest): Promise<LoginOutcome> {
   const response = (await apiService.post(
@@ -41,7 +84,10 @@ export async function selectTenant(
 ): Promise<LoginOutcome> {
   const response = (await apiService.post(
     API_ENDPOINTS.AUTH.SELECT_TENANT,
-    request,
+    {
+      email: request.email,
+      tenantId: request.tenantId,
+    },
     {
       headers: {
         Authorization: `Bearer ${request.sessionToken}`,
@@ -111,4 +157,100 @@ export async function forgotPassword(loginId: string): Promise<ApiResponse<void>
   return (await apiService.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
     loginId,
   })) as ApiResponse<void>;
+}
+
+export async function verifyOtp(
+  request: VerifyOtpRequest,
+): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.VERIFY_OTP, request)) as ApiResponse<void>;
+}
+
+export async function mfaVerify(
+  request: MfaVerifyRequest,
+): Promise<ApiResponse<AuthResponse>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.MFA_VERIFY, request)) as ApiResponse<AuthResponse>;
+}
+
+export async function mfaSetup(
+  request: MfaSetupRequest,
+): Promise<ApiResponse<MfaSetupResponse>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.MFA_SETUP, request)) as ApiResponse<MfaSetupResponse>;
+}
+
+export async function mfaResendOtp(): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.MFA_RESENDOTP, {})) as ApiResponse<void>;
+}
+
+export async function mfaEnable(
+  request: MfaEnableRequest,
+): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.MFA_ENABLE, undefined, {
+    params: {
+      code: request.code,
+      mfaType: request.mfaType,
+    },
+  })) as ApiResponse<void>;
+}
+
+export async function changePassword(
+  request: PasswordChangeRequest,
+): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.CHANGE_PASSWORD, request)) as ApiResponse<void>;
+}
+
+export async function setPassword(
+  request: SetPasswordRequest,
+): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.SET_PASSWORD, request)) as ApiResponse<void>;
+}
+
+export async function getPermissions(): Promise<ApiResponse<Record<string, unknown>>> {
+  return (await apiService.get(API_ENDPOINTS.AUTH.PERMISSIONS)) as ApiResponse<Record<string, unknown>>;
+}
+
+export async function uploadProfilePicture(
+  file: File,
+): Promise<ApiResponse<ProfilePictureResponse>> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return (await apiService.post(API_ENDPOINTS.AUTH.PHOTO, formData)) as ApiResponse<ProfilePictureResponse>;
+}
+
+export async function verifyInvite(token: string): Promise<ApiResponse<Record<string, unknown>>> {
+  return (await apiService.get(API_ENDPOINTS.AUTH.VERIFY_INVITE(token))) as ApiResponse<Record<string, unknown>>;
+}
+
+export async function signup(request: SignupRequest): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.SIGNUP, request)) as ApiResponse<void>;
+}
+
+export async function activateInvite(
+  request: ActivateInviteRequest,
+): Promise<ApiResponse<AuthResponse>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.ACTIVATE_INVITE, request)) as ApiResponse<AuthResponse>;
+}
+
+export async function updateProfile(payload: Record<string, unknown>): Promise<ApiResponse<UserProfile>> {
+  return (await apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload)) as ApiResponse<UserProfile>;
+}
+
+export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome> {
+  const response = (await apiService.post(
+    API_ENDPOINTS.AUTH.LOGIN,
+    { mobileNumber }
+  )) as LoginApiResponse;
+  
+  return mapLoginResponseToOutcome(response);
+}
+
+export async function verifyMobileOtp(
+  mobileNumber: string,
+  otp: string
+): Promise<LoginOutcome> {
+  const response = (await apiService.post(
+    API_ENDPOINTS.AUTH.LOGIN,
+    { mobileNumber, mobileOtp: otp }
+  )) as LoginApiResponse;
+  
+  return mapLoginResponseToOutcome(response);
 }

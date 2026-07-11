@@ -795,10 +795,10 @@ export default function HolidayCalendarPage() {
             {(
               [
                 "PUBLIC",
-                "COMPANY",
-                "OPTIONAL",
+                // "COMPANY",
+                // "OPTIONAL",
                 "RESTRICTED",
-                "REGIONAL",
+                // "REGIONAL",
                 "NATIONAL",
                 "FLOATING",
               ] as const

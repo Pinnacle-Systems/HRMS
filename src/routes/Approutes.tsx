@@ -73,6 +73,7 @@ const AttendanceOverview = lazy(() => import("../pages/attendance/attendanceOver
 const AttendanceManagement = lazy(() => import("../pages/attendance/attendanceManagement"));
 const AttendanceProcessing = lazy(() => import("../pages/attendance/attendanceProcessing"));
 const AttendanceRecords = lazy(() => import("../pages/attendance/attendanceRecords"));
+const MfaSetupPage = lazy(() => import("../pages/auth/MfaSetupPage.tsx"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -138,6 +139,7 @@ function AppRoutesContent() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
           <Route path="/mfa" element={<MfaPage />} />
+          <Route path="/mfa-setup" element={<MfaSetupPage />} />
           <Route path="/select-tenant" element={<TenantSelectPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="/" element={<RootRedirect />} />

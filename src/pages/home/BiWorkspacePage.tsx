@@ -1,5 +1,3 @@
-// pages/BiWorkspace/BiWorkspacePage.tsx
-
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Alert,
@@ -10,7 +8,6 @@ import {
   CardHeader,
   Chip,
   CircularProgress,
-  Divider,
   Grid,
   Paper,
   Tab,
@@ -30,27 +27,17 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  alpha,
   useTheme,
   Avatar,
   LinearProgress,
-  Snackbar,
   Fade,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   FormHelperText,
-  Switch,
-  FormControlLabel,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  StepButton,
 } from "@mui/material";
 import {
-  Assessment,
   Dashboard,
   Download,
   PlayArrow,
@@ -61,16 +48,11 @@ import {
   FileDownload as FileDownloadIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   Schema as SchemaIcon,
   CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  Send as SendIcon,
 } from "@mui/icons-material";
 import { dashboardService } from "../../services/modules/dashboard";
 import { useUI } from "../../context/Snackbar";
@@ -218,7 +200,7 @@ export default function BiWorkspacePage() {
 
   // Report Export
   const [reportExportDialogOpen, setReportExportDialogOpen] = useState(false);
-  const [reportExportFormat, setReportExportFormat] = useState<"csv" | "xlsx">("csv");
+  // const [reportExportFormat, setReportExportFormat] = useState<"csv" | "xlsx">("csv");
   const [reportExportJob, setReportExportJob] = useState<BIExportJob | null>(null);
   const [reportExportLoading, setReportExportLoading] = useState(false);
 

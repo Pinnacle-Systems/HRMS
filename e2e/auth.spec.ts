@@ -50,10 +50,13 @@ test.describe("public auth flow", () => {
       const request = route.request();
       const body = request.postDataJSON() as {
         tenantId: string;
-        sessionToken: string;
       };
+      const authorization = request.headers()["authorization"] ?? "";
+
       selectedTenantId = body.tenantId;
-      selectedSessionToken = body.sessionToken;
+      selectedSessionToken = authorization.startsWith("Bearer ")
+        ? authorization.slice("Bearer ".length)
+        : authorization;
 
       await route.fulfill({
         status: 200,

@@ -63,6 +63,8 @@ import { DateTimePicker } from "@mui/x-date-pickers";
 import { useAuth } from "../../../auth/authContext";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { NotificationsActiveOutlined } from "@mui/icons-material";
+import { cleanDataRows, createTransformedCSV, getFileFormat, parseFileContent, readExcelFile, readFileAsText, validateAndTransformData } from "../../../utils/timeStampFormatter";
+import { biometricService, type BiometricDevice } from "../../../services/modules/biometricDevice";
 
 interface RegisterEmployee {
   employeeId: string;
@@ -160,6 +162,7 @@ export function DailyRegister() {
   const [sendingReminders, setSendingReminders] = useState(false);
   const [employeesToRem, setEmployeesToRem] = useState<any[]>([]);
   const [sendVia, setSendVia] = useState(["email"]);
+  const [importSource, setImportSource] = useState("biometric");
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
@@ -186,12 +189,13 @@ export function DailyRegister() {
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importDate, setImportDate] = useState(dayjs().format("YYYY-MM-DD"));
+  // const [importDate, setImportDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     success: number;
     failed: number;
-    errors: string[];
+    errors: string[] | any[];
+    rows: any[]
   } | null>(null);
 
   const [punchImportOpen, setPunchImportOpen] = useState(false);
@@ -199,6 +203,7 @@ export function DailyRegister() {
   const [punchEntries, setPunchEntries] = useState<any[]>([]);
   const [punchImporting, setPunchImporting] = useState(false);
   const [punchImportResult, setPunchImportResult] = useState<any>(null);
+  const [devices, setDevices] = useState<BiometricDevice[]>([]);
 
   const loadTodaySummary = useCallback(async () => {
     try {
@@ -224,6 +229,7 @@ export function DailyRegister() {
     }
   }, [date]);
 
+
   useEffect(() => {
     loadRegister();
   }, [loadRegister]);
@@ -237,8 +243,9 @@ export function DailyRegister() {
     Promise.all([
       departmentService.getActiveDepartments(),
       branchService.getActiveBranches(),
+      biometricService.getAllDevices(),
     ])
-      .then(([depRes, branRes]: any[]) => {
+      .then(([depRes, branRes, devRes]: any[]) => {
         setDepartments(
           Array.isArray(depRes.data?.content || depRes.data)
             ? depRes.data?.content || depRes.data
@@ -247,6 +254,11 @@ export function DailyRegister() {
         setBranches(
           Array.isArray(branRes.data?.content || branRes.data)
             ? branRes.data?.content || branRes.data
+            : [],
+        );
+        setDevices(
+          Array.isArray(devRes.data?.content || devRes.data || devRes)
+            ? devRes.data?.content || devRes.data || devRes
             : [],
         );
       })
@@ -474,7 +486,6 @@ export function DailyRegister() {
     setSendVia(value);
   };
 
-  // ── Import Handlers ──────────────────────────────────────────────────────
   async function handleImportFile() {
     if (!importFile) {
       showSnackbar("Please select a file to import", "warning");
@@ -486,31 +497,144 @@ export function DailyRegister() {
     showSpinner();
 
     try {
-      const res: any = await attendanceService.importAttendanceFile(
-        { format: "", source: "" },
-        importFile,
-      );
-      const data = res?.data?.data ?? res?.data;
-      setImportResult({
-        success: data?.success || 0,
-        failed: data?.failed || 0,
-        errors: data?.errors || [],
+      let rawData: any[] = [];
+      const fileFormat = getFileFormat(importFile.name);
+      const fileExtension = importFile.name.split('.').pop()?.toLowerCase() || '';
+
+      console.log('File detected:', {
+        name: importFile.name,
+        type: importFile.type,
+        size: importFile.size,
+        format: fileFormat,
+        extension: fileExtension
       });
-      showSnackbar(
-        `Imported ${data?.success || 0} records successfully`,
-        data?.failed > 0 ? "warning" : "success",
-      );
+
+      // Read file based on extension
+      if (fileExtension === 'csv' || fileExtension === 'txt') {
+        const fileContent = await readFileAsText(importFile);
+        console.log('File content:', fileContent);
+
+        // Parse the content
+        rawData = parseFileContent(fileContent);
+      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        const excelData = await readExcelFile(importFile);
+        rawData = excelData;
+      } else {
+        throw new Error(`Unsupported file format: ${importFile.name}. Please use CSV, TXT, or Excel files (.xlsx, .xls).`);
+      }
+
+      if (!rawData || rawData.length === 0) {
+        showSnackbar("No data found in the file. Please check the file format.", "warning");
+        setImportResult({
+          success: 0,
+          failed: 0,
+          errors: ["No data found in the file"],
+          rows: []
+        });
+        setImporting(false);
+        hideSpinner();
+        return;
+      }
+
+      console.log('Parsed data (first 3 rows):', rawData.slice(0, 3));
+
+      // Clean data (remove headers if present)
+      let cleanedData = cleanDataRows(rawData);
+      console.log('Cleaned data (first 3 rows):', cleanedData.slice(0, 3));
+
+      // Validate and transform data
+      const validationResult = validateAndTransformData(cleanedData);
+
+      if (validationResult.validData.length === 0) {
+        const errorMessage = validationResult.errors.length > 0
+          ? `No valid data found. ${validationResult.errors.length} errors: ${validationResult.errors.slice(0, 3).join(', ')}${validationResult.errors.length > 3 ? '...' : ''}`
+          : "No valid data found in the file";
+        showSnackbar(errorMessage, "warning");
+
+        setImportResult({
+          success: 0,
+          failed: validationResult.errors.length,
+          errors: validationResult.errors,
+          rows: []
+        });
+
+        setImporting(false);
+        hideSpinner();
+        return;
+      }
+
+      // Create transformed file
+      const transformedFile = createTransformedCSV(validationResult.validData, importFile.name);
+
+      // Prepare params
+      const params = {
+        format: 'csv',
+        source: importSource
+      };
+
+      // Upload the transformed file
+      const res: any = await attendanceService.importAttendanceFile(params, transformedFile);
+
+      const data = res?.data?.data ?? res?.data;
+
+      // Handle response
+      if (data) {
+        const errorCount = data.errors || 0;
+        const totalPunches = data.totalPunches || 0;
+        const successCount = totalPunches - errorCount;
+
+        let errorMessages: string[] = [];
+        if (data.rows && Array.isArray(data.rows)) {
+          errorMessages = data.rows
+            .filter((row: any) => row.message && row.message !== 'imported')
+            .map((row: any) => {
+              if (row.employeeCode && row.message) {
+                return `${row.employeeCode}: ${row.message}`;
+              }
+              return row.message || 'Unknown error';
+            });
+        }
+
+        if (errorCount > 0) {
+          showSnackbar(
+            `Imported with ${errorCount} error(s). ${successCount} successful.`,
+            "warning"
+          );
+        } else {
+          showSnackbar(
+            `Successfully imported ${totalPunches} attendance records`,
+            "success"
+          );
+        }
+
+        setImportResult({
+          success: successCount,
+          failed: errorCount,
+          errors: errorMessages,
+          rows: data.rows || []
+        });
+      }
+
       loadRegister();
+      loadTodaySummary();
     } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to import attendance",
-        "error",
-      );
+      console.error('Import error:', err);
+
+      const errorMessage = err?.message || err?.response?.data?.message || "Failed to import attendance";
+      showSnackbar(errorMessage, "error");
+
+      setImportResult({
+        success: 0,
+        failed: 0,
+        errors: [errorMessage],
+        rows: []
+      });
     } finally {
       setImporting(false);
       hideSpinner();
     }
   }
+
 
   // ── Punch Import Handlers ────────────────────────────────────────────────
   function addPunchEntry() {
@@ -649,7 +773,7 @@ export function DailyRegister() {
     ]
     : [];
 
-  const handleEmployee = async (employee:any) => {
+  const handleEmployee = async (employee: any) => {
     if (!employee) return;
     if (employeesToRem.find(e => e.employeeId === employee.id)) {
       showSnackbar("Employee already added", "warning");
@@ -664,16 +788,16 @@ export function DailyRegister() {
   }
 
   // When opening the reminder dialog, pre-populate with selected employees
-const handleOpenReminderDialog = () => {
-  if (selected.size > 0) {
-    // Get selected employees from the employees list
-    const selectedEmployees = employees.filter(emp => selected.has(emp.employeeId));
-    setEmployeesToRem(selectedEmployees);
-  } else {
-    setEmployeesToRem([]);
-  }
-  setReminderDialogOpen(true);
-};
+  const handleOpenReminderDialog = () => {
+    if (selected.size > 0) {
+      // Get selected employees from the employees list
+      const selectedEmployees = employees.filter(emp => selected.has(emp.employeeId));
+      setEmployeesToRem(selectedEmployees);
+    } else {
+      setEmployeesToRem([]);
+    }
+    setReminderDialogOpen(true);
+  };
 
   return (
     <div className="p-4 space-y-3">
@@ -703,14 +827,14 @@ const handleOpenReminderDialog = () => {
             Import Punches
           </Button>
           <Button
-  size="small"
-  variant="contained"
-  className="!bg-primary"
-  startIcon={<NotificationsActiveOutlined className="!w-4" />}
-  onClick={handleOpenReminderDialog}
->
-  Send Reminders {selected.size > 0 && `(${selected.size})`}
-</Button>
+            size="small"
+            variant="contained"
+            className="!bg-primary"
+            startIcon={<NotificationsActiveOutlined className="!w-4" />}
+            onClick={handleOpenReminderDialog}
+          >
+            Send Reminders {selected.size > 0 && `(${selected.size})`}
+          </Button>
         </div>
       </div>
 
@@ -840,7 +964,7 @@ const handleOpenReminderDialog = () => {
         <Alert
           severity="info"
           icon={<WbSunnyOutlined className="!w-4" />}
-          // sx={{ py: 0.5 }}
+        // sx={{ py: 0.5 }}
         >
           <span className="text-[12px] font-bold mr-2">
             Holiday: {todayHoliday?.name}
@@ -903,10 +1027,10 @@ const handleOpenReminderDialog = () => {
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <TableContainer
           className={`${todayHoliday && selected.size > 0
-              ? "max-h-[calc(100vh-565px)]"
-              : selected.size > 0 || todayHoliday
-                ? "max-h-[calc(100vh-520px)]"
-                : "max-h-[calc(100vh-440px)]"
+            ? "max-h-[calc(100vh-565px)]"
+            : selected.size > 0 || todayHoliday
+              ? "max-h-[calc(100vh-520px)]"
+              : "max-h-[calc(100vh-440px)]"
             }`}
         >
           <Table size="small" stickyHeader>
@@ -1584,86 +1708,177 @@ const handleOpenReminderDialog = () => {
       {/* Import from File Dialog */}
       <Dialog
         open={importDialogOpen}
-        onClose={() => setImportDialogOpen(false)}
+        onClose={() => {
+          setImportDialogOpen(false);
+          setImportFile(null);
+          setImportResult(null);
+        }}
         maxWidth="sm"
         fullWidth
       >
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
           <span className="!pl-4 flex items-center gap-2">
             <CloudUploadOutlined className="text-primary" />
-            Import Attendance
+            Import Attendance from File
           </span>
-          <IconButton size="small" onClick={() => setImportDialogOpen(false)}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setImportDialogOpen(false);
+              setImportFile(null);
+              setImportResult(null);
+            }}
+          >
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
+
         <DialogContent className="!p-6">
           <div className="space-y-4">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
-              <DatePicker
-                label="Import Date"
-                value={importDate ? dayjs(importDate) : null}
-                onChange={(newValue) =>
-                  setImportDate(
-                    newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
-                  )
-                }
-                slotProps={{ textField: { fullWidth: true, size: "small" } }}
-              />
-            </LocalizationProvider>
+            <FormControl fullWidth size="small">
+              <InputLabel>Source</InputLabel>
+              <Select
+                value={importSource}
+                label="Source"
+                onChange={(e) => setImportSource(e.target.value)}
+              >
+                <MenuItem value="biometric">Biometric</MenuItem>
+                <MenuItem value="device">Device</MenuItem>
+                <MenuItem value="manual">Manual</MenuItem>
+                <MenuItem value="mobile">Mobile</MenuItem>
+                <MenuItem value="web">Web</MenuItem>
+              </Select>
+            </FormControl>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
               <input
                 type="file"
                 id="import-file"
-                accept=".xlsx,.xls,.csv"
+                accept=".csv,.txt,.xlsx,.xls"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) setImportFile(file);
+                  if (file) {
+                    setImportFile(file);
+                    setImportResult(null);
+                  }
                 }}
                 className="hidden"
               />
               <label htmlFor="import-file" className="cursor-pointer block">
                 <InsertDriveFileOutlined className="text-gray-400" fontSize="large" />
                 <div className="text-sm text-gray-600 mt-2">
-                  {importFile ? importFile.name : "Click to select file (Excel/CSV)"}
+                  {importFile ? importFile.name : "Click to select file or drag and drop"}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
-                  Supported formats: .xlsx, .xls, .csv
+                  Supported formats: .xlsx, .xls, .csv, .txt
+                  <br />
+                  <span className="text-gray-500">
+                    For .txt files: Use comma (,) or tab as delimiter
+                  </span>
                 </div>
+                {importFile && (
+                  <div className="mt-2 space-y-1">
+                    <div className="text-xs text-green-600">
+                      ✓ {importFile.name} ({(importFile.size / 1024).toFixed(2)} KB)
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Detected format: {getFileFormat(importFile.name) || 'Unknown'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      MIME type: {importFile.type || 'Unknown'}
+                    </div>
+                  </div>
+                )}
               </label>
             </div>
 
-            {importResult && (
-              <div className="space-y-2">
-                <Alert severity={importResult.failed > 0 ? "warning" : "success"}>
-                  <span className="text-sm">
-                    Success: {importResult.success} | Failed: {importResult.failed}
-                  </span>
-                </Alert>
-                {importResult.errors.length > 0 && (
-                  <div className="max-h-[100px] overflow-y-auto">
-                    {importResult.errors.map((err, i) => (
-                      <div key={i} className="text-xs text-red-500 py-0.5">
-                        {err}
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              <div className="text-xs">
+                <strong>Expected file format:</strong>
+                <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                  <li>CSV/Excel with columns: Employee Code, Timestamp</li>
+                  <li>Timestamp format: YYYY-MM-DD HH:mm or YYYY-MM-DDTHH:mm</li>
+                  <li>Optional: Device ID, Remarks columns</li>
+                </ul>
+                <Button
+                  variant="text"
+                  size="small"
+                  className="!text-primary !p-0 !mt-2"
+                // onClick={downloadSampleTemplate}
+                >
+                  Download Sample Template
+                </Button>
+              </div>
+            </Alert>
+
+            {/* Validation errors */}
+            {importResult && importResult.errors && importResult.errors.length > 0 && (
+              <div className="border border-red-200 rounded-lg p-3 bg-red-50">
+                <div className="text-sm font-medium text-red-700 mb-2">
+                  {importResult.errors.some((e: any) => typeof e === 'string' && e.includes('Validation'))
+                    ? 'Validation Errors'
+                    : 'Import Errors'} ({importResult.errors.length})
+                </div>
+                <div className="max-h-[150px] overflow-y-auto">
+                  {importResult.errors.map((err: any, i: number) => {
+                    // Handle both string and object errors
+                    let errorText = '';
+                    if (typeof err === 'string') {
+                      errorText = err;
+                    } else if (err && typeof err === 'object') {
+                      // If it's an object with message property
+                      errorText = err.message || err.employeeCode ? `${err.employeeCode}: ${err.message}` : JSON.stringify(err);
+                    } else {
+                      errorText = String(err);
+                    }
+                    return (
+                      <div key={i} className="text-xs text-red-600 py-0.5 border-b border-red-100 last:border-0">
+                        {errorText}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
               </div>
             )}
+
+            {/* Import Results from API */}
+            {importResult && importResult.rows && importResult.rows.length > 0 &&
+              !importResult.errors.some((e: any) => typeof e === 'string' && e.includes('No valid data')) && (
+                <div className="border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">
+                      Import Results
+                    </span>
+                    <span className={`text-sm font-bold ${importResult.failed > 0 ? 'text-orange-500' : 'text-green-500'}`}>
+                      {importResult.success} successful, {importResult.failed} failed
+                    </span>
+                  </div>
+                  {/* Show success rows count */}
+                  {importResult.rows.filter((row: any) => row.message === 'imported').length > 0 && (
+                    <div className="text-xs text-green-600">
+                      ✓ {importResult.rows.filter((row: any) => row.message === 'imported').length} records imported successfully
+                    </div>
+                  )}
+                </div>
+              )}
+
 
             {importing && <LinearProgress />}
           </div>
         </DialogContent>
+
         <DialogActions className="!p-4 !border-t !border-gray-200">
           <Button
             variant="outlined"
             className="!border-gray-200 !text-gray-800"
-            onClick={() => setImportDialogOpen(false)}
+            onClick={() => {
+              setImportDialogOpen(false);
+              setImportFile(null);
+              setImportResult(null);
+            }}
             disabled={importing}
           >
-            Close
+            Cancel
           </Button>
           <Button
             variant="contained"
@@ -1676,6 +1891,7 @@ const handleOpenReminderDialog = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
 
       {/* Batch Punch Import Dialog */}
       <Dialog
@@ -1790,7 +2006,7 @@ const handleOpenReminderDialog = () => {
                     </div>
 
                     <div className="col-span-2">
-                      <TextField
+                      {/* <TextField
                         size="small"
                         placeholder="Device ID"
                         value={entry.deviceId}
@@ -1798,7 +2014,22 @@ const handleOpenReminderDialog = () => {
                           updatePunchEntry(index, "deviceId", e.target.value)
                         }
                         fullWidth
-                      />
+                      /> */}
+                      <FormControl >
+                        <Select
+                          value={entry.deviceId || ''}
+                          onChange={(e) => updatePunchEntry(index, "deviceId", e.target.value)}
+                          displayEmpty
+                          sx={selectSx}
+                        >
+                          {
+                            devices.map((d) => (
+                              <MenuItem key={d.id} value={d.id}>{d.deviceName}</MenuItem>
+                            ))
+                          }
+                        </Select>
+                      </FormControl>
+
                     </div>
 
                     <div className="col-span-1 flex justify-center">

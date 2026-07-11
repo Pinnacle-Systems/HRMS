@@ -111,6 +111,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  const sendMobileOtp = useCallback(
+  async (mobileNumber: string): Promise<LoginOutcome> => {
+    logger.info("Sending mobile OTP", { mobileNumber });
+    return authApi.sendMobileOtp(mobileNumber);
+  },
+  []
+);
+
+const verifyMobileOtp = useCallback(
+  async (mobileNumber: string, otp: string): Promise<LoginOutcome> => {
+    logger.info("Verifying mobile OTP", { mobileNumber });
+    const outcome = await authApi.verifyMobileOtp(mobileNumber, otp);
+    
+    if (outcome.type === "authenticated") {
+      setSession(outcome.session);
+      apiService.setAuthToken(outcome.session.accessToken);
+    }
+    
+    return outcome;
+  },
+  []
+);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -120,6 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       selectTenant,
       logout,
       refreshSession,
+      sendMobileOtp,
+      verifyMobileOtp
     }),
     [isLoading, login, logout, refreshSession, selectTenant, session],
   );

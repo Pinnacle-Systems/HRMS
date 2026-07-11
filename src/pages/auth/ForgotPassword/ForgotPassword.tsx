@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useUI } from "../../../context/Snackbar";
-import { forgotPassword } from "../../../auth/authApi";
+import { authService } from "../../../services/modules/auth";
 import forgot from '../../../assets/forgot.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
 
@@ -16,10 +16,9 @@ function ForgotPassword() {
     setSubmitted(true);
     showSpinner();
     try {
-      const response = await forgotPassword(email);
+      const response = await authService.forgotPassword(email);
       if (response.success) {
-        // navigate("/home");
-        // showSnackbar(response.message, "success");
+        showSnackbar(response.message || "If that login ID exists, a reset email has been sent.", "success");
       }
     } catch (err: unknown) {
       showSnackbar(err instanceof Error ? err.message : 'An error occurred', "error");

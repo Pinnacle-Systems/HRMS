@@ -5,10 +5,10 @@ export type HolidayTypeMeta = LeaveStatusMeta;
 export const holidayTypeMeta: Record<string, HolidayTypeMeta> = {
   PUBLIC: { label: "Public Holiday", tone: "success" },
   NATIONAL: { label: "National Holiday", tone: "secondary" },
-  COMPANY: { label: "Company Holiday", tone: "info" },
-  OPTIONAL: { label: "Optional Holiday", tone: "default" },
+  // COMPANY: { label: "Company Holiday", tone: "info" },
+  // OPTIONAL: { label: "Optional Holiday", tone: "default" },
   RESTRICTED: { label: "Restricted Holiday", tone: "error" },
-  REGIONAL: { label: "Regional Holiday", tone: "warning" },
+  // REGIONAL: { label: "Regional Holiday", tone: "warning" },
   FLOATING: { label: "Float Holiday", tone: "primary" },
 };
 

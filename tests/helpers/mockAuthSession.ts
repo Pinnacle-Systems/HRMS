@@ -40,6 +40,14 @@ export function createAuthContextValue(
     }),
     logout: async () => undefined,
     refreshSession: async () => session,
+    sendMobileOtp: async (_mobileNumber: string) => ({
+      type: "authenticated",
+      session: session ?? createMockAuthSession(),
+    }),
+    verifyMobileOtp: async (_mobileNumber: string, _otp: string) => ({
+      type: "authenticated",
+      session: session ?? createMockAuthSession(),
+    }),
   };
 }
 

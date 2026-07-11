@@ -1,6 +1,16 @@
 import * as authApi from "../../auth/authApi";
 import { loadSession } from "../../auth/authSession";
-import type { LoginRequest } from "../../auth/authTypes";
+import type {
+  ActivateInviteRequest,
+  LoginRequest,
+  MfaEnableRequest,
+  MfaSetupRequest,
+  MfaVerifyRequest,
+  PasswordChangeRequest,
+  SetPasswordRequest,
+  SignupRequest,
+  VerifyOtpRequest,
+} from "../../auth/authTypes";
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
@@ -23,8 +33,8 @@ class AuthService {
     return authApi.refreshSession();
   }
 
-  async resetPassword(payload: Record<string, unknown>) {
-    return await apiService.post(API_ENDPOINTS.AUTH.SET_PASSWORD, payload);
+  async resetPassword(payload: SetPasswordRequest) {
+    return authApi.setPassword(payload);
   }
 
   getCurrentUser() {
@@ -43,19 +53,52 @@ class AuthService {
     return apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload);
   }
 
-  
   async uploadProfilePicture(file: File) {
-    const formData = new FormData();
-    formData.append("file", file);
-    return apiService.post(API_ENDPOINTS.AUTH.PHOTO, formData);
+    return authApi.uploadProfilePicture(file);
   }
 
-  async changePassword(payload: Record<string, unknown>) {
-    const response = await apiService.post(
-      API_ENDPOINTS.AUTH.CHANGE_PASSWORD,
-      payload,
-    );
-    return response;
+  async changePassword(payload: PasswordChangeRequest) {
+    return authApi.changePassword(payload);
+  }
+
+  async forgotPassword(loginId: string) {
+    return authApi.forgotPassword(loginId);
+  }
+
+  async verifyOtp(payload: VerifyOtpRequest) {
+    return authApi.verifyOtp(payload);
+  }
+
+  async mfaVerify(payload: MfaVerifyRequest) {
+    return authApi.mfaVerify(payload);
+  }
+
+  async mfaSetup(payload: MfaSetupRequest) {
+    return authApi.mfaSetup(payload);
+  }
+
+  async resendMfaOtp() {
+    return authApi.mfaResendOtp();
+  }
+
+  async enableMfa(payload: MfaEnableRequest) {
+    return authApi.mfaEnable(payload);
+  }
+
+  async getPermissions() {
+    return authApi.getPermissions();
+  }
+
+  async verifyInvite(token: string) {
+    return authApi.verifyInvite(token);
+  }
+
+  async signup(payload: SignupRequest) {
+    return authApi.signup(payload);
+  }
+
+  async activateInvite(payload: ActivateInviteRequest) {
+    return authApi.activateInvite(payload);
   }
 
   async getLoginHistory(params?: LoginHistoryParams) {
