@@ -48,7 +48,8 @@ export type LeaveRequestResponse = {
   employeeId?: string;
   employeeCode?: string;
   employeeName?: string;
-  department?: string;
+  departmentName?: string;
+  branchName?: string;
   location?: string;
   leaveTypeId?: string;
   leaveTypeCode?: string;
@@ -73,6 +74,9 @@ export type LeaveRequestResponse = {
   updatedAt?: string;
   dates?: LeaveRequestDateResponse[];
   approvals?: LeaveRequestApprovalResponse[];
+  hrVerifiedBy:string;
+  hrVerifiedAt: string;
+  hrVerified: boolean;
 };
 
 export type LeaveTypeResponse = {
@@ -325,7 +329,8 @@ export function mapLeaveRequestResponseToViewModel(
     employeeId: asString(dto.employeeId),
     employeeCode: asString(dto.employeeCode),
     employeeName: asString(dto.employeeName),
-    department: asString(dto.department),
+    departmentName: asString(dto.departmentName),
+    branchName: asString(dto.branchName),
     location: asString(dto.location),
     managerId: asString(dto.currentApproverId),
     managerName: asString(dto.currentApproverName),
@@ -351,7 +356,10 @@ export function mapLeaveRequestResponseToViewModel(
     approvals,
     approverRemarks: firstRemark?.actionComments ?? firstRemark?.remarks,
     currentStatus: dto.currentStatus as LeaveRequestStatus,
-    payrollTreatment: dto.payrollTreatment
+    payrollTreatment: dto.payrollTreatment,
+    hrVerified: dto.hrVerified,
+    hrVerifiedAt: dto.hrVerifiedAt,
+    hrVerifiedBy: dto.hrVerifiedBy
   };
 }
 

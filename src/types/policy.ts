@@ -64,12 +64,13 @@ export type VersionStatus = (typeof VersionStatus)[keyof typeof VersionStatus];
 
 export const PolicyScopeLevel = {
   SYSTEM_DEFAULT: 10,
-  INDUSTRY_TEMPLATE: 20,
-  COMPANY: 30,
-  BRANCH: 40,
-  DEPARTMENT: 50,
-  DESIGNATION: 60,
-  EMPLOYEE_GROUP: 70,
+  // INDUSTRY_TEMPLATE: 20,
+  COMPANY: 20,
+  BRANCH: 30,
+  DEPARTMENT: 40,
+  DESIGNATION: 50,
+  // EMPLOYEE_GROUP: 70,
+  EMPLOYEE_TEMPLATE: 70,
   EMPLOYEE: 80,
 } as const;
 
@@ -376,6 +377,7 @@ export interface PolicyConfig {
 
   // Loan & Advance domain
   loanAdvanceRules?: {
+    // --- SECTION 1: SANCTIONING ---
     loanTypes?: Array<{
       type:
         | "SALARY_ADVANCE"
@@ -395,12 +397,49 @@ export interface PolicyConfig {
       preClosureAllowed: boolean;
       maxActiveLoans: number;
     }>;
-    requiresManagerApproval?: boolean;
-    requiresHRApproval?: boolean;
-    requiresFinanceApproval?: boolean;
-    deductionFromSalary?: boolean;
-  };
-
+    approvalMatrix: {
+      requiresManagerApproval?: boolean;
+      requiresHRApproval?: boolean;
+      requiresFinanceApproval?: boolean;
+      deductionFromSalary?: boolean;
+    };
+    // --- SECTION 2: REPAYMENT RECOVERY (NEW - Handles EMI Skips) ---
+    repaymentRecoveryRules: {
+      emiSkipRequest: {
+        allowed: boolean;
+        maxSkipsPerYear: number;
+        skipReasons: [
+         | "MEDICAL_EMERGENCY",
+         | "SALARY_CREDIT_DELAY",
+         | "FAMILY_EVENT",
+        ];
+        // CRITICAL: Configurable recovery method for the skipped month
+        recoveryMethod: "TENOR_EXTENSION" | "CATCH_UP";
+        // Options: "CATCH_UP" (double deduction next month) OR "TENOR_EXTENSION" (add 1 month to tenure)
+        requiresApproval: boolean;
+      };
+      earlyClosure: {
+        allowed: boolean;
+        processingFeePercentage: number; // 2% if you charge a fee
+      };
+    };
+     // --- SECTION 3: OVERLAPPING LOAN & PENDING ARREARS (NEW - Handles multiple loans) ---
+    overlappingLoanPolicy: {
+      allowConcurrentLoans: boolean, // If false, blocks new loan until old one finishes
+      maxTotalDeductionPercentage: number, // Combined EMIs cannot exceed 50% of salary      
+      // CRITICAL: What to do with an old loan's pending balance when giving a new loan?
+      pendingArrearHandling: "REJECT" | "CONSOLIDATE" | "PARALLEL_WITH_ADJUSTED_TENURE" | "MANUAL_OVERRIDE", 
+      /* 
+        Options:
+        - "REJECT": Do not allow a new loan if any pending months exist.
+        - "CONSOLIDATE": Add the pending amount of Old Loan into New Loan's principal (Carry Forward).
+        - "PARALLEL_WITH_ADJUSTED_TENURE": Keep old loan running, but reduce the tenure of the NEW loan 
+           so its EMI fits within the maxTotalDeductionPercentage.
+        - "MANUAL_OVERRIDE": System flags a warning, but HR can manually approve.
+      */
+      maxActiveLoansCombined: number // Hard limit on total number of concurrent loans
+    }
+  }
   [key: string]: any;
 }
 
@@ -740,6 +779,10 @@ export interface EntitlementConfig {
   genderRestricted?: "MALE" | "FEMALE" | null;
   encashable?: boolean;
   clubbingRestrictions?: string[];
+
+  enableProRata?: boolean;
+  carryForwardUnused?: boolean;
+  maxAccrual?: number;
 }
 
 export interface AccrualRule {
@@ -766,12 +809,13 @@ export interface PolicyAssignment {
   id: string;
   policyVersionId: string;
   companyId?: string;
+  companyName: "string",
   branchId?: string;
   departmentId?: string;
   designationId?: string;
   employeeGradeId?: string;
   employmentType?: EmploymentType;
-  employeeCategory?: EmployeeCategory;
+  employeeCategory?: string;
   employeeGroupId?: string;
   employeeId?: string;
   priority: number;

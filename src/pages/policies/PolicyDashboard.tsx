@@ -192,7 +192,7 @@ export default function PolicyDashboard() {
   const handleDelete = async () => {
     if (!selectedPolicy) return;
 
-    if (selectedPolicy.status !== PolicyStatus.ARCHIVED) {
+    if (selectedPolicy.status === PolicyStatus.ACTIVE) {
       showSnackbar(
         "Policy must be archived before it can be deleted. Go to the policy's Version History and archive the active version first.",
         "error"
@@ -466,8 +466,8 @@ export default function PolicyDashboard() {
         </MenuItem>
         <MenuItem
           onClick={handleDelete}
-          disabled={selectedPolicy?.status !== PolicyStatus.ARCHIVED}
-          title={selectedPolicy?.status !== PolicyStatus.ARCHIVED ? 'Archive the policy version first to enable deletion' : ''}
+          // disabled={selectedPolicy?.status !== PolicyStatus.ARCHIVED}
+          // title={selectedPolicy?.status !== PolicyStatus.ARCHIVED ? 'Archive the policy version first to enable deletion' : ''}
         >
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} className='text-red-500' /> Delete
         </MenuItem>

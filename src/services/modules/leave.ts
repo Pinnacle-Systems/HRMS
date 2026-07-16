@@ -828,6 +828,10 @@ class LeaveService {
     return apiService.patch(API_ENDPOINTS.LEAVE.PATCH_DRAFT(id), payload);
   }
 
+  async submitLeave(id: string) {
+    return apiService.post(API_ENDPOINTS.LEAVE.SUBMIT(id));
+  }
+
   // async getMyLeaves(params?: LeaveListParams) {
   //   return this.getLeaves({ ...params });
   // }
@@ -1017,13 +1021,28 @@ class LeaveService {
     // );
   }
 
-  async sendToHrVerification(
+  async hrVerified(
     id: string,
     payload?: HrVerificationPayload,
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     // if (!USE_MOCK_LEAVE_SERVICE) {
     const response = (await apiService.post(
       API_ENDPOINTS.LEAVE.HR_VERIFY(id),
+      payload ?? {},
+    )) as ApiEnvelope<LeaveRequestResponse>;
+    return apiMappedResponse(
+      response,
+      mapLeaveRequestResponseToViewModel,
+      "HR verification Done",
+    );
+  }
+
+  async sendToHrVerification(
+    id: string,
+    payload?: LeaveActionPayload,
+  ): Promise<LeaveApiResponse<LeaveRequest>> {
+    const response = (await apiService.post(
+      API_ENDPOINTS.LEAVE.SENDTO_HR_VERIFY(id),
       payload ?? {},
     )) as ApiEnvelope<LeaveRequestResponse>;
     return apiMappedResponse(
@@ -1629,20 +1648,17 @@ class LeaveService {
     // );
   }
 
-  async selectOptionalHoliday(_holidayId: string) {
-    if (!USE_MOCK_LEAVE_SERVICE) {
-      throw new Error("selectOptionalHoliday: real API not implemented");
-    }
+  async selectOptionalHoliday(eId: any, payload: any) {
+    return apiService.put(API_ENDPOINTS.HOLIDAY.OPT_HOLIDAYS_BY_EMP(eId),payload)
+  } 
 
-    // const holiday = mockHolidayCalendars
-    //   .flatMap((calendar) => calendar.holidays)
-    //   .find((item) => item.id === holidayId);
+  async getOptionalHolidayByEmpId(eId: string) {
+    return apiService.get(API_ENDPOINTS.HOLIDAY.OPT_HOLIDAYS_BY_EMP(eId))
+  } 
 
-    // return mockResponse(
-    //   { holidayId, selected: true },
-    //   holiday ? `${holiday.name} selected` : "Optional holiday selected",
-    // );
-  }
+  async getOptionalHoliday() {
+    return apiService.get(API_ENDPOINTS.HOLIDAY.OPTIONAL)
+  } 
 
   async createHoliday(payload: Partial<Holiday>) {
     if (!USE_MOCK_LEAVE_SERVICE) {
@@ -2446,6 +2462,16 @@ class LeaveService {
       { responseType: "blob" },
     );
     return response;
+  }
+
+  async getEmpLeaveAudit(id: string, params?: LeaveListParams) {
+    return await apiService.get(API_ENDPOINTS.EMPLOYEE.LEAVE_AUDIT(id), {
+      params,
+    });
+  }
+
+  async getLeaveAudit(id: string, params?: LeaveListParams) {
+    return await apiService.get(API_ENDPOINTS.LEAVE.GET_AUDIT(id), { params });
   }
 }
 

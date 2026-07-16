@@ -68,6 +68,7 @@ import {
 import { CalendarIcon, ClockIcon } from "@mui/x-date-pickers";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { formatDateTime } from "../../../utils/dateFormatter";
+import { normalizeLeaveAuditEntries } from "../../../utils/leaveAudit";
 
 type ActionKind = "approve" | "reject" | "clarify" | "hrVerify";
 type ActionDialogState = {
@@ -110,6 +111,8 @@ export default function ManagerLeaveApprovalsPage() {
   const [actionRequest, setActionRequest] = useState<LeaveRequest | null>(null);
   const isAdmin = session?.user.roles.includes("ADMIN");
   const [manager, setManager] = useState<any>(null);
+
+  const [auditEntries, setAuditEntries] = useState<any[]>([]);
 
   // const getDepartments = async () => {
   //   try {
@@ -199,6 +202,7 @@ export default function ManagerLeaveApprovalsPage() {
   };
 
   const openDetail = async (request: LeaveRequest) => {
+    setAuditEntries([]);
     try {
       const attachmentResponse: any = await leaveService.getLeaveAttachments(
         request.id,
@@ -212,7 +216,7 @@ export default function ManagerLeaveApprovalsPage() {
     setTeamOverlap(getTeamOverlap(request, allManagerRequests));
 
     try {
-      const [balanceResponse, calculationResponse]: any = await Promise.all([
+      const [balanceResponse, calculationResponse, auditResponse]: any = await Promise.all([
         leaveService.getEmployeeLeaveBalances(request.employeeId),
         leaveService.calculateLeaveDays({
           employeeId: request.employeeId,
@@ -221,16 +225,19 @@ export default function ManagerLeaveApprovalsPage() {
           toDate: request.toDate,
           // dayType: request.dayType,
         }),
+        // session?.user.roles == "ADMIN" ?  leaveService.getLeaveAudit(request.id),
       ]);
       setDetailBalance(
         balanceResponse.data?.content.find(
           (balance: any) => balance.leaveTypeId === request.leaveTypeId,
         ) ?? null,
       );
+      setAuditEntries(normalizeLeaveAuditEntries(auditResponse));
       setDetailCalculation(calculationResponse.data ?? null);
     } catch {
       setDetailBalance(null);
       setDetailCalculation(null);
+      setAuditEntries([]);
     }
   };
 
@@ -254,7 +261,7 @@ export default function ManagerLeaveApprovalsPage() {
 
   const submitAction = async () => {
     if (!actionDialog) return;
-
+    
     const comments = actionComments.trim();
     if (
       actionDialog.kind !== "approve" &&
@@ -272,7 +279,7 @@ export default function ManagerLeaveApprovalsPage() {
     showSpinner();
     try {
       const payload: any = {
-        comments: comments || "Approved by manager",
+        comments: comments || "Send by manager",
         lopLeaveTypeId: actionDialog.request.leaveTypeId,
       };
       // const response =
@@ -303,10 +310,7 @@ export default function ManagerLeaveApprovalsPage() {
       } else if (actionDialog.kind === "hrVerify") {
         response = await leaveService.sendToHrVerification(
           actionDialog.request.id,
-          {
-            verified: true,
-            comments: comments || "Sent for HR verification",
-          },
+          payload
         );
       }
 
@@ -449,7 +453,7 @@ export default function ManagerLeaveApprovalsPage() {
                 renderValue: (value: unknown) =>
                   value
                     ? leaveTypes.find((leaveType) => leaveType.id === value)
-                        ?.name
+                      ?.name
                     : "All Leave Types",
               },
             }}
@@ -498,7 +502,7 @@ export default function ManagerLeaveApprovalsPage() {
                 Employee
               </TableCell>
               <TableCell className={leaveTableHeaderCellClassName}>
-                Department
+                Branch
               </TableCell>
               <TableCell className={leaveTableHeaderCellClassName}>
                 Leave Type
@@ -531,13 +535,12 @@ export default function ManagerLeaveApprovalsPage() {
                   <TableCell>
                     <div className="font-medium">{request.employeeName}</div>
                     <div
-                      className="text-[12px]"
-                      style={{ color: "var(--text-secondary)" }}
+                      className="text-[10px] text-blue-500"
                     >
-                      {request.department}
+                      {request.departmentName}
                     </div>
                   </TableCell>
-                  <TableCell>{request.department}</TableCell>
+                  <TableCell>{request.branchName}</TableCell>
                   <TableCell>{request.leaveTypeName}</TableCell>
                   <TableCell>{formatDate(request.fromDate)}</TableCell>
                   <TableCell>{formatDate(request.toDate)}</TableCell>
@@ -586,7 +589,7 @@ export default function ManagerLeaveApprovalsPage() {
             )} */}
             {!loading && requests.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9}>
+                <TableCell colSpan={10}>
                   <DataState
                     compact
                     type="empty"
@@ -811,53 +814,50 @@ export default function ManagerLeaveApprovalsPage() {
             {(detailCalculation?.insufficientBalance ||
               (detailCalculation?.warnings &&
                 detailCalculation?.warnings?.length > 0)) && (
-              <div
-                className={`p-3 rounded-lg border-l-4 ${
-                  detailCalculation?.insufficientBalance
-                    ? "bg-amber-50 border-amber-500"
-                    : "bg-blue-50 border-blue-500"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {detailCalculation?.insufficientBalance ? (
-                    <span className="text-amber-500 text-sm font-bold">⚠️</span>
-                  ) : (
-                    <span className="text-blue-500 text-sm font-bold">ℹ️</span>
-                  )}
-                  <div className="flex-1">
-                    <div
-                      className={`text-xs font-semibold ${
-                        detailCalculation?.insufficientBalance
-                          ? "text-amber-800"
-                          : "text-blue-800"
-                      }`}
-                    >
-                      {detailCalculation?.insufficientBalance
-                        ? "Insufficient Balance Warning"
-                        : "Policy Information"}
-                    </div>
-                    {detailCalculation?.warnings?.map((warning, index) => (
-                      <div
-                        key={index}
-                        className={`text-[11px] mt-0.5 ${
-                          detailCalculation?.insufficientBalance
-                            ? "text-amber-700"
-                            : "text-blue-700"
-                        }`}
-                      >
-                        • {warning}
-                      </div>
-                    ))}
-                    {detailCalculation?.insufficientBalance && (
-                      <div className="text-[11px] text-amber-700 mt-1 font-medium">
-                        {detailCalculation.potentialLop} days may be converted
-                        to Loss of Pay (LOP)
-                      </div>
+                <div
+                  className={`p-3 rounded-lg border-l-4 ${detailCalculation?.insufficientBalance
+                      ? "bg-amber-50 border-amber-500"
+                      : "bg-blue-50 border-blue-500"
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {detailCalculation?.insufficientBalance ? (
+                      <span className="text-amber-500 text-sm font-bold">⚠️</span>
+                    ) : (
+                      <span className="text-blue-500 text-sm font-bold">ℹ️</span>
                     )}
+                    <div className="flex-1">
+                      <div
+                        className={`text-xs font-semibold ${detailCalculation?.insufficientBalance
+                            ? "text-amber-800"
+                            : "text-blue-800"
+                          }`}
+                      >
+                        {detailCalculation?.insufficientBalance
+                          ? "Insufficient Balance Warning"
+                          : "Policy Information"}
+                      </div>
+                      {detailCalculation?.warnings?.map((warning, index) => (
+                        <div
+                          key={index}
+                          className={`text-[11px] mt-0.5 ${detailCalculation?.insufficientBalance
+                              ? "text-amber-700"
+                              : "text-blue-700"
+                            }`}
+                        >
+                          • {warning}
+                        </div>
+                      ))}
+                      {detailCalculation?.insufficientBalance && (
+                        <div className="text-[11px] text-amber-700 mt-1 font-medium">
+                          {detailCalculation.potentialLop} days may be converted
+                          to Loss of Pay (LOP)
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Quick Stats Row */}
             <div className="grid grid-cols-4 gap-3">
@@ -875,12 +875,11 @@ export default function ManagerLeaveApprovalsPage() {
                   Available Balance
                 </div>
                 <div
-                  className={`text-lg font-bold mt-0.5 ${
-                    (detailBalance?.closingBalance || 0) <
-                    (detailCalculation?.calculatedDays || 0)
+                  className={`text-lg font-bold mt-0.5 ${(detailBalance?.closingBalance || 0) <
+                      (detailCalculation?.calculatedDays || 0)
                       ? "text-red-600"
                       : "text-green-700"
-                  }`}
+                    }`}
                 >
                   {detailBalance?.closingBalance || 0}
                 </div>
@@ -888,11 +887,10 @@ export default function ManagerLeaveApprovalsPage() {
               <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
                 <div className="text-[12px] text-purple-600">Balance After</div>
                 <div
-                  className={`text-lg font-bold mt-0.5 ${
-                    (detailCalculation?.balanceAfter || 0) < 0
+                  className={`text-lg font-bold mt-0.5 ${(detailCalculation?.balanceAfter || 0) < 0
                       ? "text-red-600"
                       : "text-purple-700"
-                  }`}
+                    }`}
                 >
                   {detailCalculation?.balanceAfter ?? "N/A"}
                 </div>
@@ -900,11 +898,10 @@ export default function ManagerLeaveApprovalsPage() {
               <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
                 <div className="text-[12px] text-amber-600">Potential LOP</div>
                 <div
-                  className={`text-lg font-bold mt-0.5 ${
-                    (detailCalculation?.potentialLop || 0) > 0
+                  className={`text-lg font-bold mt-0.5 ${(detailCalculation?.potentialLop || 0) > 0
                       ? "text-amber-700"
                       : "text-green-700"
-                  }`}
+                    }`}
                 >
                   {detailCalculation?.potentialLop || 0}
                 </div>
@@ -941,7 +938,7 @@ export default function ManagerLeaveApprovalsPage() {
                       Department
                     </span>
                     <span className="text-[11px] text-gray-800">
-                      {selectedRequest.department}
+                      {selectedRequest.departmentName}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1">
@@ -1037,12 +1034,11 @@ export default function ManagerLeaveApprovalsPage() {
                         Available Balance
                       </span>
                       <span
-                        className={`text-sm font-bold ${
-                          detailBalance.closingBalance <
-                          (detailCalculation?.calculatedDays || 0)
+                        className={`text-sm font-bold ${detailBalance.closingBalance <
+                            (detailCalculation?.calculatedDays || 0)
                             ? "text-red-600"
                             : "text-green-600"
-                        }`}
+                          }`}
                       >
                         {detailBalance.closingBalance}
                       </span>
@@ -1077,11 +1073,10 @@ export default function ManagerLeaveApprovalsPage() {
                       Balance After Leave
                     </span>
                     <span
-                      className={`text-[11px] font-medium ${
-                        (detailCalculation?.balanceAfter || 0) < 0
+                      className={`text-[11px] font-medium ${(detailCalculation?.balanceAfter || 0) < 0
                           ? "text-red-600"
                           : "text-green-600"
-                      }`}
+                        }`}
                     >
                       {detailCalculation?.balanceAfter ?? "N/A"}
                     </span>
@@ -1091,11 +1086,10 @@ export default function ManagerLeaveApprovalsPage() {
                       Potential LOP
                     </span>
                     <span
-                      className={`text-[11px] font-medium ${
-                        (detailCalculation?.potentialLop || 0) > 0
+                      className={`text-[11px] font-medium ${(detailCalculation?.potentialLop || 0) > 0
                           ? "text-amber-600"
                           : "text-green-600"
-                      }`}
+                        }`}
                     >
                       {detailCalculation?.potentialLop || 0}
                     </span>
@@ -1103,12 +1097,11 @@ export default function ManagerLeaveApprovalsPage() {
                   <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
                     <span className="text-[11px] text-gray-500">Pay Type</span>
                     <span
-                      className={`text-[11px] font-medium px-2 py-0.5 rounded ${
-                        detailCalculation?.payrollTreatment === "PAID" ||
-                        selectedRequest.payrollTreatment === "PAID"
+                      className={`text-[11px] font-medium px-2 py-0.5 rounded ${detailCalculation?.payrollTreatment === "PAID" ||
+                          selectedRequest.payrollTreatment === "PAID"
                           ? "bg-green-100 text-green-700"
                           : "bg-amber-100 text-amber-700"
-                      }`}
+                        }`}
                     >
                       {detailCalculation?.payrollTreatment ||
                         selectedRequest.payrollTreatment ||
@@ -1132,11 +1125,10 @@ export default function ManagerLeaveApprovalsPage() {
                       {detailCalculation.dayBreakdown.map((day, index) => (
                         <div
                           key={index}
-                          className={`p-2.5 rounded border ${
-                            day.holiday || day.weeklyOff
+                          className={`p-2.5 rounded border ${day.holiday || day.weeklyOff
                               ? "bg-gray-50 border-gray-200"
                               : "bg-blue-100/50 border-blue-200"
-                          }`}
+                            }`}
                         >
                           <div className="text-[11px] font-medium text-gray-800">
                             {formatDate(day.date)}
@@ -1164,12 +1156,12 @@ export default function ManagerLeaveApprovalsPage() {
                         </span>
                         <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
                           {detailCalculation.policyApplied?.holidayInclusion ===
-                          "EXCLUDE"
+                            "EXCLUDE"
                             ? "Holidays excluded"
                             : "Holidays included"}
                         </span>
                         {detailCalculation.policyApplied?.sandwichRule ==
-                        true ? (
+                          true ? (
                           <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
                             Sandwich rule applied
                           </span>
@@ -1256,17 +1248,17 @@ export default function ManagerLeaveApprovalsPage() {
                     selectedRequest.approvals.map((approval, index) => (
                       <div key={index} className="flex items-start gap-3">
                         <div
-                          className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                            approval.actionTaken === "APPROVED"
+                          className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${approval.actionTaken === "APPROVED"
                               ? "bg-green-500 ring-2 ring-green-300"
                               : approval.actionTaken === "SUBMITTED"
                                 ? "bg-blue-500 ring-2 ring-blue-300"
                                 : approval.actionTaken === "REJECTED"
                                   ? "bg-red-500 ring-2 ring-red-300"
                                   : approval.actionTaken === "HR_VERIFIED"
-                                    ? "bg-yellow-500 ring-2 ring-yellow-300"
-                                    : "bg-gray-300"
-                          }`}
+                                    ? "bg-green-500 ring-2 ring-green-300"
+                                    :  approval.actionTaken === "SENT_TO_HR_VERIFICATION" ? "bg-yellow-500 ring-2 ring-yellow-300" 
+                                    : "bg-gray-500 ring-2 ring-gray-300"
+                            }`}
                         />
                         <div>
                           <div className="text-[10px] text-gray-500 uppercase tracking-wider">
@@ -1333,7 +1325,7 @@ export default function ManagerLeaveApprovalsPage() {
 
                 {/* Show attachments if they exist */}
                 {selectedRequest.attachments &&
-                selectedRequest.attachments.length > 0 ? (
+                  selectedRequest.attachments.length > 0 ? (
                   <div className="space-y-2">
                     {selectedRequest.attachments.map((attachment, index) => (
                       <div
@@ -1383,20 +1375,88 @@ export default function ManagerLeaveApprovalsPage() {
                 )}
 
                 {/* Show action buttons when pending */}
-                {(selectedRequest.currentStatus === "PENDING" || selectedRequest.status === "PENDING") && 
-                (selectedRequest.attachmentIds && selectedRequest.attachmentIds.length > 0) && (
-                  <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-center">
-                    <Button
-                      variant="contained"
-                      size="small"
-                      className="!bg-blue-600 hover:!bg-blue-700 !text-white !text-[11px] !px-4 !py-1"
-                      onClick={() => handleHrVerification(selectedRequest)}
-                    >
-                      Send to HR Verification
-                    </Button>
-                  </div>
-                )}
+                {(selectedRequest.currentStatus === "PENDING" || selectedRequest.status === "PENDING") &&
+                  (selectedRequest.attachments && selectedRequest.attachments.length > 0) && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-center">
+                      <Button
+                        variant="contained"
+                        size="small"
+                        className="!bg-blue-600 hover:!bg-blue-700 !text-white !text-[11px] !px-4 !py-1"
+                        onClick={() => handleHrVerification(selectedRequest)}
+                      >
+                        Send to HR Verification
+                      </Button>
+                    </div>
+                  )}
               </div>
+            </div>
+
+            {/* Audit Trail */}
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[10px] text-gray-800 uppercase tracking-wider">
+                  Audit Trail
+                </div>
+                <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                  {auditEntries.length} item(s)
+                </span>
+              </div>
+              {auditEntries.length === 0 ? (
+                <div className="text-sm text-gray-500">No audit history is available yet.</div>
+              ) : (
+                <div className="space-y-3 max-h-72 overflow-auto pr-1">
+                  {auditEntries.map((entry, index) => (
+                    <div
+                      key={entry.id || `${entry.fieldName || "field"}-${index}`}
+                      className="rounded-lg border border-gray-200 bg-gray-50 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-[12px] font-medium text-gray-800">
+                          {entry.fieldName || entry.screen || "Record update"}
+                          <span className="rounded-full bg-white px-2 py-1 ml-2">
+                            {entry.actionType || "UPDATE"}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-gray-500">
+                          {entry.changedOn
+                            ? formatDateTime(entry.changedOn)
+                            : "—"}
+                          <span className="rounded-full bg-gray-200 px-2 py-1 ml-2">
+                            {entry.changedBy?.userName || "System"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-600">
+
+
+                        {/* {entry.module ? (
+                                      <span className="rounded-full bg-white px-2 py-1">
+                                        {entry.module}
+                                      </span>
+                                    ) : null} */}
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                        <div className="rounded-md border border-red-500 bg-red-100/50 dark:bg-head p-2">
+                          <div className="text-[10px] uppercase tracking-wide text-red-500">
+                            Previous
+                          </div>
+                          <div className="mt-1 break-words text-gray-700">
+                            {entry.oldValue || "—"}
+                          </div>
+                        </div>
+                        <div className="rounded-md border border-emerald-500 bg-emerald-100/50 dark:bg-head p-2">
+                          <div className="text-[10px] uppercase tracking-wide text-emerald-500">
+                            Current
+                          </div>
+                          <div className="mt-1 break-words text-gray-700">
+                            {entry.newValue || "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1431,6 +1491,7 @@ export default function ManagerLeaveApprovalsPage() {
                       : "Comments"
               }
               value={actionComments}
+              required
               onChange={(event) => {
                 setActionComments(event.target.value);
                 setActionError("");
@@ -1439,7 +1500,7 @@ export default function ManagerLeaveApprovalsPage() {
               helperText={
                 actionError ||
                 (actionDialog?.kind === "approve" ||
-                actionDialog?.kind === "hrVerify"
+                  actionDialog?.kind === "hrVerify"
                   ? "Optional"
                   : "Required")
               }

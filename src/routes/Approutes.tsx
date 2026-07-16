@@ -40,8 +40,10 @@ const AdminHolidayCalendarsPage = lazy(() => import("../pages/leave/AdminCompone
 const AdminWorkCalendarsPage = lazy(() => import("../pages/leave/AdminComponents/AdminWorkCalendarsPage"));
 const AdminWorkflowsPage = lazy(() => import("../pages/leave/AdminComponents/AdminWorkflowsPage"));
 const Login = lazy(() => import("../pages/auth/Login/Login"));
+const Signup = lazy(() => import("../pages/auth/signUp.tsx"));
 const MfaPage = lazy(() => import("../pages/auth/MfaPage"));
 const Payroll = lazy(() => import("../pages/payroll/payroll"));
+const LoanAdvanceRequestPage = lazy(() => import("../pages/payroll/LoanAdvanceRequestPage.tsx"));
 const ResetPassword = lazy(() => import("../pages/auth/ResetPassword/ResetPassword"));
 const Settings = lazy(() => import("../pages/settings/settings"));
 const TenantSelectPage = lazy(() => import("../pages/auth/TenantSelectPage"));
@@ -135,6 +137,7 @@ function AppRoutesContent() {
       <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-gray-50 text-sm text-gray-500">Loading...</div>}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
@@ -158,6 +161,7 @@ function AppRoutesContent() {
                 <Route path="leave" element={<Navigate to="/leaves/my-dashboard" replace />} />
                 <Route path="profile" element={<Profile />} />
                 <Route path="documentation" element={<Documentation />} />
+                <Route path="my-info" element={<EmployeeDetails />} />
               </Route>
 
               <Route
@@ -277,6 +281,7 @@ function AppRoutesContent() {
                 <Route path="attendance/reports" element={<AttendanceReports />} />
                 {/* </Route> */}
                 <Route path="payroll" element={<Payroll />} />
+                <Route path="payroll/loan-advance-request" element={<LoanAdvanceRequestPage />} />
                 <Route path="settings" element={<Settings />}>
                   <Route
                     path="general/company-settings"

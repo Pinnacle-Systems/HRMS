@@ -1,5 +1,9 @@
 import dayjs from "dayjs";
 import * as XLSX from 'xlsx';
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
+
 
 export const parseTimestamp = (timestamp: string): string => {
   if (!timestamp) return '';
@@ -92,71 +96,71 @@ export const parseCSVLine = (line: string): string[] => {
   return result;
 };
 
-export const formatTimestampForAPI = (timestamp: any): string => {
-  if (!timestamp) return '';
+// export const formatTimestampForAPI = (timestamp: any): string => {
+//   if (!timestamp) return '';
   
-  // If it's a Date object (from Excel)
-  if (timestamp instanceof Date) {
-    return dayjs(timestamp).toISOString();
-  }
+//   // If it's a Date object (from Excel)
+//   if (timestamp instanceof Date) {
+//     return dayjs(timestamp).toISOString();
+//   }
   
-  const cleanTimestamp = String(timestamp).trim();
-  if (!cleanTimestamp) return '';
+//   const cleanTimestamp = String(timestamp).trim();
+//   if (!cleanTimestamp) return '';
   
-  // Try various formats
-  let parsedDate: dayjs.Dayjs | null = null;
+//   // Try various formats
+//   let parsedDate: dayjs.Dayjs | null = null;
   
-  const formats = [
-    'YYYY-MM-DDTHH:mm:ss.SSSZ',
-    'YYYY-MM-DDTHH:mm:ss.SSS',
-    'YYYY-MM-DDTHH:mm:ss',
-    'YYYY-MM-DDTHH:mm',
-    'YYYY-MM-DD HH:mm:ss',
-    'YYYY-MM-DD HH:mm',
-    'DD/MM/YYYY HH:mm:ss',
-    'DD/MM/YYYY HH:mm',
-    'MM/DD/YYYY HH:mm:ss',
-    'MM/DD/YYYY HH:mm',
-    'DD-MM-YYYY HH:mm:ss',
-    'MM-DD-YYYY HH:mm:ss',
-    'YYYY-MM-DD',
-    'DD/MM/YYYY',
-    'MM/DD/YYYY'
-  ];
+//   const formats = [
+//     'YYYY-MM-DDTHH:mm:ss.SSSZ',
+//     'YYYY-MM-DDTHH:mm:ss.SSS',
+//     'YYYY-MM-DDTHH:mm:ss',
+//     'YYYY-MM-DDTHH:mm',
+//     'YYYY-MM-DD HH:mm:ss',
+//     'YYYY-MM-DD HH:mm',
+//     'DD/MM/YYYY HH:mm:ss',
+//     'DD/MM/YYYY HH:mm',
+//     'MM/DD/YYYY HH:mm:ss',
+//     'MM/DD/YYYY HH:mm',
+//     'DD-MM-YYYY HH:mm:ss',
+//     'MM-DD-YYYY HH:mm:ss',
+//     'YYYY-MM-DD',
+//     'DD/MM/YYYY',
+//     'MM/DD/YYYY'
+//   ];
   
-  for (const format of formats) {
-    const tryParse = dayjs(cleanTimestamp, format, true);
-    if (tryParse.isValid()) {
-      parsedDate = tryParse;
-      break;
-    }
-  }
+//   for (const format of formats) {
+//     const tryParse = dayjs(cleanTimestamp, format, true);
+//     if (tryParse.isValid()) {
+//       parsedDate = tryParse;
+//       break;
+//     }
+//   }
   
-  // Try native Date parsing
-  if (!parsedDate) {
-    const nativeDate = new Date(cleanTimestamp);
-    if (!isNaN(nativeDate.getTime())) {
-      parsedDate = dayjs(nativeDate);
-    }
-  }
+//   // Try native Date parsing
+//   if (!parsedDate) {
+//     const nativeDate = new Date(cleanTimestamp);
+//     if (!isNaN(nativeDate.getTime())) {
+//       parsedDate = dayjs(nativeDate);
+//     }
+//   }
   
-  if (parsedDate && parsedDate.isValid()) {
-    return parsedDate.toISOString();
-  }
+//   if (parsedDate && parsedDate.isValid()) {
+//     return parsedDate.toISOString();
+//   }
   
-  // Try to extract date and time from string
-  const dateMatch = cleanTimestamp.match(/(\d{4}-\d{2}-\d{2})/);
-  const timeMatch = cleanTimestamp.match(/(\d{2}:\d{2}(?::\d{2})?)/);
+//   // Try to extract date and time from string
+//   const dateMatch = cleanTimestamp.match(/(\d{4}-\d{2}-\d{2})/);
+//   const timeMatch = cleanTimestamp.match(/(\d{2}:\d{2}(?::\d{2})?)/);
   
-  if (dateMatch) {
-    const date = dateMatch[1];
-    const time = timeMatch ? timeMatch[1] : '00:00:00';
-    const formatted = `${date}T${time}.000Z`;
-    return formatted;
-  }
+//   if (dateMatch) {
+//     const date = dateMatch[1];
+//     const time = timeMatch ? timeMatch[1] : '00:00:00';
+//     const formatted = `${date}T${time}.000Z`;
+//     return formatted;
+//   }
   
-  return '';
-};
+//   return '';
+// };
 
 export const createTransformedCSV = (data: any[], originalFileName: string): File => {
   if (data.length === 0) {
@@ -642,3 +646,60 @@ export const detectDelimiter = (lines: string[]): string => {
   
   return detectedDelimiter;
 };
+
+export function formatTimestampForAPI(timestamp: string | number | Date): string {
+  if (!timestamp) return '';
+  
+  try {
+    // If it's already a valid ISO string with timezone
+    if (typeof timestamp === 'string' && dayjs(timestamp).isValid()) {
+      return dayjs(timestamp).toISOString();
+    }
+    
+    // Try to parse the timestamp
+    let parsedDate = dayjs(timestamp);
+    
+    // If it's a number (Excel date serial number)
+    if (typeof timestamp === 'number') {
+      // Excel dates start from 1900-01-01
+      const excelEpoch = dayjs('1899-12-30');
+      parsedDate = excelEpoch.add(timestamp, 'day');
+    }
+    
+    // If it's a string, try various formats
+    if (typeof timestamp === 'string') {
+      // Try common formats
+      const formats = [
+        'YYYY-MM-DDTHH:mm:ss.SSSZ',
+        'YYYY-MM-DDTHH:mm:ssZ',
+        'YYYY-MM-DD HH:mm:ss',
+        'YYYY-MM-DD HH:mm',
+        'YYYY-MM-DD',
+        'DD/MM/YYYY HH:mm:ss',
+        'DD/MM/YYYY HH:mm',
+        'DD/MM/YYYY',
+        'MM/DD/YYYY HH:mm:ss',
+        'MM/DD/YYYY HH:mm',
+        'MM/DD/YYYY'
+      ];
+      
+      for (const format of formats) {
+        const testDate = dayjs(timestamp, format);
+        if (testDate.isValid()) {
+          parsedDate = testDate;
+          break;
+        }
+      }
+    }
+    
+    // If we have a valid date, convert to ISO string
+    if (parsedDate && parsedDate.isValid()) {
+      return parsedDate.toISOString();
+    }
+    
+    return '';
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return '';
+  }
+}

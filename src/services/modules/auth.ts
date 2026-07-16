@@ -37,6 +37,10 @@ class AuthService {
     return authApi.setPassword(payload);
   }
 
+  async resendSignupOTP(payload: {email: string}) {
+    return authApi.resendSignupOTP(payload);
+  }
+
   getCurrentUser() {
     return loadSession()?.user ?? null;
   }

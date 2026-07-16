@@ -583,6 +583,10 @@ class ShiftService {
   }
 
    async getNotificationStatus(params: any) {
+    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION_STATUS,{params});
+  }
+
+   async getNotification(params: any) {
     return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION,{params});
   }
 

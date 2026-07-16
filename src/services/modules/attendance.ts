@@ -30,7 +30,7 @@ import type {
   OvertimeApproveParams,
   ImportPunchesParams,
   ImportFileParams,
-  BulkCheckinParams,
+  BulkCheckinPayload,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -181,6 +181,13 @@ export const attendanceService = {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_PROCESS, payload);
   },
 
+  async processAndCloseAttendance(payload: ProcessAttendancePayload) {
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.postMockProcessResult(payload), "Attendance processed");
+    // }
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_PROCESS, payload);
+  },
+
   async bulkProcess(payload: BulkProcessPayload) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(
@@ -289,9 +296,6 @@ export const attendanceService = {
     format: "excel" | "pdf" | "csv",
     params: Record<string, any>,
   ) {
-    // if (USE_MOCK_ATTENDANCE_SERVICE) {
-    //   return { data: Mock.mockExportReport(type, format) };
-    // }
     return apiService.get<{
       success: boolean;
       message: string;
@@ -332,17 +336,11 @@ export const attendanceService = {
   },
 
   async exportMonthly(params: ExportMonthlyParams) {
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY, { params });
-  //   const response = await apiService.axiosInstance.get(
-  //   API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY,
-  //   {
-  //     params: {
-  //       ...params,
-  //     },
-  //   }
-  // );
-  
-  // return response.data;
+    return apiService.get<{
+      success: boolean;
+      message: string;
+      data: { fileUrl: string };
+    }>(API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY, { params });
   },
 
   async getEmployeesOnLeaveToday(params?: {
@@ -383,23 +381,93 @@ export const attendanceService = {
   },
 
   async approveOvertime(id: string, data: OvertimeApproveParams) {
-    return apiService.put(API_ENDPOINTS.ATTENDANCE.OT_APPROVE(id), data);
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.OT_APPROVE(id), data);
   },
 
   async importAttendance(data: ImportPunchesParams) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.IMPORT, data);
   },
 
-  async  importAttendanceFile(params: ImportFileParams, file: File) {
+  async importAttendanceFile(params: ImportFileParams, file: File) {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", file, file.name);
+    if (params.format) formData.append("format", params.format);
+    if (params.source) formData.append("source", params.source);
+    if (params.type) formData.append("type", params.type);
+    if (params.startDate) formData.append("startDate", params.startDate);
+    if (params.endDate) formData.append("endDate", params.endDate);
     return apiService.post(API_ENDPOINTS.ATTENDANCE.IMPORT_FILE, formData, {
-      params,
       headers: { "Content-Type": "multipart/form-data" },
     });
   },
 
-  async bulkCheckin(data: BulkCheckinParams) {
+  async bulkCheckin(data: BulkCheckinPayload) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.BULK_CHECKIN, data);
+  },
+
+  async bulkCheckOut(data: BulkCheckinPayload) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.BULK_CHECKOUT, data);
+  },
+
+  async downloadImportTemplate() {
+    const response = await apiService.axiosInstance.get(
+      API_ENDPOINTS.ATTENDANCE.DOWNLOAD_TEMP,
+      {
+        responseType: "blob",
+      },
+    );
+
+    const blob = response.data;
+
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded file is empty");
+    }
+
+    if (blob.type === "application/json" || blob.type === "text/plain") {
+      const text = await blob.text();
+      let errMsg = "Failed to download template.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errMsg = json.message;
+      } catch {
+        if (text) errMsg = text;
+      }
+      throw new Error(errMsg);
+    }
+
+    let filename = "employee_bulk_upload_template.xlsx";
+    const disposition = response.headers["content-disposition"];
+    if (disposition && disposition.indexOf("attachment") !== -1) {
+      const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+      const matches = filenameRegex.exec(disposition);
+      if (matches != null && matches[1]) {
+        filename = matches[1].replace(/['"]/g, "");
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  async autoAssignShift() {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.AUTO_ASSIGN_SHIFT);
+  },
+
+  async otApprovalReq() {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.OT_APPROVAL_REQUIRED);
+  },
+
+  async toogleAutoAssignShift(data: any) {
+    return apiService.put(API_ENDPOINTS.ATTENDANCE.AUTO_ASSIGN_SHIFT, data);
+  },
+
+  async toogleOtApprovalReq(data: any) {
+    return apiService.put(API_ENDPOINTS.ATTENDANCE.OT_APPROVAL_REQUIRED, data);
   },
 };

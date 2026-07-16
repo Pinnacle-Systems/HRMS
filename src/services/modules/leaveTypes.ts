@@ -39,7 +39,8 @@ export type LeaveRequest = {
   employeeId: string;
   employeeCode: string;
   employeeName: string;
-  department: string;
+  departmentName: string;
+  branchName: string;
   location: string;
   managerId: string;
   managerName: string;
@@ -78,9 +79,9 @@ export type LeaveRequest = {
     fileUrl: string;
     documentType?: string;
   }[];
-  hrVerified?: boolean;
-  hrVerifiedBy?: string;
-  hrVerifiedAt?: string;
+  hrVerified: boolean;
+  hrVerifiedBy: string;
+  hrVerifiedAt: string;
 };
 
 export type LeaveBalance = {
@@ -202,6 +203,7 @@ export type Holidays = {
   holidayType: string;
   optionalHoliday: boolean;
   active: boolean;
+  applicableTo: string;
 };
 
 export type TeamCalendarEntry = {
@@ -442,6 +444,7 @@ export type HolidayImport = {
   holidayType: string;
   optionalHoliday: boolean;
   active: boolean;
+  applicableTo: "Staff" | "Labour" | "Both";
 }
 
 export type CompOffBalance = {

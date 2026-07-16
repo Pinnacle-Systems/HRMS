@@ -54,6 +54,8 @@ import {
   FALLBACK_PASSWORD_POLICY,
   validatePasswordAgainstPolicy,
 } from "../../utils/passwordPolicyValidation";
+import { formatDate } from "../leave/leaveFormatters";
+import { Person3Outlined } from "@mui/icons-material";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -173,11 +175,13 @@ export default function Profile() {
     },
     { name: "department", dname: "Department", icon: <BusinessIcon /> },
     {
-      name: "hire_date",
+      name: "hireDate",
       dname: "Hire Date",
       icon: <CalendarTodayOutlinedIcon />,
     },
     { name: "roles", dname: "Role", icon: <DevicesOutlinedIcon /> },
+    { name: "managerId", dname: "Manager", icon: <Person2Outlined /> },
+    { name: "assignedHrId", dname: "HR", icon: <Person3Outlined /> },
   ];
 
   const fetchProfile = async () => {
@@ -586,7 +590,7 @@ export default function Profile() {
               <div className="font-semibold mb-3 text-primary">
                 Employment Information
               </div>
-              <div className="grid grid-cols-4 gap-8 ml-6">
+              <div className="grid grid-cols-6 gap-8 ml-6">
                 {employementInfo.map((item, index) => (
                   <div key={item.name || index} className="flex items-start text-gray-600">
                     <ListItemIcon
@@ -598,7 +602,7 @@ export default function Profile() {
                     <div>
                       <div className="text-sm text-gray-500">{item.dname}</div>
                       <div className="font-medium text-gray-800">
-                        {userData?.[item.name] || "N/A"}
+                       {item.name == 'hireDate' ? userData.hireDate ? formatDate(userData.hireDate) : 'N/A' : userData?.[item.name] ? userData?.[item.name] : 'N/A'}
                       </div>
                     </div>
                   </div>

@@ -17,7 +17,8 @@ export const API_ENDPOINTS = {
     PHOTO: "/auth/profile/picture",
     VERIFY_INVITE: (token: string) => `/auth/verify-invite/${token}`,
     SIGNUP: "/auth/signup",
-    ACTIVATE_INVITE: "/auth/activate-invite"
+    ACTIVATE_INVITE: "/auth/activate-invite",
+    RESEND_OTP: "/auth/resend-signup-otp"
   },
 
   LOGIN_HISTORY: {
@@ -79,6 +80,8 @@ export const API_ENDPOINTS = {
     GET_CAT_USAGE: (id: string) => `/org/category/${id}/usage`,
     GET_ITEM_USAGE: (id: string, cid: string) =>
       `/org/category/${cid}/items/${id}/usage`,
+
+    GET_ACTIVE_CAT: "/org/category/active-items"
   },
 
   COMPANY: {
@@ -132,6 +135,7 @@ export const API_ENDPOINTS = {
     LEAVES: (id: string) => `/employees/${id}/leaves`,
     COMP_OFF_BALANCE: (id: string) => `/employees/${id}/comp-off-balances`,
     LEAVE_ADJUSTMENTS: (id: string) => `/employees/${id}/leave-adjustments`,
+    LEAVE_AUDIT: (id: string) => `/employees/${id}/leave-audit`,
 
     PATCH_PF: (id: string) => `/employees/${id}/pf`,
     PATCH_PERSONAL: (id: string) => `/employees/${id}/personal`,
@@ -212,11 +216,16 @@ export const API_ENDPOINTS = {
     PENDING_APPROVALS: "/leave/pending-approvals",
     DELETE: (id: string) => `/leaves/${id}`,
 
+    SUBMIT: (id: string) => `/leaves/${id}/submit`,
+
     TEAM_CALENDAR: "/leaves/team-calendar",
     HR_VERIFY: (id: string) => `/leaves/${id}/hr-verify`,
+    SENDTO_HR_VERIFY: (id: string) => `/leaves/${id}/send-to-hr-verification`,
     GET_MY: "/leaves/my",
     GET_APPROVALS: "/leaves/approvals",
     GET_APPROVALS_BYID: (id: string) => `/leaves/approvals/${id}`,
+
+    GET_AUDIT: (id: string) => `/leaves/${id}/audit`,
 
     PAYROLL: {
       LEAVE_INPUTS: "/payroll/leave-inputs",
@@ -289,6 +298,8 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/holidays/${id}`,
     DELETE: (id: string) => `/holidays/${id}`,
     UPCOMING_HOLIDAYS: "/holidays/upcoming",
+    OPT_HOLIDAYS_BY_EMP: (id: string) => `/employees/${id}/optional-holidays`,
+    OPTIONAL: "/holidays/optional"
   },
 
   HOLIDAY_IMPORT: {
@@ -405,7 +416,8 @@ export const API_ENDPOINTS = {
     GET_SCHEDULE_STATS: "/shift-schedule/stats",
 
     GET_NOTIFICATION_TEMP: "/shift-schedule/notification-templates",
-    GET_NOTIFICATION: "/shift-schedule/notification-status",
+    GET_NOTIFICATION_STATUS: "/shift-schedule/notification-status",
+    GET_NOTIFICATION: "/shift-schedule/notifications",
 
     EXPORT_SCHEDULE_PDF: "/shift-schedule/export/pdf",
     EXPORT_SCHEDULE_Excel: "/shift-schedule/export/excel",
@@ -415,6 +427,15 @@ export const API_ENDPOINTS = {
     GET_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
     POST_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
     PUT_ADV_CONFIG: (sid: string) => `/shifts/${sid}/advanced-config`,
+  },
+
+  LOAN_ADVANCE: {
+    GET_TYPES: "/loan-advances/types",
+    CREATE: "/loan-advances/requests",
+    GET_MY: "/loan-advances/requests/my",
+    GET_BY_ID: (id: string) => `/loan-advances/requests/${id}`,
+    APPROVE: (id: string) => `/loan-advances/requests/${id}/approve`,
+    REJECT: (id: string) => `/loan-advances/requests/${id}/reject`,
   },
 
   POLICY: {
@@ -656,6 +677,7 @@ export const API_ENDPOINTS = {
     POST_BULK_PROCESS: "/attendance/bulk-process",
     POST_FINALISE: "/attendance/finalise",
     POST_UNLOCK: "/attendance/unlock",
+    PROCESS_AND_CLOSE: "/attendance/process-and-close",
 
     GET_LOCKS: "/attendance/locks",
     POST_LOCK: "/attendance/lock",
@@ -691,6 +713,11 @@ export const API_ENDPOINTS = {
     IMPORT: "/attendance/import",
     IMPORT_FILE: "/attendance/import/file",
     BULK_CHECKIN: "/attendance/bulk-checkin",
+    BULK_CHECKOUT: "/attendance/bulk-checkout",
+
+    DOWNLOAD_TEMP: "/attendance/import/template",
+    AUTO_ASSIGN_SHIFT: "/attendance/policy/auto-assign-shift",
+    OT_APPROVAL_REQUIRED: "/attendance/policy/ot-approval-required",
 
     BIOMETRIC: {
       GET_DEVICES: "/integration/biometric/devices",

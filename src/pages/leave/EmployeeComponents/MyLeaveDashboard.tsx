@@ -635,7 +635,7 @@ export default function MyLeaveDashboard() {
                         <TableCell className="text-[12px] !font-semibold text-center">Actions</TableCell>
                       </TableRow>
                     </TableHead>
-                    <TableBody className={leaveTableBodyClassName}>
+                    <TableBody>
                       {requests.map((request, index) => (
                         <TableRow key={request.id} sx={getRowColor(index)}>
                           <TableCell >
@@ -672,7 +672,7 @@ export default function MyLeaveDashboard() {
                       ))}
                       {requests.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={7}>
+                          <TableCell colSpan={8}>
                             <DataState
                               compact
                               type="empty"

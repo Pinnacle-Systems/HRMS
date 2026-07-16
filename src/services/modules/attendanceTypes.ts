@@ -112,10 +112,15 @@ export interface DepartmentWiseSummary {
 
 export interface MusterCell {
   date: string;
-  status: AttendanceStatus | null;
+  // status: AttendanceStatus | null;
   checkIn?: string;
   checkOut?: string;
   workedMinutes?: number;
+  firstHalf: AttendanceStatus | null;
+  secondHalf: AttendanceStatus | null;
+  shiftCode: string;
+  shiftEnd: string;
+  shiftStart: string;
 }
 
 export interface MusterRow {
@@ -185,6 +190,8 @@ export interface ProcessResult {
   processed: number;
   skipped: number;
   errors: number;
+  locked: boolean;
+  message: string;
   employees: {
     employeeId: string;
     employeeName: string;
@@ -251,12 +258,17 @@ export interface CheckOutPayload {
   remarks?: string;
 }
 
+export type WorkerType = 'Staff' | 'Labour' | 'Both';
+
 export interface ProcessAttendancePayload {
   fromDate: string;
   toDate: string;
   employeeIds?: string[];
   departmentId?: string;
   reprocess?: boolean;
+  workerType?: WorkerType;
+  lockReason?: string;
+  lockedBy?: string;
 }
 
 export interface BulkProcessPayload {
@@ -713,6 +725,9 @@ export interface PunchData {
 export interface ImportFileParams {
   format: string;
   source: string;
+  type:string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface ImportResponseData {
@@ -734,11 +749,12 @@ export interface ImportRowData {
   message: string;
 }
 
-export interface BulkCheckinParams {
+export interface BulkCheckinPayload {
   employeeIds: string[];
-  checkinTime: string;
+  checkinTime?: string;
   reason: string;
   markedBy: string;
+  checkoutTime?: string;
 }
 
 export interface BulkCheckinResponseData {

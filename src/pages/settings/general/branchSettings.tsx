@@ -1304,7 +1304,7 @@ export default function BranchSettings() {
         fullWidth
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="flex items-center gap-2 text-gray-800 ml-4">
+          <div className="flex items-center gap-2 text-gray-800 ml-4 text-[12px]">
             <AccountBalanceIcon className="!w-4" />
             {editingBank ? "Edit Bank Account" : "Add Bank Account"}
           </div>

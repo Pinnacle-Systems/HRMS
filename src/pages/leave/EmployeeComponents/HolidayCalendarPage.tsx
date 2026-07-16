@@ -21,6 +21,14 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  FormGroup,
 } from "@mui/material";
 import CalendarMonthOutlinedIcon from "@mui/icons-material/CalendarMonthOutlined";
 import EventIcon from "@mui/icons-material/Event";
@@ -49,10 +57,12 @@ import dayjs from "dayjs";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import {
+  CheckCircleOutlineOutlined,
   LocationOnOutlined,
   ViewListOutlined,
   ViewModuleOutlined,
 } from "@mui/icons-material";
+import { useAuth } from "../../../auth/authContext";
 
 type ViewMode = "table" | "card";
 
@@ -64,11 +74,6 @@ type HolidayWithDetails = Holiday & {
   calendarName?: string;
   branchName?: string;
 };
-
-// Type for the combined data structure
-// type HolidayCalendarWithHolidays = HolidayCalendar & {
-//   holidays: Holiday[];
-// };
 
 function splitLocations(value?: string) {
   return (value ?? "")
@@ -84,6 +89,7 @@ function uniqueLocations(values: string[]) {
 export default function HolidayCalendarPage() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const theme = useTheme();
+  const { session } = useAuth();
 
   // State for calendars and holidays
   const [calendarList, setCalendarList] = useState<HolidayCalendar[]>([]);
@@ -102,42 +108,64 @@ export default function HolidayCalendarPage() {
   const [typeFilter, setTypeFilter] = useState<Holiday["holidayType"] | "">("");
   const [locationFilter, setLocationFilter] = useState("");
 
-  // Load data on mount
+  // State for optional holiday selection
+  const [selectedOptionalHolidays, setSelectedOptionalHolidays] = useState<string[]>([]);
+  const [selectionDialogOpen, setSelectionDialogOpen] = useState(false);
+  const [tempSelection, setTempSelection] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ✅ Fixed: Correct dependency
   useEffect(() => {
-    let isMounted = true;
-    const load = async () => {
-      setLoading(true);
-      showSpinner();
+    const loadUserSelection = async () => {
+      if (!session?.user?.userId) return;
       try {
-        // Fetch calendars
-        const calendarsResponse: any = await leaveService.getHolidayCalendars();
-        const calendars = calendarsResponse.data ?? [];
-
-        // Fetch all holidays
-        const holidaysResponse: any = await leaveService.getHolidays();
-        const holidays = holidaysResponse.data ?? [];
-
-        if (isMounted) {
-          setCalendarList(calendars);
-          setAllHolidaysData(holidays);
-
-          // Auto-select first calendar if available
-          if (calendars.length > 0) {
-            setSelectedCalendarId(calendars[0].id);
-          }
+        const response: any = await leaveService.getOptionalHolidayByEmpId(
+          session?.user?.userId
+        );
+        if (response.success) {
+          const selectedIds = response.data?.map((h: any) => h.id) || [];
+          setSelectedOptionalHolidays(selectedIds);
         }
       } catch (err: any) {
-        if (isMounted) {
-          showSnackbar(err?.message || "Failed to load holidays", "error");
-        }
-      } finally {
-        if (isMounted) {
-          hideSpinner();
-          setLoading(false);
-        }
+        console.error("Failed to load optional holiday selection:", err);
       }
     };
-    load();
+    loadUserSelection();
+  }, [session?.user?.userId]); // ✅ Fixed: removed ! operator
+
+  const load = async (isMounted?: any) => {
+    setLoading(true);
+    showSpinner();
+    try {
+      const calendarsResponse: any = await leaveService.getHolidayCalendars();
+      const calendars = calendarsResponse.data ?? [];
+
+      const holidaysResponse: any = await leaveService.getHolidays();
+      const holidays = holidaysResponse.data ?? [];
+
+      if (isMounted) {
+        setCalendarList(calendars);
+        setAllHolidaysData(holidays);
+
+        if (calendars.length > 0) {
+          setSelectedCalendarId(calendars[0].id);
+        }
+      }
+    } catch (err: any) {
+      if (isMounted) {
+        showSnackbar(err?.message || "Failed to load holidays", "error");
+      }
+    } finally {
+      if (isMounted) {
+        hideSpinner();
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    load(isMounted);
     return () => {
       isMounted = false;
       hideSpinner();
@@ -162,7 +190,6 @@ export default function HolidayCalendarPage() {
 
   // Process holidays data
   const processedHolidays = useMemo<HolidayWithDetails[]>(() => {
-    // Filter holidays by selected calendar
     const calendarHolidays = allHolidaysData.filter(
       (holiday) => holiday.holidayCalendarId === selectedCalendarId,
     );
@@ -186,17 +213,6 @@ export default function HolidayCalendarPage() {
       })
       .sort((left, right) => left.holidayDate.localeCompare(right.holidayDate));
   }, [allHolidaysData, selectedCalendarId, selectedCalendar]);
-
-  // Get unique location options
-  // const locationOptions = useMemo(
-  //   () =>
-  //     Array.from(
-  //       new Set(
-  //         processedHolidays.flatMap((holiday) => holiday.locationOptions),
-  //       ),
-  //     ).sort((left, right) => left.localeCompare(right)),
-  //   [processedHolidays],
-  // );
 
   // Apply filters
   const holidays = useMemo(
@@ -239,38 +255,57 @@ export default function HolidayCalendarPage() {
     (holiday) => holiday.optionalHoliday !== true,
   );
 
-  // Handler for selecting optional holiday
-  // const confirmOptionalHoliday = (holiday: HolidayWithDetails) => {
-  //   showConfirmDialog({
-  //     title: "Select Optional Holiday",
-  //     message: `Select "${holiday.holidayName}" as your optional holiday?`,
-  //     confirmText: "Select",
-  //     cancelText: "Cancel",
-  //     onConfirm: async () => {
-  //       showSpinner();
-  //       try {
-  //         const response: any = await leaveService.selectOptionalHoliday(
-  //           holiday.id,
-  //         );
-  //         if (response.success) {
-  //           showSnackbar(
-  //             response.message || "Optional holiday selected",
-  //             "success",
-  //           );
-  //         }
-  //       } catch (err: any) {
-  //         showSnackbar(
-  //           err?.message || "Failed to select optional holiday",
-  //           "error",
-  //         );
-  //       } finally {
-  //         hideSpinner();
-  //       }
-  //     },
-  //   });
-  // };
+  // ✅ Fixed: Correct authentication check
+  const handleSelectOptionalHolidays = async (holidayIds: string[]) => {
+    if (!session?.user?.userId) {
+      showSnackbar("User not authenticated", "error");
+      return;
+    }
 
-  // Filter handlers
+    showSpinner();
+    setIsSubmitting(true);
+    try {
+      const response: any = await leaveService.selectOptionalHoliday(
+        session?.user?.userId,
+        { holidayIds: holidayIds }
+      );
+
+      if (response.success) {
+        showSnackbar(
+          holidayIds.length === 0
+            ? "Optional holidays cleared"
+            : `Selected ${holidayIds.length} optional holiday${holidayIds.length > 1 ? 's' : ''}`,
+          "success"
+        );
+        setSelectedOptionalHolidays(holidayIds);
+        setSelectionDialogOpen(false);
+        // Refresh data
+        const isMounted = true;
+        await load(isMounted);
+      }
+    } catch (err: any) {
+      showSnackbar(err?.message || "Failed to select optional holidays", "error");
+    } finally {
+      hideSpinner();
+      setIsSubmitting(false);
+    }
+  };
+
+  const openSelectionDialog = () => {
+    setTempSelection([...selectedOptionalHolidays]);
+    setSelectionDialogOpen(true);
+  };
+
+  const toggleHolidaySelection = (holidayId: string) => {
+    setTempSelection(prev => {
+      if (prev.includes(holidayId)) {
+        return prev.filter(id => id !== holidayId);
+      } else {
+        return [...prev, holidayId];
+      }
+    });
+  };
+
   const dateFilterValue = dateFilter ? dayjs(dateFilter) : null;
   const handleDateFilterChange = (value: any) => {
     setDateFilter(value ? dayjs(value).format("YYYY-MM-DD") : "");
@@ -294,64 +329,70 @@ export default function HolidayCalendarPage() {
   };
 
   // Render functions
-  const renderHolidayRows = (
-    items: HolidayWithDetails[],
-    // includeAction = false,
-  ) => (
+  const renderHolidayRows = (items: HolidayWithDetails[],optional?:any) => (
     <>
-      {items.map((holiday, i) => (
-        <TableRow key={holiday.id} sx={getRowColor(i)}>
-          <TableCell>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <EventIcon className="!w-3" />
-              <span>{holiday.displayDate || "-"}</span>
-            </Box>
-          </TableCell>
-          <TableCell>
-            <Chip
-              label={holiday.day || "-"}
-              size="small"
-              variant="outlined"
-              className="text-gray-800 bg-gray-100"
-            />
-          </TableCell>
-          <TableCell>
-            <Typography variant="body2">
-              {holiday.holidayName || "-"}
-            </Typography>
-          </TableCell>
-          <TableCell>
-            <HolidayTypeBadge type={holiday.holidayType} />
-          </TableCell>
-          <TableCell sx={leaveTableLocationCellSx} title={holiday.location}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <LocationOnOutlined className="text-primary w-3" />
-              <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
-                {holiday.location || "-"}
-              </Typography>
-            </Box>
-          </TableCell>
-          {/* {includeAction && (
+      {items.map((holiday, i) => {
+        const isSelected = selectedOptionalHolidays.includes(holiday.id);
+        return (
+          <TableRow key={holiday.id} sx={getRowColor(i)}>
             <TableCell>
-              <Button
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <EventIcon className="!w-3" />
+                <span>{holiday.displayDate || "-"}</span>
+              </Box>
+            </TableCell>
+            <TableCell>
+              <Chip
+                label={holiday.day || "-"}
                 size="small"
                 variant="outlined"
-                className="!text-primary !border-primary"
-                onClick={() => confirmOptionalHoliday(holiday)}
-              >
-                Select
-              </Button>
+                className="text-gray-800 bg-gray-100"
+              />
             </TableCell>
-          )} */}
-        </TableRow>
-      ))}
+            <TableCell>
+              <Typography variant="body2">
+                {holiday.holidayName || "-"}
+              </Typography>
+            </TableCell>
+            <TableCell>
+              <HolidayTypeBadge type={holiday.holidayType} />
+            </TableCell>
+            <TableCell sx={leaveTableLocationCellSx} title={holiday.location}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <LocationOnOutlined className="text-primary w-3" />
+                <Typography variant="body2" sx={{ wordBreak: "break-word" }}>
+                  {holiday.location || "-"}
+                </Typography>
+              </Box>
+            </TableCell>
+           {
+            optional && 
+             <TableCell>
+              {isSelected ? (
+                <Chip
+                  label="Selected"
+                  size="small"
+                  color="success"
+                  icon={<CheckCircleOutlineOutlined />}
+                />
+              ) : (
+                <Chip
+                  label="Available"
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                />
+              )}
+            </TableCell>
+           }
+          </TableRow>
+        );
+      })}
     </>
   );
 
-  const renderHolidayCards = (
-    items: HolidayWithDetails[],
-    // includeAction = false,
-  ) => {
+  // ✅ Fixed: Removed buttons from inside map
+  const renderHolidayCards = (items: HolidayWithDetails[]) => {
     if (items.length === 0) {
       return (
         <Box sx={{ py: 4 }}>
@@ -361,109 +402,142 @@ export default function HolidayCalendarPage() {
     }
 
     return (
-      <Grid container spacing={2} className="!mb-4">
-        {items.map((holiday) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={holiday.id}>
-            <Card
-              className="bg-white-50"
-              sx={{
-                borderRadius: "12px",
-                border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                transition: "all 0.3s ease",
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                "&:hover": {
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
-                  transform: "translateY(-4px)",
-                  borderColor: alpha(theme.palette.primary.main, 0.2),
-                },
-              }}
-            >
-              <CardContent sx={{ p: 2.5, flex: 1 }}>
-                <Box
+      <>
+        <Grid container spacing={2} className="!mb-4">
+          {items.map((holiday) => {
+            const isSelected = selectedOptionalHolidays.includes(holiday.id);
+            return (
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={holiday.id}>
+                <Card
+                  className="bg-white-50"
                   sx={{
+                    borderRadius: "12px",
+                    border: `1px solid ${isSelected ? theme.palette.primary.main : alpha(theme.palette.divider, 0.12)}`,
+                    boxShadow: isSelected ? `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}` : "0 2px 8px rgba(0,0,0,0.06)",
+                    transition: "all 0.3s ease",
+                    height: "100%",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    mb: 1.5,
+                    flexDirection: "column",
+                    "&:hover": {
+                      boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
+                      transform: "translateY(-4px)",
+                      borderColor: alpha(theme.palette.primary.main, 0.2),
+                    },
                   }}
                 >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <EventIcon
-                      sx={{ fontSize: 18, color: theme.palette.primary.main }}
-                    />
-                    <div className="text-gray-800">{holiday.displayDate}</div>
-                  </Box>
-                  <Chip
-                    label={holiday.day}
-                    size="small"
-                    className="text-gray-800"
-                    sx={{
-                      borderRadius: "4px",
-                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
-                      borderColor: alpha(theme.palette.primary.main, 0.15),
-                      fontWeight: 500,
-                    }}
-                    variant="outlined"
-                  />
-                </Box>
-
-                <div className="flex items-center mt-1 justify-between">
-                  <div>
-                    <div className="text-[12px] text-gray-800">
-                      {holiday.holidayName}
-                    </div>
-
-                    <div>
-                      <HolidayTypeBadge type={holiday.holidayType} />
-                    </div>
-                  </div>
-
-                  {holiday.location && (
-                    <div className="flex items-center gap-1">
-                      <LocationOnOutlined className="!w-4 text-primary" />
-                      <div className="text-[12px] text-gray-800">
-                        {holiday.location}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* {includeAction && (
-                  <Box
-                    sx={{
-                      mt: 2,
-                      pt: 1.5,
-                      borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                    }}
-                  >
-                    <Button
-                      fullWidth
-                      size="small"
-                      variant="contained"
+                  <CardContent sx={{ p: 2.5, flex: 1 }}>
+                    <Box
                       sx={{
-                        textTransform: "none",
-                        fontWeight: 500,
-                        borderRadius: "8px",
-                        boxShadow: "none",
-                        "&:hover": {
-                          boxShadow: "none",
-                          backgroundColor: theme.palette.primary.dark,
-                        },
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        mb: 1.5,
                       }}
-                      onClick={() => confirmOptionalHoliday(holiday)}
                     >
-                      Select Optional Holiday
-                    </Button>
-                  </Box>
-                )} */}
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <EventIcon
+                          sx={{ fontSize: 18, color: theme.palette.primary.main }}
+                        />
+                        <div className="text-gray-800">{holiday.displayDate}</div>
+                      </Box>
+                      <Chip
+                        label={holiday.day}
+                        size="small"
+                        className="text-gray-800"
+                        sx={{
+                          borderRadius: "4px",
+                          backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                          borderColor: alpha(theme.palette.primary.main, 0.15),
+                          fontWeight: 500,
+                        }}
+                        variant="outlined"
+                      />
+                    </Box>
+
+                    <div className="flex items-center mt-1 justify-between">
+                      <div>
+                        <div className="text-[12px] text-gray-800">
+                          {holiday.holidayName}
+                        </div>
+                        <div>
+                          <HolidayTypeBadge type={holiday.holidayType} />
+                        </div>
+                      </div>
+
+                      {holiday.location && (
+                        <div className="flex items-center gap-1">
+                          <LocationOnOutlined className="!w-4 text-primary" />
+                          <div className="text-[12px] text-gray-800">
+                            {holiday.location}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <Box
+                      sx={{
+                        mt: 2,
+                        pt: 1.5,
+                        borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                      }}
+                    >
+                      {isSelected ? (
+                        <Chip
+                          label="Selected"
+                          size="small"
+                          color="success"
+                          icon={<CheckCircleOutlineOutlined />}
+                          sx={{ width: "100%" }}
+                        />
+                      ) : (
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          className="!text-primary !border-primary"
+                          onClick={() => handleSelectOptionalHolidays([holiday.id])}
+                          disabled={isSubmitting}
+                          sx={{
+                            textTransform: "none",
+                            fontWeight: 500,
+                            borderRadius: "8px",
+                          }}
+                        >
+                          Select
+                        </Button>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
+        {/* ✅ Fixed: Buttons moved outside the map */}
+        {optionalHolidays.length > 0 && (
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 2 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => handleSelectOptionalHolidays([])}
+              disabled={selectedOptionalHolidays.length === 0 || isSubmitting}
+              className="!text-red-600 !border-red-300"
+            >
+              Clear Selection
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={openSelectionDialog}
+              disabled={isSubmitting}
+              className="!bg-primary"
+            >
+              {selectedOptionalHolidays.length > 0
+                ? `Update Selection (${selectedOptionalHolidays.length})`
+                : "Select Optional Holidays"}
+            </Button>
+          </Box>
+        )}
+      </>
     );
   };
 
@@ -537,64 +611,83 @@ export default function HolidayCalendarPage() {
   const renderOptionalHolidays = () => {
     if (viewMode === "table") {
       return (
-        <TableContainer className="overflow-auto !mb-4">
-          <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
-            <TableHead>
-              <TableRow>
-                <TableCell
-                  className={leaveTableHeaderCellClassName}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Date
-                </TableCell>
-                <TableCell
-                  className={leaveTableHeaderCellClassName}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Day
-                </TableCell>
-                <TableCell
-                  className={leaveTableHeaderCellClassName}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Holiday Name
-                </TableCell>
-                <TableCell
-                  className={leaveTableHeaderCellClassName}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Type
-                </TableCell>
-                <TableCell
-                  className={leaveTableHeaderCellClassName}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Location/Branch
-                </TableCell>
-                {/* <TableCell
-                  className={leaveTableActionHeaderCellClassName}
-                  sx={{ fontWeight: 600 }}
-                >
-                  Action
-                </TableCell> */}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!loading && renderHolidayRows(optionalHolidays)}
-              {!loading && optionalHolidays.length === 0 && (
+        <>
+          <TableContainer className="overflow-auto !mb-4">
+            <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8}>
-                    <DataState
-                      compact
-                      type="empty"
-                      title="No optional holidays available."
-                    />
+                  <TableCell className={leaveTableHeaderCellClassName} sx={{ fontWeight: 600 }}>
+                    Date
+                  </TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName} sx={{ fontWeight: 600 }}>
+                    Day
+                  </TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName} sx={{ fontWeight: 600 }}>
+                    Holiday Name
+                  </TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName} sx={{ fontWeight: 600 }}>
+                    Type
+                  </TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName} sx={{ fontWeight: 600 }}>
+                    Location/Branch
+                  </TableCell>
+                  <TableCell className={leaveTableHeaderCellClassName} sx={{ fontWeight: 600 }}>
+                    Status
                   </TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {!loading && renderHolidayRows(optionalHolidays,'optional')}
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <DataState
+                        compact
+                        type="loading"
+                        title="Loading holidays..."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && optionalHolidays.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <DataState
+                        compact
+                        type="empty"
+                        title="No optional holidays available."
+                      />
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          {optionalHolidays.length > 0 && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mb: 2 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleSelectOptionalHolidays([])}
+                disabled={selectedOptionalHolidays.length === 0 || isSubmitting}
+                className="!text-red-600 !border-red-300"
+              >
+                Clear Selection
+              </Button>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={openSelectionDialog}
+                disabled={isSubmitting}
+                className="!bg-primary"
+              >
+                {selectedOptionalHolidays.length > 0
+                  ? `Update Selection (${selectedOptionalHolidays.length})`
+                  : "Select Optional Holidays"}
+              </Button>
+            </Box>
+          )}
+        </>
       );
     }
 
@@ -610,6 +703,71 @@ export default function HolidayCalendarPage() {
       </Box>
     );
   };
+
+  // Selection Dialog
+  const renderSelectionDialog = () => (
+    <Dialog
+      open={selectionDialogOpen}
+      onClose={() => setSelectionDialogOpen(false)}
+      maxWidth="sm"
+      fullWidth
+    >
+      <DialogTitle>
+        Select Optional Holidays
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          You can select one or more optional holidays from the list below.
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <FormGroup>
+          {optionalHolidays.map((holiday) => (
+            <FormControlLabel
+              key={holiday.id}
+              control={
+                <Checkbox
+                  checked={tempSelection.includes(holiday.id)}
+                  onChange={() => toggleHolidaySelection(holiday.id)}
+                  color="primary"
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="body2">
+                    {holiday.holidayName}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    {formatDate(holiday.holidayDate)} • {holiday.day}
+                  </Typography>
+                </Box>
+              }
+            />
+          ))}
+          {optionalHolidays.length === 0 && (
+            <Typography color="textSecondary" sx={{ py: 2, textAlign: "center" }}>
+              No optional holidays available for selection.
+            </Typography>
+          )}
+        </FormGroup>
+      </DialogContent>
+      <DialogActions sx={{ p: 2 }}>
+        <Button
+          variant="outlined"
+          onClick={() => setSelectionDialogOpen(false)}
+          className="!text-gray-600 !border-gray-300"
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => handleSelectOptionalHolidays(tempSelection)}
+          disabled={isSubmitting || tempSelection.length === 0}
+          className="!bg-primary"
+        >
+          {isSubmitting ? "Saving..." : `Save Selection (${tempSelection.length})`}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
 
   return (
     <LeavePageShell
@@ -646,7 +804,6 @@ export default function HolidayCalendarPage() {
             ))}
           </TextField>
 
-          {/* Calendar Selector */}
           <FormControl size="small" sx={{ minWidth: 250 }}>
             <InputLabel id="calendar-select-label">Calendar</InputLabel>
             <Select
@@ -673,7 +830,6 @@ export default function HolidayCalendarPage() {
             </Select>
           </FormControl>
 
-          {/* View Toggle */}
           <ToggleButtonGroup
             value={viewMode}
             exclusive
@@ -795,11 +951,8 @@ export default function HolidayCalendarPage() {
             {(
               [
                 "PUBLIC",
-                // "COMPANY",
-                // "OPTIONAL",
                 "RESTRICTED",
-                // "REGIONAL",
-                "NATIONAL",
+                "OPTIONAL",
                 "FLOATING",
               ] as const
             ).map((type) => (
@@ -808,37 +961,8 @@ export default function HolidayCalendarPage() {
               </MenuItem>
             ))}
           </TextField>
-          {/* <TextField
-            select
-            label="Location/Branch"
-            value={locationFilter}
-            onChange={(event) => setLocationFilter(event.target.value)}
-            slotProps={{
-              inputLabel: { shrink: true },
-              select: {
-                displayEmpty: true,
-                renderValue: (value: unknown) =>
-                  value ? String(value) : "All Locations",
-              },
-            }}
-            sx={{
-              ...selectSx,
-              minWidth: "100px",
-              "& .MuiSelect-select": {
-                padding: "8px !important",
-              },
-            }}
-          >
-            <MenuItem value="">All Locations</MenuItem>
-            {locationOptions.map((location) => (
-              <MenuItem key={location} value={location}>
-                {location}
-              </MenuItem>
-            ))}
-          </TextField> */}
         </LeaveFilterBar>
 
-        {/* Display selected calendar info */}
         {selectedCalendar && (
           <Box sx={{ mb: 2, display: "flex", alignItems: "center", gap: 2 }}>
             <div className="text-gray-800 text-[12px]">
@@ -855,7 +979,6 @@ export default function HolidayCalendarPage() {
           </Box>
         )}
 
-        {/* Standard Holidays Section */}
         <div className="text-[12px] text-gray-800">
           Standard Holidays
           <Chip
@@ -866,7 +989,6 @@ export default function HolidayCalendarPage() {
         </div>
         {renderStandardHolidays()}
 
-        {/* Optional Holidays Section */}
         <Box
           sx={{
             display: "flex",
@@ -884,15 +1006,24 @@ export default function HolidayCalendarPage() {
               color="warning"
               className="ml-2"
             />
+            {selectedOptionalHolidays.length > 0 && (
+              <Chip
+                label={`${selectedOptionalHolidays.length} selected`}
+                size="small"
+                color="success"
+                className="ml-2"
+              />
+            )}
           </div>
           {optionalHolidays.length > 0 && (
             <div className="text-gray-800 text-[12px]">
-              Select one optional holiday to avail
+              Select optional holidays to avail
             </div>
           )}
         </Box>
         {renderOptionalHolidays()}
       </LocalizationProvider>
+      {renderSelectionDialog()}
     </LeavePageShell>
   );
 }

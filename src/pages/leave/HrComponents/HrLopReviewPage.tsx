@@ -267,7 +267,7 @@ export default function HrLopReviewPage() {
               )}
               {!loading && requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-8">
+                  <TableCell colSpan={9} className="p-8">
                     <DataState compact type="empty" title="No pending requests to review." />
                   </TableCell>
                 </TableRow>

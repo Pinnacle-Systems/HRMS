@@ -116,6 +116,7 @@ export default function MyLeaveRequestsPage() {
     toSession: LeaveDayType;
     appliedReason: string;
     emergencyContact: string;
+    currentStatus: LeaveRequestStatus;
   }>({
     leaveTypeId: "",
     fromDate: null,
@@ -124,6 +125,7 @@ export default function MyLeaveRequestsPage() {
     toSession: "FULL_DAY",
     appliedReason: "",
     emergencyContact: "",
+    currentStatus: "DRAFT"
   });
   const [editErrors, setEditErrors] = useState<Record<string, string>>({});
   const [savingEdit, setSavingEdit] = useState(false);
@@ -219,6 +221,7 @@ export default function MyLeaveRequestsPage() {
         console.error("Failed to load attachments:", error);
         setAttachments([]);
       }
+
       const [balanceResponse, _calculationResponse]: any = await Promise.all([
         leaveService.getEmployeeLeaveBalances(request.employeeId),
         leaveService.calculateLeaveDays({
@@ -226,7 +229,6 @@ export default function MyLeaveRequestsPage() {
           leaveTypeId: request.leaveTypeId,
           fromDate: request.fromDate,
           toDate: request.toDate,
-          // dayType: request.dayType,
         }),
       ]);
       setDetailBalance(
@@ -234,10 +236,9 @@ export default function MyLeaveRequestsPage() {
           (balance: any) => balance.leaveTypeId === request.leaveTypeId,
         ) ?? null,
       );
-      // setDetailCalculation(calculationResponse.data ?? null);
     } catch {
       setDetailBalance(null);
-      // setDetailCalculation(null);
+    } finally {
     }
   };
 
@@ -429,6 +430,7 @@ export default function MyLeaveRequestsPage() {
       toSession: request.toSession || "FULL_DAY",
       appliedReason: request.reason || request.appliedReason || "",
       emergencyContact: request.emergencyContactNumber || "",
+      currentStatus: request.currentStatus || "DRAFT"
     });
     setEditDialogOpen(true);
   };
@@ -471,15 +473,13 @@ export default function MyLeaveRequestsPage() {
       showSnackbar("Please fix validation errors", "error");
       return;
     }
-
     setSavingEdit(true);
     showSpinner();
     try {
       if (!editRequest) {
         throw new Error("No request to edit");
       }
-
-      const payload = {
+      const payload:any = {
         leaveTypeId: editForm.leaveTypeId,
         fromDate: editForm.fromDate?.format("YYYY-MM-DD"),
         toDate: editForm.toDate?.format("YYYY-MM-DD"),
@@ -490,7 +490,9 @@ export default function MyLeaveRequestsPage() {
         // status: "DRAFT" as LeaveRequestStatus,
         // attachmentIds: editRequest.attachmentIds || [],
       };
-
+      // if (editForm.currentStatus == "CLARIFICATION_REQUESTED") {
+      //   payload['currentStatus'] = "PENDING";
+      // }
       const response: any = await leaveService.patchDraft(
         editRequest.id,
         payload,
@@ -499,7 +501,7 @@ export default function MyLeaveRequestsPage() {
       if (response.success) {
         showSnackbar("Draft updated successfully", "success");
         handleCloseEditDialog();
-        await loadRequests(); // Reload the list
+        await loadRequests();
       } else {
         throw new Error(response.message || "Failed to update draft");
       }
@@ -511,39 +513,15 @@ export default function MyLeaveRequestsPage() {
     }
   };
 
-  const handleSave = async (_req: LeaveRequest) => {
-    // if (!validate(mode)) {
-    //   showSnackbar("Please fix validation errors before saving", "error");
-    //   return;
-    // }
-    // setSubmitMode(mode);
+  const handleSubmit = async (req: LeaveRequest) => {
     showSpinner();
-    try {
-      if (!currentEmployeeId) {
-        throw new Error("Current employee id is unavailable");
+    try {     
+      const response: any = await leaveService.submitLeave(req.id);
+      if (response.success) {
+        showSnackbar("Leave draft request submitted successfully", "success");
+        await loadRequests();
+        closeActionMenu();
       }
-      // let attachmentIds: string[] = [];
-      // if (form.attachment && typeof form.attachment === "string") {
-      //   attachmentIds = [form.attachment];
-      // } else if (uploadedAttachmentIds.length > 0) {
-      //   attachmentIds = uploadedAttachmentIds;
-      // }
-      // const payload = {
-      //   employeeId: currentEmployeeId,
-      //   leaveTypeId: req.leaveTypeId || leaveTypeId,
-      //   fromDate: req.fromDate,
-      //   toDate: req.toDate,
-      //   fromSession: req.fromSession,
-      //   toSession: req.toSession,
-      //   appliedReason: req.appliedReason,
-      //   draft: false,
-      //   // attachmentIds: attachmentIds,
-      //   // approverId: approverId || undefined,
-      // };
-      // const response = await leaveService.createLeaveRequest(payload);
-      // if (response.success) {
-      //   showSnackbar("Leave request submitted successfully", "success");
-      // }
     } catch (err: any) {
       showSnackbar(err?.message || "Failed to save leave request", "error");
     } finally {
@@ -1243,7 +1221,8 @@ export default function MyLeaveRequestsPage() {
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        {actionRequest && actionRequest.status == "DRAFT" && (
+       
+        {actionRequest && (actionRequest.status == "DRAFT" || actionRequest.status == "CLARIFICATION_REQUESTED") && (
           <>
             <MenuItem
               onClick={() => {
@@ -1256,14 +1235,15 @@ export default function MyLeaveRequestsPage() {
             </MenuItem>
             <MenuItem
               onClick={() => {
-                handleSave(actionRequest);
+                handleSubmit(actionRequest);
               }}
               className="hover:bg-blue-50 transition-colors"
             >
               <SendOutlined className="!w-4 !h-4 mr-2 text-green-600" />
               Submit
             </MenuItem>
-            <MenuItem
+            { actionRequest && actionRequest.status == "DRAFT" &&
+              <MenuItem
               onClick={() => {
                 handleDelete(actionRequest);
               }}
@@ -1272,6 +1252,7 @@ export default function MyLeaveRequestsPage() {
               <DeleteOutlineOutlined className="!w-4 !h-4 mr-2 text-red-500" />
               Delete
             </MenuItem>
+            }
           </>
         )}
         {canWithdraw && actionRequest && (
@@ -1292,7 +1273,7 @@ export default function MyLeaveRequestsPage() {
             Request Cancellation
           </MenuItem>
         )}
-        {!canWithdraw && !canCancel && (
+        {!canWithdraw && !canCancel && actionRequest?.currentStatus != "DRAFT" && actionRequest?.currentStatus != "CLARIFICATION_REQUESTED"  && (
           <MenuItem disabled className="text-gray-400">
             No status actions available
           </MenuItem>
@@ -1496,8 +1477,8 @@ export default function MyLeaveRequestsPage() {
                   <div
                     key={date.id}
                     className={`px-2.5 py-1 rounded-md text-[10px]  ${date.weeklyOff || date.holiday
-                        ? "bg-gray-100 text-gray-800"
-                        : "bg-primary-50 text-primary-700"
+                      ? "bg-gray-100 text-gray-800"
+                      : "bg-primary-50 text-primary-700"
                       }`}
                   >
                     {formatDate(date.leaveDate)}
@@ -1540,23 +1521,24 @@ export default function MyLeaveRequestsPage() {
                     <div key={approval.id} className="flex items-center gap-3">
                       <div
                         className={`w-2 h-2 rounded-full ${approval.actionTaken === "APPROVED"
-                            ? "bg-emerald-500"
-                            : approval.actionTaken === "REJECTED"
-                              ? "bg-red-500"
-                              : "bg-amber-500"
+                          ? "bg-emerald-500"
+                          : approval.actionTaken === "REJECTED"
+                            ? "bg-red-500"
+                            : approval.actionTaken === "SUBMITTED" ? "bg-blue-500" : "bg-amber-500"
                           }`}
                       ></div>
                       <div className="flex-1 flex items-center justify-between">
-                        <div>
-                          <span className="text-[12px]  text-gray-800">
-                            {approval.approverName || "Manager"}
-                          </span>
+                        <div className="flex items-end">
+                          <div className="text-[12px]  text-gray-800">
+                            <div> {approval.approverName || "Manager"}</div>
+                            <div> {approval.actionComments}</div>
+                          </div>
                           <span
                             className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${approval.actionTaken === "APPROVED"
-                                ? "bg-emerald-50 text-emerald-600"
-                                : approval.actionTaken === "REJECTED"
-                                  ? "bg-red-50 text-red-600"
-                                  : "bg-amber-50 text-amber-600"
+                              ? "bg-emerald-50 text-emerald-600"
+                              : approval.actionTaken === "REJECTED"
+                                ? "bg-red-50 text-red-600"
+                                : approval.actionTaken === "SUBMITTED" ? "bg-blue-500" : "bg-amber-50 text-amber-600"
                               }`}
                           >
                             {approval.actionTaken}
@@ -1566,7 +1548,10 @@ export default function MyLeaveRequestsPage() {
                           {formatDate(approval.actionAt)}
                         </span>
                       </div>
+
                     </div>
+
+
                   ),
                 )}
               </div>
@@ -1599,7 +1584,7 @@ export default function MyLeaveRequestsPage() {
       {/* Edit Draft Dialog */}
       <DetailsDialog
         open={editDialogOpen}
-        title="Edit Leave Draft"
+        title={'Edit Leave - ' + editForm.currentStatus }
         onClose={handleCloseEditDialog}
         maxWidth="md"
         actions={
@@ -1617,9 +1602,9 @@ export default function MyLeaveRequestsPage() {
               className="!bg-primary"
               onClick={handleSaveEdit}
               disabled={savingEdit}
-              startIcon={savingEdit ? undefined : <SaveAltOutlined />}
+            // startIcon={savingEdit ? undefined : <SaveAltOutlined />}
             >
-              {savingEdit ? "Saving..." : "Update Draft"}
+              {savingEdit ? "Saving..." : "Update"}
             </Button>
           </div>
         }

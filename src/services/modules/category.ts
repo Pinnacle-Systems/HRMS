@@ -59,4 +59,8 @@ export const categoryService = {
   async toggleCategoryItemStatus(id: string, cid: string) {
     return apiService.patch(API_ENDPOINTS.CATEGORY.PATCHCATITEM(id, cid));
   },
+
+   async getActiveCategoryItem() {
+    return apiService.get(API_ENDPOINTS.CATEGORY.GET_ACTIVE_CAT);
+  },
 };

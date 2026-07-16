@@ -125,6 +125,7 @@ export default function AdminHolidayCalendarsPage() {
       holidayType: "PUBLIC",
       optionalHoliday: false,
       active: true,
+      applicableTo: "Both"
     },
   ]);
 
@@ -310,7 +311,7 @@ export default function AdminHolidayCalendarsPage() {
 
       const response: any = editingHolidayId
         ? await leaveService.updateHoliday(editingHolidayId, payload)
-        : await leaveService.createHoliday(payload);
+        : await leaveService.  createHoliday(payload);
 
       if (response.success) {
         showSnackbar(
@@ -384,6 +385,7 @@ export default function AdminHolidayCalendarsPage() {
         holidayType: "PUBLIC",
         optionalHoliday: false,
         active: true,
+        applicableTo:"Both"
       },
     ]);
   };
@@ -432,6 +434,7 @@ export default function AdminHolidayCalendarsPage() {
             holidayType: "PUBLIC",
             optionalHoliday: false,
             active: true,
+            applicableTo: "Both"
           },
         ]);
         setImportCalendarId("");
@@ -512,12 +515,12 @@ export default function AdminHolidayCalendarsPage() {
               <TableCell className={leaveTableHeaderCellClassName}>
                 Branch
               </TableCell>
-              <TableCell className={leaveTableHeaderCellClassName}>
-                Template
-              </TableCell>
-              <TableCell className={leaveTableHeaderCellClassName}>
+              {/* <TableCell className={leaveTableHeaderCellClassName}>
+                Applicabel to
+              </TableCell> */}
+              {/* <TableCell className={leaveTableHeaderCellClassName}>
                 Allowed Leaves
-              </TableCell>
+              </TableCell> */}
               <TableCell className={leaveTableHeaderCellClassName}>
                 Holidays
               </TableCell>
@@ -541,8 +544,8 @@ export default function AdminHolidayCalendarsPage() {
                       calendar.locations?.join(", ") ||
                       "-"}
                   </TableCell>
-                  <TableCell>Staff/Labour</TableCell>
-                  <TableCell>5</TableCell>
+                  {/* <TableCell>Staff/Labour</TableCell> */}
+                  {/* <TableCell>5</TableCell> */}
                   <TableCell>{calendar.holidaysCount || 0}</TableCell>
                   <TableCell>
                     <Chip
@@ -755,6 +758,9 @@ export default function AdminHolidayCalendarsPage() {
                       <TableCell className={leaveTableHeaderCellClassName}>
                         Type
                       </TableCell>
+                      <TableCell className={leaveTableHeaderCellClassName}>
+                        Applicable To
+                      </TableCell>
                       <TableCell className={leaveTableActionHeaderCellClassName}>
                         Actions
                       </TableCell>
@@ -769,6 +775,7 @@ export default function AdminHolidayCalendarsPage() {
                         <TableCell>
                           <HolidayTypeBadge type={holiday.holidayType} />
                         </TableCell>
+                        <TableCell>{holiday.applicableTo}</TableCell>
                         <TableCell>
                           <IconButton
                             size="small"
@@ -831,6 +838,9 @@ export default function AdminHolidayCalendarsPage() {
                       <TableCell className={leaveTableHeaderCellClassName}>
                         Type
                       </TableCell>
+                      <TableCell className={leaveTableHeaderCellClassName}>
+                        Applicable To
+                      </TableCell>
                       <TableCell className={leaveTableActionHeaderCellClassName}>
                         Actions
                       </TableCell>
@@ -845,6 +855,7 @@ export default function AdminHolidayCalendarsPage() {
                         <TableCell>
                           <HolidayTypeBadge type={holiday.holidayType} />
                         </TableCell>
+                        <TableCell>{holiday.applicableTo}</TableCell>
                         <TableCell>
                           <IconButton
                             size="small"
@@ -877,7 +888,7 @@ export default function AdminHolidayCalendarsPage() {
               </TableContainer>
 
               {/* Add/Edit Holiday Form */}
-              <div className="border border-gray-300 rounded-lg p-3 pt-6 bg-white-50 grid grid-cols-1 md:grid-cols-5 gap-3 items-start">
+              <div className="border border-gray-300 rounded-lg p-3 pt-6 bg-white-50 grid grid-cols-1 md:grid-cols-4 gap-3 items-start">
                 <DatePicker
                   label="Date"
                   value={
@@ -921,8 +932,24 @@ export default function AdminHolidayCalendarsPage() {
                     </MenuItem>
                   ))}
                 </TextField>
+                <TextField
+                  select
+                  label="Applicable To"
+                  value={holidayForm.applicableTo ?? "Both"}
+                  onChange={(event) =>
+                    setHolidayForm((current) => ({
+                      ...current,
+                      applicableTo: event.target.value,
+                    }))
+                  }
+                  sx={selectSx}
+                >
+                    <MenuItem value="Staff">Staff</MenuItem>
+                    <MenuItem value="Labour">Labour</MenuItem>
+                    <MenuItem value="Both">Both</MenuItem>
+                </TextField>
                 <FormControlLabel 
-                  className="justify-center"
+                  // className="justify-center"
                   control={
                     <Switch
                       checked={holidayForm.optionalHoliday ?? false}
@@ -1131,6 +1158,7 @@ export default function AdminHolidayCalendarsPage() {
                 holidayType: "PUBLIC",
                 optionalHoliday: false,
                 active: true,
+                applicableTo:"Both"
               }]);
               setImportCalendarId("");
             }}

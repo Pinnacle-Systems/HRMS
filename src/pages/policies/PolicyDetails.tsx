@@ -280,7 +280,7 @@ export default function PolicyDetails() {
                           <TableCell>v{version.versionNo}</TableCell>
                           <TableCell>{formatDateTime(version.effectiveFrom)}</TableCell>
                           <TableCell>
-                            {version.effectiveTo ? formatDateTime(version.effectiveTo) : '-'}
+                            {version.effectiveTo ? formatDateTime(version.effectiveTo) : 'Ongoing'}
                           </TableCell>
                           <TableCell>
                             <Chip

@@ -52,9 +52,10 @@ type RefreshResponseData = {
   };
 };
 
-const PUBLIC_ROUTE_PATHS = new Set(["/login", "/forgot-password", "/reset-password", "/verify-otp", "/mfa", "/select-tenant", "/unauthorized"]);
+const PUBLIC_ROUTE_PATHS = new Set(["/login","/signup", "/forgot-password", "/reset-password", "/verify-otp", "/mfa", "/select-tenant", "/unauthorized"]);
 const PUBLIC_REQUEST_PATHS = [
   API_ENDPOINTS.AUTH.LOGIN,
+  API_ENDPOINTS.AUTH.SIGNUP,
   API_ENDPOINTS.AUTH.FORGOT_PASSWORD,
   API_ENDPOINTS.AUTH.VERIFY_OTP,
   API_ENDPOINTS.AUTH.MFA_VERIFY,

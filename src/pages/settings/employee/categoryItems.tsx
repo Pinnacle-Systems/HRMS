@@ -71,6 +71,7 @@ export default function CategoryItems() {
         category.id,
         params,
       );
+      await categoryService.getActiveCategoryItem();
       if (response.success) {
         setItems(response.data?.content || response.data || []);
         setTotal(response.data?.totalElements || response.data?.total || 0);
