@@ -52,7 +52,7 @@ export interface AssignmentRule {
     | "DESIGNATION"
     | "EMPLOYMENT_TYPE"
     | "EMPLOYEE_CATEGORY"
-    | "EMPLOYEE_GROUP"
+    // | "EMPLOYEE_GROUP"
     | "EMPLOYEE_TEMPLATE"
     | "SPECIFIC_EMPLOYEES";
   values: string[];
@@ -68,7 +68,8 @@ export const SCOPE_PRIORITY_HINTS: Record<string, number> = {
   DESIGNATION: PolicyScopeLevel.DESIGNATION,
   EMPLOYMENT_TYPE: PolicyScopeLevel.DESIGNATION,
   EMPLOYEE_CATEGORY: PolicyScopeLevel.DESIGNATION,
-  EMPLOYEE_GROUP: PolicyScopeLevel.EMPLOYEE_GROUP,
+  // EMPLOYEE_GROUP: PolicyScopeLevel.EMPLOYEE_GROUP,
+  EMPLOYEE_TEMPLATE: PolicyScopeLevel.EMPLOYEE_TEMPLATE,
   SPECIFIC_EMPLOYEES: PolicyScopeLevel.EMPLOYEE,
 };
 

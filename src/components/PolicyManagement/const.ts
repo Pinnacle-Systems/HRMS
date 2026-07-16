@@ -114,8 +114,8 @@ export const typeLabels: Record<string, string> = {
   DESIGNATION: "Designation",
   EMPLOYMENT_TYPE: "Employment Type",
   EMPLOYEE_CATEGORY: "Category",
-  // EMPLOYEE_TEMPLATE: "Template",
-  EMPLOYEE_GROUP: "Group",
+  EMPLOYEE_TEMPLATE: "Template",
+  // EMPLOYEE_GROUP: "Group",
   SPECIFIC_EMPLOYEES: "Specific Employee",
 };
 
@@ -180,14 +180,14 @@ export interface AssignmentRuleWithMeta extends AssignmentRule {
 
 export const chipSx = {
   borderRadius: "16px",
-  backgroundColor: "#f3f4f6",
+  backgroundColor: "var(--head)",
   fontSize: "0.8125rem",
   width:"max-content",
   fontWeight: 400,
   color: "#1f2937",
   height: "24px",
   paddingTop:"3px",
-  "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+  "& .MuiOutlinedInput-notchedOutline": { border: "none"},
   "& .MuiSelect-select": {
     py: 0,
     px: "8px",

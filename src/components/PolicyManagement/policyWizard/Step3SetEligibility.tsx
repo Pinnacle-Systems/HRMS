@@ -26,6 +26,7 @@ import {
   LocationCityOutlined,
   Person2Outlined,
   SaveOutlined,
+  Category,
 } from '@mui/icons-material';
 import { PolicyScopeLevel, type Employee, type PolicyAssignment, type EmploymentType } from '../../../types/policy';
 import { helperSx, type AssignmentRuleWithMeta } from '../const';
@@ -51,8 +52,9 @@ const apiToRule = (a: any): AssignmentRuleWithMeta => {
   else if (a.designationId) { type = 'DESIGNATION'; value = a.designationId; }
   else if (a.employmentType) { type = 'EMPLOYMENT_TYPE'; value = a.employmentType; }
   else if (a.template) { type = 'EMPLOYEE_TEMPLATE'; value = a.template; }
-  else if (a.employeeGroupId) { type = 'SPECIFIC_EMPLOYEES'; value = a.employeeGroupId; }
+  // else if (a.employeeGroupId) { type = 'SPECIFIC_EMPLOYEES'; value = a.employeeGroupId; }
   else if (a.employeeId) { type = 'SPECIFIC_EMPLOYEES'; value = a.employeeId; }
+  else if (a.employeeCategory) { type = 'EMPLOYEE_CATEGORY'; value = a.employeeCategory; }
 
   return {
     id: a.id,
@@ -85,6 +87,7 @@ export const buildSinglePayload = (
     case 'DESIGNATION': return { ...base, designationId: value };
     case 'EMPLOYMENT_TYPE': return { ...base, employmentType: value as EmploymentType };
     case 'EMPLOYEE_TEMPLATE': return { ...base, template: value };
+    case 'EMPLOYEE_CATEGORY': return { ...base, employeeCategory: value };
     case 'SPECIFIC_EMPLOYEES': return { ...base, employeeId: value };
     default: return base;
   }
@@ -119,6 +122,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
   );
   const versionId = editPolicy?.currentVersion?.id as string | undefined;
   const isEditMode = !!editPolicy;
+  const category = [{ id: 'Staff', name: 'Staff' },{ id: 'Labour', name: 'Labour' }];
 
   // ── Data loading ─────────────────────────────────────────────────────────
 
@@ -146,7 +150,6 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
     try {
       const res: any = await policyService.getAssignmentsByVersion(versionId);
       const list: any[] = extractArray(res);
-
       // Group assignments with same type + effectiveFrom + effectiveTo + priority into one rule row
       const groupMap = new Map<string, AssignmentRuleWithMeta>();
       const staleDuplicateApiIds: string[] = [];
@@ -175,7 +178,6 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
       const rules = Array.from(groupMap.values());
       setAssignmentRules(rules);
       hydrateSelectedEmployees(rules);
-
       if (staleDuplicateApiIds.length) {
         Promise.all(staleDuplicateApiIds.map(id => policyService.deleteAssignment(id)))
           .then(() => console.warn(`Cleaned up ${staleDuplicateApiIds.length} duplicate assignment(s).`))
@@ -370,6 +372,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
       case 'DESIGNATION': return <Badge />;
       case 'EMPLOYMENT_TYPE': return <Group />;
       case 'EMPLOYEE_TEMPLATE': return <WorkOutlined />;
+      case 'EMPLOYEE_CATEGRORY': return <Category />;
       case 'SPECIFIC_EMPLOYEES': return <Person2Outlined />;
       default: return <Group />;
     }
@@ -382,6 +385,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
       case 'DESIGNATION': return designations;
       case 'EMPLOYMENT_TYPE': return employmentTypes;
       case 'EMPLOYEE_TEMPLATE': return templates;
+      case 'EMPLOYEE_CATEGORY': return category;
       default: return [];
     }
   };
@@ -480,6 +484,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                   <MenuItem value="DEPARTMENT">Department</MenuItem>
                   <MenuItem value="DESIGNATION">Designation</MenuItem>
                   <MenuItem value="EMPLOYMENT_TYPE">Employment Type</MenuItem>
+                  <MenuItem value="EMPLOYEE_CATEGORY">Employee Category</MenuItem>
                   <MenuItem value="EMPLOYEE_TEMPLATE">Employee Template</MenuItem>
                   <MenuItem value="SPECIFIC_EMPLOYEES">Specific Employees</MenuItem>
                 </Select>

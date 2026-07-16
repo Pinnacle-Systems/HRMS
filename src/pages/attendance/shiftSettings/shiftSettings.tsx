@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Box } from "@mui/material";
+import { useEffect, useState } from "react";
+import { Box, FormControlLabel, Switch } from "@mui/material";
 
 import {
   GroupOutlined,
@@ -15,6 +15,8 @@ import { ShiftScheduleView } from "./shiftScheduleView";
 import { ShiftRotation } from "./shiftRotation";
 import { ShiftSwapRequests } from "./shiftSwapRequests";
 import type { TabPanelProps } from "./types";
+import { useUI } from "../../../context/Snackbar";
+import { attendanceService } from "../../../services/modules/attendance";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index } = props;
@@ -32,6 +34,33 @@ function TabPanel(props: TabPanelProps) {
 
 export default function ShiftSettings() {
   const [activeTab, setActiveTab] = useState(0);
+  const [isAutoAssignShift, setIsAutoAssignShift] = useState(false);
+  const { showSpinner, hideSpinner, showSnackbar } = useUI();
+
+  const handleAutoAssignshift = async (e:any) => {
+    showSpinner();
+    try {
+      await attendanceService.toogleAutoAssignShift({isAutoAssignShift: e})
+      setIsAutoAssignShift(e)
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to Auto Assigned','error')
+    } finally {
+      hideSpinner();
+    }
+  }
+
+  const getAutoAssignshift = async () => {
+    try {
+      const res:any = await attendanceService.autoAssignShift()
+      setIsAutoAssignShift(res.data.isAutoAssignShift)
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to Auto Assigned','error')
+    } 
+  }
+
+  useEffect(() => {
+    getAutoAssignshift();
+  },[])
 
   const tabs = [
     {
@@ -64,13 +93,19 @@ export default function ShiftSettings() {
   return (
     <div className="w-full">
       {/* Header */}
-      <div className="mb-2">
-        <div className="font-semibold text-gray-800">
-          Shift Management
+      <div className="mb-2 flex justify-between items-center">
+        <div>
+          <div className="font-semibold text-gray-800">
+            Shift Management
+          </div>
+          <div className="text-gray-500 text-[12px]">
+            Configure and manage all company shift policies
+          </div>
         </div>
-        <div className="text-gray-500 text-[12px]">
-          Configure and manage all company shift policies
-        </div>
+        <FormControlLabel
+          control={
+            <Switch checked={isAutoAssignShift} onChange={(e) => handleAutoAssignshift(e.target.checked)} />}
+          label="Is Auto Assign Shift" />
       </div>
 
       <div className="border border-gray-300 bg-white">

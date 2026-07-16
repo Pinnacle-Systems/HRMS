@@ -70,7 +70,7 @@ export const BonusRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) 
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
         <Typography variant="subtitle2" className="text-gray-700">Bonus Types</Typography>
-        <IconButton onClick={addBonus} size="small"><AddIcon /></IconButton>
+        <IconButton onClick={addBonus} size="small"><AddIcon className='text-gray-800'/></IconButton>
       </Box>
 
       {bonusTypes.length === 0 ? (

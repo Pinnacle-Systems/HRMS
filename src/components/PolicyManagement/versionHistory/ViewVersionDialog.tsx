@@ -78,12 +78,12 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
               <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary">Effective To</Typography>
                 <Typography variant="body2">
-                  {version.effectiveTo ? formatDate(version.effectiveTo) : '—'}
+                  {version.effectiveTo ? formatDate(version.effectiveTo) : 'Ongoing'}
                 </Typography>
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary">Approved By</Typography>
-                <Typography variant="body2">{version.approvedBy || '—'}</Typography>
+                <Typography variant="body2">{version.approvedByName || '—'}</Typography>
               </Grid>
               <Grid size={{ xs: 6, md: 3 }}>
                 <Typography variant="caption" color="text.secondary">Approved At</Typography>

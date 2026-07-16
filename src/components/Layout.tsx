@@ -204,7 +204,7 @@ export default function Layout() {
     {
       text: "My Info",
       icon: <InfoOutlined />,
-      path:  "/home",
+      path:  "/my-info",
       roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
     {
@@ -333,6 +333,8 @@ export default function Layout() {
   useEffect(() => {
     if (user?.roles.includes('ADMIN')) {
       fetchCompanyData();
+    } else {
+      setCompanyInfo(session?.company || {})
     }
     fetchNotifications();
   }, [])

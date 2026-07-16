@@ -92,7 +92,7 @@ export function PeriodFinalisation() {
         setFinalising(true);
         showSpinner();
         try {
-          await attendanceService.finalise({ month, year, remarks });
+          await attendanceService.finalise({ month, year, remarks,approvedBy: session?.user.userId });
           showSnackbar(`${MONTHS[month - 1]} ${year} attendance finalised successfully`, "success");
           setChecklist(CHECKLIST.map(() => false));
           setRemarks("");
@@ -161,7 +161,7 @@ export function PeriodFinalisation() {
           reason: reason,
           unlockedBy: session?.user?.userId || "system",
         });
-        await attendanceService.finalise({ month, year,status: "pending_approval" });
+        await attendanceService.finalise({ month, year,status: "pending_approval",approvedBy: session?.user.userId });
         showSnackbar("Period unlocked successfully", "success");
       } else {
         const { startDate, endDate } = getMonthDateRange(
@@ -174,7 +174,7 @@ export function PeriodFinalisation() {
           lockedBy: session?.user?.userId || "system",
           reason: reason,
         });
-        await attendanceService.finalise({ month, year, status: "locked" });
+        await attendanceService.finalise({ month, year, status: "locked",approvedBy: session?.user.userId });
         showSnackbar("Period locked successfully", "success");
       }
       setDialogOpen(false);

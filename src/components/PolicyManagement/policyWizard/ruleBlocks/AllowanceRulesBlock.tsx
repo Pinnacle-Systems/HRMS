@@ -44,7 +44,7 @@ export const AllowanceRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set
       <Alert severity="info" sx={{ mb: 2 }}>Income Tax Act, 1961 - Allowances with tax exemptions</Alert>
       <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
         <Typography variant="subtitle1">Allowances</Typography>
-        <IconButton onClick={addAllowance} size="small"><AddIcon /></IconButton>
+        <IconButton onClick={addAllowance} size="small"><AddIcon className='text-gray-800'/></IconButton>
       </Box>
       {allowances.map((allowance, index) => (
         <Card key={index} variant="outlined" sx={{ mb: 2 }} className='!border-gray-200'>

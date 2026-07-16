@@ -19,5 +19,8 @@ export const WFHRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) =>
     <Grid size={{ xs: 12, md: 4 }}>
       <FormControlLabel control={<Switch checked={!!localConfig.eligibleAfterProbation} onChange={(e) => set('eligibleAfterProbation', e.target.checked)} />} label="Eligible After Probation" />
     </Grid>
+    <Grid size={{ xs: 12, md: 4 }}>
+      <FormControlLabel control={<Switch checked={!!localConfig.allowedDuringProbation} onChange={(e) => set('allowedDuringProbation', e.target.checked)} />} label="Allowed During Probation" />
+    </Grid>
   </Grid>
 );

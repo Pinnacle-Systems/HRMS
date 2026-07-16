@@ -82,19 +82,34 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
                 <FormControl fullWidth>
-                  <InputLabel>Accrual</InputLabel>
+                  <InputLabel>Accrual Type</InputLabel>
                   <Select value={leave.accrualType} onChange={(e) => handleLeaveTypeChange(index, 'accrualType', e.target.value)} sx={selectSx}>
+                    <MenuItem value="FullCredit">Immediate (Full Credit)</MenuItem>
                     <MenuItem value="MONTHLY">Monthly</MenuItem>
-                    <MenuItem value="QUARTERLY">Quarterly</MenuItem>
                     <MenuItem value="YEARLY">Yearly</MenuItem>
+                    {/* <MenuItem value="QUARTERLY">Quarterly</MenuItem>
+                    <MenuItem value="HALF-YEARLY">Half-Yearly</MenuItem>
+                    <MenuItem value="YEARLY">Yearly</MenuItem>
+                    <MenuItem value="ATTENDANCE">Based on Attendance</MenuItem>
+                    <MenuItem value="WORKING-DAYS">Based on Working Days</MenuItem>          */}
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid size={{ xs: 12, md: 2 }} className='!text-center'>
+              <Grid size={{ xs: 12, md: 2 }}>
+                <TextField fullWidth type="number" label="Accrual (Days)" value={leave?.maxAccrual || ''} onChange={(e) => handleLeaveTypeChange(index,'maxAccrual', parseInt(e.target.value) || undefined)} />
+              </Grid>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <FormControlLabel control={<Switch checked={!!leave.allowedDuringProbation} onChange={(e) => handleLeaveTypeChange(index, 'allowedDuringProbation', e.target.checked)} />} label="During Probation" />
               </Grid>
-              <Grid size={{ xs: 12, md: 2 }} className='!text-center'>
+              <Grid size={{ xs: 12, md: 2 }}>
                 <FormControlLabel control={<Switch checked={!!leave.encashable} onChange={(e) => handleLeaveTypeChange(index, 'encashable', e.target.checked)} />} label="Encashable" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 7 }}>
+                <FormControlLabel control={<Switch checked={!!leave.enableProRata} onChange={(e) => handleLeaveTypeChange(index, 'enableProRata', e.target.checked)} />} label="Enable Pro-rata Accrual" />
+                <span className='text-blue-500 text-[10px]'>(Leave accrual proportional to joining date (as per Indian Labour Laws))</span>
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <FormControlLabel control={<Switch checked={!!leave.carryForwardUnused} onChange={(e) => handleLeaveTypeChange(index, 'carryForwardUnused', e.target.checked)} />} label="Carry Forward Unused Leave" />
               </Grid>
             </Grid>
           </CardContent>

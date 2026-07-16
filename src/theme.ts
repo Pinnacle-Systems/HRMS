@@ -483,7 +483,8 @@ const theme = createTheme({
 
         inputRoot: {
           "& .MuiAutocomplete-input": {
-            padding: "2px !important",
+            // padding: "2px !important",
+            padding: "10px !important",
           },
         },
 

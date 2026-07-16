@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Box, Alert, IconButton, TableContainer, Table, TableHead, TableRow, TableCell,
-  TableBody, FormControl,TextField, Switch, Grid, FormControlLabel,
+  TableBody, FormControl, TextField, Switch, Grid, FormControlLabel,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { chipSx } from '../../const';
@@ -44,7 +44,7 @@ export const ExpenseLimitsBlock: React.FC<ExpenseLimitsBlockProps> = ({ localCon
   };
 
   const addNewExpCat = async (newOption: any) => {
-    try { 
+    try {
       const payload = {
         name: newOption,
         code: newOption.toUpperCase().replace(/\s/g, "_"),
@@ -146,12 +146,25 @@ export const ExpenseLimitsBlock: React.FC<ExpenseLimitsBlockProps> = ({ localCon
         </Table>
       </TableContainer>
       <Grid container spacing={2} sx={{ mt: 3 }}>
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 2 }}>
           <TextField fullWidth size="small" type="number" label="Settlement Days" value={localConfig.settlementDays ?? 7} onChange={(e) => set('settlementDays', parseInt(e.target.value) || 0)} />
         </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 2 }}>
+          <FormControlLabel control={<Switch checked={!!localConfig.advanceAllowed} onChange={(e) => set('advanceAllowed', e.target.checked)} />} label="Allow Advance" />
+        </Grid>
+        {localConfig.advanceAllowed &&
+          <Grid size={{ xs: 12, md: 2 }}>
+            <TextField fullWidth size="small" type="number" label="Max Advance amount" value={localConfig.maxAdvanceAmount ?? 0} onChange={(e) => set('maxAdvanceAmount', parseInt(e.target.value) || 0)} />
+          </Grid>
+        }
+        <Grid size={{ xs: 12, md: 2 }}>
           <FormControlLabel control={<Switch checked={!!localConfig.perDiemAllowed} onChange={(e) => set('perDiemAllowed', e.target.checked)} />} label="Allow Per Diem" />
         </Grid>
+        {localConfig.perDiemAllowed &&
+          <Grid size={{ xs: 12, md: 2 }}>
+            <TextField fullWidth size="small" type="number" label="Per Diem amount" value={localConfig.perDiemAmount ?? 0} onChange={(e) => set('perDiemAmount', parseInt(e.target.value) || 0)} />
+          </Grid>
+        }
       </Grid>
     </Box>
   );

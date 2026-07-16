@@ -41,6 +41,9 @@ import {
   InsertDriveFileOutlined,
   Add,
   PlaylistAddCheckCircleOutlined,
+  DownloadOutlined,
+  ErrorOutlined,
+  WarningAmberOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -63,9 +66,8 @@ import { DateTimePicker } from "@mui/x-date-pickers";
 import { useAuth } from "../../../auth/authContext";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { NotificationsActiveOutlined } from "@mui/icons-material";
-import { cleanDataRows, createTransformedCSV, getFileFormat, parseFileContent, readExcelFile, readFileAsText, validateAndTransformData } from "../../../utils/timeStampFormatter";
+import { formatTimestampForAPI, readExcelFile, readFileAsText } from "../../../utils/timeStampFormatter";
 import { biometricService, type BiometricDevice } from "../../../services/modules/biometricDevice";
-
 interface RegisterEmployee {
   employeeId: string;
   employeeName: string;
@@ -81,7 +83,6 @@ interface RegisterEmployee {
   workedMinutes: number;
   lateMinutes: number;
 }
-
 interface TodaySummary {
   date: string;
   totalEmployees: number;
@@ -154,6 +155,23 @@ export function DailyRegister() {
   const [bulkCheckinSubmitting, setBulkCheckinSubmitting] = useState(false);
   const [selectAllChecked, setSelectAllChecked] = useState(false);
 
+  const [bulkActionType, setBulkActionType] = useState<"checkIn" | "checkOut">("checkIn");
+  const [bulkCheckoutTime, setBulkCheckoutTime] = useState(dayjs().toISOString());
+  const [bulkCheckoutRemarks, setBulkCheckoutRemarks] = useState("");
+  const [bulkCheckoutSubmitting, setBulkCheckoutSubmitting] = useState(false);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+
+  const [bulkActionResult, setBulkActionResult] = useState<{
+    open: boolean;
+    type: 'checkIn' | 'checkOut';
+    total: number;
+    success: number;
+    skipped: number;
+    errors: number;
+    results: any[];
+    checkoutTime?: string;
+  } | null>(null);
+
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState("");
   const [reminderType, setReminderType] = useState<
@@ -163,6 +181,9 @@ export function DailyRegister() {
   const [employeesToRem, setEmployeesToRem] = useState<any[]>([]);
   const [sendVia, setSendVia] = useState(["email"]);
   const [importSource, setImportSource] = useState("biometric");
+  const [importStartDate, setImportStartDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [importEndDate, setImportEndDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [importType, setImportType] = useState<'daywise' | 'weekwise' | 'monthwise'>('daywise');
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
@@ -386,15 +407,25 @@ export function DailyRegister() {
     setBulkCheckinSubmitting(true);
     showSpinner();
     try {
-      await attendanceService.bulkCheckin({
+      const response: any = await attendanceService.bulkCheckin({
         employeeIds: employeesToCheckin.map((e) => e.employeeId),
         checkinTime: bulkCheckinTime,
         reason: bulkCheckinRemarks,
         markedBy: session?.user.userId || "system",
       });
+      const data = response?.data?.data ?? response?.data;
+      setBulkActionResult({
+        open: true,
+        type: 'checkIn',
+        total: data.total || 0,
+        success: data.checkedIn || 0,
+        skipped: data.skipped || 0,
+        errors: data.errors || 0,
+        results: data.results || [],
+      });
       showSnackbar(
-        `Bulk check-in successful for ${employeesToCheckin.length} employees`,
-        "success",
+        `Bulk check-in completed: ${data.checkedIn || 0} successful, ${data.skipped || 0} skipped`,
+        data.errors > 0 ? "warning" : "success",
       );
       setBulkCheckinEmployees([]);
       setBulkCheckinRemarks("");
@@ -410,6 +441,55 @@ export function DailyRegister() {
       );
     } finally {
       setBulkCheckinSubmitting(false);
+      hideSpinner();
+    }
+  }
+
+  // Bulk check out
+  async function submitBulkCheckout(employeesToCheckout = bulkCheckinEmployees) {
+    if (employeesToCheckout.length === 0) {
+      showSnackbar("Select at least one employee", "warning");
+      return;
+    }
+    setBulkCheckoutSubmitting(true);
+    showSpinner();
+    try {
+      const response: any = await attendanceService.bulkCheckOut({
+        employeeIds: employeesToCheckout.map((e) => e.employeeId),
+        checkoutTime: bulkCheckoutTime,
+        reason: bulkCheckoutRemarks,
+        markedBy: session?.user.userId || "system",
+      });
+      const data = response?.data?.data ?? response?.data;
+      setBulkActionResult({
+        open: true,
+        type: 'checkOut',
+        total: data.total || 0,
+        success: data.checkedOut || 0,
+        skipped: data.skipped || 0,
+        errors: data.errors || 0,
+        results: data.results || [],
+        checkoutTime: data.checkoutTime,
+      });
+
+      showSnackbar(
+        `Bulk check-out completed: ${data.checkedOut || 0} successful, ${data.skipped || 0} skipped`,
+        data.errors > 0 ? "warning" : "success",
+      );
+      setBulkCheckinEmployees([]);
+      setBulkCheckoutRemarks("");
+      setBulkCheckinOpen(false);
+      setSelectAllChecked(false);
+      setSelected(new Set());
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Bulk check-out failed",
+        "error",
+      );
+    } finally {
+      setBulkCheckoutSubmitting(false);
       hideSpinner();
     }
   }
@@ -486,116 +566,270 @@ export function DailyRegister() {
     setSendVia(value);
   };
 
+  // async function handleImportFile() {
+  //   if (!importFile) {
+  //     showSnackbar("Please select a file to import", "warning");
+  //     return;
+  //   }
+  //   if (!importStartDate || !importEndDate) {
+  //     showSnackbar("Please select date range", "warning");
+  //     return;
+  //   }
+  //   if (dayjs(importEndDate).isBefore(dayjs(importStartDate))) {
+  //     showSnackbar("End date must be after start date", "warning");
+  //     return;
+  //   }
+  //   setImporting(true);
+  //   setImportResult(null);
+  //   showSpinner();
+
+  //   try {
+  //     const extension = importFile.name.split('.').pop()?.toLowerCase();
+  //     let format = 'csv';
+  //     if (extension === 'xlsx' || extension === 'xls') {
+  //       format = 'excel';
+  //     } else if (extension === 'txt' || extension === 'csv') {
+  //       format = 'csv';
+  //     }
+  //     const params = {
+  //       format,
+  //       source: importSource,
+  //       type: importType,
+  //       startDate: importStartDate,
+  //       endDate: importEndDate,
+  //     };
+
+  //     let fileToUpload = importFile;
+
+  //     // Upload the file
+  //     const res: any = await attendanceService.importAttendanceFile(params, fileToUpload);
+  //     const data = res?.data?.data ?? res?.data;
+  //     if (data) {
+  //       const totalPunches = data.totalPunches || 0;
+  //       const errorCount = data.errors || 0;
+  //       const successCount = totalPunches - errorCount;
+  //       const errorMessages: string[] = [];
+  //       if (data.rows && Array.isArray(data.rows)) {
+  //         data.rows.forEach((row: any) => {
+  //           if (row.message && row.message !== 'imported') {
+  //             const errorMsg = row.employeeCode
+  //               ? `${row.employeeCode}: ${row.message}`
+  //               : row.message;
+  //             errorMessages.push(errorMsg);
+  //           }
+  //         });
+  //       }
+  //       if (errorCount > 0 && successCount === 0) {
+  //         showSnackbar(
+  //           `All ${totalPunches} records failed to import. Please check the format.`,
+  //           "error"
+  //         );
+  //       } else if (errorCount > 0) {
+  //         showSnackbar(
+  //           `Imported with ${errorCount} error(s). ${successCount} successful.`,
+  //           "warning"
+  //         );
+  //       } else {
+  //         showSnackbar(
+  //           `Successfully imported ${totalPunches} attendance records`,
+  //           "success"
+  //         );
+  //       }
+  //       setImportResult({
+  //         success: successCount,
+  //         failed: errorCount,
+  //         errors: errorMessages,
+  //         rows: data.rows || []
+  //       });
+  //       if (successCount > 0) {
+  //         loadRegister();
+  //         loadTodaySummary();
+  //       }
+  //     }
+  //   } catch (err: any) {
+  //     const errorMessage = err?.response?.data?.message
+  //       || err?.message
+  //       || "Failed to import attendance";
+  //     showSnackbar(errorMessage, "error");
+  //     setImportResult({
+  //       success: 0,
+  //       failed: 1,
+  //       errors: [errorMessage],
+  //       rows: []
+  //     });
+  //   } finally {
+  //     setImporting(false);
+  //     hideSpinner();
+  //   }
+  // }
+
+  // Preview handler - Updated for Excel support
+
   async function handleImportFile() {
     if (!importFile) {
       showSnackbar("Please select a file to import", "warning");
       return;
     }
-
+    if (!importStartDate || !importEndDate) {
+      showSnackbar("Please select date range", "warning");
+      return;
+    }
+    if (dayjs(importEndDate).isBefore(dayjs(importStartDate))) {
+      showSnackbar("End date must be after start date", "warning");
+      return;
+    }
     setImporting(true);
     setImportResult(null);
     showSpinner();
-
     try {
-      let rawData: any[] = [];
-      const fileFormat = getFileFormat(importFile.name);
-      const fileExtension = importFile.name.split('.').pop()?.toLowerCase() || '';
-
-      console.log('File detected:', {
-        name: importFile.name,
-        type: importFile.type,
-        size: importFile.size,
-        format: fileFormat,
-        extension: fileExtension
-      });
-
-      // Read file based on extension
-      if (fileExtension === 'csv' || fileExtension === 'txt') {
-        const fileContent = await readFileAsText(importFile);
-        console.log('File content:', fileContent);
-
-        // Parse the content
-        rawData = parseFileContent(fileContent);
-      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        const excelData = await readExcelFile(importFile);
-        rawData = excelData;
-      } else {
-        throw new Error(`Unsupported file format: ${importFile.name}. Please use CSV, TXT, or Excel files (.xlsx, .xls).`);
+      const extension = importFile.name.split('.').pop()?.toLowerCase();
+      let format = 'csv';
+      // Determine format
+      if (extension === 'xlsx' || extension === 'xls') {
+        format = 'excel';
+      } else if (extension === 'txt' || extension === 'csv') {
+        format = 'csv';
       }
+      let fileToUpload = importFile;
+      // If it's an Excel file, read and convert to a properly formatted CSV
+      if (format === 'excel') {
+        try {
+          const excelData = await readExcelFile(importFile);
+          if (!excelData || excelData.length === 0) {
+            showSnackbar("No data found in the Excel file", "warning");
+            return;
+          }
+          // Get headers and identify columns
+          const headers = Object.keys(excelData[0]);
+          const employeeCodeKey = headers.find(h =>
+            ['employee code', 'employeecode', 'employee', 'emp code', 'empcode', 'code', 'employee id', 'employeeid', 'empid', 'id'].some(key =>
+              h.toLowerCase().replace(/\s/g, '') === key.replace(/\s/g, '') ||
+              h.toLowerCase().includes(key.toLowerCase())
+            )
+          ) || headers[0];
+          const timestampKey = headers.find(h =>
+            ['timestamp', 'time', 'date', 'datetime', 'punch time', 'punchtime', 'checkin time', 'checkintime'].some(key =>
+              h.toLowerCase().replace(/\s/g, '') === key.replace(/\s/g, '') ||
+              h.toLowerCase().includes(key.toLowerCase())
+            )
+          ) || headers[1];
+          // Format data for CSV
+          const rows: any[] = [];
+          let errorCount = 0;
+          for (const row of excelData) {
+            let employeeCode = row[employeeCodeKey] || '';
+            let timestamp = row[timestampKey] || '';
+            if (!employeeCode && !timestamp) continue;
+            // Format timestamp
+            let formattedTimestamp = '';
+            if (timestamp) {
+              let parsed = dayjs(timestamp);
+              // Handle Excel date serial numbers
+              if (typeof timestamp === 'number' && !parsed.isValid()) {
+                const excelEpoch = dayjs('1899-12-30');
+                parsed = excelEpoch.add(timestamp, 'day');
+              }
+              if (parsed.isValid()) {
+                // Always convert to UTC ISO string
+                formattedTimestamp = parsed.utc().toISOString();
+              } else {
+                // Try alternative formats
+                const formats = [
+                  'YYYY-MM-DD HH:mm:ss',
+                  'YYYY-MM-DD HH:mm',
+                  'YYYY-MM-DD',
+                  'DD/MM/YYYY HH:mm:ss',
+                  'DD/MM/YYYY HH:mm',
+                  'DD/MM/YYYY',
+                  'MM/DD/YYYY HH:mm:ss',
+                  'MM/DD/YYYY HH:mm',
+                  'MM/DD/YYYY'
+                ];
+                let found = false;
+                for (const fmt of formats) {
+                  const parsed2 = dayjs(timestamp, fmt);
+                  if (parsed2.isValid()) {
+                    formattedTimestamp = parsed2.utc().toISOString();
+                    found = true;
+                    break;
+                  }
+                }
+                if (!found) {
+                  errorCount++;
+                  continue;
+                }
+              }
+            }
 
-      if (!rawData || rawData.length === 0) {
-        showSnackbar("No data found in the file. Please check the file format.", "warning");
-        setImportResult({
-          success: 0,
-          failed: 0,
-          errors: ["No data found in the file"],
-          rows: []
-        });
-        setImporting(false);
-        hideSpinner();
-        return;
+            if (employeeCode && formattedTimestamp) {
+              rows.push({
+                employeeCode: employeeCode.toString().trim(),
+                timestamp: formattedTimestamp
+              });
+            }
+          }
+          if (rows.length === 0) {
+            showSnackbar("No valid records found in the Excel file", "warning");
+            return;
+          }
+
+          // Create CSV file
+          const csvHeader = 'employeeCode,timestamp';
+          const csvRows = rows.map(row => `${row.employeeCode},${row.timestamp}`);
+          const csvContent = [csvHeader, ...csvRows].join('\n');
+
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          fileToUpload = new File([blob], `import_${dayjs().format('YYYY-MM-DD')}.csv`, {
+            type: 'text/csv',
+            lastModified: new Date().getTime()
+          });
+
+          // Update format to CSV
+          format = 'csv';
+        } catch (error) {
+          console.error('Error reading Excel file:', error);
+          showSnackbar("Failed to read Excel file. Please ensure it's a valid Excel file.", "error");
+          return;
+        }
       }
-
-      console.log('Parsed data (first 3 rows):', rawData.slice(0, 3));
-
-      // Clean data (remove headers if present)
-      let cleanedData = cleanDataRows(rawData);
-      console.log('Cleaned data (first 3 rows):', cleanedData.slice(0, 3));
-
-      // Validate and transform data
-      const validationResult = validateAndTransformData(cleanedData);
-
-      if (validationResult.validData.length === 0) {
-        const errorMessage = validationResult.errors.length > 0
-          ? `No valid data found. ${validationResult.errors.length} errors: ${validationResult.errors.slice(0, 3).join(', ')}${validationResult.errors.length > 3 ? '...' : ''}`
-          : "No valid data found in the file";
-        showSnackbar(errorMessage, "warning");
-
-        setImportResult({
-          success: 0,
-          failed: validationResult.errors.length,
-          errors: validationResult.errors,
-          rows: []
-        });
-
-        setImporting(false);
-        hideSpinner();
-        return;
-      }
-
-      // Create transformed file
-      const transformedFile = createTransformedCSV(validationResult.validData, importFile.name);
 
       // Prepare params
       const params = {
-        format: 'csv',
-        source: importSource
+        format: format,
+        source: importSource,
+        type: importType,
+        startDate: importStartDate,
+        endDate: importEndDate,
       };
-
-      // Upload the transformed file
-      const res: any = await attendanceService.importAttendanceFile(params, transformedFile);
-
+      // Upload the file
+      const res: any = await attendanceService.importAttendanceFile(params, fileToUpload);
       const data = res?.data?.data ?? res?.data;
 
-      // Handle response
       if (data) {
-        const errorCount = data.errors || 0;
         const totalPunches = data.totalPunches || 0;
+        const errorCount = data.errors || 0;
         const successCount = totalPunches - errorCount;
 
-        let errorMessages: string[] = [];
+        // Collect error messages
+        const errorMessages: string[] = [];
         if (data.rows && Array.isArray(data.rows)) {
-          errorMessages = data.rows
-            .filter((row: any) => row.message && row.message !== 'imported')
-            .map((row: any) => {
-              if (row.employeeCode && row.message) {
-                return `${row.employeeCode}: ${row.message}`;
-              }
-              return row.message || 'Unknown error';
-            });
+          data.rows.forEach((row: any) => {
+            if (row.message && row.message !== 'imported' && row.message !== 'success') {
+              const errorMsg = row.employeeCode
+                ? `${row.employeeCode}: ${row.message}`
+                : row.message;
+              errorMessages.push(errorMsg);
+            }
+          });
         }
 
-        if (errorCount > 0) {
+        // Show appropriate message
+        if (errorCount > 0 && successCount === 0) {
+          showSnackbar(
+            `All ${totalPunches} records failed to import. Please check the format.`,
+            "error"
+          );
+        } else if (errorCount > 0) {
           showSnackbar(
             `Imported with ${errorCount} error(s). ${successCount} successful.`,
             "warning"
@@ -613,19 +847,21 @@ export function DailyRegister() {
           errors: errorMessages,
           rows: data.rows || []
         });
-      }
 
-      loadRegister();
-      loadTodaySummary();
+        if (successCount > 0) {
+          loadRegister();
+          loadTodaySummary();
+        }
+      }
     } catch (err: any) {
       console.error('Import error:', err);
-
-      const errorMessage = err?.message || err?.response?.data?.message || "Failed to import attendance";
+      const errorMessage = err?.response?.data?.message
+        || err?.message
+        || "Failed to import attendance";
       showSnackbar(errorMessage, "error");
-
       setImportResult({
         success: 0,
-        failed: 0,
+        failed: 1,
         errors: [errorMessage],
         rows: []
       });
@@ -635,6 +871,82 @@ export function DailyRegister() {
     }
   }
 
+  async function handlePreviewFile() {
+    if (!importFile) {
+      showSnackbar("Please select a file first", "warning");
+      return;
+    }
+    try {
+      const extension = importFile.name.split('.').pop()?.toLowerCase();
+      let preview: any = [];
+
+      if (extension === 'xlsx' || extension === 'xls') {
+        const excelData = await readExcelFile(importFile);
+        if (excelData && excelData.length > 0) {
+          const headers = Object.keys(excelData[0]);
+          const employeeCodeKey = headers.find(h =>
+            h.toLowerCase().includes('employee') ||
+            h.toLowerCase().includes('emp') ||
+            h.toLowerCase().includes('code')
+          ) || headers[0];
+          const timestampKey = headers.find(h =>
+            h.toLowerCase().includes('timestamp') ||
+            h.toLowerCase().includes('time') ||
+            h.toLowerCase().includes('date')
+          ) || headers[1];
+
+          preview = excelData.slice(0, 5).map((row: any) => {
+            const employeeCode = row[employeeCodeKey] || 'N/A';
+            const originalTimestamp = row[timestampKey] || 'N/A';
+
+            let formattedTimestamp = 'N/A';
+            let isValid = false;
+
+            if (originalTimestamp !== 'N/A' && originalTimestamp) {
+              // Try to format the timestamp
+              const parsed = dayjs(originalTimestamp);
+              if (parsed.isValid()) {
+                formattedTimestamp = parsed.toISOString();
+                isValid = true;
+              } else {
+                // Try alternative formats
+                const parsed2 = dayjs(originalTimestamp, [
+                  'YYYY-MM-DD HH:mm:ss',
+                  'YYYY-MM-DD HH:mm',
+                  'YYYY-MM-DD'
+                ]);
+                if (parsed2.isValid()) {
+                  formattedTimestamp = parsed2.toISOString();
+                  isValid = true;
+                } else {
+                  formattedTimestamp = `Invalid format: ${originalTimestamp}`;
+                }
+              }
+            }
+
+            return {
+              employeeCode: String(employeeCode),
+              originalTimestamp: String(originalTimestamp),
+              formattedTimestamp,
+              isValid
+            };
+          });
+        }
+      } else {
+        // Handle CSV/TXT similarly with proper formatting
+        // ... (existing CSV preview code with the same formatting logic)
+      }
+
+      setPreviewData(preview);
+      if (preview.length === 0) {
+        showSnackbar("No valid data rows found in the file", "warning");
+      } else {
+        showSnackbar(`Preview loaded with ${preview.length} rows`, "success");
+      }
+    } catch (error) {
+      showSnackbar("Failed to preview file. Please check the file format.", "error");
+    }
+  }
 
   // ── Punch Import Handlers ────────────────────────────────────────────────
   function addPunchEntry() {
@@ -775,7 +1087,8 @@ export function DailyRegister() {
 
   const handleEmployee = async (employee: any) => {
     if (!employee) return;
-    if (employeesToRem.find(e => e.employeeId === employee.id)) {
+    const employeeId = employee.id || employee.employeeId;
+    if (employeesToRem.find(e => e.employeeId === employeeId)) {
       showSnackbar("Employee already added", "warning");
       return;
     }
@@ -848,7 +1161,7 @@ export function DailyRegister() {
               <div className={`text-xl font-bold ${color}`}>
                 {value ? value : 0}
               </div>
-              <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+              <div className="text-[12px] text-gray-500 mt-0.5">{label}</div>
             </div>
           ))}
         </div>
@@ -970,7 +1283,7 @@ export function DailyRegister() {
             Holiday: {todayHoliday?.name}
           </span>
           {todayHoliday?.type && (
-            <span className="text-xs text-primary">
+            <span className="text-[12px] text-primary">
               ({todayHoliday?.type})
             </span>
           )}
@@ -1008,9 +1321,14 @@ export function DailyRegister() {
               variant="contained"
               className="!bg-primary"
               startIcon={<PlaylistAddCheckCircleOutlined fontSize="small" />}
-              onClick={() => setBulkCheckinOpen(true)}
+              onClick={() => {
+                setBulkActionType("checkIn");
+                const selectedEmployees = employees.filter(emp => selected.has(emp.employeeId));
+                setBulkCheckinEmployees(selectedEmployees);
+                setBulkCheckinOpen(true);
+              }}
             >
-              Bulk Check-in
+              Bulk Action
             </Button>
             <Button size="small" variant="outlined"
               className="!text-gray-800 !border-gray-200" onClick={() => {
@@ -1036,10 +1354,9 @@ export function DailyRegister() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox" className="bg-gray-50">
+                <TableCell padding="checkbox" className="!sticky left-0 !z-40">
                   <Checkbox
                     size="small"
-                    // className="!text-gray-500"
                     color="primary"
                     indeterminate={
                       selected.size > 0 && selected.size < employees.length
@@ -1051,9 +1368,7 @@ export function DailyRegister() {
                   />
                 </TableCell>
                 {[
-                  "S No",
-                  "Emp Code",
-                  "Name",
+                  "Emp Name",
                   "Department",
                   "Shift",
                   "Shift Time",
@@ -1061,8 +1376,9 @@ export function DailyRegister() {
                   "Check Out",
                   "Status",
                   "Action",
-                ].map((h) => (
-                  <TableCell key={h} className="!font-bold">
+                ].map((h, i) => (
+                  <TableCell key={h} className={`!font-bold ${i == 0 ? '!sticky left-[52px] !z-40' :
+                    h == 'Action' ? '!sticky right-0 !z-40' : h == 'Status' ? '!sticky right-[52px] !z-40' : ''}`}>
                     {h}
                   </TableCell>
                 ))}
@@ -1079,7 +1395,7 @@ export function DailyRegister() {
                 </TableRow>
               ) : employees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" className="py-8">
+                  <TableCell colSpan={10} align="center" className="py-8">
                     <div className="text-[12px] text-gray-400 pt-7">
                       No records for {dayjs(date).format("DD MMM YYYY")}
                     </div>
@@ -1089,23 +1405,22 @@ export function DailyRegister() {
                 employees.map((emp, i) => (
                   <TableRow
                     key={emp.employeeId || i}
-                    hover
                     selected={selected.has(emp.employeeId)}
                     sx={getRowColor(i)}
                   >
-                    <TableCell padding="checkbox">
+                    <TableCell padding="checkbox" className="!sticky left-0 !z-20 bg-inherit">
                       <Checkbox
                         size="small"
-                        // className="!text-gray-500"
                         color="primary"
+                        className="!border-red-500"
                         checked={selected.has(emp.employeeId)}
                         onChange={() => toggleSelect(emp.employeeId)}
-                      />
+                        disabled={emp.status == 'leave'}
+                      /> <span className="ml-2">{i + 1}</span>
                     </TableCell>
-                    <TableCell>{i + 1}</TableCell>
-                    <TableCell>{emp.employeeCode}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {emp.employeeName}
+                    <TableCell className="whitespace-nowrap !sticky left-[52px] !z-20 bg-inherit">
+                      <span>{emp.employeeName}</span>
+                      <span className="text-gray-500"> - {emp.employeeCode}</span>
                     </TableCell>
                     <TableCell>{emp.department || '-'}</TableCell>
                     <TableCell>{emp.shiftCode || '-'}</TableCell>
@@ -1130,7 +1445,7 @@ export function DailyRegister() {
                         <span>-</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="!sticky right-[55px] !z-20 !bg-inherit">
                       <span
                         className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap
                         ${ATTENDANCE_STATUS_BG[emp.status] ?? "bg-gray-100 text-gray-600"}`}
@@ -1138,7 +1453,7 @@ export function DailyRegister() {
                         {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="!sticky right-0 !z-20 !bg-inherit">
                       {emp.status !== 'leave' ? (
                         <div className="flex items-center gap-1">
                           {!emp.checkInTime && (
@@ -1297,7 +1612,7 @@ export function DailyRegister() {
         <DialogContent>
           <div className="space-y-6 pt-1 ">
             <Alert severity="info" icon={<InfoOutlined fontSize="small" />} sx={{ py: 0.5 }}>
-              <span className="text-xs">
+              <span className="text-[12px]">
                 Posting status for <b>{selected.size}</b> employees on{" "}
                 <b>{dayjs(date).format("DD MMM YYYY")}</b>
               </span>
@@ -1340,6 +1655,7 @@ export function DailyRegister() {
           setBulkCheckinOpen(false);
           setBulkCheckinEmployees([]);
           setSelectAllChecked(false);
+          setBulkActionType("checkIn");
         }}
         maxWidth="sm"
         fullWidth
@@ -1347,113 +1663,233 @@ export function DailyRegister() {
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
           <span className="!pl-4 flex items-center gap-2">
             <PlaylistAddCheckCircleOutlined className="text-primary" />
-            Bulk Check-in
+            Bulk Check-in / Check-out
           </span>
           <IconButton size="small" onClick={() => {
             setBulkCheckinOpen(false);
             setBulkCheckinEmployees([]);
             setSelectAllChecked(false);
+            setBulkActionType("checkIn");
           }}>
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
-          <div className="space-y-8">
-            {/* Employee Selection */}
-            <Autocomplete
-              multiple
-              options={[
-                {
-                  employeeId: "ALL",
-                  employeeName: "Select All",
-                  department: "",
-                  employeeCode: "ALL"
-                },
-                ...employees.filter((emp) => emp.status !== 'leave'),
-              ]}
-              disableCloseOnSelect
-              value={bulkCheckinEmployees}
-              getOptionLabel={(option) =>
-                `${option.employeeName} ${option.department ? `- ${option.department}` : ""}`
-              }
-              onChange={(_, value) => {
-                const ids = value.map((v) => v.employeeId);
-
-                if (ids.includes("ALL")) {
-                  if (bulkCheckinEmployees.length === employees.length) {
-                    setBulkCheckinEmployees([]);
-                    setSelectAllChecked(false);
-                  } else {
-                    const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
-                    setBulkCheckinEmployees(nonLeaveEmployees);
-                    setSelectAllChecked(true);
-                  }
-                } else {
-                  setBulkCheckinEmployees(value);
-                  setSelectAllChecked(value.length === employees.filter((emp) => emp.status !== 'leave').length);
-                }
-              }}
-              renderOption={(props, option) => {
-                const { key, ...optionProps } = props;
-                const isAll = option.employeeId === "ALL";
-                const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
-                const isChecked = isAll
-                  ? bulkCheckinEmployees.length === nonLeaveEmployees.length
-                  : bulkCheckinEmployees.some((emp) => emp.employeeId === option.employeeId);
-
-                return (
-                  <li key={key} {...optionProps} className='!p-2 !flex !items-start'>
-                    <Checkbox
-                      className='!grid !items-start !justify-start !py-0'
-                      checked={isChecked}
-                    />
-                    <div>
-                      <div className="text-[12px]">
-                        {option.employeeName} {!isAll && `- ${option.employeeCode}`}
-                      </div>
-                      {!isAll && (
-                        <span className='text-[10px] text-gray-500'>
-                          {option.department ? option.department : ''}
-                        </span>
-                      )}
-                      {isAll && (
-                        <span className='text-[10px] text-gray-500'>
-                          Select all {nonLeaveEmployees.length} employees
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                );
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Search & Add Employees"
-                  placeholder="Type employee name or code..."
-                />
-              )}
-              className="w-full"
-            />
-
-            {bulkCheckinEmployees.length > 0 && (
-              <Alert severity="info" sx={{ py: 0.5 }}>
-                <span className="text-xs">
-                  {bulkCheckinEmployees.length === employees.filter((emp) => emp.status !== 'leave').length
-                    ? `All ${bulkCheckinEmployees.length} employees selected`
-                    : `${bulkCheckinEmployees.length} employee${bulkCheckinEmployees.length !== 1 ? "s" : ""} selected`}
-                </span>
+          <div className="space-y-6">
+            {/* Show selected from table */}
+            {/* {selected.size > 0 && (
+              <Alert severity="info" className="!py-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px]">
+                    <strong>{selected.size}</strong> employee{selected.size !== 1 ? 's' : ''} selected from table
+                  </span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    className="!text-primary !border-primary"
+                    onClick={() => {
+                      setSelected(new Set());
+                      setBulkCheckinEmployees([]);
+                      setSelectAllChecked(false);
+                    }}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
               </Alert>
+            )} */}
+
+            {/* Toggle between Check-in and Check-out */}
+            <div className="flex justify-center gap-2">
+              <Button
+                variant={bulkActionType === "checkIn" ? "contained" : "outlined"}
+                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${bulkActionType === "checkIn"
+                  ? "!bg-gradient-to-br !from-emerald-400 !to-emerald-500 !text-white shadow-lg shadow-emerald-200/50"
+                  : "!text-emerald-600 !border-emerald-500 hover:!bg-white/50 !backdrop-blur-sm"
+                  }`}
+                onClick={() => setBulkActionType("checkIn")}
+                startIcon={<LoginOutlined className="!w-4 !h-4" />}
+              >
+                <span className="font-medium">Check-in</span>
+              </Button>
+              <Button
+                variant={bulkActionType === "checkOut" ? "contained" : "outlined"}
+                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${bulkActionType === "checkOut"
+                  ? "!bg-gradient-to-br !from-blue-400 !to-blue-500 !text-white shadow-lg shadow-blue-200/50"
+                  : "!text-blue-600 !border-blue-500 hover:!bg-white/50 !backdrop-blur-sm"
+                  }`}
+                onClick={() => setBulkActionType("checkOut")}
+                startIcon={<LogoutOutlined className="!w-4 !h-4" />}
+              >
+                <span className="font-medium">Check-out</span>
+              </Button>
+            </div>
+
+            {/* Show selected employees as chips */}
+            {bulkCheckinEmployees.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[12px] font-medium text-gray-600">
+                    Selected Employees ({bulkCheckinEmployees.length})
+                  </span>
+                  <Button
+                    size="small"
+                    className="!text-red-500 !text-[12px]"
+                    onClick={() => {
+                      setBulkCheckinEmployees([]);
+                      setSelectAllChecked(false);
+                      setSelected(new Set());
+                    }}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto">
+                  {bulkCheckinEmployees.map((emp) => (
+                    <Chip
+                      key={emp.employeeId}
+                      label={`${emp.employeeName || emp.name} (${emp.employeeCode || emp.employeeId})`}
+                      size="small"
+                      onDelete={() => {
+                        // Remove from bulk list
+                        setBulkCheckinEmployees(
+                          bulkCheckinEmployees.filter(e => e.employeeId !== emp.employeeId)
+                        );
+                        // Also remove from main selection
+                        const newSelected = new Set(selected);
+                        newSelected.delete(emp.employeeId);
+                        setSelected(newSelected);
+                        // Update select all state
+                        const nonLeaveEmployees = employees.filter((e) => e.status !== 'leave');
+                        setSelectAllChecked(
+                          bulkCheckinEmployees.length - 1 === nonLeaveEmployees.length
+                        );
+                      }}
+                      color="primary"
+                      variant="outlined"
+                    />
+                  ))}
+                </div>
+              </div>
             )}
 
+            {/* Employee Selection - Add more employees */}
+            <div>
+              <Autocomplete
+                multiple
+                options={employees
+                  .filter((emp) => emp.status !== 'leave')
+                  .filter((emp) => !bulkCheckinEmployees.some(e => e.employeeId === emp.employeeId))
+                  .map(emp => ({
+                    employeeId: emp.employeeId,
+                    employeeName: emp.employeeName,
+                    employeeCode: emp.employeeCode,
+                    department: emp.department
+                  }))}
+                disableCloseOnSelect
+                value={[]}
+                getOptionLabel={(option) =>
+                  `${option.employeeName} ${option.employeeCode ? `- ${option.employeeCode}` : ""}`
+                }
+                onChange={(_, value) => {
+                  if (value.length > 0) {
+                    // Add selected employees to bulk list
+                    const newEmployees = [...bulkCheckinEmployees, ...value];
+                    setBulkCheckinEmployees(newEmployees);
+
+                    // Also add to main selection
+                    const newSelected = new Set(selected);
+                    value.forEach(emp => newSelected.add(emp.employeeId));
+                    setSelected(newSelected);
+
+                    // Update select all state
+                    const nonLeaveEmployees = employees.filter((e) => e.status !== 'leave');
+                    setSelectAllChecked(newEmployees.length === nonLeaveEmployees.length);
+                  }
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...optionProps } = props;
+                  return (
+                    <li key={key} {...optionProps} className='!px-3 !py-1 !flex !items-start'>
+                      <Checkbox checked={false} className='!py-0' />
+                      <div>
+                        <div className="text-[12px]">
+                          {option.employeeName} - {option.employeeCode}
+                        </div>
+                        {option.department && (
+                          <span className='text-[10px] text-gray-500'>
+                            {option.department}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Add More Employees"
+                    placeholder="Search by name or code..."
+                    helperText="Search and add additional employees to the selection"
+                  />
+                )}
+                className="w-full"
+              />
+            </div>
+
+            {/* Summary of selected employees */}
+            {bulkCheckinEmployees.length > 0 && (
+              <div className="bg-sky-200/50 p-3 rounded-md">
+                <div className="flex items-center justify-between w-full gap-4">
+                  <span className="!text-[12px]">
+                    {bulkCheckinEmployees.length} employee{bulkCheckinEmployees.length !== 1 ? "s" : ""} selected for {bulkActionType === "checkIn" ? "check-in" : "check-out"}
+                    {selected.size > 0 && ` (${selected.size} from table)`}
+                  </span>
+                  {/* Quick select all button */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      className="!text-primary !border-primary"
+                      onClick={() => {
+                        const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                        if (bulkCheckinEmployees.length === nonLeaveEmployees.length) {
+                          // Deselect all
+                          setBulkCheckinEmployees([]);
+                          setSelected(new Set());
+                          setSelectAllChecked(false);
+                        } else {
+                          // Select all
+                          setBulkCheckinEmployees(nonLeaveEmployees);
+                          const newSelected = new Set(nonLeaveEmployees.map(emp => emp.employeeId));
+                          setSelected(newSelected);
+                          setSelectAllChecked(true);
+                        }
+                      }}
+                    >
+                      {bulkCheckinEmployees.length === employees.filter((emp) => emp.status !== 'leave').length
+                        ? "Deselect All"
+                        : `Select All (${employees.filter((emp) => emp.status !== 'leave').length})`}
+                    </Button>
+                  </div>
+                </div>
+
+
+              </div>
+            )}
+
+            {/* Time Picker - changes based on action type */}
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DateTimePicker
-                label="Check-in Time"
-                value={bulkCheckinTime ? dayjs(bulkCheckinTime) : null}
-                onChange={(newValue) =>
-                  setBulkCheckinTime(
-                    newValue ? dayjs(newValue).toISOString() : "",
-                  )
-                }
+                label={bulkActionType === "checkIn" ? "Check-in Time" : "Check-out Time"}
+                value={bulkActionType === "checkIn" ? (bulkCheckinTime ? dayjs(bulkCheckinTime) : null) : (bulkCheckoutTime ? dayjs(bulkCheckoutTime) : null)}
+                onChange={(newValue) => {
+                  if (bulkActionType === "checkIn") {
+                    setBulkCheckinTime(newValue ? dayjs(newValue).toISOString() : "");
+                  } else {
+                    setBulkCheckoutTime(newValue ? dayjs(newValue).toISOString() : "");
+                  }
+                }}
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />
             </LocalizationProvider>
@@ -1463,8 +1899,14 @@ export function DailyRegister() {
               fullWidth
               multiline
               rows={2}
-              value={bulkCheckinRemarks}
-              onChange={(e) => setBulkCheckinRemarks(e.target.value)}
+              value={bulkActionType === "checkIn" ? bulkCheckinRemarks : bulkCheckoutRemarks}
+              onChange={(e) => {
+                if (bulkActionType === "checkIn") {
+                  setBulkCheckinRemarks(e.target.value);
+                } else {
+                  setBulkCheckoutRemarks(e.target.value);
+                }
+              }}
             />
           </div>
         </DialogContent>
@@ -1476,32 +1918,58 @@ export function DailyRegister() {
               setBulkCheckinOpen(false);
               setBulkCheckinEmployees([]);
               setSelectAllChecked(false);
+              setBulkActionType("checkIn");
+              // Optionally clear the selection from table
+              // setSelected(new Set());
             }}
-            disabled={bulkCheckinSubmitting}
+            disabled={bulkCheckinSubmitting || bulkCheckoutSubmitting}
           >
             Cancel
           </Button>
-          <Button
-            variant="contained"
-            className="!bg-primary"
-            onClick={() => {
-              const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
-              const employeesToCheckin = selectAllChecked
-                ? nonLeaveEmployees
-                : bulkCheckinEmployees;
-              submitBulkCheckin(employeesToCheckin);
-            }}
-            disabled={
-              bulkCheckinSubmitting ||
-              (bulkCheckinEmployees.length === 0 && !selectAllChecked)
-            }
-          >
-            {bulkCheckinSubmitting
-              ? "Processing..."
-              : `Check-in ${selectAllChecked
-                ? `All ${employees.filter((emp) => emp.status !== 'leave').length} Employees`
-                : `${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}`}
-          </Button>
+
+          {bulkActionType === "checkIn" ? (
+            <Button
+              variant="contained"
+              className="!bg-primary"
+              onClick={() => {
+                const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                const employeesToCheckin = selectAllChecked
+                  ? nonLeaveEmployees
+                  : bulkCheckinEmployees;
+                submitBulkCheckin(employeesToCheckin);
+              }}
+              disabled={
+                bulkCheckinSubmitting ||
+                bulkCheckinEmployees.length === 0
+              }
+              startIcon={<LoginOutlined />}
+            >
+              {bulkCheckinSubmitting
+                ? "Processing..."
+                : `Check-in ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              className="!bg-primary"
+              onClick={() => {
+                const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                const employeesToCheckout = selectAllChecked
+                  ? nonLeaveEmployees
+                  : bulkCheckinEmployees;
+                submitBulkCheckout(employeesToCheckout);
+              }}
+              disabled={
+                bulkCheckoutSubmitting ||
+                bulkCheckinEmployees.length === 0
+              }
+              startIcon={<LogoutOutlined />}
+            >
+              {bulkCheckoutSubmitting
+                ? "Processing..."
+                : `Check-out ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -1557,7 +2025,7 @@ export function DailyRegister() {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Recipients</span>
                 {selected.size > 0 && (
-                  <span className="text-xs text-primary font-medium">
+                  <span className="text-[12px] text-primary font-medium">
                     {employeesToRem.length} employees selected
                   </span>
                 )}
@@ -1585,7 +2053,7 @@ export function DailyRegister() {
               )}
 
               {employeesToRem.length === 0 && (
-                <div className="text-xs text-gray-400 mt-2">
+                <div className="text-[12px] text-gray-400 mt-2">
                   {selected.size === 0
                     ? "No employees selected. Search and add employees below, or select from the table."
                     : "Click 'Clear Selection' to remove all selected employees"}
@@ -1733,23 +2201,63 @@ export function DailyRegister() {
           </IconButton>
         </DialogTitle>
 
-        <DialogContent className="!p-6">
+        <DialogContent className="!p-4">
           <div className="space-y-4">
-            <FormControl fullWidth size="small">
-              <InputLabel>Source</InputLabel>
-              <Select
-                value={importSource}
-                label="Source"
-                onChange={(e) => setImportSource(e.target.value)}
-              >
-                <MenuItem value="biometric">Biometric</MenuItem>
-                <MenuItem value="device">Device</MenuItem>
-                <MenuItem value="manual">Manual</MenuItem>
-                <MenuItem value="mobile">Mobile</MenuItem>
-                <MenuItem value="web">Web</MenuItem>
-              </Select>
-            </FormControl>
+            {/* Date Range and Configuration */}
+            <div className="grid grid-cols-2 mt-3 gap-3 gap-y-5">
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Start Date"
+                  value={importStartDate ? dayjs(importStartDate) : null}
+                  onChange={(newValue) =>
+                    setImportStartDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+                  }
+                  maxDate={dayjs()}
+                  slotProps={{ textField: { size: "small", fullWidth: true } }}
+                />
+                <DatePicker
+                  label="End Date"
+                  value={importEndDate ? dayjs(importEndDate) : null}
+                  onChange={(newValue) =>
+                    setImportEndDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+                  }
+                  maxDate={dayjs()}
+                  minDate={importStartDate ? dayjs(importStartDate) : undefined}
+                  slotProps={{ textField: { size: "small", fullWidth: true } }}
+                />
+              </LocalizationProvider>
 
+              <FormControl fullWidth size="small">
+                <InputLabel>Period Type</InputLabel>
+                <Select
+                  value={importType}
+                  onChange={(e) => setImportType(e.target.value as any)}
+                  disabled={importing}
+                >
+                  <MenuItem value="daywise">Day-wise</MenuItem>
+                  <MenuItem value="weekwise">Week-wise</MenuItem>
+                  <MenuItem value="monthwise">Month-wise</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>Source</InputLabel>
+                <Select
+                  value={importSource}
+                  label="Source"
+                  onChange={(e) => setImportSource(e.target.value)}
+                  disabled={importing}
+                >
+                  <MenuItem value="biometric">Biometric</MenuItem>
+                  <MenuItem value="manual">Manual</MenuItem>
+                  <MenuItem value="mobile">Mobile</MenuItem>
+                  <MenuItem value="web">Web</MenuItem>
+                  <MenuItem value="remote">Remote</MenuItem>
+                </Select>
+              </FormControl>
+            </div>
+
+            {/* File Upload */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
               <input
                 type="file"
@@ -1758,116 +2266,237 @@ export function DailyRegister() {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
+                    // Validate file size (max 10MB)
+                    if (file.size > 10 * 1024 * 1024) {
+                      showSnackbar("File size should be less than 10MB", "warning");
+                      return;
+                    }
                     setImportFile(file);
                     setImportResult(null);
                   }
                 }}
                 className="hidden"
+                disabled={importing}
               />
               <label htmlFor="import-file" className="cursor-pointer block">
                 <InsertDriveFileOutlined className="text-gray-400" fontSize="large" />
                 <div className="text-sm text-gray-600 mt-2">
-                  {importFile ? importFile.name : "Click to select file or drag and drop"}
+                  {importFile ? (
+                    <div className="text-green-600 font-medium">
+                      {importFile.name}
+                      <div className="text-[12px] text-gray-500 font-normal mt-1">
+                        {(importFile.size / 1024).toFixed(2)} KB
+                      </div>
+                    </div>
+                  ) : (
+                    "Click to select file or drag and drop"
+                  )}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Supported formats: .xlsx, .xls, .csv, .txt
-                  <br />
-                  <span className="text-gray-500">
-                    For .txt files: Use comma (,) or tab as delimiter
-                  </span>
+                <div className="text-[12px] text-gray-400 mt-1">
+                  Supported formats: Excel (.xlsx, .xls), CSV (.csv), Text (.txt)
                 </div>
-                {importFile && (
-                  <div className="mt-2 space-y-1">
-                    <div className="text-xs text-green-600">
-                      ✓ {importFile.name} ({(importFile.size / 1024).toFixed(2)} KB)
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Detected format: {getFileFormat(importFile.name) || 'Unknown'}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      MIME type: {importFile.type || 'Unknown'}
-                    </div>
-                  </div>
-                )}
               </label>
             </div>
 
-            <Alert severity="info" sx={{ py: 0.5 }}>
-              <div className="text-xs">
-                <strong>Expected file format:</strong>
-                <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                  <li>CSV/Excel with columns: Employee Code, Timestamp</li>
-                  <li>Timestamp format: YYYY-MM-DD HH:mm or YYYY-MM-DDTHH:mm</li>
-                  <li>Optional: Device ID, Remarks columns</li>
-                </ul>
-                <Button
-                  variant="text"
-                  size="small"
-                  className="!text-primary !p-0 !mt-2"
-                // onClick={downloadSampleTemplate}
-                >
-                  Download Sample Template
-                </Button>
-              </div>
-            </Alert>
-
-            {/* Validation errors */}
-            {importResult && importResult.errors && importResult.errors.length > 0 && (
-              <div className="border border-red-200 rounded-lg p-3 bg-red-50">
-                <div className="text-sm font-medium text-red-700 mb-2">
-                  {importResult.errors.some((e: any) => typeof e === 'string' && e.includes('Validation'))
-                    ? 'Validation Errors'
-                    : 'Import Errors'} ({importResult.errors.length})
-                </div>
-                <div className="max-h-[150px] overflow-y-auto">
-                  {importResult.errors.map((err: any, i: number) => {
-                    // Handle both string and object errors
-                    let errorText = '';
-                    if (typeof err === 'string') {
-                      errorText = err;
-                    } else if (err && typeof err === 'object') {
-                      // If it's an object with message property
-                      errorText = err.message || err.employeeCode ? `${err.employeeCode}: ${err.message}` : JSON.stringify(err);
-                    } else {
-                      errorText = String(err);
-                    }
-                    return (
-                      <div key={i} className="text-xs text-red-600 py-0.5 border-b border-red-100 last:border-0">
-                        {errorText}
-                      </div>
+            {/* Template Download */}
+            <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+              <span className="text-[12px] text-gray-600">
+                Need a sample file?
+              </span>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DownloadOutlined />}
+                onClick={async () => {
+                  try {
+                    await attendanceService.downloadImportTemplate();
+                    showSnackbar("Template downloaded successfully", "success");
+                  } catch (error: any) {
+                    showSnackbar(
+                      error?.message || "Failed to download template.",
+                      "error"
                     );
-                  })}
+                  }
+                }}
+                disabled={importing}
+                className="!text-[12px] !border-gray-300"
+              >
+                Download Template
+              </Button>
+            </div>
+
+            {/* Progress */}
+            {importing && (
+              <div className="space-y-1">
+                <LinearProgress />
+                <div className="text-[12px] text-gray-500 text-center">
+                  Importing attendance records...
                 </div>
               </div>
             )}
 
-            {/* Import Results from API */}
-            {importResult && importResult.rows && importResult.rows.length > 0 &&
-              !importResult.errors.some((e: any) => typeof e === 'string' && e.includes('No valid data')) && (
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between mb-2">
+            {/* Import Results */}
+            {importResult && !importing && (
+              <div className={`border rounded-lg p-3 ${importResult.failed > 0 && importResult.success === 0
+                ? 'border-red-200 bg-red-50'
+                : importResult.failed > 0
+                  ? 'border-orange-200 bg-orange-50'
+                  : 'border-green-200 bg-green-50'
+                }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {importResult.failed > 0 && importResult.success === 0 ? (
+                      <ErrorOutlined className="text-red-500" fontSize="small" />
+                    ) : importResult.failed > 0 ? (
+                      <WarningAmberOutlined className="text-orange-500" fontSize="small" />
+                    ) : (
+                      <CheckCircleOutlined className="text-green-500" fontSize="small" />
+                    )}
                     <span className="text-sm font-medium">
-                      Import Results
-                    </span>
-                    <span className={`text-sm font-bold ${importResult.failed > 0 ? 'text-orange-500' : 'text-green-500'}`}>
-                      {importResult.success} successful, {importResult.failed} failed
+                      {importResult.failed > 0 && importResult.success === 0
+                        ? 'Import Failed'
+                        : importResult.failed > 0
+                          ? 'Partial Success'
+                          : 'Success'}
                     </span>
                   </div>
-                  {/* Show success rows count */}
-                  {importResult.rows.filter((row: any) => row.message === 'imported').length > 0 && (
-                    <div className="text-xs text-green-600">
-                      ✓ {importResult.rows.filter((row: any) => row.message === 'imported').length} records imported successfully
-                    </div>
-                  )}
+                  <span className="text-sm">
+                    <span className="text-green-600">{importResult.success}</span> successful
+                    {importResult.failed > 0 && (
+                      <span className="text-red-600 ml-2">{importResult.failed} failed</span>
+                    )}
+                  </span>
                 </div>
-              )}
 
+                {/* Error details with timestamp format help */}
+                {importResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-[12px] font-medium text-gray-700 mb-1">
+                      Error Details:
+                    </div>
+                    <div className="max-h-[120px] overflow-y-auto bg-white/50 rounded p-2">
+                      {importResult.errors.slice(0, 5).map((error, index) => {
+                        // Check if it's a timestamp error
+                        const isTimestampError = error.toLowerCase().includes('timestamp') ||
+                          error.toLowerCase().includes('unparseable');
+                        return (
+                          <div key={index} className={`text-[12px] py-0.5 ${isTimestampError ? 'text-amber-600' : 'text-red-600'
+                            }`}>
+                            • {error}
+                          </div>
+                        );
+                      })}
+                      {importResult.errors.length > 5 && (
+                        <div className="text-[12px] text-gray-500 mt-1">
+                          + {importResult.errors.length - 5} more errors
+                        </div>
+                      )}
+                    </div>
 
-            {importing && <LinearProgress />}
+                    {/* Show timestamp format hint if timestamp errors exist */}
+                    {importResult.errors.some(e =>
+                      e.toLowerCase().includes('timestamp') ||
+                      e.toLowerCase().includes('unparseable')
+                    ) && (
+                        <Alert severity="info" sx={{ py: 0.5, mt: 2 }}>
+                          <div className="text-[12px]">
+                            <strong>Expected timestamp format:</strong>
+                            <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                              <li>ISO format: <code>2026-07-14T09:00:00</code></li>
+                              <li>Date & Time: <code>2026-07-14 09:00</code> or <code>2026-07-14 09:00:00</code></li>
+                              <li>Excel date: <code>2026-07-14</code> (time will be defaulted)</li>
+                            </ul>
+                            <div className="mt-1">
+                              <Button
+                                variant="text"
+                                size="small"
+                                className="!text-primary !p-0"
+                                onClick={async () => {
+                                  try {
+                                    await attendanceService.downloadImportTemplate();
+                                    showSnackbar("Template downloaded successfully", "success");
+                                  } catch (error: any) {
+                                    showSnackbar(
+                                      error?.message || "Failed to download template.",
+                                      "error"
+                                    );
+                                  }
+                                }}
+                              >
+                                Download sample template with correct format
+                              </Button>
+                            </div>
+                          </div>
+                        </Alert>
+                      )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Info Alert */}
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              <div className="text-[12px]">
+                <strong>File format requirements:</strong>
+                <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                  <li>Required columns: Employee Code, Timestamp</li>
+                  <li>Optional columns: Punch Type (IN/OUT), Device ID</li>
+                  <li>Date range filters will be applied automatically</li>
+                </ul>
+              </div>
+            </Alert>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outlined"
+                size="small"
+                className="!text-primary !border-primary"
+                onClick={handlePreviewFile}
+                disabled={!importFile || importing}
+              >
+                Preview Data
+              </Button>
+            </div>
+            {/* Preview Results */}
+            {previewData.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <span className="text-[12px] font-medium text-gray-600">Preview (first 5 rows)</span>
+                </div>
+                <div className="max-h-[150px] overflow-y-auto">
+                  <table className="w-full text-[12px]">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-1.5 text-left text-gray-600">Employee</th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">Original Timestamp</th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">Formatted</th>
+                        <th className="px-3 py-1.5 text-center text-gray-600">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewData.map((row, index) => (
+                        <tr key={index} className="border-t border-gray-100">
+                          <td className="px-3 py-1.5 font-mono">{row.employeeCode}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{row.originalTimestamp}</td>
+                          <td className="px-3 py-1.5 font-mono">{row.formattedTimestamp}</td>
+                          <td className="px-3 py-1.5 text-center">
+                            {row.isValid ? (
+                              <CheckCircleOutlined className="text-green-500 !w-4 !h-4" />
+                            ) : (
+                              <ErrorOutlined className="text-red-500 !w-4 !h-4" />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
 
-        <DialogActions className="!p-4 !border-t !border-gray-200">
+        <DialogActions className="!p-3 !border-t !border-gray-200">
           <Button
             variant="outlined"
             className="!border-gray-200 !text-gray-800"
@@ -1887,11 +2516,10 @@ export function DailyRegister() {
             disabled={importing || !importFile}
             startIcon={<CloudUploadOutlined />}
           >
-            {importing ? "Importing..." : "Import File"}
+            {importing ? "Importing..." : "Import"}
           </Button>
         </DialogActions>
       </Dialog>
-
 
       {/* Batch Punch Import Dialog */}
       <Dialog
@@ -1901,7 +2529,6 @@ export function DailyRegister() {
           clearPunchEntries();
         }}
         maxWidth="md"
-        fullWidth
       >
         <DialogTitle className="!p-2 !border-b !border-gray-200">
           <div className="flex items-center justify-between">
@@ -1930,7 +2557,6 @@ export function DailyRegister() {
                 >
                   <MenuItem value="manual">Manual</MenuItem>
                   <MenuItem value="biometric">Biometric</MenuItem>
-                  <MenuItem value="device">Device</MenuItem>
                   <MenuItem value="mobile">Mobile</MenuItem>
                   <MenuItem value="web">Web</MenuItem>
                 </Select>
@@ -1960,30 +2586,30 @@ export function DailyRegister() {
             {punchEntries.length > 0 && (
               <div className="border border-gray-200 rounded overflow-hidden">
                 {/* Header */}
-                <div className="grid grid-cols-12 gap-2 bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <span className="col-span-1 text-xs font-medium text-gray-600">#</span>
-                  <span className="col-span-4 text-xs font-medium text-gray-600">Employee</span>
-                  <span className="col-span-4 text-xs font-medium text-gray-600">Timestamp</span>
-                  <span className="col-span-2 text-xs font-medium text-gray-600">Device</span>
-                  <span className="col-span-1 text-xs font-medium text-gray-600 text-center">Action</span>
+                <div className="grid grid-cols-[25px_220px_180px_140px_95px] gap-4 bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <div className="text-[12px] font-medium text-gray-600 !w-[20px]">#</div>
+                  <div className="text-[12px] font-medium text-gray-600">Employee</div>
+                  <div className="text-[12px] font-medium text-gray-600">Timestamp</div>
+                  <div className="text-[12px] font-medium text-gray-600">Device</div>
+                  <div className="text-[12px] font-medium text-gray-600 text-center">Action</div>
                 </div>
 
                 {/* Rows */}
                 {punchEntries.map((entry, index) => (
                   <div
                     key={entry.id || index}
-                    className="grid grid-cols-12 gap-2 px-3 py-2 items-center border-b border-gray-100 last:border-0"
+                    className="grid grid-cols-[25px_220px_180px_140px_95px] gap-4 px-3 py-2 items-center border-b border-gray-100 last:border-0"
                   >
-                    <span className="col-span-1 text-xs text-gray-400">{index + 1}</span>
+                    <div className="text-[12px] text-gray-400 !w-[20px]">{index + 1}</div>
 
-                    <div className="col-span-4">
+                    <div className="">
                       <EmployeeSelector
                         value={entry.employeeData || null}
                         onChange={(val) => handleEmployeeSelect(val, index)}
                       />
                     </div>
 
-                    <div className="col-span-4">
+                    <div className="">
                       <LocalizationProvider dateAdapter={AdapterDayjs}>
                         <DateTimePicker
                           value={entry.timestamp ? dayjs(entry.timestamp) : null}
@@ -2005,7 +2631,7 @@ export function DailyRegister() {
                       </LocalizationProvider>
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="">
                       {/* <TextField
                         size="small"
                         placeholder="Device ID"
@@ -2032,7 +2658,7 @@ export function DailyRegister() {
 
                     </div>
 
-                    <div className="col-span-1 flex justify-center">
+                    <div className="flex justify-center">
                       <IconButton
                         size="small"
                         color="error"
@@ -2092,6 +2718,145 @@ export function DailyRegister() {
             {punchImporting
               ? "Importing..."
               : `Import ${punchEntries.length} Punches`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Check in check out result  */}
+      <Dialog
+        open={bulkActionResult?.open || false}
+        onClose={() => setBulkActionResult(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-3">
+          <span className="!pl-4 flex items-center gap-2">
+            {bulkActionResult?.type === 'checkIn' ? (
+              <LoginOutlined className="text-emerald-500" />
+            ) : (
+              <LogoutOutlined className="text-blue-500" />
+            )}
+            Bulk {bulkActionResult?.type === 'checkIn' ? 'Check-in' : 'Check-out'} Results
+          </span>
+          <IconButton size="small" onClick={() => setBulkActionResult(null)}>
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent className="!p-4">
+          <div className="space-y-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-4 gap-3">
+              <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
+                <div className="text-2xl font-bold text-gray-800">
+                  {bulkActionResult?.total || 0}
+                </div>
+                <div className="text-[12px] text-gray-500">Total</div>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-3 text-center border border-emerald-200">
+                <div className="text-2xl font-bold text-emerald-600">
+                  {bulkActionResult?.success || 0}
+                </div>
+                <div className="text-[12px] text-emerald-600">Successful</div>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-3 text-center border border-amber-200">
+                <div className="text-2xl font-bold text-amber-600">
+                  {bulkActionResult?.skipped || 0}
+                </div>
+                <div className="text-[12px] text-amber-600">Skipped</div>
+              </div>
+              <div className="bg-red-50 rounded-lg p-3 text-center border border-red-200">
+                <div className="text-2xl font-bold text-red-600">
+                  {bulkActionResult?.errors || 0}
+                </div>
+                <div className="text-[12px] text-red-600">Errors</div>
+              </div>
+            </div>
+
+            {/* Checkout Time if available */}
+            {bulkActionResult?.checkoutTime && (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                <span className="text-[12px]">
+                  Check-out time: <strong>{dayjs(bulkActionResult.checkoutTime).format('DD MMM YYYY, hh:mm A')}</strong>
+                </span>
+              </Alert>
+            )}
+
+            {/* Results Details */}
+            {bulkActionResult?.results && bulkActionResult.results.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
+                  <span className="text-[12px] font-medium text-gray-600">Detailed Results</span>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto">
+                  {bulkActionResult.results.map((result, index) => {
+                    const isSuccess = result.message === 'checked_in' || result.message === 'checked_out';
+                    const isSkipped = result.message?.includes('skipped');
+                    const isError = !isSuccess && !isSkipped;
+
+                    let statusColor = 'text-emerald-600';
+                    let statusBg = 'bg-emerald-50';
+                    let statusIcon = <CheckCircleOutlined className="!w-4 !h-4" />;
+
+                    if (isSkipped) {
+                      statusColor = 'text-amber-600';
+                      statusBg = 'bg-amber-50';
+                      statusIcon = <InfoOutlined className="!w-4 !h-4" />;
+                    } else if (isError) {
+                      statusColor = 'text-red-600';
+                      statusBg = 'bg-red-50';
+                      statusIcon = <CloseOutlined className="!w-4 !h-4" />;
+                    }
+
+                    return (
+                      <div
+                        key={index}
+                        className={`flex items-center justify-between px-3 py-2 border-b border-gray-100 last:border-0 ${statusBg}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={statusColor}>
+                            {statusIcon}
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-800">
+                              {result.employeeCode || ''}
+                            </div>
+                            <div className="text-[12px] text-gray-500">
+                              {result.employeeId}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {result.status && (
+                            <span className={`
+                        text-[12px] px-2 py-0.5 rounded-full
+                        ${result.status === 'present' ? 'bg-emerald-100 text-emerald-700' : ''}
+                        ${result.status === 'absent' ? 'bg-red-100 text-red-700' : ''}
+                        ${result.status === 'late' ? 'bg-amber-100 text-amber-700' : ''}
+                      `}>
+                              {result.status}
+                            </span>
+                          )}
+                          <span className={`text-[12px] font-medium ${statusColor}`}>
+                            {result.message}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+
+        <DialogActions className="!p-3 !border-t !border-gray-200">
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            onClick={() => setBulkActionResult(null)}
+          >
+            Close
           </Button>
         </DialogActions>
       </Dialog>

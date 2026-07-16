@@ -160,37 +160,41 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
       });
       const versionId: string = newVersion.data?.id || newVersion.id;
 
-      // Create assignments from draft eligibility data collected in Step 3.
-      // Sibling assignment rows have no dependency on each other, so create
-      // them concurrently instead of one HTTP round trip at a time.
-      const draftAssignments: any[] = eligibilityConfig?.assignments ?? [];
-      await Promise.all(
-        draftAssignments.flatMap((rule) =>
-          (rule.values as string[]).map((value) =>
-            policyService.createAssignment(buildSinglePayload(rule, value, versionId, companyId)),
-          ),
-        ),
-      );
-
-      // Create approval flow and levels from draft data collected in Step 4
-      if (approvalFlow) {
-        const flowRes: any = await policyService.createApprovalFlow(versionId, buildFlowPayload(approvalFlow));
-        const flowId: string = flowRes.data?.id ?? flowRes.id;
+      if (versionId) {
+        // Create assignments from draft eligibility data collected in Step 3.
+        // Sibling assignment rows have no dependency on each other, so create
+        // them concurrently instead of one HTTP round trip at a time.
+        const draftAssignments: any[] = eligibilityConfig?.assignments ?? [];
         await Promise.all(
-          (approvalFlow.levels ?? []).map((level: any) =>
-            policyService.createApprovalLevel(flowId, buildLevelPayload(level)),
+          draftAssignments.flatMap((rule) =>
+            (rule.values as string[]).map((value) =>
+              policyService.createAssignment(buildSinglePayload(rule, value, versionId, companyId)),
+            ),
           ),
         );
-      }
 
-      // Submit for approval and stop here — the policy stays PENDING_APPROVAL
-      // until a reviewer approves + activates it from PolicyDetails, the same
-      // governance path edits to existing active policies already go through.
-      // (Previously this also called activateVersion immediately, which
-      // bypassed approval entirely for brand-new policies.)
-      const res: any = await policyService.submitVersionForApproval(versionId, { remarks: '' });
-      await policyService.updatePolicy(policyId, { ...policyPayload, status: res.data.status });
-      onComplete(policyId);
+        // Create approval flow and levels from draft data collected in Step 4
+        if (approvalFlow) {
+          const flowRes: any = await policyService.createApprovalFlow(versionId, buildFlowPayload(approvalFlow));
+          const flowId: string = flowRes.data?.id ?? flowRes.id;
+          await Promise.all(
+            (approvalFlow.levels ?? []).map((level: any) =>
+              policyService.createApprovalLevel(flowId, buildLevelPayload(level)),
+            ),
+          );
+        }
+
+        // Submit for approval and stop here — the policy stays PENDING_APPROVAL
+        // until a reviewer approves + activates it from PolicyDetails, the same
+        // governance path edits to existing active policies already go through.
+        // (Previously this also called activateVersion immediately, which
+        // bypassed approval entirely for brand-new policies.)
+        const res: any = await policyService.submitVersionForApproval(versionId, { remarks: '' });
+        await policyService.updatePolicy(policyId, { ...policyPayload, status: res.data.status });
+        onComplete(policyId);
+      } else {
+        await policyService.deletePolicy(policyId);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to save policy');
     } finally {

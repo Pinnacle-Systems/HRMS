@@ -245,7 +245,7 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
   const renderRuleBlock = (block: any) => {
     switch (block.ruleBlockCode) {
       case 'LEAVE_ENTITLEMENTS': return <LeaveEntitlementsBlock localConfig={localConfig} set={set} leaveType={leaveType} />;
-      case 'ACCRUAL_RULES': return <AccrualRulesBlock localConfig={localConfig} set={set} />;
+      // case 'ACCRUAL_RULES': return <AccrualRulesBlock localConfig={localConfig} set={set} />;
       case 'CARRY_FORWARD': return <CarryForwardBlock localConfig={localConfig} set={set} />;
       case 'SANDWICH_RULE': return <SandwichRuleBlock localConfig={localConfig} set={set} />;
       case 'OVERTIME_RULES': return <OvertimeRulesBlock localConfig={localConfig} set={set} otValues={otValues} />;

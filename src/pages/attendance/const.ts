@@ -143,3 +143,9 @@ export const FINALISATION_STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-100 text-green-700",
   locked: "bg-blue-100 text-blue-700",
 };
+
+export const WORKER_TYPE_OPTIONS = [
+  { value: 'Staff', label: 'Staff' },
+  { value: 'Labour', label: 'Labour' },
+  { value: 'Both', label: 'Both' }
+] as const;

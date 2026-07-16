@@ -24,6 +24,9 @@ import {
   Checkbox,
   Box,
   Alert,
+  CircularProgress,
+  Paper,
+  Divider,
 } from '@mui/material';
 import {
   Today as TodayIcon,
@@ -35,10 +38,6 @@ import {
   PictureAsPdf as PdfIcon,
   GetApp as ExcelIcon,
   CloseOutlined,
-  // AccessTime as TimeIcon,
-  // CheckCircle as CheckIcon,
-  // Cancel as CancelIcon,
-  // EventBusy as AbsentIcon
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -52,7 +51,6 @@ import type {
   SwapRequest,
   ScheduleStats,
   ShiftDistribution,
-  // SwapRequestStatus,
 } from '../../../services/modules/shifts';
 import { departmentService } from '../../../services/modules/department';
 import { branchService } from '../../../services/modules/branch';
@@ -62,6 +60,46 @@ import { formatTimeTo12Hour, statusColors } from './const';
 import { getRowColor } from '../../const';
 import { EmployeeSelector } from '../../../components/PolicyManagement/Common/EmployeeSelector';
 import type { Employee } from '../../../types/policy';
+
+// Types for notification
+interface NotificationTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  variables: string[];
+}
+
+interface NotificationStatus {
+  date: string;
+  totalSent: number;
+  totalFailed: number;
+  lastSentAt: string;
+  channelsUsed: string[];
+  recipients: {
+    employeeId: string;
+    status: string;
+    channel: string;
+    sentAt: string;
+  }[];
+}
+
+interface Notification {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  departmentId: string;
+  branchId: string;
+  targetDate: string;
+  weekStartDate: string;
+  notificationType: string;
+  channel: string;
+  status: 'SENT' | 'FAILED';
+  attempts: number;
+  error?: string;
+  sentAt: string;
+  createdAt: string;
+}
 
 export const ShiftScheduleView = () => {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -93,22 +131,25 @@ export const ShiftScheduleView = () => {
   const [shiftDistribution, setShiftDistribution] = useState<ShiftDistribution[]>([]);
   const [upcomingShifts, setUpcomingShifts] = useState<ShiftSchedule[]>([]);
 
-  // Dialog states
-  const [swapDialogOpen, setSwapDialogOpen] = useState(false);
-  // const [selectedSwapRequest, setSelectedSwapRequest] = useState<SwapRequest | null>(null);
-  const [swapActionLoading, setSwapActionLoading] = useState(false);
+  // Notification states
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
-  // const [notificationMessage, setNotificationMessage] = useState('');
   const [sendingNotification, setSendingNotification] = useState(false);
   const [notificationChannel, setNotificationChannel] = useState<'email' | 'sms' | 'push'>('email');
-  const [_lastNotificationDate, setLastNotificationDate] = useState<string | null>(null);
-  const [notificationStats, setNotificationStats] = useState<{
-    sent: number;
-    failed: number;
-    timestamp: string;
-  } | null>(null);
+  const [notificationStats, setNotificationStats] = useState<NotificationStatus | null>(null);
   const [autoNotifyOnPublish, setAutoNotifyOnPublish] = useState(false);
+  const [notificationTemplates, setNotificationTemplates] = useState<NotificationTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [notificationHistory, setNotificationHistory] = useState<Notification[]>([]);
+  const [notificationHistoryLoading, setNotificationHistoryLoading] = useState(false);
+  const [notificationPagination, setNotificationPagination] = useState({
+    page: 0,
+    size: 10,
+    totalElements: 0,
+  });
 
+  // Dialog states
+  const [swapDialogOpen, setSwapDialogOpen] = useState(false);
+  const [swapActionLoading, setSwapActionLoading] = useState(false);
 
   // Fetch all data
   const fetchAllData = async () => {
@@ -120,8 +161,10 @@ export const ShiftScheduleView = () => {
         fetchScheduleStats(),
         fetchShiftDistribution(),
         fetchUpcomingShifts(),
-        getNotificationTemplates()
+        fetchNotificationTemplates(),
+        fetchNotificationHistory(),
       ]);
+      await checkNotificationStatus(selectedDate.format('YYYY-MM-DD'));
     } catch (error) {
       console.error('Error fetching data:', error);
       showSnackbar('Failed to load schedule data', 'error');
@@ -233,19 +276,67 @@ export const ShiftScheduleView = () => {
     }
   };
 
-  // Get notification templates
-  const getNotificationTemplates = async () => {
+  // Fetch notification templates
+  const fetchNotificationTemplates = async () => {
     try {
       const response: any = await shiftService.getNotificationTemplate();
       const data = response.data;
-      console.log(data);      
+      if (data?.templates) {
+        setNotificationTemplates(data.templates);
+        if (data.templates.length > 0) {
+          setSelectedTemplate(data.templates[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching notification templates:', error);
+      // Don't show error to user as this is not critical
+    }
+  };
+
+  // Check notification status for a date
+  const checkNotificationStatus = async (date: string) => {
+    try {
+      const response: any = await shiftService.getNotificationStatus({ date });
+      const data = response.data;
+      if (data) {
+        setNotificationStats(data);
+      }
     } catch (error) {
       console.error('Error checking notification status:', error);
+      // Don't show error to user as this is not critical
+    }
+  };
+
+  // Fetch notification history
+  const fetchNotificationHistory = async (filters?: any) => {
+    setNotificationHistoryLoading(true);
+    try {
+      const params = {
+        page: notificationPagination.page,
+        size: notificationPagination.size,
+        fromDate: selectedDate.startOf('month').format('YYYY-MM-DD'),
+        toDate: selectedDate.endOf('month').format('YYYY-MM-DD'),
+        ...filters,
+      };
+      const response: any = await shiftService.getNotification(params);
+      const data = response.data;
+      if (data) {
+        setNotificationHistory(data.content || []);
+        setNotificationPagination({
+          page: data.number || 0,
+          size: data.size || 10,
+          totalElements: data.totalElements || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching notification history:', error);
+    } finally {
+      setNotificationHistoryLoading(false);
     }
   };
 
   // Handle swap request status update
-  const handleUpdateSwapRequestStatus = async (id: string, status: "APPROVED" | "REJECTED" | "CANCELLED",) => {
+  const handleUpdateSwapRequestStatus = async (id: string, status: "APPROVED" | "REJECTED" | "CANCELLED") => {
     setSwapActionLoading(true);
     try {
       await shiftService.updateSwapRequestStatus(id, { status });
@@ -266,11 +357,13 @@ export const ShiftScheduleView = () => {
     try {
       const employeeIds = schedule.map(employee => employee.employeeId).filter(Boolean);
       const selectedEmployeeIds = selectedEmployees.map(employee => employee.id).filter(Boolean);
-      if (employeeIds.length === 0) {
+      
+      if (employeeIds.length === 0 && selectedEmployeeIds.length === 0) {
         showSnackbar('No employees found to send notifications', 'warning');
         setSendingNotification(false);
         return;
       }
+      
       const recipients = selectedEmployeeIds.length > 0 ? selectedEmployeeIds : employeeIds;
 
       const payload = {
@@ -280,21 +373,22 @@ export const ShiftScheduleView = () => {
       };
 
       const response: any = await shiftService.sendShiftNotifications(payload);
-      const notificationCount = response?.data ?? {};
-
-      // Update notification stats
-      setNotificationStats({
-        sent: Object.keys(notificationCount).length,
-        failed: 0,
-        timestamp: new Date().toISOString()
-      });
-      setLastNotificationDate(new Date().toISOString());
-
-      showSnackbar(
-        `Notifications sent successfully to ${Object.keys(notificationCount).length} recipients`,
-        'success'
-      );
-      setNotificationDialogOpen(false);
+      
+      if (response.success) {
+        showSnackbar(
+          `Notifications sent successfully to ${recipients.length} recipients`,
+          'success'
+        );
+        
+        // Refresh notification status
+        await checkNotificationStatus(selectedDate.format('YYYY-MM-DD'));
+        await fetchNotificationHistory();
+        
+        setNotificationDialogOpen(false);
+        setSelectedEmployees([]);
+      } else {
+        showSnackbar(response.message || 'Failed to send notifications', 'error');
+      }
     } catch (error: any) {
       showSnackbar(error?.message || 'Failed to send notifications', 'error');
     } finally {
@@ -312,9 +406,9 @@ export const ShiftScheduleView = () => {
         branch: selectedBranch !== "all" ? selectedBranch : undefined,
       };
       await shiftService.exportScheduleToPDF(params);
-      showSnackbar("PDF exported successfully", "success",);
+      showSnackbar("PDF exported successfully", "success");
     } catch (error: any) {
-      showSnackbar(error?.message || "Failed to export PDF", "error",);
+      showSnackbar(error?.message || "Failed to export PDF", "error");
     }
   };
 
@@ -328,9 +422,9 @@ export const ShiftScheduleView = () => {
         branch: selectedBranch !== "all" ? selectedBranch : undefined,
       };
       await shiftService.exportScheduleToExcel(params);
-      showSnackbar("Excel exported successfully", "success",);
+      showSnackbar("Excel exported successfully", "success");
     } catch (error: any) {
-      showSnackbar(error?.message || "Failed to export Excel", "error",);
+      showSnackbar(error?.message || "Failed to export Excel", "error");
     }
   };
 
@@ -351,18 +445,11 @@ export const ShiftScheduleView = () => {
     }
   };
 
-  const checkNotificationStatus = async (date: string) => {
-    try {
-      const response:any = await shiftService.getNotificationStatus({ date });
-      const data = response.data;
-      if (data && data.sent > 0) {
-        setLastNotificationDate(data.timestamp);
-        setNotificationStats(data);
-      }
-    } catch (error) {
-      console.error('Error checking notification status:', error);
-    }
-  };
+  // Handle notification history pagination
+  // const handleNotificationPageChange = (newPage: number) => {
+  //   setNotificationPagination(prev => ({ ...prev, page: newPage }));
+  //   fetchNotificationHistory({ page: newPage });
+  // };
 
   useEffect(() => {
     if (selectedDate) {
@@ -377,10 +464,15 @@ export const ShiftScheduleView = () => {
 
   // Apply filters when filter values change
   useEffect(() => {
-    // if (!loading) {
     applyFilters();
-    // }
   }, [selectedDepartment, selectedShift, selectedBranch, status]);
+
+  const getNotificationSummary = () => {
+    if (!notificationStats) return 'No notifications sent for this date';
+    const total = notificationStats.totalSent + notificationStats.totalFailed;
+    if (total === 0) return 'No notifications sent for this date';
+    return `${notificationStats.totalSent} sent, ${notificationStats.totalFailed} failed`;
+  };
 
   return (
     <div className='p-4 bg-gray-50'>
@@ -496,8 +588,8 @@ export const ShiftScheduleView = () => {
       {/* Schedule Table */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
         <div className="lg:col-span-2">
-          <TableContainer className='rounded-sm !max-h-[calc(100vh-320px)] overflow-auto' >
-            <Table stickyHeader className='border border-gray-200 '>
+          <TableContainer className='rounded-sm !max-h-[calc(100vh-320px)] overflow-auto'>
+            <Table stickyHeader className='border border-gray-200'>
               <TableHead className="bg-gray-100">
                 <TableRow>
                   <TableCell>Employee Name</TableCell>
@@ -534,7 +626,6 @@ export const ShiftScheduleView = () => {
                             backgroundColor: item.color ? `${item.color}20` : "#e5e7eb",
                             color: `${item.color}` || "#e5e7eb"
                           }} />
-
                       </TableCell>
                       <TableCell>{item.department || '-'}</TableCell>
                       <TableCell>
@@ -554,7 +645,7 @@ export const ShiftScheduleView = () => {
 
         {/* Quick Actions Sidebar */}
         <div className="lg:col-span-1 space-y-2">
-          <div className='bg-white border border-gray-200 rounded-sm' >
+          <div className='bg-white border border-gray-200 rounded-sm'>
             <div className='!p-3'>
               <div className="font-semibold text-primary mb-2">
                 UPCOMING TODAY
@@ -572,7 +663,7 @@ export const ShiftScheduleView = () => {
                           {item.employeeName}
                         </div>
                         <Typography variant="caption" className="text-gray-500">
-                          ( {item.startTime}  - {item.endTime}) • {item.shiftCode}
+                          ({item.startTime} - {item.endTime}) • {item.shiftCode}
                         </Typography>
                       </div>
                       <Chip
@@ -590,7 +681,7 @@ export const ShiftScheduleView = () => {
             </div>
           </div>
 
-          <div className='bg-white border border-gray-200 rounded-sm' >
+          <div className='bg-white border border-gray-200 rounded-sm'>
             <div className='!p-3'>
               <div className="font-semibold text-primary mb-2">
                 QUICK ACTIONS
@@ -645,21 +736,30 @@ export const ShiftScheduleView = () => {
                   Export Excel
                 </Button>
               </div>
+              
+              {/* Enhanced notification status display */}
               {notificationStats && (
                 <div className="!mt-4 p-2 bg-blue-100/50 border border-blue-500 rounded text-xs">
                   <div className="font-semibold text-blue-800">Last Notification</div>
                   <div className="text-gray-800">
-                    Sent: {notificationStats.sent} employees
+                    {getNotificationSummary()}
                   </div>
-                  <div className="text-gray-800 text-[10px]">
-                    {dayjs(notificationStats.timestamp).format('MMM DD, HH:mm')}
-                  </div>
+                  {notificationStats.lastSentAt && (
+                    <div className="text-gray-800 text-[10px]">
+                      {dayjs(notificationStats.lastSentAt).format('MMM DD, HH:mm')}
+                    </div>
+                  )}
+                  {notificationStats.channelsUsed && notificationStats.channelsUsed.length > 0 && (
+                    <div className="text-gray-800 text-[10px] mt-1">
+                      Channels: {notificationStats.channelsUsed.join(', ')}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
-          <div className='bg-white border border-gray-200 rounded-sm' >
+          <div className='bg-white border border-gray-200 rounded-sm'>
             <div className='!p-3'>
               <div className="font-semibold text-primary mb-2">
                 DISTRIBUTION
@@ -763,8 +863,8 @@ export const ShiftScheduleView = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Notifications Dialog */}
-      <Dialog open={notificationDialogOpen} onClose={() => setNotificationDialogOpen(false)} maxWidth="sm" fullWidth>
+      {/* Enhanced Notifications Dialog */}
+      <Dialog open={notificationDialogOpen} onClose={() => setNotificationDialogOpen(false)} maxWidth="md" fullWidth>
         <div className="flex items-center p-2 justify-between border-b border-gray-300">
           <div className="text-gray-800 ml-4 text-[12px]">
             Send Shift Notifications
@@ -774,7 +874,26 @@ export const ShiftScheduleView = () => {
           </IconButton>
         </div>
         <DialogContent>
-          <Box className="">
+          <Box className="space-y-4">
+            {/* Template Selection */}
+            {notificationTemplates.length > 0 && (
+              <FormControl fullWidth size="small">
+                <Select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  displayEmpty
+                >
+                  <MenuItem value="">Select Template</MenuItem>
+                  {notificationTemplates.map((template) => (
+                    <MenuItem key={template.id} value={template.id}>
+                      {template.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {/* Employee Selector */}
             <EmployeeSelector
               value={selectedEmployees}
               onChange={(value) => setSelectedEmployees(value as Employee[])}
@@ -782,21 +901,48 @@ export const ShiftScheduleView = () => {
               label="Select Employees"
               placeholder="Search multiple employees..."
             />
+
+            {/* Channel Selection */}
+            <FormControl fullWidth size="small">
+              <Select
+                value={notificationChannel}
+                onChange={(e) => setNotificationChannel(e.target.value as any)}
+              >
+                <MenuItem value="email">Email</MenuItem>
+                <MenuItem value="sms">SMS</MenuItem>
+                <MenuItem value="push">Push Notification</MenuItem>
+              </Select>
+            </FormControl>
+
+            {/* Preview of recipients */}
+            <Alert className="mt-2" color='info'>
+              Notifications will be sent to <strong>{selectedEmployees.length ? selectedEmployees.length : schedule.length}</strong> employee(s)
+              {selectedEmployees.length === 0 && ' based on the current filters'}
+            </Alert>
+
+            {/* Notification History Preview */}
+            {notificationHistory.length > 0 && (
+              <Paper variant="outlined" className="p-2 mt-4">
+                <Typography variant="caption" className="font-semibold text-gray-600">
+                  Recent Notifications
+                </Typography>
+                <div className="max-h-32 overflow-auto">
+                  {notificationHistory.slice(0, 3).map((notification) => (
+                    <div key={notification.id} className="flex justify-between items-center py-1 border-b border-gray-100">
+                      <Typography variant="caption" className="text-gray-700">
+                        {notification.employeeName}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        label={notification.status}
+                        className={notification.status === 'SENT' ? 'text-green-600' : 'text-red-600'}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Paper>
+            )}
           </Box>
-          <FormControl fullWidth margin="normal">
-            <Select
-              value={notificationChannel}
-              onChange={(e) => setNotificationChannel(e.target.value as any)}
-              size="small"
-            >
-              <MenuItem value="email">Email</MenuItem>
-              <MenuItem value="sms">SMS</MenuItem>
-              <MenuItem value="push">Push Notification</MenuItem>
-            </Select>
-          </FormControl>
-          <Alert className="mt-2" color='info'>
-            Notifications will be sent to  <strong>{selectedEmployees.length ? selectedEmployees.length : schedule.length} employee(s) </strong> based on the current filters
-          </Alert>
         </DialogContent>
         <DialogActions className='!p-4 border-t border-gray-300'>
           <Button onClick={() => setNotificationDialogOpen(false)} variant="outlined" className="!border-gray-300 !text-gray-800">
@@ -804,13 +950,21 @@ export const ShiftScheduleView = () => {
           </Button>
           <Button
             onClick={handleSendNotifications}
-            variant="contained" className="!bg-primary"
+            variant="contained"
+            className="!bg-primary"
             disabled={sendingNotification}
           >
-            {sendingNotification ? 'Sending...' : 'Send Notifications'}
+            {sendingNotification ? (
+              <>
+                <CircularProgress size={20} className="!text-white mr-2" />
+                Sending...
+              </>
+            ) : (
+              'Send Notifications'
+            )}
           </Button>
         </DialogActions>
       </Dialog>
-    </div >
+    </div>
   );
 };

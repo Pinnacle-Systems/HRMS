@@ -104,11 +104,11 @@ export const employeeColumns = [
     categoryKey: "BAND",
     isPolicy: false,
   },
-  { key: "manager", label: "Reporting Manager", type: "user" },
+  { key: "manager",key1: "managerId",key2: "managerName", label: "Reporting Manager", type: "user" },
+  { key: "assignedHr",key1: "assignedHrId",key2: "assignedHrName", label: "Assigned HR", type: "user" },
   { key: "empType", label: "Employment Type", type: "select" },
   { key: "template", label: "Template", type: "select" },
   { key: "branch", label: "Branch", type: "select" },
-  // { key: "attendanceSchema", label: "Shift Schema", type: "select" },
   {
     key: "bonusPolicy",
     label: "Bonus Policy",

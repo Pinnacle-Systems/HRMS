@@ -173,8 +173,8 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
               <TableCell>Effective To</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Created By</TableCell>
-              <TableCell>Approved By</TableCell>
               <TableCell>Created At</TableCell>
+              <TableCell>Approved By</TableCell>
               <TableCell align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -200,7 +200,7 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
                   </TableCell>
                   <TableCell>{formatDate(version.effectiveFrom)}</TableCell>
                   <TableCell>
-                    {version.effectiveTo ? formatDate(version.effectiveTo) : '-'}
+                    {version.effectiveTo ? formatDate(version.effectiveTo) : 'Ongoing'}
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -210,12 +210,12 @@ export const PolicyVersionHistory: React.FC<PolicyVersionHistoryProps> = ({
                     />
                   </TableCell>
                   <TableCell>{version.createdByName}</TableCell>
-                  <TableCell>{version.approvedByName || '-'}</TableCell>
                   <TableCell>
                     <Tooltip title={formatDate(version.createdAt)}>
                       <span>{formatDate(version.createdAt)}</span>
                     </Tooltip>
                   </TableCell>
+                  <TableCell>{version.approvedByName || '-'}</TableCell>
                   <TableCell align="center">
                     <Tooltip title="View Details">
                       <IconButton size="small" onClick={() => handleViewClick(version)}>

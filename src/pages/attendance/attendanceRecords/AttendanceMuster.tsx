@@ -11,14 +11,14 @@ import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { attendanceService } from "../../../services/modules/attendance";
 // import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG } from "../const";
-import { MUSTER_STATUS_CELL, MUSTER_STATUS_ABBR, MONTHS, getDaysInMonth, getCurrentMonthYear } from "../const";
+import { MUSTER_STATUS_CELL, MUSTER_STATUS_ABBR, MONTHS, getDaysInMonth, getCurrentMonthYear, formatTime } from "../const";
 import type { Branches, Department } from "../../employees/type";
 import { departmentService } from "../../../services/modules/department";
 import { branchService } from "../../../services/modules/branch";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
-import { formatDateTime } from "../../../utils/dateFormatter";
 import type { MusterRow } from "../../../services/modules/attendanceTypes";
+import { apiService } from "../../../services";
 
 const LEGEND = [
   { abbr: "P", label: "Present", color: "bg-green-500" },
@@ -32,6 +32,115 @@ const LEGEND = [
   { abbr: "WO", label: "Weekly Off", color: "bg-gray-200" },
   { abbr: "IR", label: "Irregular", color: "bg-pink-400" },
 ];
+
+const STATUS_MAPPINGS: any = {
+  present: { abbr: 'P', class: 'bg-green-100 border border-green-700 text-green-700'},
+  absent: { abbr: 'A', class: 'bg-red-100 border border-red-700 text-red-700' },
+  'half-day': { abbr: 'HD', class: 'bg-blue-100 border border-blue-700 text-blue-700' },
+  late: { abbr: 'L', class: 'bg-amber-100 text-amber-700 border border-amber-700' },
+  leave: { abbr: 'LV', class: 'bg-violet-100 text-violet-700 border border-violet-700' },
+  holiday: { abbr: 'HO', class: 'bg-slate-100 text-slate-700 border border-slate-300'},
+  'weekly-off': { abbr: 'WO', class: 'bg-gray-100 text-gray-500 border border-gray-700' },
+  'on-duty': { abbr: 'OD', class: 'bg-cyan-100 text-cyan-500 border border-cyan-700' },
+  permission: { abbr: 'PM', class: 'bg-orange-100 text-orange-700 border border-orange-700' },
+  irregular: { abbr: 'IR', class: 'bg-pink-100 text-pink-700 border border-pink-700' },
+};
+
+const getAttendanceStatus = (cell: any): {
+  overallStatus: string | null;
+  amStatus: string | null;
+  pmStatus: string | null;
+  details: string;
+} => {
+  if (!cell) {
+    return { overallStatus: null, amStatus: null, pmStatus: null, details: "No data" };
+  }
+
+  const {
+    firstHalf,
+    secondHalf,
+    checkIn,
+    checkOut,
+    workedMinutes,
+    shiftCode,
+    shiftStart,
+    shiftEnd
+  } = cell;
+
+  let amStatus = null;
+  let pmStatus = null;
+  let overallStatus = null;
+  let details = [];
+
+  // Determine AM status
+  if (checkIn && checkOut) {
+    // Full day present
+    amStatus = firstHalf === "late" ? "late" : "present";
+    pmStatus = secondHalf === "late" ? "late" :"present";
+    overallStatus = firstHalf === "late" ? "late" : "present";
+    details.push(`✅ Full Day (${formatTime(checkIn)} - ${formatTime(checkOut)})`);
+  } else if (checkIn && !checkOut) {
+    // Half day present (checked in but not checked out)
+    amStatus = firstHalf === "late" ? "late" : "present";
+    pmStatus = "absent";
+    overallStatus = "half-day";
+    details.push(`⏳ Half Day (In: ${formatTime(checkIn)})`);
+  } else if (!checkIn && checkOut) {
+    // Late arrival (checked out but no check in)
+    amStatus = "late";
+    pmStatus = "present";
+    overallStatus = "late";
+    details.push(`⏰ Late Arrival (Out: ${formatTime(checkOut)})`);
+  } else if (firstHalf === "present" || secondHalf === "present") {
+    // Based on manual status
+    amStatus = firstHalf === "present" ? "present" : null;
+    pmStatus = secondHalf === "present" ? "present" : null;
+    overallStatus = "present";
+  } else if (firstHalf === "absent" && secondHalf === "absent") {
+    amStatus = "absent";
+    pmStatus = "absent";
+    overallStatus = "absent";
+    details.push("❌ Absent");
+  } else if (firstHalf === "leave" || secondHalf === "leave") {
+    amStatus = firstHalf === "leave" ? "leave" : null;
+    pmStatus = secondHalf === "leave" ? "leave" : null;
+    overallStatus = "leave";
+    details.push("📋 Leave");
+  } else if (firstHalf === "holiday" || secondHalf === "holiday") {
+    amStatus = "holiday";
+    pmStatus = "holiday";
+    overallStatus = "holiday";
+    details.push("🎉 Holiday");
+  } else if (firstHalf === "weekly-off" || secondHalf === "weekly-off") {
+    amStatus = "weekly-off";
+    pmStatus = "weekly-off";
+    overallStatus = "weekly-off";
+    details.push("📅 Weekly Off");
+  } else {
+    // Default to firstHalf/secondHalf values if they exist
+    amStatus = firstHalf || null;
+    pmStatus = secondHalf || null;
+    overallStatus = firstHalf || secondHalf || null;
+  }
+
+  // Add shift details
+  if (shiftCode) {
+    details.push(`Shift: ${shiftCode} (${shiftStart || 'N/A'} - ${shiftEnd || 'N/A'})`);
+  }
+
+  if (workedMinutes) {
+    const hours = Math.floor(workedMinutes / 60);
+    const mins = workedMinutes % 60;
+    details.push(`⏱️ ${hours}h ${mins}m worked`);
+  }
+
+  return {
+    overallStatus,
+    amStatus,
+    pmStatus,
+    details: details.join(' | ')
+  };
+};
 
 export function AttendanceMuster() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -167,41 +276,25 @@ export function AttendanceMuster() {
   const pagedRegisterRows = registerRows.slice((registerPage - 1) * registerLimit, registerPage * registerLimit);
   const pagedEmployees = employees.slice((musterPage - 1) * musterLimit, musterPage * musterLimit);
 
-
-  const handleExport = async () => {
-    // if (viewMode === "muster") {
-    showSpinner()
+  async function handleExport() {
+    showSpinner();
     try {
-      const response:any = await attendanceService.exportMonthly({
+      const res = await attendanceService.exportMonthly({
         month,
         year,
         departmentId: departmentId || undefined,
         branchId: branchId || undefined,
         exportFormat: 'excel'
-      });
-      const fileUrl = response?.data?.fileUrl;
-      if (fileUrl) {
-        const fileResponse = await fetch(fileUrl);
-        const blob = await fileResponse.blob();
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `attendance_${year}_${month}.xlsx`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-        showSnackbar('File downloaded successfully!', 'success');
-      } else {
-        showSnackbar('File URL not found', 'error');
       }
+      );
+      await apiService.downloadFromPath(res.data.fileUrl, `attendance_${month}_${year}.xlsx`);
       showSnackbar(`Muster exported successfully for ${MONTHS[month - 1]} ${year}`, "success");
     } catch (err: any) {
       showSnackbar(err?.message || "Export failed", "error");
     } finally {
-      hideSpinner()
+      hideSpinner();
     }
-    // }
-  };
+  }
 
   return (
     <div className="p-4">
@@ -416,7 +509,7 @@ export function AttendanceMuster() {
                         <td className="sticky left-[50px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">
                           {emp.employeeName}
                         </td>
-                        {dayNumbers.map((d) => {
+                        {/* {dayNumbers.map((d) => {
                           const cell = getCellForDay(emp, d);
                           const status = cell?.status ?? null;
                           const abbr = status ? (MUSTER_STATUS_ABBR[status] ?? "?") : "";
@@ -448,7 +541,120 @@ export function AttendanceMuster() {
                               </td>
                             </Tooltip>
                           );
+                        })} */}
+                        {dayNumbers.map((d) => {
+                          const cell = getCellForDay(emp, d);
+                          const status = getAttendanceStatus(cell);
+                          const isHol = isHoliday(d);
+                          const isWO = isWeeklyOff(d);
+
+                          // Determine if we should show holiday/weekly off
+                          const showHoliday = isHol && !cell;
+                          const showWeeklyOff = isWO && !cell;
+
+                          // Get status display info
+                          const amStatusInfo = status.amStatus ? STATUS_MAPPINGS[status.amStatus] : null;
+                          const pmStatusInfo = status.pmStatus ? STATUS_MAPPINGS[status.pmStatus] : null;
+
+                          return (
+                            <Tooltip
+                              key={d}
+                              title={
+                                <div className="text-xs">
+                                  <div className="font-bold mb-1">Attendance Details</div>
+                                  <div>AM: {status.amStatus || '—'}</div>
+                                  <div>PM: {status.pmStatus || '—'}</div>
+                                  <div className="mt-1 text-gray-300">{status.details}</div>
+                                </div>
+                              }
+                            >
+                              <td className="px-0.5 py-1 text-center border-r border-gray-100">
+                                {cell ? (
+                                  <div className="">
+                                    {
+                                      amStatusInfo?.abbr == pmStatusInfo?.abbr ? (
+                                        <div className={`p-2 py-1 text-[8px] font-bold ${amStatusInfo?.class || 'bg-gray-100 text-gray-400'}`}>{amStatusInfo?.abbr || '—'}</div>
+                                      ) : (
+                                        <div className="flex items-center">
+                                          <span className={`p-2 py-1 text-[8px] border-r-0 font-bold ${amStatusInfo?.class || 'bg-gray-100 text-gray-400'}`}>{amStatusInfo?.abbr || '—'}</span>
+                                          <div className="h-6"></div>
+                                          <span className={`p-2 py-1 text-[8px] font-bold ${pmStatusInfo?.class || 'bg-gray-100 text-gray-400'}`}>{pmStatusInfo?.abbr || '—'}</span>
+                                        </div>
+                                      )
+                                    }
+                                  </div>
+                                ) : showHoliday ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">HO</span>
+                                ) : showWeeklyOff ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-gray-100 text-gray-500">WO</span>
+                                ) : (
+                                  <span className="text-gray-200">—</span>
+                                )}
+                              </td>
+                            </Tooltip>
+                          );
                         })}
+                        {/* {dayNumbers.map((d) => {
+                          const cell = getCellForDay(emp, d);
+                          const status = getAttendanceStatus(cell);
+                          const isHol = isHoliday(d);
+                          const isWO = isWeeklyOff(d);
+
+                          const showHoliday = isHol && !cell;
+                          const showWeeklyOff = isWO && !cell;
+
+                          const amStatusInfo = status.amStatus ? STATUS_MAPPINGS[status.amStatus] : null;
+                          const pmStatusInfo = status.pmStatus ? STATUS_MAPPINGS[status.pmStatus] : null;
+
+                          // Get class for each half using MUSTER_STATUS_CELL
+                          const amClass = status.amStatus ? (MUSTER_STATUS_CELL[status.amStatus] ?? "bg-gray-100 text-gray-500") : "bg-gray-100 text-gray-500";
+                          const pmClass = status.pmStatus ? (MUSTER_STATUS_CELL[status.pmStatus] ?? "bg-gray-100 text-gray-500") : "bg-gray-100 text-gray-500";
+
+                          // Get abbreviation for each half
+                          const amAbbr = status.amStatus ? (MUSTER_STATUS_ABBR[status.amStatus] ?? "?") : "—";
+                          const pmAbbr = status.pmStatus ? (MUSTER_STATUS_ABBR[status.pmStatus] ?? "?") : "—";
+
+                          return (
+                            <Tooltip
+                              key={d}
+                              title={
+                                cell ? (
+                                  <div className="text-xs">
+                                    <div className="font-bold mb-1">Attendance Details</div>
+                                    <div>AM: {status.amStatus || '—'}</div>
+                                    <div>PM: {status.pmStatus || '—'}</div>
+                                    <div className="mt-1 text-gray-300">{status.details}</div>
+                                  </div>
+                                ) : isHol ? (
+                                  "Holiday"
+                                ) : isWO ? (
+                                  "Weekly Off"
+                                ) : (
+                                  "No data"
+                                )
+                              }
+                            >
+                              <td className="px-0.5 py-1 text-center border-r border-gray-100">
+                                {cell ? (
+                                  <div className="flex items-center gap-0.5">
+                                    <span className={`inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold ${amClass}`}>
+                                      {amAbbr}
+                                    </span>
+                                    <span className={`inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold ${pmClass}`}>
+                                      {pmAbbr}
+                                    </span>
+                                  </div>
+                                ) : showHoliday ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-slate-200 text-slate-500">HO</span>
+                                ) : showWeeklyOff ? (
+                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] bg-gray-100 text-gray-400">WO</span>
+                                ) : (
+                                  <span className="text-gray-200">—</span>
+                                )}
+                              </td>
+                            </Tooltip>
+                          );
+                        })} */}
                         <td className="sticky right-[214px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
                           {emp.totalPresent}
                         </td>
@@ -478,8 +684,10 @@ export function AttendanceMuster() {
                       {dayNumbers.map((d) => {
                         const presentCount = employees.filter((emp) => {
                           const cell = getCellForDay(emp, d);
-                          const s = cell?.status;
-                          return s === "present" || s === "checked_in" || s === "checked_out" || s === "late";
+
+                          // const s = cell?.status;
+                          const s = getAttendanceStatus(cell);
+                          return s.overallStatus === "present" || s.overallStatus === "checked_in" || s.overallStatus === "checked_out" || s.overallStatus === "late";
                         }).length;
                         return (
                           <td key={d} className="bg-gray-100 px-0.5 py-2 text-center text-[10px] font-semibold text-gray-600 border-r border-gray-100">

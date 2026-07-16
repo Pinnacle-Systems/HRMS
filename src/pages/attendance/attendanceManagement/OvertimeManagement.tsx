@@ -143,7 +143,7 @@ export function OvertimeManagement() {
         remarks: approveRemarks,
         approvedBy: session?.user.userId,
       });
-      showSnackbar("Overtime rejected", "info");
+      showSnackbar("Overtime rejected", "success");
       setDetailOpen(false);
       loadOvertime();
     } catch {

@@ -152,10 +152,10 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
         return designations.map(d => ({ id: d.id, name: d.name }));
       case 'EMPLOYMENT_TYPE':
         return employmentTypes.map(e => ({ id: e.name, name: e.name }));
-      // case 'EMPLOYEE_TEMPLATE':
-      //   return templates.map(t => ({ id: t.name, name: t.name }));
-       case 'EMPLOYEE_GROUP':
-        return templates.map(t => ({ id: t.id, name: t.name }));
+      case 'EMPLOYEE_TEMPLATE':
+        return templates.map(t => ({ id: t.name, name: t.name }));
+      //  case 'EMPLOYEE_GROUP':
+      //   return templates.map(t => ({ id: t.id, name: t.name }));
       case 'EMPLOYEE_CATEGORY':
         return [{ id: 'Staff', name: 'Staff' },{ id: 'Labour', name: 'Labour' }];
       default:
@@ -289,8 +289,8 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       case 'DEPARTMENT': data.departmentId = formData.values[0]; break;
       case 'DESIGNATION': data.designationId = formData.values[0]; break;
       case 'EMPLOYMENT_TYPE': data.employmentType = formData.values[0] as EmploymentType; break;
-      case 'EMPLOYEE_GROUP': data.employeeGroupId = formData.values[0]; break;
-      // case 'EMPLOYEE_TEMPLATE': data.template = formData.values[0]; break;
+      // case 'EMPLOYEE_GROUP': data.employeeGroupId = formData.values[0]; break;
+      case 'EMPLOYEE_TEMPLATE': data.template = formData.values[0]; break;
       case 'SPECIFIC_EMPLOYEES': data.employeeId = formData.values[0]; break;
       case 'EMPLOYEE_CATEGORY': data.employeeCategory = formData.values[0] as EmployeeCategory; break;
     }
