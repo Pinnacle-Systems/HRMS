@@ -39,8 +39,30 @@ import {
   getWorkspaceLabel,
 } from "../auth/authMapper";
 import type { NavItem } from "../auth/authTypes";
-import logo from "../assets/logo.jpg"
-import { CloseOutlined, DarkModeOutlined, HistoryOutlined as HistoryOutlinedIcon, InfoOutlined, LightModeOutlined, PolicyOutlined, PowerSettingsNewOutlined, SearchOutlined, TrackChangesOutlined } from "@mui/icons-material";
+import logo from "../assets/logo.jpg";
+import {
+  CloseOutlined,
+  DarkModeOutlined,
+  HistoryOutlined as HistoryOutlinedIcon,
+  InfoOutlined,
+  LightModeOutlined,
+  PolicyOutlined,
+  PowerSettingsNewOutlined,
+  SearchOutlined,
+  TrackChangesOutlined,
+  ReceiptOutlined,
+  WorkOutlineOutlined,
+  CategoryOutlined,
+  AccountBalanceOutlined,
+  AttachMoney,
+  PercentOutlined,
+  CalendarTodayOutlined,
+  AssignmentIndOutlined,
+  RequestPageOutlined,
+  Verified,
+  AssessmentOutlined,
+  ViewQuiltOutlined,
+} from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
@@ -48,6 +70,9 @@ import { useTheme } from "../context/themeContext";
 import { Chip, MenuList, Typography } from "@mui/material";
 import { companyService } from "../services/modules/company";
 import { policyService } from "../services";
+import { hasPermission, PAYROLL_PERMISSIONS } from "../const";
+import { PERMISSIONS } from "../auth/Permissions";
+
 const drawerWidth = 220;
 
 interface Notification {
@@ -70,6 +95,8 @@ export default function Layout() {
   const location = useLocation();
   const { session, logout } = useAuth();
   const user = session?.user;
+  const userPermissions = user?.permissions || [];
+
   const [attendanceOpen, setAttendanceOpen] = useState(
     location.pathname.startsWith("/attendance")
   );
@@ -79,6 +106,14 @@ export default function Layout() {
   const [leaveOpen, setLeaveOpen] = useState(
     location.pathname.startsWith("/leaves")
   );
+  const [payrollOpen, setPayrollOpen] = useState(
+    location.pathname.startsWith("/payroll")
+  );
+  // New states for payroll sections
+  const [payrollOperationsOpen, setPayrollOperationsOpen] = useState(false);
+  const [payrollConfigOpen, setPayrollConfigOpen] = useState(false);
+  const [payrollAdvancedOpen, setPayrollAdvancedOpen] = useState(false);
+
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
@@ -102,9 +137,7 @@ export default function Layout() {
     handleProfileMenuClose();
     try {
       await logout();
-      // if (response.success) {
       navigate("/login");
-      // }
     } catch {
       // intentional
     }
@@ -138,7 +171,6 @@ export default function Layout() {
       const response: any = await policyService.getPolicyNotifications();
       const notificationData = response.data || [];
       setNotifications(notificationData);
-      // Set unread count (you can implement read/unread logic here)
       setUnreadCount(notificationData.length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -148,13 +180,10 @@ export default function Layout() {
   };
 
   const markNotificationAsRead = async (_notificationId: string) => {
-    // Implement mark as read API call if needed
-    // For now, just remove from unread count
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const handleNotificationItemClick = (notification: Notification) => {
-    // Navigate to the policy or relevant page
     if (notification.policyId) {
       navigate(`/policies/${notification.policyId}`);
     }
@@ -179,7 +208,6 @@ export default function Layout() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+K (Mac) or Ctrl+K (Windows/Linux)
       if ((e.metaKey || e.ctrlKey) && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         setSearchOpen(true);
@@ -193,6 +221,124 @@ export default function Layout() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Payroll items reorganized with headings
+  const payrollOperations = [
+    {
+      text: "Dashboard",
+      path: "/payroll",
+      icon: <DashboardOutlinedIcon sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.DASHBOARD,
+    },
+    {
+      text: "Payroll Runs",
+      path: "/payroll/runs",
+      icon: <ReceiptOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.RUNS,
+    },
+    {
+      text: "Generate Payroll",
+      path: "/payroll/generate",
+      icon: <WorkOutlineOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.GENERATE,
+    },
+    {
+      text: "Employee Payslips",
+      path: "/payroll/payslips",
+      icon: <AssignmentIndOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.PAYSLIPS,
+    },
+    {
+      text: "Employee View",
+      path: "/payroll/employee-salary",
+      icon: <Person4OutlinedIcon sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.EMPLOYEE_VIEW,
+    },
+  ];
+
+  const payrollConfiguration = [
+    {
+      text: "Salary Components",
+      path: "/payroll/components",
+      icon: <CategoryOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.COMPONENTS,
+    },
+    {
+      text: "Salary Structure",
+      path: "/payroll/structures",
+      icon: <AccountBalanceOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.STRUCTURES,
+    },
+    {
+      text: "Assign Salary",
+      path: "/payroll/assign",
+      icon: <AttachMoney sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.ASSIGN,
+    },
+    {
+      text: "Deductions",
+      path: "/payroll/deductions",
+      icon: <PercentOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.DEDUCTIONS,
+    },
+    {
+      text: "Payroll Periods",
+      path: "/payroll/periods",
+      icon: <CalendarTodayOutlined sx={{ fontSize: 16 }} />,
+      permissions: PAYROLL_PERMISSIONS.PERIODS,
+    },
+  ];
+
+  const payrollAdvanced = [
+    {
+      text: "Loan/Advance Request",
+      path: "/payroll/loan-advance-request",
+      icon: <RequestPageOutlined />,
+      permissions: PAYROLL_PERMISSIONS.LOAN_ADVANCE,
+    },
+    {
+      text: "Statutory Compliance",
+      path: "/payroll/compliance",
+      icon: <Verified />,
+      permissions: PAYROLL_PERMISSIONS.STATUTORY,
+    },
+    {
+      text: "Bank Advice",
+      path: "/payroll/bank-advice",
+      icon: <AccountBalanceOutlined />,
+      permissions: PAYROLL_PERMISSIONS.BANK_ADVICE,
+    },
+    {
+    text: "Payroll Reports",
+    path: "/payroll/reports",
+    icon: <AssessmentOutlined />,
+    permissions: PAYROLL_PERMISSIONS.REPORTS,
+  },
+  {
+    text: "Audit Logs",
+    path: "/payroll/audit",
+    icon: <HistoryOutlinedIcon />,
+    permissions: PAYROLL_PERMISSIONS.AUDIT,
+  },
+  {
+    text: "Employee Portal",
+    path: "/payroll/employee-portal",
+    icon: <ViewQuiltOutlined />,
+    permissions: PAYROLL_PERMISSIONS.PORTAL,
+  },
+  ];
+
+  const filteredPayrollOperations = payrollOperations.filter(item =>
+    hasPermission(userPermissions, item.permissions)
+  );
+
+  const filteredPayrollConfiguration = payrollConfiguration.filter(item =>
+    hasPermission(userPermissions, item.permissions)
+  );
+
+  const filteredPayrollAdvanced = payrollAdvanced.filter(item =>
+    hasPermission(userPermissions, item.permissions)
+  );
+  
 
   const menuItems: NavItem[] = [
     {
@@ -204,7 +350,7 @@ export default function Layout() {
     {
       text: "My Info",
       icon: <InfoOutlined />,
-      path:  "/my-info",
+      path: "/my-info",
       roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
     {
@@ -212,7 +358,7 @@ export default function Layout() {
       icon: <PeopleAltOutlinedIcon />,
       path: "/employees",
       roles: ["HR", "ADMIN"],
-      permissions: ["EMPLOYEE_READ"],
+      permissions: [PERMISSIONS.EMPLOYEE_READ],
     },
     {
       text: "Leave",
@@ -221,7 +367,7 @@ export default function Layout() {
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
       children: [
         ...(user?.roles.some((role) => role !== "ADMIN")
-          ? [{ text: "My Leave", path: "/leaves/my-dashboard" },]
+          ? [{ text: "My Leave", path: "/leaves/my-dashboard" }]
           : []),
         ...(user?.roles.some((role) => role === "MANAGER" || role === "ADMIN")
           ? [{ text: "Manager Approvals", path: "/leaves/approvals" }]
@@ -239,6 +385,7 @@ export default function Layout() {
       icon: <TrackChangesOutlined />,
       path: "/attendance",
       roles: ["HR", "ADMIN"],
+      // permissions: [PERMISSIONS.ATTENDANCE_READ],
       children: [
         {
           text: "Shift Management",
@@ -270,13 +417,16 @@ export default function Layout() {
       text: "Payroll",
       icon: <AttachMoneyOutlinedIcon />,
       path: "/payroll",
-      roles: ["HR", "ADMIN"],
+      roles: ["HR", "ADMIN", "EMPLOYEE"],
+      permissions: [PERMISSIONS.PAYROLL_READ],
+      isPayroll: true,
     },
     {
       text: "Policy Engine",
       icon: <PolicyOutlined />,
       path: "/policies",
       roles: ["HR", "ADMIN"],
+      // permissions: [PERMISSIONS.POLICY_READ],
       children: [
         {
           text: "Policy Dashboard",
@@ -300,6 +450,7 @@ export default function Layout() {
       icon: <SettingsOutlinedIcon />,
       path: user?.roles.includes('ADMIN') ? "/settings/general/company-settings" : "/settings/general/audit-logs",
       roles: ["HR", "ADMIN"],
+      // permissions: [PERMISSIONS.SETTINGS_READ],
     },
     {
       text: "Help",
@@ -307,7 +458,7 @@ export default function Layout() {
       path: "/documentation",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
     },
-  ]
+  ];
 
   const visibleMenuItems = user
     ? menuItems.filter((item) => canShowNavItem(user, item))
@@ -334,10 +485,10 @@ export default function Layout() {
     if (user?.roles.includes('ADMIN')) {
       fetchCompanyData();
     } else {
-      setCompanyInfo(session?.company || {})
+      setCompanyInfo(session?.company || {});
     }
     fetchNotifications();
-  }, [])
+  }, []);
 
   return (
     <Box className="flex">
@@ -360,10 +511,8 @@ export default function Layout() {
               className="text-primary"
             >
               <MenuIcon />
-              {/* <img src={logo} alt=""  width="20px"/> */}
             </IconButton>
             <Box className="flex items-center gap-2">
-              {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div> */}
               <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
               <div>
                 <div className="font-bold text-gray-700">
@@ -378,11 +527,9 @@ export default function Layout() {
                   )}
                 </div>
               </div>
-
             </Box>
           </Box>
 
-          {/* Right Side Icons */}
           <Box className="flex items-center gap-2">
             <Tooltip title="Search">
               <IconButton
@@ -465,17 +612,16 @@ export default function Layout() {
           <ListItemIcon>
             <Person4OutlinedIcon className="!w-4 dark:text-primary" />
           </ListItemIcon>
-          <div className="text-gray-800 ">My Profile</div>
+          <div className="text-gray-800">My Profile</div>
         </MenuItem>
-        {
-          user?.roles.includes("ADMIN") &&
+        {user?.roles.includes("ADMIN") && (
           <MenuItem onClick={() => navigate("/settings/general/company-settings")} className="bg-white-50">
             <ListItemIcon>
               <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
             </ListItemIcon>
-            <div className="text-gray-800 ">Company Settings</div>
+            <div className="text-gray-800">Company Settings</div>
           </MenuItem>
-        }
+        )}
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
           <ListItemIcon>
             <HistoryOutlinedIcon className="!w-4 dark:text-primary" />
@@ -509,7 +655,6 @@ export default function Layout() {
           }
         }}
       >
-        {/* Header */}
         <Box sx={{
           p: 1,
           display: 'flex',
@@ -530,7 +675,6 @@ export default function Layout() {
                 className="text-primary"
                 onClick={() => {
                   setUnreadCount(0);
-                  // await markAllNotificationsAsRead();
                 }}
               >
                 Mark all as read
@@ -542,10 +686,8 @@ export default function Layout() {
           </Box>
         </Box>
 
-        {/* Notification List */}
         {isLoadingNotifications ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
-            {/* <CircularProgress size={24} sx={{ mb: 1 }} /> */}
             <Typography variant="body2" color="text.secondary">
               Loading notifications...
             </Typography>
@@ -576,7 +718,6 @@ export default function Layout() {
                   }
                 }}
                 className="!border-b !border-gray-200"
-
               >
                 <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-between', mb: 0.5 }}>
                   <ListItemText
@@ -617,7 +758,6 @@ export default function Layout() {
           </MenuList>
         )}
 
-        {/* Footer */}
         {notifications.length > 0 && (
           <Box sx={{
             p: 1.5,
@@ -633,7 +773,6 @@ export default function Layout() {
               }}
               onClick={() => {
                 handleNotificationClose();
-                // navigate('/notifications');
               }}
             >
               View all notifications
@@ -687,7 +826,7 @@ export default function Layout() {
           {open && (
             <Box className="px-3 py-1">
               <Box className="flex items-center gap-1 shadow-sm">
-                <img src={logo} className="!w-6 !h-6 mr-2"></img>
+                <img src={logo} className="!w-6 !h-6 mr-2" alt="logo" />
                 <Box>
                   <div className="text-gray-500 text-[10px]">Organization</div>
                   <div className="text-gray-800 font-bold text-[12px]">
@@ -699,191 +838,448 @@ export default function Layout() {
           )}
           {visibleMenuItems.map((item: any, index) => (
             <Box key={`item-${index}-${item.text}`}>
-              <Tooltip title={!open ? item.text : ""}>
-                <ListItem disablePadding className="block whitespace-nowrap">
-                  <ListItemButton
-                    className={`min-h-[30px] px-2.5 py-1 text-sm ${location.pathname === item.path ||
-                      location.pathname.startsWith(`${item.path}/`)
-                      ? "text-primary !bg-primary-50"
-                      : "text-gray-400"
-                      } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
-                    onClick={() => {
-                      if (item.children) {
-                        setOpen(true);
-                        if (item.text === "Attendance") {
-                          setAttendanceOpen((prev) => !prev);
-                          setPolicyOpen(false);
-                          setLeaveOpen(false);
-                        }
-                        if (item.text === "Policy Engine") {
-                          setPolicyOpen((prev) => !prev);
-                          setAttendanceOpen(false);
-                          setLeaveOpen(false);
-                        }
-                        if (item.text === "Leave") {
-                          setLeaveOpen((prev) => !prev);
+              {item.isPayroll ? (
+                // Special rendering for Payroll with expandable sections
+                <>
+                  {/* Payroll Parent Item */}
+                  <Tooltip title={!open ? "Payroll" : ""}>
+                    <ListItem disablePadding className="block whitespace-nowrap">
+                      <ListItemButton
+                        className={`min-h-[30px] px-2.5 py-1 text-sm ${location.pathname.startsWith("/payroll")
+                          ? "text-primary !bg-primary-50"
+                          : "text-gray-400"
+                          } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                        onClick={() => {
+                          setOpen(true);
+                          setPayrollOpen((prev) => !prev);
                           setAttendanceOpen(false);
                           setPolicyOpen(false);
+                          setLeaveOpen(false);
+                          setPayrollOperationsOpen(false);
+                          setPayrollConfigOpen(false);
+                        }}
+                      >
+                        <ListItemIcon
+                          className={`!min-w-0 ml-2 dark:text-primary ${open ? "mr-5" : "mr-0"
+                            } w-2 justify-center`}
+                          sx={{ "& svg": { fontSize: 20 } }}
+                        >
+                          <AttachMoneyOutlinedIcon />
+                        </ListItemIcon>
+                        <ListItemText
+                          primary="Payroll"
+                          className={open ? "opacity-100 text-gray-800" : "opacity-0"}
+                          sx={{
+                            "& .MuiTypography-root": {
+                              fontSize: "12px",
+                            },
+                          }}
+                        />
+                        {open && (payrollOpen ? (
+                          <ExpandLess fontSize="small" className="text-gray-800" />
+                        ) : (
+                          <ExpandMore fontSize="small" className="text-gray-800" />
+                        ))}
+                      </ListItemButton>
+                    </ListItem>
+                  </Tooltip>
+
+                  {/* Payroll Sub Menu with Expandable Sections */}
+                  {open && (
+                    <Collapse in={payrollOpen} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {/* PAYROLL OPERATIONS Section */}
+                        <ListItemButton
+                          sx={{
+                            pl: 1.5,
+                            pr: 1,
+                            minHeight: '28px',
+                          }}
+                          className="hover:!bg-transparent"
+                          onClick={() => { setPayrollOperationsOpen((prev) => !prev); setPayrollConfigOpen(false); setPayrollAdvancedOpen(false) }}
+                        >
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 24,
+                              color: "#9ca3af",
+                            }}
+                          >
+                            {payrollOperationsOpen ? (
+                              <ExpandLess sx={{ fontSize: 16 }} />
+                            ) : (
+                              <ExpandMore sx={{ fontSize: 16 }} />
+                            )}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary="PAYROLL OPERATIONS"
+                            className="!mt-0 !mb-0"
+                            sx={{
+                              "& .MuiTypography-root": {
+                                fontSize: "10px",
+                                fontWeight: 600,
+                                color: "#9ca3af",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                              },
+                            }}
+                          />
+                        </ListItemButton>
+
+                        <Collapse in={payrollOperationsOpen} timeout="auto" unmountOnExit>
+                          {filteredPayrollOperations.map((child) => (
+                            <ListItemButton
+                              key={child.path}
+                              sx={{ pl: 4 }}
+                              className={`min-h-[32px] text-sm ${location.pathname === child.path ||
+                                (child.path === "/payroll" && location.pathname === "/payroll")
+                                ? "text-primary !bg-primary-50"
+                                : "text-gray-400"
+                                }`}
+                              onClick={() => navigate(child.path)}
+                            >
+                              <ListItemIcon
+                                sx={{
+                                  minWidth: 28,
+                                  color:
+                                    location.pathname === child.path ||
+                                      (child.path === "/payroll" && location.pathname === "/payroll")
+                                      ? "var(--color-primary)"
+                                      : "#9ca3af",
+                                }}
+                              >
+                                {child.icon}
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={child.text}
+                                className="!mt-0 !mb-0 text-gray-800"
+                                sx={{
+                                  "& .MuiTypography-root": {
+                                    fontSize: "12px",
+                                  },
+                                }}
+                              />
+                            </ListItemButton>
+                          ))}
+                        </Collapse>
+
+                        {/* CONFIGURATION Section */}
+                        <ListItemButton
+                          sx={{
+                            pl: 1.5,
+                            pr: 1,
+                            minHeight: '28px',
+                            mt: 0.5,
+                          }}
+                          className="hover:!bg-transparent"
+                          onClick={() => { setPayrollConfigOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollAdvancedOpen(false) }}
+                        >
+                          <ListItemIcon
+                            sx={{
+                              minWidth: 24,
+                              color: "#9ca3af",
+                            }}
+                          >
+                            {payrollConfigOpen ? (
+                              <ExpandLess sx={{ fontSize: 16 }} />
+                            ) : (
+                              <ExpandMore sx={{ fontSize: 16 }} />
+                            )}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary="CONFIGURATION"
+                            className="!mt-0 !mb-0"
+                            sx={{
+                              "& .MuiTypography-root": {
+                                fontSize: "10px",
+                                fontWeight: 600,
+                                color: "#9ca3af",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                              },
+                            }}
+                          />
+                        </ListItemButton>
+
+                        <Collapse in={payrollConfigOpen} timeout="auto" unmountOnExit>
+                          {filteredPayrollConfiguration.map((child) => (
+                            <ListItemButton
+                              key={child.path}
+                              sx={{ pl: 4 }}
+                              className={`min-h-[32px] text-sm ${location.pathname === child.path
+                                ? "text-primary !bg-primary-50"
+                                : "text-gray-400"
+                                }`}
+                              onClick={() => navigate(child.path)}
+                            >
+                              <ListItemIcon
+                                sx={{
+                                  minWidth: 28,
+                                  color:
+                                    location.pathname === child.path
+                                      ? "var(--color-primary)"
+                                      : "#9ca3af",
+                                }}
+                              >
+                                {child.icon}
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={child.text}
+                                className="!mt-0 !mb-0 text-gray-800"
+                                sx={{
+                                  "& .MuiTypography-root": {
+                                    fontSize: "12px",
+                                  },
+                                }}
+                              />
+                            </ListItemButton>
+                          ))}
+                        </Collapse>
+
+                        {/* ADVANCED FEATURES Section */}
+                        <ListItemButton
+                          sx={{ pl: 1.5, pr: 1, minHeight: '28px', mt: 0.5 }}
+                          className="hover:!bg-transparent"
+                          onClick={() => { setPayrollAdvancedOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollConfigOpen(false); }}
+                        >
+                          <ListItemIcon sx={{ minWidth: 24, color: "#9ca3af" }}>
+                            {payrollAdvancedOpen ? (
+                              <ExpandLess sx={{ fontSize: 16 }} />
+                            ) : (
+                              <ExpandMore sx={{ fontSize: 16 }} />
+                            )}
+                          </ListItemIcon>
+                          <ListItemText
+                            primary="ADVANCED FEATURES"
+                            sx={{
+                              "& .MuiTypography-root": {
+                                fontSize: "10px",
+                                fontWeight: 600,
+                                color: "#9ca3af",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                              },
+                            }}
+                          />
+                        </ListItemButton>
+
+                        <Collapse in={payrollAdvancedOpen} timeout="auto" unmountOnExit>
+                          {filteredPayrollAdvanced.map((child) => (
+                            <ListItemButton
+                              key={child.path}
+                              sx={{ pl: 4 }}
+                              className={`min-h-[32px] text-sm ${location.pathname === child.path
+                                ? "text-primary !bg-primary-50"
+                                : "text-gray-400"
+                                }`}
+                              onClick={() => navigate(child.path)}
+                            >
+                              <ListItemIcon
+                                sx={{
+                                  minWidth: 28,
+                                  color:
+                                    location.pathname === child.path
+                                      ? "var(--color-primary)"
+                                      : "#9ca3af",
+                                }}
+                              >
+                                {child.icon}
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={child.text}
+                                className="text-gray-800"
+                                sx={{
+                                  "& .MuiTypography-root": {
+                                    fontSize: "12px",
+                                  },
+                                }}
+                              />
+                            </ListItemButton>
+                          ))}
+                        </Collapse>
+                      </List>
+                    </Collapse>
+                  )}
+                </>
+              ) : (
+                // Regular menu item rendering
+                <>
+                  <Tooltip title={!open ? item.text : ""}>
+                    <ListItem disablePadding className="block whitespace-nowrap">
+                      <ListItemButton
+                        className={`min-h-[30px] px-2.5 py-1 text-sm ${location.pathname === item.path ||
+                          location.pathname.startsWith(`${item.path}/`)
+                          ? "text-primary !bg-primary-50"
+                          : "text-gray-400"
+                          } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                        onClick={() => {
+                          if (item.children) {
+                            setOpen(true);
+                            if (item.text === "Attendance") {
+                              setAttendanceOpen((prev) => !prev);
+                              setPolicyOpen(false);
+                              setLeaveOpen(false);
+                              setPayrollOpen(false);
+                            }
+                            if (item.text === "Policy Engine") {
+                              setPolicyOpen((prev) => !prev);
+                              setAttendanceOpen(false);
+                              setLeaveOpen(false);
+                              setPayrollOpen(false);
+                            }
+                            if (item.text === "Leave") {
+                              setLeaveOpen((prev) => !prev);
+                              setAttendanceOpen(false);
+                              setPolicyOpen(false);
+                              setPayrollOpen(false);
+                            }
+                            return;
+                          }
                           navigate(item.path);
-                        }
-                        return;
-                      }
-                      navigate(item.path);
-                    }}
-                  >
-                    <ListItemIcon
-                      className={`!min-w-0 ml-2 dark:text-primary ${open ? "mr-5" : "mr-0"
-                        } w-2 justify-center`}
-                      sx={{ "& svg": { fontSize: 20 } }}
-                    >
-                      {item.icon}
-                    </ListItemIcon>
-
-                    <ListItemText
-                      primary={item.text}
-                      className={open ? "opacity-100 text-gray-800" : "opacity-0"}
-                      sx={{
-                        "& .MuiTypography-root": {
-                          fontSize: "12px",
-                        },
-                      }}
-                    />
-
-                    {/* {item.children &&
-                      open &&
-                      (attendanceOpen ? (
-                        <ExpandLess fontSize="small" className="text-gray-800" />
-                      ) : (
-                        <ExpandMore fontSize="small" className="text-gray-800" />
-                      ))} */}
-                    {item.children &&
-                      open &&
-                      ((item.text === 'Attendance' && (attendanceOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
-                        (item.text === 'Policy Engine' && (policyOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
-                        (item.text === 'Leave' && (leaveOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)))}
-                  </ListItemButton>
-                </ListItem>
-              </Tooltip>
-
-              {/* Sub Menu */}
-              {/* Attendance Sub Menu */}
-              {item.text === 'Attendance' && item.children && (
-                <Collapse in={attendanceOpen && open} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {item.children.map((child: any) => (
-                      <ListItemButton
-                        key={child.path}
-                        sx={{ pl: 2 }}
-                        className={`min-h-[40px] text-sm ${location.pathname === child.path
-                          ? "text-primary !bg-primary-50"
-                          : "text-gray-400"
-                          }`}
-                        onClick={() => navigate(child.path)}
+                        }}
                       >
                         <ListItemIcon
-                          sx={{
-                            minWidth: 30,
-                            color:
-                              location.pathname === child.path
-                                ? "#2563eb"
-                                : "#9ca3af",
-                          }}
+                          className={`!min-w-0 ml-2 dark:text-primary ${open ? "mr-5" : "mr-0"
+                            } w-2 justify-center`}
+                          sx={{ "& svg": { fontSize: 20 } }}
                         >
-                          {child.icon}
+                          {item.icon}
                         </ListItemIcon>
                         <ListItemText
-                          primary={child.text}
-                          className="text-gray-800"
+                          primary={item.text}
+                          className={open ? "opacity-100 text-gray-800" : "opacity-0"}
                           sx={{
                             "& .MuiTypography-root": {
                               fontSize: "12px",
                             },
                           }}
                         />
+                        {item.children &&
+                          open &&
+                          ((item.text === 'Attendance' && (attendanceOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
+                            (item.text === 'Policy Engine' && (policyOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
+                            (item.text === 'Leave' && (leaveOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)))}
                       </ListItemButton>
-                    ))}
-                  </List>
-                </Collapse>
-              )}
+                    </ListItem>
+                  </Tooltip>
 
-              {/* Policies Sub Menu */}
-              {item.text === 'Policy Engine' && item.children && (
-                <Collapse in={policyOpen && open} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {item.children.map((child: any) => (
-                      <ListItemButton
-                        key={child.path}
-                        sx={{ pl: 2 }}
-                        className={`min-h-[40px] text-sm ${location.pathname === child.path
-                          ? "text-primary !bg-primary-50"
-                          : "text-gray-400"
-                          }`}
-                        onClick={() => navigate(child.path)}
-                      >
-                        <ListItemIcon
-                          sx={{
-                            minWidth: 30,
-                            color:
-                              location.pathname === child.path
-                                ? "#2563eb"
-                                : "#9ca3af",
-                          }}
-                        >
-                          {child.icon}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={child.text}
-                          className="text-gray-800"
-                          sx={{
-                            "& .MuiTypography-root": {
-                              fontSize: "12px",
-                            },
-                          }}
-                        />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                </Collapse>
-              )}
+                  {/* Sub Menus for other items */}
+                  {item.text === 'Attendance' && item.children && (
+                    <Collapse in={attendanceOpen && open} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {item.children.map((child: any) => (
+                          <ListItemButton
+                            key={child.path}
+                            sx={{ pl: 2 }}
+                            className={`min-h-[40px] text-sm ${location.pathname === child.path
+                              ? "text-primary !bg-primary-50"
+                              : "text-gray-400"
+                              }`}
+                            onClick={() => navigate(child.path)}
+                          >
+                            <ListItemIcon
+                              sx={{
+                                minWidth: 30,
+                                color:
+                                  location.pathname === child.path
+                                    ? "#2563eb"
+                                    : "#9ca3af",
+                              }}
+                            >
+                              {child.icon}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={child.text}
+                              className="!mt-0 !mb-0 text-gray-800"
+                              sx={{
+                                "& .MuiTypography-root": {
+                                  fontSize: "12px",
+                                },
+                              }}
+                            />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    </Collapse>
+                  )}
 
-              {/* Leave Sub Menu */}
-              {item.text === 'Leave' && item.children && (
-                <Collapse in={leaveOpen && open} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {item.children.map((child: any) => (
-                      <ListItemButton
-                        key={child.path}
-                        sx={{ pl: 2 }}
-                        className={`min-h-[40px] text-sm ${location.pathname === child.path
-                          ? "!bg-primary-50"
-                          : "text-gray-400"
-                          }`}
-                        onClick={() => navigate(child.path)}
-                      >
-                        <ListItemIcon
-                          sx={{
-                            minWidth: 30,
-                            color:
-                              location.pathname === child.path
-                                ? "#2563eb"
-                                : "#9ca3af",
-                          }}
-                        >
-                          {child.icon}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={child.text}
-                          className="text-gray-800"
-                          sx={{
-                            "& .MuiTypography-root": {
-                              fontSize: "12px",
-                            },
-                          }}
-                        />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                </Collapse>
+                  {item.text === 'Policy Engine' && item.children && (
+                    <Collapse in={policyOpen && open} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {item.children.map((child: any) => (
+                          <ListItemButton
+                            key={child.path}
+                            sx={{ pl: 2 }}
+                            className={`min-h-[40px] text-sm ${location.pathname === child.path
+                              ? "text-primary !bg-primary-50"
+                              : "text-gray-400"
+                              }`}
+                            onClick={() => navigate(child.path)}
+                          >
+                            <ListItemIcon
+                              sx={{
+                                minWidth: 30,
+                                color:
+                                  location.pathname === child.path
+                                    ? "#2563eb"
+                                    : "#9ca3af",
+                              }}
+                            >
+                              {child.icon}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={child.text}
+                              className="!mt-0 !mb-0 text-gray-800"
+                              sx={{
+                                "& .MuiTypography-root": {
+                                  fontSize: "12px",
+                                },
+                              }}
+                            />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    </Collapse>
+                  )}
+
+                  {item.text === 'Leave' && item.children && (
+                    <Collapse in={leaveOpen && open} timeout="auto" unmountOnExit>
+                      <List component="div" disablePadding>
+                        {item.children.map((child: any) => (
+                          <ListItemButton
+                            key={child.path}
+                            sx={{ pl: 2 }}
+                            className={`min-h-[40px] text-sm ${location.pathname === child.path
+                              ? "!bg-primary-50"
+                              : "text-gray-400"
+                              }`}
+                            onClick={() => navigate(child.path)}
+                          >
+                            <ListItemIcon
+                              sx={{
+                                minWidth: 30,
+                                color:
+                                  location.pathname === child.path
+                                    ? "#2563eb"
+                                    : "#9ca3af",
+                              }}
+                            >
+                              {child.icon}
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={child.text}
+                              className="!mt-0 !mb-0 text-gray-800"
+                              sx={{
+                                "& .MuiTypography-root": {
+                                  fontSize: "12px",
+                                },
+                              }}
+                            />
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    </Collapse>
+                  )}
+                </>
               )}
             </Box>
           ))}
@@ -912,7 +1308,6 @@ export default function Layout() {
                       >
                         {item.icon}
                       </ListItemIcon>
-
                       <ListItemText
                         primary={item.text}
                         className={open ? "opacity-100 text-gray-800" : "opacity-0"}
@@ -928,45 +1323,30 @@ export default function Layout() {
               </Box>
             ))}
           </List>
-          {
-            open ? (
-              <div className="flex items-center justify-between cursor-pointer py-3 pl-4 border-t border-gray-200">
-                <div className="flex items-center gap-2">
-                  <div className="relative group">
-                    <Avatar
-                      src={user?.profilePic}
-                      className="!w-8 !h-8 text-2xl cursor-pointer"
-                    >
-                      {avatarInitial}
-                    </Avatar>
-                  </div>
-                  <div className="text-[12px] text-gray-800">
-                    <div>{user?.roles}</div>
-                    <div className="text-gray-500 text-[5px]">{user?.email}</div>
-                  </div>
+          {open ? (
+            <div className="flex items-center justify-between cursor-pointer py-3 pl-4 border-t border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="relative group">
+                  <Avatar
+                    src={user?.profilePic}
+                    className="!w-8 !h-8 text-2xl cursor-pointer"
+                  >
+                    {avatarInitial}
+                  </Avatar>
                 </div>
-                <div className="flex items-center">
-                  <Tooltip title="Logout" onClick={() => handleLogout()}>
-                    <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
-                      <PowerSettingsNewOutlined />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Theme" onClick={() => toggleMode()}>
-                    <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
-                      {mode === "dark" ? (
-                        <LightModeOutlined className="h-5 w-5" />
-                      ) : (
-                        <DarkModeOutlined className="h-5 w-5" />
-                      )}
-                    </IconButton>
-                  </Tooltip>
+                <div className="text-[12px] text-gray-800">
+                  <div>{user?.roles}</div>
+                  <div className="text-gray-500 text-[5px]">{user?.email}</div>
                 </div>
-                {/* <span className="text-gray-800 text-[12px]">Theme</span> */}
               </div>
-            ) : (
-              <div>
-                <Tooltip title="Theme CTRL + D" onClick={() => toggleMode()}>
-                  <IconButton className="dark:!text-primary !ml-3 !mb-4">
+              <div className="flex items-center">
+                <Tooltip title="Logout" onClick={() => handleLogout()}>
+                  <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                    <PowerSettingsNewOutlined />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Theme" onClick={() => toggleMode()}>
+                  <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
                     {mode === "dark" ? (
                       <LightModeOutlined className="h-5 w-5" />
                     ) : (
@@ -975,12 +1355,23 @@ export default function Layout() {
                   </IconButton>
                 </Tooltip>
               </div>
-            )
-
-          }
+            </div>
+          ) : (
+            <div>
+              <Tooltip title="Theme CTRL + D" onClick={() => toggleMode()}>
+                <IconButton className="dark:!text-primary !ml-3 !mb-4">
+                  {mode === "dark" ? (
+                    <LightModeOutlined className="h-5 w-5" />
+                  ) : (
+                    <DarkModeOutlined className="h-5 w-5" />
+                  )}
+                </IconButton>
+              </Tooltip>
+            </div>
+          )}
         </div>
       </Drawer>
-      {/* Main Content - Only this adjusts when drawer opens/closes */}
+      {/* Main Content */}
       <Box
         component="main"
         className="min-w-0 overflow-x-hidden"
@@ -997,8 +1388,7 @@ export default function Layout() {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
-          // Add padding-left based on drawer state
-          paddingLeft: open ? `${drawerWidth + 16}px` : "76px", // 65px (drawer) + 24px (padding)
+          paddingLeft: open ? `${drawerWidth + 16}px` : "76px",
         }}
       >
         <Outlet />

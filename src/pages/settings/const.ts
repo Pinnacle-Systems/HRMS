@@ -1,4 +1,4 @@
-export type UserRole = 'ADMIN' | 'HR' | 'MANAGER' | 'EMPLOYEE';
+export type UserRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
 
 export const companyFieldsWithSections = [
   // Section 1: Basic Information
@@ -9,7 +9,7 @@ export const companyFieldsWithSections = [
     type: "text",
     required: true,
     placeholder: "(e.g., VibeHR Solutions)",
-  },  
+  },
   {
     key: "aliasName",
     label: "Alias Name",
@@ -425,107 +425,149 @@ export const tabs = [
   {
     id: "general",
     label: "General",
-    roles: ['ADMIN', 'HR', 'MANAGER'] as UserRole[],
+    roles: ["ADMIN", "HR", "MANAGER"] as UserRole[],
     options: [
       {
         id: "company-settings",
         label: "Company Settings",
         path: "/settings/general/company-settings",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
       },
       {
         id: "branch-settings",
         label: "Branch Settings",
         path: "/settings/general/branch-settings",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
       },
       {
         id: "password-config",
         label: "Password Config",
         path: "/settings/general/password-config",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
       },
       {
         id: "audit-logs",
         label: "Audit Logs",
         path: "/settings/general/audit-logs",
-        roles: ['ADMIN', 'HR', 'MANAGER'] as UserRole[],
+        roles: ["ADMIN", "HR", "MANAGER"] as UserRole[],
       },
     ],
   },
   {
     id: "employee",
     label: "Employee",
-    roles: ['ADMIN', 'HR'] as UserRole[],
+    roles: ["ADMIN", "HR"] as UserRole[],
     options: [
       {
         id: "onboarding-process",
         label: "Onboarding Process",
         path: "/settings/employee/onboarding-process",
-        roles: ['ADMIN', 'HR'] as UserRole[],
+        roles: ["ADMIN", "HR"] as UserRole[],
       },
       {
         id: "department-settings",
         label: "Department Settings",
         path: "/settings/employee/department-settings",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
       },
       {
         id: "category-settings",
         label: "Other Category",
         path: "/settings/employee/category-settings",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
       },
     ],
   },
   {
     id: "policy",
     label: "Policy",
-    roles: ['ADMIN', 'HR'] as UserRole[],
+    roles: ["ADMIN", "HR"] as UserRole[],
     options: [
       {
         id: "allowance-components",
         label: "Allowance Components",
         path: "/settings/policy/allowance-components",
-        roles: ['ADMIN', 'HR'] as UserRole[],
+        roles: ["ADMIN", "HR"] as UserRole[],
       },
       {
         id: "deduction-components",
         label: "Deduction Components",
         path: "/settings/policy/deduction-components",
-        roles: ['ADMIN', 'HR'] as UserRole[],
+        roles: ["ADMIN", "HR"] as UserRole[],
       },
       {
         id: "expense-category",
         label: "Expense Category",
         path: "/settings/policy/expense-category",
-        roles: ['ADMIN', 'HR'] as UserRole[],
+        roles: ["ADMIN", "HR"] as UserRole[],
       },
     ],
   },
   {
     id: "payroll",
     label: "Payroll",
-    roles: ['ADMIN'] as UserRole[],
+    roles: ["ADMIN"] as UserRole[],
     options: [
       {
-        id: "payroll-settings",
+        id: "payrol-settings",
         label: "Payroll Settings",
         path: "/settings/payroll/payroll-settings",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "salary-components",
+        label: "Salary Components",
+        path: "/settings/payroll/payroll-settings/components",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "allowances-config",
+        label: "Allowances Configuration",
+        path: "/settings/payroll/payroll-settings/allowances",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "deduction-rules",
+        label: "Deduction Rules",
+        path: "/settings/payroll/payroll-settings/deductions",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "tax-rules",
+        label: "Tax Rules",
+        path: "/settings/payroll/payroll-settings/tax",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "pf/esi-settings",
+        label: "PF / ESI Settings",
+        path: "/settings/payroll/payroll-settings/pf-esi",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "payroll-schedule",
+        label: "Payroll Schedule",
+        path: "/settings/payroll/payroll-settings/schedule",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
+        id: "approval-workflow",
+        label: "Approval Workflow",
+        path: "/settings/payroll/payroll-settings/approval",
+        roles: ["ADMIN"] as UserRole[],
       },
     ],
   },
   {
     id: "income-tax",
     label: "Income Tax",
-    roles: ['ADMIN'] as UserRole[],
+    roles: ["ADMIN"] as UserRole[],
     options: [
       {
         id: "income-tax-settings",
         label: "Income Tax Settings",
         path: "/settings/income-tax/income-tax-settings",
-        roles: ['ADMIN'] as UserRole[],
+        roles: ["ADMIN"] as UserRole[],
       },
     ],
   },
@@ -534,49 +576,26 @@ export const tabs = [
 // Helper functions for role-based access
 export const hasRoleAccess = (
   itemRoles: string[] | undefined,
-  userRoles: string[]
+  userRoles: string[],
 ): boolean => {
   if (!itemRoles || itemRoles.length === 0) return true;
-  return itemRoles.some(role => 
-    userRoles.some(userRole => userRole.toUpperCase() === role.toUpperCase())
+  return itemRoles.some((role) =>
+    userRoles.some((userRole) => userRole.toUpperCase() === role.toUpperCase()),
   );
 };
 
 export const getFilteredTabs = (userRoles: string[]) => {
-  const normalizedRoles = userRoles.map(r => r.toUpperCase());
-  console.log(normalizedRoles);
-  
+  const normalizedRoles = userRoles.map((r) => r.toUpperCase());
   return tabs
     .filter((tab) => hasRoleAccess(tab.roles, normalizedRoles))
     .map((tab) => ({
       ...tab,
       options: tab.options.filter((option) =>
-        hasRoleAccess(option.roles, normalizedRoles)
+        hasRoleAccess(option.roles, normalizedRoles),
       ),
     }))
     .filter((tab) => tab.options.length > 0);
 };
-
-console.log(getFilteredTabs);
-
-
-// export const getCurrentRouteLabel = (userRoles: string[] = []) => {
-//   const currentPath =  window.location.pathname;
-//   console.log(currentPath);
-  
-//   const filteredTabs = getFilteredTabs(userRoles ? userRoles : userRoles);
-//   console.log(filteredTabs);
-  
-//   for (const tab of filteredTabs) {
-//     for (const option of tab.options) {
-//       if (currentPath === option.path) {
-//         return option.label;
-//       }
-//     }
-//   }
-//   return "Settings";
-// };
-
 
 export const getCurrentRouteLabel = () => {
   const currentPath = location.pathname;

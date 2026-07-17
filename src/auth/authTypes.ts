@@ -4,6 +4,29 @@ export type ApiRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS" | string;
 
 export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
 
+export type Permission = 
+  | 'EMPLOYEE_READ'
+  | 'EMPLOYEE_WRITE'
+  | 'EMPLOYEE_DELETE'
+  | 'EMPLOYEE_UPLOAD'
+  | 'PAYROLL_READ'
+  | 'PAYROLL_WRITE'
+  | 'REPORT_READ'
+  | 'REPORT_EXPORT'
+  | 'PROFILE_READ'
+  | 'PROFILE_WRITE'
+  | 'USER_MANAGE'
+  | 'ATTENDANCE_READ'
+  | 'ATTENDANCE_WRITE'
+  | 'SETTINGS_READ'
+  | 'SETTINGS_WRITE'
+  | 'POLICY_READ'
+  | 'POLICY_WRITE'
+  | 'LEAVE_READ'
+  | 'LEAVE_WRITE'
+  | 'LEAVE_APPROVE'
+  | 'ROLE_MANAGE';
+
 export type TenantInfo = {
   id: string;
   name: string;
@@ -16,8 +39,14 @@ export type AuthUser = {
   email: string;
   roles: AppRole[];
   rawRoles: string[];
-  permissions: string[];
+  permissions: Permission[];
   profilePic?: string;
+};
+
+export type CompanyDetails = {
+  companyId: string;
+  companyName: string;
+  logoUrl: string;
 };
 
 export type AuthSession = {
@@ -27,6 +56,7 @@ export type AuthSession = {
   expiresIn: number;
   expiresAt: number;
   user: AuthUser;
+  company: CompanyDetails
 };
 
 export type ApiResponse<T> = {
@@ -46,8 +76,8 @@ export type LoginRequest = {
 
 export type SelectTenantRequest = {
   tenantId: string;
-  sessionToken: string;
-  email?: string;
+  sessionToken?: string;
+  email: string;
 };
 
 export type VerifyOtpRequest = {
@@ -93,7 +123,7 @@ export type SignupRequest = {
   firstName: string;
   lastName: string;
   phone: string;
-  loginUrl: string;
+  loginUrl?: string;
   loginId: string;
   password: string;
   companyName: string;
@@ -114,6 +144,10 @@ export type UserProfile = {
   roles?: string[];
   permissions?: string[];
   createdAt?: string;
+  department: string;
+  designation: string;
+  hireDate: string;
+  mfaType: string
 };
 
 export type ProfilePictureResponse = {
@@ -146,6 +180,9 @@ export type AuthResponse = {
   daysUntilPasswordExpiry?: number;
   profile?: UserProfile;
   mfaSetupRequired?: boolean;
+  companyId: string;
+  companyName: string;
+  logoUrl: string;
 };
 
 export type LoginApiResponse = ApiResponse<AuthResponse>;
@@ -174,7 +211,8 @@ export type NavItem = {
   path: string;
   icon: ReactNode;
   roles: AppRole[];
-  permissions?: string[];
+  permissions?: Permission[];
+  isPayroll?: boolean;
   children?: {
     text: string;
     // icon: React.ReactNode;
@@ -185,7 +223,8 @@ export type NavItem = {
 export type ProtectedRouteProps = {
   children?: ReactNode;
   allowedRoles?: AppRole[];
-  requiredPermissions?: string[];
+  requiredPermissions?: Permission[];
+  permissionMode?: 'any' | 'all';
 };
 
 export type AuthContextValue = {
@@ -198,6 +237,11 @@ export type AuthContextValue = {
   refreshSession: () => Promise<AuthSession | null>;
   sendMobileOtp: (mobileNumber: string) => Promise<LoginOutcome>;
   verifyMobileOtp: (mobileNumber: string, otp: string) => Promise<LoginOutcome>;
+  hasPermission: (permission: Permission) => boolean;
+  hasAnyPermission: (permissions: Permission[]) => boolean;
+  hasAllPermissions: (permissions: Permission[]) => boolean;
+  hasRole: (role: AppRole) => boolean;
+  hasAnyRole: (roles: AppRole[]) => boolean;
 };
 
 export type MfaSetupResponse = {

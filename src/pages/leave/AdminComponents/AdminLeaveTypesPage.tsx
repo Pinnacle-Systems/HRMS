@@ -87,8 +87,6 @@ export default function AdminLeaveTypesPage() {
   };
 
   const openEdit = (leaveType: LeaveType) => {
-    console.log(leaveType);
-
     setEditingId(leaveType.id ?? null);
     setForm(leaveType);
     setErrors({});
@@ -101,7 +99,6 @@ export default function AdminLeaveTypesPage() {
     if (!form.name?.trim()) nextErrors.name = "Name is required";
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
-    console.log(form, 'form');
     showSpinner();
     const payload = {
       "name": form.name,

@@ -289,7 +289,6 @@ export default function ApplyLeavePage() {
         //     const updateResponse:any = await leaveService.updateLeaveRequest(leaveRequestId, {
         //       attachmentIds: uploadedAttachmentIds
         //     });
-        //     console.log("Updated leave request with attachment IDs");
         //   } catch (updateError) {
         //     console.error("Failed to update leave request with attachments:", updateError);
         //     // Non-critical error, continue

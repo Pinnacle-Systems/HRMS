@@ -145,12 +145,6 @@ export default function EmployeeManagement() {
       setEmpDigitCount(String(config.numberOfDigits || 4));
       // Auto-select "continue" only when at least one employee has been generated
       setEmpGenerationFlow(config.lastGeneratedId ? "continue" : "new");
-      console.log("Config loaded:", {
-        configured: config.configured,
-        lastGeneratedId: config.lastGeneratedId,
-        nextSequencePreview: config.nextSequencePreview,
-        generationFlow: config.lastGeneratedId ? "continue" : "new",
-      });
     } catch (error: any) {
       console.error("Failed to load employee ID config:", error);
     }
@@ -454,8 +448,6 @@ export default function EmployeeManagement() {
     // setEmployeeIdConfig(updatedConfig);
     // const lastGeneratedId = updatedConfig.lastGeneratedId;
     // const nextSequencePreview = updatedConfig.nextSequencePreview;
-    // console.log('Last Generated ID:', lastGeneratedId);
-    // console.log('Next Sequence Preview:', nextSequencePreview);
     // return nextSequencePreview;
 
     await employeeService.updateEmployeeId(payload);

@@ -574,9 +574,7 @@ export default function BranchSettings() {
   const handleToggleBankStatus = async (
     bank: BankDetail,
     status: BankStatus,
-  ) => {
-    console.log(bank.isPrimary,status);
-    
+  ) => {    
     showSpinner();
     try {
       if ((status == "ACTIVE" || status == "INACTIVE") && !bank.isPrimary) {

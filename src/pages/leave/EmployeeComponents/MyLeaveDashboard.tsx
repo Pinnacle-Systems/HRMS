@@ -154,8 +154,6 @@ export default function MyLeaveDashboard() {
     0,
   );
   const totalPending = requests.filter((request) => request.status === "PENDING").length;
-  console.log("totalPending", totalPending, requests);
-
   return (
     // <LeavePageShell
     //   group="employee"

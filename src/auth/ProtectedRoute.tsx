@@ -15,8 +15,9 @@ export default function ProtectedRoute({
   children,
   allowedRoles,
   requiredPermissions,
+  permissionMode = 'any',
 }: ProtectedRouteProps) {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, hasAnyRole, hasAnyPermission, hasAllPermissions } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -31,14 +32,22 @@ export default function ProtectedRoute({
   }
 
   const user = session.user;
-  const hasRole =
-    !allowedRoles?.length ||
-    allowedRoles.some((role) => user.roles.includes(role));
-  const hasPermission =
-    !requiredPermissions?.length ||
-    requiredPermissions.every((permission) =>
-      user.permissions.includes(permission),
-    );
+  // const hasRole = !allowedRoles?.length || allowedRoles.some((role) => user.roles.includes(role));
+  const hasRole = !allowedRoles?.length || hasAnyRole(allowedRoles);
+
+  // const hasPermission =
+  //   !requiredPermissions?.length ||
+  //   requiredPermissions.every((permission) =>
+  //      user.permissions && user.permissions.includes(permission),
+  //   );
+  let hasPermission = true;
+  if (requiredPermissions?.length) {
+    if (permissionMode === 'any') {
+      hasPermission = hasAnyPermission(requiredPermissions);
+    } else {
+      hasPermission = hasAllPermissions(requiredPermissions);
+    }
+  }
 
   if (!hasRole || !hasPermission) {
     logger.warn("Protected route denied access", {

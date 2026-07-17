@@ -66,7 +66,7 @@ import { DateTimePicker } from "@mui/x-date-pickers";
 import { useAuth } from "../../../auth/authContext";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { NotificationsActiveOutlined } from "@mui/icons-material";
-import { formatTimestampForAPI, readExcelFile, readFileAsText } from "../../../utils/timeStampFormatter";
+import { readExcelFile } from "../../../utils/timeStampFormatter";
 import { biometricService, type BiometricDevice } from "../../../services/modules/biometricDevice";
 interface RegisterEmployee {
   employeeId: string;

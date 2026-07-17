@@ -6,10 +6,12 @@ import * as authApi from "./authApi";
 import { clearSession, loadSession, saveSession } from "./authSession";
 import { AuthContext } from "./authContext";
 import type {
+  AppRole,
   AuthContextValue,
   AuthSession,
   LoginOutcome,
   LoginRequest,
+  Permission,
   SelectTenantRequest,
 } from "./authTypes";
 
@@ -112,27 +114,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendMobileOtp = useCallback(
-  async (mobileNumber: string): Promise<LoginOutcome> => {
-    logger.info("Sending mobile OTP", { mobileNumber });
-    return authApi.sendMobileOtp(mobileNumber);
-  },
-  []
-);
+    async (mobileNumber: string): Promise<LoginOutcome> => {
+      logger.info("Sending mobile OTP", { mobileNumber });
+      return authApi.sendMobileOtp(mobileNumber);
+    },
+    []
+  );
 
-const verifyMobileOtp = useCallback(
-  async (mobileNumber: string, otp: string): Promise<LoginOutcome> => {
-    logger.info("Verifying mobile OTP", { mobileNumber });
-    const outcome = await authApi.verifyMobileOtp(mobileNumber, otp);
-    
-    if (outcome.type === "authenticated") {
-      setSession(outcome.session);
-      apiService.setAuthToken(outcome.session.accessToken);
-    }
-    
-    return outcome;
-  },
-  []
-);
+  const verifyMobileOtp = useCallback(
+    async (mobileNumber: string, otp: string): Promise<LoginOutcome> => {
+      logger.info("Verifying mobile OTP", { mobileNumber });
+      const outcome = await authApi.verifyMobileOtp(mobileNumber, otp);
+
+      if (outcome.type === "authenticated") {
+        setSession(outcome.session);
+        apiService.setAuthToken(outcome.session.accessToken);
+      }
+
+      return outcome;
+    },
+    []
+  );
+
+  const hasPermission = useCallback((permission: Permission): boolean => {
+    if (!session?.user) return false;
+    return session.user.permissions.includes(permission);
+  }, [session]);
+
+  const hasAnyPermission = useCallback((permissions: Permission[]): boolean => {
+    if (!session?.user) return false;
+    return permissions.some(permission => session.user.permissions.includes(permission));
+  }, [session]);
+
+  const hasAllPermissions = useCallback((permissions: Permission[]): boolean => {
+    if (!session?.user) return false;
+    return permissions.every(permission => session.user.permissions.includes(permission));
+  }, [session]);
+
+  const hasRole = useCallback((role: AppRole): boolean => {
+    if (!session?.user) return false;
+    return session.user.roles.includes(role);
+  }, [session]);
+
+  const hasAnyRole = useCallback((roles: AppRole[]): boolean => {
+    if (!session?.user) return false;
+    return roles.some(role => session.user.roles.includes(role));
+  }, [session]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -144,10 +171,14 @@ const verifyMobileOtp = useCallback(
       logout,
       refreshSession,
       sendMobileOtp,
-      verifyMobileOtp
+      verifyMobileOtp,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+      hasRole,
+      hasAnyRole,
     }),
-    [isLoading, login, logout, refreshSession, selectTenant, session],
-  );
+    [isLoading, login, logout, refreshSession, selectTenant, session, hasPermission, hasAnyPermission, hasAllPermissions, hasRole, hasAnyRole],);
 
   useEffect(() => {
     if (session) {

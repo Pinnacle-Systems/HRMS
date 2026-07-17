@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import LoanAdvanceRequestPage from './LoanAdvanceRequestPage';
+import LoanAdvanceRequestPage from '../../src/pages/payroll/AdvancedFeature/LoanAdvanceRequestPage';
 
 const showSnackbar = vi.fn();
 const showSpinner = vi.fn();

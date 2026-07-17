@@ -7,6 +7,7 @@ import { getDefaultRoute } from "../../../auth/authMapper";
 import { buildLoginRequest } from "../../../auth/authApi";
 import grp from '../../../assets/grp.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
+import { authService } from "../../../services/modules/auth";
 
 type LoginLocationState = {
   tenantId?: string;
@@ -23,24 +24,30 @@ export default function Login() {
   const [isMobile, setIsMobile] = useState(false);
   const [_isOtpSent, setIsOtpSent] = useState(false);
   const [error, setError] = useState("");
-  // const [otpTimer, setOtpTimer] = useState(0);
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const { login } = useAuth();
 
-  // Auto-navigate to OTP page when OTP is sent
-  const navigateToOtp = (mobileNumber: string) => {
+  // Navigate to signup page
+  const navigateToSignup = () => {
+    navigate("/signup", {
+      replace: true
+    });
+  };
+
+  // Navigate to OTP verification page
+  const navigateToOtpVerification = (email: string, type: string = "SIGNUP") => {
     navigate("/verify-otp", {
       replace: true,
       state: {
-        mobileNumber: mobileNumber,
-        type: "MOBILE_LOGIN",
+        email: email,
+        type: type,
         fromLogin: true
       }
     });
   };
 
-  // Handle mobile number submission (Send OTP)
+  // Handle mobile number submission (Send OTP for login)
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mobileNumber || mobileNumber.length < 10) {
@@ -52,23 +59,18 @@ export default function Login() {
     showSpinner();
 
     try {
-      // Step 1: Send OTP by calling login without OTP
       const outcome = await login(
         buildLoginRequest({
           mobileNumber: mobileNumber,
-          // No mobileOtp - this triggers OTP sending
         })
       );
 
-      // Handle response
       switch (outcome.type) {
         case "authenticated":
-          // User might already have session or doesn't need OTP
           navigate(getDefaultRoute(outcome.session.user), { replace: true });
           break;
 
         case "mfaRequired":
-          // If MFA is also required, handle it
           navigate("/mfa", {
             replace: true,
             state: {
@@ -83,7 +85,7 @@ export default function Login() {
             replace: true,
             state: {
               tenants: outcome.tenants,
-              email: outcome.email || mobileNumber,
+              email: outcome.email  || mobileNumber,
               sessionToken: outcome.sessionToken,
             },
           });
@@ -99,13 +101,10 @@ export default function Login() {
           break;
 
         case "failed":
-          // If login fails, it might mean OTP was sent successfully
-          // or there was an error
           if (outcome.message?.includes("OTP")) {
-            // OTP sent successfully - navigate to OTP page
             setIsOtpSent(true);
             showSnackbar("OTP sent to your mobile number", "success");
-            navigateToOtp(mobileNumber);
+            navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
           } else {
             setError(outcome.message || "Failed to send OTP");
             showSnackbar(outcome.message, "error");
@@ -113,10 +112,9 @@ export default function Login() {
           break;
 
         default:
-          // Assume OTP was sent successfully
           setIsOtpSent(true);
           showSnackbar("OTP sent to your mobile number", "success");
-          navigateToOtp(mobileNumber);
+          navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "Failed to send OTP";
@@ -127,7 +125,7 @@ export default function Login() {
     }
   };
 
-  // Handle email/password login
+  // Handle email/password login (Step 3)
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -139,6 +137,7 @@ export default function Login() {
     showSpinner();
 
     try {
+      // Step 3: POST /api/auth/login
       const outcome = await login(
         buildLoginRequest({
           loginId: email,
@@ -149,8 +148,7 @@ export default function Login() {
 
       switch (outcome.type) {
         case "authenticated":
-           if (outcome.mfaSetupRequired) {
-            // Show notification or redirect to MFA setup
+          if (outcome.mfaSetupRequired) {
             showSnackbar("Please set up Multi-Factor Authentication for enhanced security", "warning");
             navigate("/mfa-setup", {
               replace: true,
@@ -162,7 +160,6 @@ export default function Login() {
           } else {
             navigate(getDefaultRoute(outcome.session.user), { replace: true });
           }
-          // navigate(getDefaultRoute(outcome.session.user), { replace: true });
           break;
         case "mfaRequired":
           navigate("/mfa", {
@@ -192,8 +189,15 @@ export default function Login() {
           });
           break;
         case "failed":
-          showSnackbar(outcome.message, "error");
-          setError(outcome.message);
+          // Check if error is about email verification
+          if (outcome.message?.includes("Email not verified")) {
+            showSnackbar("Email not verified. Please verify your email first.", "warning");
+            // Navigate to OTP verification
+            navigateToOtpVerification(email, "SIGNUP");
+          } else {
+            showSnackbar(outcome.message, "error");
+            setError(outcome.message);
+          }
           break;
       }
     } catch (err: unknown) {
@@ -380,7 +384,7 @@ export default function Login() {
             )}
           </form>
 
-          <div>
+          <div className="space-y-3">
             <button
               type="button"
               onClick={() => {
@@ -393,6 +397,14 @@ export default function Login() {
               className="w-full mt-6 text-sm text-primary border border-primary-dark py-3 rounded-sm font-semibold transition cursor-pointer hover:bg-primary-50"
             >
               {isMobile ? "Back to Email Sign In" : "Login with Mobile Number"}
+            </button>
+            
+            {/* Or navigate to signup page with form */}
+            <button
+              onClick={navigateToSignup}
+              className="w-full text-xs text-gray-500 hover:text-primary transition cursor-pointer"
+            >
+              New user? Create an account
             </button>
           </div>
         </div>

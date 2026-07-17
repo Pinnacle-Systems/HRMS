@@ -215,8 +215,6 @@ export default function HrPayrollInputsPage() {
     id: string | null,
     employee?: EmployeeSummaryResponse | null,
   ) => {
-    console.log(id, employee);
-
     setEmployeeId(id);
     setEmployeeName(employee?.name || "");
     if (!id) {

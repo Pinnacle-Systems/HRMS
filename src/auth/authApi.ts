@@ -159,6 +159,12 @@ export async function forgotPassword(loginId: string): Promise<ApiResponse<void>
   })) as ApiResponse<void>;
 }
 
+export async function resendSignupOTP(
+  request: {email: string},
+): Promise<ApiResponse<void>> {
+  return (await apiService.post(API_ENDPOINTS.AUTH.RESEND_OTP, request)) as ApiResponse<void>;
+}
+
 export async function verifyOtp(
   request: VerifyOtpRequest,
 ): Promise<ApiResponse<void>> {

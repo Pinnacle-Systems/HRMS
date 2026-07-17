@@ -201,8 +201,6 @@ export default function AdminWorkCalendarsPage() {
     // };
 
     // Debug log
-    console.log("Submitting payload:", JSON.stringify(payload, null, 2));
-
     showSpinner();
     try {
       const response: any = editingId

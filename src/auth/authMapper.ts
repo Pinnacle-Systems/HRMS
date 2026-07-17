@@ -3,9 +3,11 @@ import type {
   AuthResponse,
   AuthSession,
   AuthUser,
+  CompanyDetails,
   LoginApiResponse,
   LoginOutcome,
   NavItem,
+  Permission,
 } from "./authTypes";
 
 type JwtPayload = {
@@ -71,7 +73,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     ? data.roles
     : parseJwtRoles(data.accessToken);
   const roles = uniqueRoles(rawRoles.map(mapApiRoleToAppRole));
-  const permissions = parseJwtPermissions(data.accessToken);
+  const permissions = parseJwtPermissions(data.accessToken) as Permission[];
 
   const user: AuthUser = {
     userId: data.userId ?? "",
@@ -83,6 +85,12 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     profilePic: data.profile?.profilePicUrl ?? ""
   };
 
+  const company: CompanyDetails = {
+    companyId: data.companyId ?? "",
+    companyName: data.companyName ?? "",
+    logoUrl:data.logoUrl ?? ""
+  }
+
   return {
     accessToken: data.accessToken,
     refreshToken: data.refreshToken,
@@ -90,6 +98,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     expiresIn: data.expiresIn ?? 0,
     expiresAt: Date.now() + (data.expiresIn ?? 0) * 1000,
     user,
+    company
   };
 }
 
@@ -154,6 +163,14 @@ export function mapLoginResponseToOutcome(
       email: data.email || loginId,
     };
   }
+
+  // if(response.success && response.message == "Tenant selected") {
+  //   return {
+  //     type:"tenantSelected",
+  //     user: response?.data as TenantUser,
+  //     message: response.message
+  //   }
+  // }
 
   return {
     type: "failed",

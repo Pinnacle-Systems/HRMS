@@ -1,5 +1,3 @@
-// services/modules/dashboard.ts
-
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 

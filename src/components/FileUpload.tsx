@@ -60,9 +60,7 @@ export const FileUpload = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    console.log(file);
-    
+    const file = event.target.files?.[0];    
     if (!file) return;
 
     // Check file size
@@ -72,9 +70,7 @@ export const FileUpload = ({
     }
 
     // Check file type
-    const allowedTypes = accept.split(',');
-    console.log(allowedTypes);
-    
+    const allowedTypes = accept.split(',');    
     if (!allowedTypes.some(type => file.name.match(type.trim()) || file.type.match(type.trim()))) {
       setError(`Invalid file type. Allowed: ${accept}`);
       return;

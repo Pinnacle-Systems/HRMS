@@ -85,6 +85,7 @@ import { policyService } from "../../services";
 import { PolicyDomain, type Employee } from "../../types/policy";
 import { EmployeeSelector } from "../../components/PolicyManagement/Common/EmployeeSelector";
 import { WebcamCapture } from "./webCam";
+import { useAuth } from "../../auth/authContext";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -126,6 +127,10 @@ const EditableGroup = ({
   const [attachments, setAttachments] = useState<any>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { id } = useParams();
+  const { session } = useAuth();
+  const isAdmin = session?.user.roles.includes('ADMIN');
+  const userId = session?.user.userId;
+  const apiId = isAdmin ? id : userId;
 
   const handleSave = async () => {
     try {
@@ -244,7 +249,7 @@ const EditableGroup = ({
     }
   };
 
-  useEffect(() => {}, [categoryOptions]);
+  useEffect(() => { }, [categoryOptions]);
 
   const getMasterData = async () => {
     try {
@@ -259,7 +264,7 @@ const EditableGroup = ({
     }
   };
 
-  const getDocuments = async () => {
+  const getDocuments = async (id: any) => {
     showSpinner();
     try {
       const response: any = await employeeService.getAttachments(id);
@@ -275,7 +280,7 @@ const EditableGroup = ({
     if (title === "Employee Details") {
       getMasterData();
     }
-    getDocuments();
+    getDocuments(apiId);
   }, []);
 
   const matchedDocs = attachments.filter((opt: any) => {
@@ -301,7 +306,7 @@ const EditableGroup = ({
         showSnackbar("Document Type is Mandatory", "warning");
         return;
       }
-      await employeeService.addAttachment(id, newItem);
+      await employeeService.addAttachment(apiId, newItem);
       if (newItem.documentType === "Aadhaar Card") {
         try {
           const formData = new FormData();
@@ -312,7 +317,7 @@ const EditableGroup = ({
           // getAadhaar()
           showSnackbar(
             error.message ||
-              "OCR unavailable. Please enter Aadhaar number manually.",
+            "OCR unavailable. Please enter Aadhaar number manually.",
             "info",
           );
           // } else {
@@ -324,7 +329,7 @@ const EditableGroup = ({
           // }
         }
       }
-      await getDocuments();
+      await getDocuments(apiId);
       showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
       showSnackbar(error.message || "Failed to add attachment", "error");
@@ -390,17 +395,20 @@ const EditableGroup = ({
                   </MaterialModule.IconButton>
                 </MaterialModule.Tooltip>
               )}
-              <MaterialModule.Tooltip title="Edit">
-                <MaterialModule.IconButton
-                  size="small"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <MaterialModule.EditIcon
-                    fontSize="small"
-                    className="text-gray-800 !w-4"
-                  />
-                </MaterialModule.IconButton>
-              </MaterialModule.Tooltip>
+              {
+                (isAdmin || (!isAdmin && title === "Basic Information")) && (
+                <MaterialModule.Tooltip title="Edit">
+                  <MaterialModule.IconButton
+                    size="small"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <MaterialModule.EditIcon
+                      fontSize="small"
+                      className="text-gray-800 !w-4"
+                    />
+                  </MaterialModule.IconButton>
+                </MaterialModule.Tooltip>
+              )}
             </div>
           ) : (
             <div className="flex gap-1">
@@ -517,108 +525,114 @@ const EditableGroup = ({
                           handleAddOption(field.key, newOption)
                         }
                         showAddButton={
-                          field.key == "branch" ||
-                          field.key == "department" ||
-                          field.key == "attendanceSchema"
+                          (field.key == "branch" ||
+                            field.key == "department" ||
+                            field.key == "attendanceSchema" || !isAdmin )
                             ? false
                             : true
                         }
                       />
                     ) : // : field.type === "master-select" ? (
-                    //   <MasterSelect
-                    //     label={field.label}
-                    //     value={editData[field.key] || ""}
-                    //     onChange={(newValue: any) =>
-                    //       handleMasterDataChange(field.key, newValue)
-                    //     }
-                    //     countries={field.key === "country" ? countries : []}
-                    //     states={field.key === "state" ? states : []}
-                    //     cities={field.key === "city" ? cities : []}
-                    //     disabled={loading}
-                    //   // sx={commonSx}
-                    //   />
-                    // )
-                    field.type === "user" ? (
-                      <EmployeeSelector
-                        value={(() => {
-                          if (editData.managerId && editData.managerName) {
-                            return {
-                              id: editData.managerId,
-                              name: editData.managerName,
-                              employeeId: editData.managerId,
-                              emailAddress: "",
-                              mobileNumber: "",
-                              designation: "",
-                              department: "",
-                              branch: "",
-                              employeeStatus: "",
-                              joiningDate: "",
-                              createdAt: "",
-                              isActive: true,
-                              companyId: "",
-                              employmentType: "",
-                              employeeCategory: "",
-                              isOnProbation: false,
-                            } as unknown as Employee;
+                      //   <MasterSelect
+                      //     label={field.label}
+                      //     value={editData[field.key] || ""}
+                      //     onChange={(newValue: any) =>
+                      //       handleMasterDataChange(field.key, newValue)
+                      //     }
+                      //     countries={field.key === "country" ? countries : []}
+                      //     states={field.key === "state" ? states : []}
+                      //     cities={field.key === "city" ? cities : []}
+                      //     disabled={loading}
+                      //   // sx={commonSx}
+                      //   />
+                      // )
+
+                      field.type === "user" ? (
+                        <EmployeeSelector
+                          value={(() => {
+                            if (editData[field.key1] && editData[field.key2]) {
+                              return {
+                                id: editData[field.key1],
+                                name: editData[field.key2],
+                                employeeId: editData[field.key1],
+                                emailAddress: "",
+                                mobileNumber: "",
+                                designation: "",
+                                department: "",
+                                branch: "",
+                                employeeStatus: "",
+                                joiningDate: "",
+                                createdAt: "",
+                                isActive: true,
+                                companyId: "",
+                                employmentType: "",
+                                employeeCategory: "",
+                                isOnProbation: false,
+                              } as unknown as Employee;
+                            }
+                            return null;
+                          })()}
+                          onChange={(newValue) => {
+                            if (Array.isArray(newValue)) {
+                              const ids = newValue.map((emp) => emp.id);
+                              const names = newValue.map((emp) => emp.name);
+                              setEditData((prev: any) => ({
+                                ...prev,
+                                [field.key]: names.join(", "),
+                                [`${field.key}Ids`]: ids,
+                                [field.key1]: null,
+                                [field.key2]: "",
+                              }));
+                            } else if (newValue) {
+                              setEditData((prev: any) => ({
+                                ...prev,
+                                [field.key]: newValue.name,
+                                [field.key1]: newValue.id,
+                                [field.key2]: newValue.name,
+                                [`${field.key}Ids`]: [],
+                              }));
+                            } else {
+                              setEditData((prev: any) => ({
+                                ...prev,
+                                [field.key]: "",
+                                [field.key1]: null,
+                                [field.key2]: "",
+                                [`${field.key}Ids`]: []
+                              }));
+                            }
+                          }}
+                          noLabel={true}
+                          isManager={field.key === "manager"}
+                          isHR={field.key === "assignedHr"}
+                        />
+                      ) : (
+                        <MaterialModule.TextField
+                          size="small"
+                          value={editData[field.key] || ""}
+                          multiline={field.multiline || false}
+                          rows={field.multiline ? 3 : 1}
+                          disabled={
+                            field.disabled ||
+                            (editData?.aadhaarNumber &&
+                              lockableFields.includes(field.key))
                           }
-                          return null;
-                        })()}
-                        onChange={(newValue) => {
-                          if (Array.isArray(newValue)) {
-                            const ids = newValue.map((emp) => emp.id);
-                            const names = newValue.map((emp) => emp.name);
-                            setEditData((prev: any) => ({
-                              ...prev,
-                              [field.key]: names.join(", "),
-                              [`${field.key}Ids`]: ids,
-                            }));
-                          } else if (newValue) {
-                            setEditData((prev: any) => ({
-                              ...prev,
-                              [field.key]: newValue.name,
-                              managerId: newValue.id,
-                              managerName: newValue.name,
-                            }));
-                          } else {
-                            setEditData((prev: any) => ({
-                              ...prev,
-                              [field.key]: "",
-                              managerId: null,
-                              managerName: "",
-                            }));
-                          }
-                        }}
-                        noLabel={true}
-                        isManager={true}
-                      />
-                    ) : (
-                      <MaterialModule.TextField
-                        size="small"
-                        value={editData[field.key] || ""}
-                        multiline={field.multiline || false}
-                        rows={field.multiline ? 3 : 1}
-                        disabled={
-                          field.disabled ||
-                          (editData?.aadhaarNumber &&
-                            lockableFields.includes(field.key))
-                        }
-                        slotProps={{
-                          htmlInput: {
-                            maxLength:
-                              field.key === "aadhaarNumber" ? 12 : undefined,
-                          },
-                        }}
-                        onChange={(e) => {
-                          field.key != "aadhaarNumber"
-                            ? setEditData({
+                          slotProps={{
+                            htmlInput: {
+                              maxLength:
+                                field.key === "aadhaarNumber" ? 12 : undefined,
+                            },
+                          }}
+                          onChange={(e) => {
+                            field.key != "aadhaarNumber"
+                              ? setEditData({
                                 ...editData,
                                 [field.key]: e.target.value,
                               })
-                            : getAadhaar(e.target.value);
-                        }}
-                        fullWidth
-                      />
-                    )}
+                              : getAadhaar(e.target.value);
+                          }}
+                          fullWidth
+                        />
+                      )}
                   </div>
                 ) : (
                   <div className="text-[12px] text-ellipsis overflow-hidden text-gray-800 mt-1">
@@ -631,7 +645,7 @@ const EditableGroup = ({
                         : field.type === "select"
                           ? editData[field.key] || (isEditing ? "" : "-")
                           : field.type === "user"
-                            ? editData.managerName
+                            ? editData[field.key2]
                             : editData[field.key] || "-"}
                   </div>
                 )}
@@ -727,7 +741,7 @@ const EditableGroup = ({
                     onAddOption={(newOption) =>
                       handleAddOption(field.key, newOption)
                     }
-                    showAddButton={true}
+                    showAddButton={isAdmin ? true : false}
                   />
                 ) : (
                   <MaterialModule.TextField
@@ -801,6 +815,11 @@ const EditableTableGroup = ({
   const isMasterTab = title === "Addresses";
   const [dialogFields, setDialogFields] = useState(addDialogFields);
   const { id } = useParams();
+  const { session } = useAuth();
+  const isAdmin = session?.user.roles.includes('ADMIN');
+  const userId = session?.user.userId;
+  const apiId = isAdmin ? id : userId;
+
   const [dialogType, setDialogType] = useState<"add" | "edit" | "attachment">(
     "add",
   );
@@ -1125,7 +1144,7 @@ const EditableTableGroup = ({
         showSnackbar("Document Type is Mandatory", "warning");
         return;
       }
-      await employeeService.addAttachment(id, newItem);
+      await employeeService.addAttachment(apiId, newItem);
       showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
       showSnackbar(error.message || "Failed to add attachment", "error");
@@ -1151,22 +1170,24 @@ const EditableTableGroup = ({
                 </div>
                 <div className="text-primary-dark "> {title} </div>
               </div>
-              <MaterialModule.Button
-                startIcon={
-                  <MaterialModule.AddIcon
-                    sx={{ color: "var(--color-primary)" }}
-                  />
-                }
-                size="small"
-                onClick={handleAddClick}
-                variant="outlined"
-                sx={{
-                  color: "var(--color-primary)",
-                  borderColor: "var(--color-primary)",
-                }}
-              >
-                Add {title}
-              </MaterialModule.Button>
+              { (isAdmin || (!isAdmin && title !== "Training Details" && title !== "PF Details")) && (
+                <MaterialModule.Button
+                  startIcon={
+                    <MaterialModule.AddIcon
+                      sx={{ color: "var(--color-primary)" }}
+                    />
+                  }
+                  size="small"
+                  onClick={handleAddClick}
+                  variant="outlined"
+                  sx={{
+                    color: "var(--color-primary)",
+                    borderColor: "var(--color-primary)",
+                  }}
+                >
+                  Add {title}
+                </MaterialModule.Button>
+              )}
             </div>
             <div className="text-center text-gray-500 py-4">
               No {title.toLowerCase()} found
@@ -1182,7 +1203,7 @@ const EditableTableGroup = ({
                 {icon}{" "}
               </div>
               <div className="text-primary-dark "> {title} </div>
-              { error &&
+              {error &&
                 <span className="text-[12px] bg-red-100 p-1 rounded-md text-red-500">{error}</span>
               }
             </div>
@@ -1349,14 +1370,14 @@ const EditableTableGroup = ({
                                 value={
                                   col.options
                                     ? col.options.find(
-                                        (opt: string) =>
-                                          opt.toLowerCase() ===
-                                          String(row[col.key]).toLowerCase(),
-                                      ) || ""
+                                      (opt: string) =>
+                                        opt.toLowerCase() ===
+                                        String(row[col.key]).toLowerCase(),
+                                    ) || ""
                                     : getOptionNameFromId(
-                                        col.key,
-                                        row[col.key],
-                                      ) || ""
+                                      col.key,
+                                      row[col.key],
+                                    ) || ""
                                 }
                                 onChange={(value) => {
                                   if (col.options) {
@@ -1379,7 +1400,7 @@ const EditableTableGroup = ({
                                   handleAddOption(col.key, newOption)
                                 }
                                 showAddButton={
-                                  col.key == "nomineeName" || col.options
+                                  (col.key == "nomineeName" || col.options || !isAdmin)
                                     ? false
                                     : true
                                 }
@@ -1628,16 +1649,16 @@ const EditableTableGroup = ({
                     value={
                       field.options
                         ? field.options.find(
-                            (opt: string) =>
-                              opt.toLowerCase() ===
-                              String(
-                                newItemData[field.key] || "",
-                              ).toLowerCase(),
-                          ) || ""
+                          (opt: string) =>
+                            opt.toLowerCase() ===
+                            String(
+                              newItemData[field.key] || "",
+                            ).toLowerCase(),
+                        ) || ""
                         : getOptionNameFromId(
-                            field.key,
-                            newItemData[field.key],
-                          ) || ""
+                          field.key,
+                          newItemData[field.key],
+                        ) || ""
                     }
                     onChange={(value) => {
                       if (field.options) {
@@ -1666,7 +1687,7 @@ const EditableTableGroup = ({
                       handleAddOption(field.key, newOption)
                     }
                     showAddButton={
-                      field.key == "nomineeName" || field.options ? false : true
+                      (field.key == "nomineeName" || field.options || !isAdmin) ? false : true
                     }
                     required={field.required}
                   />
@@ -1797,7 +1818,12 @@ const EditableTableGroup = ({
 };
 
 export default function EmployeeDetails() {
+  const { session } = useAuth();
   const { id } = useParams();
+  const isAdmin = session?.user.roles.includes('ADMIN');
+  const userId = session?.user.userId;
+  const apiId = isAdmin ? id : userId;
+
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [employee, setEmployee] = useState<any>();
@@ -1824,10 +1850,7 @@ export default function EmployeeDetails() {
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
 
   const [uanError, setUANError] = useState("");
-
-const [webcamOpen, setWebcamOpen] = useState(false);
-
-
+  const [webcamOpen, setWebcamOpen] = useState(false);
 
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
@@ -1846,40 +1869,46 @@ const [webcamOpen, setWebcamOpen] = useState(false);
     { label: "Policies", icon: <PolicyIcon /> },
   ];
 
-// New state (add alongside existing useState hooks in EmployeeDetails)
-const handleWebcamCapture = async (file: File) => {
-  try {
-    showSpinner();
-    await employeeService.uploadPhoto(employee.id, file);
-    showSnackbar("Profile photo uploaded successfully", "success");
-    await fetchEmployeeDetails();
-  } catch (error: any) {
-    showSnackbar(error.message || "Failed to upload photo", "error");
-  } finally {
-    hideSpinner();
-  }
-};
+  // const fetchEmployeeDetailsUser = async (uid: any) => {
+  //   showSpinner();
+  //   try {
+  //     const response: any = await employeeService.getEmployeeById(uid);
+  //     setEmployee(response.data);
+  //   } catch (error: any) {
+  //     showSnackbar(error.message || "Failed to load employee details", "error");
+  //   } finally {
+  //     hideSpinner();
+  //   }
+  // };
 
+  // useEffect(() => {
+  //   // if (!session?.user.roles.includes('ADMIN')) {
+  //     fetchEmployeeDetailsUser(apiId);
+  //   // }
+  // }, []);
 
-
-
+  const handleWebcamCapture = async (file: File) => {
+    try {
+      showSpinner();
+      await employeeService.uploadPhoto(employee.id, file);
+      showSnackbar("Profile photo uploaded successfully", "success");
+      await fetchEmployeeDetails();
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to upload photo", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
 
   const viewPolicyConfig = (policy: any) => {
     setSelectedPolicy(policy);
     setConfigDialogOpen(true);
   };
 
-  // const formatConfigValue = (value: any): string => {
-  //   if (value === null || value === undefined) return "—";
-  //   if (typeof value === "boolean") return value ? "Yes" : "No";
-  //   if (typeof value === "object") return JSON.stringify(value, null, 2);
-  //   return value.toString();
-  // };
-
   const fetchEmployeeDetails = async () => {
     showSpinner();
     try {
-      const response: any = await employeeService.getEmployeeById(id);
+      const response: any = await employeeService.getEmployeeById(apiId);
       setEmployee(response.data);
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
@@ -1891,16 +1920,17 @@ const handleWebcamCapture = async (file: File) => {
 
   const fetchCategoryOptions = async () => {
     try {
-      const response: any = await categoryService.getCategories();
+      const response: any = await categoryService.getActiveCategoryItem();
+      // const response: any = await categoryService.getCategories();
       const categories = response.data.content || response.data || [];
       setCategories(categories);
       const optionsMap: Record<string, any[]> = {};
       for (const category of categories) {
-        const itemsResponse: any = await categoryService.getCategoryItems(
-          category.id,
-        );
-        optionsMap[category.categoryName] =
-          itemsResponse.data.content || itemsResponse.data || [];
+        //   const itemsResponse: any = await categoryService.getCategoryItems(
+        //     category.id,
+        //   );
+        optionsMap[category.categoryName] = category.items || [];
+        // itemsResponse.data.content || itemsResponse.data || [];
       }
       setCategoryOptions(optionsMap);
     } catch (error) {
@@ -1909,13 +1939,13 @@ const handleWebcamCapture = async (file: File) => {
   };
 
   useEffect(() => {
-    if (id) {
+    if (apiId) {
       fetchEmployeeDetails();
       fetchCategoryOptions();
     }
-  }, [id]);
+  }, [apiId]);
 
-  useEffect(() => {}, [categoryOptions]);
+  useEffect(() => { }, [categoryOptions]);
 
   const fetchLogs = async () => {
     showSpinner();
@@ -2002,8 +2032,8 @@ const handleWebcamCapture = async (file: File) => {
         backgroundVerificationCompletedOn:
           updatedData.backgroundVerificationCompletedOn
             ? new Date(
-                updatedData.backgroundVerificationCompletedOn,
-              ).toISOString()
+              updatedData.backgroundVerificationCompletedOn,
+            ).toISOString()
             : null,
         backgroundVerificationIndicator:
           updatedData.backgroundVerificationIndicator,
@@ -2046,7 +2076,7 @@ const handleWebcamCapture = async (file: File) => {
         template: updatedData.templateId,
       };
       if (Object.keys(payload).length) {
-        await employeeService.updateEmployee(id, payload);
+        await employeeService.updateEmployee(apiId, payload);
         await fetchEmployeeDetails();
         showSnackbar("Personal information updated successfully!", "success");
       }
@@ -2089,7 +2119,7 @@ const handleWebcamCapture = async (file: File) => {
         ) {
           const matchValue =
             originalItem.relationship == item.relationship &&
-            originalItem.relationshipId == item.relationshipId
+              originalItem.relationshipId == item.relationshipId
               ? originalItem.relationshipId
               : item.relationship;
           const updatedItem = {
@@ -2102,7 +2132,7 @@ const handleWebcamCapture = async (file: File) => {
             primary: item.primary,
           };
           await employeeService.updateEmergencyContact(
-            id,
+            apiId,
             item.id,
             updatedItem,
           );
@@ -2122,7 +2152,7 @@ const handleWebcamCapture = async (file: File) => {
     try {
       newItem["relationshipId"] = newItem.relationship;
       delete newItem.relationship;
-      await employeeService.addEmergencyContact(id, newItem);
+      await employeeService.addEmergencyContact(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Emergency contact added successfully!", "success");
     } catch (error: any) {
@@ -2140,7 +2170,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteEmergencyContact(id, itemId);
+          await employeeService.deleteEmergencyContact(apiId, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Emergency contact deleted successfully!", "success");
         } catch (error: any) {
@@ -2174,8 +2204,12 @@ const handleWebcamCapture = async (file: File) => {
             country: item.country,
             pincode: item.pincode,
             primary: item.primary,
+            village: item.village,
+            street: item.street,
+            taluk: item.taluk,
+            district: item.district,
           };
-          await employeeService.updateAddress(id, item.id, updatedItem);
+          await employeeService.updateAddress(apiId, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -2190,7 +2224,7 @@ const handleWebcamCapture = async (file: File) => {
   const handleAddAddress = async (newItem: any) => {
     showSpinner();
     try {
-      await employeeService.addAddress(id, newItem);
+      await employeeService.addAddress(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Address added successfully!", "success");
     } catch (error: any) {
@@ -2208,7 +2242,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteAddress(id, itemId);
+          await employeeService.deleteAddress(apiId, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Address deleted successfully!", "success");
         } catch (error: any) {
@@ -2235,12 +2269,12 @@ const handleWebcamCapture = async (file: File) => {
         ) {
           const matchValue =
             originalItem.qualificationType == item.qualificationType &&
-            originalItem.qualificationTypeId == item.qualificationTypeId
+              originalItem.qualificationTypeId == item.qualificationTypeId
               ? originalItem.qualificationTypeId
               : item.qualificationType;
           const matchValue1 =
             originalItem.qualificationArea == item.qualificationArea &&
-            originalItem.qualificationAreaId == item.qualificationAreaId
+              originalItem.qualificationAreaId == item.qualificationAreaId
               ? originalItem.qualificationAreaId
               : item.qualificationArea;
           const updatedItem = {
@@ -2252,7 +2286,7 @@ const handleWebcamCapture = async (file: File) => {
             percentage: Number(item.percentage),
             grade: item.grade,
           };
-          await employeeService.updateQualification(id, item.id, updatedItem);
+          await employeeService.updateQualification(apiId, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -2275,7 +2309,7 @@ const handleWebcamCapture = async (file: File) => {
       delete newItem.qualificationType;
       delete newItem.qualificationArea;
 
-      await employeeService.addQualification(id, newItem);
+      await employeeService.addQualification(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Qualification added successfully!", "success");
     } catch (error: any) {
@@ -2293,7 +2327,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteQualification(id, itemId);
+          await employeeService.deleteQualification(apiId, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Qualification deleted successfully!", "success");
         } catch (error: any) {
@@ -2317,6 +2351,7 @@ const handleWebcamCapture = async (file: File) => {
         departmentId: updatedData.departmentId,
         branchId: updatedData.branchId,
         managerId: updatedData.managerId,
+        assignedHrId: updatedData.assignedHrId,
         bandId: updatedData.bandId,
         joiningDate: updatedData.joiningDate,
         confirmationDate: updatedData.confirmationDate,
@@ -2391,8 +2426,8 @@ const handleWebcamCapture = async (file: File) => {
         backgroundVerificationCompletedOn:
           updatedData.backgroundVerificationCompletedOn
             ? new Date(
-                updatedData.backgroundVerificationCompletedOn,
-              ).toISOString()
+              updatedData.backgroundVerificationCompletedOn,
+            ).toISOString()
             : null,
         backgroundVerificationIndicator:
           updatedData.backgroundVerificationIndicator,
@@ -2510,7 +2545,7 @@ const handleWebcamCapture = async (file: File) => {
             // "referenceContact": item.referenceContact
           };
           await employeeService.updatePreviousEmployment(
-            id,
+            apiId,
             item.id,
             updatedItem,
           );
@@ -2531,7 +2566,7 @@ const handleWebcamCapture = async (file: File) => {
   const handleAddPreviousEmployment = async (newItem: any) => {
     showSpinner();
     try {
-      await employeeService.addPreviousEmployment(id, newItem);
+      await employeeService.addPreviousEmployment(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Previous employment added successfully!", "success");
     } catch (error: any) {
@@ -2552,7 +2587,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deletePreviousEmployment(id, itemId);
+          await employeeService.deletePreviousEmployment(apiId, itemId);
           showSnackbar("Previous employment deleted successfully!", "success");
           await fetchEmployeeDetails();
         } catch (error: any) {
@@ -2610,7 +2645,7 @@ const handleWebcamCapture = async (file: File) => {
         ) {
           const matchValue =
             originalItem.pfScheme == item.pfScheme &&
-            originalItem.pfSchemeId == item.pfSchemeId
+              originalItem.pfSchemeId == item.pfSchemeId
               ? originalItem.pfSchemeId
               : item.pfScheme;
           const updatedItem = {
@@ -2773,17 +2808,17 @@ const handleWebcamCapture = async (file: File) => {
         ) {
           const matchValue =
             originalItem.relationship == item.relationship &&
-            originalItem.relationshipId == item.relationshipId
+              originalItem.relationshipId == item.relationshipId
               ? originalItem.relationshipId
               : item.relationship;
           const matchGender =
             originalItem.gender == item.gender &&
-            originalItem.genderId == item.genderId
+              originalItem.genderId == item.genderId
               ? originalItem.genderId
               : item.gender;
           const matchBg =
             originalItem.bloodGroup == item.bloodGroup &&
-            originalItem.bloodGroupId == item.bloodGroupId
+              originalItem.bloodGroupId == item.bloodGroupId
               ? originalItem.bloodGroupId
               : item.bloodGroup;
           const updatedItem = {
@@ -2797,7 +2832,7 @@ const handleWebcamCapture = async (file: File) => {
             age: item.age,
             mobileNumber: item.mobileNumber,
           };
-          await employeeService.updateFamilyMember(id, item.id, updatedItem);
+          await employeeService.updateFamilyMember(apiId, item.id, updatedItem);
           await fetchEmployeeDetails();
         }
       }
@@ -2820,7 +2855,7 @@ const handleWebcamCapture = async (file: File) => {
       delete newItem.gender;
       delete newItem.relationship;
 
-      await employeeService.addFamilyMember(id, newItem);
+      await employeeService.addFamilyMember(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Family member added successfully!", "success");
     } catch (error: any) {
@@ -2838,7 +2873,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteFamilyMember(id, itemId);
+          await employeeService.deleteFamilyMember(apiId, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Family member deleted successfully!", "success");
         } catch (error: any) {
@@ -2874,7 +2909,7 @@ const handleWebcamCapture = async (file: File) => {
 
   const fetchFamilyMembers = async () => {
     try {
-      const response: any = await employeeService.getFamilyMembers(id);
+      const response: any = await employeeService.getFamilyMembers(apiId);
       setFamilyMembers(response.data || []);
     } catch (error) {
       console.error(error);
@@ -2882,10 +2917,10 @@ const handleWebcamCapture = async (file: File) => {
   };
 
   useEffect(() => {
-    if (id) {
+    if (apiId) {
       fetchFamilyMembers();
     }
-  }, [id]);
+  }, [apiId]);
 
   useEffect(() => {
     if (tabValue === 8) {
@@ -2900,7 +2935,7 @@ const handleWebcamCapture = async (file: File) => {
   }, [tabValue]);
 
   useEffect(() => {
-    if (tabValue !== 10 || !id) return;
+    if (tabValue !== 10 || !apiId) return;
     setPolicyLoading(true);
     setPolicyError(null);
     const keyDomains = [
@@ -2911,12 +2946,12 @@ const handleWebcamCapture = async (file: File) => {
       PolicyDomain.PAYROLL,
     ];
     Promise.all([
-      policyService.getEmployeePolicies(id),
-      policyService.getEmployeePolicyHistory(id),
+      policyService.getEmployeePolicies(apiId),
+      policyService.getEmployeePolicyHistory(apiId),
       Promise.all(
         keyDomains.map((domain) =>
           policyService
-            .getEffectivePolicy(id, domain)
+            .getEffectivePolicy(apiId, domain)
             .then((res: any) => ({ domain, data: res.data ?? null }))
             .catch(() => ({ domain, data: null })),
         ),
@@ -2975,7 +3010,7 @@ const handleWebcamCapture = async (file: File) => {
             sharePercentage: Number(item.sharePercentage),
             nominationType: item.nominationType,
           };
-          await employeeService.updateNomination(id, item.id, payload);
+          await employeeService.updateNomination(apiId, item.id, payload);
           await fetchEmployeeDetails();
         }
       }
@@ -3003,7 +3038,7 @@ const handleWebcamCapture = async (file: File) => {
         );
         return;
       }
-      await employeeService.addNomination(id, newItem);
+      await employeeService.addNomination(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Nomination added successfully!", "success");
     } catch (error: any) {
@@ -3021,7 +3056,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteNomination(id, itemId);
+          await employeeService.deleteNomination(apiId, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Nomination deleted successfully!", "success");
         } catch (error: any) {
@@ -3041,7 +3076,7 @@ const handleWebcamCapture = async (file: File) => {
         showSnackbar("Document Type is Mandatory", "warning");
         return;
       }
-      await employeeService.addAttachment(id, newItem);
+      await employeeService.addAttachment(apiId, newItem);
       await fetchEmployeeDetails();
       showSnackbar("Attachment added successfully!", "success");
     } catch (error: any) {
@@ -3059,7 +3094,7 @@ const handleWebcamCapture = async (file: File) => {
       onConfirm: async () => {
         showSpinner();
         try {
-          await employeeService.deleteAttachment(id, itemId);
+          await employeeService.deleteAttachment(apiId, itemId);
           await fetchEmployeeDetails();
           showSnackbar("Attachment deleted successfully!", "success");
         } catch (error: any) {
@@ -3095,93 +3130,96 @@ const handleWebcamCapture = async (file: File) => {
       </div>
 
       {/* Profile Header */}
-     <MaterialModule.Card className="mb-2 bg-white">
-  <MaterialModule.CardContent className="py-2 px-6 flex items-center justify-between">
-    <div className="flex items-center gap-4">
-      <div className="relative group">
-        <MaterialModule.Avatar
-          src={employee.photoUrl}
-          className="!w-16 !h-16 !bg-primary text-2xl cursor-pointer"
-        >
-          {employee.firstName?.charAt(0)}
-          {employee.lastName?.charAt(0)}
-        </MaterialModule.Avatar>
+      <MaterialModule.Card className="mb-2 bg-white">
+        <MaterialModule.CardContent className="py-2 px-6 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <MaterialModule.Avatar
+                src={employee.photoUrl}
+                className="!w-16 !h-16 !bg-primary text-2xl cursor-pointer"
+              >
+                {employee.firstName?.charAt(0)}
+                {employee.lastName?.charAt(0)}
+              </MaterialModule.Avatar>
 
-        {/* Hover Overlay with multiple options */}
-        <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 cursor-pointer">
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              fileInputRef.current?.click();
-            }}
-            className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-            title="Upload from device"
-          >
-            <MaterialModule.CameraAlt className="!text-white !w-4 !h-4" />
+              {/* Hover Overlay with multiple options */}
+              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 cursor-pointer">
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                  title="Upload from device"
+                >
+                  <MaterialModule.CameraAlt className="!text-white !w-4 !h-4" />
+                </div>
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setWebcamOpen(true);
+                  }}
+                  className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                  title="Capture with webcam"
+                >
+                  <PhotoCameraOutlined className="!text-white !w-4 !h-4" />
+                </div>
+              </div>
+
+              {/* Hidden File Input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={handleProfileUpload}
+              />
+            </div>
+            <div>
+              <div className="font-bold text-gray-800">{employee.name}</div>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <MaterialModule.Chip
+                  label={`ID: ${employee.employeeId}`}
+                  size="small"
+                  color="primary"
+                  className="!bg-primary"
+                />
+                <MaterialModule.Chip
+                  label={employee.emailAddress}
+                  size="small"
+                  variant="outlined"
+                  className="text-gray-700"
+                />
+                <MaterialModule.Chip
+                  label={employee.mobileNumber}
+                  size="small"
+                  variant="outlined"
+                  className="text-gray-700"
+                />
+              </div>
+            </div>
           </div>
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              setWebcamOpen(true);
-            }}
-            className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-            title="Capture with webcam"
-          >
-            <PhotoCameraOutlined className="!text-white !w-4 !h-4" />
-          </div>
-        </div>
+          {
+            isAdmin &&
+            <div>
+              <Button
+                variant="outlined"
+                className="!text-primary !border-primary"
+                onClick={handleOpenAuditLog}
+              >
+                Audit Log
+              </Button>
+            </div>
+          }
+        </MaterialModule.CardContent>
+      </MaterialModule.Card>
 
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={handleProfileUpload}
-        />
-      </div>
-      <div>
-        <div className="font-bold text-gray-800">{employee.name}</div>
-        <div className="flex items-center gap-3 mt-2 flex-wrap">
-          <MaterialModule.Chip
-            label={`ID: ${employee.employeeId}`}
-            size="small"
-            color="primary"
-            className="!bg-primary"
-          />
-          <MaterialModule.Chip
-            label={employee.emailAddress}
-            size="small"
-            variant="outlined"
-            className="text-gray-700"
-          />
-          <MaterialModule.Chip
-            label={employee.mobileNumber}
-            size="small"
-            variant="outlined"
-            className="text-gray-700"
-          />
-        </div>
-      </div>
-    </div>
-    <div>
-      <Button
-        variant="outlined"
-        className="!text-primary !border-primary"
-        onClick={handleOpenAuditLog}
-      >
-        Audit Log
-      </Button>
-    </div>
-  </MaterialModule.CardContent>
-</MaterialModule.Card>
-
-<WebcamCapture
-  open={webcamOpen}
-  onClose={() => setWebcamOpen(false)}
-  onCapture={handleWebcamCapture}
-  title="Capture Profile Photo"
-/>
+      <WebcamCapture
+        open={webcamOpen}
+        onClose={() => setWebcamOpen(false)}
+        onCapture={handleWebcamCapture}
+        title="Capture Profile Photo"
+      />
 
       {/* Tabs Navigation */}
       <div className="">
@@ -3915,11 +3953,11 @@ const handleWebcamCapture = async (file: File) => {
                                         const isActive =
                                           policy.effectiveFrom &&
                                           new Date(policy.effectiveFrom) <=
-                                            new Date();
+                                          new Date();
                                         const isExpired =
                                           policy.effectiveTo &&
                                           new Date(policy.effectiveTo) <
-                                            new Date();
+                                          new Date();
                                         const status = isExpired
                                           ? "EXPIRED"
                                           : isActive
@@ -4002,8 +4040,8 @@ const handleWebcamCapture = async (file: File) => {
                                             <MaterialModule.TableCell>
                                               {policy.effectiveFrom
                                                 ? formatDate(
-                                                    policy.effectiveFrom,
-                                                  )
+                                                  policy.effectiveFrom,
+                                                )
                                                 : "—"}
                                             </MaterialModule.TableCell>
                                             <MaterialModule.TableCell>
