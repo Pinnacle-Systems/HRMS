@@ -112,6 +112,9 @@ const CompanySettings = () => {
   };
 
   const handleChange = async (key: string, value: string | string[]) => {
+    if(key == 'gstNo') {
+      getCompanyDetailsGST(value)
+    }
     setCompanyInfo({ ...companyInfo, [key]: value });
     const error = validateField(key, value as string);
     setErrors((prev) => ({ ...prev, [key]: error }));
@@ -551,6 +554,15 @@ const CompanySettings = () => {
 
   if (currentSection) {
     groupedSections.push(currentSection);
+  }
+
+  //Get Company details by GST
+  const getCompanyDetailsGST= async(gstNo: any) => {
+     try {
+      await companyService.getCompanyDetailsByGST({gstNo});
+     } catch (error:any) {
+      showSnackbar(error.message, 'error')
+     }
   }
 
   // renderField function

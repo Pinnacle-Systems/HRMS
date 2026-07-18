@@ -94,6 +94,8 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/org/company/${id}`,
     UPLOAD_LOGO: (id: string) => `/org/company/${id}/logo`,
     UPLOAD_SIGNATURE: (id: string) => `/org/company/${id}/signature`,
+    GET_COMPANY_BY_GST: "/org/company/by-gst",
+    GET_GST_BY_COMPANY: "/org/company/gst",
   },
 
   EMPLOYEE: {
@@ -385,6 +387,8 @@ export const API_ENDPOINTS = {
     CREATE: "/shifts",
     UPDATE: (id: string) => `/shifts/${id}`,
     UPDATE_ACTIVE: (id: string) => `/shifts/${id}/status`,
+    SET_DEFAULT: (id: string) => `/shifts/${id}/default`,
+    GET_DEFAULT: "/shifts/default",
 
     GET_SWAP_REQUEST: "/shift-swap-requests",
     GET_SWAP_REQUEST_BYID: (id: string) => `/shift-swap-requests/${id}`,

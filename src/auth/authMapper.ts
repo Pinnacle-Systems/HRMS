@@ -104,79 +104,162 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
 
 export function mapLoginResponseToOutcome(
   response: LoginApiResponse,
-  loginId?: string,
+  loginId?: string
 ): LoginOutcome {
-  const data = response.data;
-
-  if (!response.success || !data) {
+  if (!response.success) {
     return {
       type: "failed",
       message: response.message || "Login failed",
     };
   }
 
+  const data = response.data;
+  if (!data) {
+    return {
+      type: "failed",
+      message: "No data received from server",
+    };
+  }
+
+  // Check for MFA setup required (even if authenticated)
+  if (data.mfaSetupRequired && data.accessToken) {
+    const session = mapAuthResponseToSession({
+      ...data,
+      refreshToken: data.refreshToken || "",
+    });
+    return {
+      type: "authenticated",
+      session,
+      mfaSetupRequired: true,
+    };
+  }
+
+  // Check for Multi-tenant selection
   if (data.multiTenant && data.tenants?.length) {
     return {
       type: "tenantSelection",
       tenants: data.tenants,
-      email: data.email || loginId || "",
+      email: data.email || loginId,
       sessionToken: data.sessionToken,
     };
   }
 
-  if (data.mfaRequired && data.sessionToken) {
+  // Check for MFA required
+  if (data.mfaRequired) {
     return {
       type: "mfaRequired",
       sessionToken: data.sessionToken,
-      mfaType: data.mfaType,
+      mfaType: data.mfaType || "TOTP",
     };
   }
 
+  // Check for must change password (even if authenticated)
+  if (data.mustChangePassword && data.accessToken) {
+    const session = mapAuthResponseToSession({
+      ...data,
+      refreshToken: data.refreshToken || "",
+    });
+    return {
+      type: "mustChangePassword",
+      session,
+      email: data.email || loginId,
+    };
+  }
+
+  // Check for successful authentication
   if (data.accessToken) {
-    const session = mapAuthResponseToSession(data);
-
-    if (data.mfaSetupRequired) {
-      return {
-        type: "authenticated",
-        session,
-        mfaSetupRequired: true
-      }
-    }
-
-    if (data.mustChangePassword) {
-      return {
-        type: "mustChangePassword",
-        session,
-        email: data.email || loginId,
-      };
-    }
-
+    const session = mapAuthResponseToSession({
+      ...data,
+      refreshToken: data.refreshToken || "",
+    });
     return {
       type: "authenticated",
       session,
     };
   }
 
-  if (data.mustChangePassword) {
-    return {
-      type: "mustChangePassword",
-      email: data.email || loginId,
-    };
-  }
-
-  // if(response.success && response.message == "Tenant selected") {
-  //   return {
-  //     type:"tenantSelected",
-  //     user: response?.data as TenantUser,
-  //     message: response.message
-  //   }
-  // }
-
+  // Fallback for any other case
   return {
     type: "failed",
-    message: response.message || "Unable to start your session",
+    message: response.message || "Login failed",
   };
 }
+
+// export function mapLoginResponseToOutcome(
+//   response: LoginApiResponse,
+//   loginId?: string,
+// ): LoginOutcome {
+//   const data = response.data;
+
+//   if (!response.success || !data) {
+//     return {
+//       type: "failed",
+//       message: response.message || "Login failed",
+//     };
+//   }
+
+//   if (data.multiTenant && data.tenants?.length) {
+//     return {
+//       type: "tenantSelection",
+//       tenants: data.tenants,
+//       email: data.email || loginId || "",
+//       sessionToken: data.sessionToken,
+//     };
+//   }
+
+//   if (data.mfaRequired && data.sessionToken) {
+//     return {
+//       type: "mfaRequired",
+//       sessionToken: data.sessionToken,
+//       mfaType: data.mfaType,
+//     };
+//   }
+
+//   if (data.accessToken) {
+//     const session = mapAuthResponseToSession(data);
+
+//     if (data.mfaSetupRequired) {
+//       return {
+//         type: "authenticated",
+//         session,
+//         mfaSetupRequired: true
+//       }
+//     }
+
+//     if (data.mustChangePassword) {
+//       return {
+//         type: "mustChangePassword",
+//         session,
+//         email: data.email || loginId,
+//       };
+//     }
+
+//     return {
+//       type: "authenticated",
+//       session,
+//     };
+//   }
+
+//   if (data.mustChangePassword) {
+//     return {
+//       type: "mustChangePassword",
+//       email: data.email || loginId,
+//     };
+//   }
+
+//   // if(response.success && response.message == "Tenant selected") {
+//   //   return {
+//   //     type:"tenantSelected",
+//   //     user: response?.data as TenantUser,
+//   //     message: response.message
+//   //   }
+//   // }
+
+//   return {
+//     type: "failed",
+//     message: response.message || "Unable to start your session",
+//   };
+// }
 
 export function getDefaultRoute(user: AuthUser): string {
   if (user.roles.includes("ADMIN")) return "/admin/dashboard";

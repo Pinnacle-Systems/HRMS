@@ -86,6 +86,7 @@ import { PolicyDomain, type Employee } from "../../types/policy";
 import { EmployeeSelector } from "../../components/PolicyManagement/Common/EmployeeSelector";
 import { WebcamCapture } from "./webCam";
 import { useAuth } from "../../auth/authContext";
+import { attendanceService } from "../../services/modules/attendance";
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -277,7 +278,7 @@ const EditableGroup = ({
   };
 
   useEffect(() => {
-    if (title === "Employee Details") {
+    if (title === "Employee Details" && isAdmin) {
       getMasterData();
     }
     getDocuments(apiId);
@@ -1851,6 +1852,7 @@ export default function EmployeeDetails() {
 
   const [uanError, setUANError] = useState("");
   const [webcamOpen, setWebcamOpen] = useState(false);
+  const [checkIn , setCheckIn] = useState(false);
 
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
@@ -3110,6 +3112,33 @@ export default function EmployeeDetails() {
     return null;
   }
 
+  const handleCheckIn = async () => {
+   try {
+    const res:any =  await attendanceService.checkIn({
+      employeeId: apiId || "",
+      checkInTime: new Date().toISOString(),
+      markedBy: session?.user.userId,
+    });
+    showSnackbar(res.message , 'success');
+    setCheckIn(true);
+   } catch (error:any) {
+    setCheckIn(true);
+    showSnackbar(error.message , 'error')
+   }
+  }
+
+   const handleCheckOut = async () => {
+   try {
+    const res:any =  await attendanceService.checkOut({
+      employeeId: apiId || "",
+      checkOutTime: new Date().toISOString(),
+      markedBy: session?.user.userId,
+    });
+    showSnackbar(res.message , 'success');
+   } catch (error:any) {
+   }
+  }
+
   return (
     <div className="">
       {/* Header */}
@@ -3200,7 +3229,7 @@ export default function EmployeeDetails() {
             </div>
           </div>
           {
-            isAdmin &&
+            isAdmin  ? (
             <div>
               <Button
                 variant="outlined"
@@ -3210,7 +3239,18 @@ export default function EmployeeDetails() {
                 Audit Log
               </Button>
             </div>
-          }
+          ) : (
+             <div>
+              <Button
+                variant="contained"
+                // className="!text-primary !border-primary"
+                color={!checkIn ? 'success' : 'error'}
+                onClick={!checkIn ? handleCheckIn : handleCheckOut}
+              >
+                {!checkIn ? 'Check In' : 'Check Out'}
+              </Button>
+            </div>
+          )}
         </MaterialModule.CardContent>
       </MaterialModule.Card>
 

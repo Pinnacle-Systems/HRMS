@@ -11,6 +11,8 @@ import pinnacle from '../../../assets/pinnacle.jpg';
 type LoginLocationState = {
   tenantId?: string;
   email?: string;
+  verified?: boolean;
+  fromSignup?: boolean;
 };
 
 export default function Login() {
@@ -21,110 +23,24 @@ export default function Login() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [visible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [_isOtpSent, setIsOtpSent] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const { login } = useAuth();
 
-  // Navigate to signup page
-  const navigateToSignup = () => {
-    navigate("/signup", {
-      replace: true
-    });
-  };
-
-  // Navigate to OTP verification page
-  const navigateToOtpVerification = (email: string, type: string = "SIGNUP") => {
+  const navigateToOtpVerification = (identifier: string, type: string = "SIGNUP") => {
     navigate("/verify-otp", {
       replace: true,
       state: {
-        email: email,
+        email: type === "SIGNUP" ? identifier : undefined,
+        mobileNumber: type === "MOBILE_LOGIN" ? identifier : undefined,
         type: type,
         fromLogin: true
       }
     });
   };
 
-  // Handle mobile number submission (Send OTP for login)
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mobileNumber || mobileNumber.length < 10) {
-      showSnackbar("Please enter a valid mobile number", "warning");
-      return;
-    }
-
-    setError("");
-    showSpinner();
-
-    try {
-      const outcome = await login(
-        buildLoginRequest({
-          mobileNumber: mobileNumber,
-        })
-      );
-
-      switch (outcome.type) {
-        case "authenticated":
-          navigate(getDefaultRoute(outcome.session.user), { replace: true });
-          break;
-
-        case "mfaRequired":
-          navigate("/mfa", {
-            replace: true,
-            state: {
-              sessionToken: outcome.sessionToken,
-              mfaType: outcome.mfaType,
-            },
-          });
-          break;
-
-        case "tenantSelection":
-          navigate("/select-tenant", {
-            replace: true,
-            state: {
-              tenants: outcome.tenants,
-              email: outcome.email  || mobileNumber,
-              sessionToken: outcome.sessionToken,
-            },
-          });
-          break;
-
-        case "mustChangePassword":
-          navigate("/reset-password", {
-            replace: true,
-            state: {
-              email: outcome.email || mobileNumber,
-            },
-          });
-          break;
-
-        case "failed":
-          if (outcome.message?.includes("OTP")) {
-            setIsOtpSent(true);
-            showSnackbar("OTP sent to your mobile number", "success");
-            navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
-          } else {
-            setError(outcome.message || "Failed to send OTP");
-            showSnackbar(outcome.message, "error");
-          }
-          break;
-
-        default:
-          setIsOtpSent(true);
-          showSnackbar("OTP sent to your mobile number", "success");
-          navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
-      }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "Failed to send OTP";
-      setError(errMsg);
-      showSnackbar(errMsg, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  // Handle email/password login (Step 3)
+  // Handle email/password login
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -136,8 +52,7 @@ export default function Login() {
     showSpinner();
 
     try {
-      // Step 3: POST /api/auth/login
-      const outcome = await login(
+      const outcome: any = await login(
         buildLoginRequest({
           loginId: email,
           password,
@@ -148,65 +63,247 @@ export default function Login() {
       switch (outcome.type) {
         case "authenticated":
           if (outcome.mfaSetupRequired) {
-            showSnackbar("Please set up Multi-Factor Authentication for enhanced security", "warning");
+            showSnackbar("Please set up Multi-Factor Authentication", "warning");
             navigate("/mfa-setup", {
               replace: true,
-              state: {
-                session: outcome.session,
-                fromLogin: true
-              }
+              state: { session: outcome.session, fromLogin: true }
             });
           } else {
             navigate(getDefaultRoute(outcome.session.user), { replace: true });
           }
           break;
+
         case "mfaRequired":
           navigate("/mfa", {
             replace: true,
             state: {
               sessionToken: outcome.sessionToken,
               mfaType: outcome.mfaType,
+              email: email
             },
           });
           break;
+
         case "tenantSelection":
+          // Store credentials for tenant-specific login
           navigate("/select-tenant", {
             replace: true,
             state: {
               tenants: outcome.tenants,
               email: outcome.email || email,
               sessionToken: outcome.sessionToken,
+              loginId: email,
+              password: password,
+              isMobileLogin: false,
             },
           });
           break;
+
         case "mustChangePassword":
           navigate("/reset-password", {
             replace: true,
             state: {
               email: outcome.email || email,
+              token: outcome.session?.accessToken // If token is available
             },
           });
           break;
+
         case "failed":
-          // Check if error is about email verification
-          if (outcome.message?.includes("Email not verified")) {
+          if (outcome.message?.toLowerCase().includes("email not verified")) {
             showSnackbar("Email not verified. Please verify your email first.", "warning");
-            // Navigate to OTP verification
             navigateToOtpVerification(email, "SIGNUP");
           } else {
             showSnackbar(outcome.message, "error");
-            setError(outcome.message);
+            setError(outcome.message || "Login failed");
           }
           break;
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : "An error occurred";
       showSnackbar(errMsg, "error");
-      setError("Invalid email or password");
+      setError(errMsg);
     } finally {
       hideSpinner();
     }
   };
+
+  const handleMobileLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    showSnackbar("Mobile OTP login is currently not available. Please use email/password.", "warning");
+    return;
+    /* Commented out as per API documentation
+    if (!mobileNumber || mobileNumber.length < 10) {
+      showSnackbar("Please enter a valid mobile number", "warning");
+      return;
+    }
+
+    setError("");
+    setIsLoading(true);
+    showSpinner();
+
+    try {
+      // According to API docs: "no endpoint currently issues that code to a phone pre-login"
+      // This will likely fail or return an error
+      const outcome = await login(
+        buildLoginRequest({
+          mobileNumber: mobileNumber,
+        })
+      );
+
+      console.log("Mobile login outcome:", outcome);
+
+      switch (outcome.type) {
+        case "authenticated":
+          showSnackbar("Login successful!", "success");
+          navigate(getDefaultRoute(outcome.session.user), { replace: true });
+          break;
+
+        case "mfaRequired":
+          navigate("/mfa", {
+            replace: true,
+            state: {
+              sessionToken: outcome.sessionToken,
+              mfaType: outcome.mfaType,
+              mobileNumber: mobileNumber,
+            },
+          });
+          break;
+
+        case "tenantSelection":
+          navigate("/select-tenant", {
+            replace: true,
+            state: {
+              tenants: outcome.tenants,
+              email: outcome.email || mobileNumber,
+              sessionToken: outcome.sessionToken,
+              mobileNumber: mobileNumber,
+              isMobileLogin: true,
+            },
+          });
+          break;
+
+        case "mustChangePassword":
+          navigate("/reset-password", {
+            replace: true,
+            state: { 
+              email: outcome.email || mobileNumber,
+            },
+          });
+          break;
+
+        case "failed":
+          setError(outcome.message || "Failed to send OTP");
+          showSnackbar(outcome.message || "Failed to send OTP", "error");
+          break;
+
+        default:
+          setError("Unexpected response from server");
+          showSnackbar("Unexpected response", "error");
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Failed to process mobile login";
+      setError(errMsg);
+      showSnackbar(errMsg, "error");
+      console.error("Mobile login error:", err);
+    } finally {
+      hideSpinner();
+      setIsLoading(false);
+    }
+    */
+  };
+
+  // Handle mobile number OTP sending
+  // const handleSendOtp = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (!mobileNumber || mobileNumber.length < 10) {
+  //     showSnackbar("Please enter a valid mobile number", "warning");
+  //     return;
+  //   }
+
+  //   setError("");
+  //   showSpinner();
+
+  //   try {
+  //     const outcome: any = await login(
+  //       buildLoginRequest({
+  //         mobileNumber: mobileNumber,
+  //       })
+  //     );
+
+  //     switch (outcome.type) {
+  //       case "authenticated":
+  //         navigate(getDefaultRoute(outcome.session.user), { replace: true });
+  //         break;
+
+  //       case "mfaRequired":
+  //         navigate("/mfa", {
+  //           replace: true,
+  //           state: {
+  //             sessionToken: outcome.sessionToken,
+  //             mfaType: outcome.mfaType,
+  //           },
+  //         });
+  //         break;
+
+  //       case "tenantSelection":
+  //         navigate("/select-tenant", {
+  //           replace: true,
+  //           state: {
+  //             tenants: outcome.tenants,
+  //             email: outcome.email || mobileNumber,
+  //             sessionToken: outcome.sessionToken,
+  //             mobileNumber: mobileNumber,
+  //             isMobileLogin: true,
+  //           },
+  //         });
+  //         break;
+
+  //       case "mustChangePassword":
+  //         navigate("/reset-password", {
+  //           replace: true,
+  //           state: {
+  //             email: outcome.email || mobileNumber,
+  //           },
+  //         });
+  //         break;
+
+  //       case "failed":
+  //         // The API might return a message indicating OTP was sent
+  //         if (outcome.message?.toLowerCase().includes("otp") ||
+  //           outcome.message?.toLowerCase().includes("sent")) {
+  //           showSnackbar("OTP sent to your mobile number", "success");
+  //           navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
+  //         } else {
+  //           setError(outcome.message || "Failed to send OTP");
+  //           showSnackbar(outcome.message, "error");
+  //         }
+  //         break;
+
+  //       default:
+  //         // Assume OTP was sent
+  //         showSnackbar("OTP sent to your mobile number", "success");
+  //         navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
+  //     }
+  //   } catch (err: unknown) {
+  //     const errMsg = err instanceof Error ? err.message : "Failed to send OTP";
+  //     setError(errMsg);
+  //     showSnackbar(errMsg, "error");
+  //   } finally {
+  //     hideSpinner();
+  //   }
+  // };
+
+  const navigateToSignup = () => {
+    navigate("/signup", { replace: true });
+  };
+
+  React.useEffect(() => {
+    if (locationState.fromSignup && locationState.verified) {
+      showSnackbar("Email verified successfully! Please login.", "success");
+    }
+  }, [locationState, showSnackbar]);
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -272,7 +369,7 @@ export default function Login() {
             Enter your credentials to access your dashboard
           </div>
 
-          <form onSubmit={isMobile ? handleSendOtp : handleEmailLogin} className="space-y-5">
+          <form onSubmit={isMobile ? handleMobileLogin  : handleEmailLogin} className="space-y-5">
             {!isMobile ? (
               <>
                 {/* Email/Login ID */}
@@ -362,8 +459,11 @@ export default function Login() {
                     required
                     maxLength={10}
                   />
-                  <p className="text-xs text-gray-400 mt-1">
+                  {/* <p className="text-xs text-gray-400 mt-1">
                     OTP will be sent to this number for verification
+                  </p> */}
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠️ Mobile OTP login is currently not available. Please use email/password.
                   </p>
                 </div>
 
@@ -373,11 +473,18 @@ export default function Login() {
                   </div>
                 )}
 
-                <button
+                {/* <button
                   type="submit"
                   className="w-full mt-2 text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer hover:bg-primary-dark"
                 >
                   Send OTP
+                </button> */}
+                <button
+                  type="submit"
+                  disabled={true}
+                  className="w-full mt-2 text-sm bg-gray-400 text-white py-3 rounded-sm font-semibold cursor-not-allowed opacity-60"
+                >
+                  Mobile Login (Unavailable)
                 </button>
               </>
             )}
@@ -397,8 +504,7 @@ export default function Login() {
             >
               {isMobile ? "Back to Email Sign In" : "Login with Mobile Number"}
             </button>
-            
-            {/* Or navigate to signup page with form */}
+
             <button
               onClick={navigateToSignup}
               className="w-full text-xs text-gray-500 hover:text-primary transition cursor-pointer"

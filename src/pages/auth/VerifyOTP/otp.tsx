@@ -106,7 +106,7 @@ export default function VerifyOTP() {
 
     showSpinner();
     try {
-      const outcome = await login(
+      const outcome: any = await login(
         buildLoginRequest({
           mobileNumber: state.mobileNumber,
         })
@@ -226,7 +226,7 @@ export default function VerifyOTP() {
       }
       // Handle Mobile Login OTP Verification
       else if (isMobileLogin && state.mobileNumber) {
-        const outcome = await login(
+        const outcome:any = await login(
           buildLoginRequest({
             mobileNumber: state.mobileNumber,
             mobileOtp: code,
@@ -349,7 +349,7 @@ export default function VerifyOTP() {
       }
       // Resend Mobile Login OTP
       else if (isMobileLogin && state.mobileNumber) {
-        const outcome = await login(
+        const outcome:any = await login(
           buildLoginRequest({
             mobileNumber: state.mobileNumber,
           })

@@ -2,60 +2,60 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import { getDefaultRoute } from "../../auth/authMapper";
+import { buildLoginRequest } from "../../auth/authApi";
 import type { TenantInfo } from "../../auth/authTypes";
 
 type TenantLocationState = {
   tenants?: TenantInfo[];
   email?: string;
   sessionToken?: string;
-  loginResponse?: {
-    multiTenant: boolean;
-    tenants: TenantInfo[];
-    expiresIn: number;
-  };
+  loginId?: string;
+  password?: string;
+  mobileNumber?: string;
+  isMobileLogin?: boolean;
 };
 
 export default function TenantSelectPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { selectTenant } = useAuth(); // Only need selectTenant since it handles session storage
+  const { login } = useAuth();
   const state = (location.state || {}) as TenantLocationState;
   
-  const tenants = state.tenants || state.loginResponse?.tenants || [];
+  const tenants = state.tenants || [];
   const email = state.email || "";
+  const loginId = state.loginId || email;
+  const password = state.password || "";
+  const mobileNumber = state.mobileNumber || "";
+  const isMobileLogin = state.isMobileLogin || false;
   
-  const [tenantId, setTenantId] = useState("");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Set default tenant when component mounts
+  // Set default tenant
   useEffect(() => {
-    if (tenants.length > 0 && !tenantId) {
-      setTenantId(tenants[0].id);
+    if (tenants.length > 0 && !selectedTenantId) {
+      setSelectedTenantId(tenants[0].id);
     }
   }, [tenants]);
 
-  // Redirect if no tenants or email
+  // Validate state
   useEffect(() => {
     if (tenants.length === 0) {
       setError("No companies available. Please sign in again.");
-      const timer = setTimeout(() => {
-        navigate("/login", { replace: true });
-      }, 3000);
+      const timer = setTimeout(() => navigate("/login", { replace: true }), 3000);
       return () => clearTimeout(timer);
     }
     
-    if (!email) {
+    if (!email && !mobileNumber) {
       setError("Session expired. Please sign in again.");
-      const timer = setTimeout(() => {
-        navigate("/login", { replace: true });
-      }, 3000);
+      const timer = setTimeout(() => navigate("/login", { replace: true }), 3000);
       return () => clearTimeout(timer);
     }
-  }, [tenants, email, navigate]);
+  }, [tenants, email, mobileNumber, navigate]);
 
   const handleContinue = async () => {
-    if (!tenantId) {
+    if (!selectedTenantId) {
       setError("Please select a company.");
       return;
     }
@@ -63,20 +63,32 @@ export default function TenantSelectPage() {
     setError("");
     setLoading(true);
 
-    try {      
-      // selectTenant returns LoginOutcome and handles session storage internally
-      const outcome = await selectTenant({
-        tenantId,
-        email: email,
-      });
-      // Handle the outcome based on LoginOutcome type
+    try {
+      // Build login request with tenantId
+      const loginRequest = isMobileLogin
+        ? buildLoginRequest({
+            mobileNumber: mobileNumber,
+            tenantId: selectedTenantId,
+          })
+        : buildLoginRequest({
+            loginId: loginId,
+            password: password,
+            tenantId: selectedTenantId,
+          });
+
+      // Complete the login with the selected tenant
+      const outcome:any = await login(loginRequest);
+
       switch (outcome.type) {
-        case "authenticated": {          
-          // Get the user from the session
-          const user = outcome.session.user;
-          const defaultRoute = getDefaultRoute(user);          
-          // Navigate to the default route
-          navigate(defaultRoute, { replace: true });
+        case "authenticated": {
+          if (outcome.mfaSetupRequired) {
+            navigate("/mfa-setup", {
+              replace: true,
+              state: { session: outcome.session, fromLogin: true }
+            });
+          } else {
+            navigate(getDefaultRoute(outcome.session.user), { replace: true });
+          }
           break;
         }
         
@@ -85,24 +97,22 @@ export default function TenantSelectPage() {
             replace: true,
             state: {
               sessionToken: outcome.sessionToken,
-              mfaType: outcome.mfaType || "totp",
-              email: email,
+              mfaType: outcome.mfaType || "TOTP",
+              email: email || mobileNumber,
             },
           });
           break;
         }
         
         case "tenantSelection": {
-          setError("Please choose a company to continue.");
+          setError("Multiple companies found. Please select a specific company.");
           break;
         }
         
         case "mustChangePassword": {
           navigate("/reset-password", {
             replace: true,
-            state: {
-              email: outcome.email || email,
-            },
+            state: { email: outcome.email || email || mobileNumber },
           });
           break;
         }
@@ -135,9 +145,9 @@ export default function TenantSelectPage() {
           <p className="text-sm text-gray-500 mt-2">
             Choose the company workspace to continue signing in.
           </p>
-          {email && (
+          {(email || mobileNumber) && (
             <p className="text-xs text-gray-400 mt-1">
-              Signed in as: <span className="font-medium">{email}</span>
+              Signed in as: <span className="font-medium">{email || mobileNumber}</span>
             </p>
           )}
         </div>
@@ -150,8 +160,8 @@ export default function TenantSelectPage() {
               </label>
               <select
                 aria-label="Select company"
-                value={tenantId}
-                onChange={(event) => setTenantId(event.target.value)}
+                value={selectedTenantId}
+                onChange={(event) => setSelectedTenantId(event.target.value)}
                 className="w-full bg-white text-sm px-4 py-2.5 border border-gray-300 rounded-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                 disabled={loading}
               >
@@ -171,7 +181,7 @@ export default function TenantSelectPage() {
             
             <button
               type="button"
-              disabled={!tenantId || loading}
+              disabled={!selectedTenantId || loading}
               onClick={handleContinue}
               className="w-full bg-primary text-white text-sm py-3 rounded-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >

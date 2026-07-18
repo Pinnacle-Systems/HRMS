@@ -66,7 +66,7 @@ export async function login(request: LoginRequest): Promise<LoginOutcome> {
     API_ENDPOINTS.AUTH.LOGIN,
     request,
   )) as LoginApiResponse;
-  const outcome = mapLoginResponseToOutcome(response, request.loginId);
+  const outcome:any = mapLoginResponseToOutcome(response, request.loginId);
 
   if (outcome.type === "authenticated") {
     saveSession(outcome.session);
@@ -79,33 +79,66 @@ export async function login(request: LoginRequest): Promise<LoginOutcome> {
   return outcome;
 }
 
+// export async function selectTenant(
+//   request: SelectTenantRequest,
+// ): Promise<LoginOutcome> {
+//   const response = (await apiService.post(
+//     API_ENDPOINTS.AUTH.SELECT_TENANT,
+//     {
+//       email: request.email,
+//       tenantId: request.tenantId,
+//     },
+//     {
+//       headers: {
+//         Authorization: `Bearer ${request.sessionToken}`,
+//       },
+//     },
+//   )) as LoginApiResponse;
+//   const outcome = mapLoginResponseToOutcome(response);
+
+//   if (outcome.type === "authenticated") {
+//     saveSession(outcome.session);
+//   }
+
+//   if (outcome.type === "mustChangePassword" && outcome.session) {
+//     saveSession(outcome.session);
+//   }
+
+//   return outcome;
+// }
+
 export async function selectTenant(
   request: SelectTenantRequest,
 ): Promise<LoginOutcome> {
+  const headers: Record<string, string> = {};
+  if (request.sessionToken) {
+    headers.Authorization = `Bearer ${request.sessionToken}`;
+  }
+
   const response = (await apiService.post(
     API_ENDPOINTS.AUTH.SELECT_TENANT,
     {
       email: request.email,
       tenantId: request.tenantId,
     },
-    {
-      headers: {
-        Authorization: `Bearer ${request.sessionToken}`,
-      },
-    },
+    { headers }
   )) as LoginApiResponse;
-  const outcome = mapLoginResponseToOutcome(response);
-
-  if (outcome.type === "authenticated") {
-    saveSession(outcome.session);
+  if (response.success && response.data) {
+    return {
+      type: 'tenantSelection',
+      tenants: response.data.tenants || [],
+      email: response.data.email || request.email,
+      sessionToken: request.sessionToken,
+      message: 'Tenant selected. Please login with your credentials.'
+    };
   }
 
-  if (outcome.type === "mustChangePassword" && outcome.session) {
-    saveSession(outcome.session);
-  }
-
-  return outcome;
+  return {
+    type: 'failed',
+    message: response.message || 'Failed to select tenant'
+  };
 }
+
 
 export async function refreshSession(): Promise<AuthSession | null> {
   const refreshToken = getRefreshToken();
@@ -240,13 +273,29 @@ export async function updateProfile(payload: Record<string, unknown>): Promise<A
   return (await apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload)) as ApiResponse<UserProfile>;
 }
 
-export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome> {
-  const response = (await apiService.post(
-    API_ENDPOINTS.AUTH.LOGIN,
-    { mobileNumber }
-  )) as LoginApiResponse;
+// export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome> {
+//   const response = (await apiService.post(
+//     API_ENDPOINTS.AUTH.LOGIN,
+//     { mobileNumber }
+//   )) as LoginApiResponse;
   
-  return mapLoginResponseToOutcome(response);
+//   return mapLoginResponseToOutcome(response);
+// }
+
+export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome> {
+  try {
+    const response = (await apiService.post(
+      API_ENDPOINTS.AUTH.LOGIN,
+      { mobileNumber }
+    )) as LoginApiResponse;
+    
+    return mapLoginResponseToOutcome(response);
+  } catch (error) {
+    return {
+      type: "failed",
+      message: error instanceof Error ? error.message : "Failed to send OTP",
+    };
+  }
 }
 
 export async function verifyMobileOtp(
@@ -258,5 +307,27 @@ export async function verifyMobileOtp(
     { mobileNumber, mobileOtp: otp }
   )) as LoginApiResponse;
   
-  return mapLoginResponseToOutcome(response);
+  const outcome:any = mapLoginResponseToOutcome(response);
+
+  if (outcome.type === "authenticated") {
+    saveSession(outcome.session);
+  }
+
+  if (outcome.type === "mustChangePassword" && outcome.session) {
+    saveSession(outcome.session);
+  }
+
+  return outcome;
 }
+
+// export async function verifyMobileOtp(
+//   mobileNumber: string,
+//   otp: string
+// ): Promise<LoginOutcome> {
+//   const response = (await apiService.post(
+//     API_ENDPOINTS.AUTH.LOGIN,
+//     { mobileNumber, mobileOtp: otp }
+//   )) as LoginApiResponse;
+  
+//   return mapLoginResponseToOutcome(response);
+// }

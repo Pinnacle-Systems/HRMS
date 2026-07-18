@@ -4,28 +4,28 @@ export type ApiRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS" | string;
 
 export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
 
-export type Permission = 
-  | 'EMPLOYEE_READ'
-  | 'EMPLOYEE_WRITE'
-  | 'EMPLOYEE_DELETE'
-  | 'EMPLOYEE_UPLOAD'
-  | 'PAYROLL_READ'
-  | 'PAYROLL_WRITE'
-  | 'REPORT_READ'
-  | 'REPORT_EXPORT'
-  | 'PROFILE_READ'
-  | 'PROFILE_WRITE'
-  | 'USER_MANAGE'
-  | 'ATTENDANCE_READ'
-  | 'ATTENDANCE_WRITE'
-  | 'SETTINGS_READ'
-  | 'SETTINGS_WRITE'
-  | 'POLICY_READ'
-  | 'POLICY_WRITE'
-  | 'LEAVE_READ'
-  | 'LEAVE_WRITE'
-  | 'LEAVE_APPROVE'
-  | 'ROLE_MANAGE';
+export type Permission =
+  | "EMPLOYEE_READ"
+  | "EMPLOYEE_WRITE"
+  | "EMPLOYEE_DELETE"
+  | "EMPLOYEE_UPLOAD"
+  | "PAYROLL_READ"
+  | "PAYROLL_WRITE"
+  | "REPORT_READ"
+  | "REPORT_EXPORT"
+  | "PROFILE_READ"
+  | "PROFILE_WRITE"
+  | "USER_MANAGE"
+  | "ATTENDANCE_READ"
+  | "ATTENDANCE_WRITE"
+  | "SETTINGS_READ"
+  | "SETTINGS_WRITE"
+  | "POLICY_READ"
+  | "POLICY_WRITE"
+  | "LEAVE_READ"
+  | "LEAVE_WRITE"
+  | "LEAVE_APPROVE"
+  | "ROLE_MANAGE";
 
 export type TenantInfo = {
   id: string;
@@ -56,7 +56,7 @@ export type AuthSession = {
   expiresIn: number;
   expiresAt: number;
   user: AuthUser;
-  company: CompanyDetails
+  company: CompanyDetails;
 };
 
 export type ApiResponse<T> = {
@@ -147,7 +147,7 @@ export type UserProfile = {
   department: string;
   designation: string;
   hireDate: string;
-  mfaType: string
+  mfaType: string;
 };
 
 export type ProfilePictureResponse = {
@@ -199,12 +199,28 @@ export type LoginApiResponse = ApiResponse<AuthResponse>;
 //   | { type: "mustChangePassword"; session?: AuthSession; email?: string }
 //   | { type: "failed"; message: string };
 
-export type LoginOutcome =
-  | { type: "authenticated"; session: AuthSession; mfaSetupRequired?: boolean }
-  | { type: "mfaRequired"; sessionToken: string; mfaType?: string }
-  | { type: "tenantSelection"; tenants: TenantInfo[]; email: string; sessionToken?: string }
-  | { type: "mustChangePassword"; session?: AuthSession; email?: string }
-  | { type: "failed"; message: string };
+export interface LoginOutcome {
+  type:
+    | "authenticated"
+    | "mfaRequired"
+    | "tenantSelection"
+    | "mustChangePassword"
+    | "failed";
+  session?: AuthSession;
+  sessionToken?: string;
+  mfaType?: string;
+  tenants?: TenantInfo[];
+  email?: string;
+  message?: string;
+  mfaSetupRequired?: boolean;
+}
+
+// export type LoginOutcome =
+//   | { type: "authenticated"; session: AuthSession; mfaSetupRequired?: boolean }
+//   | { type: "mfaRequired"; sessionToken: string; mfaType?: string }
+//   | { type: "tenantSelection"; tenants: TenantInfo[]; email: string; sessionToken?: string }
+//   | { type: "mustChangePassword"; session?: AuthSession; email?: string }
+//   | { type: "failed"; essage: string };
 
 export type NavItem = {
   text: string;
@@ -224,7 +240,7 @@ export type ProtectedRouteProps = {
   children?: ReactNode;
   allowedRoles?: AppRole[];
   requiredPermissions?: Permission[];
-  permissionMode?: 'any' | 'all';
+  permissionMode?: "any" | "all";
 };
 
 export type AuthContextValue = {

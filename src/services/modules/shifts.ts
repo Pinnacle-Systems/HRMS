@@ -42,6 +42,7 @@ export interface Shift {
   templateId: string;
   advancedConfigTypes: [];
   templateName?: string;
+  defaultShift?: boolean;
 }
 
 // Pagination response for shifts
@@ -157,7 +158,7 @@ export interface SwapRequest {
   decidedBy?: string;
   decisionReason?: string;
   createdAt: string;
-  decidedByName?: string
+  decidedByName?: string;
 }
 
 export interface ScheduleStats {
@@ -260,6 +261,17 @@ class ShiftService {
 
   async updateShiftStatus(id: string, data: any) {
     return apiService.put(API_ENDPOINTS.SHIFTS.UPDATE_ACTIVE(id), data);
+  }
+
+  async setDefaultShift(id: string) {
+    return apiService.patch(API_ENDPOINTS.SHIFTS.SET_DEFAULT(id));
+  }
+
+  async getDefaultShift() {
+    const response:any = await apiService.get(
+      API_ENDPOINTS.SHIFTS.GET_DEFAULT,
+    );
+    return response.data;
   }
 
   // Shift Swap Requests
@@ -582,15 +594,17 @@ class ShiftService {
     return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION_TEMP);
   }
 
-   async getNotificationStatus(params: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION_STATUS,{params});
+  async getNotificationStatus(params: any) {
+    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION_STATUS, {
+      params,
+    });
   }
 
-   async getNotification(params: any) {
-    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION,{params});
+  async getNotification(params: any) {
+    return apiService.get(API_ENDPOINTS.SHIFTS.GET_NOTIFICATION, { params });
   }
 
-   async sendShiftNotifications(data: any) {
+  async sendShiftNotifications(data: any) {
     return apiService.post(API_ENDPOINTS.SHIFTS.SEND_NOTIFY, data);
   }
 

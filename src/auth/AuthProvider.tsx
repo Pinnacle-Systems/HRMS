@@ -29,27 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [session]);
 
-  const login = useCallback(
+   const login = useCallback(
     async (request: LoginRequest): Promise<LoginOutcome> => {
-      logger.info("Login started", {
+        logger.info("Login started", {
         loginId: request.loginId,
         hasMobileNumber: Boolean(request.mobileNumber),
         tenantId: request.tenantId,
       });
-
-      const outcome = await authApi.login(request);
-      logger.info("Login completed", {
+      const outcome:any = await authApi.login(request);
+       logger.info("Login completed", {
         outcome: outcome.type,
         userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
         roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
       });
 
-      if (outcome.type === "authenticated") {
-        setSession(outcome.session);
-        apiService.setAuthToken(outcome.session.accessToken);
-      }
-
-      if (outcome.type === "mustChangePassword" && outcome.session) {
+      if (outcome.type === "authenticated" || 
+          (outcome.type === "mustChangePassword" && outcome.session)) {
         setSession(outcome.session);
         apiService.setAuthToken(outcome.session.accessToken);
       }
@@ -58,31 +53,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  // const login = useCallback(
+  //   async (request: LoginRequest): Promise<LoginOutcome> => {
+  //     logger.info("Login started", {
+  //       loginId: request.loginId,
+  //       hasMobileNumber: Boolean(request.mobileNumber),
+  //       tenantId: request.tenantId,
+  //     });
+
+  //     const outcome = await authApi.login(request);
+  //     logger.info("Login completed", {
+  //       outcome: outcome.type,
+  //       userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
+  //       roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
+  //     });
+
+  //     if (outcome.type === "authenticated") {
+  //       setSession(outcome.session);
+  //       apiService.setAuthToken(outcome.session.accessToken);
+  //     }
+
+  //     if (outcome.type === "mustChangePassword" && outcome.session) {
+  //       setSession(outcome.session);
+  //       apiService.setAuthToken(outcome.session.accessToken);
+  //     }
+
+  //     return outcome;
+  //   },
+  //   [],
+  // );
 
   const selectTenant = useCallback(
     async (request: SelectTenantRequest): Promise<LoginOutcome> => {
       logger.info("Tenant selection started", { tenantId: request.tenantId });
-      const outcome = await authApi.selectTenant(request);
-      logger.info("Tenant selection completed", {
+      const previewOutcome: any = await authApi.selectTenant(request);
+       logger.info("Tenant selection completed", {
         tenantId: request.tenantId,
-        outcome: outcome.type,
-        userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
+        outcome: previewOutcome.type,
+        userId: previewOutcome.type === "authenticated" ? previewOutcome.session.user.userId : undefined,
       });
-
-      if (outcome.type === "authenticated") {
-        setSession(outcome.session);
-        apiService.setAuthToken(outcome.session.accessToken);
+      if (previewOutcome.type === 'failed') {
+        return previewOutcome;
       }
-
-      if (outcome.type === "mustChangePassword" && outcome.session) {
-        setSession(outcome.session);
-        apiService.setAuthToken(outcome.session.accessToken);
-      }
-
-      return outcome;
+      return previewOutcome;
     },
     [],
   );
+
+  // const selectTenant = useCallback(
+  //   async (request: SelectTenantRequest): Promise<LoginOutcome> => {
+  //     logger.info("Tenant selection started", { tenantId: request.tenantId });
+  //     const outcome = await authApi.selectTenant(request);
+  //     logger.info("Tenant selection completed", {
+  //       tenantId: request.tenantId,
+  //       outcome: outcome.type,
+  //       userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
+  //     });
+
+  //     if (outcome.type === "authenticated") {
+  //       setSession(outcome.session);
+  //       apiService.setAuthToken(outcome.session.accessToken);
+  //     }
+
+  //     if (outcome.type === "mustChangePassword" && outcome.session) {
+  //       setSession(outcome.session);
+  //       apiService.setAuthToken(outcome.session.accessToken);
+  //     }
+
+  //     return outcome;
+  //   },
+  //   [],
+  // );
 
   const logout = useCallback(async () => {
     logger.info("Logout started", { userId: session?.user.userId });
@@ -124,9 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyMobileOtp = useCallback(
     async (mobileNumber: string, otp: string): Promise<LoginOutcome> => {
       logger.info("Verifying mobile OTP", { mobileNumber });
-      const outcome = await authApi.verifyMobileOtp(mobileNumber, otp);
+      const outcome: any = await authApi.verifyMobileOtp(mobileNumber, otp);
 
-      if (outcome.type === "authenticated") {
+      if (outcome.type === "authenticated" || 
+          (outcome.type === "mustChangePassword" && outcome.session)) {
         setSession(outcome.session);
         apiService.setAuthToken(outcome.session.accessToken);
       }

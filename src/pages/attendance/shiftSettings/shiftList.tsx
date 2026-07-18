@@ -20,15 +20,16 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Tooltip,
   Checkbox,
   ListItemText,
-  Box
+  Box,
+  Menu,
+  MenuItem as MenuItemMUI,
+  ListItemIcon,
+  Tooltip,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
   AccessTime as TimeIcon,
   NightsStay as NightIcon,
   WbSunny as DayIcon,
@@ -38,6 +39,11 @@ import {
   Bedtime as EveningIcon,
   CloseOutlined,
   Settings as SettingsIcon,
+  MoreVert as MoreVertIcon,
+  EditOutlined,
+  DeleteForeverOutlined,
+  StarBorderOutlined,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { LocalizationProvider, TimePicker } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -72,6 +78,12 @@ export const ShiftList = () => {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
+  const [defaultShiftId, setDefaultShiftId] = useState<string | null>(null);
+  
+  // Menu state
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState<ShiftFormData>({
     shiftName: '',
     shiftCode: '',
@@ -98,6 +110,22 @@ export const ShiftList = () => {
   const handleSearch = (term: string) => {
     setSearchTerm(term);
     setPage(0);
+  };
+
+  // Menu handlers
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, shiftId: string) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedShiftId(shiftId);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedShiftId(null);
+  };
+
+  // Get the current shift from selectedShiftId
+  const getSelectedShift = () => {
+    return shifts.find(shift => shift.id === selectedShiftId);
   };
 
   // Convert time string (e.g., "14:30:00") to Dayjs
@@ -141,11 +169,18 @@ export const ShiftList = () => {
       if (searchTerm) {
         params.search = searchTerm;
       }
-      const [shiftsData, statsData, shiftType] = await Promise.all([
+      const [shiftsData, statsData, shiftType, defaultShift] = await Promise.all([
         shiftService.getShifts(params),
         shiftService.getShiftStats(),
         shiftService.getShiftTypes(),
+        shiftService.getDefaultShift(),
       ]);
+      
+      // Set default shift ID
+      if (defaultShift.id) {
+        setDefaultShiftId(defaultShift.id);
+      }
+      
       const shiftsWithTemplateName =
         shiftsData?.content?.map((shift) => ({
           ...shift,
@@ -174,13 +209,6 @@ export const ShiftList = () => {
       hideSpinner();
     }
   };
-
-  // useEffect(() => {
-  //   Promise.resolve().then(() => {
-  //     fetchMasterData();
-  //     fetchData();
-  //   });
-  // }, [page, limit, searchTerm]);
 
   useEffect(() => {
     fetchMasterData();
@@ -260,8 +288,6 @@ export const ShiftList = () => {
       startTime: timeStringToDayjs(shift.startTime),
       endTime: timeStringToDayjs(shift.endTime),
       shiftType: shift.shiftType,
-      // graceTime: shift.graceTime,
-      // breakTime: shift.breakTime,
       isActive: shift.isActive,
       color: shift.color,
       weeklyOff: mappedWeeklyOff,
@@ -270,24 +296,35 @@ export const ShiftList = () => {
       templateId: shift.templateId,
     });
     setIsDialogOpen(true);
+    handleMenuClose();
   };
 
   const handleAdvancedConfig = (shift: Shift) => {
     setSelectedShiftForConfig(shift);
     setIsAdvancedConfigOpen(true);
+    handleMenuClose();
   };
 
-  const filteredShifts = shifts.filter(shift =>
-    shift.shiftName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    shift.shiftCode?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const statsCards = [
-    { label: 'Total Shifts', value: stats.totalShifts, icon: <TimeIcon />, color: 'red' },
-    { label: 'Active Shifts', value: stats.activeShifts, icon: <DayIcon />, color: 'green' },
-    { label: 'Night Shifts', value: stats.nightShifts, icon: <NightIcon />, color: 'blue' },
-    { label: 'Flexible', value: stats.flexibleShifts, icon: <TimeIcon />, color: 'yellow' },
-  ];
+  const handleDeleteShift = (shift: Shift) => {
+    handleMenuClose();
+    showConfirmDialog({
+      title: 'Delete Shift',
+      message: `Are you sure you want to delete "${shift.shiftName}"?`,
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        try {
+          showSpinner();
+          await shiftService.deleteShift(shift.id);
+          showSnackbar('Shift deleted successfully!', 'success');
+          fetchData();
+        } catch (error: any) {
+          showSnackbar(error.message || 'Failed to delete shift', 'error');
+        } finally {
+          hideSpinner();
+        }
+      }
+    });
+  };
 
   const handleToggleStatus = async (shift: Shift) => {
     showSpinner();
@@ -302,7 +339,35 @@ export const ShiftList = () => {
     } finally {
       hideSpinner();
     }
+    handleMenuClose();
   };
+
+  const setAsDefault = async (shiftId: string) => {
+    try {
+      showSpinner();
+      const res: any = await shiftService.setDefaultShift(shiftId);
+      showSnackbar(res.message || 'Default shift set successfully!', 'success');
+      setDefaultShiftId(shiftId);
+      await fetchData();
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to set default shift', 'error');
+    } finally {
+      hideSpinner();
+      handleMenuClose();
+    }
+  };
+
+  const filteredShifts = shifts.filter(shift =>
+    shift.shiftName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    shift.shiftCode?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const statsCards = [
+    { label: 'Total Shifts', value: stats.totalShifts, icon: <TimeIcon />, color: 'red' },
+    { label: 'Active Shifts', value: stats.activeShifts, icon: <DayIcon />, color: 'green' },
+    { label: 'Night Shifts', value: stats.nightShifts, icon: <NightIcon />, color: 'blue' },
+    { label: 'Flexible', value: stats.flexibleShifts, icon: <TimeIcon />, color: 'yellow' },
+  ];
 
   const commonsx = {
     "& .MuiDialog-paper": {
@@ -382,7 +447,7 @@ export const ShiftList = () => {
               <TableCell className='!font-semibold'>Type</TableCell>
               <TableCell className='!font-semibold'>Shift Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
-              <TableCell className='!font-semibold !sticky !right-[124px] !z-[100]'>Status</TableCell>
+              <TableCell className='!font-semibold !sticky !right-[100px] !z-[100]'>Status</TableCell>
               <TableCell className='!font-semibold' sx={{
                 ...stickyHeaderRightSx,
                 minWidth: "100px",
@@ -390,106 +455,164 @@ export const ShiftList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredShifts.map((shift, index) => (
-              <TableRow key={shift.id} className="hover:bg-gray-50" sx={getRowColor(index)}>
-                <TableCell sx={{
-                  ...getStickyLeftSx(index),
-                  minWidth: "70px",
-                }}>{page * limit + index + 1}</TableCell>
-                <TableCell sx={{
-                  ...getStickyLeftSx(index),
-                  left: "70px",
-                  minWidth: "100px",
-                }}>
-                  <div className="flex items-center gap-2 font-medium">
-                    <div
-                      className="w-3 h-3 rounded-full border border-gray-300"
-                      style={{ backgroundColor: shift.color }}
+            {filteredShifts.map((shift, index) => {
+              const isDefault = defaultShiftId === shift.id;
+              return (
+                <TableRow 
+                  key={shift.id} 
+                  className="hover:bg-gray-50" 
+                  sx={{
+                    ...getRowColor(index),
+                    ...(isDefault && {
+                      '& td': {
+                        backgroundColor: "var(--color-primary-50)"
+                      }
+                    })
+                  }}
+                >
+                  <TableCell sx={{
+                    ...getStickyLeftSx(index),
+                    minWidth: "70px",
+                  }}>{page * limit + index + 1}</TableCell>
+                  <TableCell sx={{
+                    ...getStickyLeftSx(index),
+                    left: "70px",
+                    minWidth: "100px",
+                  }}>
+                    <div className="flex items-center gap-2 font-medium">
+                      <div
+                        className="w-3 h-3 rounded-full border border-gray-300"
+                        style={{ backgroundColor: shift.color }}
+                      />
+                      <span className="!font-mono">{shift.shiftCode}</span>
+                      {isDefault && (
+                        <Tooltip title="Default Shift">
+                          <StarIcon className="!text-yellow-500 !w-4 !h-4" />
+                        </Tooltip>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span>{shift.shiftName}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <TimeIcon fontSize="small" className="text-gray-400" />
+                      <span>
+                        {formatTimeTo12Hour(shift.startTime)} - {formatTimeTo12Hour(shift.endTime)}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>{shift.totalHours}h</TableCell>
+                  <TableCell>{shift.templateName}</TableCell>
+                  <TableCell>{shift?.advancedConfigTypes?.length ? shift?.advancedConfigTypes : '-'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={shift.shiftType}
+                      icon={getShiftTypeIcon(shift.shiftType)}
+                      className={getShiftTypeClass(shift.shiftType)}
                     />
-                    <span className="!font-mono">{shift.shiftCode}</span>
-                  </div>
-
-                </TableCell>
-                <TableCell >
-                  <span>{shift.shiftName}</span>
-                </TableCell>
-
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <TimeIcon fontSize="small" className="text-gray-400" />
-                    <span>
-                      {formatTimeTo12Hour(shift.startTime)} - {formatTimeTo12Hour(shift.endTime)}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell>{shift.totalHours}h</TableCell>
-                <TableCell>{shift.templateName}</TableCell>
-                <TableCell>{shift?.advancedConfigTypes.length ? shift?.advancedConfigTypes : '-'}</TableCell>
-                <TableCell>
-                  <Chip
-                    size="small"
-                    label={shift.shiftType}
-                    icon={getShiftTypeIcon(shift.shiftType)}
-                    className={getShiftTypeClass(shift.shiftType)}
-                  />
-                </TableCell>
-                <TableCell>{shift.weeklyOff?.join(', ') || 'None'}</TableCell>
-                <TableCell className='!sticky !right-[124px] !z-[100] bg-inherit'>
-                  <Chip
-                    size="small"
-                    label={shift.isActive ? 'Active' : 'Inactive'}
-                    color={shift.isActive ? 'success' : 'error'}
-                    onClick={() => handleToggleStatus(shift)}
-                  />
-                </TableCell>
-                <TableCell align="center" sx={{
-                  ...getStickyRightSx(index),
-                  minWidth: "50px",
-                }}>
-                  <div className="flex gap-1 justify-center">
-                    <Tooltip title="Edit Basic Info">
-                      <IconButton size="small" onClick={() => handleEdit(shift)} color="primary" disabled={!shift.isActive}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                  </TableCell>
+                  <TableCell>{shift.weeklyOff?.join(', ') || 'None'}</TableCell>
+                  <TableCell className='!sticky !right-[100px] !z-[100] bg-inherit'>
+                    <Chip
+                      size="small"
+                      label={shift.isActive ? 'Active' : 'Inactive'}
+                      color={shift.isActive ? 'success' : 'error'}
+                      onClick={() => handleToggleStatus(shift)}
+                    />
+                  </TableCell>
+                  <TableCell sx={{
+                    ...getStickyRightSx(index),
+                    minWidth: "50px",
+                  }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => handleMenuOpen(e, shift.id)}
+                      aria-label="more options"
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
                     <Tooltip title="Advanced Configuration">
                       <IconButton size="small" onClick={() => handleAdvancedConfig(shift)} disabled={!shift.isActive}>
                         <SettingsIcon fontSize="small" className={`${!shift.isActive ? 'text-gray-500' : '!text-primary'}`} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton size="small" onClick={() => {
-                        showConfirmDialog({
-                          title: 'Delete Shift',
-                          message: `Are you sure you want to delete "${shift.shiftName}"?`,
-                          confirmText: 'Delete',
-                          onConfirm: async () => {
-                            try {
-                              showSpinner();
-                              await shiftService.deleteShift(shift.id);
-                              showSnackbar('Shift deleted successfully!', 'success');
-                              fetchData();
-                            } catch (error: any) {
-                              showSnackbar(error.message || 'Failed to delete shift', 'error');
-                            } finally {
-                              hideSpinner();
-                            }
-                          }
-                        });
-                      }} color="error">
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
         {filteredShifts.length === 0 && (
           <div className="bg-white border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500"> No shifts available!</div>
         )}
       </TableContainer>
+
+      {/* Actions Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+      >
+        {getSelectedShift() && (() => {
+          const shift = getSelectedShift();
+          const isDefault = defaultShiftId === shift?.id;
+          return (
+            <>
+              <MenuItemMUI
+                onClick={() => {
+                  if (shift) handleEdit(shift);
+                }}
+                disabled={!shift?.isActive}
+              >
+                <ListItemIcon>
+                  <EditOutlined fontSize="small" color="primary" className='!w-4' />
+                </ListItemIcon>
+                Edit
+              </MenuItemMUI>
+
+              <MenuItemMUI
+                onClick={() => {
+                  if (shift) setAsDefault(shift.id);
+                }}
+                disabled={!shift?.isActive || isDefault}
+                sx={isDefault ? { opacity: 0.5 } : {}}
+              >
+                <ListItemIcon>
+                  {isDefault ? (
+                    <StarIcon fontSize="small" className='!text-yellow-500 !w-4' />
+                  ) : (
+                    <StarBorderOutlined fontSize="small" color="success" className='!w-4' />
+                  )}
+                </ListItemIcon>
+                {isDefault ? 'Default Shift' : 'Set as Default'}
+              </MenuItemMUI>
+
+              <MenuItemMUI
+                onClick={() => {
+                  if (shift) handleDeleteShift(shift);
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <ListItemIcon>
+                  <DeleteForeverOutlined fontSize="small" color="error" className='!w-4' />
+                </ListItemIcon>
+                Delete
+              </MenuItemMUI>
+            </>
+          );
+        })()}
+      </Menu>
 
       {/* Global Pagination */}
       {total > 0 && (

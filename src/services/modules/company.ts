@@ -61,5 +61,10 @@ class CompanyService {
   async updatePasswordConfig(data: any) {
     return apiService.put(API_ENDPOINTS.PASSWORD_CONFIG.BASE,data);
   }
+
+  async getCompanyDetailsByGST(params: {gstNo : string}) {
+    return apiService.get(API_ENDPOINTS.COMPANY.GET_COMPANY_BY_GST, { params });
+  }
+
 }
 export const companyService = new CompanyService();
