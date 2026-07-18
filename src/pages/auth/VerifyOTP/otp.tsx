@@ -12,33 +12,53 @@ import pinnacle from '../../../assets/pinnacle.jpg';
 type VerifyOtpLocationState = {
   email?: string;
   mobileNumber?: string;
-  type?: string;
+  type?: "SIGNUP" | "LOGIN_MFA" | "PASSWORD_RESET" | "MOBILE_LOGIN";
   fromLogin?: boolean;
+  fromSignup?: boolean;
+  userData?: {
+    firstName: string;
+    lastName: string;
+    companyName: string;
+  };
 };
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const location = useLocation();
   const state = (location.state || {}) as VerifyOtpLocationState;
-  const [identifier, _setIdentifier] = useState<string>(
-    state.mobileNumber || state.email || "your registered contact"
-  );
-  const [timeLeft, setTimeLeft] = useState<number>(60);
+  // const [identifier, setIdentifier] = useState<string>(
+  //   state.mobileNumber || state.email || "your registered contact"
+  // );
+  const [timeLeft, setTimeLeft] = useState<number>(300); // 5 minutes for signup, 60 seconds for login
   const [error, setError] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendCount, setResendCount] = useState(0);
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const { login } = useAuth();
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const canResend = timeLeft === 0;
+  
+  // Determine if this is signup flow
+  const isSignupFlow = state.type === "SIGNUP" || state.fromSignup === true;
+  const isMobileLogin = state.type === "MOBILE_LOGIN" || state.fromLogin === true;
+  
+  // Set initial timer based on flow
+  useEffect(() => {
+    if (isSignupFlow) {
+      setTimeLeft(300); // 5 minutes for signup
+    } else {
+      setTimeLeft(60); // 1 minute for login
+    }
+  }, [isSignupFlow]);
 
   // Auto-send OTP on page load if from login
   useEffect(() => {
-    if (state.fromLogin && state.mobileNumber && !otpSent) {
+    if (isMobileLogin && state.mobileNumber && !otpSent) {
       autoSendOtp();
     }
-  }, []);
+  }, [isMobileLogin, state.mobileNumber, otpSent]);
 
   // Timer countdown
   useEffect(() => {
@@ -53,8 +73,6 @@ export default function VerifyOTP() {
 
   // Auto-fill OTP from SMS (simulated - real implementation would use SMS retriever API)
   useEffect(() => {
-    // This simulates auto-fill from SMS
-    // In production, use Android SMS Retriever API or iOS SMS auto-fill
     const autoFillOtp = (code: string) => {
       if (code.length === 6 && /^\d+$/.test(code)) {
         const otpArray = code.split("");
@@ -70,13 +88,7 @@ export default function VerifyOTP() {
       }
     };
 
-    // Listen for SMS (for web, this would be a placeholder)
-    // In real implementation, use:
-    // - Android: SMS Retriever API
-    // - iOS: SMS auto-fill
-    // - Web: Use SMS OTP via backend
     const messageListener = (event: MessageEvent) => {
-      // Parse SMS content and extract OTP
       const sms = event.data;
       const otpMatch = sms?.match(/\b\d{6}\b/);
       if (otpMatch) {
@@ -88,31 +100,26 @@ export default function VerifyOTP() {
     return () => window.removeEventListener("message", messageListener);
   }, []);
 
-  // Auto-send OTP function
+  // Auto-send OTP function for mobile login
   const autoSendOtp = async () => {
     if (!state.mobileNumber) return;
 
     showSpinner();
     try {
-      // Send OTP via login API without OTP
       const outcome = await login(
         buildLoginRequest({
           mobileNumber: state.mobileNumber,
         })
       );
 
-      // If login returns authenticated, user might not need OTP
       if (outcome.type === "authenticated") {
         navigate(getDefaultRoute(outcome.session.user), { replace: true });
         return;
       }
 
-      // If we get here, OTP was sent
       setOtpSent(true);
       setTimeLeft(60);
       showSnackbar("OTP sent to your mobile number", "success");
-      
-      // Focus on first input
       inputRefs.current[0]?.focus();
     } catch (err) {
       console.error("Failed to send OTP:", err);
@@ -166,7 +173,6 @@ export default function VerifyOTP() {
       const lastIndex = Math.min(otpArray.length - 1, 5);
       inputRefs.current[lastIndex]?.focus();
 
-      // Auto-submit if all digits filled
       if (newOtp.every((digit) => digit !== "")) {
         setTimeout(() => {
           handleSubmit(newOtp.join(""));
@@ -175,6 +181,7 @@ export default function VerifyOTP() {
     }
   };
 
+  // Handle OTP verification
   const handleSubmit = async (otpValue?: string) => {
     const code = otpValue || otp.join("");
     
@@ -188,9 +195,37 @@ export default function VerifyOTP() {
     showSpinner();
 
     try {
-      // For mobile login flow
-      if (state.fromLogin && state.mobileNumber) {
-        // Verify OTP by calling login with OTP
+      // Handle Signup OTP Verification (Step 2)
+      if (isSignupFlow && state.email) {
+        const response = await authService.verifyOtp({
+          email: state.email,
+          otp: code,
+          type: "SIGNUP"
+        });
+
+        if (response.success) {
+          showSnackbar("Verification successful! You can now login.", "success");
+          // Navigate to login after successful verification
+          setTimeout(() => {
+            navigate("/login", {
+              replace: true,
+              state: {
+                email: state.email,
+                verified: true,
+                fromSignup: true
+              }
+            });
+          }, 1500);
+        } else {
+          setError(response.message || "Invalid OTP. Please try again.");
+          showSnackbar(response.message || "Invalid OTP", "error");
+          // Clear OTP on error
+          setOtp(["", "", "", "", "", ""]);
+          inputRefs.current[0]?.focus();
+        }
+      }
+      // Handle Mobile Login OTP Verification
+      else if (isMobileLogin && state.mobileNumber) {
         const outcome = await login(
           buildLoginRequest({
             mobileNumber: state.mobileNumber,
@@ -233,14 +268,18 @@ export default function VerifyOTP() {
           case "failed":
             setError(outcome.message || "Invalid OTP. Please try again.");
             showSnackbar(outcome.message || "Invalid OTP", "error");
+            // Clear OTP on error
+            setOtp(["", "", "", "", "", ""]);
+            inputRefs.current[0]?.focus();
             break;
         }
-      } else {
-        // For other OTP verification (password reset, etc.)
+      }
+      // Handle other OTP verification (password reset, etc.)
+      else {
         const response = await authService.verifyOtp({
           email: state.email || "",
           otp: code,
-          type: state.type || "RESET_PASSWORD",
+          type: state.type || "PASSWORD_RESET",
         });
 
         if (response.success) {
@@ -252,48 +291,124 @@ export default function VerifyOTP() {
         } else {
           setError(response.message || "Unable to verify OTP.");
           showSnackbar(response.message || "Unable to verify OTP.", "error");
+          setOtp(["", "", "", "", "", ""]);
+          inputRefs.current[0]?.focus();
         }
       }
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Unable to verify OTP.";
       setError(errorMsg);
       showSnackbar(errorMsg, "error");
+      setOtp(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } finally {
       hideSpinner();
       setIsVerifying(false);
     }
   };
 
+  // Handle Resend OTP - Updated to match API spec
   const handleResendOTP = async () => {
-    if (!canResend) return;
+    if (isResending) return;
+    if (resendCount >= 5) {
+      showSnackbar("Maximum resend attempts reached. Please try again later.", "warning");
+      return;
+    }
+    
+    setIsResending(true);
+    showSpinner();
 
     try {
-      if (state.fromLogin && state.mobileNumber) {
-        // Resend OTP via login
-        await login(
+      let response;
+      
+      // Resend Signup OTP - POST /api/auth/resend-signup-otp
+      if (isSignupFlow && state.email) {
+        response = await authService.resendSignupOTP({ 
+          email: state.email 
+        });
+        
+        // The API always returns a generic success message for security
+        // It doesn't reveal if the account exists or is already verified
+        if (response.success) {
+          // Always show generic success message
+          showSnackbar("If your email is registered and not verified, a new OTP has been sent.", "success");
+          setTimeLeft(300); // Reset timer to 5 minutes
+          setOtp(["", "", "", "", "", ""]);
+          setError("");
+          setResendCount(prev => prev + 1);
+          inputRefs.current[0]?.focus();
+        } else {
+          // Even on failure, show generic message for security
+          showSnackbar("If your email is registered and not verified, a new OTP has been sent.", "info");
+          setTimeLeft(300);
+          setOtp(["", "", "", "", "", ""]);
+          setError("");
+          setResendCount(prev => prev + 1);
+          inputRefs.current[0]?.focus();
+        }
+      }
+      // Resend Mobile Login OTP
+      else if (isMobileLogin && state.mobileNumber) {
+        const outcome = await login(
           buildLoginRequest({
             mobileNumber: state.mobileNumber,
           })
         );
+
+        if (outcome.type === "authenticated") {
+          navigate(getDefaultRoute(outcome.session.user), { replace: true });
+          return;
+        }
+
         showSnackbar("OTP resent successfully", "success");
-      } else {
-        // Resend for other flows
-        await authService.verifyOtp({
-          email: state.email || "",
-          otp: "",
-          type: state.type || "RESEND",
-        });
-        showSnackbar("OTP resent successfully", "success");
+        setTimeLeft(60); // Reset timer to 1 minute
+        setOtp(["", "", "", "", "", ""]);
+        setError("");
+        inputRefs.current[0]?.focus();
       }
-      
-      setTimeLeft(60);
-      setOtp(["", "", "", "", "", ""]);
-      setError("");
-      inputRefs.current[0]?.focus();
-    } catch {
-      showSnackbar("Failed to resend OTP", "error");
+      // Resend for other flows (password reset, etc.)
+      else {
+        response = await authService.resendSignupOTP({
+          email: state.email || "",
+          // type: state.type || "PASSWORD_RESET"
+        });
+        
+        if (response.success) {
+          showSnackbar("OTP resent successfully", "success");
+          setTimeLeft(60); // Reset timer
+          setOtp(["", "", "", "", "", ""]);
+          setError("");
+          inputRefs.current[0]?.focus();
+        } else {
+          showSnackbar(response.message || "Failed to resend OTP", "error");
+        }
+      }
+    } catch (err: unknown) {
+      // For signup, always show generic message even on error
+      if (isSignupFlow) {
+        showSnackbar("If your email is registered and not verified, a new OTP has been sent.", "info");
+        setTimeLeft(300);
+        setOtp(["", "", "", "", "", ""]);
+        setError("");
+        setResendCount(prev => prev + 1);
+        inputRefs.current[0]?.focus();
+      } else {
+        const errorMsg = err instanceof Error ? err.message : "Failed to resend OTP";
+        showSnackbar(errorMsg, "error");
+      }
+    } finally {
+      hideSpinner();
+      setIsResending(false);
     }
   };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return mins > 0 ? `${mins}:${secs.toString().padStart(2, "0")}` : `${secs}s`;
+  };
+
+  const canResend = timeLeft === 0;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -314,13 +429,23 @@ export default function VerifyOTP() {
               </span>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 leading-snug mb-4">
-              Verify Your <span className="text-primary">Identity.</span>
+              {isSignupFlow ? "Verify Your Email" : "Verify Your Identity"}
+              <span className="text-primary">.</span>
             </h1>
             <div className="flex items-center justify-center mb-4">
               <p className="text-gray-600 max-w-sm text-[12px]">
-                {state.fromLogin 
-                  ? "We've sent a 6-digit OTP to your mobile number for secure login." 
-                  : "For your security, we need to verify your identity before resetting your password."}
+                {isSignupFlow ? (
+                  <>
+                    We've sent a 6-digit verification code to <br />
+                    <span className="font-medium text-gray-800">{state.email}</span>
+                    <br />
+                    Please verify your email to complete registration.
+                  </>
+                ) : isMobileLogin ? (
+                  "We've sent a 6-digit OTP to your mobile number for secure login."
+                ) : (
+                  "For your security, we need to verify your identity before resetting your password."
+                )}
               </p>
             </div>
             <img src={otpImg} width="100" alt="OTP" />
@@ -331,15 +456,24 @@ export default function VerifyOTP() {
               📱 <span className="font-bold">OTP Sent to:</span>
               <br />
               <span className="text-primary-dark font-medium">
-                {state.mobileNumber ? `+91${state.mobileNumber}` : identifier}
+                {isSignupFlow 
+                  ? state.email 
+                  : state.mobileNumber 
+                    ? `+91${state.mobileNumber}` 
+                    : ""}
               </span>
               <br />
             </p>
             <span className="text-gray-400">
-              {state.fromLogin 
+              {isMobileLogin 
                 ? "The OTP will auto-fill when received" 
-                : "Check your SMS inbox if you don't receive the code."}
+                : "Check your inbox if you don't receive the code."}
             </span>
+            {isSignupFlow && resendCount > 0 && (
+              <p className="text-xs text-gray-400 mt-2">
+                Resend attempts: {resendCount}/5
+              </p>
+            )}
           </div>
         </div>
 
@@ -353,13 +487,15 @@ export default function VerifyOTP() {
           />
 
           <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-            Enter <br />
+            {isSignupFlow ? "Verify" : "Enter"} <br />
             Verification <span className="text-primary">Code</span>
           </h2>
           <div className="text-[12px] mb-6 text-gray-400">
-            {state.fromLogin 
-              ? "Enter the 6-digit OTP sent to your mobile" 
-              : "We've sent a 6-digit code to your email"}
+            {isSignupFlow 
+              ? "Enter the 6-digit OTP sent to your email" 
+              : isMobileLogin
+                ? "Enter the 6-digit OTP sent to your mobile"
+                : "We've sent a 6-digit code to your email"}
           </div>
 
           <form onSubmit={(e) => {
@@ -403,7 +539,7 @@ export default function VerifyOTP() {
               )}
 
               {/* Auto-fill status */}
-              {state.fromLogin && (
+              {isMobileLogin && (
                 <div className="text-xs text-gray-400 flex items-center gap-1">
                   <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                   Waiting for OTP (auto-fills when received)
@@ -412,21 +548,35 @@ export default function VerifyOTP() {
             </div>
 
             {/* Resend OTP Section */}
-            <div className="text-center">
+            <div className="text-center space-y-2">
               {canResend ? (
                 <button
                   type="button"
                   onClick={handleResendOTP}
-                  className="text-sm text-primary hover:text-primary-dark font-medium cursor-pointer"
-                  disabled={isVerifying}
+                  className="text-sm text-primary hover:text-primary-dark font-medium cursor-pointer disabled:opacity-60"
+                  disabled={isResending || isVerifying || resendCount >= 5}
                 >
-                  Resend OTP
+                  {isResending ? "Resending..." : "Resend OTP"}
                 </button>
               ) : (
                 <p className="text-sm text-gray-400">
                   Resend code in{" "}
-                  <span className="font-semibold text-primary">{timeLeft}</span>{" "}
-                  seconds
+                  <span className="font-semibold text-primary">
+                    {formatTime(timeLeft)}
+                  </span>
+                </p>
+              )}
+              
+              {/* Show countdown for signup */}
+              {isSignupFlow && timeLeft < 300 && (
+                <p className="text-xs text-gray-400">
+                  OTP expires in {formatTime(timeLeft)}
+                </p>
+              )}
+
+              {isSignupFlow && resendCount >= 5 && (
+                <p className="text-xs text-red-500">
+                  Maximum resend attempts reached. Please try again later.
                 </p>
               )}
             </div>
@@ -434,19 +584,25 @@ export default function VerifyOTP() {
             {/* Verify Button */}
             <button
               type="submit"
-              disabled={isVerifying || otp.some(d => d === "")}
+              disabled={isVerifying || otp.some(d => d === "") || isResending}
               className="w-full text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-dark"
             >
-              {isVerifying ? "Verifying..." : state.fromLogin ? "Verify & Login" : "Verify & Continue"}
+              {isVerifying 
+                ? "Verifying..." 
+                : isSignupFlow 
+                  ? "Verify & Create Account" 
+                  : isMobileLogin 
+                    ? "Verify & Login" 
+                    : "Verify & Continue"}
             </button>
 
             {/* Back to Login */}
             <div className="text-center">
               <Link
-                to="/login"
+                to={isSignupFlow ? "/login" : "/login"}
                 className="text-sm text-primary hover:text-primary-dark"
               >
-                ← Back to Sign In
+                ← {isSignupFlow ? "Back to Login" : "Back to Sign In"}
               </Link>
             </div>
 
@@ -454,9 +610,11 @@ export default function VerifyOTP() {
               <span className="text-primary rounded-xl bg-primary-50 w-[25px] h-[25px] flex items-center justify-center">
                 🔒
               </span>
-              {state.fromLogin 
-                ? "One-time password for secure login" 
-                : "Two-step verification for added security"}
+              {isSignupFlow 
+                ? "One-time verification for account creation" 
+                : isMobileLogin
+                  ? "One-time password for secure login"
+                  : "Two-step verification for added security"}
             </p>
           </form>
         </div>

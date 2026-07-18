@@ -17,8 +17,6 @@ import {
   DialogActions,
   TextField,
   Switch,
-  FormControlLabel,
-  Divider,
   Paper,
 } from "@mui/material";
 import {

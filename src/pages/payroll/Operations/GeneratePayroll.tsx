@@ -7,7 +7,6 @@ import {
     Typography,
     Button,
     TextField,
-    InputAdornment,
     Select,
     MenuItem,
     FormControl,
@@ -25,19 +24,15 @@ import {
     Stepper,
     Step,
     StepLabel,
-    StepIcon,
     useTheme,
     alpha,
     Grid,
     Checkbox,
-    FormControlLabel,
     Alert,
     AlertTitle,
     CircularProgress,
-    Divider,
 } from "@mui/material";
 import {
-    Search as SearchIcon,
     CalendarToday as CalendarIcon,
     People as UsersIcon,
     AttachMoney as DollarSignIcon,
@@ -49,7 +44,6 @@ import {
     ArrowForward as ArrowRightIcon,
     Check as CheckIcon,
     Warning as AlertCircleIcon,
-    Download as DownloadIcon,
 } from "@mui/icons-material";
 
 // Mock data - replace with your actual API data

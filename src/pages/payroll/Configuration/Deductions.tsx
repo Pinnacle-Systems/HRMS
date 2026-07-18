@@ -37,7 +37,6 @@ import {
   TrendingDown as TrendingDownIcon,
   AttachMoney as DollarSignIcon,
   Warning as AlertTriangleIcon,
-  Person as UserIcon,
   Edit as EditIcon,
   Block as BanIcon,
   Close as CloseIcon,

@@ -1,4 +1,9 @@
-import type { AuthContextValue, AuthSession, AppRole } from "../../src/auth/authTypes";
+import type {
+  AuthContextValue,
+  AuthSession,
+  AppRole,
+  Permission,
+} from "../../src/auth/authTypes";
 
 export const AUTH_STORAGE_KEY = "hrms.auth.session";
 
@@ -23,6 +28,11 @@ export function createMockAuthSession(
       permissions: ["EMPLOYEE_READ"],
       ...overrides.user,
     },
+    company: {
+      companyId: "",
+      companyName: "",
+      logoUrl: "  ",
+    },
   };
 }
 
@@ -33,7 +43,10 @@ export function createAuthContextValue(
     session,
     isLoading: false,
     isAuthenticated: Boolean(session),
-    login: async () => ({ type: "authenticated", session: session ?? createMockAuthSession() }),
+    login: async () => ({
+      type: "authenticated",
+      session: session ?? createMockAuthSession(),
+    }),
     selectTenant: async () => ({
       type: "authenticated",
       session: session ?? createMockAuthSession(),
@@ -48,10 +61,33 @@ export function createAuthContextValue(
       type: "authenticated",
       session: session ?? createMockAuthSession(),
     }),
+    hasPermission: (permission: Permission) => {
+      return session?.user?.permissions?.includes(permission) ?? false;
+    },
+    hasAnyPermission: (permissions: Permission[]) => {
+      return permissions.some(p => 
+        session?.user?.permissions?.includes(p) ?? false
+      );
+    },
+    hasAllPermissions: (permissions: Permission[]) => {
+      return permissions.every(p => 
+        session?.user?.permissions?.includes(p) ?? false
+      );
+    },
+    hasRole: (role: AppRole) => {
+      return session?.user?.roles?.includes(role) ?? false;
+    },
+    hasAnyRole: (roles: AppRole[]) => {
+      return roles.some(r => 
+        session?.user?.roles?.includes(r) ?? false
+      );
+    },
   };
 }
 
-export function seedAuthSession(session = createMockAuthSession()): AuthSession {
+export function seedAuthSession(
+  session = createMockAuthSession(),
+): AuthSession {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
   return session;
 }

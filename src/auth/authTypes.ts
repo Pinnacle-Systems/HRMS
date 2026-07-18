@@ -39,7 +39,7 @@ export type AuthUser = {
   email: string;
   roles: AppRole[];
   rawRoles: string[];
-  permissions: Permission[];
+  permissions: string[];
   profilePic?: string;
 };
 
@@ -180,9 +180,9 @@ export type AuthResponse = {
   daysUntilPasswordExpiry?: number;
   profile?: UserProfile;
   mfaSetupRequired?: boolean;
-  companyId: string;
-  companyName: string;
-  logoUrl: string;
+  companyId?: string;
+  companyName?: string;
+  logoUrl?: string;
 };
 
 export type LoginApiResponse = ApiResponse<AuthResponse>;

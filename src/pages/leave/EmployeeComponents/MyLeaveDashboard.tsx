@@ -28,7 +28,6 @@ import type { LeaveBalance, LeaveRequest } from "../../../services/modules/leave
 import LeavePageShell from "../components/LeavePageShell";
 import LeaveStatusBadge from "../components/LeaveStatusBadge";
 import {
-  leaveTableBodyClassName,
   leaveTableClassName,
   leaveTableContainerSx,
   leaveTableHeaderRowSx,

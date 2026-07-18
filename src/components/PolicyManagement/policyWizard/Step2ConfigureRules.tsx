@@ -21,7 +21,7 @@ import { useLeaveTypesList } from '../../../hooks/useLeaveTypesList';
 import { useExpenseCategoriesList } from '../../../hooks/useExpenseCategoriesList';
 import {
   LeaveEntitlementsBlock,
-  AccrualRulesBlock,
+  // AccrualRulesBlock,
   CarryForwardBlock,
   SandwichRuleBlock,
   OvertimeRulesBlock,

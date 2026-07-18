@@ -18,7 +18,6 @@ import {
   TableContainer,
   Paper,
   Chip,
-  IconButton,
   Stack,
   useTheme,
   alpha,
@@ -27,20 +26,17 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  Badge,
   Avatar,
   InputAdornment,
 } from "@mui/material";
 import {
   Search as SearchIcon,
   Upload as UploadIcon,
-  Person as UserIcon,
   Business as Building2Icon,
   Work as BriefcaseIcon,
   AttachMoney as DollarSignIcon,
   CheckCircle as CheckCircleIcon,
   ExpandMore as ExpandMoreIcon,
-  Group as GroupIcon,
 } from "@mui/icons-material";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
 

@@ -22,20 +22,17 @@ import {
   Tab,
   Tabs,
   Avatar,
-  Divider,
 } from "@mui/material";
 import {
   ArrowBack as ArrowLeftIcon,
   Download as DownloadIcon,
   CheckCircle as CheckCircleIcon,
-  AccessTime as ClockIcon,
   People as UsersIcon,
   TrendingDown as TrendingDownIcon,
   TrendingUp as TrendingUpIcon,
   Description as FileTextIcon,
   BarChart as BarChart3Icon,
   History as HistoryIcon,
-  PictureAsPdf as PdfIcon,
 } from "@mui/icons-material";
 
 // Mock data - replace with your actual API data
@@ -110,7 +107,7 @@ export default function PayrollDetails() {
 
   const run = mockPayrollRuns.find((r) => r.id === id) ?? mockPayrollRuns[0];
   const isProcessed = run.status === "processed" || run.status === "approved";
-  const [period, setPeriod] = useState("May 2026");
+  const [period, _setPeriod] = useState("May 2026");
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
     setActiveTab(newValue);

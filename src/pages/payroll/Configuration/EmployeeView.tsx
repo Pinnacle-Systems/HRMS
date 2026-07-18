@@ -13,10 +13,8 @@ import {
   TableHead,
   TableRow,
   TableContainer,
-  Paper,
   Chip,
   Avatar,
-  Badge,
   LinearProgress,
   Select,
   MenuItem,
@@ -27,7 +25,6 @@ import {
   Stack,
   Divider,
   Tooltip,
-  IconButton,
 } from "@mui/material";
 import {
   Download as DownloadIcon,
@@ -38,10 +35,6 @@ import {
   Lightbulb as LightbulbIcon,
   Favorite as HeartIcon,
   Info as InfoIcon,
-  Person as PersonIcon,
-  Work as WorkIcon,
-  Receipt as ReceiptIcon,
-  AccountBalance as AccountBalanceIcon,
 } from "@mui/icons-material";
 import {
   LineChart,

@@ -31,8 +31,6 @@ import {
   DialogActions,
   Tabs,
   Tab,
-  Badge,
-  LinearProgress,
   Divider,
 } from "@mui/material";
 import {
@@ -43,13 +41,10 @@ import {
   Receipt as ReceiptIcon,
   AccountBalance as BankIcon,
   Description as FileIcon,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
   AttachMoney as DollarSignIcon,
   CheckCircle as CheckCircleIcon,
   AccessTime as TimeIcon,
   Settings as SettingsIcon,
-  CreditCard as CreditCardIcon,
   Print as PrintIcon,
   Email as EmailIcon,
   Refresh as RefreshIcon,

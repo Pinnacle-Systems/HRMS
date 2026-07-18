@@ -11,7 +11,7 @@ import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { attendanceService } from "../../../services/modules/attendance";
 // import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG } from "../const";
-import { MUSTER_STATUS_CELL, MUSTER_STATUS_ABBR, MONTHS, getDaysInMonth, getCurrentMonthYear, formatTime } from "../const";
+import { MONTHS, getDaysInMonth, getCurrentMonthYear, formatTime } from "../const";
 import type { Branches, Department } from "../../employees/type";
 import { departmentService } from "../../../services/modules/department";
 import { branchService } from "../../../services/modules/branch";

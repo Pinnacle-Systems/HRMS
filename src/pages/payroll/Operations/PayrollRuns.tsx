@@ -17,7 +17,6 @@ import {
     TableHead,
     TableRow,
     TableContainer,
-    Paper,
     Chip,
     IconButton,
     Stack,
@@ -36,8 +35,6 @@ import {
     AccessTime as ClockIcon,
     Cancel as XCircleIcon,
     Warning as AlertCircleIcon,
-    ChevronLeft as ChevronLeftIcon,
-    ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../auth/authContext";

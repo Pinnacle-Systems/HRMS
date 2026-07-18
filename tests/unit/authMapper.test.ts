@@ -46,6 +46,9 @@ describe("authMapper", () => {
       tenantId: "tenant-1",
       email: "admin@company.com",
       expiresIn: 3600,
+      logoUrl: "",
+      companyId: "company-1",
+      companyName: "acme",
     });
 
     expect(session.user.roles).toEqual(["ADMIN"]);
@@ -62,6 +65,9 @@ describe("authMapper", () => {
         tenantId: "tenant-1",
         email: "hr@company.com",
         expiresIn: 3600,
+        logoUrl: "",
+        companyId: "company-1",
+        companyName: "acme",
       }),
       "hr@company.com",
     );
@@ -112,7 +118,9 @@ describe("authMapper", () => {
       email: "admin@company.com",
     });
 
-    expect(mapLoginResponseToOutcome({ success: false, message: "Nope" })).toEqual({
+    expect(
+      mapLoginResponseToOutcome({ success: false, message: "Nope" }),
+    ).toEqual({
       type: "failed",
       message: "Nope",
     });
@@ -128,9 +136,15 @@ describe("authMapper", () => {
       permissions: [],
     };
 
-    expect(getDefaultRoute({ ...baseUser, roles: ["ADMIN"] })).toBe("/admin/dashboard");
-    expect(getDefaultRoute({ ...baseUser, roles: ["HR"] })).toBe("/hr/dashboard");
-    expect(getDefaultRoute({ ...baseUser, roles: ["MANAGER"] })).toBe("/manager/dashboard");
+    expect(getDefaultRoute({ ...baseUser, roles: ["ADMIN"] })).toBe(
+      "/admin/dashboard",
+    );
+    expect(getDefaultRoute({ ...baseUser, roles: ["HR"] })).toBe(
+      "/hr/dashboard",
+    );
+    expect(getDefaultRoute({ ...baseUser, roles: ["MANAGER"] })).toBe(
+      "/manager/dashboard",
+    );
     expect(getDefaultRoute(baseUser)).toBe("/employee/dashboard");
   });
 });

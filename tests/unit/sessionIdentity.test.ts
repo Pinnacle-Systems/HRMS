@@ -20,6 +20,11 @@ function makeSession(userId: string): AuthSession {
       rawRoles: ["EMPLOYEE"],
       permissions: [],
     },
+    company: {
+      companyId:"c-001",
+      companyName:'acme',
+      logoUrl:""
+    }
   };
 }
 

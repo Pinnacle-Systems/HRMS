@@ -15,7 +15,7 @@ export const PermissionGuard = ({
   mode = 'any',
   fallback = null,
 }: PermissionGuardProps) => {
-  const { hasPermission, hasAnyPermission, hasAllPermissions } = useAuth();
+  const { hasAnyPermission, hasAllPermissions } = useAuth();
 
   if (!permissions) {
     return <>{children}</>;

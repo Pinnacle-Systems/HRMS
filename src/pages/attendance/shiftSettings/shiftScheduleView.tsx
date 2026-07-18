@@ -26,7 +26,6 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  Divider,
 } from '@mui/material';
 import {
   Today as TodayIcon,
@@ -140,7 +139,7 @@ export const ShiftScheduleView = () => {
   const [notificationTemplates, setNotificationTemplates] = useState<NotificationTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [notificationHistory, setNotificationHistory] = useState<Notification[]>([]);
-  const [notificationHistoryLoading, setNotificationHistoryLoading] = useState(false);
+  // const [notificationHistoryLoading, setNotificationHistoryLoading] = useState(false);
   const [notificationPagination, setNotificationPagination] = useState({
     page: 0,
     size: 10,
@@ -309,7 +308,7 @@ export const ShiftScheduleView = () => {
 
   // Fetch notification history
   const fetchNotificationHistory = async (filters?: any) => {
-    setNotificationHistoryLoading(true);
+    // setNotificationHistoryLoading(true);
     try {
       const params = {
         page: notificationPagination.page,
@@ -331,7 +330,7 @@ export const ShiftScheduleView = () => {
     } catch (error) {
       console.error('Error fetching notification history:', error);
     } finally {
-      setNotificationHistoryLoading(false);
+      // setNotificationHistoryLoading(false);
     }
   };
 

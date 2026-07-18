@@ -18,28 +18,23 @@ import {
   TableContainer,
   Paper,
   Chip,
-  IconButton,
   Stack,
   useTheme,
   alpha,
   Grid,
   Checkbox,
-  FormControlLabel,
   Stepper,
   Step,
   StepLabel,
-  StepContent,
   Divider,
 } from "@mui/material";
 import {
-  Check as CheckIcon,
   ChevronRight as ChevronRightIcon,
   ChevronLeft as ChevronLeftIcon,
   DragIndicator as GripVerticalIcon,
   Add as PlusIcon,
   Description as BookTemplateIcon,
   Layers as LayersIcon,
-  Close as CloseIcon,
 } from "@mui/icons-material";
 
 // Mock data - replace with your actual API data

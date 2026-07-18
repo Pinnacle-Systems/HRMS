@@ -5,7 +5,6 @@ import {
   Button,
   Paper,
   Grid,
-  Divider,
   Table,
   TableBody,
   TableCell,
@@ -13,7 +12,6 @@ import {
   TableRow,
   useTheme,
   alpha,
-  Stack,
 } from "@mui/material";
 import {
   ArrowBack as ArrowLeftIcon,
@@ -30,18 +28,6 @@ const mockEmployees = [
   { id: "EMP002", name: "Priya Sharma", designation: "Sales Manager", department: "Sales", ctc: 1800000, joiningDate: "01 Jun 2021", employmentType: "Permanent" },
 ];
 
-const mockPayslips = [
-  {
-    id: "PS001",
-    employeeId: "EMP001",
-    period: "May 2026",
-    grossSalary: 200000,
-    netSalary: 140000,
-    earnings: [{ name: "Basic Salary", amount: 80000 }],
-    deductions: [{ name: "PF", amount: 9600 }],
-  },
-];
-
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -56,7 +42,6 @@ export default function EmployeePayslip() {
   const theme = useTheme();
 
   const employee = mockEmployees.find((e) => e.id === empId) ?? mockEmployees[0];
-  const payslip = mockPayslips[0];
 
   const decodedPeriod = period ? decodeURIComponent(period) : "May 2026";
 

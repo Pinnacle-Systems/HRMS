@@ -107,7 +107,7 @@ describe("leaveService real-API guards", () => {
 
   it("selectOptionalHoliday throws when USE_MOCK_LEAVE_SERVICE is false", async () => {
     const { leaveService } = await importLeaveService(false);
-    await expect(leaveService.selectOptionalHoliday("any-id")).rejects.toThrow(
+    await expect(leaveService.selectOptionalHoliday("any-id","")).rejects.toThrow(
       "selectOptionalHoliday: real API not implemented",
     );
   });

@@ -24,7 +24,6 @@ import {
   TableHead,
   TableRow,
   TableContainer,
-  Paper,
   Chip,
   IconButton,
   Stack,

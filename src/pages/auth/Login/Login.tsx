@@ -7,7 +7,6 @@ import { getDefaultRoute } from "../../../auth/authMapper";
 import { buildLoginRequest } from "../../../auth/authApi";
 import grp from '../../../assets/grp.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
-import { authService } from "../../../services/modules/auth";
 
 type LoginLocationState = {
   tenantId?: string;
