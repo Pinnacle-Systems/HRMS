@@ -17,6 +17,7 @@ export interface EmployeeListQuery {
   joinedFrom?: string;
   joinedTo?: string;
   includeInactive?: boolean;
+  assignedHrId?: string;
 }
 
 export interface EmployeeSummaryResponse {
@@ -202,6 +203,7 @@ export const buildEmployeeListParams = (
     "joinedFrom",
     "joinedTo",
     "includeInactive",
+    "assignedHrId"
   ];
 
   supportedKeys.forEach((key) => {

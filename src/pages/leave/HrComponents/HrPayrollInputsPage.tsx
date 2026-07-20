@@ -60,6 +60,7 @@ import type {
 import LeavePageShell from "../components/LeavePageShell";
 import { getRowColor } from "../../const";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
+import { useAuth } from "../../../auth/authContext";
 
 
 export default function HrPayrollInputsPage() {
@@ -69,6 +70,7 @@ export default function HrPayrollInputsPage() {
   const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const { session } = useAuth();
 
   // Filter states
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -612,6 +614,7 @@ export default function HrPayrollInputsPage() {
               onChange={(employeeId, employee) =>
                 handleEmployeeChange(employeeId, employee)
               }
+              filters={{ assignedHrId: session?.user.userId }}
             />
           </div>
           <div className="md:col-span-2">

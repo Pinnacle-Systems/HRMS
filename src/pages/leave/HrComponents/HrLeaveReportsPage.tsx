@@ -93,122 +93,8 @@ import { EmployeeSelector } from "../../../components/PolicyManagement/Common/Em
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-
-// Color palettes
-// const CHART_COLORS = [
-//   "#3b82f6",
-//   "#8b5cf6",
-//   "#ec4899",
-//   "#ef4444",
-//   "#f59e0b",
-//   "#10b981",
-//   "#06b6d4",
-//   "#6366f1",
-//   "#f472b6",
-//   "#34d399",
-//   "#fbbf24",
-//   "#60a5fa",
-// ];
-
-const CHART_COLORS_LIGHT = [
-  "#93c5fd",
-  "#c4b5fd",
-  "#f9a8d4",
-  "#fca5a5",
-  "#fcd34d",
-  "#6ee7b7",
-  "#67e8f9",
-  "#a5b4fc",
-];
-
-// Types
-type LeaveUsageItem = {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  leaveTypeId: string;
-  leaveTypeName: string;
-  leaveTypeCode: string;
-  requestCount: number;
-  totalDays: number;
-};
-
-type PendingApprovalItem = {
-  requestNumber: string;
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  leaveTypeId: string;
-  leaveTypeName: string;
-  leaveTypeCode: string;
-  fromDate: string;
-  toDate: string;
-  totalDays: number;
-  status: string;
-  currentApproverId: string | null;
-  approverName: string | null;
-  submittedAt: string;
-};
-
-type LopReportItem = {
-  requestNumber: string;
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  leaveTypeId: string;
-  leaveTypeName: string;
-  leaveTypeCode: string;
-  fromDate: string;
-  toDate: string;
-  lopDays: number;
-  payrollTreatment: string;
-  status: string;
-};
-
-type BalanceReportItem = {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  leaveTypeId: string;
-  leaveTypeName: string;
-  leaveTypeCode: string;
-  leaveYear: number;
-  openingBalance: number;
-  accruedDays: number;
-  consumedDays: number;
-  closingBalance: number;
-};
-
-type CompOffReportItem = {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  creditDays: number;
-  status: string;
-  approverName: string;
-  expiryDate: string;
-  leaveTypeName: string;
-  requestNumber: string;
-  sessionType: string;
-  submittedAt: string;
-  workedDate: string;
-};
-
-type ReportFilter = {
-  from?: string;
-  to?: string;
-  year?: number;
-  employeeId?: string;
-  status?: string;
-  leaveType?: string;
-};
-
-type ReportType =
-  | "LEAVE_USAGE"
-  | "LEAVE_PENDING_APPROVALS"
-  | "LEAVE_LOP"
-  | "LEAVE_COMP_OFFS"
-  | "LEAVE_BALANCE";
+import { CHART_COLORS_LIGHT, type BalanceReportItem, type CompOffReportItem, type LeaveUsageItem, type LopReportItem, type PendingApprovalItem, type ReportFilter, type ReportType } from "./types";
+import { useAuth } from "../../../auth/authContext";
 
 // ==================== COMPONENTS ====================
 
@@ -319,6 +205,7 @@ function FilterBar({
     setSelectedEmployee(employee);
     onFilterChange("employeeId", employee?.id || "");
   };
+  const { session } = useAuth();
 
   return (
     <Paper className="!rounded-xl !bg-white-50 !border !border-gray-200 !shadow-sm overflow-hidden transition-all duration-300">
@@ -379,6 +266,7 @@ function FilterBar({
               <EmployeeSelector
                 value={selectedEmployee}
                 onChange={handleEmployeeChange}
+                hrId={session?.user?.userId}
               />
             </div>
           )}

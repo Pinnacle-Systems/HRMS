@@ -341,8 +341,8 @@ function AppRoutesContent() {
                 element={
                   <ProtectedRoute
                     allowedRoles={["HR", "ADMIN"]}
-                    requiredPermissions={[PERMISSIONS.PAYROLL_WRITE]}
-                    permissionMode="any"
+                    // requiredPermissions={[PERMISSIONS.PAYROLL_WRITE]}
+                    // permissionMode="any"
                   />
                 }
               >

@@ -122,6 +122,7 @@ export interface EmployeeSelectorProps {
   noLabel?: boolean
   isManager?: boolean
   isHR?: boolean
+  hrId?: string;
 }
 
 export interface PolicyAssignmentGridProps {

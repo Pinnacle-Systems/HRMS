@@ -417,8 +417,8 @@ export default function Layout() {
       text: "Payroll",
       icon: <AttachMoneyOutlinedIcon />,
       path: "/payroll",
-      roles: ["HR", "ADMIN", "EMPLOYEE"],
-      permissions: [PERMISSIONS.PAYROLL_READ],
+      roles: ["HR", "ADMIN"],
+      // permissions: [PERMISSIONS.PAYROLL_READ],
       isPayroll: true,
     },
     {

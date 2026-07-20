@@ -44,10 +44,30 @@ test.describe("mocked admin flow", () => {
     // await expect(page.getByText("My Leave").first()).toBeVisible();
     // await page.getByText("My Leave").first().hover(); // Dismiss tooltips
 
-    await page.getByText("Payroll", { exact: true }).click();
+   await page.getByRole("button", { name: "Payroll" }).click();
+
+  // Wait for PAYROLL OPERATIONS to be visible
+  await page.getByRole("button", { name: "PAYROLL OPERATIONS" }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: "PAYROLL OPERATIONS" }).click();
+
+  // Wait for the expansion to complete - check for any child item
+  await page.getByRole("button", { name: "Dashboard" }).waitFor({ state: "visible", timeout: 5000 });
+  await page.getByRole("button", { name: "Dashboard" }).click();
+
     await expect(page).toHaveURL(/\/payroll$/);
-    await expect(page.getByRole("heading", { name: "Payroll" })).toBeVisible();
-    await page.getByRole("heading", { name: "Payroll" }).hover(); // Dismiss tooltips
+    await expect(page.getByRole("heading", { name: "Payroll Dashboard" })).toBeVisible();
+
+    // await page.getByRole("button", { name: "Payroll" }).click();
+    // await page.getByRole("button", { name: "Dashboard" }).waitFor({ state: "visible" });
+    // await page.getByRole("button", { name: "Dashboard" }).click();
+    // await expect(page).toHaveURL(/\/payroll$/);
+    // await expect(page.getByRole("heading", { name: "Payroll Dashboard" })).toBeVisible();
+    // await page.getByRole("heading", { name: "Payroll Dashboard" }).hover();
+
+    // await page.getByText("Payroll", { exact: true }).click();
+    // await expect(page).toHaveURL(/\/payroll$/);
+    // await expect(page.getByRole("heading", { name: "Payroll Dashboard" })).toBeVisible();
+    // await page.getByRole("heading", { name: "Payroll Dashboard" }).hover(); // Dismiss tooltips
 
     await page.getByText("Settings", { exact: true }).click();
     await expect(page).toHaveURL(/\/settings/);

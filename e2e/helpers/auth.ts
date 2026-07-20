@@ -12,7 +12,13 @@ type MockSessionOptions = {
 
 export function createMockSession({
   roles = ["ADMIN"],
-  permissions = ["EMPLOYEE_READ"],
+  permissions = [
+    "EMPLOYEE_READ",
+    "PAYROLL_READ",      
+    "PAYROLL_WRITE",     
+    "REPORT_READ",
+    "SETTINGS_READ"
+  ],
   email = "admin@company.com",
 }: MockSessionOptions = {}) {
   return {
@@ -28,6 +34,11 @@ export function createMockSession({
       roles,
       rawRoles: roles,
       permissions,
+    },
+    company: {
+      companyId: "company-1",
+      companyName: "Test Company",
+      logoUrl: "",
     },
   };
 }

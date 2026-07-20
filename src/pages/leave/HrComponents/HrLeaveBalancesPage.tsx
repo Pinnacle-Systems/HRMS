@@ -37,6 +37,7 @@ import LeavePageShell from "../components/LeavePageShell";
 import { formatDate } from "../leaveFormatters";
 import { leaveTableBodyCellSx } from "../components/leaveTableStyles";
 import { getRowColor } from "../../const";
+import { useAuth } from "../../../auth/authContext";
 
 // Helper to get color based on balance status
 const getBalanceColor = (balance: number, threshold: number = 2) => {
@@ -219,6 +220,7 @@ export default function HrLeaveBalancesPage() {
     CompOffBalance[]
   >([]);
   const [loading, setLoading] = useState(false);
+  const { session } = useAuth();
 
   const handleEmployeeChange = async (id: string | null, name?: string) => {
     setEmployeeId(id);
@@ -260,10 +262,10 @@ export default function HrLeaveBalancesPage() {
   };
 
   // Calculate summary statistics
-  const totalAvailable = balances.reduce((sum, b) => sum + (b.balance || 0), 0);
-  const totalAvailed = balances.reduce((sum, b) => sum + (b.availed || 0), 0);
-  const totalPending = balances.reduce((sum, b) => sum + (b.pending || 0), 0);
-  const totalCredited = balances.reduce((sum, b) => sum + (b.credited || 0), 0);
+  // const totalAvailable = balances.reduce((sum, b) => sum + (b.balance || 0), 0);
+  // const totalAvailed = balances.reduce((sum, b) => sum + (b.availed || 0), 0);
+  // const totalPending = balances.reduce((sum, b) => sum + (b.pending || 0), 0);
+  // const totalCredited = balances.reduce((sum, b) => sum + (b.credited || 0), 0);
   // const totalCompOffBalance = employeeCompOffBalances.reduce(
   //   (sum, item) => sum + (item.currentLeaveBalance || 0),
   //   0,
@@ -294,12 +296,13 @@ export default function HrLeaveBalancesPage() {
             value={employeeId}
             onChange={(id) => handleEmployeeChange(id)}
             label="Search employee by name or ID"
+            filters={{ assignedHrId: session?.user.userId }}
           />
         </div>
       </div>
 
       {/* Summary Cards */}
-      {hasData && (
+      {/* {hasData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <SummaryCard
             title="Total Available"
@@ -327,7 +330,7 @@ export default function HrLeaveBalancesPage() {
             color="#eab308"
           />
         </div>
-      )}
+      )} */}
 
       {/* Comp-Off Balances */}
       <div className="mb-4">

@@ -290,7 +290,10 @@ function getSettingsRedirectPath(roles: E2ERole[]) {
     : "/settings/general/audit-logs";
 }
 
-function getExpectedRouteContent(route: { path: string; content: string }, roles: E2ERole[]) {
+function getExpectedRouteContent(
+  route: { path: string; content: string },
+  roles: E2ERole[],
+) {
   if (route.path === "/settings") {
     return roles.includes("ADMIN") ? "Company Settings" : "Audit Logs";
   }
@@ -319,6 +322,19 @@ test.describe("role and permission access matrix", () => {
       await page.getByLabel("open drawer").click();
 
       for (const item of allNavItems) {
+        //  const locator = item === "Payroll"
+        //   ? page.getByRole("button", { name: "Payroll" }).or(page.getByText("Payroll", { exact: true }))
+        //   : page.getByText(item, { exact: true });
+
+        // const assertion = expect(locator.first());
+
+        // if (scenario.visibleNav.includes(item)) {
+        //   await assertion.toBeVisible();
+        // } else {
+        //   // For hidden items, check they don't exist
+        //   await expect(page.getByText(item, { exact: true })).toHaveCount(0);
+        // }
+
         const assertion = expect(page.getByText(item, { exact: true }));
 
         if (scenario.visibleNav.includes(item)) {

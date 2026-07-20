@@ -23,6 +23,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
   pageSize = 20,
   isManager,
   isHR,
+  hrId,
 }) => {
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Employee[]>([]);
@@ -48,6 +49,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
         page: currentPage,
         size: pageSize,
         search: searchTermRef.current || undefined,
+        assignedHrId: hrId
       });
       let list: any = response.data.content || [];
        if (isManager) {

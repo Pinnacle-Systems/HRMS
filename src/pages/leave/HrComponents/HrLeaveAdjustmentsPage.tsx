@@ -30,6 +30,7 @@ import LeavePageShell from "../components/LeavePageShell";
 import { formatDate } from "../leaveFormatters";
 import { getRowColor } from "../../const";
 import { selectSx } from "../../../const";
+import { useAuth } from "../../../auth/authContext";
 
 export default function HrLeaveAdjustmentsPage() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -43,6 +44,7 @@ export default function HrLeaveAdjustmentsPage() {
   const [days, setDays] = useState("");
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { session } = useAuth();
 
   useEffect(() => {
     leaveService
@@ -191,6 +193,7 @@ export default function HrLeaveAdjustmentsPage() {
           label="Search employee by name or ID"
           error={Boolean(errors.employee)}
           helperText={errors.employee}
+          filters={{ assignedHrId: session?.user.userId }}
         />
       </div>
 

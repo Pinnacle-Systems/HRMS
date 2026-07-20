@@ -123,20 +123,30 @@ export async function selectTenant(
     },
     { headers }
   )) as LoginApiResponse;
-  if (response.success && response.data) {
-    return {
-      type: 'tenantSelection',
-      tenants: response.data.tenants || [],
-      email: response.data.email || request.email,
-      sessionToken: request.sessionToken,
-      message: 'Tenant selected. Please login with your credentials.'
-    };
+
+  const outcome:any = mapLoginResponseToOutcome(response, request.email);
+
+  // Persist session for successful authentication flows
+  if (outcome.type === "authenticated" || 
+      (outcome.type === "mustChangePassword" && outcome.session)) {
+    saveSession(outcome.session);
   }
 
-  return {
-    type: 'failed',
-    message: response.message || 'Failed to select tenant'
-  };
+  return outcome;
+  // if (response.success && response.data) {
+  //   return {
+  //     type: 'tenantSelection',
+  //     tenants: response.data.tenants || [],
+  //     email: response.data.email || request.email,
+  //     sessionToken: request.sessionToken,
+  //     message: 'Tenant selected. Please login with your credentials.'
+  //   };
+  // }
+
+  // return {
+  //   type: 'failed',
+  //   message: response.message || 'Failed to select tenant'
+  // };
 }
 
 
