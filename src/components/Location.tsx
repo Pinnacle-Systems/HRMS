@@ -60,7 +60,8 @@ export const LocationMap: React.FC<LocationMapProps> = ({
   const [showPredictions, setShowPredictions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [position, setPosition] = useState<[number, number]>([latitude || 20.5937, longitude || 78.9629]);
-  const searchTimeout = useRef(1000);
+  // const searchTimeout = useRef(1000);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleSearchInput = async (value: string) => {
     setSearchAddress(value);

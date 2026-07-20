@@ -201,8 +201,15 @@ export const ShiftList = () => {
   const fetchMasterData = async () => {
     try {
       showSpinner();
-      const data: any = await categoryService.getCategoryItems("515d5fe8-2f41-41fe-aab3-6da80a5cfae1")
-      setTemplate(data.data.content || []);
+      // const data: any = await categoryService.getCategoryItems("515d5fe8-2f41-41fe-aab3-6da80a5cfae1")
+      // setTemplate(data.data.content || []);
+      const category: any = await categoryService.getActiveCategoryItem();
+      const templateCategory = category.data.find(
+        (element: any) => element.categoryName?.toLowerCase().includes('template')
+      );
+      if (templateCategory) {
+        setTemplate(templateCategory.items);
+      }
     } catch (error: any) {
       showSnackbar(error.message || 'Failed to fetch data', 'error');
     } finally {

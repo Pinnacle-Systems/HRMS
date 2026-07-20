@@ -7,8 +7,6 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Card,
-  CardContent,
   IconButton,
   Tooltip,
   Collapse,
@@ -17,8 +15,6 @@ import {
   TrendingUp,
   TrendingDown,
   CalendarToday,
-  AccessTime,
-  CheckCircle,
   History,
   ExpandMore,
   ExpandLess,
@@ -47,67 +43,67 @@ const getBalanceColor = (balance: number, threshold: number = 2) => {
 };
 
 // Summary Card Component
-const SummaryCard = ({
-  title,
-  value,
-  icon: Icon,
-  color = "#3b82f6",
-  subtitle,
-}: {
-  title: string;
-  value: string | number;
-  icon: any;
-  color?: string;
-  subtitle?: string;
-}) => (
-  <Card
-    elevation={0}
-    sx={{
-      height: "100%",
-      background: "#ffffff",
-      border: "1px solid #e5e7eb",
-      borderRadius: "12px",
-      transition: "all 0.2s",
-      "&:hover": {
-        transform: "translateY(-2px)",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        borderColor: color,
-      },
-    }}
-  >
-    <CardContent className="p-4 !bg-white">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[12px] font-medium text-gray-500">
-            {title}
-            {subtitle && (
-              <span className="text-[10px] ml-2 text-gray-500">
-                ({subtitle})
-              </span>
-            )}
-          </div>
-          <div
-            className={`text-2xl font-bold text-gray-800 text-${color} mt-1`}
-          >
-            {value}{" "}
-          </div>
-          {/* {subtitle && (
-            <div className="text-[12px] text-gray-500 mt-0.5"></div>
-          )} */}
-        </div>
-        <div
-          className="p-2.5 rounded-full"
-          style={{
-            backgroundColor: `${color}15`,
-            color: color,
-          }}
-        >
-          <Icon className="text-xl" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
+// const SummaryCard = ({
+//   title,
+//   value,
+//   icon: Icon,
+//   color = "#3b82f6",
+//   subtitle,
+// }: {
+//   title: string;
+//   value: string | number;
+//   icon: any;
+//   color?: string;
+//   subtitle?: string;
+// }) => (
+//   <Card
+//     elevation={0}
+//     sx={{
+//       height: "100%",
+//       background: "#ffffff",
+//       border: "1px solid #e5e7eb",
+//       borderRadius: "12px",
+//       transition: "all 0.2s",
+//       "&:hover": {
+//         transform: "translateY(-2px)",
+//         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+//         borderColor: color,
+//       },
+//     }}
+//   >
+//     <CardContent className="p-4 !bg-white">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <div className="text-[12px] font-medium text-gray-500">
+//             {title}
+//             {subtitle && (
+//               <span className="text-[10px] ml-2 text-gray-500">
+//                 ({subtitle})
+//               </span>
+//             )}
+//           </div>
+//           <div
+//             className={`text-2xl font-bold text-gray-800 text-${color} mt-1`}
+//           >
+//             {value}{" "}
+//           </div>
+//           {/* {subtitle && (
+//             <div className="text-[12px] text-gray-500 mt-0.5"></div>
+//           )} */}
+//         </div>
+//         <div
+//           className="p-2.5 rounded-full"
+//           style={{
+//             backgroundColor: `${color}15`,
+//             color: color,
+//           }}
+//         >
+//           <Icon className="text-xl" />
+//         </div>
+//       </div>
+//     </CardContent>
+//   </Card>
+// );
 
 // Balance Table Row Component
 const BalanceRow = ({

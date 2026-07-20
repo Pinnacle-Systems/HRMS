@@ -240,7 +240,6 @@ const EditableGroup = ({
         active: true,
       };
       await categoryService.createCategoryItem(category.id, payload);
-      // await categoryService.getCategoryItems(category.id);
       await refreshCategoryOptions();
       showSnackbar(`"${newOption}" added successfully!`, "success");
     } catch (error: any) {

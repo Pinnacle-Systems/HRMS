@@ -215,8 +215,15 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
 
   const getOTValues = async () => {
     try {
-      const response: any = await categoryService.getCategoryItems("3a6987fe-3597-4f87-ab26-2e4c7eab71d9");
-      setOTValues(response.data?.content || response.data || []);
+      // const response: any = await categoryService.getCategoryItems("3a6987fe-3597-4f87-ab26-2e4c7eab71d9");
+      // setOTValues(response.data?.content || response.data || []);
+      const category: any = await categoryService.getActiveCategoryItem();
+      const otCategory = category.data.find(
+        (element: any) => element.categoryName?.toLowerCase().includes('ot')
+      );
+      if (otCategory) {
+        setOTValues(otCategory.items);
+      }
     } catch (error: any) {
       showSnackbar(error?.message || "Failed to load OT types", "error");
     }

@@ -335,16 +335,37 @@ export default function EmployeeManagement() {
     try {
       const deptRes: any = await departmentService.getActiveDepartments();
       setDepartments(deptRes.data.content || deptRes.data || []);
+
       const branchRes: any = await branchService.getDropdownBranches();
       setBranches(branchRes.data.content || branchRes.data || []);
-      const desigRes: any = await categoryService.getCategoryItems(
-        "00c4fd3c-4fb6-4d33-932e-80a615a90825",
+
+      const category: any = await categoryService.getActiveCategoryItem();
+      const designationCategory = category.data.find(
+        (element: any) => element.categoryName?.toLowerCase().includes('designation')
       );
-      setDesignations(desigRes.data.content || desigRes.data || []);
-      const stsRes: any = await categoryService.getCategoryItems(
-        "db50d81f-9fcd-4afd-a87c-a5591aa7abbb",
+      if (designationCategory) {
+        setDesignations(designationCategory.items);
+      }
+
+      const empStatusCategory = category.data.find(
+        (element: any) => {
+          const categoryName = element.categoryName?.toLowerCase() || '';
+          return categoryName.includes('employee status') || categoryName.includes('emp status')
+        }
       );
-      setEmpStatus(stsRes.data.content || stsRes.data || []);
+      if (empStatusCategory) {
+        setEmpStatus(empStatusCategory.items);
+      }
+      // const desigRes: any = await categoryService.getCategoryItems(
+      //   // "00c4fd3c-4fb6-4d33-932e-80a615a90825",
+      //   "fa8c5d40-c0f1-4de2-9543-5069ef0fb8af"
+      // );
+      // // setDesignations(desigRes.data.content || desigRes.data || []);
+      // const stsRes: any = await categoryService.getCategoryItems(
+      //   // "db50d81f-9fcd-4afd-a87c-a5591aa7abbb",
+      //   "bf747a78-26e2-4e8f-97cb-2486a83cef76"
+      // );
+      // setEmpStatus(stsRes.data.content || stsRes.data || []);
       // "5504ad78-7089-42ec-8219-2a579d99bb0a"
     } catch (error: any) {
       showSnackbar(error.message, "error");
