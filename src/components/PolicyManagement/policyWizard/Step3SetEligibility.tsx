@@ -122,24 +122,38 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
   );
   const versionId = editPolicy?.currentVersion?.id as string | undefined;
   const isEditMode = !!editPolicy;
-  const category = [{ id: 'Staff', name: 'Staff' },{ id: 'Labour', name: 'Labour' }];
+  const category = [{ id: 'Staff', name: 'Staff' }, { id: 'Labour', name: 'Labour' }];
 
   // ── Data loading ─────────────────────────────────────────────────────────
 
   const fetchLookups = async () => {
     try {
-      const [branchRes, deptRes, desigRes, empTypeRes, tmplRes] = await Promise.all([
+      const [branchRes, deptRes] = await Promise.all([
         branchService.getDropdownBranches(),
         departmentService.getActiveDepartments(),
-        categoryService.getCategoryItems('00c4fd3c-4fb6-4d33-932e-80a615a90825'),
-        categoryService.getCategoryItems('5504ad78-7089-42ec-8219-2a579d99bb0a'),
-        categoryService.getCategoryItems('515d5fe8-2f41-41fe-aab3-6da80a5cfae1'),
+        // categoryService.getCategoryItems('00c4fd3c-4fb6-4d33-932e-80a615a90825'),
+        // categoryService.getCategoryItems('5504ad78-7089-42ec-8219-2a579d99bb0a'),
+        // categoryService.getCategoryItems('515d5fe8-2f41-41fe-aab3-6da80a5cfae1'),
       ]);
       setBranches(extractArray(branchRes));
       setDepartments(extractArray(deptRes));
-      setDesignations(extractArray(desigRes));
-      setEmploymentTypes(extractArray(empTypeRes));
-      setTemplates(extractArray(tmplRes));
+      // setDesignations(extractArray(desigRes));
+      // setEmploymentTypes(extractArray(empTypeRes));
+      // setTemplates(extractArray(tmplRes));
+      const category: any = await categoryService.getActiveCategoryItem();
+      category.data.forEach((element: any) => {
+        const catName = element.categoryName?.toLowerCase() || '';
+
+        if (catName.includes('designation')) {
+          setDesignations(element.items);
+        }
+        if (catName.includes('employment type')) {
+          setEmploymentTypes(element.items);
+        }
+        if (catName.includes('template')) {
+          setTemplates(element.items);
+        }
+      });
     } catch (err) {
       console.error('Failed to fetch lookups', err);
     }

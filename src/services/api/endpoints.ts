@@ -96,6 +96,7 @@ export const API_ENDPOINTS = {
     UPLOAD_SIGNATURE: (id: string) => `/org/company/${id}/signature`,
     GET_COMPANY_BY_GST: "/org/company/by-gst",
     GET_GST_BY_COMPANY: "/org/company/gst",
+    GST_LOOKUP: "/org/company/gst-lookup",
   },
 
   EMPLOYEE: {

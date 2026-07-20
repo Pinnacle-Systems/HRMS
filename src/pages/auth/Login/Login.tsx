@@ -298,11 +298,11 @@ export default function Login() {
     navigate("/signup", { replace: true });
   };
 
-  React.useEffect(() => {
-    if (locationState.fromSignup && locationState.verified) {
-      showSnackbar("Email verified successfully! Please login.", "success");
-    }
-  }, [locationState, showSnackbar]);
+  // React.useEffect(() => {
+  //   if (locationState.fromSignup && locationState.verified) {
+  //     showSnackbar("Email verified successfully! Please login.", "success");
+  //   }
+  // }, [locationState, showSnackbar]);
 
 
   return (

@@ -112,7 +112,7 @@ const CompanySettings = () => {
   };
 
   const handleChange = async (key: string, value: string | string[]) => {
-    if(key == 'gstNo') {
+    if (key == 'gstNo') {
       getCompanyDetailsGST(value)
     }
     setCompanyInfo({ ...companyInfo, [key]: value });
@@ -557,13 +557,70 @@ const CompanySettings = () => {
   }
 
   //Get Company details by GST
-  const getCompanyDetailsGST= async(gstNo: any) => {
-     try {
-      await companyService.getCompanyDetailsByGST({gstNo});
-     } catch (error:any) {
-      showSnackbar(error.message, 'error')
-     }
-  }
+  // const getCompanyDetailsGST= async(gstNo: any) => {
+  //    try {
+  //     await companyService.getCompanyDetailsByGSTLookup({gstNo,refresh:true});
+  //    } catch (error:any) {
+  //     showSnackbar(error.message, 'error')
+  //    }
+  // }
+  const getCompanyDetailsGST = async (gstNo: any) => {
+    if (!gstNo || gstNo.length < 15) {
+      showSnackbar("Please enter a valid 15-digit GSTIN", "warning");
+      return;
+    }
+    showSpinner();
+    try {
+      const response: any = await companyService.getCompanyDetailsByGSTLookup({
+        gstNo: gstNo.trim().toUpperCase(),
+        refresh: true
+      });
+      if (response?.success && response?.data) {
+        const gstData = response.data;
+        const fullAddress = [
+          gstData.address,
+          gstData.city,
+          gstData.state,
+          gstData.pincode
+        ].filter(Boolean).join(', ');
+        setCompanyInfo((prev: any) => ({
+          ...prev,
+          gstNo: gstData.gstin || gstNo,
+          companyName: gstData.legalName || prev.companyName,
+          aliasName: gstData.tradeName || prev.aliasName,
+          panNo: gstData.pan || prev.panNo,
+          companyAddress: fullAddress || gstData.address || prev.companyAddress,
+          city: gstData.city || prev.city,
+          state: gstData.state || prev.state,
+          pincode: gstData.pincode || prev.pincode,
+          registrationCertificateNo: gstData.gstin || prev.registrationCertificateNo,
+          // Store additional GST metadata
+          // gstMetadata: {
+          //   status: gstData.status,
+          //   taxpayerType: gstData.taxpayerType,
+          //   constitution: gstData.constitution,
+          //   entityType: gstData.entityType,
+          //   registrationDate: gstData.registrationDate,
+          //   centreJurisdiction: gstData.centreJurisdiction,
+          //   stateJurisdiction: gstData.stateJurisdiction,
+          //   stateCode: gstData.stateCode,
+          //   fetchedAt: gstData.fetchedAt
+          // }
+        }));
+
+        if (fullAddress) {
+          generateMapFromAddress(fullAddress);
+        }
+        showSnackbar("GST details fetched and populated successfully!", "success");
+      } else {
+        showSnackbar(response?.message || "No GST details found", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to fetch GST details", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
 
   // renderField function
   const renderField = (field: any) => {
@@ -856,7 +913,7 @@ const CompanySettings = () => {
                 ))}
               </div>
             </Box>
-           
+
             {/* Fiscal Year Dialog */}
             <Dialog
               open={fiscalYearDialogOpen}
@@ -873,7 +930,7 @@ const CompanySettings = () => {
                     </Typography>
                   </div>
                   <IconButton onClick={() => setFiscalYearDialogOpen(false)}>
-                    <CloseOutlined className="text-gray-800"/>
+                    <CloseOutlined className="text-gray-800" />
                   </IconButton>
                 </Box>
               </DialogTitle>
@@ -993,9 +1050,9 @@ const CompanySettings = () => {
       </div>
     </>
 
-    
+
   );
-  
+
 };
 
 export default CompanySettings;

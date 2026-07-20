@@ -123,18 +123,33 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        const [branchesRes, departmentsRes, designationsRes, employmentTypesRes, templatesRes] = await Promise.all([
+        const [branchesRes, departmentsRes] = await Promise.all([
           branchService.getDropdownBranches(),
           departmentService.getActiveDepartments(),
-          categoryService.getCategoryItems('00c4fd3c-4fb6-4d33-932e-80a615a90825'),
-          categoryService.getCategoryItems('5504ad78-7089-42ec-8219-2a579d99bb0a'),
-          categoryService.getCategoryItems('515d5fe8-2f41-41fe-aab3-6da80a5cfae1'),
+          // categoryService.getCategoryItems('00c4fd3c-4fb6-4d33-932e-80a615a90825'),
+          // categoryService.getCategoryItems('5504ad78-7089-42ec-8219-2a579d99bb0a'),
+          // categoryService.getCategoryItems('515d5fe8-2f41-41fe-aab3-6da80a5cfae1'),
         ]);
         setBranches(extractArrayFromResponse(branchesRes));
         setDepartments(extractArrayFromResponse(departmentsRes));
-        setDesignations(extractArrayFromResponse(designationsRes));
-        setEmploymentTypes(extractArrayFromResponse(employmentTypesRes));
-        setTemplates(extractArrayFromResponse(templatesRes));
+
+        const category: any = await categoryService.getActiveCategoryItem();
+        category.data.forEach((element: any) => {
+          const catName = element.categoryName?.toLowerCase() || '';
+
+          if (catName.includes('designation')) {
+            setDesignations(element.items);
+          }
+          if (catName.includes('employment type')) {
+            setEmploymentTypes(element.items);
+          }
+          if (catName.includes('template')) {
+            setTemplates(element.items);
+          }
+        });
+        // setDesignations(extractArrayFromResponse(designationsRes));
+        // setEmploymentTypes(extractArrayFromResponse(employmentTypesRes));
+        // setTemplates(extractArrayFromResponse(templatesRes));
       } catch (error) {
         console.error('Error fetching assignment lookup data:', error);
       }
@@ -157,7 +172,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       //  case 'EMPLOYEE_GROUP':
       //   return templates.map(t => ({ id: t.id, name: t.name }));
       case 'EMPLOYEE_CATEGORY':
-        return [{ id: 'Staff', name: 'Staff' },{ id: 'Labour', name: 'Labour' }];
+        return [{ id: 'Staff', name: 'Staff' }, { id: 'Labour', name: 'Labour' }];
       default:
         return [];
     }
@@ -183,7 +198,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       return `${assignment.template} (Template)`;
     }
     if (assignment.employeeGroupId) {
-       const des = templates.find(d => d.id === assignment.employeeGroupId);
+      const des = templates.find(d => d.id === assignment.employeeGroupId);
       return `${des?.name || assignment.employeeGroupId} (Employee Group)`;
     }
     if (assignment.employeeId) {
@@ -386,8 +401,8 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                                   : assignment.employmentType ? 'EMPLOYMENT_TYPE'
                                     : assignment.template ? 'EMPLOYEE_TEMPLATE'
                                       : assignment.employeeGroupId ? 'EMPLOYEE_GROUP'
-                                       : assignment.employeeCategory ? 'EMPLOYEE_CATEGORY'
-                                        : 'SPECIFIC_EMPLOYEES'
+                                        : assignment.employeeCategory ? 'EMPLOYEE_CATEGORY'
+                                          : 'SPECIFIC_EMPLOYEES'
                           ]}
                           <Typography variant="subtitle2">
                             {getAssignmentLabel(assignment)}

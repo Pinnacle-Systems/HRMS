@@ -211,11 +211,11 @@ export function AttendanceSummary() {
       ]);
     };
     loadAllData();
-  }, [loadSummary, loadTrends, loadDepartmentWise]);
+  }, [selectedDate, departmentId, branchId]);
 
    useEffect(() => {
     fetchMasterData();
-  }, [fetchMasterData]);
+  }, []);
 
   const pieData = summary
     ? [

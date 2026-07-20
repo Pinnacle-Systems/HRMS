@@ -65,6 +65,10 @@ class CompanyService {
   async getCompanyDetailsByGST(params: {gstNo : string}) {
     return apiService.get(API_ENDPOINTS.COMPANY.GET_COMPANY_BY_GST, { params });
   }
+  
+  async getCompanyDetailsByGSTLookup(params: {gstNo : string,refresh: boolean}) {
+    return apiService.get(API_ENDPOINTS.COMPANY.GST_LOOKUP, { params });
+  }
 
 }
 export const companyService = new CompanyService();
