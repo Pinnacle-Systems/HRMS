@@ -18,7 +18,9 @@ export const API_ENDPOINTS = {
     VERIFY_INVITE: (token: string) => `/auth/verify-invite/${token}`,
     SIGNUP: "/auth/signup",
     ACTIVATE_INVITE: "/auth/activate-invite",
-    RESEND_OTP: "/auth/resend-signup-otp"
+    RESEND_OTP: "/auth/resend-signup-otp",
+    GET_SESSION_CONTEXT: "/auth/session-context/options",
+    SELECT_SESSION_CONTEXT: "/auth/session-context/select"
   },
 
   LOGIN_HISTORY: {
@@ -648,6 +650,7 @@ export const API_ENDPOINTS = {
     PATCH_STATUS: (id: string) => `/banks/${id}/status`,
     PATCH_PRIMARY: (id: string) => `/banks/${id}/primary`,
     UPDATE: (id: string) => `/banks/${id}`,
+    DROPDOWN: "/master/banks/india"
   },
 
   AUDIT_LOGS: {

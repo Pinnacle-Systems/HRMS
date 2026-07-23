@@ -3,11 +3,6 @@ import {
   TextField,
   Box,
   Button,
-  Select,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  FormHelperText,
   Typography,
   Chip,
   Stack,
@@ -36,10 +31,11 @@ import { useMasterData } from "../../../hooks/useMasterData";
 import { MasterSelect } from "../../../components/MasterSelect";
 import LocationMap from "../../../components/Map";
 import dayjs from "dayjs";
-import { selectSx } from "../../../const";
 import { fiscalYearService } from "../../../services/modules/fiscalYear";
 import { formatDate } from "../../leave/leaveFormatters";
 import { CloseOutlined } from "@mui/icons-material";
+import { handleEnterAsTab } from "../../const";
+import { branchService } from "../../../services/modules/branch";
 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
@@ -69,6 +65,7 @@ const CompanySettings = () => {
   });
   const [fiscalYearLoading, setFiscalYearLoading] = useState(false);
   const [fiscalYearDialogOpen, setFiscalYearDialogOpen] = useState(false);
+  const [gstSearch, setGstSearch] = useState("");
 
   const generateMapFromAddress = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
@@ -112,9 +109,9 @@ const CompanySettings = () => {
   };
 
   const handleChange = async (key: string, value: string | string[]) => {
-    if (key == 'gstNo') {
-      getCompanyDetailsGST(value)
-    }
+    // if (key == 'gstNo') {
+    //   getCompanyDetailsGST(value)
+    // }
     setCompanyInfo({ ...companyInfo, [key]: value });
     const error = validateField(key, value as string);
     setErrors((prev) => ({ ...prev, [key]: error }));
@@ -476,11 +473,21 @@ const CompanySettings = () => {
           showSnackbar("Company settings saved successfully!", "success");
         }
         await fetchCompanyInfo();
+        await createDefaultBranch();
       } catch (error: any) {
         showSnackbar(error.message, "error");
       } finally {
         hideSpinner();
       }
+    }
+  };
+
+  const createDefaultBranch = async () => {
+    try {
+      await branchService.createDefaultBranch();
+      showSnackbar("Default branch created successfully.", "success");
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
     }
   };
 
@@ -556,14 +563,6 @@ const CompanySettings = () => {
     groupedSections.push(currentSection);
   }
 
-  //Get Company details by GST
-  // const getCompanyDetailsGST= async(gstNo: any) => {
-  //    try {
-  //     await companyService.getCompanyDetailsByGSTLookup({gstNo,refresh:true});
-  //    } catch (error:any) {
-  //     showSnackbar(error.message, 'error')
-  //    }
-  // }
   const getCompanyDetailsGST = async (gstNo: any) => {
     if (!gstNo || gstNo.length < 15) {
       showSnackbar("Please enter a valid 15-digit GSTIN", "warning");
@@ -713,7 +712,7 @@ const CompanySettings = () => {
           />
         )}
 
-        {type === "select" && (
+        {/* {type === "select" && (
           <FormControl
             fullWidth
             size="small"
@@ -748,7 +747,7 @@ const CompanySettings = () => {
             </Select>
             {hasError && <FormHelperText>{errors[key]}</FormHelperText>}
           </FormControl>
-        )}
+        )} */}
 
         {/* {type === "add-select" && (
           <DynamicSelectWithAdd
@@ -790,269 +789,287 @@ const CompanySettings = () => {
 
   return (
     <>
-      <div className="flex item-center justify-between mb-3 mt-3">
-        <div className="text-gray-500 text-sm flex items-center gap-1">
-          Settings <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
-          <span className="text-primary font-medium">
-            {getCurrentRouteLabel()}
-          </span>
-          <div className="text-sky-500 text-[12px] underline ml-3 cursor-pointer"
-            onClick={() => setFiscalYearDialogOpen(true)}
-          >
-            Manage Fiscal Years
+      <Box onKeyDown={handleEnterAsTab}>
+        <div className="flex item-center justify-between mb-3 mt-3">
+          <div className="text-gray-500 text-sm flex items-center gap-1">
+            Settings <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
+            <span className="text-primary font-medium">
+              {getCurrentRouteLabel()}
+            </span>
+            <div className={`text-[12px] ml-3 cursor-pointer ${fiscalYears.length == 0 ? 'animate-blink text-white bg-red-500 px-2 rounded-lg' : 'text-sky-500 underline'}`}
+              onClick={() => {
+                setFiscalYearDialogOpen(true); console.log(fiscalYearDialogOpen);
+              }}
+            >
+              Manage Fiscal Years
+            </div>
           </div>
-        </div>
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          {(companyInfo && companyInfo.id) &&
+          {/* GST Button */}
+          <div className="flex items-center gap-2">
+            <TextField
+              size="small"
+              placeholder="Enter GSTIN"
+              className="!w-[250px]"
+              value={gstSearch}
+              onChange={(e) => setGstSearch(e.target.value.toUpperCase())}
+            />
+
             <Button
               variant="outlined"
-              className="!text-gray-800 !border-gray-300"
-              onClick={handleCancel}
+              // className="!text-gray-800 !border-gray-300"
+              onClick={() => getCompanyDetailsGST(gstSearch)}
             >
-              Delete
+              GST Search
             </Button>
-          }
-          <Button
-            variant="contained"
-            color="primary"
-            className="!bg-primary"
-            onClick={handleSave}
-          >
-            Save Changes
-          </Button>
+          </div>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            {(companyInfo && companyInfo.id) &&
+              <Button
+                variant="outlined"
+                className="!text-gray-800 !border-gray-300"
+                onClick={handleCancel}
+              >
+                Delete
+              </Button>
+            }
+            <Button
+              variant="contained"
+              color="primary"
+              className="!bg-primary"
+              onClick={handleSave}
+            >
+              Save Changes
+            </Button>
+          </div>
         </div>
-      </div>
-      <div className="overflow-auto h-[calc(100vh-200px)]">
-        <div className="space-y-4">
-          {groupedSections.map((section, sectionIndex) => {
-            const renderGridFields = (fields: any[], gridClass: string) => (
-              <div className={`grid gap-x-3 gap-y-6 ${gridClass}`}>
-                {fields.map((field: any) => (
-                  <div key={field.key}
-                    className={`min-w-0 ${field.key === "contactEmail" ? "md:col-span-2" : ""}`}
-                  >
-                    {renderField(field)}
-                  </div>
-                ))}
-              </div>
-            );
+        <div className="overflow-auto h-[calc(100vh-200px)]">
+          <div className="space-y-4">
+            {groupedSections.map((section, sectionIndex) => {
+              const renderGridFields = (fields: any[], gridClass: string) => (
+                <div className={`grid gap-x-3 gap-y-6 ${gridClass}`}>
+                  {fields.map((field: any) => (
+                    <div key={field.key}
+                      className={`min-w-0 ${field.key === "contactEmail" ? "md:col-span-2" : ""}`}
+                    >
+                      {renderField(field)}
+                    </div>
+                  ))}
+                </div>
+              );
 
-            const hasSubSections = section.subSections.length > 0;
+              const hasSubSections = section.subSections.length > 0;
 
-            if (hasSubSections) {
-              const isSpecial = (f: any) =>
-                f.type === "map" || (f.multiline && f.rows && f.rows > 1);
-              const regularFields = section.fields.filter((f: any) => !isSpecial(f));
-              const specialFields = section.fields.filter(isSpecial); // address + map
-              return (
-                <div key={section.id || sectionIndex} className="border p-4 pt-6 rounded-lg bg-white dark:bg-white-50 border-gray-300 space-y-4">
-                  {/* Top row: companyName, aliasName, code, costCode, companyType */}
-                  {regularFields.length > 0 && renderGridFields(regularFields, "grid-cols-2 md:grid-cols-3 lg:grid-cols-[2fr_2fr_1fr_1fr_1fr]")}
-                  {/* Bottom: left = Address + Map stacked, right = subsection fields */}
-                  <div className="grid md:flex items-center gap-4">
-                    {/* Left column: Address + Map stacked, each full width */}
-                    {specialFields.length > 0 && (
-                      <div className="flex gap-4 md:w-1/2 w-full min-w-0">
-                        {specialFields.map((field: any) => (
-                          <div key={field.key} className="w-full min-w-0">
-                            {renderField(field)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* Right column: Country, State, City, Pincode, Phone, Fax, Email */}
-                    <div className="flex-1 min-w-0">
-                      {section.subSections.map((sub: any, subIdx: number) => (
-                        <div key={sub.id || subIdx} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-2 gap-y-5">
-                          {sub.fields.map((field: any) => (
-                            <div
-                              key={field.key}
-                              className={`min-w-0 ${field.key === "email" ? "md:col-span-2" : ""}`}
-                            >
+              if (hasSubSections) {
+                const isSpecial = (f: any) =>
+                  f.type === "map" || (f.multiline && f.rows && f.rows > 1);
+                const regularFields = section.fields.filter((f: any) => !isSpecial(f));
+                const specialFields = section.fields.filter(isSpecial); // address + map
+                return (
+                  <div key={section.id || sectionIndex} className="border p-4 pt-6 rounded-lg bg-white dark:bg-white-50 border-gray-300 space-y-4">
+                    {/* Top row: companyName, aliasName, code, costCode, companyType */}
+                    {regularFields.length > 0 && renderGridFields(regularFields, "grid-cols-2 md:grid-cols-3 lg:grid-cols-[2fr_2fr_1fr_1fr_1fr]")}
+                    {/* Bottom: left = Address + Map stacked, right = subsection fields */}
+                    <div className="grid md:flex items-center gap-4">
+                      {/* Left column: Address + Map stacked, each full width */}
+                      {specialFields.length > 0 && (
+                        <div className="flex gap-4 md:w-1/2 w-full min-w-0">
+                          {specialFields.map((field: any) => (
+                            <div key={field.key} className="w-full min-w-0">
                               {renderField(field)}
                             </div>
                           ))}
                         </div>
-                      ))}
+                      )}
+                      {/* Right column: Country, State, City, Pincode, Phone, Fax, Email */}
+                      <div className="flex-1 min-w-0">
+                        {section.subSections.map((sub: any, subIdx: number) => (
+                          <div key={sub.id || subIdx} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-2 gap-y-5">
+                            {sub.fields.map((field: any) => (
+                              <div
+                                key={field.key}
+                                className={`min-w-0 ${field.key === "email" ? "md:col-span-2" : ""}`}
+                              >
+                                {renderField(field)}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
+                );
+              }
+
+              const gridClass =
+                // fieldCount % 7 === 0 ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-7" :
+                // fieldCount % 9 === 0 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-7" :
+                // fieldCount % 3 === 0 ? "grid-cols-2 sm:grid-cols-3" :
+                "grid-cols-2 sm:grid-cols-4 md:grid-cols-7";
+
+              return (
+                <div key={section.id || sectionIndex} className="border py-6 px-4 rounded-lg bg-white dark:bg-white-50 border-gray-300">
+                  {renderGridFields(section.fields, gridClass)}
                 </div>
               );
-            }
+            })}
+          </div>
 
-            const gridClass =
-              // fieldCount % 7 === 0 ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-7" :
-              // fieldCount % 9 === 0 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-7" :
-              // fieldCount % 3 === 0 ? "grid-cols-2 sm:grid-cols-3" :
-              "grid-cols-2 sm:grid-cols-4 md:grid-cols-7";
-
-            return (
-              <div key={section.id || sectionIndex} className="border py-6 px-4 rounded-lg bg-white dark:bg-white-50 border-gray-300">
-                {renderGridFields(section.fields, gridClass)}
-              </div>
-            );
-          })}
+          {companyInfo.id && (
+            <>
+              <Box className="mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {fileUploadFields.map((field) => (
+                    <FileUpload
+                      key={field.key}
+                      label={field.label}
+                      value={field.key === "logoUrl" ? logoFile : signatureFile}
+                      onChange={(file) => handleFileChange(field.key, file)}
+                      accept={field.accept}
+                      maxSize={field.maxSize}
+                      description={field.description}
+                      companyId={companyInfo.id}
+                    />
+                  ))}
+                </div>
+              </Box>
+            </>
+          )}
         </div>
+      </Box>
+      {/* Fiscal Year Dialog */}
+      <Dialog
+        open={fiscalYearDialogOpen}
+        onClose={() => setFiscalYearDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle className="!p-2 border-b border-gray-200">
+          <Box className="flex items-center justify-between !ml-4">
+            <div>
+              <Typography variant="h6">Fiscal Year Management</Typography>
+              <Typography variant="body2" color="text.secondary" className="!text-[10px]">
+                Manage payroll and reporting periods for this company.
+              </Typography>
+            </div>
+            <IconButton onClick={() => setFiscalYearDialogOpen(false)}>
+              <CloseOutlined className="text-gray-800" />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent className="!p-4 !mt-2">
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <TextField
+                label="Year Label"
+                value={fiscalYearForm.yearLabel}
+                onChange={(e) => handleFiscalYearFieldChange("yearLabel", e.target.value)}
+                placeholder="e.g. 2024-25"
+                fullWidth
+              />
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Start Date"
+                  value={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : null}
+                  onChange={(newValue) =>
+                    handleFiscalYearFieldChange("startDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
+                  }
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="End Date"
+                  value={fiscalYearForm.endDate ? dayjs(fiscalYearForm.endDate) : null}
+                  onChange={(newValue) =>
+                    handleFiscalYearFieldChange("endDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
+                  }
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                    },
+                  }}
+                />
+              </LocalizationProvider>
+            </div>
 
-        {companyInfo.id && (
-          <>
-            <Box className="mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {fileUploadFields.map((field) => (
-                  <FileUpload
-                    key={field.key}
-                    label={field.label}
-                    value={field.key === "logoUrl" ? logoFile : signatureFile}
-                    onChange={(file) => handleFileChange(field.key, file)}
-                    accept={field.accept}
-                    maxSize={field.maxSize}
-                    description={field.description}
-                    companyId={companyInfo.id}
-                  />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button
+                variant="contained"
+                className="!bg-primary"
+                onClick={handleFiscalYearSubmit}
+                disabled={fiscalYearLoading}
+              >
+                {fiscalYearForm.id ? "Update Fiscal Year" : "Create Fiscal Year"}
+              </Button>
+              {fiscalYearForm.id && (
+                <Button variant="outlined" color="warning" onClick={resetFiscalYearForm}>
+                  Cancel Edit
+                </Button>
+              )}
+            </Stack>
+
+            {fiscalYearLoading && !fiscalYears.length && (
+              <Alert severity="info">Loading fiscal years…</Alert>
+            )}
+
+            {!fiscalYearLoading && fiscalYears.length === 0 && (
+              <Alert severity="info">No fiscal years have been created yet for this company.</Alert>
+            )}
+
+            {fiscalYears.length > 0 && (
+              <div className="space-y-2 !h-[calc(100vh-470px)] overflow-auto">
+                {fiscalYears.map((year: any) => (
+                  <div key={year.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Typography variant="subtitle2">Year Label : {year.yearLabel}</Typography>
+                        {year.active ? <Chip label="Active" color="success" size="small" /> : <Chip label="Inactive" size="small" color="error" />}
+                      </div>
+                      <Typography variant="body2" color="text.secondary" className="!mt-1">
+                        {year.startDate ? formatDate(year.startDate) : ''}  -  {year.endDate ? formatDate(year.endDate) : ''}
+                      </Typography>
+                    </div>
+                    <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                      {!year.active && (
+                        <Button size="small" variant="outlined" color="success" onClick={() => handleActivateFiscalYear(year.id)}>
+                          Set Active
+                        </Button>
+                      )}
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() =>
+                          setFiscalYearForm({
+                            id: year.id,
+                            yearLabel: year.yearLabel,
+                            startDate: year.startDate,
+                            endDate: year.endDate,
+                          })
+                        }
+                      >
+                        Edit
+                      </Button>
+                      <Button size="small" color="error" variant="outlined" onClick={() => handleDeleteFiscalYear(year.id)}>
+                        Delete
+                      </Button>
+                    </Stack>
+                  </div>
                 ))}
               </div>
-            </Box>
-
-            {/* Fiscal Year Dialog */}
-            <Dialog
-              open={fiscalYearDialogOpen}
-              onClose={() => setFiscalYearDialogOpen(false)}
-              maxWidth="md"
-              fullWidth
-            >
-              <DialogTitle className="!p-2 border-b border-gray-200">
-                <Box className="flex items-center justify-between !ml-4">
-                  <div>
-                    <Typography variant="h6">Fiscal Year Management</Typography>
-                    <Typography variant="body2" color="text.secondary" className="!text-[10px]">
-                      Manage payroll and reporting periods for this company.
-                    </Typography>
-                  </div>
-                  <IconButton onClick={() => setFiscalYearDialogOpen(false)}>
-                    <CloseOutlined className="text-gray-800" />
-                  </IconButton>
-                </Box>
-              </DialogTitle>
-              <DialogContent className="!p-4 !mt-2">
-                <div className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <TextField
-                      label="Year Label"
-                      value={fiscalYearForm.yearLabel}
-                      onChange={(e) => handleFiscalYearFieldChange("yearLabel", e.target.value)}
-                      placeholder="e.g. 2024-25"
-                      fullWidth
-                    />
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DatePicker
-                        label="Start Date"
-                        value={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : null}
-                        onChange={(newValue) =>
-                          handleFiscalYearFieldChange("startDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
-                        }
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                          },
-                        }}
-                      />
-                    </LocalizationProvider>
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DatePicker
-                        label="End Date"
-                        value={fiscalYearForm.endDate ? dayjs(fiscalYearForm.endDate) : null}
-                        onChange={(newValue) =>
-                          handleFiscalYearFieldChange("endDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
-                        }
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                          },
-                        }}
-                      />
-                    </LocalizationProvider>
-                  </div>
-
-                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                    <Button
-                      variant="contained"
-                      className="!bg-primary"
-                      onClick={handleFiscalYearSubmit}
-                      disabled={fiscalYearLoading}
-                    >
-                      {fiscalYearForm.id ? "Update Fiscal Year" : "Create Fiscal Year"}
-                    </Button>
-                    {fiscalYearForm.id && (
-                      <Button variant="outlined" color="warning" onClick={resetFiscalYearForm}>
-                        Cancel Edit
-                      </Button>
-                    )}
-                  </Stack>
-
-                  {fiscalYearLoading && !fiscalYears.length && (
-                    <Alert severity="info">Loading fiscal years…</Alert>
-                  )}
-
-                  {!fiscalYearLoading && fiscalYears.length === 0 && (
-                    <Alert severity="info">No fiscal years have been created yet for this company.</Alert>
-                  )}
-
-                  {fiscalYears.length > 0 && (
-                    <div className="space-y-2 !h-[calc(100vh-470px)] overflow-auto">
-                      {fiscalYears.map((year: any) => (
-                        <div key={year.id} className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Typography variant="subtitle2">Year Label : {year.yearLabel}</Typography>
-                              {year.active ? <Chip label="Active" color="success" size="small" /> : <Chip label="Inactive" size="small" color="error" />}
-                            </div>
-                            <Typography variant="body2" color="text.secondary" className="!mt-1">
-                              {year.startDate ? formatDate(year.startDate) : ''}  -  {year.endDate ? formatDate(year.endDate) : ''}
-                            </Typography>
-                          </div>
-                          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                            {!year.active && (
-                              <Button size="small" variant="outlined" color="success" onClick={() => handleActivateFiscalYear(year.id)}>
-                                Set Active
-                              </Button>
-                            )}
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() =>
-                                setFiscalYearForm({
-                                  id: year.id,
-                                  yearLabel: year.yearLabel,
-                                  startDate: year.startDate,
-                                  endDate: year.endDate,
-                                })
-                              }
-                            >
-                              Edit
-                            </Button>
-                            <Button size="small" color="error" variant="outlined" onClick={() => handleDeleteFiscalYear(year.id)}>
-                              Delete
-                            </Button>
-                          </Stack>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-              <DialogActions className="border-t border-gray-200 !p-4">
-                <Button onClick={() => setFiscalYearDialogOpen(false)} variant="outlined" className="!text-gray-800 !border-gray-200">Close</Button>
-              </DialogActions>
-            </Dialog>
-          </>
-        )}
-      </div>
+            )}
+          </div>
+        </DialogContent>
+        <DialogActions className="border-t border-gray-200 !p-4">
+          <Button onClick={() => setFiscalYearDialogOpen(false)} variant="outlined" className="!text-gray-800 !border-gray-200">Close</Button>
+        </DialogActions>
+      </Dialog>
     </>
-
-
   );
-
 };
 
 export default CompanySettings;

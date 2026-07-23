@@ -204,6 +204,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return roles.some(role => session.user.roles.includes(role));
   }, [session]);
 
+  const setSessionCall = useCallback((newSession: AuthSession | null) => {
+  setSession(newSession);
+  if (newSession) {
+    saveSession(newSession);
+    apiService.setAuthToken(newSession.accessToken);
+  } else {
+    clearSession();
+    apiService.setAuthToken(null);
+  }
+}, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
@@ -220,13 +231,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasAllPermissions,
       hasRole,
       hasAnyRole,
+      setSessionCall
     }),
-    [isLoading, login, logout, refreshSession, selectTenant, session, hasPermission, hasAnyPermission, hasAllPermissions, hasRole, hasAnyRole],);
+    [isLoading, login, logout, refreshSession, selectTenant, session, hasPermission, hasAnyPermission, hasAllPermissions, hasRole, hasAnyRole, setSessionCall],);
 
-  useEffect(() => {
-    if (session) {
-      saveSession(session);
-    }
+  // useEffect(() => {
+  //   if (session) {
+  //     saveSession(session);
+  //   }
+  // }, [session]);
+
+   useEffect(() => {
+    apiService.setAuthToken(session?.accessToken ?? null);
   }, [session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

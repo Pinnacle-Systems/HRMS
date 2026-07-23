@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import MaterialModule from "../../materialModule";
 import {
   employeeService,
   normalizeEmployeePageResponse,
@@ -44,8 +43,8 @@ import {
 } from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
-import { FileDownloadOutlined } from "@mui/icons-material";
-import { TextField } from "@mui/material";
+import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
+import { Alert, Backdrop, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -121,6 +120,7 @@ export default function EmployeeManagement() {
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] =
     useState(false);
   const [adminRemarks, setAdminRemarks] = useState("");
+  const [downloading, setDownloading] = useState(false);
 
   const filterFields = useMemo(
     () =>
@@ -418,9 +418,9 @@ export default function EmployeeManagement() {
     const sortCriterion = sortCriteria.find(s => s.field === column);
     if (!sortCriterion) return null;
     const orderIcon = sortCriterion.order === "ASC" ? (
-      <MaterialModule.ArrowUpward fontSize="small" className="ml-1" />
+      <ArrowUpward fontSize="small" className="ml-1" />
     ) : (
-      <MaterialModule.ArrowDownward fontSize="small" className="ml-1" />
+      <ArrowDownward fontSize="small" className="ml-1" />
     );
     const orderNumber = sortCriteria.findIndex(s => s.field === column) + 1;
 
@@ -582,7 +582,7 @@ export default function EmployeeManagement() {
     //   return;
     // }
     if (!validateEmployeeIdConfig()) return;
-    showSpinner();
+    setDownloading(true);
     try {
       if (isEditing) {
         const empId = selectedEmployee!.id;
@@ -663,7 +663,7 @@ export default function EmployeeManagement() {
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
-      hideSpinner();
+      setDownloading(false);
     }
   };
 
@@ -761,7 +761,7 @@ export default function EmployeeManagement() {
       return;
     }
     setUploadResult(null);
-    showSpinner();
+    setDownloading(true);
     try {
       const response: any = await employeeService.bulkUploadEmployees(
         uploadFile,
@@ -799,7 +799,7 @@ export default function EmployeeManagement() {
     } catch (error: any) {
       showSnackbar(error.message || "Failed to upload", "error");
     } finally {
-      hideSpinner();
+      setDownloading(false);
     }
   };
 
@@ -927,9 +927,9 @@ export default function EmployeeManagement() {
           </div>
         </div>
         <div className="flex gap-3 items-center">
-          <MaterialModule.FormControlLabel
+          <FormControlLabel
             control={
-              <MaterialModule.Switch
+              <Switch
                 checked={includeInactive}
                 onChange={(e) => {
                   setIncludeInactive(e.target.checked);
@@ -944,26 +944,26 @@ export default function EmployeeManagement() {
               </span>
             }
           />
-          <MaterialModule.Button
+          <Button
             variant="outlined"
-            startIcon={<MaterialModule.FileUploadIcon />}
+            startIcon={<FileUploadOutlined />}
             onClick={() => setBulkUploadDialogOpen(true)}
           >
             Bulk Upload
-          </MaterialModule.Button>
-          <MaterialModule.Button
+          </Button>
+          <Button
             variant="contained"
             onClick={() => handleOpenAddDialog()}
             className="!bg-primary"
           >
             Add Employee
-          </MaterialModule.Button>
+          </Button>
         </div>
       </div>
 
       {/* Active Filters Display */}
       {activeFilters && activeFilters.rules.length > 0 && (
-        <MaterialModule.Box
+        <Box
           sx={{
             mb: 2,
             display: "flex",
@@ -975,9 +975,9 @@ export default function EmployeeManagement() {
             overflow: "auto",
           }}
         >
-          <MaterialModule.Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="textSecondary">
             Filters ({activeFilters.condition}):
-          </MaterialModule.Typography>
+          </Typography>
           {activeFilters.rules.map((rule) => {
             const field = filterFields.find((f) => f.id === rule.field);
             const displayValue =
@@ -986,7 +986,7 @@ export default function EmployeeManagement() {
                   rule.value)
                 : rule.value;
             return (
-              <MaterialModule.Chip
+              <Chip
                 key={rule.id}
                 label={`${field?.label} ${operatorLabels[rule.operator]} ${displayValue}`}
                 onDelete={() => removeFilter(rule.id)}
@@ -996,10 +996,10 @@ export default function EmployeeManagement() {
               />
             );
           })}
-          <MaterialModule.Button size="small" onClick={clearAllFilters}>
+          <Button size="small" onClick={clearAllFilters}>
             Clear All
-          </MaterialModule.Button>
-        </MaterialModule.Box>
+          </Button>
+        </Box>
       )}
 
       {/* Stats Cards */}
@@ -1030,14 +1030,14 @@ export default function EmployeeManagement() {
 
       {/* Search Bar */}
       <div className="mb-4 flex items-center gap-2">
-        <MaterialModule.TextField
+        <TextField
           fullWidth
           variant="outlined"
           placeholder="Search by name, email, firstName, lastName, mobileNumber  or employee ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <MaterialModule.Button
+        <Button
           variant="outlined"
           startIcon={<FilterAltOutlinedIcon />}
           onClick={() => setFilterOpen(true)}
@@ -1045,7 +1045,7 @@ export default function EmployeeManagement() {
         >
           <div>Filters</div>
           {getActiveFilterCount() > 0 && (
-            // <MaterialModule.Chip
+            // <Chip
             //   label={getActiveFilterCount()}
             //   size="small"
             //   color="warning"
@@ -1055,53 +1055,53 @@ export default function EmployeeManagement() {
               {getActiveFilterCount()}
             </div>
           )}
-        </MaterialModule.Button>
+        </Button>
 
-        <MaterialModule.Button
+        <Button
           variant="outlined"
-          startIcon={<MaterialModule.DownloadIcon />}
+          startIcon={<DownloadOutlined />}
           onClick={(e) => openExportMenu(e)}
         >
           Export
-        </MaterialModule.Button>
+        </Button>
 
         {/* Shared Export Menu */}
-        <MaterialModule.Menu
+        <Menu
           anchorEl={exportAnchorEl}
           open={Boolean(exportAnchorEl)}
           onClose={closeExportMenu}
         >
-          <MaterialModule.MenuItem
+          <MenuItem
             className="!text-[12px]"
             onClick={() => handleExport("csv")}
           >
             Export as CSV
-          </MaterialModule.MenuItem>
-          <MaterialModule.MenuItem
+          </MenuItem>
+          <MenuItem
             className="!text-[12px]"
             onClick={() => handleExport("xlsx")}
           >
             Export as Excel
-          </MaterialModule.MenuItem>
-          <MaterialModule.MenuItem
+          </MenuItem>
+          <MenuItem
             className="!text-[12px]"
             onClick={() => handleExport("pdf")}
           >
             Export as PDF
-          </MaterialModule.MenuItem>
-        </MaterialModule.Menu>
+          </MenuItem>
+        </Menu>
       </div>
 
       {/* Employees Table */}
-      <MaterialModule.TableContainer
-        component={MaterialModule.Paper}
+      <TableContainer
+        component={Paper}
         elevation={0}
         className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-392px)]" : "h-[calc(100vh-332px)]"} overflow-auto !bg-white-50`}
       >
-        <MaterialModule.Table stickyHeader className="border border-gray-200">
-          <MaterialModule.TableHead>
-            <MaterialModule.TableRow>
-              <MaterialModule.TableCell
+        <Table stickyHeader className="border border-gray-200">
+          <TableHead>
+            <TableRow>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 title="Sort by Created At"
                 onClick={() =>
@@ -1116,8 +1116,8 @@ export default function EmployeeManagement() {
                   S No
                   {getSortIcon("createdAt")}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="nth-c !font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   toggleSort("employeeId")
@@ -1127,8 +1127,8 @@ export default function EmployeeManagement() {
                   Employee ID
                   {getSortIcon("employeeId")}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   toggleSort("name")
@@ -1138,8 +1138,8 @@ export default function EmployeeManagement() {
                   Employee Name
                   {getSortIcon("name")}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   toggleSort("emailAddress")
@@ -1149,8 +1149,8 @@ export default function EmployeeManagement() {
                   Employee Email
                   {getSortIcon("emailAddress")}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   toggleSort("mobileNumber")
@@ -1160,8 +1160,8 @@ export default function EmployeeManagement() {
                   Mobile Number
                   {getSortIcon("mobileNumber")}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
               // onClick={() =>
               //   handleSortChange(
@@ -1174,8 +1174,8 @@ export default function EmployeeManagement() {
                   Designation
                   {/* {getSortIcon("designation")} */}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
               // onClick={() =>
               //   handleSortChange(
@@ -1188,8 +1188,8 @@ export default function EmployeeManagement() {
                   Department
                   {/* {getSortIcon("department")} */}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
               // onClick={() =>
               //   handleSortChange(
@@ -1202,8 +1202,8 @@ export default function EmployeeManagement() {
                   Branch
                   {/* {getSortIcon("branch")} */}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
                   toggleSort("joiningDate")
@@ -1213,8 +1213,8 @@ export default function EmployeeManagement() {
                   Joining Date
                   {getSortIcon("joiningDate")}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
               // onClick={() =>
               //   handleSortChange(
@@ -1227,8 +1227,8 @@ export default function EmployeeManagement() {
                   Status
                   {/* {getSortIcon("employeeStatus")} */}
                 </div>
-              </MaterialModule.TableCell>
-              <MaterialModule.TableCell
+              </TableCell>
+              <TableCell
                 className="!font-semibold text-gray-800 text-center"
                 sx={{
                   ...stickyHeaderRightSx,
@@ -1236,25 +1236,25 @@ export default function EmployeeManagement() {
                 }}
               >
                 Actions
-              </MaterialModule.TableCell>
-            </MaterialModule.TableRow>
-          </MaterialModule.TableHead>
-          <MaterialModule.TableBody>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {employees.map((employee, index) => (
-              <MaterialModule.TableRow
+              <TableRow
                 key={employee.id}
                 hover
                 sx={getRowColor(index)}
               >
-                <MaterialModule.TableCell
+                <TableCell
                   sx={{
                     ...getStickyLeftSx(index),
                     minWidth: "70px",
                   }}
                 >
                   {page * limit + index + 1}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell
+                </TableCell>
+                <TableCell
                   sx={{
                     ...getStickyLeftSx(index),
                     left: "70px",
@@ -1262,34 +1262,34 @@ export default function EmployeeManagement() {
                   }}
                 >
                   {employee.employeeId}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell className="font-medium">
+                </TableCell>
+                <TableCell className="font-medium">
                   {employee.name}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.emailAddress}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.mobileNumber || "-"}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.designation || "-"}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.department || "-"}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.branch || "-"}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.joiningDate
                     ? formatDate(employee.joiningDate)
                     : "-"}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell>
+                </TableCell>
+                <TableCell>
                   {employee.employeeStatus || "-"}
-                </MaterialModule.TableCell>
-                <MaterialModule.TableCell
+                </TableCell>
+                <TableCell
                   className="text-center"
                   sx={{
                     ...getStickyRightSx(index),
@@ -1297,16 +1297,16 @@ export default function EmployeeManagement() {
                   }}
                 >
                   <div className="flex items-center justify-center">
-                    <MaterialModule.Tooltip title="More Actions">
-                      <MaterialModule.IconButton
+                    <Tooltip title="More Actions">
+                      <IconButton
                         size="small"
                         onClick={(e) => openActionMenu(e, employee)}
                       >
-                        <MaterialModule.MoreVertIcon className="!w-4 text-gray-800" />
-                      </MaterialModule.IconButton>
-                    </MaterialModule.Tooltip>
-                    <MaterialModule.Tooltip title="Export Employee">
-                      <MaterialModule.IconButton
+                        <MoreVertOutlined className="!w-4 text-gray-800" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Export Employee">
+                      <IconButton
                         size="small"
                         onClick={(e) => openExportMenu(e, employee.id)}
                       >
@@ -1314,25 +1314,25 @@ export default function EmployeeManagement() {
                           className="!w-4"
                           color="primary"
                         />
-                      </MaterialModule.IconButton>
-                    </MaterialModule.Tooltip>
+                      </IconButton>
+                    </Tooltip>
                     {isInactiveEmployee(employee) ? (
-                      <MaterialModule.Tooltip title="Reactivate">
-                        <MaterialModule.IconButton
+                      <Tooltip title="Reactivate">
+                        <IconButton
                           size="small"
                           onClick={() =>
                             handleReactivateEmployee(employee.id, employee.name)
                           }
                         >
-                          <MaterialModule.HowToRegIcon
+                          <HowToRegOutlined
                             className="!w-4"
                             sx={{ color: "#16a34a" }}
                           />
-                        </MaterialModule.IconButton>
-                      </MaterialModule.Tooltip>
+                        </IconButton>
+                      </Tooltip>
                     ) : (
-                      <MaterialModule.Tooltip title="Deactivate">
-                        <MaterialModule.IconButton
+                      <Tooltip title="Deactivate">
+                        <IconButton
                           size="small"
                           onClick={() => {
                             setRelievingDialogEmployee(employee);
@@ -1340,25 +1340,25 @@ export default function EmployeeManagement() {
                             setRelievingDialogOpen(true);
                           }}
                         >
-                          <MaterialModule.NoAccountsIcon
+                          <NoAccountsOutlined
                             className="!w-4"
                             sx={{ color: "#ef4444" }}
                           />
-                        </MaterialModule.IconButton>
-                      </MaterialModule.Tooltip>
+                        </IconButton>
+                      </Tooltip>
                     )}
                   </div>
-                </MaterialModule.TableCell>
-              </MaterialModule.TableRow>
+                </TableCell>
+              </TableRow>
             ))}
-          </MaterialModule.TableBody>
-        </MaterialModule.Table>
+          </TableBody>
+        </Table>
         {employees.length === 0 && (
           <div className="text-center py-8 text-gray-500 border border-gray-200">
             No employees found
           </div>
         )}
-      </MaterialModule.TableContainer>
+      </TableContainer>
 
       {/* Pagination */}
       {total > 0 && (
@@ -1387,33 +1387,42 @@ export default function EmployeeManagement() {
       />
 
       {/* Add/Edit Employee Dialog */}
-      <MaterialModule.Dialog
+      <Dialog
         open={employeeDialogOpen}
         onClose={() => setEmployeeDialogOpen(false)}
         maxWidth="md"
         sx={dialogSx}
       >
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
-          <div className="text-gray-800 ml-4">
+          <div className="text-gray-800 ml-4 text-[12px]">
             {isEditing ? "Edit Employee" : "Add New Employee"}
           </div>
-          <MaterialModule.IconButton
+          <IconButton
             onClick={() => setEmployeeDialogOpen(false)}
           >
-            <MaterialModule.CloseOutlined className="!text-gray-800" />
-          </MaterialModule.IconButton>
+            <CloseOutlined className="!text-gray-800" />
+          </IconButton>
         </div>
-        <MaterialModule.DialogContent>
+        <DialogContent>
+          {
+            downloading && (
+              <Backdrop
+                sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+                open={downloading}
+              >
+                <CircularProgress />
+              </Backdrop>
+            )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
             {isEditing && (
-              <MaterialModule.TextField
+              <TextField
                 fullWidth
                 label="Employee ID"
                 value={formData.employeeId}
                 disabled
               />
             )}
-            <MaterialModule.TextField
+            <TextField
               fullWidth
               label="Employee Name"
               value={formData.name}
@@ -1423,7 +1432,7 @@ export default function EmployeeManagement() {
               required
               disabled={isEditing}
             />
-            <MaterialModule.TextField
+            <TextField
               fullWidth
               label="Email ID"
               type="email"
@@ -1459,9 +1468,9 @@ export default function EmployeeManagement() {
                 }}
               />
             </LocalizationProvider>
-            <MaterialModule.FormControl fullWidth>
-              <MaterialModule.InputLabel>Department</MaterialModule.InputLabel>
-              <MaterialModule.Select
+            <FormControl fullWidth>
+              <InputLabel>Department</InputLabel>
+              <Select
                 value={formData.department || ""}
                 label="Department"
                 className="!text-[12px]"
@@ -1475,23 +1484,23 @@ export default function EmployeeManagement() {
                   })
                 }
               >
-                <MaterialModule.MenuItem value="" className="!text-[12px]">
+                <MenuItem value="" className="!text-[12px]">
                   Select Department
-                </MaterialModule.MenuItem>
+                </MenuItem>
                 {departments.map((dept) => (
-                  <MaterialModule.MenuItem
+                  <MenuItem
                     key={dept.id}
                     value={dept.departmentName}
                     className="!text-[12px]"
                   >
                     {dept.departmentName}
-                  </MaterialModule.MenuItem>
+                  </MenuItem>
                 ))}
-              </MaterialModule.Select>
-            </MaterialModule.FormControl>
-            <MaterialModule.FormControl fullWidth>
-              <MaterialModule.InputLabel>Designation</MaterialModule.InputLabel>
-              <MaterialModule.Select
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Designation</InputLabel>
+              <Select
                 value={formData.designation || ""}
                 label="Designation"
                 className="!text-[12px]"
@@ -1505,23 +1514,23 @@ export default function EmployeeManagement() {
                   })
                 }
               >
-                <MaterialModule.MenuItem value="" className="!text-[12px]">
+                <MenuItem value="" className="!text-[12px]">
                   Select Designation
-                </MaterialModule.MenuItem>
+                </MenuItem>
                 {designations.map((desig) => (
-                  <MaterialModule.MenuItem
+                  <MenuItem
                     key={desig.id}
                     value={desig.name}
                     className="!text-[12px]"
                   >
                     {desig.name}
-                  </MaterialModule.MenuItem>
+                  </MenuItem>
                 ))}
-              </MaterialModule.Select>
-            </MaterialModule.FormControl>
-            <MaterialModule.FormControl fullWidth>
-              <MaterialModule.InputLabel>Branch</MaterialModule.InputLabel>
-              <MaterialModule.Select
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Branch</InputLabel>
+              <Select
                 value={formData.branch || ""}
                 label="Branch"
                 className="!text-[12px]"
@@ -1535,25 +1544,25 @@ export default function EmployeeManagement() {
                   })
                 }
               >
-                <MaterialModule.MenuItem value="" className="!text-[12px]">
+                <MenuItem value="" className="!text-[12px]">
                   Select Branch
-                </MaterialModule.MenuItem>
+                </MenuItem>
                 {branches.map((bran) => (
-                  <MaterialModule.MenuItem
+                  <MenuItem
                     key={bran.id}
                     value={bran.branchName}
                     className="!text-[12px]"
                   >
-                    {bran.branchName}
-                  </MaterialModule.MenuItem>
+                    {bran.branchName} <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
+                  </MenuItem>
                 ))}
-              </MaterialModule.Select>
-            </MaterialModule.FormControl>
-            <MaterialModule.FormControl fullWidth>
-              <MaterialModule.InputLabel>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>
                 Employee Status
-              </MaterialModule.InputLabel>
-              <MaterialModule.Select
+              </InputLabel>
+              <Select
                 value={formData.employeeStatus || ""}
                 label="Employee Status"
                 className="!text-[12px]"
@@ -1567,22 +1576,22 @@ export default function EmployeeManagement() {
                   })
                 }
               >
-                <MaterialModule.MenuItem value="" className="!text-[12px]">
+                <MenuItem value="" className="!text-[12px]">
                   Select Employee Status
-                </MaterialModule.MenuItem>
+                </MenuItem>
                 {empStatus.map((s) => (
-                  <MaterialModule.MenuItem
+                  <MenuItem
                     key={s.id}
                     value={s.name}
                     className="!text-[12px]"
                   >
                     {s.name}
-                  </MaterialModule.MenuItem>
+                  </MenuItem>
                 ))}
-              </MaterialModule.Select>
-            </MaterialModule.FormControl>
+              </Select>
+            </FormControl>
             {!isEditing && (
-              <MaterialModule.TextField
+              <TextField
                 fullWidth
                 label="Mobile Number"
                 value={formData.mobileNumber}
@@ -1594,9 +1603,9 @@ export default function EmployeeManagement() {
           </div>
           {!isEditing && (
             <>
-              <MaterialModule.FormControlLabel
+              <FormControlLabel
                 control={
-                  <MaterialModule.Checkbox
+                  <Checkbox
                     checked={hasManualEmpId}
                     onChange={(e) => setHasManualEmpId(e.target.checked)}
                   />
@@ -1622,11 +1631,11 @@ export default function EmployeeManagement() {
                 </div>
                 {!hasManualEmpId ? (
                   <>
-                    <MaterialModule.FormControl fullWidth className="!mt-6">
-                      <MaterialModule.InputLabel>
+                    <FormControl fullWidth className="!mt-6">
+                      <InputLabel>
                         Generation Flow
-                      </MaterialModule.InputLabel>
-                      <MaterialModule.Select
+                      </InputLabel>
+                      <Select
                         value={empGenerationFlow}
                         label="Generation Flow"
                         className="!text-[12px]"
@@ -1636,57 +1645,57 @@ export default function EmployeeManagement() {
                           )
                         }
                       >
-                        <MaterialModule.MenuItem
+                        <MenuItem
                           value="new"
                           className="!text-[12px]"
                         >
                           Generate With New Pattern
-                        </MaterialModule.MenuItem>
-                        <MaterialModule.MenuItem
+                        </MenuItem>
+                        <MenuItem
                           value="continue"
                           disabled={!employeeIdConfig?.configured}
                           className="!text-[12px]"
                         >
                           Continue Last Generated ID
-                        </MaterialModule.MenuItem>
-                      </MaterialModule.Select>
-                    </MaterialModule.FormControl>
+                        </MenuItem>
+                      </Select>
+                    </FormControl>
 
                     {empGenerationFlow === "new" && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                        <MaterialModule.FormControl fullWidth>
-                          <MaterialModule.InputLabel>
+                        <FormControl fullWidth>
+                          <InputLabel>
                             Format Type
-                          </MaterialModule.InputLabel>
-                          <MaterialModule.Select
+                          </InputLabel>
+                          <Select
                             value={empCodeType}
                             label="Format Type"
                             className="!text-[12px]"
                             onChange={(e) => setEmpCodeType(e.target.value)}
                           >
-                            <MaterialModule.MenuItem
+                            <MenuItem
                               value="pattern"
                               className="!text-[12px]"
                             >
                               Pattern
-                            </MaterialModule.MenuItem>
-                            <MaterialModule.MenuItem
+                            </MenuItem>
+                            <MenuItem
                               value="alphanumeric"
                               className="!text-[12px]"
                             >
                               Alphanumeric
-                            </MaterialModule.MenuItem>
-                            <MaterialModule.MenuItem
+                            </MenuItem>
+                            <MenuItem
                               value="number"
                               className="!text-[12px]"
                             >
                               Number
-                            </MaterialModule.MenuItem>
-                          </MaterialModule.Select>
-                        </MaterialModule.FormControl>
+                            </MenuItem>
+                          </Select>
+                        </FormControl>
                         {empCodeType === "pattern" && (
                           <>
-                            <MaterialModule.TextField
+                            <TextField
                               fullWidth
                               label="Prefix"
                               className="!text-[12px]"
@@ -1694,7 +1703,7 @@ export default function EmployeeManagement() {
                               onChange={(e) => setEmpPrefix(e.target.value)}
                               placeholder="EMP"
                             />
-                            <MaterialModule.TextField
+                            <TextField
                               fullWidth
                               type="number"
                               label="Starting Number"
@@ -1707,7 +1716,7 @@ export default function EmployeeManagement() {
                           </>
                         )}
                         {empCodeType === "alphanumeric" && (
-                          <MaterialModule.TextField
+                          <TextField
                             fullWidth
                             type="number"
                             label="Number Of Digits"
@@ -1718,7 +1727,7 @@ export default function EmployeeManagement() {
                           />
                         )}
                         {empCodeType === "number" && (
-                          <MaterialModule.TextField
+                          <TextField
                             fullWidth
                             type="number"
                             label="Starting Number"
@@ -1730,7 +1739,7 @@ export default function EmployeeManagement() {
                       </div>
                     )}
 
-                    <MaterialModule.Alert severity="info" className="mt-4">
+                    <Alert severity="info" className="mt-4">
                       <div className="flex flex-col gap-1">
                         {empGenerationFlow === "continue" && (
                           <>
@@ -1758,11 +1767,11 @@ export default function EmployeeManagement() {
                           </div>
                         )}
                       </div>
-                    </MaterialModule.Alert>
+                    </Alert>
                   </>
                 ) : (
                   <div className="mt-4">
-                    <MaterialModule.TextField
+                    <TextField
                       fullWidth
                       label="Employee ID"
                       value={manualEmployeeId}
@@ -1779,34 +1788,34 @@ export default function EmployeeManagement() {
             On saving, onboarding will begin and the employee will receive a
             password setup email.
           </div>
-        </MaterialModule.DialogContent>
-        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
-          <MaterialModule.Button
+        </DialogContent>
+        <DialogActions className="!p-4 border-t !border-gray-300">
+          <Button
             onClick={() => setEmployeeDialogOpen(false)}
             variant="outlined"
             className="!border-gray-300 !text-gray-800"
           >
             Cancel
-          </MaterialModule.Button>
-          <MaterialModule.Button
+          </Button>
+          <Button
             onClick={() => handleSaveEmployee()}
             variant="contained"
             className="!bg-primary"
           >
             {isEditing ? "Update Employee" : "Add & Send Welcome Email"}
-          </MaterialModule.Button>
-        </MaterialModule.DialogActions>
-      </MaterialModule.Dialog>
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Row Action Menu */}
-      <MaterialModule.Menu
+      <Menu
         anchorEl={actionMenuAnchor}
         open={Boolean(actionMenuAnchor)}
         onClose={closeActionMenu}
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        <MaterialModule.MenuItem
+        <MenuItem
           className="!text-[12px]"
           onClick={() => {
             if (actionMenuEmployee)
@@ -1814,26 +1823,26 @@ export default function EmployeeManagement() {
             closeActionMenu();
           }}
         >
-          <MaterialModule.VisibilityOutlined
+          <VisibilityOutlined
             className="!w-4 mr-2"
             sx={{ color: "var(--color-primary)" }}
           />
           View Details
-        </MaterialModule.MenuItem>
-        <MaterialModule.MenuItem
+        </MenuItem>
+        <MenuItem
           className="!text-[12px]"
           onClick={() => {
             if (actionMenuEmployee) handleOpenEditDialog(actionMenuEmployee);
             closeActionMenu();
           }}
         >
-          <MaterialModule.EditIcon className="!w-4 mr-2" color="info" />
+          <EditOutlined className="!w-4 mr-2" color="info" />
           Edit Employee
-        </MaterialModule.MenuItem>
-      </MaterialModule.Menu>
+        </MenuItem>
+      </Menu>
 
       {/* Relieving Date Dialog */}
-      <MaterialModule.Dialog
+      <Dialog
         open={relievingDialogOpen}
         onClose={() => setRelievingDialogOpen(false)}
         maxWidth="xs"
@@ -1843,13 +1852,13 @@ export default function EmployeeManagement() {
           <div className="text-gray-800 text-[12px] ml-4 font-medium">
             Deactivate Employee
           </div>
-          <MaterialModule.IconButton
+          <IconButton
             onClick={() => setRelievingDialogOpen(false)}
           >
-            <MaterialModule.CloseOutlined className="!text-gray-800" />
-          </MaterialModule.IconButton>
+            <CloseOutlined className="!text-gray-800" />
+          </IconButton>
         </div>
-        <MaterialModule.DialogContent>
+        <DialogContent>
           <div className="text-[12px] text-gray-600 mb-5">
             Enter the relieving date for{" "}
             <strong>{relievingDialogEmployee?.name}</strong>
@@ -1874,21 +1883,21 @@ export default function EmployeeManagement() {
             onChange={(e) => setAdminRemarks(e.target.value)}
             className="!mt-5 !text-[12px]"
           />
-        </MaterialModule.DialogContent>
-        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
-          <MaterialModule.Button
+        </DialogContent>
+        <DialogActions className="!p-4 border-t !border-gray-300">
+          <Button
             onClick={() => setRelievingDialogOpen(false)}
             variant="outlined"
             className="!border-gray-300 !text-gray-800"
           >
             Cancel
-          </MaterialModule.Button>
-          <MaterialModule.Button
+          </Button>
+          <Button
             onClick={async () => {
               if (relievingDialogEmployee) {
                 await updateReleivingDate(
                   relievingDialogEmployee,
-                  relievingDate,adminRemarks
+                  relievingDate, adminRemarks
                 );
                 setRelievingDialogOpen(false);
                 setRelievingDate("");
@@ -1899,35 +1908,45 @@ export default function EmployeeManagement() {
             sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}
           >
             Deactivate
-          </MaterialModule.Button>
-        </MaterialModule.DialogActions>
-      </MaterialModule.Dialog>
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Bulk Upload Dialog */}
-      <MaterialModule.Dialog
+      <Dialog
         open={bulkUploadDialogOpen}
         onClose={handleCloseBulkUploadDialog}
         maxWidth="md"
         fullWidth
       >
         <div className="flex items-center justify-between p-2 border-b !border-gray-300">
-          <div className="text-gray-800 ml-4">Bulk Upload Employees</div>
-          <MaterialModule.IconButton onClick={handleCloseBulkUploadDialog}>
-            <MaterialModule.CloseOutlined className="text-gray-800" />
-          </MaterialModule.IconButton>
+          <div className="text-gray-800 ml-4 text-[12px]">Bulk Upload Employees</div>
+          <IconButton onClick={handleCloseBulkUploadDialog}>
+            <CloseOutlined className="text-gray-800" />
+          </IconButton>
         </div>
-        <MaterialModule.DialogContent>
-          <MaterialModule.Alert severity="info" className="mb-4">
+        <DialogContent>
+          {
+            downloading && (
+              <Backdrop
+                sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+                open={downloading}
+              >
+                <CircularProgress />
+              </Backdrop>
+            )}
+          <Alert severity="info" className="mb-4">
             Download the template, fill in employee details, and upload the
             file. Backend sends invite / welcome emails to newly imported
             employees automatically.
-          </MaterialModule.Alert>
+          </Alert>
 
           <div className="text-center mb-4">
-            <MaterialModule.Button
+            <Button
               variant="outlined"
-              startIcon={<MaterialModule.DownloadIcon />}
+              startIcon={<DownloadOutlined />}
               onClick={async () => {
+                setDownloading(true);
                 try {
                   await employeeService.downloadBulkUploadTemplate();
                 } catch (error: any) {
@@ -1935,16 +1954,18 @@ export default function EmployeeManagement() {
                     error.message || "Failed to download template.",
                     "error",
                   );
+                } finally {
+                  setDownloading(false);
                 }
               }}
             >
               Download Template
-            </MaterialModule.Button>
+            </Button>
           </div>
           <div className="flex items-center mb-4">
-            <MaterialModule.FormControlLabel
+            <FormControlLabel
               control={
-                <MaterialModule.Checkbox
+                <Checkbox
                   checked={excelHasEmployeeIdColumn}
                   onChange={(e) =>
                     setExcelHasEmployeeIdColumn(e.target.checked)
@@ -1955,28 +1976,28 @@ export default function EmployeeManagement() {
               }
               label="Excel already contains Employee ID column"
             />
-            {/* <MaterialModule.FormControl className="flex items-center gap-4 !flex-row !w-max"
+            {/* <FormControl className="flex items-center gap-4 !flex-row !w-max"
               disabled={!employeeIdConfig?.configured}>
               <div className="text-[12px] text-gray-800">Does the Excel already contain an Employee ID column?</div>
-              <MaterialModule.RadioGroup
+              <RadioGroup
                 row
                 value={excelHasEmployeeIdColumn ? "yes" : "no"}
                 onChange={(e) =>
                   setExcelHasEmployeeIdColumn(e.target.value === "yes")
                 }
               >
-                <MaterialModule.FormControlLabel
+                <FormControlLabel
                   value="yes"
-                  control={<MaterialModule.Radio />}
+                  control={<Radio />}
                   label="Yes"
                 />
-                <MaterialModule.FormControlLabel
+                <FormControlLabel
                   value="no"
-                  control={<MaterialModule.Radio />}
+                  control={<Radio />}
                   label="No"
                 />
-              </MaterialModule.RadioGroup>
-            </MaterialModule.FormControl> */}
+              </RadioGroup>
+            </FormControl> */}
             <div className="text-[12px] text-red-600">
               [ Note :{" "}
               {!employeeIdConfig?.configured
@@ -1999,35 +2020,40 @@ export default function EmployeeManagement() {
               }}
             />
             <label htmlFor="file-upload" className="cursor-pointer">
-              <MaterialModule.CloudUploadIcon className="text-6xl text-gray-400 mb-2" />
-              <MaterialModule.Typography
+              <CloudUploadOutlined className="text-6xl text-gray-400 mb-2" />
+              <Typography
                 variant="body1"
                 className="text-gray-600"
               >
                 {uploadFile ? uploadFile.name : "Click to select a file"}
-              </MaterialModule.Typography>
-              <MaterialModule.Typography
+              </Typography>
+              <Typography
                 variant="caption"
                 className="text-gray-400"
               >
                 Accepted formats: CSV, XLSX &nbsp;·&nbsp; Max size: 10 MB
-              </MaterialModule.Typography>
+              </Typography>
+               <Typography
+                variant="body1"
+              >
+                Required Fields: <span className="text-red-500 font-bold">First Name - Last Name {!employeeIdConfig?.configured ? '- EmployeeID' : ''}</span>
+              </Typography>
             </label>
           </div>
 
           {uploadProgress > 0 && uploadProgress < 100 && (
-            <MaterialModule.Box className="mt-4">
-              <MaterialModule.LinearProgress
+            <Box className="mt-4">
+              <LinearProgress
                 variant="determinate"
                 value={uploadProgress}
               />
-              <MaterialModule.Typography
+              <Typography
                 variant="caption"
                 className="text-gray-500 mt-1"
               >
                 Uploading: {uploadProgress}%
-              </MaterialModule.Typography>
-            </MaterialModule.Box>
+              </Typography>
+            </Box>
           )}
 
           {/* After Upload Shows: */}
@@ -2036,7 +2062,7 @@ export default function EmployeeManagement() {
               {/* Upload Summary */}
               <div
                 className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
-                  ? "border-orange-200 bg-orange-50"
+                  ? "border-orange-200 bg-orange-50/40"
                   : "border-green-200 bg-green-50"
                   }`}
               >
@@ -2050,7 +2076,7 @@ export default function EmployeeManagement() {
                     </div>
                   </div>
 
-                  <MaterialModule.Chip
+                  <Chip
                     label={uploadResult.status || "COMPLETED"}
                     color={
                       uploadResult?.failureCount &&
@@ -2125,7 +2151,7 @@ export default function EmployeeManagement() {
                 uploadResult.generatedEmployeeIds?.length > 0 && (
                   <div className="border border-green-200 rounded-lg p-4 bg-green-50">
                     <div className="flex items-center gap-2 mb-3">
-                      <MaterialModule.CheckCircleOutlineIcon
+                      <CheckCircleOutlined
                         fontSize="small"
                         color="success"
                       />
@@ -2137,7 +2163,7 @@ export default function EmployeeManagement() {
                     <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
                       {uploadResult.generatedEmployeeIds.map(
                         (id: string, index: number) => (
-                          <MaterialModule.Chip
+                          <Chip
                             key={`${id}-${index}`}
                             label={id}
                             color="success"
@@ -2219,7 +2245,6 @@ export default function EmployeeManagement() {
               )}
             </div>
           )}
-
           {/* {uploadResult?.generatedEmployeeIds && uploadResult.generatedEmployeeIds.length > 0 && (
             <div className="mt-4 border rounded-lg p-4 bg-gray-50">
               <div className="">
@@ -2230,7 +2255,7 @@ export default function EmployeeManagement() {
                 <div className="flex flex-wrap gap-2">
                   {uploadResult.generatedEmployeeIds.map(
                     (id: string, index: number) => (
-                      <MaterialModule.Chip
+                      <Chip
                         key={`${id}-${index}`}
                         label={id}
                         color="success"
@@ -2284,25 +2309,25 @@ export default function EmployeeManagement() {
               </div>
             </div>
           )} */}
-        </MaterialModule.DialogContent>
-        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
-          <MaterialModule.Button
+        </DialogContent>
+        <DialogActions className="!p-4 border-t !border-gray-300">
+          <Button
             onClick={handleCloseBulkUploadDialog}
             variant="outlined"
             className="!text-gray-800 !border-gray-300"
           >
             Close
-          </MaterialModule.Button>
-          <MaterialModule.Button
+          </Button>
+          <Button
             onClick={handleBulkUpload}
             variant="contained"
             disabled={!uploadFile}
             className={!uploadFile ? "!bg-gray-300" : "!bg-primary"}
           >
             Upload & Send Emails
-          </MaterialModule.Button>
-        </MaterialModule.DialogActions>
-      </MaterialModule.Dialog>
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

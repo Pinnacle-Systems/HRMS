@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUI } from "../../context/Snackbar";
 import { authService } from "../../services/modules/auth";
-import { getDefaultRoute, mapAuthResponseToSession } from "../../auth/authMapper";
+import { mapAuthResponseToSession, redirectAfterAuth } from "../../auth/authMapper";
 import { saveSession } from "../../auth/authSession";
+import { useAuth } from "../../auth/authContext";
 
 type MfaLocationState = {
   sessionToken?: string;
@@ -18,6 +19,7 @@ export default function MfaPage() {
   const [code, setCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { setSessionCall } = useAuth();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -38,8 +40,7 @@ export default function MfaPage() {
       if (response.success && response.data?.accessToken) {
         const session = mapAuthResponseToSession(response.data);
         saveSession(session);
-        
-        // Check if MFA setup is required
+        setSessionCall(session);
         if (response.data.mfaSetupRequired) {
           showSnackbar("Please set up Multi-Factor Authentication", "warning");
           navigate("/mfa-setup", {
@@ -48,15 +49,19 @@ export default function MfaPage() {
           });
         } else {
           showSnackbar("MFA verified successfully!", "success");
-          navigate(getDefaultRoute(session.user), { replace: true });
+          // navigate(getDefaultRoute(session.user), { replace: true });
+          // navigate("/branch-fiscal-year", { replace: true });
+          redirectAfterAuth(session, navigate);
         }
         return;
       }
 
       showSnackbar(response.message || "Invalid verification code. Please try again.", "error");
-      setCode(""); // Clear input on error
-    } catch (err: unknown) {
-      showSnackbar(err instanceof Error ? err.message : "Unable to verify MFA code.", "error");
+      setCode("");
+    } catch (err: any) {
+      if (err.message.includes(401)) {
+        showSnackbar("Invalid MFA code", "error");
+      }
       setCode("");
     } finally {
       hideSpinner();

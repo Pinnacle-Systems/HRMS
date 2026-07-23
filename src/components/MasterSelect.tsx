@@ -1,5 +1,7 @@
-import { DynamicSelectWithAdd } from "./SelectField";
+import Autocomplete from "@mui/material/Autocomplete";
+// import { DynamicSelectWithAdd } from "./SelectField";
 import type { SxProps, Theme } from "@mui/system";
+import { TextField } from "@mui/material";
 
 interface MasterSelectProps {
   type?: "country" | "state" | "city";
@@ -47,32 +49,57 @@ export const MasterSelect = ({
   }
 
   const optionsArray = Array.isArray(options) ? options : [];
-  
-  // Find the selected item - handle both id formats
+
   const selectedItem = optionsArray.find(
     (item) => String(item?.id) === String(value) || String(item?.value) === String(value)
-  );
+  ) || null;
+
+  // const selectedLabel = selectedItem?.name || selectedItem?.label || "";
   
-  const selectedLabel = selectedItem?.name || selectedItem?.label || "";
   return (
-    <DynamicSelectWithAdd
-      label={label || ""}
-      value={selectedLabel}
-      options={optionsArray.map((item) => item?.name || item?.label || "")}
-      onChange={(selectedName: string | string[]) => {
-        const name = Array.isArray(selectedName) ? selectedName[0] : selectedName;
-        const selected = optionsArray.find(
-          (item) => (item?.name || item?.label) === name
-        );
-        onChange(selected?.id || selected?.value || "");
+    // <DynamicSelectWithAdd
+    //   label={label || ""}
+    //   value={selectedLabel}
+    //   options={optionsArray.map((item) => item?.name || item?.label || "")}
+    //   onChange={(selectedName: string | string[]) => {
+    //     const name = Array.isArray(selectedName) ? selectedName[0] : selectedName;
+    //     const selected = optionsArray.find(
+    //       (item) => (item?.name || item?.label) === name
+    //     );
+    //     onChange(selected?.id || selected?.value || "");
+    //   }}
+    //   onAddOption={() => {}}
+    //   error={error}
+    //   helperText={helperText}
+    //   placeholder={placeholder}
+    //   required={required}
+    //   disabled={disabled}
+    //   showAddButton={false}
+    //   sx={sx}
+    // />
+    <Autocomplete
+      fullWidth
+      options={optionsArray}
+      getOptionLabel={(option) => option?.name || option?.label || ""}
+      value={selectedItem}
+      onChange={(_event, newValue) => {
+        if (newValue) {
+          onChange(newValue?.id || newValue?.value || "");
+        } else {
+          onChange("")
+        }
       }}
-      onAddOption={() => {}}
-      error={error}
-      helperText={helperText}
-      placeholder={placeholder}
-      required={required}
-      disabled={disabled}
-      showAddButton={false}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          placeholder={placeholder}
+          error={error}
+          helperText={helperText}
+          required={required}
+          disabled={disabled}
+        />
+      )}
       sx={sx}
     />
   );

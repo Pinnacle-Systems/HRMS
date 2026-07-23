@@ -18,10 +18,7 @@ import {
   Tooltip,
   Collapse,
   Box,
-  Select,
-  MenuItem,
-  InputLabel,
-  FormControl,
+  Autocomplete,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -43,20 +40,19 @@ import { bankService, type BankStatus } from "../../../services/modules/bank";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
-import { sortOptions, type Branch, type BankDetail } from "./type";
+import { sortOptions, type Branch, type BankDetail, type Bank } from "./type";
 import {
   getRowColor,
   getStickyLeftSx,
   getStickyRightSx,
+  handleEnterAsTab,
   stickyHeaderLeftSx,
   stickyHeaderRightSx,
 } from "../../const";
-// import { LocationMap } from "../../../components/Location";
 import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { companyService } from "../../../services/modules/company";
-import { selectSx } from "../../../const";
 
 export default function BranchSettings() {
   // Pagination & Sorting State
@@ -64,7 +60,7 @@ export default function BranchSettings() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
-  const [sortBy, setSortBy] = useState("branchName");
+  const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("ASC");
   const [searchTerm, setSearchTerm] = useState("");
   const [showMap, setShowMap] = useState(false);
@@ -83,6 +79,9 @@ export default function BranchSettings() {
   const [editingBank, setEditingBank] = useState<BankDetail | null>(null);
   const [bankFormData, setBankFormData] = useState<Partial<BankDetail>>({});
   const [currentBranchForBank, setCurrentBranchForBank] = useState<string>("");
+
+  const [companyId, setCompanyId] = useState<string>("");
+  const [banks, setBanks] = useState<Bank[]>([]);
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -121,9 +120,9 @@ export default function BranchSettings() {
         setBranches(response.data.content || response.data || []);
         setTotal(
           response.data.totalElements ||
-            response.data.total ||
-            response.data.length ||
-            0,
+          response.data.total ||
+          response.data.length ||
+          0,
         );
       }
     } catch (error: any) {
@@ -133,18 +132,10 @@ export default function BranchSettings() {
     }
   };
 
-  const createDefaultBranch = async () => {
-    try {
-      await branchService.createDefaultBranch();
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    }
-  };
-
   useEffect(() => {
     Promise.resolve().then(() => {
       getBranches();
-      createDefaultBranch();
+      // createDefaultBranch();
     });
   }, [page, limit, sortBy, sortOrder, searchTerm]);
 
@@ -223,9 +214,9 @@ export default function BranchSettings() {
       setSelectedBranchHead(
         branch.branchHeadId
           ? {
-              id: branch.branchHeadId,
-              name: String(branch.branchHeadName || branch.branchHeadId),
-            }
+            id: branch.branchHeadId,
+            name: String(branch.branchHeadName || branch.branchHeadId),
+          }
           : null,
       );
     } else {
@@ -339,7 +330,7 @@ export default function BranchSettings() {
           branchAddress: formData.branchAddress,
           latitude: formData.latitude,
           longitude: formData.longitude,
-          radius: formData.radius,
+          radius: formData.radius || 5,
           branchHeadId: formData.branchHeadId,
           active: formData.active,
           pfCode: formData.pfCode,
@@ -444,7 +435,6 @@ export default function BranchSettings() {
     );
   };
 
-  const [companyId, setCompanyId] = useState<string>("");
   const fetchCompanyInfo = async () => {
     try {
       const companyData: any = await companyService.getCompany();
@@ -454,8 +444,18 @@ export default function BranchSettings() {
     }
   };
 
+  const fetchBankList = async () => {
+    try {
+      const bankData: any = await bankService.getBankDropdown();
+      setBanks(bankData.data);
+    } catch (err: any) {
+      showSnackbar(err.message || "Failed to fetch banks", "error");
+    }
+  };
+
   useEffect(() => {
     fetchCompanyInfo();
+    fetchBankList();
   }, []);
 
   const loadBanksForBranch = async (branchId: string) => {
@@ -574,15 +574,15 @@ export default function BranchSettings() {
   const handleToggleBankStatus = async (
     bank: BankDetail,
     status: BankStatus,
-  ) => {    
+  ) => {
     showSpinner();
     try {
       if ((status == "ACTIVE" || status == "INACTIVE") && !bank.isPrimary) {
         await bankService.updateStatus(bank.id, status);
         showSnackbar("Bank status updated", "success");
         await loadBanksForBranch(bank.branchId);
-      } else{
-        showSnackbar("Set another account as primary before deactivating this account.",'info')
+      } else {
+        showSnackbar("Set another account as primary before deactivating this account.", 'info')
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -743,7 +743,7 @@ export default function BranchSettings() {
               {branches.map((branch, index) => (
                 <React.Fragment key={branch.id}>
                   {/* Branch Row */}
-                  <TableRow hover sx={getRowColor(index)}>
+                  <TableRow hover sx={getRowColor(index)} onClick={() => toggleExpand(branch.id)}>
                     <TableCell
                       className="font-medium text-gray-800"
                       sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}
@@ -758,6 +758,10 @@ export default function BranchSettings() {
                       }}
                     >
                       {branch.branchName}
+                      {
+                        branch.branchCode == 'DEFAULT' &&
+                        <span className="text-red-500 font-bold">(Head Office)</span>
+                      }
                     </TableCell>
                     <TableCell className="font-medium text-gray-800">
                       {branch.branchCode}
@@ -824,24 +828,27 @@ export default function BranchSettings() {
                           />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete">
+                      {
+                        branch.branchCode == 'DEFAULT' &&
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() =>
+                              handleDelete(branch.id, branch.branchName)
+                            }
+                          >
+                            <DeleteIcon
+                              className="!w-4"
+                              sx={{ color: "#ef4444" }}
+                            />
+                          </IconButton>
+                        </Tooltip>
+                      }
+                      <Tooltip title="Add Bank Details">
                         <IconButton
                           size="small"
-                          color="error"
-                          onClick={() =>
-                            handleDelete(branch.id, branch.branchName)
-                          }
-                        >
-                          <DeleteIcon
-                            className="!w-4"
-                            sx={{ color: "#ef4444" }}
-                          />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Bank Details">
-                        <IconButton
-                          size="small"
-                          onClick={() => toggleExpand(branch.id)}
+                          className="!text-[12px]"                          
                         >
                           {expandedBranchId === branch.id ? (
                             <ExpandLessIcon className="!w-4 text-gray-800" />
@@ -892,7 +899,7 @@ export default function BranchSettings() {
                                   className={`flex items-center gap-6 px-4 py-3 ${bank.isPrimary ? "bg-blue-50/40" : ""}`}
                                 >
                                   {/* Icon + Bank Name */}
-                                  <div className="flex items-center gap-2 w-[160px] shrink-0">
+                                  <div className="flex items-center gap-2 w-max shrink-0">
                                     <div
                                       className={`p-1.5 rounded-lg ${bank.isPrimary ? "bg-blue-100" : "bg-gray-100"}`}
                                     >
@@ -901,7 +908,7 @@ export default function BranchSettings() {
                                       />
                                     </div>
                                     <div>
-                                      <div className="text-[12px] font-semibold text-gray-800 truncate max-w-[110px]">
+                                      <div className="text-[12px] font-semibold text-gray-800">
                                         {bank.bankName}
                                       </div>
                                       {bank.isPrimary && (
@@ -1080,7 +1087,7 @@ export default function BranchSettings() {
             <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
-        <DialogContent className="max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-h-[80vh] overflow-y-auto" onKeyDown={handleEnterAsTab}>
           <div className="grid gap-5">
             <div className="flex gap-3">
               <div className="w-full">
@@ -1303,7 +1310,7 @@ export default function BranchSettings() {
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
           <div className="flex items-center gap-2 text-gray-800 ml-4 text-[12px]">
-            <AccountBalanceIcon className="!w-4" />
+            {/* <AccountBalanceIcon className="!w-4" /> */}
             {editingBank ? "Edit Bank Account" : "Add Bank Account"}
           </div>
           <IconButton onClick={handleCloseBankDialog}>
@@ -1311,15 +1318,31 @@ export default function BranchSettings() {
           </IconButton>
         </div>
         <DialogContent>
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <TextField
+          <div className="grid grid-cols-2 gap-5 mt-2">
+            <Autocomplete
               fullWidth
-              label="Bank Name"
-              value={bankFormData.bankName || ""}
-              onChange={(e) =>
-                setBankFormData((p) => ({ ...p, bankName: e.target.value }))
-              }
-              required
+              options={banks}
+              getOptionLabel={(option) => option.name}
+              value={banks.find(b => b.name === bankFormData.bankName) || null}
+              onChange={(_event, newValue) => {
+                setBankFormData((p) => ({
+                  ...p,
+                  bankName: newValue?.name || "",
+                  ifscCode: newValue?.ifscPrefix || "",
+                }));
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Bank Name"
+                  required
+                />
+              )}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  padding: 0,
+                },
+              }}
             />
             <TextField
               fullWidth
@@ -1365,28 +1388,30 @@ export default function BranchSettings() {
                 setBankFormData((p) => ({ ...p, branchName: e.target.value }))
               }
             />
-            <FormControl fullWidth>
-              <InputLabel>Account Type</InputLabel>
-              <Select
-                value={bankFormData.accountType || "SAVINGS"}
-                label="Account Type"
-                sx={selectSx}
-                onChange={(e) =>
-                  setBankFormData((p) => ({
-                    ...p,
-                    accountType: e.target.value,
-                  }))
-                }
-              >
-                <MenuItem value="SAVINGS">Savings</MenuItem>
-                <MenuItem value="CURRENT">Current</MenuItem>
-                {/* <MenuItem value="SALARY">Salary</MenuItem>
-                <MenuItem value="FIXED_DEPOSIT">Fixed Deposit</MenuItem>
-                <MenuItem value="RECURRING_DEPOSIT">Recurring Deposit</MenuItem>
-                <MenuItem value="NRE">NRE</MenuItem>
-                <MenuItem value="NRO">NRO</MenuItem> */}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={['Savings', 'Current']}
+              getOptionLabel={(option) => option}
+              value={bankFormData.accountType || 'Savings'}
+              onChange={(_event, newValue) => {
+                setBankFormData((p) => ({
+                  ...p,
+                  accountType: newValue || 'Savings',
+                }));
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Account Type"
+                  required
+                />
+              )}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  padding: 0,
+                },
+              }}
+            />
             <div className="col-span-2">
               <FormControlLabel
                 control={

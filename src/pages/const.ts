@@ -61,3 +61,29 @@ export const stickyHeaderRightSx = {
   zIndex: 4,
   background: "var(--bg-primary)",
 };
+
+export const handleEnterAsTab = (
+  e: React.KeyboardEvent<HTMLElement>
+) => {
+  if (e.key !== "Enter") return;
+
+  e.preventDefault();
+
+  const form = e.currentTarget;
+  const focusable = Array.from(
+    form.querySelectorAll<HTMLElement>(
+      'input, textarea, [role="combobox"], select, button, [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter(
+    (el) =>
+      !el.hasAttribute("disabled") &&
+      el.tabIndex !== -1 &&
+      el.offsetParent !== null
+  );
+
+  const index = focusable.indexOf(document.activeElement as HTMLElement);
+
+  if (index > -1 && index < focusable.length - 1) {
+    focusable[index + 1].focus();
+  }
+};

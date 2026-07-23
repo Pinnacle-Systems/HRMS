@@ -22,7 +22,11 @@ import type {
   MfaVerifyRequest,
   PasswordChangeRequest,
   ProfilePictureResponse,
+  SelectSessionContextResponse,
   SelectTenantRequest,
+  SessionContext,
+  SessionContextResponse,
+  SessionContextSelection,
   SetPasswordRequest,
   SignupRequest,
   UserProfile,
@@ -308,10 +312,7 @@ export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome>
   }
 }
 
-export async function verifyMobileOtp(
-  mobileNumber: string,
-  otp: string
-): Promise<LoginOutcome> {
+export async function verifyMobileOtp(mobileNumber: string,otp: string): Promise<LoginOutcome> {
   const response = (await apiService.post(
     API_ENDPOINTS.AUTH.LOGIN,
     { mobileNumber, mobileOtp: otp }
@@ -328,6 +329,15 @@ export async function verifyMobileOtp(
   }
 
   return outcome;
+}
+
+export async function getSessionContext(): Promise<SessionContextResponse> {
+  return await apiService.get(API_ENDPOINTS.AUTH.GET_SESSION_CONTEXT);
+}
+
+export async function selectSessionContext(payload: SessionContextSelection): Promise<SelectSessionContextResponse> {
+  const response = await apiService.post(API_ENDPOINTS.AUTH.SELECT_SESSION_CONTEXT, payload);
+  return response as SelectSessionContextResponse;
 }
 
 // export async function verifyMobileOtp(

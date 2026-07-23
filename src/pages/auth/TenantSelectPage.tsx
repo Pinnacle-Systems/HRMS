@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
-import { getDefaultRoute } from "../../auth/authMapper";
+import { redirectAfterAuth } from "../../auth/authMapper";
 import { buildLoginRequest } from "../../auth/authApi";
 import type { TenantInfo } from "../../auth/authTypes";
 
@@ -20,14 +20,14 @@ export default function TenantSelectPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const state = (location.state || {}) as TenantLocationState;
-  
+
   const tenants = state.tenants || [];
   const email = state.email || "";
   const loginId = state.loginId || email;
   const password = state.password || "";
   const mobileNumber = state.mobileNumber || "";
   const isMobileLogin = state.isMobileLogin || false;
-  
+
   const [selectedTenantId, setSelectedTenantId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -46,7 +46,7 @@ export default function TenantSelectPage() {
       const timer = setTimeout(() => navigate("/login", { replace: true }), 3000);
       return () => clearTimeout(timer);
     }
-    
+
     if (!email && !mobileNumber) {
       setError("Session expired. Please sign in again.");
       const timer = setTimeout(() => navigate("/login", { replace: true }), 3000);
@@ -59,26 +59,23 @@ export default function TenantSelectPage() {
       setError("Please select a company.");
       return;
     }
-
     setError("");
     setLoading(true);
-
     try {
       // Build login request with tenantId
       const loginRequest = isMobileLogin
         ? buildLoginRequest({
-            mobileNumber: mobileNumber,
-            tenantId: selectedTenantId,
-          })
+          mobileNumber: mobileNumber,
+          tenantId: selectedTenantId,
+        })
         : buildLoginRequest({
-            loginId: loginId,
-            password: password,
-            tenantId: selectedTenantId,
-          });
+          loginId: loginId,
+          password: password,
+          tenantId: selectedTenantId,
+        });
 
       // Complete the login with the selected tenant
-      const outcome:any = await login(loginRequest);
-
+      const outcome: any = await login(loginRequest);
       switch (outcome.type) {
         case "authenticated": {
           if (outcome.mfaSetupRequired) {
@@ -87,11 +84,16 @@ export default function TenantSelectPage() {
               state: { session: outcome.session, fromLogin: true }
             });
           } else {
-            navigate(getDefaultRoute(outcome.session.user), { replace: true });
+            // navigate(getDefaultRoute(outcome.session.user), { replace: true });
+            // navigate("/branch-fiscal-year", {
+            //   replace: true,
+            //   state: { fromLogin: true }
+            // });
+             redirectAfterAuth(outcome.session, navigate);
           }
           break;
         }
-        
+
         case "mfaRequired": {
           navigate("/mfa", {
             replace: true,
@@ -99,16 +101,17 @@ export default function TenantSelectPage() {
               sessionToken: outcome.sessionToken,
               mfaType: outcome.mfaType || "TOTP",
               email: email || mobileNumber,
+              password: password
             },
           });
           break;
         }
-        
+
         case "tenantSelection": {
           setError("Multiple companies found. Please select a specific company.");
           break;
         }
-        
+
         case "mustChangePassword": {
           navigate("/reset-password", {
             replace: true,
@@ -116,19 +119,17 @@ export default function TenantSelectPage() {
           });
           break;
         }
-        
+
         case "failed": {
           setError(outcome.message || "Unable to select company. Please try again.");
           break;
         }
-        
+
         default: {
           setError("An unexpected error occurred. Please try again.");
         }
       }
-      
     } catch (err) {
-      console.error("Tenant selection error:", err);
       setError("Unable to select company. Please try again.");
     } finally {
       setLoading(false);
@@ -151,7 +152,7 @@ export default function TenantSelectPage() {
             </p>
           )}
         </div>
-        
+
         {tenants.length > 0 ? (
           <>
             <div className="space-y-2 mb-6">
@@ -172,13 +173,13 @@ export default function TenantSelectPage() {
                 ))}
               </select>
             </div>
-            
+
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2 mb-4">
                 {error}
               </div>
             )}
-            
+
             <button
               type="button"
               disabled={!selectedTenantId || loading}
@@ -205,7 +206,7 @@ export default function TenantSelectPage() {
             </div>
           </div>
         )}
-        
+
         <Link
           to="/login"
           className="block text-center text-sm text-primary hover:text-primary-dark mt-6 transition-colors"

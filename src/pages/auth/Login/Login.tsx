@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useUI } from "../../../context/Snackbar";
 import { useAuth } from "../../../auth/authContext";
-import { getDefaultRoute } from "../../../auth/authMapper";
+import { redirectAfterAuth } from "../../../auth/authMapper";
 import { buildLoginRequest } from "../../../auth/authApi";
 import grp from '../../../assets/grp.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
@@ -69,17 +69,19 @@ export default function Login() {
               state: { session: outcome.session, fromLogin: true }
             });
           } else {
-            navigate(getDefaultRoute(outcome.session.user), { replace: true });
+            // navigate(getDefaultRoute(outcome.session.user), { replace: true });
+             redirectAfterAuth(outcome.session, navigate);
           }
           break;
-
+        
         case "mfaRequired":
           navigate("/mfa", {
             replace: true,
             state: {
               sessionToken: outcome.sessionToken,
               mfaType: outcome.mfaType,
-              email: email
+              email: email,
+              password: password
             },
           });
           break;
@@ -119,10 +121,12 @@ export default function Login() {
           }
           break;
       }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "An error occurred";
-      showSnackbar(errMsg, "error");
-      setError(errMsg);
+    } catch (err: any) {
+      if (err.message.includes(401)) {
+        const errMsg = "Invalid Credentials";
+        showSnackbar(errMsg, "error");
+        setError(errMsg);
+      }
     } finally {
       hideSpinner();
     }
@@ -319,12 +323,12 @@ export default function Login() {
             <div className="flex items-center gap-2 mb-8">
               <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
-                Vibe<span className="text-primary">HR</span>
+                Dot<span className="text-primary">HR</span>
               </span>
             </div>
             <h1 className="text-2xl font-semibold leading-snug mb-6">
               Sign in to <br />
-              Vibe<span className="text-primary">HR</span>
+              Dot<span className="text-primary">HR</span>
             </h1>
             <div className="flex items-center justify-center">
               <img src={grp} width="50" height="100" alt="group" />
@@ -363,13 +367,13 @@ export default function Login() {
               alt="pinnacle"
             />
             Welcome in <br />
-            Vibe<span className="text-primary">HR</span> Platform
+            Dot<span className="text-primary">HR</span> Platform
           </h2>
           <div className="text-[12px] mb-8 text-gray-400">
             Enter your credentials to access your dashboard
           </div>
 
-          <form onSubmit={isMobile ? handleMobileLogin  : handleEmailLogin} className="space-y-5">
+          <form onSubmit={isMobile ? handleMobileLogin : handleEmailLogin} className="space-y-5">
             {!isMobile ? (
               <>
                 {/* Email/Login ID */}

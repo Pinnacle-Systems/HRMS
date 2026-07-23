@@ -24,7 +24,9 @@ type ProfileFetcher = {
   getProfile(): Promise<unknown>;
 };
 
-function uniqueValues(values: Array<string | undefined | null | false>): string[] {
+function uniqueValues(
+  values: Array<string | undefined | null | false>,
+): string[] {
   return Array.from(new Set(values.filter(Boolean))) as string[];
 }
 

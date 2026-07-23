@@ -3,13 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import { useUI } from "../../context/Snackbar";
 import { authService } from "../../services/modules/auth";
-import { getDefaultRoute } from "../../auth/authMapper";
+import { getDefaultRoute, redirectAfterAuth } from "../../auth/authMapper";
 
 export default function MfaSetupPage() {
   const { session, isAuthenticated, refreshSession } = useAuth();
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const navigate = useNavigate();
-  
+
   const [qrCode, setQrCode] = useState("");
   const [secret, setSecret] = useState("");
   const [accountName, setAccountName] = useState("");
@@ -23,7 +23,7 @@ export default function MfaSetupPage() {
       navigate("/login", { replace: true });
       return;
     }
-    
+
     // Initialize MFA setup
     initializeMfaSetup();
   }, [isAuthenticated, navigate]);
@@ -31,10 +31,10 @@ export default function MfaSetupPage() {
   const initializeMfaSetup = async () => {
     setIsLoading(true);
     showSpinner();
-    
+
     try {
-      const response:any = await authService.mfaSetup({ mfaType: "TOTP" });
-      
+      const response: any = await authService.mfaSetup({ mfaType: "TOTP" });
+
       if (response.success && response.data) {
         setQrCode(response.data.qrCodeImageBase64 || response.data.qrCodeUri);
         setSecret(response.data.secret);
@@ -69,19 +69,23 @@ export default function MfaSetupPage() {
     showSpinner();
 
     try {
-      const response = await authService.enableMfa({ 
-        code, 
-        mfaType: "TOTP" 
+      const response = await authService.enableMfa({
+        code,
+        mfaType: "TOTP"
       });
 
       if (response.success) {
         showSnackbar("MFA enabled successfully!", "success");
-        
-        // Refresh session to get updated user profile with MFA enabled
-        await refreshSession();
-        
-        // Navigate to dashboard with user data
-        navigate(getDefaultRoute(session.user), { replace: true });
+        const refreshed = await refreshSession();
+        if (refreshed) {
+          redirectAfterAuth(refreshed, navigate);
+        } else {
+          redirectAfterAuth(session, navigate);
+        }
+        // await refreshSession();
+        // const currentSession = useAuth().session;
+        // redirectAfterAuth(currentSession, navigate);
+        // navigate(getDefaultRoute(session.user), { replace: true });
       } else {
         showSnackbar(response.message || "Invalid code. Please try again.", "error");
         setCode(""); // Clear the input
@@ -120,9 +124,9 @@ export default function MfaSetupPage() {
           <div className="flex flex-col items-center">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               {qrCode ? (
-                <img 
-                  src={qrCode} 
-                  alt="MFA QR Code" 
+                <img
+                  src={qrCode}
+                  alt="MFA QR Code"
                   className="w-48 h-48 object-contain"
                 />
               ) : (
@@ -178,7 +182,7 @@ export default function MfaSetupPage() {
             >
               {isEnabling ? "Enabling..." : "Verify & Enable MFA"}
             </button>
-            
+
             <button
               onClick={() => {
                 if (session?.user) {
@@ -196,7 +200,7 @@ export default function MfaSetupPage() {
           {/* Security Note */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
             <p className="text-xs text-blue-700">
-              🔒 After enabling MFA, you'll need to enter a verification code 
+              🔒 After enabling MFA, you'll need to enter a verification code
               from your authenticator app each time you sign in.
             </p>
           </div>

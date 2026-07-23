@@ -3,7 +3,7 @@ import { Suspense, lazy } from "react";
 import type { ReactElement } from "react";
 import { AuthProvider } from "../auth/AuthProvider";
 import { useAuth } from "../auth/authContext";
-import { getDefaultRoute } from "../auth/authMapper";
+import { getDefaultRoute, hasWorkspaceContext } from "../auth/authMapper";
 import ProtectedRoute from "../auth/ProtectedRoute";
 import Layout from "../components/Layout";
 import { logger } from "../utils/logger";
@@ -14,6 +14,8 @@ import {
   type LeaveRouteId,
 } from "../pages/leave/leaveRoutes";
 import { PERMISSIONS } from '../auth/Permissions.ts';
+import BranchFiscalYearSelectPage from "../pages/auth/BranchFYSelect.tsx";
+import WorkspaceGuard from "../auth/workSpaceGuard.tsx";
 
 const Employees = lazy(() => import("../pages/employees/employeeManagement"));
 const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword/ForgotPassword"));
@@ -132,8 +134,15 @@ function RootRedirect() {
       </div>
     );
   }
-
-  const redirectTo = session ? getDefaultRoute(session.user) : "/login";
+  let redirectTo = "/login";
+  // const redirectTo = session ? getDefaultRoute(session.user) : "/login";
+  if (session) {
+    if (hasWorkspaceContext(session)) {
+      redirectTo = getDefaultRoute(session.user);
+    } else {
+      redirectTo = "/branch-fiscal-year";
+    }
+  }
   logger.info("Root redirect resolved", {
     redirectTo,
     isAuthenticated: Boolean(session),
@@ -163,200 +172,204 @@ function AppRoutesContent() {
           <Route path="/mfa" element={<MfaPage />} />
           <Route path="/mfa-setup" element={<MfaSetupPage />} />
           <Route path="/select-tenant" element={<TenantSelectPage />} />
+          <Route path="/branch-fiscal-year" element={<BranchFiscalYearSelectPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="/" element={<RootRedirect />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
+              <Route element={<WorkspaceGuard />}>
 
-              {/* Home & Profile - All authenticated users */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["ADMIN", "HR", "MANAGER", "EMPLOYEE"]}
-                  />
-                }
-              >
-                <Route path="home" element={<Home />} />
-                <Route path="bi-workspace" element={<BIWorkspacePage />} />
-                <Route path="leave" element={<Navigate to="/leaves/my-dashboard" replace />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="documentation" element={<Documentation />} />
-                <Route path="my-info" element={<EmployeeDetails />} />
-              </Route>
+                {/* Home & Profile - All authenticated users */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["ADMIN", "HR", "MANAGER", "EMPLOYEE"]}
+                    />
+                  }
+                >
 
-              {/* Employee Leave Routes */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={getLeaveRouteGroupAllowedRoles("employee")}
-                  />
-                }
-              >
-                {employeeLeaveRoutes.map((route) => (
-                  <Route
-                    key={route.path}
-                    path={route.path.replace(/^\//, "")}
-                    element={getLeaveRouteElement(route)}
-                  />
-                ))}
-              </Route>
+                  <Route path="home" element={<Home />} />
+                  <Route path="bi-workspace" element={<BIWorkspacePage />} />
+                  <Route path="leave" element={<Navigate to="/leaves/my-dashboard" replace />} />
+                  <Route path="profile" element={<Profile />} />
+                  <Route path="documentation" element={<Documentation />} />
+                  <Route path="my-info" element={<EmployeeDetails />} />
+                </Route>
 
-              {/* Manager Leave Routes */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={getLeaveRouteGroupAllowedRoles("manager")}
-                  />
-                }
-              >
-                {managerLeaveRoutes.map((route) => (
-                  <Route
-                    key={route.path}
-                    path={route.path.replace(/^\//, "")}
-                    element={getLeaveRouteElement(route)}
-                  />
-                ))}
-              </Route>
+                {/* Employee Leave Routes */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={getLeaveRouteGroupAllowedRoles("employee")}
+                    />
+                  }
+                >
+                  {employeeLeaveRoutes.map((route) => (
+                    <Route
+                      key={route.path}
+                      path={route.path.replace(/^\//, "")}
+                      element={getLeaveRouteElement(route)}
+                    />
+                  ))}
+                </Route>
 
-              {/* HR Leave Routes */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={getLeaveRouteGroupAllowedRoles("hr")}
-                  />
-                }
-              >
-                {hrLeaveRoutes.map((route) => (
-                  <Route
-                    key={route.path}
-                    path={route.path.replace(/^\//, "")}
-                    element={getLeaveRouteElement(route)}
-                  />
-                ))}
-              </Route>
+                {/* Manager Leave Routes */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={getLeaveRouteGroupAllowedRoles("manager")}
+                    />
+                  }
+                >
+                  {managerLeaveRoutes.map((route) => (
+                    <Route
+                      key={route.path}
+                      path={route.path.replace(/^\//, "")}
+                      element={getLeaveRouteElement(route)}
+                    />
+                  ))}
+                </Route>
 
-              {/* Admin Leave Routes */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={getLeaveRouteGroupAllowedRoles("admin")}
-                  />
-                }
-              >
-                {adminLeaveRoutes.map((route) => (
-                  <Route
-                    key={route.path}
-                    path={route.path.replace(/^\//, "")}
-                    element={getLeaveRouteElement(route)}
-                  />
-                ))}
-              </Route>
+                {/* HR Leave Routes */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={getLeaveRouteGroupAllowedRoles("hr")}
+                    />
+                  }
+                >
+                  {hrLeaveRoutes.map((route) => (
+                    <Route
+                      key={route.path}
+                      path={route.path.replace(/^\//, "")}
+                      element={getLeaveRouteElement(route)}
+                    />
+                  ))}
+                </Route>
 
-              {/* Role-specific Dashboards */}
-              <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-                <Route path="admin/dashboard" element={<Home />} />
-              </Route>
+                {/* Admin Leave Routes */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={getLeaveRouteGroupAllowedRoles("admin")}
+                    />
+                  }
+                >
+                  {adminLeaveRoutes.map((route) => (
+                    <Route
+                      key={route.path}
+                      path={route.path.replace(/^\//, "")}
+                      element={getLeaveRouteElement(route)}
+                    />
+                  ))}
+                </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["HR"]} />}>
-                <Route path="hr/dashboard" element={<Home />} />
-              </Route>
+                {/* Role-specific Dashboards */}
+                <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+                  <Route path="admin/dashboard" element={<Home />} />
+                </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["MANAGER"]} />}>
-                <Route path="manager/dashboard" element={<Home />} />
-              </Route>
+                <Route element={<ProtectedRoute allowedRoles={["HR"]} />}>
+                  <Route path="hr/dashboard" element={<Home />} />
+                </Route>
 
-              <Route element={<ProtectedRoute allowedRoles={["EMPLOYEE"]} />}>
-                <Route path="employee/dashboard" element={<Home />} />
-              </Route>
+                <Route element={<ProtectedRoute allowedRoles={["MANAGER"]} />}>
+                  <Route path="manager/dashboard" element={<Home />} />
+                </Route>
 
-              {/* ============ EMPLOYEE MANAGEMENT ============ */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["HR", "ADMIN"]}
-                    requiredPermissions={[PERMISSIONS.EMPLOYEE_READ]}
-                  />
-                }
-              >
-                <Route path="employees" element={<Employees />} />
-                <Route path="employees/:id" element={<EmployeeDetails />} />
-              </Route>
+                <Route element={<ProtectedRoute allowedRoles={["EMPLOYEE"]} />}>
+                  <Route path="employee/dashboard" element={<Home />} />
+                </Route>
 
-              {/* ============ POLICY MANAGEMENT ============ */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["HR", "ADMIN"]}
+                {/* ============ EMPLOYEE MANAGEMENT ============ */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["HR", "ADMIN"]}
+                      requiredPermissions={[PERMISSIONS.EMPLOYEE_READ]}
+                    />
+                  }
+                >
+                  <Route path="employees" element={<Employees />} />
+                  <Route path="employees/:id" element={<EmployeeDetails />} />
+                </Route>
+
+                {/* ============ POLICY MANAGEMENT ============ */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["HR", "ADMIN"]}
                     // requiredPermissions={[PERMISSIONS.POLICY_READ]}
-                  />
-                }
-              >
-                <Route path="policies" element={<PolicyDashboard />} />
-                <Route path="policies/create" element={<CreatePolicy />} />
-                <Route path="policies/:id" element={<PolicyDetails />} />
-                <Route path="policies/:id/edit" element={<EditPolicy />} />
-                <Route path="policies/simulator" element={<PolicySimulator />} />
-                <Route path="policies/reports" element={<PolicyReports />} />
-              </Route>
+                    />
+                  }
+                >
+                  <Route path="policies" element={<PolicyDashboard />} />
+                  <Route path="policies/create" element={<CreatePolicy />} />
+                  <Route path="policies/:id" element={<PolicyDetails />} />
+                  <Route path="policies/:id/edit" element={<EditPolicy />} />
+                  <Route path="policies/simulator" element={<PolicySimulator />} />
+                  <Route path="policies/reports" element={<PolicyReports />} />
+                </Route>
 
-              {/* ============ ATTENDANCE MANAGEMENT ============ */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["HR", "ADMIN"]}
+                {/* ============ ATTENDANCE MANAGEMENT ============ */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["HR", "ADMIN"]}
                     // requiredPermissions={[PERMISSIONS.ATTENDANCE_READ]}
-                  />
-                }
-              >
-                <Route path="attendance/shifts" element={<ShiftSettings />} />
-                <Route path="attendance/overview" element={<AttendanceOverview />} />
-                <Route path="attendance/management" element={<AttendanceManagement />} />
-                <Route path="attendance/process" element={<AttendanceProcessing />} />
-                <Route path="attendance/records" element={<AttendanceRecords />} />
-                <Route path="attendance/reports" element={<AttendanceReports />} />
-              </Route>
+                    />
+                  }
+                >
+                  <Route path="attendance/shifts" element={<ShiftSettings />} />
+                  <Route path="attendance/overview" element={<AttendanceOverview />} />
+                  <Route path="attendance/management" element={<AttendanceManagement />} />
+                  <Route path="attendance/process" element={<AttendanceProcessing />} />
+                  <Route path="attendance/records" element={<AttendanceRecords />} />
+                  <Route path="attendance/reports" element={<AttendanceReports />} />
+                </Route>
 
-              {/* ============ PAYROLL - READ ACCESS ============ */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["HR", "ADMIN"]}
-                  // requiredPermissions={[PERMISSIONS.PAYROLL_READ]}
-                  />
-                }
-              >
-                <Route path="payroll" element={<PayrollDashboard />} />
-                <Route path="payroll/runs" element={<PayrollRuns />} />
-                <Route path="payroll/payslips" element={<EmployeePayslips />} />
-                <Route path="payroll/payslips/:empId/:period" element={<EmployeePayslip />} />
-                <Route path="payroll/employee-salary" element={<EmployeeSalaryView />} />
-                <Route path="payroll/runs/:id" element={<PayrollDetails />} />
-                <Route path="payroll/loan-advance-request" element={<LoanAdvanceRequestPage />} />
-              </Route>
+                {/* ============ PAYROLL - READ ACCESS ============ */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["HR", "ADMIN"]}
+                    // requiredPermissions={[PERMISSIONS.PAYROLL_READ]}
+                    />
+                  }
+                >
+                  <Route path="payroll" element={<PayrollDashboard />} />
+                  <Route path="payroll/runs" element={<PayrollRuns />} />
+                  <Route path="payroll/payslips" element={<EmployeePayslips />} />
+                  <Route path="payroll/payslips/:empId/:period" element={<EmployeePayslip />} />
+                  <Route path="payroll/employee-salary" element={<EmployeeSalaryView />} />
+                  <Route path="payroll/runs/:id" element={<PayrollDetails />} />
+                  <Route path="payroll/loan-advance-request" element={<LoanAdvanceRequestPage />} />
+                </Route>
 
-              {/* ============ PAYROLL - WRITE ACCESS ============ */}
-              <Route
-                element={
-                  <ProtectedRoute
-                    allowedRoles={["HR", "ADMIN"]}
+                {/* ============ PAYROLL - WRITE ACCESS ============ */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["HR", "ADMIN"]}
                     // requiredPermissions={[PERMISSIONS.PAYROLL_WRITE]}
                     // permissionMode="any"
-                  />
-                }
-              >
-                <Route path="payroll/generate" element={<GeneratePayroll />} />
-                <Route path="payroll/components" element={<SalaryComponentBuilder />} />
-                <Route path="payroll/structures" element={<SalaryStructureTemplate />} />
-                <Route path="payroll/assign" element={<AssignSalaryStructure />} />
-                <Route path="payroll/deductions" element={<DeductionConfiguration />} />
-                <Route path="payroll/periods" element={<PayrollPeriodConfig />} />
-                <Route path="payroll/compliance" element={<StatutoryCompliance />} />
-                <Route path="payroll/bank-advice" element={<BankAdvice />} />
-                <Route path="payroll/reports" element={<PayrollReports />} />
-                <Route path="payroll/audit" element={<PayrollAudit />} />
-                <Route path="payroll/employee-portal" element={<EmployeePortal />} />
+                    />
+                  }
+                >
+                  <Route path="payroll/generate" element={<GeneratePayroll />} />
+                  <Route path="payroll/components" element={<SalaryComponentBuilder />} />
+                  <Route path="payroll/structures" element={<SalaryStructureTemplate />} />
+                  <Route path="payroll/assign" element={<AssignSalaryStructure />} />
+                  <Route path="payroll/deductions" element={<DeductionConfiguration />} />
+                  <Route path="payroll/periods" element={<PayrollPeriodConfig />} />
+                  <Route path="payroll/compliance" element={<StatutoryCompliance />} />
+                  <Route path="payroll/bank-advice" element={<BankAdvice />} />
+                  <Route path="payroll/reports" element={<PayrollReports />} />
+                  <Route path="payroll/audit" element={<PayrollAudit />} />
+                  <Route path="payroll/employee-portal" element={<EmployeePortal />} />
+                </Route>
               </Route>
 
               {/* ============ SETTINGS - READ ACCESS ============ */}
@@ -364,7 +377,7 @@ function AppRoutesContent() {
                 element={
                   <ProtectedRoute
                     allowedRoles={["ADMIN", "HR"]}
-                    // requiredPermissions={[PERMISSIONS.SETTINGS_READ]}
+                  // requiredPermissions={[PERMISSIONS.SETTINGS_READ]}
                   />
                 }
               >
@@ -374,7 +387,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN"]}
-                        // requiredPermissions={[PERMISSIONS.SETTINGS_WRITE]}
+                      // requiredPermissions={[PERMISSIONS.SETTINGS_WRITE]}
                       />
                     }
                   >
@@ -389,7 +402,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN", "HR", "MANAGER"]}
-                        // requiredPermissions={[PERMISSIONS.REPORT_READ]}
+                      // requiredPermissions={[PERMISSIONS.REPORT_READ]}
                       />
                     }
                   >
@@ -401,7 +414,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN", "HR"]}
-                        // requiredPermissions={[PERMISSIONS.EMPLOYEE_WRITE]}
+                      // requiredPermissions={[PERMISSIONS.EMPLOYEE_WRITE]}
                       />
                     }
                   >
@@ -416,7 +429,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN", "HR"]}
-                        // requiredPermissions={[PERMISSIONS.POLICY_WRITE]}
+                      // requiredPermissions={[PERMISSIONS.POLICY_WRITE]}
                       />
                     }
                   >

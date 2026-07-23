@@ -1,3 +1,4 @@
+import type { NavigateFunction } from "react-router-dom";
 import type {
   AppRole,
   AuthResponse,
@@ -97,6 +98,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     tokenType: data.tokenType === "Bearer" ? "Bearer" : "Bearer",
     expiresIn: data.expiresIn ?? 0,
     expiresAt: Date.now() + (data.expiresIn ?? 0) * 1000,
+    daysUntilPasswordExpiry: data.daysUntilPasswordExpiry,
     user,
     company
   };
@@ -266,7 +268,6 @@ export function getDefaultRoute(user: AuthUser): string {
   if (user.roles.includes("HR")) return "/hr/dashboard";
   if (user.roles.includes("MANAGER")) return "/manager/dashboard";
   if (user.roles.includes("EMPLOYEE")) return "/employee/dashboard";
-
   return "/unauthorized";
 }
 
@@ -287,4 +288,29 @@ export function canShowNavItem(user: AuthUser, item: NavItem): boolean {
     );
 
   return roleAllowed && permissionAllowed;
+}
+
+export function redirectAfterAuth(session: AuthSession | null, navigate: NavigateFunction) {
+  if (!session) {
+    navigate("/login", { replace: true });
+    return;
+  }
+ if (hasWorkspaceContext(session)) {
+    navigate(getDefaultRoute(session.user), { replace: true });
+  } else {
+    navigate("/branch-fiscal-year", { replace: true, state: { fromLogin: true } });
+  }
+}
+
+export function hasWorkspaceContext(session: AuthSession | null): boolean {
+  if (!session) return false;
+   if (!session.fiscalYearId) return false;
+    if (session.branchId) return true;
+     if (session.branchScoped === false) return true;
+     return false;
+  // return !!(session.branchId && session.fiscalYearId);
+}
+
+export function redirectAfterSelect() {
+   return "/settings/general/company-settings";
 }

@@ -244,8 +244,8 @@ export default function Signup() {
           showSnackbar(errorMessage, "error");
         }
       }
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : "Failed to create account";
+    } catch (err: any) {
+      const errMsg = err.message || "Failed to create account";
       showSnackbar(errMsg, "error");
     } finally {
       setIsSubmitting(false);
@@ -285,12 +285,12 @@ export default function Signup() {
               <div className="flex items-center gap-2 mb-8">
                 <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
                 <span className="font-bold text-gray-700">
-                  Vibe<span className="text-primary">HR</span>
+                  Dot<span className="text-primary">HR</span>
                 </span>
               </div>
               <h1 className="text-3xl font-semibold leading-snug mb-6">
                 Create your <br />
-                Vibe<span className="text-primary">HR</span> Account
+                Dot<span className="text-primary">HR</span> Account
               </h1>
               <div className="flex items-start gap-4">
                 <img src={grp} width="50" height="100" alt="group" />

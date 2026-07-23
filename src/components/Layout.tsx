@@ -62,6 +62,9 @@ import {
   Verified,
   AssessmentOutlined,
   ViewQuiltOutlined,
+  WorkspacePremiumOutlined,
+  WorkspacesOutlined,
+  HubOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -72,6 +75,7 @@ import { companyService } from "../services/modules/company";
 import { policyService } from "../services";
 import { hasPermission, PAYROLL_PERMISSIONS } from "../const";
 import { PERMISSIONS } from "../auth/Permissions";
+import { PasswordExpiryAlert } from "./PasswordExpiryAlert";
 
 const drawerWidth = 220;
 
@@ -516,7 +520,7 @@ export default function Layout() {
               <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
               <div>
                 <div className="font-bold text-gray-700">
-                  Vibe<span className="text-primary">HR</span>
+                  Dot<span className="text-primary">HR</span>
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <div className="text-[12px] text-gray-800">{companyInfo.companyName}</div>
@@ -615,13 +619,19 @@ export default function Layout() {
           <div className="text-gray-800">My Profile</div>
         </MenuItem>
         {user?.roles.includes("ADMIN") && (
-          <MenuItem onClick={() => navigate("/settings/general/company-settings")} className="bg-white-50">
+          <MenuItem onClick={() => { navigate("/settings/general/company-settings");handleProfileMenuClose(); }} className="bg-white-50">
             <ListItemIcon>
               <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
             </ListItemIcon>
             <div className="text-gray-800">Company Settings</div>
           </MenuItem>
         )}
+        <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/branch-fiscal-year"); }} className="bg-white-50">
+          <ListItemIcon>
+            <HubOutlined className="!w-3 dark:text-primary" />
+          </ListItemIcon>
+          <div className="text-gray-800">Select Workspace</div>
+        </MenuItem>
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
           <ListItemIcon>
             <HistoryOutlinedIcon className="!w-4 dark:text-primary" />
@@ -1371,6 +1381,7 @@ export default function Layout() {
           )}
         </div>
       </Drawer>
+
       {/* Main Content */}
       <Box
         component="main"
@@ -1391,6 +1402,7 @@ export default function Layout() {
           paddingLeft: open ? `${drawerWidth + 16}px` : "76px",
         }}
       >
+        <PasswordExpiryAlert />
         <Outlet />
       </Box>
     </Box>

@@ -75,7 +75,7 @@ const mockCompany = {
   code: "VHR001",
   email: "info@vibehr.com",
   phoneNo: "+91 9876543210",
-  gstNo: "22AAAAA0000A1Z5",
+  gstNo: "22AAAAA1234F1ZO",
   panNo: "AAAAA1234A",
   companyAddress: "123 Main Street, Mumbai",
   pincode: "400001",

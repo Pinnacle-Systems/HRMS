@@ -55,8 +55,14 @@ export type AuthSession = {
   tokenType: "Bearer";
   expiresIn: number;
   expiresAt: number;
+  daysUntilPasswordExpiry?: number;
   user: AuthUser;
   company: CompanyDetails;
+  branchId?: string | null;
+  branchName?: string | null;
+  branchScoped?: boolean;
+  fiscalYearId?: string;
+  fiscalYearLabel?: string;
 };
 
 export type ApiResponse<T> = {
@@ -241,6 +247,7 @@ export type ProtectedRouteProps = {
   allowedRoles?: AppRole[];
   requiredPermissions?: Permission[];
   permissionMode?: "any" | "all";
+  skipWorkspaceCheck?: boolean; 
 };
 
 export type AuthContextValue = {
@@ -258,6 +265,7 @@ export type AuthContextValue = {
   hasAllPermissions: (permissions: Permission[]) => boolean;
   hasRole: (role: AppRole) => boolean;
   hasAnyRole: (roles: AppRole[]) => boolean;
+  setSessionCall: (session: AuthSession | null) => void;
 };
 
 export type MfaSetupResponse = {
@@ -266,3 +274,49 @@ export type MfaSetupResponse = {
   phoneNumber?: string;
   mfaType: string;
 };
+
+export type SessionContext = {
+  branchId: string;
+  fiscalYearId: string;
+};
+export interface Branch {
+  id: string;
+  name: string;
+}
+export interface FiscalYear {
+  id: string;
+  label: string;
+  active: boolean;
+}
+export interface SessionContextResponse {
+  success: boolean;
+  message: string;
+  data: {
+    branchAssociated: boolean;
+    assignedBranchId: string | null;
+    branches: Branch[];
+    fiscalYears: FiscalYear[];
+    activeFiscalYearId: string | null;
+  };
+  timestamp: string;
+}
+export interface SessionContextSelection {
+  branchId?: string;
+  fiscalYearId: string;
+}
+export type SelectSessionContextResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    accessToken: string;
+    tokenType: string;
+    expiresIn: number;
+    tenantId: string;
+    branchId: string | null;
+    branchName: string | null;
+    branchScoped: boolean;
+    fiscalYearId: string;
+    fiscalYearLabel: string;
+  };
+  timestamp: string;
+}

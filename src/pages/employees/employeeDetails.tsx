@@ -39,6 +39,7 @@ import {
   lockableFields,
   getPriorityColor,
   getDomainColor,
+  masterSx,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -51,6 +52,7 @@ import {
   getRowColor,
   getStickyLeftSx,
   getStickyRightSx,
+  handleEnterAsTab,
   stickyHeaderLeftSx,
   stickyHeaderRightSx,
 } from "../const";
@@ -339,6 +341,7 @@ const EditableGroup = ({
   };
 
   const getAadhaar = async (value: string) => {
+    setIsEditing(true);
     const aadhaarNumber = value.replace(/\D/g, "");
     setEditData((prev: any) => ({ ...prev, aadhaarNumber }));
     if (aadhaarNumber.length !== 12) return;
@@ -349,8 +352,24 @@ const EditableGroup = ({
         // consentGiven: true,
         employeeId: editData?.id || null,
       };
-      const response: any = await employeeService.getAadhaarDetails(payload);
-      showSnackbar(response.message, "success");
+      const response: any = await employeeService.getAadhaarDetails(payload);      
+      if (response.success && response.data) {
+        setEditData((prev: any) => ({
+          ...prev,
+          name: response.data.name || prev.name,
+          nameAsOnAadhaar: response.data.name || prev.nameAsOnAadhaar,
+          dateOfBirth: response.data.dateOfBirth || prev.dateOfBirth,
+          gender: response.data.gender || prev.gender,
+          fathersName: response.data.fathersName || prev.fathersName,
+          // address1: response.data.address1,
+          // city: response.data.city,
+          // state: response.data.state,
+          // pincode: response.data.pincode,
+        }));
+        showSnackbar(response.message, "success");
+      } else {
+        showSnackbar(response.message || "Unable to fetch Aadhaar details", "error");
+      }
     } catch (error: any) {
       showSnackbar(error.message || "Unable to fetch Aadhaar details", "error");
     }
@@ -379,6 +398,9 @@ const EditableGroup = ({
                 </a>
               ))}
             </div>
+            {title == "Aadhaar Details" &&
+              <div className="text-[10px] underline text-sky-500 cursor-pointer" onClick={() => getAadhaar(editData.aadhaarNumber)}>Fetch Aadhaar Details</div>
+            }
           </div>
           {!isEditing ? (
             <div className="flex items-center gap-1">
@@ -397,18 +419,18 @@ const EditableGroup = ({
               )}
               {
                 (isAdmin || (!isAdmin && title === "Basic Information")) && (
-                <MaterialModule.Tooltip title="Edit">
-                  <MaterialModule.IconButton
-                    size="small"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <MaterialModule.EditIcon
-                      fontSize="small"
-                      className="text-gray-800 !w-4"
-                    />
-                  </MaterialModule.IconButton>
-                </MaterialModule.Tooltip>
-              )}
+                  <MaterialModule.Tooltip title="Edit">
+                    <MaterialModule.IconButton
+                      size="small"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <MaterialModule.EditIcon
+                        fontSize="small"
+                        className="text-gray-800 !w-4"
+                      />
+                    </MaterialModule.IconButton>
+                  </MaterialModule.Tooltip>
+                )}
             </div>
           ) : (
             <div className="flex gap-1">
@@ -446,7 +468,7 @@ const EditableGroup = ({
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4" onKeyDown={handleEnterAsTab}>
           {fields.map((field: any) => {
             return (
               <div key={field.key} className="">
@@ -527,7 +549,7 @@ const EditableGroup = ({
                         showAddButton={
                           (field.key == "branch" ||
                             field.key == "department" ||
-                            field.key == "attendanceSchema" || !isAdmin )
+                            field.key == "attendanceSchema" || !isAdmin)
                             ? false
                             : true
                         }
@@ -608,7 +630,14 @@ const EditableGroup = ({
                       ) : (
                         <MaterialModule.TextField
                           size="small"
-                          value={editData[field.key] || ""}
+                          type={field.type === 'number' ? 'number' : 'text'}
+                          value={
+                            field.type === 'number'
+                              ? editData[field.key] !== null && editData[field.key] !== undefined
+                                ? String(editData[field.key])
+                                : ''
+                              : editData[field.key] || ''
+                          }
                           multiline={field.multiline || false}
                           rows={field.multiline ? 3 : 1}
                           disabled={
@@ -618,17 +647,32 @@ const EditableGroup = ({
                           }
                           slotProps={{
                             htmlInput: {
-                              maxLength:
-                                field.key === "aadhaarNumber" ? 12 : undefined,
+                              ...(field.key === "aadhaarNumber" && field.type !== 'number'
+                                ? { maxLength: 12 }
+                                : {}),
+                              ...(field.type === 'number' && {
+                                step: 'any',
+
+
+                              }),
                             },
                           }}
                           onChange={(e) => {
-                            field.key != "aadhaarNumber"
-                              ? setEditData({
-                                ...editData,
-                                [field.key]: e.target.value,
-                              })
-                              : getAadhaar(e.target.value);
+                            const raw = e.target.value;
+                            if (field.type === 'number') {
+                              if (raw === '') {
+                                setEditData({ ...editData, [field.key]: null });
+                                return;
+                              }
+                              const num = Number(raw);
+                              if (!isNaN(num)) {
+                                setEditData({ ...editData, [field.key]: num });
+                              }
+                              // } else if (field.key === "aadhaarNumber") {
+                              // getAadhaar(raw);
+                            } else {
+                              setEditData({ ...editData, [field.key]: raw });
+                            }
                           }}
                           fullWidth
                         />
@@ -1170,7 +1214,7 @@ const EditableTableGroup = ({
                 </div>
                 <div className="text-primary-dark "> {title} </div>
               </div>
-              { (isAdmin || (!isAdmin && title !== "Training Details" && title !== "PF Details")) && (
+              {(isAdmin || (!isAdmin && title !== "Training Details" && title !== "PF Details")) && (
                 <MaterialModule.Button
                   startIcon={
                     <MaterialModule.AddIcon
@@ -1338,9 +1382,9 @@ const EditableTableGroup = ({
                     )}
                   </MaterialModule.TableRow>
                 </MaterialModule.TableHead>
-                <MaterialModule.TableBody className="bg-white-50">
+                <MaterialModule.TableBody className="bg-white-50" >
                   {editData.map((row: any, rowIndex: number) => (
-                    <MaterialModule.TableRow
+                    <MaterialModule.TableRow onKeyDown={handleEnterAsTab}
                       key={row.id || rowIndex}
                       sx={getRowColor(rowIndex)}
                     >
@@ -1363,144 +1407,231 @@ const EditableTableGroup = ({
                           }}
                         >
                           {isEditing ? (
-                            col.type === "select" ? (
-                              <DynamicSelectWithAdd
-                                label=""
-                                title={col.label}
-                                value={
-                                  col.options
-                                    ? col.options.find(
-                                      (opt: string) =>
-                                        opt.toLowerCase() ===
-                                        String(row[col.key]).toLowerCase(),
-                                    ) || ""
-                                    : getOptionNameFromId(
-                                      col.key,
-                                      row[col.key],
-                                    ) || ""
-                                }
-                                onChange={(value) => {
-                                  if (col.options) {
-                                    handleCellChange(rowIndex, col.key, value);
-                                  } else {
-                                    const id = getOptionIdFromName(
-                                      col.key,
-                                      col.label,
-                                      value as string,
-                                    );
-                                    handleCellChange(rowIndex, col.key, id);
-                                  }
-                                }}
-                                options={
-                                  col.options
-                                    ? col.options
-                                    : getSelectOptions(col.key, col.label)
-                                }
-                                onAddOption={(newOption) =>
-                                  handleAddOption(col.key, newOption)
-                                }
-                                showAddButton={
-                                  (col.key == "nomineeName" || col.options || !isAdmin)
-                                    ? false
-                                    : true
-                                }
-                                sx={{
-                                  ...commonSx,
-                                  "& .MuiSelect-select": {
-                                    padding: "5px !important",
-                                    width: "150px !important",
-                                  },
-                                }}
-                              />
-                            ) : col.type === "date" ? (
-                              <MaterialModule.TextField
-                                size="small"
-                                type="date"
-                                value={row[col.key] || ""}
-                                onChange={(e) =>
-                                  handleCellChange(
-                                    rowIndex,
-                                    col.key,
-                                    e.target.value,
-                                  )
-                                }
-                                fullWidth
-                                sx={{
-                                  "& .MuiInputBase-root": {
-                                    fontSize: "12px",
-                                    minHeight: "32px",
-                                  },
-                                  "& .MuiInputBase-input": {
-                                    padding: "5px 10px",
-                                  },
-                                }}
-                              />
-                            ) : col.type === "boolean" ? (
-                              <MaterialModule.FormControlLabel
-                                control={
-                                  <MaterialModule.Switch
-                                    checked={row[col.key] || false}
-                                    onChange={(e) =>
-                                      handleCellChange(
+                            <div>
+                              {
+                                col.type === "select" ? (
+                                  <DynamicSelectWithAdd
+                                    label=""
+                                    title={col.label}
+                                    value={
+                                      col.options
+                                        ? col.options.find(
+                                          (opt: string) =>
+                                            opt.toLowerCase() ===
+                                            String(row[col.key]).toLowerCase(),
+                                        ) || ""
+                                        : getOptionNameFromId(
+                                          col.key,
+                                          row[col.key],
+                                        ) || ""
+                                    }
+                                    onChange={(value) => {
+                                      if (col.options) {
+                                        handleCellChange(rowIndex, col.key, value);
+                                      } else {
+                                        const id = getOptionIdFromName(
+                                          col.key,
+                                          col.label,
+                                          value as string,
+                                        );
+                                        handleCellChange(rowIndex, col.key, id);
+                                      }
+                                    }}
+                                    options={
+                                      col.options
+                                        ? col.options
+                                        : getSelectOptions(col.key, col.label)
+                                    }
+                                    onAddOption={(newOption) =>
+                                      handleAddOption(col.key, newOption)
+                                    }
+                                    showAddButton={
+                                      (col.key == "nomineeName" || col.options || !isAdmin)
+                                        ? false
+                                        : true
+                                    }
+                                    sx={{
+                                      ...commonSx,
+                                      "& .MuiSelect-select": {
+                                        padding: "5px !important",
+                                        width: "150px !important",
+                                      },
+                                    }}
+                                  />
+                                ) : col.type === "date" ? (
+                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <DatePicker
+                                      value={
+                                        row[col.key]
+                                          ? dayjs(row[col.key])
+                                          : null
+                                      }
+
+                                      onChange={(e) =>
+                                        handleCellChange(
+                                          rowIndex,
+                                          col.key,
+                                          e ? dayjs(e).format("YYYY-MM-DD") : "",
+                                        )
+                                      }
+                                      className="bg-white-50"
+                                      slotProps={{
+                                        textField: {
+                                          fullWidth: true, size: "small", sx: {
+                                            "& .MuiPickersSectionList-root": {
+                                              padding: "4px !important",
+
+                                            },
+                                          },
+                                        },
+                                      }}
+                                      sx={{
+                                        ...commonSx,
+                                        "& .MuiInputLabel-root": {
+                                          top: 0,
+                                        },
+                                      }}
+                                    />
+                                  </LocalizationProvider>
+                                  // <MaterialModule.TextField
+                                  //   size="small"
+                                  //   type="date"
+                                  //   value={row[col.key] || ""}
+                                  //   onChange={(e) =>
+                                  //     handleCellChange(
+                                  //       rowIndex,
+                                  //       col.key,
+                                  //       e.target.value,
+                                  //     )
+                                  //   }
+                                  //   fullWidth
+                                  //   sx={{
+                                  //     "& .MuiInputBase-root": {
+                                  //       fontSize: "12px",
+                                  //       minHeight: "32px",
+                                  //     },
+                                  //     "& .MuiInputBase-input": {
+                                  //       padding: "5px 10px",
+                                  //     },
+                                  //   }}
+                                  // />
+                                ) : col.type === "boolean" ? (
+                                  <MaterialModule.FormControlLabel
+                                    control={
+                                      <MaterialModule.Switch
+                                        checked={row[col.key] || false}
+                                        onChange={(e) =>
+                                          handleCellChange(
+                                            rowIndex,
+                                            col.key,
+                                            e.target.checked,
+                                          )
+                                        }
+                                        className="text-gray-800"
+                                      />
+                                    }
+                                    label=""
+                                  />
+                                ) : col.type === "master-select" ? (
+                                  <MasterSelect
+                                    type={col.key}
+                                    countries={countries}
+                                    states={stateOptionsMap[rowIndex] || []}
+                                    cities={cityOptionsMap[rowIndex] || []}
+                                    value={row[col.key] || ""}
+                                    onChange={(newValue: any) =>
+                                      handleMasterDataChange(
                                         rowIndex,
                                         col.key,
-                                        e.target.checked,
+                                        newValue,
                                       )
                                     }
-                                    className="text-gray-800"
+                                    disabled={loading}
+                                    // label={col.label + "j"}
+                                    sx={{
+                                      ...commonSx,
+                                      "& .MuiSelect-select": {
+                                        padding: "5px !important",
+                                        width: "150px !important",
+                                      },
+                                    }}
                                   />
-                                }
-                                label=""
-                              />
-                            ) : col.type === "master-select" ? (
-                              <MasterSelect
-                                type={col.key}
-                                countries={countries}
-                                states={stateOptionsMap[rowIndex] || []}
-                                cities={cityOptionsMap[rowIndex] || []}
-                                value={row[col.key] || ""}
-                                onChange={(newValue: any) =>
-                                  handleMasterDataChange(
-                                    rowIndex,
-                                    col.key,
-                                    newValue,
-                                  )
-                                }
-                                disabled={loading}
-                                // label={col.label + "j"}
-                                sx={{
-                                  ...commonSx,
-                                  "& .MuiSelect-select": {
-                                    padding: "5px !important",
-                                    width: "150px !important",
-                                  },
-                                }}
-                              />
-                            ) : (
-                              <MaterialModule.TextField
-                                size="small"
-                                value={row[col.key] || ""}
-                                onChange={(e) =>
-                                  handleCellChange(
-                                    rowIndex,
-                                    col.key,
-                                    e.target.value,
-                                  )
-                                }
-                                fullWidth
-                                variant="outlined"
-                                sx={{
-                                  "& .MuiInputBase-root": {
-                                    fontSize: "12px",
-                                    minHeight: "auto",
-                                  },
-                                  "& .MuiInputBase-input": {
-                                    padding: "5px",
-                                    width: "150px !important",
-                                  },
-                                }}
-                              />
-                            )
+                                ) : (
+                                  // <MaterialModule.TextField
+                                  //   size="small"
+                                  //   type={col.type == 'number' ? 'number' : 'text'}
+                                  //   value={row[col.key] || ""}
+                                  //   onChange={(e) =>
+                                  //     handleCellChange(
+                                  //       rowIndex,
+                                  //       col.key,
+                                  //       e.target.value,
+                                  //     )
+                                  //   }
+                                  //   fullWidth
+                                  //   variant="outlined"
+                                  //   sx={{
+                                  //     "& .MuiInputBase-root": {
+                                  //       fontSize: "12px",
+                                  //       minHeight: "auto",
+                                  //     },
+                                  //     "& .MuiInputBase-input": {
+                                  //       padding: "5px",
+                                  //       width: "150px !important",
+                                  //     },
+                                  //   }}
+                                  // />
+                                  <MaterialModule.TextField
+                                    size="small"
+                                    type={col.type === 'number' ? 'number' : 'text'}
+                                    value={
+                                      col.type === 'number'
+                                        ? row[col.key] !== null && row[col.key] !== undefined
+                                          ? String(row[col.key])
+                                          : ''
+                                        : row[col.key] || ''
+                                    }
+                                    onChange={(e) => {
+                                      let raw = e.target.value;
+                                      if (col.type === 'number') {
+                                        if (raw === '') {
+                                          handleCellChange(rowIndex, col.key, null);
+                                          return;
+                                        }
+                                        const num = Number(raw);
+                                        if (!isNaN(num)) {
+                                          handleCellChange(rowIndex, col.key, num);
+                                        }
+                                      } else {
+                                        handleCellChange(rowIndex, col.key, raw);
+                                      }
+                                    }}
+                                    fullWidth
+                                    variant="outlined"
+                                    slotProps={{
+                                      input: {
+                                        ...(col.type === 'number' && {
+                                          step: 'any',       // allow decimals; use '1' for integers
+                                          // min: 0,         // optional
+                                          // max: 100,       // optional
+                                        }),
+                                      }
+                                    }}
+
+                                    sx={{
+                                      "& .MuiInputBase-root": {
+                                        fontSize: "12px",
+                                        minHeight: "auto",
+                                      },
+                                      "& .MuiInputBase-input": {
+                                        padding: "5px",
+                                        // width: "150px !important",
+                                      },
+                                    }}
+                                  />
+                                )
+                              }
+                            </div>
                           ) : (
                             <span className="text-[13px]">
                               {col.type === "link" && row[col.key] ? (
@@ -1597,7 +1728,7 @@ const EditableTableGroup = ({
         sx={commonsx}
       >
         <div className="text-gray-800 !border-b !p-2 flex items-center justify-between !border-gray-200">
-          <span className="ml-4">
+          <span className="ml-4 text-[12px]">
             {dialogType === "attachment"
               ? "Upload Document"
               : dialogType === "edit"
@@ -1615,9 +1746,9 @@ const EditableTableGroup = ({
           </MaterialModule.IconButton>
         </div>
         <MaterialModule.DialogContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5" onKeyDown={handleEnterAsTab}>
             {dialogFields.map((field: any) => (
-              <div key={field.key} className="w-[220px]">
+              <div key={field.key} className={field.multiline || field.full ? "md:col-span-2" : "w-[220px]"}>
                 {field.type === "date" ? (
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
@@ -1708,21 +1839,21 @@ const EditableTableGroup = ({
                     className="!text-gray-800"
                   />
                 ) : field.type === "master-select" ? (
-                  <div style={{ minWidth: "200px" }}>
-                    <MasterSelect
-                      type={field.key}
-                      countries={countries}
-                      states={stateOptionsMap["new"] || []}
-                      cities={cityOptionsMap["new"] || []}
-                      value={newItemData[field.key] || ""}
-                      onChange={(newValue: any) =>
-                        handleMasterDataChange(undefined, field.key, newValue)
-                      }
-                      disabled={loading}
-                      label={field.label}
-                      sx={commonSx}
-                    />
-                  </div>
+                  // <div style={{ minWidth: "200px" }}>
+                  <MasterSelect
+                    type={field.key}
+                    countries={countries}
+                    states={stateOptionsMap["new"] || []}
+                    cities={cityOptionsMap["new"] || []}
+                    value={newItemData[field.key] || ""}
+                    onChange={(newValue: any) =>
+                      handleMasterDataChange(undefined, field.key, newValue)
+                    }
+                    disabled={loading}
+                    label={field.label}
+                    sx={masterSx}
+                  />
+                  // </div>
                 ) : field.type === "file" ? (
                   <>
                     <input
@@ -1759,18 +1890,63 @@ const EditableTableGroup = ({
                     )}
                   </>
                 ) : (
+                  // <MaterialModule.TextField
+                  //   fullWidth
+                  //   size="small"
+                  //   multiline={field.multiline}
+                  //   rows={field.multiline ? 3 : 0}
+                  //   disabled={field.disabled}
+                  //   label={field.label}
+                  //   value={newItemData[field.key] || ""}
+                  //   onChange={(e) =>
+                  //     setNewItemData({
+                  //       ...newItemData,
+                  //       [field.key]: e.target.value,
+                  //     })
+                  //   }
+                  //   sx={{
+                  //     "& .MuiInputLabel-root": {
+                  //       top: 0,
+                  //     },
+                  //   }}
+                  // />
                   <MaterialModule.TextField
                     fullWidth
                     size="small"
+                    type={field.type === 'number' ? 'number' : 'text'}
+                    multiline={field.multiline || false}
+                    rows={field.multiline ? 3 : 0}
                     disabled={field.disabled}
                     label={field.label}
-                    value={newItemData[field.key] || ""}
-                    onChange={(e) =>
-                      setNewItemData({
-                        ...newItemData,
-                        [field.key]: e.target.value,
-                      })
+                    value={
+                      field.type === 'number'
+                        ? newItemData[field.key] !== null && newItemData[field.key] !== undefined
+                          ? String(newItemData[field.key])
+                          : ''
+                        : newItemData[field.key] || ''
                     }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (field.type === 'number') {
+                        if (raw === '') {
+                          setNewItemData({ ...newItemData, [field.key]: null });
+                          return;
+                        }
+                        const num = Number(raw);
+                        if (!isNaN(num)) {
+                          setNewItemData({ ...newItemData, [field.key]: num });
+                        }
+                      } else {
+                        setNewItemData({ ...newItemData, [field.key]: raw });
+                      }
+                    }}
+                    slotProps={{
+                      htmlInput: {
+                        ...(field.type === 'number' && {
+                          step: 'any',
+                        }),
+                      },
+                    }}
                     sx={{
                       "& .MuiInputLabel-root": {
                         top: 0,
@@ -1851,7 +2027,7 @@ export default function EmployeeDetails() {
 
   const [uanError, setUANError] = useState("");
   const [webcamOpen, setWebcamOpen] = useState(false);
-  const [checkIn , setCheckIn] = useState(false);
+  const [checkIn, setCheckIn] = useState(false);
 
   const tabs = [
     { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
@@ -1970,12 +2146,11 @@ export default function EmployeeDetails() {
   const updatePersonalInfo = async (updatedData: any) => {
     showSpinner();
     try {
-      const payload = {
+      const payload: any = {
         firstName: updatedData.firstName,
         lastName: updatedData.lastName,
         nickName: updatedData.nickName,
         genderId: updatedData.genderId,
-        dateOfBirth: updatedData.dateOfBirth,
         birthday: updatedData.birthday,
         mobileNumber: updatedData.mobileNumber,
         emailAddress: updatedData.emailAddress,
@@ -1985,7 +2160,6 @@ export default function EmployeeDetails() {
         religionId: updatedData.religionId,
         maritalStatusId: updatedData.maritalStatusId,
         marriageDate: updatedData.marriageDate,
-        fathersName: updatedData.fathersName,
         spouseName: updatedData.spouseName,
         height: Number(updatedData.height),
         weight: Number(updatedData.weight),
@@ -2076,6 +2250,10 @@ export default function EmployeeDetails() {
         esiRelievingDate: updatedData.esiRelievingDate,
         template: updatedData.templateId,
       };
+      if (!payload.aadhaarNumber) {
+          payload['dateOfBirth'] = updatedData.dateOfBirth,
+          payload['fathersName'] = updatedData.fathersName
+      }
       if (Object.keys(payload).length) {
         await employeeService.updateEmployee(apiId, payload);
         await fetchEmployeeDetails();
@@ -2767,6 +2945,7 @@ export default function EmployeeDetails() {
       };
       await employeeService.updateIdentityInfo(id, payload);
       await fetchEmployeeDetails();
+      await updateAdminInfo(updatedData);
       showSnackbar("Identification details updated successfully!", "success");
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -3112,30 +3291,30 @@ export default function EmployeeDetails() {
   }
 
   const handleCheckIn = async () => {
-   try {
-    const res:any =  await attendanceService.checkIn({
-      employeeId: apiId || "",
-      checkInTime: new Date().toISOString(),
-      markedBy: session?.user.userId,
-    });
-    showSnackbar(res.message , 'success');
-    setCheckIn(true);
-   } catch (error:any) {
-    setCheckIn(true);
-    showSnackbar(error.message , 'error')
-   }
+    try {
+      const res: any = await attendanceService.checkIn({
+        employeeId: apiId || "",
+        checkInTime: new Date().toISOString(),
+        markedBy: session?.user.userId,
+      });
+      showSnackbar(res.message, 'success');
+      setCheckIn(true);
+    } catch (error: any) {
+      setCheckIn(true);
+      showSnackbar(error.message, 'error')
+    }
   }
 
-   const handleCheckOut = async () => {
-   try {
-    const res:any =  await attendanceService.checkOut({
-      employeeId: apiId || "",
-      checkOutTime: new Date().toISOString(),
-      markedBy: session?.user.userId,
-    });
-    showSnackbar(res.message , 'success');
-   } catch (error:any) {
-   }
+  const handleCheckOut = async () => {
+    try {
+      const res: any = await attendanceService.checkOut({
+        employeeId: apiId || "",
+        checkOutTime: new Date().toISOString(),
+        markedBy: session?.user.userId,
+      });
+      showSnackbar(res.message, 'success');
+    } catch (error: any) {
+    }
   }
 
   return (
@@ -3228,28 +3407,28 @@ export default function EmployeeDetails() {
             </div>
           </div>
           {
-            isAdmin  ? (
-            <div>
-              <Button
-                variant="outlined"
-                className="!text-primary !border-primary"
-                onClick={handleOpenAuditLog}
-              >
-                Audit Log
-              </Button>
-            </div>
-          ) : (
-             <div>
-              <Button
-                variant="contained"
-                // className="!text-primary !border-primary"
-                color={!checkIn ? 'success' : 'error'}
-                onClick={!checkIn ? handleCheckIn : handleCheckOut}
-              >
-                {!checkIn ? 'Check In' : 'Check Out'}
-              </Button>
-            </div>
-          )}
+            isAdmin ? (
+              <div>
+                <Button
+                  variant="outlined"
+                  className="!text-primary !border-primary"
+                  onClick={handleOpenAuditLog}
+                >
+                  Audit Log
+                </Button>
+              </div>
+            ) : (
+              <div>
+                <Button
+                  variant="contained"
+                  // className="!text-primary !border-primary"
+                  color={!checkIn ? 'success' : 'error'}
+                  onClick={!checkIn ? handleCheckIn : handleCheckOut}
+                >
+                  {!checkIn ? 'Check In' : 'Check Out'}
+                </Button>
+              </div>
+            )}
         </MaterialModule.CardContent>
       </MaterialModule.Card>
 

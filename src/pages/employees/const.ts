@@ -17,8 +17,8 @@ export const basicInfoFields = [
   { key: "marriageDate", label: "Date of Marriage", type: "date" },
   { key: "spouseName", label: "Spouse's Name" },
   { key: "fathersName", label: "Father's Name" },
-  { key: "height", label: "Height (cm)" },
-  { key: "weight", label: "Weight (kg)" },
+  { key: "height", label: "Height (cm)", type: "number"},
+  { key: "weight", label: "Weight (kg)", type: "number" },
   { key: "identificationMark", label: "Identification Mark" },
   { key: "hobbies", label: "Hobbies" },
   { key: "languagesKnown", label: "Languages" },
@@ -42,7 +42,7 @@ export const emergencyColumns = [
   { key: "relationship", label: "Relationship", type: "select" },
   { key: "phone", label: "Mobile Number" },
   { key: "alternatePhone", label: "Alternate Number" },
-  { key: "email", label: "Email Address" },
+  { key: "email", label: "Email Address", full: true },
   { key: "address", label: "Address", multiline: true },
   { key: "primary", label: "Primary", type: "boolean" },
 ];
@@ -55,28 +55,26 @@ export const addressColumns = [
     type: "select",
     options: ["Present Address", "Permanent Address"],
   },
-  // { key: "addressLine1", label: "Address Line 1", multiline: true },
-  // { key: "addressLine2", label: "Address Line 2", multiline: true },
-  { key: "street", label: "Street/Locality" },
-  { key: "village", label: "Village" },
-  { key: "taluk", label: "Taluk" },
-  { key: "district", label: "District" },
   { key: "country", label: "Country", type: "master-select" },
   { key: "state", label: "State", type: "master-select" },
   { key: "city", label: "City", type: "master-select" },
-  { key: "pincode", label: "Pincode" },
+  { key: "pincode", label: "Pincode", type: "number" },
+  { key: "district", label: "District" },
+  { key: "taluk", label: "Taluk" },
+  { key: "village", label: "Village" },
+  { key: "street", label: "Street/Locality", multiline: true },
   { key: "primary", label: "Primary", type: "boolean" },
 ];
 
 // ==================== QUALIFICATIONS ====================
 export const qualificationColumns = [
   { key: "qualificationType", label: "Qualification Type", type: "select" },
+  { key: "qualificationArea", label: "Qualification Area", type: "select" },
+  { key: "grade", label: "Degree" },
   { key: "institution", label: "Institution" },
-  { key: "boardUniversity", label: "Board/University" },
+  { key: "boardUniversity", label: "Board/University", full: true },
   { key: "yearOfPassing", label: "Year of Passing", type: "number" },
   { key: "percentage", label: "Percentage/CGPA", type: "number" },
-  { key: "grade", label: "Grade" },
-  { key: "qualificationArea", label: "Qualification Area", type: "select" },
   // { key: "remarks", label: "Remarks", multiline: true },
 ];
 
@@ -86,29 +84,41 @@ export const employeeColumns = [
   { key: "name", label: "Name" },
   { key: "joiningDate", label: "Joining Date", type: "date" },
   { key: "confirmationDate", label: "Confirmation Date", type: "date" },
-  { key: "probationPeriod", label: "Probation Period (months)" },
-  { key: "noticePeriod", label: "Notice Period (days)" },
+  { key: "probationPeriod", label: "Probation Period (months)", type: "number" },
+  { key: "noticePeriod", label: "Notice Period (days)", type: "number" },
   { key: "department", label: "Department", type: "select" },
   { key: "designation", label: "Designation", type: "select" },
+  // {
+  //   key: "grade",
+  //   label: "Grade",
+  //   type: "select",
+  //   categoryKey: "GRADE",
+  //   isPolicy: false,
+  // },
+  // {
+  //   key: "band",
+  //   label: "Band / Pay Category",
+  //   type: "select",
+  //   categoryKey: "BAND",
+  //   isPolicy: false,
+  // },
   {
-    key: "grade",
-    label: "Grade",
-    type: "select",
-    categoryKey: "GRADE",
-    isPolicy: false,
+    key: "manager",
+    key1: "managerId",
+    key2: "managerName",
+    label: "Reporting Manager",
+    type: "user",
   },
   {
-    key: "band",
-    label: "Band / Pay Category",
-    type: "select",
-    categoryKey: "BAND",
-    isPolicy: false,
+    key: "assignedHr",
+    key1: "assignedHrId",
+    key2: "assignedHrName",
+    label: "Assigned HR",
+    type: "user",
   },
-  { key: "manager",key1: "managerId",key2: "managerName", label: "Reporting Manager", type: "user" },
-  { key: "assignedHr",key1: "assignedHrId",key2: "assignedHrName", label: "Assigned HR", type: "user" },
   { key: "empType", label: "Employment Type", type: "select" },
   { key: "template", label: "Template", type: "select" },
-  { key: "branch", label: "Branch", type: "select" },
+  // { key: "branch", label: "Branch", type: "select" },
   {
     key: "bonusPolicy",
     label: "Bonus Policy",
@@ -123,7 +133,7 @@ export const employeeColumns = [
     categoryKey: "OT_POLICY",
     isPolicy: true,
   },
-  { key: "otAmount", label: "OT Amount" },
+  { key: "otAmount", label: "OT Amount", type: "number" },
   {
     key: "vehicleType",
     label: "Vehicle Type",
@@ -138,7 +148,7 @@ export const employeeColumns = [
   { key: "employeeStatus", label: "Employee Status", type: "select" },
   { key: "adminRemarks", label: "Remarks" },
   { key: "idCardNo", label: "ID Card Number" },
-  { key: "midNo", label: "MID Number" },
+  { key: "midNo", label: "MID Number", type: "number" },
   { key: "oldIdNo", label: "Old ID Number" },
   { key: "hostel", label: "Hostel Facility", type: "boolean" },
   { key: "vehicleFacility", label: "Vehicle Facility", type: "boolean" },
@@ -182,7 +192,7 @@ export const trainingDetailsColumns = [
   { key: "trainingName", label: "Training Title" },
   { key: "fromDate", label: "From Date", type: "date" },
   { key: "toDate", label: "To Date", type: "date" },
-  { key: "durationHours", label: "Duration (Hours)" },
+  { key: "durationHours", label: "Duration (Hours)" ,type: "number"},
   { key: "conductedBy", label: "Conducted By", type: "user" },
   { key: "certificateNo", label: "Certificate Number" },
   { key: "remarks", label: "Remarks", multiline: true },
@@ -191,12 +201,12 @@ export const trainingDetailsColumns = [
 // ==================== PREVIOUS EMPLOYMENTS ====================
 export const employmentColumns = [
   { key: "companyName", label: "Company Name" },
-  { key: "companyAddress", label: "Company Address", multiline: true },
   { key: "designation", label: "Designation" },
+  { key: "companyAddress", label: "Company Address", multiline: true },
   { key: "fromDate", label: "From Date", type: "date" },
   { key: "toDate", label: "To Date", type: "date" },
-  { key: "experience", label: "Total Experience (Years)" },
-  { key: "ctc", label: "CTC" },
+  { key: "experience", label: "Total Experience (Years)", type: "number" },
+  { key: "ctc", label: "CTC", type: "number" },
   { key: "reasonForLeaving", label: "Reason for Leaving", multiline: true },
   { key: "achievements", label: "Key Achievements", multiline: true },
 ];
@@ -221,9 +231,9 @@ export const bankColumns = [
 export const pfColumns = [
   { key: "pfNumber", label: "PF Account Number" },
   { key: "uan", label: "UAN Number" },
-  { key: "pfScheme", label: "PF Scheme", type: "select" },
+  { key: "pfScheme", label: "PF Scheme", type: "select",  full: true },
   { key: "fromDate", label: "PF Joining Date", type: "date" },
-  { key: "toDate", label: "PF Relieving Date", type: "date" },
+  { key: "toDate", label: "PF Relieving Date", type: "date"},
   { key: "remarks", label: "Remarks", multiline: true },
   { key: "current", label: "Current", type: "boolean" },
 ];
@@ -280,7 +290,7 @@ export const familyColumns = [
   { key: "relationship", label: "Relationship", type: "select" },
   { key: "gender", label: "Gender", type: "select" },
   { key: "dateOfBirth", label: "Date of Birth", type: "date" },
-  { key: "age", label: "Age" },
+  { key: "age", label: "Age",type: "number" },
   { key: "bloodGroup", label: "Blood Group", type: "select" },
   { key: "mobileNumber", label: "Mobile Number" },
   { key: "occupation", label: "Occupation" },
@@ -302,7 +312,7 @@ export const nominationConfigs: any = {
     title: "EPF Nominations",
     columns: [
       { key: "nomineeName", label: "Nominee Name", type: "select" },
-      { key: "sharePercentage", label: "Nomination Percentage (%)" },
+      { key: "sharePercentage", label: "Nomination Percentage (%)", type:'number' },
     ],
   },
   EPS: {
@@ -317,7 +327,7 @@ export const nominationConfigs: any = {
     title: "Gratuity Nominations",
     columns: [
       { key: "nomineeName", label: "Nominee Name", type: "select" },
-      { key: "sharePercentage", label: "Nomination Percentage (%)" },
+      { key: "sharePercentage", label: "Nomination Percentage (%)", type:'number' },
     ],
   },
 };
@@ -346,6 +356,15 @@ export const commonSx = {
   "& .MuiFormHelperText-root": {
     fontSize: "10px",
     marginLeft: 0,
+  },
+  "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
+    padding: "5px !important",
+  },
+};
+
+export const masterSx = {
+  "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
+    padding: "1px !important",
   },
 };
 

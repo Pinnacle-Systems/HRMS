@@ -119,7 +119,7 @@ export async function mockAllApis(page: Page) {
             companyAddress: "123 Main Street",
             email: "info@vibehr.com",
             phoneNo: "9876543210",
-            gstNo: "22AAAAA0000A1ZA",
+            gstNo: "22AAAAA1234F1ZO",
             companyType: "Head Office",
             countryId: "country-1",
             stateId: "state-1",

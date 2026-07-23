@@ -77,6 +77,12 @@ export interface BankDetail {
   updatedAt?: string;
 }
 
+export interface Bank {
+  name: string;
+  ifscPrefix: string;
+  type: string;
+}
+
 export const sortOptions = [
   { value: "branchName", label: "Branch Name" },
   { value: "branchCode", label: "Branch Code" },

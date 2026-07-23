@@ -117,7 +117,7 @@ export default function ResetPassword() {
             <div className="flex items-center gap-2 mb-8">
               <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
-                Vibe<span className="text-primary">HR</span>
+                Dot<span className="text-primary">HR</span>
               </span>
             </div>
             <p className="text-2xl font-bold mb-4">

@@ -43,5 +43,9 @@ class BankService {
   async updateBank(id: string | number, payload: Record<string, unknown>) {
     return apiService.put(API_ENDPOINTS.BANK.UPDATE(String(id)), payload);
   }
+
+  async getBankDropdown() {
+    return apiService.get(API_ENDPOINTS.BANK.DROPDOWN);
+  }
 }
 export const bankService = new BankService();
