@@ -24,7 +24,6 @@ import type {
   ProfilePictureResponse,
   SelectSessionContextResponse,
   SelectTenantRequest,
-  SessionContext,
   SessionContextResponse,
   SessionContextSelection,
   SetPasswordRequest,

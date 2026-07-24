@@ -20,7 +20,7 @@ export default function BranchFiscalYearSelectPage() {
   const [assignedBranchId, setAssignedBranchId] = useState<string | null>(null);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [fiscalYears, setFiscalYears] = useState<{ id: string; label: string; active: boolean }[]>([]);
-  const [activeFiscalYearId, setActiveFiscalYearId] = useState<string | null>(null);
+  // const [activeFiscalYearId, setActiveFiscalYearId] = useState<string | null>(null);
 
   // Selected values
   const [selectedBranchId, setSelectedBranchId] = useState<string | "">("");
@@ -40,7 +40,7 @@ export default function BranchFiscalYearSelectPage() {
         setAssignedBranchId(data.assignedBranchId || null);
         setBranches(data.branches);
         setFiscalYears(data.fiscalYears);
-        setActiveFiscalYearId(data.activeFiscalYearId || null);
+        // setActiveFiscalYearId(data.activeFiscalYearId || null);
 
         // Pre-select values
         if (data.branchAssociated && data.assignedBranchId) {

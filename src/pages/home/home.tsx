@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Grid,
@@ -37,6 +37,8 @@ import {
   useTheme,
   TextField,
   Skeleton,
+  Badge,
+  Stack,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
@@ -63,6 +65,17 @@ import {
   CloudDownload as CloudDownloadIcon,
   Print as PrintIcon,
   Share as ShareIcon,
+  Fullscreen as FullscreenIcon,
+  Notifications as NotificationsIcon,
+  Settings as SettingsIcon,
+  Person as PersonIcon,
+  Today as TodayIcon,
+  Event as EventIcon,
+  Work as WorkIcon,
+  ExitToApp as ExitToAppIcon,
+  PersonOutlineOutlined,
+  PersonOutlined,
+  CloseOutlined,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useUI } from "../../context/Snackbar";
@@ -76,13 +89,69 @@ import type {
   DrilldownResponse,
   UpdatePreferencesRequest,
   SupportedFilter,
+  WidgetAction,
 } from "../../services/modules/dashboard";
+
+// Recharts
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  CartesianGrid,
+} from "recharts";
+
+// Date picker
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import dayjs from "dayjs";
+
+// Debounce
+import { debounce } from "lodash";
+import { formatDate } from "../leave/leaveFormatters";
+
+// ===== DRAG-DROP: Import dnd-kit =====
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { isDateString, isIdColumn } from "./const";
+import { getRowColor } from "../const";
 
 // ============ Utility Functions ============
 
 const safeDisplayValue = (value: any): string => {
   if (value === null || value === undefined) return "-";
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    if (isDateString(value)) {
+      return formatDate(value);
+    }
+    return value;
+  }
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (typeof value === "object") {
     try {
@@ -97,7 +166,7 @@ const safeDisplayValue = (value: any): string => {
 // Widget Type Icons
 const getWidgetIcon = (type: string) => {
   const typeLower = type?.toLowerCase() || "";
-  if (["employee", "employees", "headcount"].includes(typeLower)) return <PeopleIcon />;
+  if (["employee", "employees", "headcount", "summary-box"].includes(typeLower)) return <PeopleIcon />;
   if (["attendance", "absenteeism"].includes(typeLower)) return <TimelineIcon />;
   if (["performance", "rating"].includes(typeLower)) return <TrendingUpIcon />;
   if (["payroll", "salary", "cost"].includes(typeLower)) return <AttachMoneyIcon />;
@@ -111,7 +180,7 @@ const getWidgetIcon = (type: string) => {
 // Widget Color Schemes
 const getWidgetColor = (type: string) => {
   const typeLower = type?.toLowerCase() || "";
-  if (["employee", "employees", "headcount"].includes(typeLower)) {
+  if (["employee", "employees", "headcount", "summary-box"].includes(typeLower)) {
     return { bg: "#E3F2FD", color: "#1976D2" };
   }
   if (["attendance", "absenteeism"].includes(typeLower)) {
@@ -137,143 +206,6 @@ const getWidgetColor = (type: string) => {
   }
   return { bg: "#F5F5F5", color: "#616161" };
 };
-
-// ============ Widget Renderer ============
-
-function WidgetContent({ widget }: { widget: DashboardWidget }) {
-  const theme = useTheme();
-  const colors = getWidgetColor(widget.type);
-  const Icon = getWidgetIcon(widget.type);
-
-  if (widget.error) {
-    return (
-      <Alert severity="error" sx={{ mt: 1 }}>
-        {widget.error}
-      </Alert>
-    );
-  }
-
-  // Render different widget types
-  switch (widget.type?.toLowerCase()) {
-    case "kpi":
-    case "metric":
-      return (
-        <Box sx={{ textAlign: "center", py: 2 }}>
-          <Typography variant="h3" color="primary" sx={{ fontWeight: 700 }}>
-            {widget.data?.value ?? "—"}
-          </Typography>
-          {widget.data?.comparison && (
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mt: 1 }}>
-              <Chip
-                size="small"
-                label={`${widget.data.comparison.changePercent > 0 ? "+" : ""}${widget.data.comparison.changePercent}%`}
-                color={widget.data.comparison.changePercent > 0 ? "success" : "error"}
-                sx={{ fontWeight: 600 }}
-              />
-              <Typography variant="caption" color="textSecondary">
-                {widget.data.comparison.label || "vs previous"}
-              </Typography>
-            </Box>
-          )}
-          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-            {widget.data?.label || widget.title || "Metric"}
-          </Typography>
-        </Box>
-      );
-
-    case "chart":
-      return (
-        <Box sx={{ height: 250, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
-          <Typography color="textSecondary" variant="body2">
-            Chart Widget
-          </Typography>
-          {widget.data && Object.keys(widget.data).length > 0 && (
-            <Typography variant="caption" color="textSecondary">
-              {safeDisplayValue(widget.data).substring(0, 100)}
-            </Typography>
-          )}
-        </Box>
-      );
-
-    case "table":
-      return (
-        <Box sx={{ maxHeight: 300, overflow: "auto" }}>
-          <Typography color="textSecondary" variant="body2">
-            Table Widget
-          </Typography>
-        </Box>
-      );
-
-    case "summary":
-      const data = widget.data || {};
-      return (
-        <Grid container spacing={1}>
-          {Object.entries(data).map(([key, value]) => (
-            <Grid size={{ xs: 6, sm: 4 }} key={key}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  bgcolor: theme.palette.grey[50],
-                  borderRadius: 2,
-                  textAlign: "center",
-                }}
-              >
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {safeDisplayValue(value)}
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  {key.replace(/_/g, " ")}
-                </Typography>
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
-      );
-
-    case "list":
-      const items = Array.isArray(widget.data) ? widget.data : [];
-      return (
-        <Box>
-          {items.slice(0, 5).map((item, index) => (
-            <Box
-              key={index}
-              sx={{
-                py: 1,
-                borderBottom: index < items.length - 1 ? "1px solid" : "none",
-                borderColor: theme.palette.divider,
-              }}
-            >
-              <Typography variant="body2">{safeDisplayValue(item)}</Typography>
-            </Box>
-          ))}
-          {items.length > 5 && (
-            <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: "block" }}>
-              +{items.length - 5} more
-            </Typography>
-          )}
-        </Box>
-      );
-
-    default:
-      return (
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, minHeight: 100 }}>
-          <Avatar sx={{ bgcolor: colors.bg, color: colors.color, width: 48, height: 48, borderRadius: 2 }}>
-            {Icon}
-          </Avatar>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="body2" color="textSecondary">
-              {widget.type || "Widget"}
-            </Typography>
-            {widget.data && Object.keys(widget.data).length > 0 && (
-              <Typography variant="caption" color="textSecondary" component="div" noWrap>
-                {safeDisplayValue(widget.data).substring(0, 80)}
-              </Typography>
-            )}
-          </Box>
-        </Box>
-      );
-  }
-}
 
 // ============ Main Component ============
 
@@ -306,6 +238,14 @@ export default function Home() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  // ===== DRAG-DROP: sensors =====
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   // Load pages on mount
   useEffect(() => {
     loadPages();
@@ -321,13 +261,15 @@ export default function Home() {
     }
   }, [selectedPage]);
 
-  // Apply filters when they change
-  useEffect(() => {
-    if (selectedPage && Object.keys(filterValues).length > 0) {
-      loadDashboard(selectedPage);
-    }
-  }, [filterValues]);
+  // Debounced apply filters
+  const debouncedApplyFilters = useCallback(
+    debounce((page: string) => {
+      loadDashboard(page);
+    }, 500),
+    []
+  );
 
+  // Load functions
   const loadPages = async () => {
     try {
       const response = await dashboardService.getPages();
@@ -424,19 +366,20 @@ export default function Home() {
       ...prev,
       [filterId]: value,
     }));
+    if (selectedPage) {
+      debouncedApplyFilters(selectedPage);
+    }
   };
 
   const handleAddWidget = async (widgetId: string) => {
     setLoading(true);
     try {
       const currentWidgets = dashboardData?.widgets || [];
-
       const catalogWidget = catalogWidgets.find((w) => w.widgetId === widgetId);
       if (!catalogWidget) {
         showSnackbar("Widget not found in catalog", "error");
         return;
       }
-
       const newWidget: DashboardWidget = {
         id: widgetId,
         title: catalogWidget.title || "Untitled",
@@ -448,9 +391,7 @@ export default function Home() {
         actions: catalogWidget.actions || [],
         visible: true,
       };
-
       const updatedWidgets = [...currentWidgets, newWidget];
-
       const preferencesPayload: UpdatePreferencesRequest = {
         widgets: updatedWidgets.map((w) => ({
           widgetId: w.id,
@@ -459,7 +400,6 @@ export default function Home() {
           size: w.size || "medium",
         })),
       };
-
       await dashboardService.updatePreferences(selectedPage, preferencesPayload);
       await loadDashboard(selectedPage);
       showSnackbar("Widget added successfully", "success");
@@ -473,9 +413,7 @@ export default function Home() {
 
   const handleRemoveWidget = async (widgetId: string) => {
     if (!dashboardData) return;
-
     const updatedWidgets = dashboardData.widgets.filter((w) => w.id !== widgetId);
-
     try {
       const preferencesPayload: UpdatePreferencesRequest = {
         widgets: updatedWidgets.map((w, index) => ({
@@ -485,7 +423,6 @@ export default function Home() {
           size: w.size || "medium",
         })),
       };
-
       await dashboardService.updatePreferences(selectedPage, preferencesPayload);
       await loadDashboard(selectedPage);
       showSnackbar("Widget removed successfully", "success");
@@ -498,17 +435,13 @@ export default function Home() {
 
   const handleToggleVisibility = async (widgetId: string) => {
     if (!dashboardData) return;
-
     const widget = dashboardData.widgets.find((w) => w.id === widgetId);
     if (!widget) return;
-
     const newVisibility = widget.visible !== false ? false : true;
-
     const updatedWidgets = dashboardData.widgets.map((w) => ({
       ...w,
       visible: w.id === widgetId ? newVisibility : w.visible,
     }));
-
     try {
       const preferencesPayload: UpdatePreferencesRequest = {
         widgets: updatedWidgets.map((w) => ({
@@ -518,7 +451,6 @@ export default function Home() {
           size: w.size || "medium",
         })),
       };
-
       await dashboardService.updatePreferences(selectedPage, preferencesPayload);
       await loadDashboard(selectedPage);
       showSnackbar(`Widget ${newVisibility ? "shown" : "hidden"}`, "success");
@@ -538,12 +470,12 @@ export default function Home() {
     }
   };
 
-  const handleDrilldown = async (widgetId: string, actionId: string) => {
+  const handleDrilldown = async (widgetId: string, actionId: string, context?: any) => {
     setDrilldownLoading(true);
     try {
-      const response:any = await dashboardService.executeDrilldown(selectedPage, widgetId, {
+      const response: any = await dashboardService.executeDrilldown(selectedPage, widgetId, {
         actionId,
-        context: { ...filterValues, ...(dashboardData?.context || {}) },
+        context: { ...filterValues, ...(dashboardData?.context || {}), ...context },
       });
       const data = response?.data;
       if (data) {
@@ -560,7 +492,6 @@ export default function Home() {
 
   const handleSaveLayout = async () => {
     if (!dashboardData) return;
-
     try {
       const preferencesPayload: UpdatePreferencesRequest = {
         widgets: dashboardData.widgets.map((w) => ({
@@ -570,7 +501,6 @@ export default function Home() {
           size: w.size || "medium",
         })),
       };
-
       await dashboardService.updatePreferences(selectedPage, preferencesPayload);
       await loadPreferences(selectedPage);
       setEditingMode(false);
@@ -580,749 +510,875 @@ export default function Home() {
     }
   };
 
-  const visibleWidgets = dashboardData?.widgets?.filter((w) => w.visible !== false) || [];
+  // ===== DRAG-DROP: Handler for reordering =====
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    if (active.id !== over.id) {
+      if (dashboardData) {
+        const oldIndex = dashboardData.widgets.findIndex((w) => w.id === active.id);
+        const newIndex = dashboardData.widgets.findIndex((w) => w.id === over.id);
+        const newWidgets = arrayMove(dashboardData.widgets, oldIndex, newIndex);
+        // Update position numbers
+        const reordered = newWidgets.map((w, idx) => ({ ...w, position: idx }));
+        setDashboardData((prev) => prev ? { ...prev, widgets: reordered } : null);
+        // Save preferences immediately
+        const preferencesPayload: UpdatePreferencesRequest = {
+          widgets: reordered.map((w) => ({
+            widgetId: w.id,
+            visible: w.visible !== false,
+            position: w.position,
+            size: w.size || "medium",
+          })),
+        };
+        dashboardService.updatePreferences(selectedPage, preferencesPayload)
+          .then(() => showSnackbar("Widget order updated", "success"))
+          .catch(() => showSnackbar("Failed to save new order", "error"));
+      }
+    }
+  };
 
-  // Render filter bar
-  const renderFilters = () => {
-    if (supportedFilters.length === 0) return null;
+  interface WidgetCardProps {
+    widget: DashboardWidget;
+    editingMode: boolean;
+    onToggleVisibility: (id: string) => void;
+    onRemove: (id: string) => void;
+    onDrilldown: (widgetId: string, actionId: string, context?: any) => void;
+    renderWidgetContent: (widget: DashboardWidget) => React.ReactNode;
+  }
+
+  function WidgetCard({
+    widget,
+    editingMode,
+    onToggleVisibility,
+    onRemove,
+    onDrilldown,
+    renderWidgetContent,
+  }: WidgetCardProps) {
+    // const theme = useTheme();
+    // const colors = getWidgetColor(widget.type);
+    const isVisible = widget.visible !== false;
+
+    // useSortable is now inside this component – hooks order is stable per instance
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: widget.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+      zIndex: isDragging ? 1000 : 'auto',
+    };
 
     return (
-      <Paper
-        sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 3,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-          bgcolor: alpha(theme.palette.primary.main, 0.02),
+      <Grid
+        ref={setNodeRef}
+        style={style}
+        size={{
+          xs: 12,
+          sm: widget.size === 'small' ? 4 : widget.size === 'large' ? 12 : 6,
+          md: widget.size === 'small' ? 3 : widget.size === 'large' ? 12 : 6,
+          lg: widget.size === 'small' ? 3 : widget.size === 'large' ? 12 : 6,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <FilterListIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle2" color="primary">
-              Filters
-            </Typography>
-          </Box>
-          {supportedFilters.map((filter) => (
-            <TextField
-              key={filter.id}
-              size="small"
-              label={filter.label}
-              value={filterValues[filter.id] || ""}
-              onChange={(e) => handleFilterChange(filter.id, e.target.value)}
-              required={filter.required}
-              sx={{ minWidth: 150 }}
-              placeholder={filter.required ? "Required" : "Optional"}
+        <Zoom in={true} style={{ transitionDelay: '50ms' }}>
+          <Card
+            className="!bg-white-50 border border-gray-200"
+            elevation={0}
+            sx={{
+              position: 'relative',
+              overflow: 'visible',
+              borderRadius: 2,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              touchAction: 'none',
+              visibility: isVisible ? 'visible' : 'hidden',
+            }}
+          >
+            {/* Edit Mode Toolbar */}
+            {editingMode && (
+              <Box sx={{ position: 'absolute', top: -12, right: -12, display: 'flex', gap: 0.5, zIndex: 10 }}>
+                <Tooltip title={isVisible ? "Hide" : "Show"}>
+                  <IconButton
+                    size="small"
+                    color="info"
+                    onClick={() => onToggleVisibility(widget.id)}
+                    sx={{ bgcolor: 'white', boxShadow: 1, width: 28, height: 28 }}
+                  >
+                    {isVisible ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+                {!widget.locked && (
+                  <Tooltip title="Remove">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => onRemove(widget.id)}
+                      sx={{ bgcolor: 'white', boxShadow: 1, width: 28, height: 28 }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title="Drag to reorder">
+                  <IconButton
+                    size="small"
+                    color="primary"
+                    sx={{ bgcolor: 'white', boxShadow: 1, cursor: 'grab', width: 28, height: 28 }}
+                    {...attributes}
+                    {...listeners}
+                  >
+                    <DragIndicatorIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            )}
+
+            <CardHeader className="border-b border-gray-200"
+              title={<Typography sx={{ fontWeight: 600 }} className="text-gray-800">{widget.title}</Typography>}
+              action={
+                <Box>
+                  {widget.actions?.length > 0 && !editingMode && (
+                    <Tooltip title="Drilldown">
+                      <IconButton size="small" onClick={() => onDrilldown(widget.id, widget.actions[0].id)}>
+                        <ExpandMoreIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {widget.locked && <Chip label="Locked" size="small" color="info" sx={{ fontSize: '0.625rem', height: 20 }} />}
+                </Box>
+              }
             />
-          ))}
-          <Button size="small" variant="outlined" onClick={() => loadDashboard(selectedPage)}>
-            Apply
-          </Button>
-          {Object.keys(filterValues).length > 0 && (
-            <Button
-              size="small"
-              color="secondary"
-              onClick={() => {
-                const defaults: Record<string, any> = {};
-                supportedFilters.forEach((f) => {
-                  if (f.defaultValue !== undefined && f.defaultValue !== null) {
-                    defaults[f.id] = f.defaultValue;
-                  }
-                });
-                setFilterValues(defaults);
-              }}
-            >
-              Reset
-            </Button>
-          )}
-        </Box>
-      </Paper>
+            {/* <Divider /> */}
+            <CardContent sx={{ flex: 1, pt: 2 }}>
+              {renderWidgetContent(widget)}
+            </CardContent>
+            {widget.actions?.length > 0 && !editingMode && (
+              <CardActions sx={{ pt: 0, px: 2, pb: 2, flexWrap: 'wrap', gap: 0.5 }}>
+                {widget.actions.map((action, idx) => (
+                  <Chip
+                    key={idx}
+                    label={action.label}
+                    size="small"
+                    variant="outlined"
+                    onClick={() => onDrilldown(widget.id, action.id)}
+                    clickable
+                  />
+                ))}
+              </CardActions>
+            )}
+          </Card>
+        </Zoom>
+      </Grid>
     );
-  };
+  }
 
-  // Render context chips
-  const renderContext = () => {
-    if (!dashboardData?.context) return null;
+  // ============ Widget Renderers (with local state) ============
 
-    const contextEntries = Object.entries(dashboardData.context);
-    if (contextEntries.length === 0) return null;
-
-    return (
-      <Paper
-        sx={{
-          p: 2,
-          mb: 3,
-          bgcolor: alpha(theme.palette.info.main, 0.04),
-          border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
-          borderRadius: 3,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-          <AssessmentIcon color="info" fontSize="small" />
-          <Typography variant="subtitle2" color="info.main">
-            Dashboard Context
-          </Typography>
-          {preferences?.usingRoleDefault && (
-            <Chip label="Default Layout" size="small" color="info" variant="outlined" sx={{ ml: 1 }} />
-          )}
-          {!preferences?.usingRoleDefault && preferences && (
-            <Chip label="Customized" size="small" color="warning" variant="outlined" sx={{ ml: 1 }} />
-          )}
-        </Box>
-        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-          {contextEntries.map(([key, value]) => {
-            const displayValue = safeDisplayValue(value);
-            return (
-              <Chip
-                key={key}
-                label={`${key}: ${displayValue}`}
-                size="small"
-                color="info"
-                variant="outlined"
-                sx={{ borderRadius: "16px", "& .MuiChip-label": { fontWeight: 500 } }}
-              />
-            );
-          })}
-        </Box>
-      </Paper>
+  // Summary Box Widget (rendered as KPI cards)
+  const SummaryBoxWidget = ({ data }: { data: any }) => {
+    const rows = data?.data || [];
+    if (rows.length === 0) {
+      return <Typography color="textSecondary">No summary data available</Typography>;
+    }
+    const summaryRow = rows[0];
+    const entries = Object.entries(summaryRow).filter(
+      ([key]) => !key.startsWith("_") && key !== "id" && key !== "meta"
     );
-  };
-
-  // Render stats summary
-  const renderStats = () => {
-    if (!dashboardData) return null;
-
+    if (entries.length === 0) {
+      return <Typography color="textSecondary">No metrics available</Typography>;
+    }
     return (
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <Paper sx={{ p: 2, textAlign: "center", borderRadius: 3 }}>
-            <Typography variant="h5" color="primary" sx={{ fontWeight: 700 }}>
-              {visibleWidgets.length}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              Active Widgets
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <Paper sx={{ p: 2, textAlign: "center", borderRadius: 3 }}>
-            <Typography variant="h5" color="success.main" sx={{ fontWeight: 700 }}>
-              {dashboardData.widgets.filter((w) => w.locked).length}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              Locked Widgets
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <Paper sx={{ p: 2, textAlign: "center", borderRadius: 3 }}>
-            <Typography variant="h5" color="warning.main" sx={{ fontWeight: 700 }}>
-              {catalogWidgets.length}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              Available Widgets
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <Paper sx={{ p: 2, textAlign: "center", borderRadius: 3 }}>
-            <Typography variant="h5" color="info.main" sx={{ fontWeight: 700 }}>
-              {dashboardData.widgets.filter((w) => w.visible !== false).length}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              Visible Widgets
-            </Typography>
-          </Paper>
-        </Grid>
+      <Grid container spacing={2}>
+        {entries.map(([key, value]) => {
+          const label = key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
+          return (
+            <Grid key={key} size={{ xs: 6, sm: 4 }}>
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  borderRadius: 2,
+                  textAlign: "center",
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                }}
+              >
+                <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
+                  {safeDisplayValue(value)}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" className="text-gray-800" sx={{ mt: 0.5, display: "block" }}>
+                  {label}
+                </Typography>
+              </Box>
+            </Grid>
+          );
+        })}
       </Grid>
     );
   };
 
-  return (
-    <Box sx={{ p: 3 }}>
-      <div className="text-gray-800">
-          Welcome back, Admin!
-          Here's what's happening with your workforce today.
-      </div>
-      {/* Header */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: 3,
-          // background: `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.primary.dark} 100%)`,
-          // color: "white",
-        }}
-        className="!bg-head"
-      >
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, marginBottom: 2 }}>
-            <Avatar
-              sx={{
-                // bgcolor: alpha(theme.palette.common.white, 0.2),
-                width: 56,
-                height: 56,
-                borderRadius: 2,
-              }}
-              className="!bg-primary-100"
-            >
-              <DashboardIcon sx={{ fontSize: 32 }} className="text-primary"/>
-            </Avatar>
-            <Box>
-              <Typography variant="h4" sx={{ fontWeight: 700 }} className="text-gray-800">
-                Dashboard Management
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.8 }} className="text-gray-800">
-                Configure and manage your HRMS dashboards
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-            <FormControl size="small" sx={{ minWidth: 200, bgcolor: "rgba(255,255,255,0.15)", borderRadius: 2 }}>
-              <InputLabel className="text-gray-800">Dashboard</InputLabel>
-              <Select
-                value={selectedPage}
-                onChange={(e) => setSelectedPage(e.target.value)}
-                // label="Dashboard"
-                // sx={{
-                //   color: "white",
-                //   "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.3)" },
-                //   "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.5)" },
-                //   "& .MuiSvgIcon-root": { color: "white" },
-                // }}
-              >
-                {pages.map((page) => (
-                  <MenuItem key={page.pageKey} value={page.pageKey}>
-                    {page.title || page.pageKey}
-                  </MenuItem>
+  // Table Widget
+  const TableWidget = ({ data }: { data: any }) => {
+    const rows = data?.data || [];
+    const [localPage, setLocalPage] = useState(0);
+    const [localRowsPerPage, setLocalRowsPerPage] = useState(5);
+
+    if (rows.length === 0) {
+      return <Typography color="textSecondary" className="text-gray-500">No data available</Typography>;
+    }
+
+    const columns = Object.keys(rows[0]).filter((key) => !key.startsWith("_") && key !== "meta" && !isIdColumn(key));
+    if (columns.length === 0) {
+      return <Typography color="textSecondary">No columns found</Typography>;
+    }
+
+    const paginatedRows = rows.slice(localPage * localRowsPerPage, localPage * localRowsPerPage + localRowsPerPage);
+
+    return (
+      <Box>
+        <TableContainer>
+          <Table size="small" className="border border-gray-200">
+            <TableHead>
+              <TableRow sx={{ bgcolor: theme.palette.grey[50] }}>
+                {columns.map((col) => (
+                  <TableCell key={col} sx={{ fontWeight: 600 }}>
+                    {col.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase())}
+                  </TableCell>
                 ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              startIcon={<RefreshIcon />}
-              onClick={handleRefresh}
-              disabled={refreshing}
-                           className="!bg-primary"
-            >
-              {refreshing ? "Refreshing..." : "Refresh"}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => navigate("/bi-workspace")}
-              className="!bg-primary"
-            >
-              BI Workspace
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={editingMode ? <SaveIcon /> : <EditIcon />}
-              onClick={editingMode ? handleSaveLayout : () => setEditingMode(true)}
-              className={`${ editingMode ? "!bg-green-700" : '!bg-primary'}`}
-             
-            >
-              {editingMode ? "Save Layout" : "Edit Layout"}
-            </Button>
-          </Box>
-        </Box>
-      </Paper>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginatedRows.map((row: any, idx: number) => (
+                <TableRow key={idx} hover sx={getRowColor(idx)}>
+                  {columns.map((col) => (
+                    <TableCell key={col}>
+                      <div className={`!p-1.5 !text-[11px] ${typeof row[col] == 'number' ? 'text-sky-500' : ''}`}>{safeDisplayValue(row[col])}</div>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {rows.length > localRowsPerPage && (
+          <TablePagination
+            component="div"
+            count={rows.length}
+            page={localPage}
+            onPageChange={(_, newPage) => setLocalPage(newPage)}
+            rowsPerPage={localRowsPerPage}
+            onRowsPerPageChange={(e) => {
+              setLocalRowsPerPage(parseInt(e.target.value, 10));
+              setLocalPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 25]}
+          />
+        )}
+      </Box>
+    );
+  };
 
-      {/* Filters */}
-      {renderFilters()}
+  interface EmployeeCardListProps {
+    data: any;
+    widgetId: string;
+    onDrilldown?: (actionId: string, context?: any) => void;
+    actions?: WidgetAction[];
+  }
 
-      {/* Context */}
-      {renderContext()}
+  function EmployeeCardList({ data, widgetId, onDrilldown, actions }: EmployeeCardListProps) {
+    const theme = useTheme();
+    const rows = data?.data || [];
+    if (rows.length === 0) {
+      return <Typography color="textSecondary" className="text-gray-500" sx={{ py: 2, textAlign: 'center' }}>No records found</Typography>;
+    }
 
-      {/* Stats */}
-      {renderStats()}
+    // Determine label for the date field
+    let dateLabel = 'Date';
+    let secondaryLabel = '';
+    let isAnniversary = false;
+    if (widgetId.includes('recentJoiners')) {
+      dateLabel = 'Joining Date';
+      secondaryLabel = 'Days since joining';
+    } else if (widgetId.includes('upcomingBirthdays')) {
+      dateLabel = 'Birthday';
+      secondaryLabel = 'Days until birthday';
+    } else if (widgetId.includes('workAnniversaries')) {
+      dateLabel = 'Anniversary';
+      secondaryLabel = 'Days until anniversary';
+      isAnniversary = true;
+    } else if (widgetId.includes('recentResignations')) {
+      dateLabel = 'Resignation Date';
+      secondaryLabel = 'Days since resignation';
+    }
 
-      {/* Widget Grid */}
-      {loading ? (
-        <Grid container spacing={3}>
-          {[1, 2, 3, 4].map((i) => (
-            <Grid key={i} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-              <Skeleton variant="rounded" height={250} sx={{ borderRadius: 3 }} />
-            </Grid>
-          ))}
-        </Grid>
-      ) : dashboardData ? (
-        <Grid container spacing={3}>
-          {visibleWidgets.length > 0 ? (
-            visibleWidgets.map((widget) => {
-              const colors = getWidgetColor(widget.type);
-              return (
-                <Grid
-                  key={widget.id}
-                  size={{
-                    xs: 12,
-                    sm: widget.size === "small" ? 6 : widget.size === "large" ? 12 : 6,
-                    md: widget.size === "small" ? 4 : widget.size === "large" ? 12 : 6,
-                    lg: widget.size === "small" ? 3 : widget.size === "large" ? 12 : 6,
-                  }}
-                >
-                  <Zoom in={true} style={{ transitionDelay: `${visibleWidgets.indexOf(widget) * 50}ms` }}>
-                    <Card
-                      elevation={0}
-                      sx={{
-                        borderRadius: 3,
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        transition: "all 0.3s ease",
-                        "&:hover": {
-                          boxShadow: theme.shadows[8],
-                          transform: "translateY(-4px)",
-                        },
-                        position: "relative",
-                        overflow: "visible",
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
-                    >
-                      {editingMode && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            top: -10,
-                            right: -10,
-                            display: "flex",
-                            gap: 0.5,
-                            zIndex: 10,
-                          }}
-                        >
-                          <Tooltip title={widget.visible !== false ? "Hide Widget" : "Show Widget"}>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleToggleVisibility(widget.id)}
-                              sx={{
-                                bgcolor: "white",
-                                boxShadow: theme.shadows[2],
-                                "&:hover": { bgcolor: theme.palette.grey[100] },
-                                width: 28,
-                                height: 28,
-                              }}
-                            >
-                              {widget.visible !== false ? (
-                                <VisibilityIcon fontSize="small" color="action" />
-                              ) : (
-                                <VisibilityOffIcon fontSize="small" color="action" />
-                              )}
-                            </IconButton>
-                          </Tooltip>
-                          {!widget.locked && (
-                            <Tooltip title="Remove Widget">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => {
-                                  setWidgetToRemove(widget.id);
-                                  setConfirmDialogOpen(true);
-                                }}
-                                sx={{
-                                  bgcolor: "white",
-                                  boxShadow: theme.shadows[2],
-                                  "&:hover": { bgcolor: theme.palette.error.light },
-                                  width: 28,
-                                  height: 28,
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Drag to Reorder">
-                            <IconButton
-                              size="small"
-                              sx={{
-                                bgcolor: "white",
-                                boxShadow: theme.shadows[2],
-                                cursor: "grab",
-                                width: 28,
-                                height: 28,
-                              }}
-                            >
-                              <DragIndicatorIcon fontSize="small" color="action" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
+    // Find the field names from the first row
+    const firstRow = rows[0] || {};
+    const nameField = firstRow.name ? 'name' : (firstRow.employeeName ? 'employeeName' : null);
+    const dateField = firstRow.joiningDate ? 'joiningDate' :
+      firstRow.occursOn ? 'occursOn' :
+        firstRow.resignationDate ? 'resignationDate' : null;
+    const daysField = firstRow.daysFromToday !== undefined ? 'daysFromToday' : '';
+    const idField = firstRow.employeeId ? 'employeeId' : (firstRow.id ? 'id' : '');
+    const yearsField = firstRow.anniversaryYears !== undefined ? 'anniversaryYears' : '';
+
+    // If we can't find fields, fallback to table
+    if (!nameField || !dateField) {
+      return <TableWidget data={data} />;
+    }
+
+    const handleCardClick = (record: any) => {
+      if (onDrilldown && actions && actions.length > 0) {
+        onDrilldown(actions[0].id, { record });
+      }
+    };
+
+    return (
+      <div className="grid items-center gap-2">
+        {rows.map((record: any, index: number) => {
+          const name = record[nameField] || 'Unknown';
+          const date = record[dateField] || '';
+          const days = record[daysField] !== undefined ? record[daysField] : null;
+          const employeeId = record[idField] || '';
+          const anniversaryYears = isAnniversary ? record[yearsField] : null;
+          const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 1);
+
+          let daysText = '';
+          let chipColor: 'default' | 'success' | 'warning' | 'error' = 'default';
+          if (days !== null) {
+            const absDays = Math.abs(days);
+            if (days === 0) {
+              daysText = 'Today';
+              chipColor = 'success';
+            } else if (days < 0) {
+              daysText = `${absDays} days ago`;
+              chipColor = 'error';
+            } else {
+              daysText = `In ${absDays} days`;
+              chipColor = 'warning';
+            }
+          }
+
+          return (
+            <div key={index}>
+              <Paper
+                elevation={0}
+                className="!bg-gray-100/50 dark:!bg-head"
+                sx={{
+                  p: 1,
+                  borderRadius: 2,
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                  transition: 'all 0.2s',
+                  cursor: onDrilldown ? 'pointer' : 'default',
+                  '&:hover': {
+                    boxShadow: theme.shadows[2],
+                    borderColor: theme.palette.primary.main,
+                  },
+                }}
+                onClick={() => handleCardClick(record)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-center gap-2">
+                    <Avatar sx={{ bgcolor: theme.palette.grey[400], color: theme.palette.primary.contrastText }} className="!w-6 !h-6">
+                      <PersonOutlined />
+                    </Avatar>
+                    <div>
+                      <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 600 }}>
+                        {name}
+                        {anniversaryYears && (
+                          <Chip
+                            label={`${anniversaryYears} years`}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.625rem', marginLeft: 1 }}
+                          />
+                        )}
+                      </Typography>
+                      {employeeId && (
+                        <div className="text-[10px] text-gray-500">
+                          {employeeId}
+                        </div>
                       )}
-                      <CardHeader
-                        title={
-                          <Typography sx={{ fontWeight: 600, fontSize: "1rem" }}>
-                            {widget.title || "Widget"}
-                          </Typography>
-                        }
-                        subheader={
-                          <Typography variant="caption" color="textSecondary">
-                            {widget.type || "Widget"}
-                          </Typography>
-                        }
-                        avatar={
-                          <Avatar
-                            sx={{
-                              bgcolor: colors.bg,
-                              color: colors.color,
-                              width: 40,
-                              height: 40,
-                              borderRadius: 2,
-                            }}
-                          >
-                            {getWidgetIcon(widget.type)}
-                          </Avatar>
-                        }
-                        action={
-                          <Box sx={{ display: "flex", gap: 0.5 }}>
-                            {widget.actions && widget.actions.length > 0 && !editingMode && (
-                              <Tooltip title="Drilldown">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDrilldown(widget.id, widget.actions[0].id)}
-                                  color="primary"
-                                >
-                                  <ExpandMoreIcon />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {widget.locked && (
-                              <Chip
-                                label="Locked"
-                                size="small"
-                                color="info"
-                                sx={{ fontSize: "0.625rem", height: 20 }}
-                              />
-                            )}
-                          </Box>
-                        }
-                        sx={{ pb: 0 }}
-                      />
-                      <Divider />
-                      <CardContent sx={{ flex: 1 }}>
-                        <WidgetContent widget={widget} />
-                      </CardContent>
-                      {widget.actions && widget.actions.length > 0 && !editingMode && (
-                        <CardActions sx={{ pt: 0, px: 2, pb: 2, flexWrap: "wrap", gap: 0.5 }}>
-                          {widget.actions.map((action, idx) => (
-                            <Chip
-                              key={idx}
-                              label={action.label}
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleDrilldown(widget.id, action.id)}
-                              clickable
-                              sx={{ borderRadius: "12px" }}
-                            />
-                          ))}
-                        </CardActions>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="text-gray-500 text-[10px]">
+                      {date ? formatDate(date) : ''}
+                    </div>
+                    <div className="flex gap-2">
+                      {daysText && (
+                        <Chip
+                          label={daysText}
+                          size="small"
+                          color={chipColor}
+                          sx={{ height: 20, fontSize: '0.625rem' }}
+                        />
                       )}
-                    </Card>
-                  </Zoom>
-                </Grid>
-              );
-            })
-          ) : (
-            <Grid size={{ xs: 12 }}>
-              <Paper sx={{ textAlign: "center", py: 8, borderRadius: 3 }}>
-                <DashboardIcon sx={{ fontSize: 64, color: theme.palette.grey[300], mb: 2 }} />
-                <Typography variant="h6" color="textSecondary" gutterBottom>
-                  No widgets found
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  Click "Edit Layout" to add widgets to your dashboard
-                </Typography>
-                {editingMode && (
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => setAddWidgetDialogOpen(true)}
-                    sx={{ mt: 2 }}
-                  >
-                    Add Widget
-                  </Button>
+                    </div>
+                  </div>
+                </div>
+                {onDrilldown && actions && actions.length > 0 && (
+                  <IconButton size="small" color="primary" onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(record);
+                  }}>
+                    <ExpandMoreIcon fontSize="small" />
+                  </IconButton>
                 )}
               </Paper>
-            </Grid>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ============ Widget Content Renderer ============
+
+  const renderWidgetContent = (widget: DashboardWidget) => {
+    const widgetData = widget.data || {};
+    const type = widget.type?.toLowerCase() || "";
+    const id = widget.id || '';
+    if (type === "chart") {
+      return <Typography color="textSecondary">Chart widget (coming soon)</Typography>;
+    }
+    if (type === "summary-box") {
+      return <SummaryBoxWidget data={widgetData} />;
+    }
+    if (type === "table") {
+      const isEmployeeList = ['recentJoiners', 'upcomingBirthdays', 'workAnniversaries', 'recentResignations', 'upcomingHolidays'].some(
+        (keyword) => id.includes(keyword)
+      );
+      if (isEmployeeList) {
+        return (
+          <EmployeeCardList
+            data={widgetData}
+            widgetId={id}
+            onDrilldown={(actionId, context) => handleDrilldown(widget.id, actionId, context)}
+            actions={widget.actions}
+          />
+        );
+      }
+      return <TableWidget data={widgetData} />;
+    }
+    // fallback
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, minHeight: 100 }}>
+        <Avatar sx={{ bgcolor: getWidgetColor(type).bg, color: getWidgetColor(type).color, width: 48, height: 48, borderRadius: 2 }}>
+          {getWidgetIcon(type)}
+        </Avatar>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" color="textSecondary">{type || "Widget"}</Typography>
+          {widgetData && Object.keys(widgetData).length > 0 && (
+            <Typography variant="caption" color="textSecondary" component="div" noWrap>
+              {safeDisplayValue(widgetData).substring(0, 80)}
+            </Typography>
           )}
-        </Grid>
-      ) : (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-          {/* <CircularProgress /> */}
         </Box>
-      )}
+      </Box>
+    );
+  };
 
-      {/* Action Buttons - Edit Mode */}
-      {editingMode && (
-        <Fade in={editingMode}>
-          <Box sx={{ mt: 3, display: "flex", justifyContent: "center", gap: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setAddWidgetDialogOpen(true)}
-              sx={{ borderRadius: 2 }}
-              className="!bg-primary"
+  // ============ Filter rendering ============
+
+  const renderFilters = () => {
+    if (supportedFilters.length === 0) return null;
+    return (
+      <Paper
+        sx={{
+          p: 2,
+          mb: 3,
+          borderRadius: 2,
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+          bgcolor: alpha(theme.palette.primary.main, 0.02),
+        }}
+      >
+        <Stack direction="row" spacing={2} className="items-center flex-wrap" useFlexGap>
+          <FilterListIcon color="primary" fontSize="small" />
+          <Typography variant="subtitle2" color="primary">Filters</Typography>
+          {/* {supportedFilters.map((filter) => {
+            const value = filterValues[filter.id] || "";
+            return (
+              <TextField
+                key={filter.id}
+                size="small"
+                label={filter.label}
+                value={value}
+                onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                placeholder={filter.required ? "Required" : "Optional"}
+                sx={{ minWidth: 150 }}
+              />
+            );
+          })} */}
+          {supportedFilters.map((filter) => {
+            const value = filterValues[filter.id] || "";
+            if (filter.type === 'month') {
+              return (
+                <LocalizationProvider key={filter.id} dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    views={['month']}
+                    label={filter.label}
+                    value={value ? dayjs(value) : null}
+                    onChange={(newValue) => handleFilterChange(filter.id, newValue ? dayjs(newValue).format('YYYY-MM') : '')}
+                    slotProps={{ textField: { size: "small", sx: { minWidth: 150 } } }}
+                  />
+                </LocalizationProvider>
+              );
+            }
+            if (filter.type === 'lookup') {
+              // In a real app, fetch options from a lookup endpoint; for now use text
+              return (
+                <TextField
+                  key={filter.id}
+                  size="small"
+                  label={filter.label}
+                  value={value}
+                  onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                  placeholder="Enter value"
+                  sx={{ minWidth: 150 }}
+                />
+              );
+            }
+            // default text
+            return (
+              <TextField
+                key={filter.id}
+                size="small"
+                label={filter.label}
+                value={value}
+                onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                placeholder={filter.required ? "Required" : "Optional"}
+                sx={{ minWidth: 150 }}
+              />
+            );
+          })}
+          <Button size="small" variant="outlined" onClick={() => loadDashboard(selectedPage)}>Apply</Button>
+          {Object.keys(filterValues).length > 0 && (
+            <Button size="small" color="secondary" onClick={() => {
+              const defaults: Record<string, any> = {};
+              supportedFilters.forEach((f) => {
+                if (f.defaultValue !== undefined && f.defaultValue !== null) {
+                  defaults[f.id] = f.defaultValue;
+                }
+              });
+              setFilterValues(defaults);
+            }}>Reset</Button>
+          )}
+        </Stack>
+      </Paper>
+    );
+  };
+
+  // ============ Context rendering ============
+
+  const renderContext = () => {
+    if (!dashboardData?.context) return null;
+    const contextEntries = Object.entries(dashboardData.context);
+    if (contextEntries.length === 0) return null;
+    return (
+      <Paper sx={{ p: 2, mb: 3, bgcolor: alpha(theme.palette.info.main, 0.04), border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`, borderRadius: 2 }}>
+        <Stack direction="row" spacing={1} className="items-center flex-wrap">
+          <AssessmentIcon color="info" fontSize="small" />
+          <Typography variant="subtitle2" color="info.main" className="text-gray-800">Dashboard Context</Typography>
+          {preferences?.usingRoleDefault && <Chip label="Default Layout" size="small" color="info" variant="outlined" />}
+          {!preferences?.usingRoleDefault && preferences && <Chip label="Customized" size="small" color="warning" variant="outlined" />}
+          {contextEntries.map(([key, value]) => (
+            <Chip key={key} label={`${key}: ${safeDisplayValue(value)}`} size="small" color="info" variant="outlined" />
+          ))}
+        </Stack>
+      </Paper>
+    );
+  };
+
+  // ============ Stats / KPI Cards ============
+
+  const renderKPI = () => {
+    const headcountWidget = dashboardData?.widgets.find(w => w.id === 'employee.headcountSummary');
+    if (!headcountWidget) return null;
+    const rows = headcountWidget.data?.data || [];
+    if (!rows.length) return null;
+    const row = rows[0];
+    const metrics = [
+      { label: 'Total Employees', value: row.headcount, icon: <PeopleIcon />, color: '#1976D2' },
+      { label: 'Active Employees', value: row.headcountActive, icon: <WorkIcon />, color: '#2e7d32' },
+      { label: 'On Leave', value: row.headcountOnLeave, icon: <EventIcon />, color: '#ed6c02' },
+    ];
+    return (
+      <Grid container spacing={3} sx={{ mb: 2 }}>
+        {metrics.map((metric) => (
+          <Grid key={metric.label} size={{ xs: 12, sm: 4 }}>
+            <Paper sx={{ p: 2, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2, borderLeft: `4px solid ${metric.color}` }} className="!bg-white-50">
+              <Avatar sx={{ bgcolor: alpha(metric.color, 0.1), color: metric.color }}>{metric.icon}</Avatar>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 700 }} className="text-gray-800">{safeDisplayValue(metric.value)}</Typography>
+                <Typography variant="body2" color="textSecondary" className="text-gray-500">{metric.label}</Typography>
+              </Box>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+    );
+  };
+
+  // ============ Main Render ============
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Box sx={{ pb: 3}}>
+        {/* Header */}
+        <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2 }} className="!bg-white-50 border border-gray-200">
+          <Stack direction="row" className="items-center flex-wrap gap-2 justify-between">
+            <Stack direction="row" spacing={2} className="items-center">
+              <Avatar sx={{ bgcolor: theme.palette.primary.main, width: 48, height: 48 }} className="!bg-primary">
+                <DashboardIcon />
+              </Avatar>
+              <Box>
+                <div className="text-gray-800 font-bold text-[18px]">Dashboard</div>
+                <Typography variant="body2" color="textSecondary" className="text-gray-800">Welcome back, Admin</Typography>
+              </Box>
+            </Stack>
+            <div className="flex items-center gap-2">
+              <FormControl size="small" className="!w-[200px]">
+                <Select
+                  value={selectedPage}
+                  onChange={(e) => setSelectedPage(e.target.value)}
+                  displayEmpty
+                >
+                  {pages.map((page) => (
+                    <MenuItem key={page.pageKey} value={page.pageKey}>{page.title}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button variant="outlined" className="w-[200px] !text-primary !border-primary" onClick={() => navigate("/bi-workspace")}>BI Workspace</Button>
+              <Button
+                variant="contained"
+                className="w-[200px]"
+                onClick={editingMode ? handleSaveLayout : () => setEditingMode(true)}
+                sx={{ bgcolor: editingMode ? theme.palette.success.main : "var(--color-primary)" }}
+              >
+                {editingMode ? "Save Layout" : "Edit Layout"}
+              </Button>
+            </div>
+          </Stack>
+        </Paper>
+
+        {/* Filters & Context */}
+        {renderContext()}
+
+        {/* KPI Cards */}
+        {/* {renderKPI()} */}
+
+        {/* Widget Grid with Drag-and-Drop */}
+        {loading ? (
+          <Grid container spacing={3}>
+            {[1, 2, 3, 4].map((i) => (
+              <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
+                <Skeleton variant="rounded" height={250} />
+              </Grid>
+            ))}
+          </Grid>
+        ) : dashboardData ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={dashboardData.widgets.map(w => w.id)}
+              strategy={verticalListSortingStrategy}
             >
-              Add Widget
-            </Button>
-            <Button
-              variant="outlined"
-              color="info"
-              startIcon={<RestoreIcon />}
-              onClick={handleResetPreferences}
-              sx={{ borderRadius: 2 }}
-            >
-              Reset to Default
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={() => setEditingMode(false)}
-              sx={{ borderRadius: 2 }}
-            >
-              Cancel Editing
-            </Button>
+              <Grid container spacing={2}>
+                {dashboardData.widgets.map((widget) => (
+                  <WidgetCard
+                    key={widget.id}
+                    widget={widget}
+                    editingMode={editingMode}
+                    onToggleVisibility={handleToggleVisibility}
+                    onRemove={(id) => {
+                      setWidgetToRemove(id);
+                      setConfirmDialogOpen(true);
+                    }}
+                    onDrilldown={handleDrilldown}
+                    renderWidgetContent={renderWidgetContent}
+                  />
+                ))}
+              </Grid>
+            </SortableContext>
+          </DndContext>
+        ) : (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
           </Box>
-        </Fade>
-      )}
+        )}
 
-      {/* Add Widget Dialog */}
-      <Dialog open={addWidgetDialogOpen} onClose={() => setAddWidgetDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Avatar sx={{ bgcolor: theme.palette.primary.main }}>
-              <AddIcon />
-            </Avatar>
-            <Box>
-              <Typography sx={{ fontWeight: 600 }}>Add Widget</Typography>
-              <Typography variant="caption" color="textSecondary">
-                Select a widget to add to your dashboard
-              </Typography>
+        {/* Edit Mode Actions */}
+        {editingMode && (
+          <Fade in={editingMode}>
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddWidgetDialogOpen(true)}>Add Widget</Button>
+              <Button variant="outlined" color="info" startIcon={<RestoreIcon />} onClick={handleResetPreferences}>Reset to Default</Button>
+              <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={() => setEditingMode(false)}>Cancel Editing</Button>
             </Box>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ bgcolor: theme.palette.grey[50] }}>
-                <TableRow>
-                  <TableCell>Widget</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell>Size</TableCell>
-                  <TableCell align="right">Action</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {catalogWidgets
-                  .filter((w) => !dashboardData?.widgets?.some((dw) => dw.id === w.widgetId))
-                  .map((widget) => {
+          </Fade>
+        )}
+
+        {/* Dialogs */}
+        {/* Add Widget Dialog */}
+        <Dialog open={addWidgetDialogOpen} onClose={() => setAddWidgetDialogOpen(false)} maxWidth="md" fullWidth>
+          <div className="flex items-center justify-between p-2 border-b border-gray-200">
+            <div className="text-gray-800 text-[12px] ml-2">Add Widget</div>
+            <IconButton>
+              <CloseOutlined className="text-gray-800" onClick={() => setAddWidgetDialogOpen(false)} />
+            </IconButton>
+          </div>
+          {/* <DialogContent>
+            <TableContainer>
+              <Table className="border border-gray-200 rounded-sm">
+                <TableHead><TableRow><TableCell>Widget</TableCell><TableCell>Type</TableCell><TableCell>Size</TableCell><TableCell align="right">Action</TableCell></TableRow></TableHead>
+                <TableBody>
+                  {catalogWidgets.filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId)).map((widget) => {
                     const colors = getWidgetColor(widget.type);
                     return (
                       <TableRow key={widget.widgetId} hover>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                            <Avatar
-                              sx={{
-                                bgcolor: colors.bg,
-                                color: colors.color,
-                                width: 32,
-                                height: 32,
-                                borderRadius: 2,
-                              }}
-                            >
-                              {getWidgetIcon(widget.type)}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {widget.title || "Untitled"}
-                              </Typography>
-                              {widget.locked && (
-                                <Chip label="Locked" size="small" color="info" sx={{ fontSize: "0.5rem", height: 16 }} />
-                              )}
-                            </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={widget.type || "Unknown"} size="small" />
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={widget.size || "medium"}
-                            size="small"
-                            variant="outlined"
-                            sx={{ textTransform: "capitalize" }}
-                          />
-                        </TableCell>
-                        <TableCell align="right">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleAddWidget(widget.widgetId)}
-                            disabled={loading}
-                            sx={{ borderRadius: 2 }}
-                          >
-                            {loading ? <CircularProgress size={20} /> : "Add"}
-                          </Button>
-                        </TableCell>
+                        <TableCell><Stack className="items-center" direction="row" spacing={1}><Avatar sx={{ bgcolor: colors.bg, color: colors.color, width: 24, height: 24 }}>{getWidgetIcon(widget.type)}</Avatar><Typography variant="body2">{widget.title}</Typography></Stack></TableCell>
+                        <TableCell><Chip label={widget.type} size="small" /></TableCell>
+                        <TableCell><Chip label={widget.size} size="small" variant="outlined" /></TableCell>
+                        <TableCell align="right"><Button size="small" variant="contained" onClick={() => handleAddWidget(widget.widgetId)} disabled={loading}>{loading ? <CircularProgress size={20} /> : "Add"}</Button></TableCell>
                       </TableRow>
                     );
                   })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          {catalogWidgets.filter((w) => !dashboardData?.widgets?.some((dw) => dw.id === w.widgetId)).length === 0 && (
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography color="textSecondary">All widgets are already added to your dashboard</Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-          <Button onClick={() => setAddWidgetDialogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Confirm Remove Dialog */}
-      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-        <DialogTitle>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Remove Widget
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Typography>Are you sure you want to remove this widget from your dashboard?</Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => widgetToRemove && handleRemoveWidget(widgetToRemove)}
-          >
-            Remove
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Drilldown Dialog */}
-      <Dialog
-        open={drilldownDialogOpen}
-        onClose={() => setDrilldownDialogOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {drilldownData?.title || "Drilldown Details"}
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                {drilldownData?.type || "Report"}
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Tooltip title="Export">
-                <IconButton>
-                  <CloudDownloadIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Print">
-                <IconButton>
-                  <PrintIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Share">
-                <IconButton>
-                  <ShareIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ p: 0 }}>
-          {drilldownLoading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-              <CircularProgress />
-            </Box>
-          ) : drilldownData ? (
-            <>
-              <TableContainer sx={{ maxHeight: 450 }}>
-                <Table stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      {drilldownData.columns?.map((col, index) => (
-                        <TableCell
-                          key={col.id || `col-${index}`}
-                          sx={{ bgcolor: theme.palette.grey[50], fontWeight: 600 }}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {catalogWidgets.filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId)).length === 0 && <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="textSecondary">All widgets added</Typography></Box>}
+          </DialogContent> */}
+          <DialogContent dividers>
+            {catalogWidgets.filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId)).length === 0 ? (
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <Typography color="textSecondary" className="text-gray-500">🎉 All available widgets have been added</Typography>
+              </Box>
+            ) : (
+              <Grid container spacing={3}>
+                {catalogWidgets
+                  .filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId))
+                  .map((widget) => {
+                    const colors = getWidgetColor(widget.type);
+                    return (
+                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={widget.widgetId}>
+                        <Card
+                          variant="outlined"
+                          className="bg-white border border-gray-200"
+                          sx={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            transition: 'all 0.2s',
+                            '&:hover': {
+                              boxShadow: theme.shadows[4],
+                              transform: 'translateY(-4px)',
+                            },
+                          }}
                         >
-                          {col.label || col.id || `Column ${index + 1}`}
-                        </TableCell>
+                          <CardContent sx={{ flex: 1 }}>
+                            <div className="flex gap-2 items-center mb-1">
+                              <Avatar sx={{ bgcolor: colors.bg, color: colors.color, width: 40, height: 40 }}>
+                                {getWidgetIcon(widget.type)}
+                              </Avatar>
+                              <div className="text-[12px] text-gray-800">
+                                {widget.title}
+                              </div>
+                            </div>
+                            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                              <Chip label={widget.type} size="small" color="success" />
+                              <Chip label={widget.size} size="small" variant="outlined" color="warning" />
+                              {widget.locked && <Chip label="Locked" size="small" color="warning" />}
+                            </Stack>
+                          </CardContent>
+                          <CardActions sx={{ p: 2, pt: 0 }}>
+                            <Button
+                              fullWidth
+                              variant="contained"
+                              size="small"
+                              className="!bg-primary"
+                              onClick={() => handleAddWidget(widget.widgetId)}
+                              disabled={loading}
+                              startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
+                            >
+                              {loading ? 'Adding...' : 'Add Widget'}
+                            </Button>
+                          </CardActions>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+              </Grid>
+            )}
+          </DialogContent>
+          <DialogActions className="border-t border-gray-200 !p-2">
+            <Button onClick={() => setAddWidgetDialogOpen(false)} variant="outlined" className="!text-gray-800 !border-gray-200">Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Confirm Remove Dialog */}
+        <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
+          <div className="border-b border-gray-200 text-[12px] p-2">Remove Widget</div>
+          <DialogContent className="!p-4"><Typography>Are you sure you want to remove this widget?</Typography></DialogContent>
+          <DialogActions className="border-t border-gray-200"><Button className="!text-gray-800 !border-gray-200" variant="outlined" onClick={() => setConfirmDialogOpen(false)}>Cancel</Button><Button variant="contained" color="error" onClick={() => widgetToRemove && handleRemoveWidget(widgetToRemove)}>Remove</Button></DialogActions>
+        </Dialog>
+
+        {/* Drilldown Dialog */}
+        <Dialog open={drilldownDialogOpen} onClose={() => setDrilldownDialogOpen(false)} maxWidth="lg" fullWidth>
+          <DialogTitle>
+            <Stack direction="row" className="items-center justify-between">
+              <Typography variant="h6">{drilldownData?.title || "Drilldown"}</Typography>
+              <Box><IconButton><CloudDownloadIcon /></IconButton><IconButton><PrintIcon /></IconButton><IconButton><ShareIcon /></IconButton></Box>
+            </Stack>
+          </DialogTitle>
+          <DialogContent sx={{ p: 0 }}>
+            {drilldownLoading ? <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box> : drilldownData ? (
+              <>
+                <TableContainer sx={{ maxHeight: 450 }}>
+                  <Table stickyHeader>
+                    <TableHead><TableRow>{drilldownData.columns?.map((col) => <TableCell key={col.id} sx={{ bgcolor: theme.palette.grey[50], fontWeight: 600 }}>{col.label}</TableCell>)}</TableRow></TableHead>
+                    <TableBody>
+                      {drilldownData.data?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
+                        <TableRow key={idx}>{drilldownData.columns?.map((col) => <TableCell key={col.id}>{safeDisplayValue(row[col.id])}</TableCell>)}</TableRow>
                       ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {drilldownData.data
-                      ?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                      .map((row, rowIndex) => (
-                        <TableRow key={rowIndex} hover>
-                          {drilldownData.columns?.map((col, colIndex) => {
-                            const colId = col.id || col.label || `col-${colIndex}`;
-                            const displayValue = safeDisplayValue(row?.[colId]);
-                            return <TableCell key={`${rowIndex}-${colIndex}`}>{displayValue}</TableCell>;
-                          })}
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              {drilldownData.totals && Object.keys(drilldownData.totals).length > 0 && (
-                <Box
-                  sx={{
-                    p: 2,
-                    bgcolor: theme.palette.grey[50],
-                    borderTop: `1px solid ${theme.palette.divider}`,
-                  }}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    Totals
-                  </Typography>
-                  <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                    {Object.entries(drilldownData.totals).map(([key, value]) => (
-                      <Chip
-                        key={key}
-                        label={`${key}: ${safeDisplayValue(value)}`}
-                        variant="outlined"
-                        size="small"
-                      />
-                    ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {drilldownData.totals && Object.keys(drilldownData.totals).length > 0 && (
+                  <Box sx={{ p: 2, bgcolor: theme.palette.grey[50], borderTop: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle2">Totals</Typography>
+                    <Stack direction="row" spacing={1} className="flex-wrap">
+                      {Object.entries(drilldownData.totals).map(([key, value]) => <Chip key={key} label={`${key}: ${safeDisplayValue(value)}`} size="small" variant="outlined" />)}
+                    </Stack>
                   </Box>
-                </Box>
-              )}
-              {drilldownData.data && drilldownData.data.length > rowsPerPage && (
-                <TablePagination
-                  component="div"
-                  count={drilldownData.data.length}
-                  page={page}
-                  onPageChange={(_, newPage) => setPage(newPage)}
-                  rowsPerPage={rowsPerPage}
-                  onRowsPerPageChange={(e) => {
-                    setRowsPerPage(parseInt(e.target.value, 10));
-                    setPage(0);
-                  }}
-                  rowsPerPageOptions={[5, 10, 25, 50]}
-                />
-              )}
-            </>
-          ) : (
-            <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography color="textSecondary">No drilldown data available</Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
-          <Button variant="contained" onClick={() => setDrilldownDialogOpen(false)} sx={{ borderRadius: 2 }}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+                )}
+                {drilldownData.data && drilldownData.data.length > rowsPerPage && (
+                  <TablePagination
+                    component="div"
+                    count={drilldownData.data.length}
+                    page={page}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                    rowsPerPageOptions={[5, 10, 25, 50]}
+                  />
+                )}
+              </>
+            ) : <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="textSecondary">No data</Typography></Box>}
+          </DialogContent>
+          <DialogActions><Button variant="contained" onClick={() => setDrilldownDialogOpen(false)}>Close</Button></DialogActions>
+        </Dialog>
+      </Box>
+    </LocalizationProvider>
   );
 }

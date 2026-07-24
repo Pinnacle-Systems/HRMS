@@ -214,7 +214,7 @@ export interface BIReport {
     type: string;
     config: Record<string, any>;
   };
-  visibility: "private" | "role" | "tenant";
+  visibility: "PRIVATE" | "ROLE" | "TENANT";
   visibilityRole?: string;
   createdBy: string;
   createdAt: string;
@@ -230,7 +230,7 @@ export interface CreateBIReportRequest {
     type: string;
     config: Record<string, any>;
   };
-  visibility: "private" | "role" | "tenant";
+  visibility: "PRIVATE" | "ROLE" | "TENANT";
   visibilityRole?: string;
 }
 
@@ -242,7 +242,7 @@ export interface UpdateBIReportRequest {
     type: string;
     config: Record<string, any>;
   };
-  visibility?: "private" | "role" | "tenant";
+  visibility?: "PRIVATE" | "ROLE" | "TENANT";
   visibilityRole?: string;
 }
 
@@ -251,7 +251,7 @@ export interface BIReportListItem {
   id: string;
   name: string;
   datasetId: string;
-  visibility: "private" | "role" | "tenant";
+  visibility: "PRIVATE" | "ROLE" | "TENANT";
   visibilityRole?: string;
   createdBy: string;
   updatedAt: string;

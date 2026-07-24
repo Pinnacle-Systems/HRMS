@@ -311,6 +311,9 @@ test.describe("role and permission access matrix", () => {
           roles: scenario.roles,
           permissions: ["EMPLOYEE_READ"],
           email: `${scenario.name.toLowerCase()}@company.com`,
+          tenantId: "tenant-1",
+          branchId: "branch-1",
+          fiscalYearId: "fy-2026",
         }),
       );
 
@@ -360,6 +363,9 @@ test.describe("role and permission access matrix", () => {
             roles: scenario.roles,
             permissions,
             email: `${scenario.name.toLowerCase()}@company.com`,
+            tenantId: "tenant-1",
+            branchId: "branch-1",
+            fiscalYearId: "fy-2026",
           }),
         );
 
@@ -397,6 +403,9 @@ test.describe("role and permission access matrix", () => {
         roles: ["HR"],
         permissions: [],
         email: "hr-no-permission@company.com",
+        tenantId: "tenant-1",
+        branchId: "branch-1",
+        fiscalYearId: "fy-2026",
       }),
     );
 

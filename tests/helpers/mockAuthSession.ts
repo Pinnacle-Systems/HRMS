@@ -82,6 +82,9 @@ export function createAuthContextValue(
         session?.user?.roles?.includes(r) ?? false
       );
     },
+    setSessionCall: (session: AuthSession | null) => {
+      return session;
+    }
   };
 }
 

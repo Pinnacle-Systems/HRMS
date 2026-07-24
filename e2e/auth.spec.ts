@@ -211,6 +211,10 @@ test.describe("public auth flow", () => {
             tenantId: body.tenantId,
             email: "admin@company.com",
             roles: ["ADMIN"],
+            branchId: "branch-1",
+            fiscalYearId: "fy-2025",
+            branchName: "Main Branch",
+            fiscalYearLabel: "2025",
             profile: {
               id: "user-1",
               firstName: "Admin",
@@ -236,7 +240,26 @@ test.describe("public auth flow", () => {
               permissions: ["EMPLOYEE_READ"],
               email: "admin@company.com",
               tenantId: "tenant-2",
+              branchId: "branch-1",
+              fiscalYearId: "fy-2025",
             },
+          },
+        }),
+      });
+    });
+
+    await page.route("**/api/auth/context", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            branchAssociated: true,
+            assignedBranchId: "branch-1",
+            branches: [{ id: "branch-1", name: "Main Branch" }],
+            fiscalYears: [{ id: "fy-2025", label: "2025", active: true }],
+            activeFiscalYearId: "fy-2025",
           },
         }),
       });

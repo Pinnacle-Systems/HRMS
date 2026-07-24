@@ -62,8 +62,6 @@ import {
   Verified,
   AssessmentOutlined,
   ViewQuiltOutlined,
-  WorkspacePremiumOutlined,
-  WorkspacesOutlined,
   HubOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
@@ -563,6 +561,7 @@ export default function Layout() {
                 </Badge>
               </IconButton>
             </Tooltip>
+              {/* <Tooltip title="Notifications"><IconButton><Badge badgeContent={3} color="error"><NotificationsIcon /></Badge></IconButton></Tooltip> */}
 
             <Tooltip title="Theme Settings">
               <IconButton

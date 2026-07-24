@@ -83,14 +83,14 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     roles,
     rawRoles,
     permissions,
-    profilePic: data.profile?.profilePicUrl ?? ""
+    profilePic: data.profile?.profilePicUrl ?? "",
   };
 
   const company: CompanyDetails = {
     companyId: data.companyId ?? "",
     companyName: data.companyName ?? "",
-    logoUrl:data.logoUrl ?? ""
-  }
+    logoUrl: data.logoUrl ?? "",
+  };
 
   return {
     accessToken: data.accessToken,
@@ -100,13 +100,18 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     expiresAt: Date.now() + (data.expiresIn ?? 0) * 1000,
     daysUntilPasswordExpiry: data.daysUntilPasswordExpiry,
     user,
-    company
+    company,
+    branchId: data.branchId ?? null,
+    branchName: data.branchName ?? null,
+    branchScoped: data.branchScoped,
+    fiscalYearId: data.fiscalYearId,
+    fiscalYearLabel: data.fiscalYearLabel,
   };
 }
 
 export function mapLoginResponseToOutcome(
   response: LoginApiResponse,
-  loginId?: string
+  loginId?: string,
 ): LoginOutcome {
   if (!response.success) {
     return {
@@ -290,27 +295,33 @@ export function canShowNavItem(user: AuthUser, item: NavItem): boolean {
   return roleAllowed && permissionAllowed;
 }
 
-export function redirectAfterAuth(session: AuthSession | null, navigate: NavigateFunction) {
+export function redirectAfterAuth(
+  session: AuthSession | null,
+  navigate: NavigateFunction,
+) {
   if (!session) {
     navigate("/login", { replace: true });
     return;
   }
- if (hasWorkspaceContext(session)) {
+  if (hasWorkspaceContext(session)) {
     navigate(getDefaultRoute(session.user), { replace: true });
   } else {
-    navigate("/branch-fiscal-year", { replace: true, state: { fromLogin: true } });
+    navigate("/branch-fiscal-year", {
+      replace: true,
+      state: { fromLogin: true },
+    });
   }
 }
 
 export function hasWorkspaceContext(session: AuthSession | null): boolean {
   if (!session) return false;
-   if (!session.fiscalYearId) return false;
-    if (session.branchId) return true;
-     if (session.branchScoped === false) return true;
-     return false;
+  if (!session.fiscalYearId) return false;
+  if (session.branchId) return true;
+  if (session.branchScoped === false) return true;
+  return false;
   // return !!(session.branchId && session.fiscalYearId);
 }
 
 export function redirectAfterSelect() {
-   return "/settings/general/company-settings";
+  return "/settings/general/company-settings";
 }

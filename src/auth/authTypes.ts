@@ -189,6 +189,11 @@ export type AuthResponse = {
   companyId?: string;
   companyName?: string;
   logoUrl?: string;
+  branchId?: string | null;
+  branchName?: string | null;
+  branchScoped?: boolean;
+  fiscalYearId?: string;
+  fiscalYearLabel?: string;
 };
 
 export type LoginApiResponse = ApiResponse<AuthResponse>;
