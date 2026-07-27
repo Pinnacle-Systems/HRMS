@@ -292,7 +292,7 @@ export function DailyRegister() {
   function openPunch(emp: RegisterEmployee, type: "checkIn" | "checkOut") {
     setPunchEmployee(emp);
     setPunchType(type);
-    setPunchTime(dayjs().toISOString());
+    setPunchTime(dayjs(`${date}T${dayjs().format('HH:mm:ss')}`).toISOString());
     setPunchRemarks("");
     setPunchDialogOpen(true);
   }

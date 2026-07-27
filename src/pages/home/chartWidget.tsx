@@ -11,7 +11,7 @@ interface ChartWidgetProps {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF'];
 
 export function ChartWidget({ widget, onDrilldown }: ChartWidgetProps) {
-  const { data, actions, type, title } = widget;
+  const { data, actions, title } = widget;
 
   // Chart configuration based on widget.type
   const renderChart = () => {
@@ -55,7 +55,7 @@ export function ChartWidget({ widget, onDrilldown }: ChartWidgetProps) {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart onClick={handleClick}>
               <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                {chartData.map((entry: any, index: number) => (
+                {chartData.map((_entry: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

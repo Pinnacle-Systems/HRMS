@@ -189,13 +189,13 @@ function AppRoutesContent() {
                     />
                   }
                 >
-
                   <Route path="home" element={<Home />} />
                   <Route path="bi-workspace" element={<BIWorkspacePage />} />
                   <Route path="leave" element={<Navigate to="/leaves/my-dashboard" replace />} />
                   <Route path="profile" element={<Profile />} />
                   <Route path="documentation" element={<Documentation />} />
                   <Route path="my-info" element={<EmployeeDetails />} />
+                  <Route path="onboarding-process" element={<OnBoardingProcess />} />
                 </Route>
 
                 {/* Employee Leave Routes */}

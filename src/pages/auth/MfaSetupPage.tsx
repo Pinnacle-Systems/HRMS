@@ -165,10 +165,10 @@ export default function MfaSetupPage() {
               }}
               placeholder="Enter 6-digit code"
               maxLength={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-center text-lg tracking-widest"
+              className="w-full bg-white-50 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-center text-lg tracking-widest"
               disabled={isEnabling}
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-2">
               Enter the 6-digit code from your authenticator app
             </p>
           </div>

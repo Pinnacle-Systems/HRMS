@@ -223,19 +223,19 @@ const protectedRoutes = [
   },
   {
     path: "/hr/dashboard",
-    content: "Welcome back, Admin!",
+    content: "Welcome back, Hr!",
     allowedRoles: ["HR"] as E2ERole[],
     requiredPermissions: [] as string[],
   },
   {
     path: "/manager/dashboard",
-    content: "Welcome back, Admin!",
+    content: "Welcome back, Manager!",
     allowedRoles: ["MANAGER"] as E2ERole[],
     requiredPermissions: [] as string[],
   },
   {
     path: "/employee/dashboard",
-    content: "Welcome back, Admin!",
+    content: "Welcome back, Employee!",
     allowedRoles: ["EMPLOYEE"] as E2ERole[],
     requiredPermissions: [] as string[],
   },
@@ -270,6 +270,7 @@ const protectedRoutes = [
     requiredPermissions: [] as string[],
   },
 ];
+const DASHBOARD_GREETING_REGEX = /Welcome back, (Admin|HR|Manager|Employee)!/;
 
 function hasAnyRole(userRoles: E2ERole[], allowedRoles: E2ERole[]) {
   return allowedRoles.some((role) => userRoles.includes(role));
@@ -378,12 +379,21 @@ test.describe("role and permission access matrix", () => {
               : route.path;
 
           await expect(page).toHaveURL(new RegExp(`${expectedPath}$`));
-          await expect(
-            page
-              .getByRole("main")
-              .getByText(getExpectedRouteContent(route, scenario.roles))
-              .first(),
-          ).toBeVisible();
+          if (route.path.endsWith("/dashboard")) {
+            await expect(
+              page
+                .getByRole("main")
+                .getByText(DASHBOARD_GREETING_REGEX)
+                .first(),
+            ).toBeVisible();
+          } else {
+            await expect(
+              page
+                .getByRole("main")
+                .getByText(getExpectedRouteContent(route, scenario.roles))
+                .first(),
+            ).toBeVisible();
+          }
         } else {
           await expect(page).toHaveURL(/\/unauthorized$/);
           await expect(

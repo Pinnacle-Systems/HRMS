@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  CircularProgress,
 } from "@mui/material";
 import {
   companyFieldsWithSections,
@@ -36,11 +37,18 @@ import { formatDate } from "../../leave/leaveFormatters";
 import { CloseOutlined } from "@mui/icons-material";
 import { handleEnterAsTab } from "../../const";
 import { branchService } from "../../../services/modules/branch";
+import useUnsavedChanges from "../../../hooks/useUnsavedChanges";
+
+// Helper to check if two objects are equal
+const isEqual = (obj1: any, obj2: any): boolean => {
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
+};
 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
     companyType: "Head Office",
   });
+  const [initialCompanyInfo, setInitialCompanyInfo] = useState<Partial<any>>({});
   const [logoFile, setLogoFile] = useState<any>("");
   const [signatureFile, setSignatureFile] = useState<File | string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,6 +74,24 @@ const CompanySettings = () => {
   const [fiscalYearLoading, setFiscalYearLoading] = useState(false);
   const [fiscalYearDialogOpen, setFiscalYearDialogOpen] = useState(false);
   const [gstSearch, setGstSearch] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = !isEqual(companyInfo, initialCompanyInfo) || 
+    (logoFile !== "" && typeof logoFile !== 'string' && !companyInfo.logoUrl) ||
+    (signatureFile !== "" && typeof signatureFile !== 'string' && !companyInfo.signatureUrl);
+
+  // Handle save for navigation
+  const handleSaveForNavigation = async (callback?: () => void): Promise<void> => {
+    await handleSave(callback);
+  };
+
+  // Use the unsaved changes hook
+  useUnsavedChanges({
+    hasUnsavedChanges: hasUnsavedChanges && !isSaving,
+    onSave: handleSaveForNavigation,
+    message: 'You have unsaved company settings. Do you want to save before leaving?'
+  });
 
   const generateMapFromAddress = (address: string) => {
     const encodedAddress = encodeURIComponent(address);
@@ -86,7 +112,6 @@ const CompanySettings = () => {
       [key]: value,
     }));
 
-    // Country selected
     if (key === "countryId") {
       setCompanyInfo((prev: any) => ({
         ...prev,
@@ -97,7 +122,6 @@ const CompanySettings = () => {
       await fetchStatesByCountry(value);
     }
 
-    // State selected
     if (key === "stateId") {
       setCompanyInfo((prev: any) => ({
         ...prev,
@@ -109,9 +133,6 @@ const CompanySettings = () => {
   };
 
   const handleChange = async (key: string, value: string | string[]) => {
-    // if (key == 'gstNo') {
-    //   getCompanyDetailsGST(value)
-    // }
     setCompanyInfo({ ...companyInfo, [key]: value });
     const error = validateField(key, value as string);
     setErrors((prev) => ({ ...prev, [key]: error }));
@@ -265,7 +286,6 @@ const CompanySettings = () => {
     }
   };
 
-  // Handle signature upload
   const handleSignatureUpload = async (file: File) => {
     const companyId = companyInfo.id;
     if (!companyId) {
@@ -345,10 +365,13 @@ const CompanySettings = () => {
       const companyId = companyData.data.length ? companyData.data?.[0].id : '';
       if (companyId) {
         const response: any = await companyService.getCompanyById(companyId);
-        setCompanyInfo({
+        const data = {
           companyType: "Head Office",
           ...response.data,
-        });
+        };
+        setCompanyInfo(data);
+        setInitialCompanyInfo(data);
+        
         if (response.data.countryId) {
           void fetchStatesByCountry(response.data.countryId);
         }
@@ -359,12 +382,19 @@ const CompanySettings = () => {
           const logoUrl = `${response.data.logoUrl}?v=${Date.now()}`;
           setLogoFile(logoUrl);
           setCompanyInfo((prev: any) => ({ ...prev, logoUrl }));
+          setInitialCompanyInfo((prev: any) => ({ ...prev, logoUrl }));
         }
         if (response.data?.signatureUrl) {
           const signatureUrl = `${response.data.signatureUrl}?v=${Date.now()}`;
           setSignatureFile(signatureUrl);
           setCompanyInfo((prev: any) => ({ ...prev, signatureUrl }));
+          setInitialCompanyInfo((prev: any) => ({ ...prev, signatureUrl }));
         }
+      } else {
+        // New company - no data yet
+        const emptyData = { companyType: "Head Office" };
+        setCompanyInfo(emptyData);
+        setInitialCompanyInfo(emptyData);
       }
     } catch (err: any) {
       showSnackbar(err.message || "Failed to fetch company info", 'error');
@@ -381,7 +411,7 @@ const CompanySettings = () => {
     }
   }, [companyInfo.id]);
 
-  const handleSave = async () => {
+  const handleSave = async (callback?: () => void) => {
     const newErrors: Record<string, string> = {};
     let hasError = false;
     companyFieldsWithSections.forEach((field) => {
@@ -403,8 +433,10 @@ const CompanySettings = () => {
     setErrors(newErrors);
     if (hasError) {
       showSnackbar("Please fix validation errors before saving", "error");
+      if (callback) callback();
       return;
     }
+    setIsSaving(true);
     showSpinner();
     if (companyInfo.id) {
       try {
@@ -419,15 +451,12 @@ const CompanySettings = () => {
           "stateId": companyInfo.stateId,
           "cityId": companyInfo.cityId,
           "pincode": companyInfo.pincode,
-          // "timeZone": companyInfo.company,
           "currencyId": companyInfo.currencyId,
           "email": companyInfo.email,
           "phone": companyInfo.phone,
           "website": companyInfo.website,
           "fax": companyInfo.fax,
           "cin": companyInfo.cin,
-          // "incorporationDate": "2026-05-11",
-          // "udyamNo": companyInfo.company,
           licenseNo: companyInfo.licenseNo || "",
           tinNo: companyInfo.tinNo || "",
           cstNo: companyInfo.cstNo || "",
@@ -458,11 +487,16 @@ const CompanySettings = () => {
         const res: any = await companyService.updateCompany(companyInfo.id, updatedValue);
         if (res.success) {
           showSnackbar("Company settings saved successfully!", "success");
+          // Update initial state after save
+          setInitialCompanyInfo({ ...companyInfo });
+          if (callback) callback();
         }
       } catch (error: any) {
         showSnackbar(error.message, "error");
+        if (callback) callback();
       } finally {
         hideSpinner();
+        setIsSaving(false);
       }
     } else {
       try {
@@ -471,13 +505,18 @@ const CompanySettings = () => {
         const res: any = await companyService.createCompany(payload);
         if (res.success) {
           showSnackbar("Company settings saved successfully!", "success");
+          await fetchCompanyInfo();
+          await createDefaultBranch();
+          // Update initial state after save
+          setInitialCompanyInfo({ ...companyInfo });
+          if (callback) callback();
         }
-        await fetchCompanyInfo();
-        await createDefaultBranch();
       } catch (error: any) {
         showSnackbar(error.message, "error");
+        if (callback) callback();
       } finally {
         hideSpinner();
+        setIsSaving(false);
       }
     }
   };
@@ -492,11 +531,17 @@ const CompanySettings = () => {
   };
 
   const handleCancel = async () => {
-    setLogoFile("");
-    setSignatureFile("");
-    setErrors({});
+    if (hasUnsavedChanges) {
+      const userChoice = window.confirm(
+        'You have unsaved changes. Are you sure you want to cancel?'
+      );
+      if (!userChoice) {
+        return;
+      }
+    }
+    
     showConfirmDialog({
-      title: "Delete Branch",
+      title: "Delete Company",
       message: `Are you sure you want to delete "${companyInfo.companyName}"?`,
       confirmText: "Delete",
       cancelText: "Cancel",
@@ -593,18 +638,6 @@ const CompanySettings = () => {
           state: gstData.state || prev.state,
           pincode: gstData.pincode || prev.pincode,
           registrationCertificateNo: gstData.gstin || prev.registrationCertificateNo,
-          // Store additional GST metadata
-          // gstMetadata: {
-          //   status: gstData.status,
-          //   taxpayerType: gstData.taxpayerType,
-          //   constitution: gstData.constitution,
-          //   entityType: gstData.entityType,
-          //   registrationDate: gstData.registrationDate,
-          //   centreJurisdiction: gstData.centreJurisdiction,
-          //   stateJurisdiction: gstData.stateJurisdiction,
-          //   stateCode: gstData.stateCode,
-          //   fetchedAt: gstData.fetchedAt
-          // }
         }));
 
         if (fullAddress) {
@@ -636,7 +669,7 @@ const CompanySettings = () => {
             multiline={multiline}
             rows={rows}
             required={required}
-            disabled={disabled}
+            disabled={disabled || isSaving}
             placeholder={
               placeholder ||
               (rules?.formatExample
@@ -656,7 +689,7 @@ const CompanySettings = () => {
             type="number"
             label={label}
             required={required}
-            disabled={disabled}
+            disabled={disabled || isSaving}
             value={value || ""}
             error={hasError}
             helperText={hasError ? errors[key] : ""}
@@ -707,74 +740,10 @@ const CompanySettings = () => {
             helperText={hasError ? errors[key] : ""}
             placeholder={placeholder}
             required={required}
-            disabled={loading}
+            disabled={loading || isSaving}
             sx={commonSx}
           />
         )}
-
-        {/* {type === "select" && (
-          <FormControl
-            fullWidth
-            size="small"
-            error={hasError}
-            required={required}
-            disabled={disabled}
-            sx={{
-              ...commonSx,
-              "& .MuiInputLabel-root": {
-                top: '2px',
-              },
-              "& .MuiInputLabel-shrink": {
-                top: '2px',
-              },
-            }}
-          >
-            <InputLabel>{label}</InputLabel>
-            <Select
-              label={label}
-              value={value || ''}
-              onChange={(e) => handleChange(key, e.target.value)}
-              sx={selectSx}
-            >
-              <MenuItem value="">
-                <em>{placeholder || `Select ${label}`}</em>
-              </MenuItem>
-              {(field.options || []).map((option: any) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            {hasError && <FormHelperText>{errors[key]}</FormHelperText>}
-          </FormControl>
-        )} */}
-
-        {/* {type === "add-select" && (
-          <DynamicSelectWithAdd
-            label={label}
-            value={companyInfo[key] || ""}
-            required={required}
-            onChange={(value) => {
-              const selected = currencyOptions.find(
-                (opt: any) => opt.name === value
-              );
-
-              setCompanyInfo((prev: any) => ({
-                ...prev,
-                currency: value,
-                currencyId: selected?.id || "",
-              }));
-            }}
-            options={currencyOptions.map(
-              (opt: any) => opt.name
-            )}
-            onAddOption={(newOption) =>
-              handleAddOption(newOption)
-            }
-            showAddButton={true}
-            sx={commonSx}
-          />
-        )} */}
 
         {type === "map" && (
           <LocationMap
@@ -798,11 +767,19 @@ const CompanySettings = () => {
             </span>
             <div className={`text-[12px] ml-3 cursor-pointer ${fiscalYears.length == 0 ? 'animate-blink text-white bg-red-500 px-2 rounded-lg' : 'text-sky-500 underline'}`}
               onClick={() => {
-                setFiscalYearDialogOpen(true); console.log(fiscalYearDialogOpen);
+                setFiscalYearDialogOpen(true);
               }}
             >
               Manage Fiscal Years
             </div>
+            {hasUnsavedChanges && (
+              <Chip 
+                label="Unsaved Changes" 
+                size="small" 
+                color="warning"
+                className="ml-2"
+              />
+            )}
           </div>
           {/* GST Button */}
           <div className="flex items-center gap-2">
@@ -816,7 +793,6 @@ const CompanySettings = () => {
 
             <Button
               variant="outlined"
-              // className="!text-gray-800 !border-gray-300"
               onClick={() => getCompanyDetailsGST(gstSearch)}
             >
               GST Search
@@ -829,6 +805,7 @@ const CompanySettings = () => {
                 variant="outlined"
                 className="!text-gray-800 !border-gray-300"
                 onClick={handleCancel}
+                disabled={isSaving}
               >
                 Delete
               </Button>
@@ -837,12 +814,22 @@ const CompanySettings = () => {
               variant="contained"
               color="primary"
               className="!bg-primary"
-              onClick={handleSave}
+              onClick={() => handleSave()}
+              disabled={isSaving}
+              startIcon={isSaving ? <CircularProgress size={20} /> : null}
             >
-              Save Changes
+              {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </div>
+
+        {/* Show unsaved changes warning */}
+        {hasUnsavedChanges && (
+          <Alert severity="warning" className="mb-4">
+            You have unsaved changes. Please save before leaving this page.
+          </Alert>
+        )}
+
         <div className="overflow-auto h-[calc(100vh-200px)]">
           <div className="space-y-4">
             {groupedSections.map((section, sectionIndex) => {
@@ -864,14 +851,11 @@ const CompanySettings = () => {
                 const isSpecial = (f: any) =>
                   f.type === "map" || (f.multiline && f.rows && f.rows > 1);
                 const regularFields = section.fields.filter((f: any) => !isSpecial(f));
-                const specialFields = section.fields.filter(isSpecial); // address + map
+                const specialFields = section.fields.filter(isSpecial);
                 return (
                   <div key={section.id || sectionIndex} className="border p-4 pt-6 rounded-lg bg-white dark:bg-white-50 border-gray-300 space-y-4">
-                    {/* Top row: companyName, aliasName, code, costCode, companyType */}
                     {regularFields.length > 0 && renderGridFields(regularFields, "grid-cols-2 md:grid-cols-3 lg:grid-cols-[2fr_2fr_1fr_1fr_1fr]")}
-                    {/* Bottom: left = Address + Map stacked, right = subsection fields */}
                     <div className="grid md:flex items-center gap-4">
-                      {/* Left column: Address + Map stacked, each full width */}
                       {specialFields.length > 0 && (
                         <div className="flex gap-4 md:w-1/2 w-full min-w-0">
                           {specialFields.map((field: any) => (
@@ -881,7 +865,6 @@ const CompanySettings = () => {
                           ))}
                         </div>
                       )}
-                      {/* Right column: Country, State, City, Pincode, Phone, Fax, Email */}
                       <div className="flex-1 min-w-0">
                         {section.subSections.map((sub: any, subIdx: number) => (
                           <div key={sub.id || subIdx} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-2 gap-y-5">
@@ -901,11 +884,7 @@ const CompanySettings = () => {
                 );
               }
 
-              const gridClass =
-                // fieldCount % 7 === 0 ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-7" :
-                // fieldCount % 9 === 0 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-7" :
-                // fieldCount % 3 === 0 ? "grid-cols-2 sm:grid-cols-3" :
-                "grid-cols-2 sm:grid-cols-4 md:grid-cols-7";
+              const gridClass = "grid-cols-2 sm:grid-cols-4 md:grid-cols-7";
 
               return (
                 <div key={section.id || sectionIndex} className="border py-6 px-4 rounded-lg bg-white dark:bg-white-50 border-gray-300">

@@ -186,7 +186,7 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
 
       {/* Global Spinner */}
       <Backdrop
-        sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1000 + 1 }}
         open={state.spinner}
       >
         <CircularProgress color="secondary" enableTrackSlot size={40} aria-label="Loading…" />

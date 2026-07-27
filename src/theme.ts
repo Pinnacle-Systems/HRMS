@@ -41,7 +41,7 @@ const theme = createTheme({
         ".MuiMenu-paper": {
           backgroundColor: "var(--bg-primary) !important",
           color: "var(--text-primary) !important",
-          maxHeight: "200px !important",
+          maxHeight: "215px !important",
           width: "200px !important",
         },
 

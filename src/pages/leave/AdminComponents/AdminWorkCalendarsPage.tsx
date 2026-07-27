@@ -405,7 +405,7 @@ export default function AdminWorkCalendarsPage() {
             {!loading && calendars.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} align="center" className="!p-8">
-                  No work calendars found.
+                   <div className="p-6"> No work calendars found.</div>
                 </TableCell>
               </TableRow>
             )}

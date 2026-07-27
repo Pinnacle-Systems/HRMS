@@ -35,7 +35,7 @@ export const MasterSelect = ({
   required,
   disabled,
   sx,
-}: MasterSelectProps) => {  
+}: MasterSelectProps) => {
 
   let options = propOptions;
   if (!options || options.length === 0) {
@@ -55,7 +55,7 @@ export const MasterSelect = ({
   ) || null;
 
   // const selectedLabel = selectedItem?.name || selectedItem?.label || "";
-  
+
   return (
     // <DynamicSelectWithAdd
     //   label={label || ""}
@@ -100,7 +100,16 @@ export const MasterSelect = ({
           disabled={disabled}
         />
       )}
-      sx={sx}
+      sx={{
+        ...sx,
+        '& .MuiOutlinedInput-root': {
+          padding: '0px 4px !important',
+          minHeight: '37px',
+        },
+        '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+          padding: '2px !important',
+        },
+      }}
     />
   );
 };

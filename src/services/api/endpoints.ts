@@ -20,7 +20,7 @@ export const API_ENDPOINTS = {
     ACTIVATE_INVITE: "/auth/activate-invite",
     RESEND_OTP: "/auth/resend-signup-otp",
     GET_SESSION_CONTEXT: "/auth/session-context/options",
-    SELECT_SESSION_CONTEXT: "/auth/session-context/select"
+    SELECT_SESSION_CONTEXT: "/auth/session-context/select",
   },
 
   LOGIN_HISTORY: {
@@ -83,7 +83,7 @@ export const API_ENDPOINTS = {
     GET_ITEM_USAGE: (id: string, cid: string) =>
       `/org/category/${cid}/items/${id}/usage`,
 
-    GET_ACTIVE_CAT: "/org/category/active-items"
+    GET_ACTIVE_CAT: "/org/category/active-items",
   },
 
   COMPANY: {
@@ -304,7 +304,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/holidays/${id}`,
     UPCOMING_HOLIDAYS: "/holidays/upcoming",
     OPT_HOLIDAYS_BY_EMP: (id: string) => `/employees/${id}/optional-holidays`,
-    OPTIONAL: "/holidays/optional"
+    OPTIONAL: "/holidays/optional",
   },
 
   HOLIDAY_IMPORT: {
@@ -343,36 +343,147 @@ export const API_ENDPOINTS = {
   },
 
   ONBOARDING: {
-    DELETE: (id: string) => `/onboarding/checklist/${id}`,
-    DELETE_TASK: (id: string, tid: string) =>
-      `/onboarding/checklist/${id}/tasks/${tid}`,
-    DELETE_EMP: (id: string) => `/onboarding/${id}`,
-    REACTIVATE_EMP: (id: string) => `/onboarding/${id}/reactivate`,
-    DELETE_DOC: (taskInstanceId: string) =>
-      `/onboarding/documents/${taskInstanceId}`,
-
-    GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
+    // ============ Checklist Management ============
     BASE: "/onboarding/checklist",
-    GET_BY_ID: (id: string, cid: string) =>
-      `/onboarding/${id}/checklist/${cid}/tasks`,
+    CREATE: "/onboarding/checklist",
+    UPDATE: (id: string) => `/onboarding/checklist/${id}`,
+    DELETE: (id: string) => `/onboarding/checklist/${id}`,
+    GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
+    // DUPLICATE: (id: string) => `/onboarding/checklist/${id}/duplicate`,
+
+    // ============ Task Management ============
+    CREATE_TASK: (checklistId: string) =>
+      `/onboarding/checklist/${checklistId}/tasks`,
+    UPDATE_TASK: (checklistId: string, taskId: string) =>
+      `/onboarding/checklist/${checklistId}/tasks/${taskId}`,
+    DELETE_TASK: (checklistId: string, taskId: string) =>
+      `/onboarding/checklist/${checklistId}/tasks/${taskId}`,
+    // BULK_TASKS: (checklistId: string) =>
+    //   `/onboarding/checklist/${checklistId}/tasks/bulk`,
+    PATCH_REORDER: (checklistId: string) =>
+      `/onboarding/checklist/${checklistId}/tasks/reorder`,
+
+    // ============ Task Completion ============
+    PATCH_TASK: (taskId: string) => `/onboarding/task/${taskId}/complete`,
+    // SKIP_TASK: (taskId: string) => `/onboarding/tasks/${taskId}/skip`,
+    // REQUEST_ASSISTANCE: (taskId: string) =>
+    //   `/onboarding/tasks/${taskId}/assistance`,
+    // GET_TASK: (taskId: string) => `/onboarding/tasks/${taskId}`,
+    // START_TASK: (taskId: string) => `/onboarding/tasks/${taskId}/start`,
+
+    // ============ Assignment Management ============
+    ASSIGN: "/onboarding/assign",
+    // BULK_ASSIGN: "/onboarding/assign/bulk",
+    ASSIGNMENTS: "/onboarding/assignments",
+    // GET_ASSIGNMENT: (id: string) => `/onboarding/assignments/${id}`,
+    // UPDATE_ASSIGNMENT: (id: string) => `/onboarding/assignments/${id}`,
+    // DELETE_EMP: (id: string) => `/onboarding/assignments/${id}`,
+    REACTIVATE_EMP: (id: string) => `/onboarding/${id}/reactivate`,
+    DEACTIVATE: (id: string) => `/onboarding/${id}`,
+    // EXTEND_DEADLINE: (id: string) =>
+    //   `/onboarding/assignments/${id}/extend-deadline`,
+
+    // ============ Progress Tracking ============
     GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
+    // GET_DETAIL: (onboardingId: string) => `/onboarding/${onboardingId}`,
+    GET_BY_ID: (onboardingId: string, checklistId: string) =>
+      `/onboarding/${onboardingId}/checklists/${checklistId}/tasks`,
+    // PROGRESS_SUMMARY: "/onboarding/progress/summary",
+    // CHECKLIST_PROGRESS: (checklistId: string) =>
+    //   `/onboarding/checklists/${checklistId}/progress`,
+
+    // ============ Document Management ============
+    CREATE_DOC: "/onboarding/documents",
     GET_DOCUMENTS: (onboardingId: string) =>
       `/onboarding/${onboardingId}/documents`,
-    ASSIGNMENTS: "/onboarding/assignments",
+    // GET_DOCUMENT: (documentId: string) => `/onboarding/documents/${documentId}`,
+    DELETE_DOC: (taskInstanceId: string) =>
+      `/onboarding/documents/${taskInstanceId}`,
+    // UPDATE_DOC: (documentId: string) => `/onboarding/documents/${documentId}`,
+    // DOWNLOAD_DOC: (documentId: string) =>
+    //   `/onboarding/documents/${documentId}/download`,
+    // BULK_UPLOAD_DOCS: "/onboarding/documents/bulk",
 
-    PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
-    PATCH_REORDER: (id: string) => `/onboarding/checklist/${id}/tasks/reorder`,
-
+    // ============ Notifications ============
     SEND_WELCOME: "/onboarding/send-welcome",
-    CREATE_DOC: "/onboarding/documents",
-    CREATE: "/onboarding/checklist",
-    CREATE_TASK: (id: string) => `/onboarding/checklist/${id}/tasks`,
-    ASSIGN: "/onboarding/assign",
+    // SEND_REMINDER: "/onboarding/send-reminder",
+    // BULK_REMINDER: "/onboarding/send-reminder/bulk",
+    // COMPLETION_NOTIFICATION: "/onboarding/notifications/completion",
+    // NOTIFICATION_SETTINGS: "/onboarding/notifications/settings",
 
-    UPDATE: (id: string) => `/onboarding/checklist/${id}`,
-    UPDATE_TASK: (id: string, tid: string) =>
-      `/onboarding/checklist/${id}/tasks/${tid}`,
+    // ============ Completion & Review ============
+    // COMPLETE: (onboardingId: string) => `/onboarding/${onboardingId}/complete`,
+    // CERTIFICATE: (onboardingId: string) =>
+    //   `/onboarding/${onboardingId}/certificate`,
+    // DOWNLOAD_CERTIFICATE: (onboardingId: string) =>
+    //   `/onboarding/${onboardingId}/certificate/download`,
+    // REVIEW: (onboardingId: string) => `/onboarding/${onboardingId}/review`,
+    // ASSIGN_REVIEWER: "/onboarding/review/assign",
+    // WORKFLOW_STATUS: (onboardingId: string) =>
+    //   `/onboarding/${onboardingId}/workflow`,
+    // APPROVE_STEP: (onboardingId: string, stepId: string) =>
+    //   `/onboarding/${onboardingId}/workflow/${stepId}/approve`,
+    // REJECT_STEP: (onboardingId: string, stepId: string) =>
+    //   `/onboarding/${onboardingId}/workflow/${stepId}/reject`,
+
+    // ============ Analytics & Reports ============
+    // STATS: "/onboarding/stats",
+    // REPORT: "/onboarding/reports",
+    // EXPORT_REPORT: "/onboarding/reports/export",
+    // EMPLOYEE_HISTORY: (employeeId: string) =>
+    //   `/onboarding/employees/${employeeId}/history`,
+    // CHECKLIST_ANALYTICS: (checklistId: string) =>
+    //   `/onboarding/checklists/${checklistId}/analytics`,
+
+    // ============ Templates ============
+    // SAVE_TEMPLATE: "/onboarding/templates",
+    // TEMPLATES: "/onboarding/templates",
+    // APPLY_TEMPLATE: "/onboarding/templates/apply",
+    // DELETE_TEMPLATE: (templateId: string) =>
+    //   `/onboarding/templates/${templateId}`,
+
+    // ============ Employee Self-Service ============
+    // MY_ONBOARDING: "/onboarding/my-onboarding",
+    // MY_TASKS: "/onboarding/my-tasks",
+    // MY_DOCUMENTS: "/onboarding/my-documents",
+
+    // ============ Integration ============
+    // SYNC_HRIS: "/onboarding/integration/hris/sync",
+    // GENERATE_LETTER: (employeeId: string) =>
+    //   `/onboarding/employees/${employeeId}/letter`,
   },
+
+  // ONBOARDING: {
+  //   DELETE: (id: string) => `/onboarding/checklist/${id}`,
+  //   DELETE_TASK: (id: string, tid: string) =>
+  //     `/onboarding/checklist/${id}/tasks/${tid}`,
+  //   DELETE_EMP: (id: string) => `/onboarding/${id}`,
+  //   REACTIVATE_EMP: (id: string) => `/onboarding/${id}/reactivate`,
+  //   DELETE_DOC: (taskInstanceId: string) =>
+  //     `/onboarding/documents/${taskInstanceId}`,
+
+  //   GET_CHK_TASKS: (id: string) => `/onboarding/checklist/${id}`,
+  //   BASE: "/onboarding/checklist",
+  //   GET_BY_ID: (id: string, cid: string) =>
+  //     `/onboarding/${id}/checklist/${cid}/tasks`,
+  //   GET_PROGRESS: (employeeId: string) => `/onboarding/progress/${employeeId}`,
+  //   GET_DOCUMENTS: (onboardingId: string) =>
+  //     `/onboarding/${onboardingId}/documents`,
+  //   ASSIGNMENTS: "/onboarding/assignments",
+
+  //   PATCH_TASK: (id: string) => `/onboarding/task/${id}/complete`,
+  //   PATCH_REORDER: (id: string) => `/onboarding/checklist/${id}/tasks/reorder`,
+
+  //   SEND_WELCOME: "/onboarding/send-welcome",
+  //   CREATE_DOC: "/onboarding/documents",
+  //   CREATE: "/onboarding/checklist",
+  //   CREATE_TASK: (id: string) => `/onboarding/checklist/${id}/tasks`,
+  //   ASSIGN: "/onboarding/assign",
+
+  //   UPDATE: (id: string) => `/onboarding/checklist/${id}`,
+  //   UPDATE_TASK: (id: string, tid: string) =>
+  //     `/onboarding/checklist/${id}/tasks/${tid}`,
+  // },
 
   PASSWORD_CONFIG: {
     BASE: "/password-policy",
@@ -650,7 +761,7 @@ export const API_ENDPOINTS = {
     PATCH_STATUS: (id: string) => `/banks/${id}/status`,
     PATCH_PRIMARY: (id: string) => `/banks/${id}/primary`,
     UPDATE: (id: string) => `/banks/${id}`,
-    DROPDOWN: "/master/banks/india"
+    DROPDOWN: "/master/banks/india",
   },
 
   AUDIT_LOGS: {
@@ -784,11 +895,14 @@ export const API_ENDPOINTS = {
   },
 
   FISCAL_YEARS: {
-    DELETE: (cid: string, id: string) => `/org/company/${cid}/fiscal-years/${id}`,
+    DELETE: (cid: string, id: string) =>
+      `/org/company/${cid}/fiscal-years/${id}`,
     GET: (cid: string) => `/org/company/${cid}/fiscal-years`,
     GET_ACTIVE: (cid: string) => `/org/company/${cid}/fiscal-years/active`,
     CREATE: (cid: string) => `/org/company/${cid}/fiscal-years`,
-    UPDATE: (cid: string, id: string) => `/org/company/${cid}/fiscal-years/${id}`,
-    ACTIVATE: (cid: string, id: string) => `/org/company/${cid}/fiscal-years/${id}/activate`,
+    UPDATE: (cid: string, id: string) =>
+      `/org/company/${cid}/fiscal-years/${id}`,
+    ACTIVATE: (cid: string, id: string) =>
+      `/org/company/${cid}/fiscal-years/${id}/activate`,
   },
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Grid,
@@ -15,14 +15,11 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
-  Alert,
   CircularProgress,
   Card,
   CardContent,
   CardHeader,
   CardActions,
-  Divider,
   Avatar,
   Table,
   TableBody,
@@ -35,22 +32,16 @@ import {
   Zoom,
   alpha,
   useTheme,
-  TextField,
   Skeleton,
-  Badge,
   Stack,
 } from "@mui/material";
 import {
   Dashboard as DashboardIcon,
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
-  Refresh as RefreshIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   DragIndicator as DragIndicatorIcon,
-  FilterList as FilterListIcon,
-  Save as SaveIcon,
   Cancel as CancelIcon,
   Restore as RestoreIcon,
   ExpandMore as ExpandMoreIcon,
@@ -65,15 +56,14 @@ import {
   CloudDownload as CloudDownloadIcon,
   Print as PrintIcon,
   Share as ShareIcon,
-  Fullscreen as FullscreenIcon,
-  Notifications as NotificationsIcon,
-  Settings as SettingsIcon,
-  Person as PersonIcon,
-  Today as TodayIcon,
-  Event as EventIcon,
-  Work as WorkIcon,
-  ExitToApp as ExitToAppIcon,
-  PersonOutlineOutlined,
+  // Fullscreen as FullscreenIcon,
+  // Notifications as NotificationsIcon,
+  // Settings as SettingsIcon,
+  // Person as PersonIcon,
+  // Today as TodayIcon,
+  // Event as EventIcon,
+  // Work as WorkIcon,
+  // ExitToApp as ExitToAppIcon,
   PersonOutlined,
   CloseOutlined,
 } from "@mui/icons-material";
@@ -93,32 +83,30 @@ import type {
 } from "../../services/modules/dashboard";
 
 // Recharts
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip as RechartsTooltip,
-  Legend,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  CartesianGrid,
-} from "recharts";
+// import {
+//   BarChart,
+//   Bar,
+//   LineChart,
+//   Line,
+//   PieChart,
+//   Pie,
+//   Cell,
+//   XAxis,
+//   YAxis,
+//   Tooltip as RechartsTooltip,
+//   Legend,
+//   ResponsiveContainer,
+//   AreaChart,
+//   Area,
+//   CartesianGrid,
+// } from "recharts";
 
 // Date picker
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+// import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs from "dayjs";
 
 // Debounce
-import { debounce } from "lodash";
 import { formatDate } from "../leave/leaveFormatters";
 
 // ===== DRAG-DROP: Import dnd-kit =====
@@ -139,8 +127,10 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { isDateString, isIdColumn } from "./const";
+import { getWidgetColor, isDateString, isIdColumn } from "./const";
 import { getRowColor } from "../const";
+import { getWorkspaceLabel } from "../../auth/authMapper";
+import { useAuth } from "../../auth/authContext";
 
 // ============ Utility Functions ============
 
@@ -177,41 +167,13 @@ const getWidgetIcon = (type: string) => {
   return <DashboardIcon />;
 };
 
-// Widget Color Schemes
-const getWidgetColor = (type: string) => {
-  const typeLower = type?.toLowerCase() || "";
-  if (["employee", "employees", "headcount", "summary-box"].includes(typeLower)) {
-    return { bg: "#E3F2FD", color: "#1976D2" };
-  }
-  if (["attendance", "absenteeism"].includes(typeLower)) {
-    return { bg: "#E8F5E9", color: "#388E3C" };
-  }
-  if (["performance", "rating"].includes(typeLower)) {
-    return { bg: "#FFF3E0", color: "#F57C00" };
-  }
-  if (["payroll", "salary", "cost"].includes(typeLower)) {
-    return { bg: "#F3E5F5", color: "#7B1FA2" };
-  }
-  if (["recruitment", "hiring", "candidates"].includes(typeLower)) {
-    return { bg: "#E0F7FA", color: "#00838F" };
-  }
-  if (["training", "learning"].includes(typeLower)) {
-    return { bg: "#FFF8E1", color: "#F9A825" };
-  }
-  if (["rewards", "recognition"].includes(typeLower)) {
-    return { bg: "#FCE4EC", color: "#C2185B" };
-  }
-  if (["analytics", "report", "kpi"].includes(typeLower)) {
-    return { bg: "#E8EAF6", color: "#283593" };
-  }
-  return { bg: "#F5F5F5", color: "#616161" };
-};
-
 // ============ Main Component ============
 
 export default function Home() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const user = session?.user;
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
 
   // State
@@ -220,11 +182,11 @@ export default function Home() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [catalogWidgets, setCatalogWidgets] = useState<CatalogWidget[]>([]);
   const [preferences, setPreferences] = useState<DashboardPreferences | null>(null);
-  const [supportedFilters, setSupportedFilters] = useState<SupportedFilter[]>([]);
+  const [_supportedFilters, setSupportedFilters] = useState<SupportedFilter[]>([]);
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [editingMode, setEditingMode] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  // const [refreshing, setRefreshing] = useState(false);
 
   // Dialogs
   const [addWidgetDialogOpen, setAddWidgetDialogOpen] = useState(false);
@@ -262,15 +224,16 @@ export default function Home() {
   }, [selectedPage]);
 
   // Debounced apply filters
-  const debouncedApplyFilters = useCallback(
-    debounce((page: string) => {
-      loadDashboard(page);
-    }, 500),
-    []
-  );
+  // const debouncedApplyFilters = useCallback(
+  //   debounce((page: string) => {
+  //     loadDashboard(page);
+  //   }, 500),
+  //   []
+  // );
 
   // Load functions
   const loadPages = async () => {
+    showSpinner();
     try {
       const response = await dashboardService.getPages();
       const data = response?.data || [];
@@ -280,6 +243,8 @@ export default function Home() {
       }
     } catch (error) {
       showSnackbar("Failed to load dashboard pages", "error");
+    } finally {
+      hideSpinner();
     }
   };
 
@@ -303,7 +268,7 @@ export default function Home() {
     }
   };
 
-  const loadDashboard = async (page: string) => {
+  const loadDashboard = async (page: string) => {    
     showSpinner();
     setLoading(true);
     try {
@@ -352,24 +317,24 @@ export default function Home() {
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadDashboard(selectedPage);
-    await loadPreferences(selectedPage);
-    await loadCatalogWidgets(selectedPage);
-    setRefreshing(false);
-    showSnackbar("Dashboard refreshed successfully", "success");
-  };
+  // const handleRefresh = async () => {
+  //   setRefreshing(true);
+  //   await loadDashboard(selectedPage);
+  //   await loadPreferences(selectedPage);
+  //   await loadCatalogWidgets(selectedPage);
+  //   setRefreshing(false);
+  //   showSnackbar("Dashboard refreshed successfully", "success");
+  // };
 
-  const handleFilterChange = (filterId: string, value: any) => {
-    setFilterValues((prev) => ({
-      ...prev,
-      [filterId]: value,
-    }));
-    if (selectedPage) {
-      debouncedApplyFilters(selectedPage);
-    }
-  };
+  // const handleFilterChange = (filterId: string, value: any) => {
+  //   setFilterValues((prev) => ({
+  //     ...prev,
+  //     [filterId]: value,
+  //   }));
+  //   if (selectedPage) {
+  //     debouncedApplyFilters(selectedPage);
+  //   }
+  // };
 
   const handleAddWidget = async (widgetId: string) => {
     setLoading(true);
@@ -800,22 +765,22 @@ export default function Home() {
     }
 
     // Determine label for the date field
-    let dateLabel = 'Date';
-    let secondaryLabel = '';
+    // let dateLabel = 'Date';
+    // let secondaryLabel = '';
     let isAnniversary = false;
     if (widgetId.includes('recentJoiners')) {
-      dateLabel = 'Joining Date';
-      secondaryLabel = 'Days since joining';
+      // dateLabel = 'Joining Date';
+      // secondaryLabel = 'Days since joining';
     } else if (widgetId.includes('upcomingBirthdays')) {
-      dateLabel = 'Birthday';
-      secondaryLabel = 'Days until birthday';
+      // dateLabel = 'Birthday';
+      // secondaryLabel = 'Days until birthday';
     } else if (widgetId.includes('workAnniversaries')) {
-      dateLabel = 'Anniversary';
-      secondaryLabel = 'Days until anniversary';
+      // dateLabel = 'Anniversary';
+      // secondaryLabel = 'Days until anniversary';
       isAnniversary = true;
     } else if (widgetId.includes('recentResignations')) {
-      dateLabel = 'Resignation Date';
-      secondaryLabel = 'Days since resignation';
+      // dateLabel = 'Resignation Date';
+      // secondaryLabel = 'Days since resignation';
     }
 
     // Find the field names from the first row
@@ -847,7 +812,7 @@ export default function Home() {
           const days = record[daysField] !== undefined ? record[daysField] : null;
           const employeeId = record[idField] || '';
           const anniversaryYears = isAnniversary ? record[yearsField] : null;
-          const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 1);
+          // const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 1);
 
           let daysText = '';
           let chipColor: 'default' | 'success' | 'warning' | 'error' = 'default';
@@ -889,7 +854,7 @@ export default function Home() {
                       <PersonOutlined />
                     </Avatar>
                     <div>
-                      <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 600 }}>
+                      <div className="text-gray-800 font-bold text-[12px]">
                         {name}
                         {anniversaryYears && (
                           <Chip
@@ -900,7 +865,7 @@ export default function Home() {
                             sx={{ height: 20, fontSize: '0.625rem', marginLeft: 1 }}
                           />
                         )}
-                      </Typography>
+                      </div>
                       {employeeId && (
                         <div className="text-[10px] text-gray-500">
                           {employeeId}
@@ -968,7 +933,6 @@ export default function Home() {
       }
       return <TableWidget data={widgetData} />;
     }
-    // fallback
     return (
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, minHeight: 100 }}>
         <Avatar sx={{ bgcolor: getWidgetColor(type).bg, color: getWidgetColor(type).color, width: 48, height: 48, borderRadius: 2 }}>
@@ -988,93 +952,93 @@ export default function Home() {
 
   // ============ Filter rendering ============
 
-  const renderFilters = () => {
-    if (supportedFilters.length === 0) return null;
-    return (
-      <Paper
-        sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 2,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-          bgcolor: alpha(theme.palette.primary.main, 0.02),
-        }}
-      >
-        <Stack direction="row" spacing={2} className="items-center flex-wrap" useFlexGap>
-          <FilterListIcon color="primary" fontSize="small" />
-          <Typography variant="subtitle2" color="primary">Filters</Typography>
-          {/* {supportedFilters.map((filter) => {
-            const value = filterValues[filter.id] || "";
-            return (
-              <TextField
-                key={filter.id}
-                size="small"
-                label={filter.label}
-                value={value}
-                onChange={(e) => handleFilterChange(filter.id, e.target.value)}
-                placeholder={filter.required ? "Required" : "Optional"}
-                sx={{ minWidth: 150 }}
-              />
-            );
-          })} */}
-          {supportedFilters.map((filter) => {
-            const value = filterValues[filter.id] || "";
-            if (filter.type === 'month') {
-              return (
-                <LocalizationProvider key={filter.id} dateAdapter={AdapterDayjs}>
-                  <DatePicker
-                    views={['month']}
-                    label={filter.label}
-                    value={value ? dayjs(value) : null}
-                    onChange={(newValue) => handleFilterChange(filter.id, newValue ? dayjs(newValue).format('YYYY-MM') : '')}
-                    slotProps={{ textField: { size: "small", sx: { minWidth: 150 } } }}
-                  />
-                </LocalizationProvider>
-              );
-            }
-            if (filter.type === 'lookup') {
-              // In a real app, fetch options from a lookup endpoint; for now use text
-              return (
-                <TextField
-                  key={filter.id}
-                  size="small"
-                  label={filter.label}
-                  value={value}
-                  onChange={(e) => handleFilterChange(filter.id, e.target.value)}
-                  placeholder="Enter value"
-                  sx={{ minWidth: 150 }}
-                />
-              );
-            }
-            // default text
-            return (
-              <TextField
-                key={filter.id}
-                size="small"
-                label={filter.label}
-                value={value}
-                onChange={(e) => handleFilterChange(filter.id, e.target.value)}
-                placeholder={filter.required ? "Required" : "Optional"}
-                sx={{ minWidth: 150 }}
-              />
-            );
-          })}
-          <Button size="small" variant="outlined" onClick={() => loadDashboard(selectedPage)}>Apply</Button>
-          {Object.keys(filterValues).length > 0 && (
-            <Button size="small" color="secondary" onClick={() => {
-              const defaults: Record<string, any> = {};
-              supportedFilters.forEach((f) => {
-                if (f.defaultValue !== undefined && f.defaultValue !== null) {
-                  defaults[f.id] = f.defaultValue;
-                }
-              });
-              setFilterValues(defaults);
-            }}>Reset</Button>
-          )}
-        </Stack>
-      </Paper>
-    );
-  };
+  // const renderFilters = () => {
+  //   if (supportedFilters.length === 0) return null;
+  //   return (
+  //     <Paper
+  //       sx={{
+  //         p: 2,
+  //         mb: 3,
+  //         borderRadius: 2,
+  //         border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+  //         bgcolor: alpha(theme.palette.primary.main, 0.02),
+  //       }}
+  //     >
+  //       <Stack direction="row" spacing={2} className="items-center flex-wrap" useFlexGap>
+  //         <FilterListIcon color="primary" fontSize="small" />
+  //         <Typography variant="subtitle2" color="primary">Filters</Typography>
+  //         {/* {supportedFilters.map((filter) => {
+  //           const value = filterValues[filter.id] || "";
+  //           return (
+  //             <TextField
+  //               key={filter.id}
+  //               size="small"
+  //               label={filter.label}
+  //               value={value}
+  //               onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+  //               placeholder={filter.required ? "Required" : "Optional"}
+  //               sx={{ minWidth: 150 }}
+  //             />
+  //           );
+  //         })} */}
+  //         {supportedFilters.map((filter) => {
+  //           const value = filterValues[filter.id] || "";
+  //           if (filter.type === 'month') {
+  //             return (
+  //               <LocalizationProvider key={filter.id} dateAdapter={AdapterDayjs}>
+  //                 <DatePicker
+  //                   views={['month']}
+  //                   label={filter.label}
+  //                   value={value ? dayjs(value) : null}
+  //                   onChange={(newValue) => handleFilterChange(filter.id, newValue ? dayjs(newValue).format('YYYY-MM') : '')}
+  //                   slotProps={{ textField: { size: "small", sx: { minWidth: 150 } } }}
+  //                 />
+  //               </LocalizationProvider>
+  //             );
+  //           }
+  //           if (filter.type === 'lookup') {
+  //             // In a real app, fetch options from a lookup endpoint; for now use text
+  //             return (
+  //               <TextField
+  //                 key={filter.id}
+  //                 size="small"
+  //                 label={filter.label}
+  //                 value={value}
+  //                 onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+  //                 placeholder="Enter value"
+  //                 sx={{ minWidth: 150 }}
+  //               />
+  //             );
+  //           }
+  //           // default text
+  //           return (
+  //             <TextField
+  //               key={filter.id}
+  //               size="small"
+  //               label={filter.label}
+  //               value={value}
+  //               onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+  //               placeholder={filter.required ? "Required" : "Optional"}
+  //               sx={{ minWidth: 150 }}
+  //             />
+  //           );
+  //         })}
+  //         <Button size="small" variant="outlined" onClick={() => loadDashboard(selectedPage)}>Apply</Button>
+  //         {Object.keys(filterValues).length > 0 && (
+  //           <Button size="small" color="secondary" onClick={() => {
+  //             const defaults: Record<string, any> = {};
+  //             supportedFilters.forEach((f) => {
+  //               if (f.defaultValue !== undefined && f.defaultValue !== null) {
+  //                 defaults[f.id] = f.defaultValue;
+  //               }
+  //             });
+  //             setFilterValues(defaults);
+  //           }}>Reset</Button>
+  //         )}
+  //       </Stack>
+  //     </Paper>
+  //   );
+  // };
 
   // ============ Context rendering ============
 
@@ -1099,39 +1063,39 @@ export default function Home() {
 
   // ============ Stats / KPI Cards ============
 
-  const renderKPI = () => {
-    const headcountWidget = dashboardData?.widgets.find(w => w.id === 'employee.headcountSummary');
-    if (!headcountWidget) return null;
-    const rows = headcountWidget.data?.data || [];
-    if (!rows.length) return null;
-    const row = rows[0];
-    const metrics = [
-      { label: 'Total Employees', value: row.headcount, icon: <PeopleIcon />, color: '#1976D2' },
-      { label: 'Active Employees', value: row.headcountActive, icon: <WorkIcon />, color: '#2e7d32' },
-      { label: 'On Leave', value: row.headcountOnLeave, icon: <EventIcon />, color: '#ed6c02' },
-    ];
-    return (
-      <Grid container spacing={3} sx={{ mb: 2 }}>
-        {metrics.map((metric) => (
-          <Grid key={metric.label} size={{ xs: 12, sm: 4 }}>
-            <Paper sx={{ p: 2, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2, borderLeft: `4px solid ${metric.color}` }} className="!bg-white-50">
-              <Avatar sx={{ bgcolor: alpha(metric.color, 0.1), color: metric.color }}>{metric.icon}</Avatar>
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700 }} className="text-gray-800">{safeDisplayValue(metric.value)}</Typography>
-                <Typography variant="body2" color="textSecondary" className="text-gray-500">{metric.label}</Typography>
-              </Box>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-    );
-  };
+  // const renderKPI = () => {
+  //   const headcountWidget = dashboardData?.widgets.find(w => w.id === 'employee.headcountSummary');
+  //   if (!headcountWidget) return null;
+  //   const rows = headcountWidget.data?.data || [];
+  //   if (!rows.length) return null;
+  //   const row = rows[0];
+  //   const metrics = [
+  //     { label: 'Total Employees', value: row.headcount, icon: <PeopleIcon />, color: '#1976D2' },
+  //     { label: 'Active Employees', value: row.headcountActive, icon: <WorkIcon />, color: '#2e7d32' },
+  //     { label: 'On Leave', value: row.headcountOnLeave, icon: <EventIcon />, color: '#ed6c02' },
+  //   ];
+  //   return (
+  //     <Grid container spacing={3} sx={{ mb: 2 }}>
+  //       {metrics.map((metric) => (
+  //         <Grid key={metric.label} size={{ xs: 12, sm: 4 }}>
+  //           <Paper sx={{ p: 2, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 2, borderLeft: `4px solid ${metric.color}` }} className="!bg-white-50">
+  //             <Avatar sx={{ bgcolor: alpha(metric.color, 0.1), color: metric.color }}>{metric.icon}</Avatar>
+  //             <Box>
+  //               <Typography variant="h5" sx={{ fontWeight: 700 }} className="text-gray-800">{safeDisplayValue(metric.value)}</Typography>
+  //               <Typography variant="body2" color="textSecondary" className="text-gray-500">{metric.label}</Typography>
+  //             </Box>
+  //           </Paper>
+  //         </Grid>
+  //       ))}
+  //     </Grid>
+  //   );
+  // };
 
   // ============ Main Render ============
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box sx={{ pb: 3}}>
+      <Box sx={{ pb: 3 }}>
         {/* Header */}
         <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2 }} className="!bg-white-50 border border-gray-200">
           <Stack direction="row" className="items-center flex-wrap gap-2 justify-between">
@@ -1141,7 +1105,7 @@ export default function Home() {
               </Avatar>
               <Box>
                 <div className="text-gray-800 font-bold text-[18px]">Dashboard</div>
-                <Typography variant="body2" color="textSecondary" className="text-gray-800">Welcome back, Admin</Typography>
+                <Typography variant="body2" color="textSecondary" className="text-gray-800">Welcome back, {user ? getWorkspaceLabel(user).split(' ')[0] : ''}!</Typography>
               </Box>
             </Stack>
             <div className="flex items-center gap-2">
@@ -1214,7 +1178,7 @@ export default function Home() {
           </DndContext>
         ) : (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
+            {/* <CircularProgress /> */}
           </Box>
         )}
 

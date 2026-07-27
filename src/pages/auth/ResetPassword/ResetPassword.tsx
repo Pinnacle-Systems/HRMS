@@ -23,8 +23,6 @@ export default function ResetPassword() {
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicyResponse>(
     FALLBACK_PASSWORD_POLICY,
   );
-  // const [passwordMatch, setPasswordMatch] = useState(true);
-  // const navigate = useNavigate();
   const token = tokenFromUrl || localStorage.getItem("resetToken");
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const passwordValidationMessages = validatePasswordAgainstPolicy(
@@ -37,6 +35,7 @@ export default function ResetPassword() {
   useEffect(() => {
     if (!token) {
       showSnackbar("Reset token is missing. Please open the reset link again.", "warning");
+      return; 
     }
 
     let isMounted = true;
@@ -59,14 +58,6 @@ export default function ResetPassword() {
     };
   }, [showSnackbar, token]);
 
-  // useEffect(() => {
-  //   if (confirmPassword !== "") {
-  //     setPasswordMatch(newPassword === confirmPassword);
-  //   } else {
-  //     setPasswordMatch(true);
-  //   }
-  // }, [newPassword, confirmPassword]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
@@ -82,9 +73,6 @@ export default function ResetPassword() {
       return;
     }
     setSubmitted(true);
-    // setTimeout(() => {
-    //   navigate("/login");
-    // }, 3000);
     showSpinner();
     try {
       const response = await authService.resetPassword({

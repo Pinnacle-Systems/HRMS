@@ -758,13 +758,13 @@ export default function BranchSettings() {
                       }}
                     >
                       {branch.branchName}
-                      {
+                      {/* {
                         branch.branchCode == 'DEFAULT' &&
                         <span className="text-red-500 font-bold">(Head Office)</span>
-                      }
+                      } */}
                     </TableCell>
                     <TableCell className="font-medium text-gray-800">
-                      {branch.branchCode}
+                      <span className={` ${branch.branchCode == 'HEAD OFFICE' ? 'text-primary font-bold' : ''}`}>{branch.branchCode}</span>
                     </TableCell>
                     <TableCell
                       className="max-w-xs truncate text-gray-800"
@@ -829,7 +829,7 @@ export default function BranchSettings() {
                         </IconButton>
                       </Tooltip>
                       {
-                        branch.branchCode == 'DEFAULT' &&
+                        branch.branchCode != 'HEAD OFFICE' &&
                         <Tooltip title="Delete">
                           <IconButton
                             size="small"
@@ -848,7 +848,7 @@ export default function BranchSettings() {
                       <Tooltip title="Add Bank Details">
                         <IconButton
                           size="small"
-                          className="!text-[12px]"                          
+                          className="!text-[12px]"
                         >
                           {expandedBranchId === branch.id ? (
                             <ExpandLessIcon className="!w-4 text-gray-800" />

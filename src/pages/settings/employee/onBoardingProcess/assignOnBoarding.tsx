@@ -23,6 +23,13 @@ import {
   DialogTitle,
   CircularProgress,
   Checkbox,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  LinearProgress,
+  Grid,
+  Card,
+  CardContent,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -30,6 +37,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { onBoardService } from "../../../../services/modules/onBoard";
 import type { EmployeeSummaryResponse } from "../../../../services/modules/employees";
 import { useUI } from "../../../../context/Snackbar";
@@ -44,7 +52,7 @@ import {
 } from "@mui/icons-material";
 import { getRowColor } from "../../../const";
 import { GlobalPagination } from "../../../../components/GlobalPagination";
-import type { OnboardingAssignment } from "./type";
+import type { OnboardingAssignment, OnboardingDetail } from "./type";
 
 export const AssignOnboarding = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -64,12 +72,16 @@ export const AssignOnboarding = () => {
     employeeId: "",
     checklistId: "",
     startDate: dayjs().format("YYYY-MM-DD"),
+    dueDate: "",
+    notes: "",
   });
 
   const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(
     new Set(),
   );
   const [isBulkSending, setIsBulkSending] = useState(false);
+  const [onboardingDetail, setOnboardingDetail] = useState<OnboardingDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const totalAssignments = assignments.length;
   const inProgressAssignments = assignments.filter(
@@ -152,11 +164,9 @@ export const AssignOnboarding = () => {
       return;
     }
 
-    // Get selected employee IDs
-    const selectedEmployeeIds = assignments
-      .filter((a) => selectedAssignments.has(a.onboardingId))
-      .map((a) => a.employeeId)
-      .filter((id) => id); // Filter out any null/undefined
+    const selectedEmployeeIds = Array.from(selectedAssignments)
+      .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
+      .filter((id): id is string => !!id);
 
     if (selectedEmployeeIds.length === 0) {
       showSnackbar("Selected assignments have no employee IDs", "error");
@@ -198,12 +208,21 @@ export const AssignOnboarding = () => {
     }
     try {
       showSpinner();
-      await onBoardService.assignOnboarding(formData);
+      const payload = {
+        employeeId: formData.employeeId,
+        checklistId: formData.checklistId,
+        startDate: formData.startDate,
+        ...(formData.dueDate ? { dueDate: formData.dueDate } : {}),
+        ...(formData.notes ? { notes: formData.notes } : {}),
+      };
+      await onBoardService.assignOnboarding(payload);
       setIsDialogOpen(false);
       setFormData({
         employeeId: "",
         checklistId: "",
         startDate: dayjs().format("YYYY-MM-DD"),
+        dueDate: "",
+        notes: "",
       });
       setSelectedEmployee(null);
       fetchData();
@@ -287,21 +306,68 @@ export const AssignOnboarding = () => {
   const handleViewDetails = async (assignment: OnboardingAssignment) => {
     setSelectedAssignment(assignment);
     setIsDetailsOpen(true);
+    setIsLoadingDetail(true);
+
     if (!assignment.employeeId) {
       showSnackbar("Cannot load progress: employee id is missing.", "error");
+      setIsLoadingDetail(false);
       return;
     }
+
     try {
       showSpinner();
       const progressRes: any = await onBoardService.getProgress(
         assignment.employeeId,
       );
+      setOnboardingDetail(progressRes.data);
       setSelectedAssignment({ ...assignment, progress: progressRes.data });
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
       hideSpinner();
+      setIsLoadingDetail(false);
     }
+  };
+
+  const handleBulkAssign = async () => {
+    const selectedEmployeeIds = Array.from(selectedAssignments)
+      .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
+      .filter((id): id is string => !!id);
+
+    if (selectedEmployeeIds.length === 0) {
+      showSnackbar("No employees selected", "error");
+      return;
+    }
+
+    if (!formData.checklistId) {
+      showSnackbar("Please select a checklist", "error");
+      return;
+    }
+
+    showConfirmDialog({
+      title: "Bulk Assign Onboarding",
+      message: `Assign onboarding to ${selectedEmployeeIds.length} selected employees?`,
+      confirmText: "Assign",
+      onConfirm: async () => {
+        // try {
+        //   showSpinner();
+        //   const checklistIds = [formData.checklistId];
+        //   await onBoardService.bulkAssignOnboarding({
+        //     employeeIds: selectedEmployeeIds,
+        //     checklistIds: checklistIds,
+        //     dueDate: formData.dueDate || formData.startDate,
+        //     notes: "Bulk assignment",
+        //   });
+        //   showSnackbar("Bulk assignment completed!", "success");
+        //   setSelectedAssignments(new Set());
+        //   fetchData();
+        // } catch (error: any) {
+        //   showSnackbar(error.message, "error");
+        // } finally {
+        //   hideSpinner();
+        // }
+      },
+    });
   };
 
   const handleStatusFilterClick = (status: string) => {
@@ -309,7 +375,6 @@ export const AssignOnboarding = () => {
     setPage(0);
   };
 
-  // Get status chip color based on overallStatus
   const getStatusColor = (
     status: string,
   ): "success" | "info" | "error" | "warning" | "default" => {
@@ -326,7 +391,6 @@ export const AssignOnboarding = () => {
     return statusMap[status] || "default";
   };
 
-  // Get formatted status display text
   const getStatusDisplay = (status: string): string => {
     const statusMap: Record<string, string> = {
       IN_PROGRESS: "In Progress",
@@ -338,12 +402,10 @@ export const AssignOnboarding = () => {
     return statusMap[status] || status || "—";
   };
 
-  // Calculate progress from API response
   const calculateProgress = (assignment: OnboardingAssignment): number => {
     return assignment.overallProgressPercent || 0;
   };
 
-  // Get status badge with count
   const getStatusBadge = (status: string, count: number, label: string) => {
     const colors = {
       ALL: "default",
@@ -362,18 +424,10 @@ export const AssignOnboarding = () => {
         color={colors[status as keyof typeof colors] as any}
         variant={isActive ? "filled" : "outlined"}
         onClick={() => handleStatusFilterClick(status)}
-        className={`cursor-pointer hover:shadow-md transition-all ${status == 'ALL' ? 'text-gray-800 bg-gray-100' : ''} ${isActive ? "!font-bold" : ""}`}
+        className={`cursor-pointer hover:shadow-md transition-all ${status === "ALL" ? "text-gray-800 bg-gray-100" : ""} ${isActive ? "!font-bold" : ""}`}
       />
     );
   };
-
-  // const getSelectedChecklist = () => {
-  //   return checklists.find((c) => c.id === formData.checklistId);
-  // };
-
-  // const getSelectedEmployee = () => {
-  //   return selectedEmployee;
-  // };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage - 1);
@@ -392,6 +446,45 @@ export const AssignOnboarding = () => {
     selectedAssignments.size > 0 &&
     selectedAssignments.size < unsentAssignments.length;
 
+  // ============ Helper functions for details ============
+  const getTaskStatusIcon = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case "COMPLETED":
+        return <CheckCircleIcon className="!text-green-700 text-sm" />;
+      case "IN_PROGRESS":
+        return <PendingIcon className="text-blue-500 text-sm" />;
+      case "OVERDUE":
+        return <PendingIcon className="text-red-500 text-sm" />;
+      default:
+        return <PendingIcon className="!text-gray-400 text-sm" />;
+    }
+  };
+
+  const getTaskStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case "COMPLETED":
+        return "success";
+      case "IN_PROGRESS":
+        return "info";
+      case "OVERDUE":
+        return "error";
+      case "PENDING":
+        return "warning";
+      default:
+        return "default";
+    }
+  };
+
+  const getTaskStatusDisplay = (status: string) => {
+    const map: Record<string, string> = {
+      IN_PROGRESS: "In Progress",
+      COMPLETED: "Completed",
+      OVERDUE: "Overdue",
+      PENDING: "Pending",
+    };
+    return map[status?.toUpperCase()] || status || "—";
+  };
+
   return (
     <div className="py-4 pb-0">
       <div className="mb-4 flex justify-between items-center">
@@ -402,7 +495,16 @@ export const AssignOnboarding = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          {/* Bulk Email Button */}
+          {selectedAssignments.size > 0 && (
+            <Button
+              variant="contained"
+              startIcon={<MarkEmailUnreadOutlined />}
+              onClick={handleBulkAssign}
+              className="!bg-primary"
+            >
+              Bulk Assign ({selectedAssignments.size})
+            </Button>
+          )}
           {selectedAssignments.size > 0 && (
             <Button
               variant="contained"
@@ -428,61 +530,6 @@ export const AssignOnboarding = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {/* <Grid container spacing={3} className="mb-6">
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Card>
-            <CardContent className='bg-white'>
-              <div className="text-center">
-                <div className="text-xl font-bold text-primary">{totalAssignments}</div>
-                <div className="text-[12px] text-gray-600">Total</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Card>
-            <CardContent className='bg-white'>
-              <div className="text-center">
-                <div className="text-xl font-bold text-blue-600">{inProgressAssignments}</div>
-                <div className="text-[12px] text-gray-600">In Progress</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Card>
-            <CardContent className='bg-white'>
-              <div className="text-center">
-                <div className="text-xl font-bold text-green-600">{completedAssignments}</div>
-                <div className="text-[12px] text-gray-600">Completed</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Card>
-            <CardContent className='bg-white'>
-              <div className="text-center">
-                <div className="text-xl font-bold text-orange-600">{pendingAssignments}</div>
-                <div className="text-[12px] text-gray-600">Pending</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-          <Card>
-            <CardContent className='bg-white'>
-              <div className="text-center">
-                <div className="text-xl font-bold text-red-600">{overdueAssignments}</div>
-                <div className="text-[12px] text-gray-600">Overdue</div>
-              </div>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid> */}
-
-      {/* Status Filter Chips */}
       <Box sx={{ mb: 2, display: "flex", gap: 1, flexWrap: "wrap" }}>
         {getStatusBadge("ALL", totalAssignments, "All")}
         {getStatusBadge("IN_PROGRESS", inProgressAssignments, "In Progress")}
@@ -491,29 +538,29 @@ export const AssignOnboarding = () => {
         {getStatusBadge("OVERDUE", overdueAssignments, "Overdue")}
       </Box>
 
-      {/* Assignments Table */}
       <TableContainer className="h-[calc(100vh-370px)] overflow-auto">
         <Table stickyHeader className="border border-gray-200 rounded-md">
           <TableHead>
             <TableRow>
-              <TableCell>
+              <TableCell className="!sticky left-0 !z-30">
                 <Checkbox
                   checked={isAllSelected}
                   indeterminate={isIndeterminate}
                   onChange={handleSelectAll}
                   disabled={unsentAssignments.length === 0}
                   color="primary"
-                />#
+                  className="text-gray-800"
+                />
+                #
               </TableCell>
-              {/* <TableCell className="!font-bold ">#</TableCell> */}
-              <TableCell className="!font-bold ">Employee</TableCell>
-              <TableCell className="!font-bold ">Department</TableCell>
-              <TableCell className="!font-bold ">Branch</TableCell>
-              <TableCell className="!font-bold ">Status</TableCell>
-              <TableCell className="!font-bold ">Progress</TableCell>
-              <TableCell className="!font-bold ">Assigned At</TableCell>
-              <TableCell className="!font-bold ">Welcome Email</TableCell>
-              <TableCell className="!font-bold " align="center">
+              <TableCell className="!font-bold !sticky left-[75px] !z-30">Employee</TableCell>
+              <TableCell className="!font-bold">Department</TableCell>
+              <TableCell className="!font-bold">Branch</TableCell>
+              <TableCell className="!font-bold">Status</TableCell>
+              <TableCell className="!font-bold">Progress</TableCell>
+              <TableCell className="!font-bold">Assigned At</TableCell>
+              <TableCell className="!font-bold">Welcome Email</TableCell>
+              <TableCell className="!font-bold !sticky right-0 !z-30" align="center">
                 Actions
               </TableCell>
             </TableRow>
@@ -532,7 +579,6 @@ export const AssignOnboarding = () => {
                   assignment.overallStatus,
                 );
                 const statusColor = getStatusColor(assignment.overallStatus);
-                // const isActive = assignment.isActive;
                 const isSelected = selectedAssignments.has(
                   assignment.onboardingId,
                 );
@@ -545,7 +591,7 @@ export const AssignOnboarding = () => {
                     sx={getRowColor(index)}
                     className={isSelected ? "bg-primary/5" : ""}
                   >
-                    <TableCell>
+                    <TableCell className="!sticky left-0 !z-20 bg-inherit">
                       <Checkbox
                         checked={isSelected}
                         onChange={() =>
@@ -553,10 +599,11 @@ export const AssignOnboarding = () => {
                         }
                         disabled={hasWelcomeSent}
                         color="primary"
-                      />{index + 1}
+                        className="text-gray-800"
+                      />
+                      {index + 1}
                     </TableCell>
-                    {/* <TableCell>{index + 1}</TableCell> */}
-                    <TableCell>
+                    <TableCell className="!sticky left-[75px] !z-20 bg-inherit">
                       <div className="flex items-center gap-2">
                         <Avatar className="!w-8 !h-8 !bg-primary">
                           {assignment.employeeName?.charAt(0) || "?"}
@@ -692,7 +739,7 @@ export const AssignOnboarding = () => {
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" className="!sticky right-0 !z-20 bg-inherit">
                       <div className="flex gap-1 justify-center">
                         <Tooltip title="View Progress">
                           <IconButton
@@ -714,7 +761,7 @@ export const AssignOnboarding = () => {
                             disabled={!!assignment.welcomeEmailSentAt}
                             aria-label={`Send welcome to ${assignment.employeeName}`}
                           >
-                            <SendOutlined fontSize="small" className="!w-4"/>
+                            <SendOutlined fontSize="small" className="!w-4" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip
@@ -729,18 +776,26 @@ export const AssignOnboarding = () => {
                             onClick={() =>
                               assignment.isActive
                                 ? handleDeleteAssignment(
-                                    assignment.onboardingId,
-                                  )
+                                  assignment.onboardingId,
+                                )
                                 : handleReactivateAssignment(
-                                    assignment.onboardingId,
-                                  )
+                                  assignment.onboardingId,
+                                )
                             }
                             color={assignment.isActive ? "error" : "success"}
                           >
                             {assignment.isActive ? (
-                              <DeleteIcon fontSize="small" color="error" className="!w-4" />
+                              <DeleteIcon
+                                fontSize="small"
+                                color="error"
+                                className="!w-4"
+                              />
                             ) : (
-                              <RestoreOutlined fontSize="small" color="info" className="!w-4" />
+                              <RestoreOutlined
+                                fontSize="small"
+                                color="info"
+                                className="!w-4"
+                              />
                             )}
                           </IconButton>
                         </Tooltip>
@@ -796,13 +851,6 @@ export const AssignOnboarding = () => {
               />
             </FormControl>
 
-            {/* {getSelectedEmployee() && (
-              <Alert severity="info" className="text-[12px]">
-                Assigning to: {getSelectedEmployee()?.name} -{" "}
-                {getSelectedEmployee()?.designation}
-              </Alert>
-            )} */}
-
             <FormControl fullWidth>
               <InputLabel id="assign-onboarding-checklist-label">
                 Select Checklist
@@ -824,12 +872,6 @@ export const AssignOnboarding = () => {
               </Select>
             </FormControl>
 
-            {/* {getSelectedChecklist() && (
-              <Alert severity="info" className="text-[12px]">
-                {getSelectedChecklist()?.tasks?.length || 0} tasks to complete
-              </Alert>
-            )} */}
-
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
                 label="Start Date"
@@ -838,6 +880,20 @@ export const AssignOnboarding = () => {
                   setFormData({
                     ...formData,
                     startDate: dayjs(date)?.format("YYYY-MM-DD") || "",
+                  })
+                }
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </LocalizationProvider>
+
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Due Date (Optional)"
+                value={formData.dueDate ? dayjs(formData.dueDate) : null}
+                onChange={(date) =>
+                  setFormData({
+                    ...formData,
+                    dueDate: date ? dayjs(date).format("YYYY-MM-DD") : "",
                   })
                 }
                 slotProps={{ textField: { fullWidth: true } }}
@@ -863,136 +919,323 @@ export const AssignOnboarding = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Details Dialog */}
+      {/* Enhanced Details Dialog */}
       <Dialog
         open={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
-        maxWidth="md"
+        maxWidth="lg"
         fullWidth
       >
-        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
-          <div className="text-gray-800 ml-4 text-sm">View Details</div>
-          <IconButton onClick={() => setIsDetailsOpen(false)}>
-            <CloseOutlined className="text-gray-800" />
-          </IconButton>
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-3">
+          <div className="flex items-center gap-2">
+            <Avatar className="!w-10 !h-10 !bg-primary">
+              {selectedAssignment?.employeeName?.charAt(0) || "?"}
+            </Avatar>
+            <div>
+              <Typography variant="h6" className="font-semibold text-gray-800">
+                {selectedAssignment?.employeeName || "—"}
+              </Typography>
+              <Typography variant="caption" className="text-gray-500">
+                {selectedAssignment?.employeeCode || "—"} • {selectedAssignment?.employeeEmail || "—"}
+              </Typography>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Chip
+              label={getStatusDisplay(selectedAssignment?.overallStatus || "")}
+              color={getStatusColor(selectedAssignment?.overallStatus || "")}
+              size="small"
+            />
+            <Chip
+              label={selectedAssignment?.isActive ? "Active" : "Inactive"}
+              size="small"
+              color={selectedAssignment?.isActive ? "success" : "default"}
+              variant="outlined"
+            />
+            <IconButton onClick={() => setIsDetailsOpen(false)}>
+              <CloseOutlined className="text-gray-800" />
+            </IconButton>
+          </div>
         </DialogTitle>
-        <DialogContent>
-          {selectedAssignment && (
-            <div className="space-y-4 pt-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    {selectedAssignment.employeeName || "—"}
-                  </h3>
-                  <p className="text-[12px] text-gray-600">
-                    Code: {selectedAssignment.employeeCode || "—"}
-                  </p>
-                  <p className="text-[12px] text-gray-600">
-                    Email: {selectedAssignment.employeeEmail || "—"}
-                  </p>
-                  <p className="text-[12px] text-gray-500">
-                    Department: {selectedAssignment.departmentName || "—"}
-                  </p>
-                  <p className="text-[12px] text-gray-500">
-                    Branch: {selectedAssignment.branchName || "—"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <Chip
-                    label={getStatusDisplay(selectedAssignment.overallStatus)}
-                    color={getStatusColor(selectedAssignment.overallStatus)}
-                    // icon={getStatusIcon(selectedAssignment.overallStatus)}
-                  />
-                  <div className="mt-1">
-                    <Chip
-                      label={
-                        selectedAssignment.isActive ? "Active" : "Inactive"
-                      }
-                      size="small"
-                      color={
-                        selectedAssignment.isActive ? "success" : "default"
-                      }
-                      variant="outlined"
-                    />
-                  </div>
-                </div>
-              </div>
+        <DialogContent className="!pt-4">
+          {isLoadingDetail ? (
+            <Box className="flex justify-center items-center py-12">
+              <CircularProgress />
+            </Box>
+          ) : onboardingDetail ? (
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                  <Card className="!bg-blue-50 !border !border-blue-500">
+                    <CardContent className="!py-2 px-3">
+                      <Typography variant="caption" color="textSecondary">
+                        Overall Progress
+                      </Typography>
+                      <Typography variant="h6" className="font-bold text-blue-600">
+                        {onboardingDetail.overallProgressPercent || 0}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <Card className="!bg-green-50 !border !border-green-500">
+                    <CardContent className="!py-2 px-3">
+                      <Typography variant="caption" color="textSecondary">
+                        Checklists Completed
+                      </Typography>
+                      <Typography variant="h6" className="font-bold text-green-600">
+                        {onboardingDetail.completedChecklists || 0}/{onboardingDetail.totalChecklists || 0}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <Card className="!bg-purple-50 !border !border-purple-500">
+                    <CardContent className="!py-2 px-3">
+                      <Typography variant="caption" color="textSecondary">
+                        Assigned At
+                      </Typography>
+                      <Typography variant="body2" className="font-medium">
+                        {dayjs(onboardingDetail.assignedAt).format("DD MMM YYYY")}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <Card className="!bg-red-50 !border !border-red-500">
+                    <CardContent className="!py-2 px-3">
+                      <Typography variant="caption" color="textSecondary">
+                        Due Date
+                      </Typography>
+                      <Typography variant="body2">
+                        {onboardingDetail.dueDate
+                          ? dayjs(onboardingDetail.dueDate).format("DD MMM YYYY")
+                          : "Not set"}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                  <Card className="!bg-amber-50 !border !border-amber-500">
+                    <CardContent className="!py-2 px-3">
+                      <Typography variant="caption" color="textSecondary">
+                        Completed At
+                      </Typography>
+                      <Typography variant="body2" className="font-medium">
+                        {onboardingDetail.completedAt
+                          ? dayjs(onboardingDetail.completedAt).format("DD MMM YYYY HH:mm")
+                          : "Not completed yet"}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
 
-              <div className="border-t border-gray-200 pt-4">
-                <div className="mb-2 flex justify-between">
-                  <span className="text-[12px] font-medium">
-                    Overall Progress
-                  </span>
-                  <span className="text-[12px] font-medium">
-                    {selectedAssignment.overallProgressPercent || 0}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-primary h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${selectedAssignment.overallProgressPercent || 0}%`,
+              {/* Overall Progress Bar */}
+              <Card className="bg-gray-50 border border-gray-200">
+                <CardContent>
+                  <div className="flex justify-between items-center mb-1">
+                    <Typography variant="body2" className="font-medium text-gray-800">
+                      Overall Progress
+                    </Typography>
+                    <Typography variant="body2" className="font-bold text-gray-800">
+                      {onboardingDetail.overallProgressPercent || 0}%
+                    </Typography>
+                  </div>
+                  <LinearProgress
+                    variant="determinate"
+                    value={onboardingDetail.overallProgressPercent || 0}
+                    className="h-2 rounded-full"
+                    sx={{
+                      backgroundColor: "#e5e7eb",
+                      "& .MuiLinearProgress-bar": {
+                        backgroundColor:
+                          (onboardingDetail.overallProgressPercent || 0) === 100
+                            ? "#1a9246"
+                            : "#3b82f6",
+                      },
                     }}
                   />
-                </div>
+                </CardContent>
+              </Card>
 
-                <div className="grid grid-cols-2 gap-4 mt-4">
-                  <div className="flex items-center gap-2 p-2 bg-green-100/40 rounded">
-                    <CheckCircleIcon
-                      className="text-green-600"
-                      fontSize="small"
-                    />
-                    <div>
-                      <span className="text-[12px]">Completed</span>
-                      <span className="ml-2 font-semibold">
-                        {selectedAssignment.completedChecklists || 0}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 p-2 bg-blue-100/40 rounded">
-                    <PendingIcon className="text-blue-600" fontSize="small" />
-                    <div>
-                      <span className="text-[12px]">Total</span>
-                      <span className="ml-2 font-semibold">
-                        {selectedAssignment.totalChecklists || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              {/* Checklists and Tasks */}
+              <Typography variant="subtitle1" className="font-semibold mt-2">
+                Checklists & Tasks
+              </Typography>
 
-                <div className="mt-4 border-t border-gray-200 pt-4 grid grid-cols-2 gap-2 text-[12px]">
-                  <div>
-                    <span className="text-gray-600">Assigned At:</span>
-                    <span className="ml-2 font-medium">
-                      {selectedAssignment.assignedAt
-                        ? dayjs(selectedAssignment.assignedAt).format(
-                            "DD MMM YYYY HH:mm",
-                          )
-                        : "—"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Onboarding ID:</span>
-                    <span className="ml-2 font-medium text-xs">
-                      {selectedAssignment.onboardingId || "—"}
-                    </span>
-                  </div>
-                  {selectedAssignment.welcomeEmailSentAt && (
-                    <div>
-                      <span className="text-gray-600">Welcome Email Sent:</span>
-                      <span className="ml-2 font-medium">
-                        {dayjs(selectedAssignment.welcomeEmailSentAt).format(
-                          "DD MMM YYYY HH:mm",
-                        )}
-                      </span>
+              {onboardingDetail.checklists?.map((checklist, index) => (
+                <Accordion
+                  key={checklist.id || checklist.checklistId || index}
+                  className="border border-gray-200 !bg-white-50 rounded-lg shadow-sm"
+                  defaultExpanded={false}
+                >
+                  <AccordionSummary expandIcon={<ExpandMoreIcon className="text-gray-800" />}>
+                    <div className="flex items-center gap-3 w-full">
+                      {getTaskStatusIcon(checklist.status)}
+                      <div className="flex-1">
+                        <Typography className="font-medium text-gray-800">
+                          {checklist.checklistName}
+                        </Typography>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>Progress: {checklist.progressPercent || 0}%</span>
+                          <span>
+                            Tasks: {checklist.completedTasks || 0}/{checklist.totalTasks || 0}
+                          </span>
+                          <Chip
+                            label={getTaskStatusDisplay(checklist.status)}
+                            size="small"
+                            color={getTaskStatusColor(checklist.status)}
+                            variant="outlined"
+                            className="!h-5 !text-[10px]"
+                          />
+                        </div>
+                      </div>
+                      <Box sx={{ width: 100 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={checklist.progressPercent || 0}
+                          className="h-1.5 rounded-full"
+                        />
+                      </Box>
                     </div>
-                  )}
-                </div>
-              </div>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <TableContainer className="border border-gray-200 rounded-lg">
+                      <Table size="small">
+                        <TableHead className="bg-gray-50">
+                          <TableRow>
+                            <TableCell className="font-semibold text-xs">#</TableCell>
+                            <TableCell className="font-semibold text-xs">Task</TableCell>
+                            <TableCell className="font-semibold text-xs">Type</TableCell>
+                            <TableCell className="font-semibold text-xs">Document</TableCell>
+                            <TableCell className="font-semibold text-xs">Status</TableCell>
+                            <TableCell className="font-semibold text-xs">Completed At</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {checklist.tasks?.map((task, taskIndex) => (
+                            <TableRow key={task.id || task.taskId || taskIndex} sx={getRowColor(taskIndex)}>
+                              <TableCell>{taskIndex + 1}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <Typography variant="body2" className="font-medium">
+                                    {task.title} {task.required && (<span className="text-red-500">*</span>)}
+                                  </Typography>
+                                  {task.description && (
+                                    <Typography variant="caption" className="text-gray-500 block">
+                                      {task.description}
+                                    </Typography>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={task.taskType || "CUSTOM"}
+                                  size="small"
+                                  variant="outlined"
+                                  className="!h-5 !text-[10px] text-gray-800"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {task.documentName ? (
+                                  <Chip
+                                    label={` ${task.documentName}`}
+                                    size="small"
+                                    variant="outlined"
+                                    className="!h-5 !text-[10px] text-gray-800"
+                                  />
+                                ) : (
+                                  <div>-</div>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  {/* {getTaskStatusIcon(task.status)} */}
+                                  <Chip
+                                    label={getTaskStatusDisplay(task.status)}
+                                    size="small"
+                                    color={getTaskStatusColor(task.status)}
+                                    variant={task.status === "COMPLETED" ? "filled" : "outlined"}
+                                    className="!h-5 !text-[10px]"
+                                  />
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                {task.completedAt ? (
+                                  <Typography variant="caption" className="text-gray-800">
+                                    {dayjs(task.completedAt).format("DD MMM YYYY HH:mm")}
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="caption" className="text-gray-400">
+                                    -
+                                  </Typography>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {(!checklist.tasks || checklist.tasks.length === 0) && (
+                            <TableRow>
+                              <TableCell colSpan={5} align="center" className="py-4 text-gray-400">
+                                No tasks in this checklist
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+
+              {(!onboardingDetail.checklists || onboardingDetail.checklists.length === 0) && (
+                <Card className="bg-gray-50 border border-gray-200 border-dashed">
+                  <CardContent className="text-center py-8">
+                    <Typography variant="body2" color="textSecondary">
+                      No checklists assigned yet
+                    </Typography>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Additional Info */}
+              {/* <Card className="bg-gray-50 border border-gray-200">
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {onboardingDetail.welcomeEmailSentAt && (
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="caption" className="text-gray-500 block">
+                          Welcome Email Sent
+                        </Typography>
+                        <Typography variant="body2">
+                          {dayjs(onboardingDetail.welcomeEmailSentAt).format("DD MMM YYYY HH:mm")}
+                        </Typography>
+                      </Grid>
+                    )}
+                    {onboardingDetail.notes && (
+                      <Grid size={{ xs: 12 }}>
+                        <Typography variant="caption" className="text-gray-500 block">
+                          Notes
+                        </Typography>
+                        <Typography variant="body2" className="bg-white p-2 rounded border border-gray-200">
+                          {onboardingDetail.notes}
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </CardContent>
+              </Card> */}
             </div>
+          ) : (
+            <Box className="text-center py-12">
+              <Typography variant="body1" color="textSecondary">
+                No detailed progress information available
+              </Typography>
+            </Box>
           )}
         </DialogContent>
-        <DialogActions className="!p-4 border-t border-gray-200">
+        <DialogActions className="!p-3 border-t border-gray-200">
           <Button
             onClick={() => setIsDetailsOpen(false)}
             variant="outlined"

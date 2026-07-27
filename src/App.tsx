@@ -1,7 +1,7 @@
 import "./App.css";
 import { PasswordPolicyProvider } from "./context/PasswordPolicyContext";
 import { UIProvider } from "./context/Snackbar";
-import "./routes/Approutes";
+// import "./routes/Approutes";
 import AppRoutes from "./routes/Approutes";
 
 function App() {

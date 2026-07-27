@@ -331,6 +331,7 @@ export default function Profile() {
         size: limit,
       };
       const response: any = await authService.getLoginHistory(params);
+      await authService.getPermissions();
       if (response.success) {
         setLoginHistory(response.data.content || response.data || []);
         setTotal(

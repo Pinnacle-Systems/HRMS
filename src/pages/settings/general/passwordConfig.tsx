@@ -25,6 +25,7 @@ import {
   type PasswordPolicyRequest,
 } from "../../../services/modules/passwordPolicy";
 import { CancelOutlined } from "@mui/icons-material";
+import useUnsavedChanges from "../../../hooks/useUnsavedChanges";
 
 const defaultPolicy: PasswordPolicyRequest = {
   minPasswordLength: 8,
@@ -85,6 +86,53 @@ export default function PasswordConfig() {
   const [success, setSuccess] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Check if there are unsaved changes - use useMemo to prevent unnecessary recalculations
+  const hasUnsavedChanges = isEditing && draftPolicy !== null && 
+    JSON.stringify(draftPolicy) !== JSON.stringify(policy);
+
+  // Handle save with callback for navigation
+  const handleSaveForNavigation = async (callback?: () => void): Promise<void> => {
+    if (!draftPolicy) {
+      if (callback) callback();
+      return;
+    }
+
+    const validationError = getValidationError(draftPolicy);
+    if (validationError) {
+      setError(validationError);
+      setSuccess(null);
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await passwordPolicyService.updatePasswordPolicy(draftPolicy);
+      setPolicy(response);
+      setDraftPolicy(response);
+      setSuccess("Password policy saved successfully.");
+      setIsEditing(false);
+      
+      if (callback) {
+        callback();
+      }
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save password policy.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Use the simplified unsaved changes hook
+  useUnsavedChanges({
+    hasUnsavedChanges: hasUnsavedChanges,
+    onSave: handleSaveForNavigation,
+    message: 'You have unsaved password policy changes. Do you want to save before leaving?'
+  });
+
   useEffect(() => {
     let isMounted = true;
 
@@ -128,6 +176,7 @@ export default function PasswordConfig() {
         [field]: Number(event.target.value),
       }));
       setSuccess(null);
+      setError(null);
     };
 
   const updateBooleanField =
@@ -139,6 +188,7 @@ export default function PasswordConfig() {
         [field]: event.target.checked,
       }));
       setSuccess(null);
+      setError(null);
     };
 
   const handleEdit = () => {
@@ -149,6 +199,15 @@ export default function PasswordConfig() {
   };
 
   const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      const userChoice = window.confirm(
+        'You have unsaved changes. Are you sure you want to cancel?'
+      );
+      if (!userChoice) {
+        return;
+      }
+    }
+    
     setDraftPolicy(null);
     setIsEditing(false);
     setError(null);
@@ -207,7 +266,7 @@ export default function PasswordConfig() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center gap-2 text-secondary mt-4">
+        <div className="flex items-center justify-center gap-2 text-secondary mt-4">
           <CircularProgress size={20} />
           <span>Loading password policy...</span>
         </div>
@@ -216,9 +275,15 @@ export default function PasswordConfig() {
           {error && <Alert severity="error" className="mb-4">{error}</Alert>}
           {success && <Alert severity="success" className="mb-4">{success}</Alert>}
 
+          {hasUnsavedChanges && (
+            <Alert severity="warning" className="mb-4" icon={<WarningAmberIcon />}>
+              You have unsaved changes. Please save before leaving this page.
+            </Alert>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Password Rules Card */}
-            <Card className="rounded-2xl shadow-none border bg-white-50 h-full">
+            <Card className="rounded-2xl shadow-none border border-gray-200 bg-white-50 h-full">
               <CardContent>
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2">
@@ -227,22 +292,30 @@ export default function PasswordConfig() {
                       Password Rules
                     </Typography>
                   </div>
-                  {!isEditing && (
-                    <IconButton 
-                      onClick={handleEdit} 
-                      size="small" 
-                      className="text-gray-500 hover:text-primary"
-                      disabled={isSaving}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {isEditing && hasUnsavedChanges && (
+                      <Chip 
+                        label="Unsaved" 
+                        size="small" 
+                        color="warning"
+                      />
+                    )}
+                    {!isEditing && (
+                      <IconButton 
+                        onClick={handleEdit} 
+                        size="small" 
+                        className="text-gray-500 hover:text-primary"
+                        disabled={isSaving}
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </div>
                 </div>
 
                 {isEditing ? (
-                  // Edit mode - show form
                   <>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-8">
                       <TextField
                         fullWidth
                         type="number"
@@ -304,21 +377,20 @@ export default function PasswordConfig() {
                         className="!bg-primary hover:!bg-primary-dark"
                         onClick={handleSave}
                         disabled={isSaving}
-                        startIcon={<SaveIcon />}
+                        startIcon={isSaving ? <CircularProgress size={20} /> : <SaveIcon />}
                       >
                         {isSaving ? "Saving..." : "Save Policy"}
                       </Button>
                     </div>
                   </>
                 ) : (
-                  // View mode - show summary
                   <>
                     <div className="space-y-3">
                       <div className="flex justify-between border-b border-gray-200 pb-2">
                         <Typography variant="body2" className="text-gray-600">
                           Minimum Length
                         </Typography>
-                        <Typography variant="body2" className="font-medium">
+                        <Typography variant="body2" className="font-medium text-gray-800 ">
                           {policy.minPasswordLength} characters
                         </Typography>
                       </div>
@@ -326,7 +398,7 @@ export default function PasswordConfig() {
                         <Typography variant="body2" className="text-gray-600">
                           Password Expiry
                         </Typography>
-                        <Typography variant="body2" className="font-medium">
+                        <Typography variant="body2" className="font-medium text-gray-800">
                           {policy.passwordExpiryDays} days
                         </Typography>
                       </div>
@@ -334,7 +406,7 @@ export default function PasswordConfig() {
                         <Typography variant="body2" className="text-gray-600">
                           Expiry Reminder
                         </Typography>
-                        <Typography variant="body2" className="font-medium">
+                        <Typography variant="body2" className="font-medium text-gray-800">
                           {policy.expiryReminderDays} days before expiry
                         </Typography>
                       </div>
@@ -342,7 +414,7 @@ export default function PasswordConfig() {
                         <Typography variant="body2" className="text-gray-600">
                           Max Invalid Attempts
                         </Typography>
-                        <Typography variant="body2" className="font-medium">
+                        <Typography variant="body2" className="font-medium text-gray-800">
                           {policy.maxInvalidLoginAttempts} attempts
                         </Typography>
                       </div>
@@ -350,7 +422,7 @@ export default function PasswordConfig() {
                         <Typography variant="body2" className="text-gray-600">
                           Welcome Password Expiry
                         </Typography>
-                        <Typography variant="body2" className="font-medium">
+                        <Typography variant="body2" className="font-medium text-gray-800">
                           {policy.welcomePasswordExpiryDays} days
                         </Typography>
                       </div>
@@ -382,24 +454,33 @@ export default function PasswordConfig() {
               )}
             </Card>
 
-            {/* Security Toggles (always editable) */}
+            {/* Security Toggles */}
             <Grid size={{ xs: 12, lg: 5 }}>
-              <Card className="rounded-2xl shadow-none border h-full bg-white-50">
+              <Card className="rounded-2xl shadow-none border border-gray-200 h-full bg-white-50">
                 <CardContent>
-                  <div className="flex items-center gap-2 mb-5">
-                    <SecurityIcon className="text-primary" />
-                    <Typography variant="h6" className="font-semibold text-gray-800">
-                      Security Requirements
-                    </Typography>
+                  <div className="flex items-center justify-between gap-2 mb-5">
+                    <div className="flex items-center gap-2">
+                      <SecurityIcon className="text-primary" />
+                      <Typography variant="h6" className="font-semibold text-gray-800">
+                        Security Requirements
+                      </Typography>
+                    </div>
+                    {isEditing && hasUnsavedChanges && (
+                      <Chip 
+                        label="Unsaved" 
+                        size="small" 
+                        color="warning"
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between border rounded-xl p-3">
+                    <div className="flex items-center justify-between border border-gray-200 bg-head rounded-xl p-3">
                       <div>
                         <Typography className="text-gray-800">
                           Require Uppercase
                         </Typography>
-                        <Typography className="text-gray-800">
+                        <Typography variant="caption" className="text-gray-500">
                           Password must contain capital letters
                         </Typography>
                       </div>
@@ -408,16 +489,16 @@ export default function PasswordConfig() {
                         slotProps={{ input: { "aria-label": "Require Uppercase" } }}
                         checked={isEditing ? (draftPolicy?.requireUppercase ?? policy.requireUppercase) : policy.requireUppercase}
                         onChange={updateBooleanField("requireUppercase")}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSaving}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between border rounded-xl p-3">
+                    <div className="flex items-center justify-between border border-gray-200 bg-head rounded-xl p-3">
                       <div>
                         <Typography className="text-gray-800">
                           Require Lowercase
                         </Typography>
-                        <Typography className="text-gray-800">
+                        <Typography variant="caption" className="text-gray-500">
                           Password must contain lowercase letters
                         </Typography>
                       </div>
@@ -426,16 +507,16 @@ export default function PasswordConfig() {
                         slotProps={{ input: { "aria-label": "Require Lowercase" } }}
                         checked={isEditing ? (draftPolicy?.requireLowercase ?? policy.requireLowercase) : policy.requireLowercase}
                         onChange={updateBooleanField("requireLowercase")}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSaving}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between border rounded-xl p-3">
+                    <div className="flex items-center justify-between border border-gray-200 bg-head rounded-xl p-3">
                       <div>
                         <Typography className="text-gray-800">
                           Require Numbers
                         </Typography>
-                        <Typography className="text-gray-800">
+                        <Typography variant="caption" className="text-gray-500">
                           Password must contain numbers
                         </Typography>
                       </div>
@@ -444,16 +525,16 @@ export default function PasswordConfig() {
                         slotProps={{ input: { "aria-label": "Require Numbers" } }}
                         checked={isEditing ? (draftPolicy?.requireDigit ?? policy.requireDigit) : policy.requireDigit}
                         onChange={updateBooleanField("requireDigit")}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSaving}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between border rounded-xl p-3">
+                    <div className="flex items-center justify-between border border-gray-200 bg-head rounded-xl p-3">
                       <div>
                         <Typography className="text-gray-800">
                           Require Special Characters
                         </Typography>
-                        <Typography className="text-gray-800">
+                        <Typography variant="caption" className="text-gray-500">
                           Password must contain special symbols
                         </Typography>
                       </div>
@@ -462,16 +543,16 @@ export default function PasswordConfig() {
                         slotProps={{ input: { "aria-label": "Require Special Characters" } }}
                         checked={isEditing ? (draftPolicy?.requireSpecialChar ?? policy.requireSpecialChar) : policy.requireSpecialChar}
                         onChange={updateBooleanField("requireSpecialChar")}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSaving}
                       />
                     </div>
 
-                    <div className="flex items-center justify-between border rounded-xl p-3">
+                    <div className="flex items-center justify-between border border-gray-200 bg-head rounded-xl p-3">
                       <div>
                         <Typography className="text-gray-800">
                           Enable Two-Factor Authentication
                         </Typography>
-                        <Typography className="text-gray-800">
+                        <Typography variant="caption" className="text-gray-500">
                           Multi-factor authentication required
                         </Typography>
                       </div>
@@ -480,7 +561,7 @@ export default function PasswordConfig() {
                         slotProps={{ input: { "aria-label": "Enable Two-Factor Authentication" } }}
                         checked={isEditing ? (draftPolicy?.requireMfa ?? policy.requireMfa) : policy.requireMfa}
                         onChange={updateBooleanField("requireMfa")}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSaving}
                       />
                     </div>
                   </div>

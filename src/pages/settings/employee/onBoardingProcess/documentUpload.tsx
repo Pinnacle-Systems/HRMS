@@ -48,27 +48,8 @@ import { useUI } from "../../../../context/Snackbar";
 import dayjs from "dayjs";
 import EmployeeAsyncCombobox from "../../../../components/employees/EmployeeAsyncCombobox";
 import { getRowColor } from "../../../const";
-import { VisibilityOutlined } from "@mui/icons-material";
-
-interface OnboardingProgress {
-  onboardingId: string;
-  employeeId: string;
-  employeeCode: string;
-  employeeName: string;
-  employeeEmail: string;
-  overallStatus: string;
-  dueDate: string | null;
-  assignedAt: string;
-  completedAt: string | null;
-  welcomeEmailSentAt: string | null;
-  notes: string | null;
-  totalChecklists: number;
-  completedChecklists: number;
-  overallProgressPercent: number;
-  isActive: boolean;
-  deactivatedAt: string | null;
-  checklists: any[];
-}
+import { FilePresentOutlined, VisibilityOutlined } from "@mui/icons-material";
+import type { OnboardingProgress } from "./type";
 
 export const DocumentsUpload = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -86,6 +67,8 @@ export const DocumentsUpload = () => {
   });
   const [tasks, setTasks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  // const [isBulkUpload, setIsBulkUpload] = useState(false);
 
   const fetchEmployeeProgress = async (employeeId: string) => {
     try {
@@ -192,6 +175,32 @@ export const DocumentsUpload = () => {
     }
   };
 
+  // const handleBulkUpload = async () => {
+  //   if (!selectedFiles.length) {
+  //     showSnackbar("Please select files to upload", "error");
+  //     return;
+  //   }
+
+  //   try {
+  //     showSpinner();
+  //     await onBoardService.bulkUploadDocuments(
+  //       selectedEmployee?.id || "",
+  //       selectedFiles,
+  //       uploadData.taskInstanceId
+  //     );
+  //     showSnackbar(`${selectedFiles.length} documents uploaded successfully!`, "success");
+  //     setIsBulkUpload(false);
+  //     setSelectedFiles([]);
+  //     if (onboardingProgress) {
+  //       await fetchDocuments(onboardingProgress.onboardingId);
+  //     }
+  //   } catch (error: any) {
+  //     showSnackbar(error.message, "error");
+  //   } finally {
+  //     hideSpinner();
+  //   }
+  // };
+
   const handleDeleteDocument = async (taskInstanceId?: string) => {
     if (!taskInstanceId) {
       showSnackbar(
@@ -258,37 +267,37 @@ export const DocumentsUpload = () => {
     }
   };
 
-  const getDocumentTypeColor = (type: string) => {
-    const colors: Record<
-      string,
-      "primary" | "secondary" | "success" | "warning" | "error" | "info"
-    > = {
-      "ID Proof": "primary",
-      "Address Proof": "info",
-      Education: "success",
-      Experience: "warning",
-      Medical: "error",
-      Other: "secondary",
-    };
-    return colors[type] || "default";
-  };
+  // const getDocumentTypeColor = (type: string) => {
+  //   const colors: Record<
+  //     string,
+  //     "primary" | "secondary" | "success" | "warning" | "error" | "info"
+  //   > = {
+  //     "ID Proof": "primary",
+  //     "Address Proof": "info",
+  //     Education: "success",
+  //     Experience: "warning",
+  //     Medical: "error",
+  //     Other: "secondary",
+  //   };
+  //   return colors[type] || "default";
+  // };
 
-  const getDocumentTypeIcon = (type: string) => {
-    switch (type) {
-      case "ID Proof":
-        return "🪪";
-      case "Address Proof":
-        return "🏠";
-      case "Education":
-        return "🎓";
-      case "Experience":
-        return "💼";
-      case "Medical":
-        return "🏥";
-      default:
-        return "📄";
-    }
-  };
+  // const getDocumentTypeIcon = (type: string) => {
+  //   switch (type) {
+  //     case "ID Proof":
+  //       return "🪪";
+  //     case "Address Proof":
+  //       return "🏠";
+  //     case "Education":
+  //       return "🎓";
+  //     case "Experience":
+  //       return "💼";
+  //     case "Medical":
+  //       return "🏥";
+  //     default:
+  //       return "📄";
+  //   }
+  // };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
@@ -309,12 +318,12 @@ export const DocumentsUpload = () => {
 
       <Grid container spacing={3}>
         {/* Employee Selection Card */}
-        <Grid size={{ xs: 12, md: 2.5 }}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Zoom in={true} style={{ transitionDelay: "100ms" }}>
             <Card className="shadow-lg rounded-xl bg-white text-gray-800 overflow-hidden h-full">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-6">
-                  <PersonIcon className="text-primary" />
+                  <PersonIcon className="text-primary !w-4" />
                   <Typography variant="subtitle1" className="font-semibold">
                     Select Employee
                   </Typography>
@@ -354,12 +363,12 @@ export const DocumentsUpload = () => {
         </Grid>
 
         {/* Onboarding Progress Card */}
-        <Grid size={{ xs: 12, md: 3 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Zoom in={true} style={{ transitionDelay: "200ms" }}>
             <Card className="shadow-lg rounded-xl bg-white text-gray-800 overflow-hidden h-full">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <WorkIcon className="text-primary" />
+                  <WorkIcon className="text-primary !w-4" />
                   <Typography variant="subtitle1" className="font-semibold">
                     Onboarding Progress
                   </Typography>
@@ -419,12 +428,12 @@ export const DocumentsUpload = () => {
                               onboardingProgress.overallProgressPercent || 0
                             }
                             className="h-2 mt-2 rounded-full"
-                            // sx={{
-                            //   backgroundColor: 'rgba(255,255,255,0.3)',
-                            //   '& .MuiLinearProgress-bar': {
-                            //     backgroundColor: '#ffffff'
-                            //   }
-                            // }}
+                          // sx={{
+                          //   backgroundColor: 'rgba(255,255,255,0.3)',
+                          //   '& .MuiLinearProgress-bar': {
+                          //     backgroundColor: '#ffffff'
+                          //   }
+                          // }}
                           />
                         </div>
                       </Fade>
@@ -435,7 +444,7 @@ export const DocumentsUpload = () => {
                           <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
                             <Typography
                               variant="caption"
-                              
+
                               className="text-gray-800 block mb-2"
                             >
                               Checklist Details
@@ -515,13 +524,13 @@ export const DocumentsUpload = () => {
         </Grid>
 
         {/* Documents List Card */}
-        <Grid size={{ xs: 12, md: 6.5 }}>
+        <Grid size={{ xs: 12, md: 10 }}>
           <Zoom in={true} style={{ transitionDelay: "300ms" }}>
             <Card className="shadow-lg rounded-xl bg-white overflow-hidden h-full">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <FolderIcon className="text-primary" />
+                    <FilePresentOutlined className="text-primary !w-4" />
                     <Typography variant="subtitle1" className="font-semibold text-gray-800">
                       Documents
                     </Typography>
@@ -557,7 +566,7 @@ export const DocumentsUpload = () => {
                           <TableHead className="bg-gray-50">
                             <TableRow>
                               <TableCell className="font-semibold text-xs">
-                                Type
+                                Checklist / Task
                               </TableCell>
                               <TableCell className="font-semibold text-xs">
                                 File
@@ -568,16 +577,16 @@ export const DocumentsUpload = () => {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {documents.map((doc,i) => (
+                            {documents.map((doc, i) => (
                               <TableRow
                                 key={doc.id || doc.taskInstanceId}
                                 sx={getRowColor(i)}
                               >
                                 <TableCell>
                                   <Tooltip
-                                    title={doc.documentType || "Document"}
+                                    title={"Checklist"}
                                   >
-                                    <Chip
+                                    {/* <Chip
                                       label={`${getDocumentTypeIcon(doc.documentType || "Other")} ${doc.documentType || "Document"}`}
                                       size="small"
                                       color={getDocumentTypeColor(
@@ -585,7 +594,11 @@ export const DocumentsUpload = () => {
                                       )}
                                       variant="outlined"
                                       className="!text-xs"
-                                    />
+                                    /> */}
+                                    <div>
+                                      <div>{doc.checklistName}</div>
+                                      <div className="text-[10px]">{doc.taskTitle}</div>
+                                    </div>
                                   </Tooltip>
                                 </TableCell>
                                 <TableCell>
@@ -600,7 +613,7 @@ export const DocumentsUpload = () => {
                                     </Typography>
                                     <Typography
                                       variant="caption"
-                                      
+
                                       className="text-[10px] text-gray-800"
                                     >
                                       {doc.fileSize
@@ -620,9 +633,10 @@ export const DocumentsUpload = () => {
                                         href={doc.fileUrl}
                                         target="_blank"
                                         component="a"
+                                        rel="noopener noreferrer"
                                         className="hover:bg-primary-50"
                                       >
-                                        <VisibilityOutlined fontSize="small" className="text-primary"/>
+                                        <VisibilityOutlined fontSize="small" className="text-primary" />
                                       </IconButton>
                                     </Tooltip>
                                     <Tooltip title="Delete">
@@ -689,18 +703,18 @@ export const DocumentsUpload = () => {
         fullWidth
       >
         <div className="flex justify-between items-center p-2 border-b border-gray-200">
-            <Typography variant="h6" className="font-bold text-gray-800 !ml-4">
-              Upload Document
-            </Typography>
-            <IconButton
-              onClick={() => setIsUploadDialogOpen(false)}
-              className="hover:bg-gray-100"
-              size="small"
-            >
-              <CloseIcon />
-            </IconButton>
-          </div>
-        <DialogContent className="p-6">      
+          <Typography variant="h6" className="font-bold text-gray-800 !ml-4">
+            Upload Document
+          </Typography>
+          <IconButton
+            onClick={() => setIsUploadDialogOpen(false)}
+            className="hover:bg-gray-100"
+            size="small"
+          >
+            <CloseIcon />
+          </IconButton>
+        </div>
+        <DialogContent className="p-6">
           <div className="space-y-6">
             <FormControl fullWidth>
               <InputLabel className="text-gray-600">Select Task</InputLabel>
@@ -753,7 +767,7 @@ export const DocumentsUpload = () => {
                 className="rounded-xl"
               >
                 <MenuItem value="ID Proof">
-                   ID Proof (Aadhaar, PAN, Passport)
+                  ID Proof (Aadhaar, PAN, Passport)
                 </MenuItem>
                 <MenuItem value="Address Proof"> Address Proof</MenuItem>
                 <MenuItem value="Education"> Education Certificate</MenuItem>
@@ -802,11 +816,10 @@ export const DocumentsUpload = () => {
                   component="span"
                   fullWidth
                   startIcon={<AttachmentIcon />}
-                  className={`rounded-xl py-3 border-dashed ${
-                    selectedFile
-                      ? "border-green-500 bg-green-50"
-                      : "border-gray-300"
-                  }`}
+                  className={`rounded-xl py-3 border-dashed ${selectedFile
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-300"
+                    }`}
                 >
                   {selectedFile ? (
                     <div className="flex items-center gap-2">

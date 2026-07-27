@@ -33,91 +33,17 @@ import TrendingUp from "@mui/icons-material/TrendingUp";
 import Email from "@mui/icons-material/Email";
 import Business from "@mui/icons-material/Business";
 import {
-  // normalizeOnboardingAssignmentsResponse,
   onBoardService,
+  type OnboardingAssignment,
 } from "../../../../services/modules/onBoard";
 import { useUI } from "../../../../context/Snackbar";
 import dayjs from "dayjs";
 import { getRowColor } from "../../../const";
 import { GlobalPagination } from "../../../../components/GlobalPagination";
-
-interface OnboardingAssignment {
-  onboardingId: string;
-  employeeId: string;
-  employeeCode: string;
-  employeeName: string;
-  employeeEmail: string;
-  branchId: string;
-  branchName: string;
-  departmentId: string;
-  departmentName: string;
-  overallStatus:
-    | "IN_PROGRESS"
-    | "COMPLETED"
-    | "PENDING"
-    | "OVERDUE"
-    | "SCHEDULED";
-  assignedAt: string;
-  welcomeEmailSentAt: string | null;
-  totalChecklists: number;
-  completedChecklists: number;
-  overallProgressPercent: number;
-  isActive: boolean;
-}
-
-interface Task {
-  id: string;
-  taskId: string;
-  title: string;
-  description: string;
-  taskType: string;
-  documentName: string | null;
-  sortOrder: number;
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "OVERDUE";
-  completedAt: string | null;
-  fileUrl: string | null;
-  fileName: string | null;
-  fileSize: string | null;
-  notes: string | null;
-  required: boolean;
-}
-
-interface Checklist {
-  id: string;
-  checklistId: string;
-  checklistName: string;
-  status: string;
-  dueDate: string | null;
-  completedAt: string | null;
-  totalTasks: number;
-  completedTasks: number;
-  skippedTasks: number;
-  progressPercent: number;
-  tasks: Task[];
-}
-
-interface OnboardingDetail {
-  onboardingId: string;
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  employeeEmail: string;
-  overallStatus: string;
-  dueDate: string | null;
-  assignedAt: string;
-  completedAt: string | null;
-  welcomeEmailSentAt: string | null;
-  notes: string | null;
-  totalChecklists: number;
-  completedChecklists: number;
-  overallProgressPercent: number;
-  isActive: boolean;
-  deactivatedAt: string | null;
-  checklists: Checklist[];
-}
+import type { OnboardingDetail, Checklist, Task } from "./type";
 
 export const ProgressTracking = () => {
-  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [onboardings, setOnboardings] = useState<OnboardingAssignment[]>([]);
   const [selectedOnboarding, setSelectedOnboarding] =
     useState<OnboardingDetail | null>(null);
@@ -125,7 +51,7 @@ export const ProgressTracking = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
-  const [_stats, setStats] = useState({
+  const [stats, setStats] = useState({
     total: 0,
     inProgress: 0,
     completed: 0,
@@ -136,10 +62,13 @@ export const ProgressTracking = () => {
   const fetchOnboardings = async () => {
     try {
       showSpinner();
-      const response: any = await onBoardService.getAssignments({ size: 100 });
+      const response: any = await onBoardService.getAssignments({ 
+        page, 
+        size: limit 
+      });
       const content = response.data?.content || response.data || [];
       setOnboardings(content);
-      setTotal(response.data.totalElements || 0);
+      setTotal(response.data?.totalElements || 0);
 
       // Calculate stats from the actual data
       const inProgress = content.filter(
@@ -177,9 +106,10 @@ export const ProgressTracking = () => {
 
   useEffect(() => {
     fetchOnboardings();
-    // const interval = setInterval(fetchOnboardings, 30000);
-    // return () => clearInterval(interval);
-  }, []);
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchOnboardings, 30000);
+    return () => clearInterval(interval);
+  }, [page, limit]);
 
   const handleViewProgress = async (onboarding: OnboardingAssignment) => {
     setIsDetailsOpen(true);
@@ -202,9 +132,10 @@ export const ProgressTracking = () => {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status?.toUpperCase()) {
+    const normalizedStatus = status?.toUpperCase() || "";
+    switch (normalizedStatus) {
       case "COMPLETED":
-        return <CheckCircle className="text-green-500" />;
+        return <CheckCircle className="text-green-700" />;
       case "IN_PROGRESS":
         return <Schedule className="text-blue-500" />;
       case "OVERDUE":
@@ -216,8 +147,11 @@ export const ProgressTracking = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toUpperCase()) {
+  const getStatusColor = (
+    status: string,
+  ): "success" | "info" | "error" | "warning" | "default" => {
+    const normalizedStatus = status?.toUpperCase() || "";
+    switch (normalizedStatus) {
       case "COMPLETED":
         return "success";
       case "IN_PROGRESS":
@@ -232,6 +166,7 @@ export const ProgressTracking = () => {
   };
 
   const getStatusDisplay = (status: string) => {
+    const normalizedStatus = status?.toUpperCase() || "";
     const map: Record<string, string> = {
       IN_PROGRESS: "In Progress",
       COMPLETED: "Completed",
@@ -239,13 +174,14 @@ export const ProgressTracking = () => {
       PENDING: "Pending",
       SCHEDULED: "Scheduled",
     };
-    return map[status?.toUpperCase()] || status || "—";
+    return map[normalizedStatus] || status || "—";
   };
 
   const getTaskStatusIcon = (status: string) => {
-    switch (status?.toUpperCase()) {
+    const normalizedStatus = status?.toUpperCase() || "";
+    switch (normalizedStatus) {
       case "COMPLETED":
-        return <CheckCircle className="!text-green-500 text-sm" />;
+        return <CheckCircle className="!text-green-700 text-sm" />;
       case "IN_PROGRESS":
         return <Schedule className="text-blue-500 text-sm" />;
       case "OVERDUE":
@@ -264,132 +200,278 @@ export const ProgressTracking = () => {
     setPage(0);
   };
 
+  const handleExportReport = async () => {
+    try {
+      showSpinner();
+      // const response: any = await onBoardService.exportReport({
+      //   startDate: dayjs().subtract(30, "days").format("YYYY-MM-DD"),
+      //   endDate: dayjs().format("YYYY-MM-DD"),
+      // });
+
+      // Create download link
+      // const url = window.URL.createObjectURL(new Blob([response.data]));
+      // const link = document.createElement("a");
+      // link.href = url;
+      // link.setAttribute(
+      //   "download",
+      //   `onboarding-report-${dayjs().format("YYYY-MM-DD")}.xlsx`,
+      // );
+      // document.body.appendChild(link);
+      // link.click();
+      // link.remove();
+
+      // showSnackbar("Report downloaded successfully!", "success");
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // Fetch stats
+  // const fetchStats = async () => {
+  //   try {
+  //     const response: any = await onBoardService.getOnboardingStats({
+  //       startDate: dayjs().subtract(30, "days").format("YYYY-MM-DD"),
+  //       endDate: dayjs().format("YYYY-MM-DD"),
+  //     });
+  //     setStats(response.data);
+  //   } catch (error: any) {
+  //     showSnackbar(error.message, "error");
+  //   }
+  // };
+
+  // Send reminder functionality
+  const handleSendReminder = async (employeeId: string) => {
+    if (!employeeId) {
+      showSnackbar("Employee ID is missing", "error");
+      return;
+    }
+
+    showConfirmDialog({
+      title: "Send Reminder",
+      message: "Send a reminder to this employee about pending tasks?",
+      confirmText: "Send",
+      onConfirm: async () => {
+        // try {
+        //   showSpinner();
+        //   await onBoardService.sendReminder({
+        //     employeeId,
+        //     reminderType: "OVERDUE",
+        //   });
+        //   showSnackbar("Reminder sent successfully!", "success");
+        // } catch (error: any) {
+        //   showSnackbar(error.message, "error");
+        // } finally {
+        //   hideSpinner();
+        // }
+      },
+    });
+  };
+
+  // Add reminder button to table actions
+  const renderActionButtons = (onboarding: OnboardingAssignment) => {
+    const isOverdue = onboarding.overallStatus === "OVERDUE";
+    const isPending = onboarding.overallStatus === "PENDING";
+    const isInProgress = onboarding.overallStatus === "IN_PROGRESS";
+
+    return (
+      <div className="flex gap-1 justify-center flex-wrap">
+        <Tooltip title="View Progress Details">
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Visibility />}
+            onClick={() => handleViewProgress(onboarding)}
+            // className="!border-primary !text-primary hover:!bg-primary hover:!text-white"
+            sx={{ textTransform: "none", fontSize: "11px" }}
+          >
+            View
+          </Button>
+        </Tooltip>
+        {(isOverdue || isPending || isInProgress) && (
+          <Tooltip title="Send Reminder">
+            <Button
+              size="small"
+              variant="outlined"
+              // color="warning"
+              className="!border-primary !text-primary hover:!bg-primary hover:!text-white"
+              onClick={() => handleSendReminder(onboarding.employeeId || "")}
+              sx={{ textTransform: "none", fontSize: "11px" }}
+            >
+              Remind
+            </Button>
+          </Tooltip>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="py-4 pb-0 bg-gray-50">
-      <div className="mb-6">
-        <Typography variant="h4" className="font-bold text-gray-800">
-          Onboarding Progress Tracking
-        </Typography>
-        <Typography variant="body2" className="text-gray-500">
-          Track and monitor employee onboarding progress
-        </Typography>
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <Typography variant="h4" className="font-bold text-gray-800">
+            Onboarding Progress Tracking
+          </Typography>
+          <Typography variant="body2" className="text-gray-500">
+            Track and monitor employee onboarding progress
+          </Typography>
+        </div>
+        <Button
+          variant="contained"
+          onClick={handleExportReport}
+          className="!bg-primary"
+        >
+          Export Report
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      {/* <Grid container spacing={3} className="mb-6">
-        <Grid size={{xs:12,sm:6,md:2}}>
+      <Grid container spacing={3} className="mb-6">
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card className="!bg-gradient-to-r !from-blue-100 !to-blue-300 shadow-lg">
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <Typography variant="h3" className="font-bold">{stats.total}</Typography>
-                  <Typography variant="body2" className="opacity-80">Total Onboardings</Typography>
+                  <Typography variant="h4" className="font-bold">
+                    {stats.total}
+                  </Typography>
+                  <Typography variant="body2" className="opacity-80">
+                    Total
+                  </Typography>
                 </div>
-                <TaskAlt fontSize="large" className="text-blue-500" />
+                <CheckCircle fontSize="large" className="text-blue-500" />
               </div>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{xs:12,sm:6,md:2}}>
-          <Card className="!bg-gradient-to-r !from-yellow-100 !to-yellow-300  shadow-lg">
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <Card className="!bg-gradient-to-r !from-yellow-100 !to-yellow-300 shadow-lg">
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <Typography variant="h3" className="font-bold">{stats.inProgress}</Typography>
-                  <Typography variant="body2" className="opacity-80">In Progress</Typography>
+                  <Typography variant="h4" className="font-bold">
+                    {stats.inProgress}
+                  </Typography>
+                  <Typography variant="body2" className="opacity-80">
+                    In Progress
+                  </Typography>
                 </div>
                 <Schedule fontSize="large" className="text-yellow-500" />
               </div>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{xs:12,sm:6,md:2}}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card className="!bg-gradient-to-r !from-green-100 !to-green-300 shadow-lg">
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <Typography variant="h3" className="font-bold">{stats.completed}</Typography>
-                  <Typography variant="body2" >Completed</Typography>
+                  <Typography variant="h4" className="font-bold">
+                    {stats.completed}
+                  </Typography>
+                  <Typography variant="body2" className="opacity-80">
+                    Completed
+                  </Typography>
                 </div>
-                <CheckCircle fontSize="large" className="text-green-500" />
+                <CheckCircle fontSize="large" className="text-green-700" />
               </div>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{xs:12,sm:6,md:2}}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card className="!bg-gradient-to-r !from-red-100 !to-red-300 shadow-lg">
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <Typography variant="h3" className="font-bold">{stats.overdue}</Typography>
-                  <Typography variant="body2" className="opacity-80">Overdue</Typography>
+                  <Typography variant="h4" className="font-bold">
+                    {stats.overdue}
+                  </Typography>
+                  <Typography variant="body2" className="opacity-80">
+                    Overdue
+                  </Typography>
                 </div>
-                <Cancel fontSize="large" className="text-red-500" />
+                <Warning fontSize="large" className="text-red-500" />
               </div>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{xs:12,sm:6,md:2}}>
+        <Grid size={{xs: 6, sm: 4, md: 2}}>
           <Card className="!bg-gradient-to-r !from-purple-100 !to-purple-300 shadow-lg">
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <Typography variant="h3" className="font-bold">{stats.avgProgress}%</Typography>
-                  <Typography variant="body2" className="opacity-80">Avg Progress</Typography>
+                  <Typography variant="h4" className="font-bold">
+                    {stats.avgProgress}%
+                  </Typography>
+                  <Typography variant="body2" className="opacity-80">
+                    Avg Progress
+                  </Typography>
                 </div>
                 <TrendingUp fontSize="large" className="text-purple-500" />
               </div>
             </CardContent>
           </Card>
         </Grid>
-      </Grid> */}
+      </Grid>
 
       {/* Onboarding List */}
-      {/* <Paper className="shadow-lg rounded-lg overflow-hidden"> */}
-        <TableContainer className="h-[calc(100vh-335px)] overflow-auto">
-          <Table className="border border-gray-200 rounded-md">
-            <TableHead className="bg-gray-100">
+      <TableContainer className="h-[calc(100vh-460px)] overflow-auto">
+        <Table className="border border-gray-200 rounded-md">
+          <TableHead className="bg-gray-100">
+            <TableRow>
+              <TableCell className="font-semibold !sticky left-0 !z-30 bg-inherit">#</TableCell>
+              <TableCell className="font-semibold !sticky left-[35px] !z-30 bg-inherit">Employee</TableCell>
+              <TableCell className="font-semibold">Department</TableCell>
+              <TableCell className="font-semibold">Branch</TableCell>
+              <TableCell className="font-semibold">Status</TableCell>
+              <TableCell className="font-semibold">Progress</TableCell>
+              <TableCell className="font-semibold">Checklists</TableCell>
+              <TableCell className="font-semibold">Assigned At</TableCell>
+              <TableCell className="font-semibold !sticky right-0 !z-30 bg-inherit text-center">
+                Actions
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {onboardings.length === 0 ? (
               <TableRow>
-                <TableCell className="font-semibold">#</TableCell>
-                <TableCell className="font-semibold">Employee</TableCell>
-                <TableCell className="font-semibold">Department</TableCell>
-                <TableCell className="font-semibold">Branch</TableCell>
-                <TableCell className="font-semibold">Status</TableCell>
-                <TableCell className="font-semibold">Progress</TableCell>
-                <TableCell className="font-semibold">Checklists</TableCell>
-                <TableCell className="font-semibold">Assigned At</TableCell>
-                <TableCell className="font-semibold text-center">
-                  Actions
+                <TableCell colSpan={9} align="center" className="py-8">
+                  <div className="text-gray-500 py-5">
+                    No onboarding assignments found
+                  </div>
                 </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {onboardings.map((onboarding, index) => {
+            ) : (
+              onboardings.map((onboarding, index) => {
                 const progress = onboarding.overallProgressPercent || 0;
                 const statusDisplay = getStatusDisplay(
-                  onboarding.overallStatus,
+                  onboarding.overallStatus || "",
                 );
-                const statusColor = getStatusColor(onboarding.overallStatus);
-                // const isActive = onboarding.isActive;
+                const statusColor = getStatusColor(
+                  onboarding.overallStatus || "",
+                );
 
                 return (
                   <TableRow
                     key={onboarding.onboardingId || index}
                     sx={getRowColor(index)}
                   >
-                    <TableCell>{index + 1}</TableCell>
-                    <TableCell>
+                    <TableCell className="!sticky left-0 !z-20 bg-inherit">{index + 1}</TableCell>
+                    <TableCell className="!sticky left-[35px] !z-20 bg-inherit">
                       <div className="flex items-center gap-3">
                         <Avatar className="!w-8 !h-8 !bg-primary">
                           {onboarding.employeeName?.charAt(0) || "?"}
                         </Avatar>
                         <div>
                           <div className="text-gray-800">
-                            {onboarding.employeeName || "—"} <span className="text-[10px] text-gray-500">({onboarding.employeeCode || "—"})</span>
+                            {onboarding.employeeName || "—"}{" "}
+                            <span className="text-[10px] text-gray-500">
+                              ({onboarding.employeeCode || "—"})
+                            </span>
                           </div>
-                         
-                          <div className="text-[10px] text-primary flex items-center gap-1">
-                            {/* <EmailOutlined className="text-[12px]" />{" "} */}
+                          <div className="text-[10px] text-gray-500 flex items-center gap-1">
                             {onboarding.employeeEmail || "—"}
                           </div>
                         </div>
@@ -413,7 +495,6 @@ export const ProgressTracking = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        {/* {getStatusIcon(onboarding.overallStatus)} */}
                         <Chip
                           label={statusDisplay}
                           size="small"
@@ -444,7 +525,7 @@ export const ProgressTracking = () => {
                             "& .MuiLinearProgress-bar": {
                               backgroundColor:
                                 progress === 100
-                                  ? "#22c55e"
+                                  ? "#167d3c"
                                   : progress >= 70
                                     ? "#3b82f6"
                                     : progress >= 40
@@ -460,55 +541,38 @@ export const ProgressTracking = () => {
                         <div className="font-medium">
                           {onboarding.totalChecklists || 0}
                         </div>
-                        {/* <div className="text-xs text-gray-500">Total Checklists</div> */}
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div >
-                        <div>
-                          {onboarding.assignedAt
-                            ? dayjs(onboarding.assignedAt).format("DD MMM YYYY hh:mm a")
-                            : "—"}
-                        </div>
-                        {/* <div className="text-[10px] text-gray-500">
-                          {onboarding.assignedAt
-                            ? dayjs(onboarding.assignedAt).format("hh:mm A")
-                            : ""}
-                        </div> */}
+                      <div>
+                        {onboarding.assignedAt
+                          ? dayjs(onboarding.assignedAt).format(
+                              "DD MMM YYYY hh:mm a",
+                            )
+                          : "—"}
                       </div>
                     </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="View Progress Details">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          startIcon={<Visibility />}
-                          onClick={() => handleViewProgress(onboarding)}
-                          className="!border-primary !text-primary hover:!bg-primary hover:!text-white"
-                          sx={{ textTransform: "none" }}
-                        >
-                          View Details
-                        </Button>
-                      </Tooltip>
+                    <TableCell align="center" className="!sticky right-0 !z-20 bg-inherit">
+                      {renderActionButtons(onboarding)}
                     </TableCell>
                   </TableRow>
                 );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        {total > 0 && (
-          <GlobalPagination
-            total={total}
-            page={page + 1}
-            limit={limit}
-            onPageChange={handlePageChange}
-            onLimitChange={handleLimitChange}
-            pageSizeOptions={[10, 20, 50, 100]}
-            showTotal={true}
-          />
-        )}
-      {/* </Paper> */}
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      {total > 0 && (
+        <GlobalPagination
+          total={total}
+          page={page + 1}
+          limit={limit}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          pageSizeOptions={[10, 20, 50, 100]}
+          showTotal={true}
+        />
+      )}
 
       {/* Progress Details Dialog */}
       <Dialog
@@ -540,7 +604,9 @@ export const ProgressTracking = () => {
                 label={getStatusDisplay(
                   selectedOnboarding?.overallStatus || "",
                 )}
-                color={getStatusColor(selectedOnboarding?.overallStatus || "")}
+                color={getStatusColor(
+                  selectedOnboarding?.overallStatus || "",
+                )}
                 className="font-medium"
               />
               <Chip
@@ -576,7 +642,7 @@ export const ProgressTracking = () => {
                 <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                   <Card className="!bg-green-50 !border !border-green-100">
                     <CardContent className="flex items-center gap-2">
-                      <CheckCircle className="text-green-500" />
+                      <CheckCircle className="text-green-700" />
                       <div>
                         <Typography variant="caption" color="textSecondary">
                           Completed Checklists
@@ -616,7 +682,7 @@ export const ProgressTracking = () => {
                     >
                       Overall Progress
                     </Typography>
-                    <Typography variant="h5" className="font-bold text-primary">
+                    <Typography variant="h5" className="font-bold text-gray-800">
                       {selectedOnboarding.overallProgressPercent || 0}%
                     </Typography>
                   </div>
@@ -630,7 +696,7 @@ export const ProgressTracking = () => {
                         backgroundColor:
                           (selectedOnboarding.overallProgressPercent || 0) ===
                           100
-                            ? "#22c55e"
+                            ? "#0f7735"
                             : "#3b82f6",
                       },
                     }}
@@ -685,7 +751,7 @@ export const ProgressTracking = () => {
                           key={task.id}
                           className={`border-l-4 ${
                             task.status === "COMPLETED"
-                              ? "border-l-green-500"
+                              ? "border-l-green-600"
                               : task.status === "IN_PROGRESS"
                                 ? "border-l-blue-500"
                                 : task.status === "OVERDUE"
@@ -737,8 +803,8 @@ export const ProgressTracking = () => {
                                   )}
                                   {task.status === "COMPLETED" &&
                                     task.completedAt && (
-                                      <span className="text-green-600 flex items-center gap-1">
-                                        ✅ Completed:{" "}
+                                      <span className="text-primary flex items-center gap-1">
+                                        Completed:{" "}
                                         {dayjs(task.completedAt).format(
                                           "DD MMM YYYY",
                                         )}

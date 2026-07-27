@@ -206,8 +206,8 @@ export function CorrectionsView() {
                 </TableRow>
               ) : corrections.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} align="center" className="py-8 text-gray-400 text-sm">
-                    No correction requests found
+                  <TableCell colSpan={11} align="center">
+                    <div className="py-6 text-gray-400 text-[12px]">No correction requests found</div>
                   </TableCell>
                 </TableRow>
               ) : (

@@ -240,7 +240,7 @@ export default function CategorySettings() {
 
       {/* Categories Grid View */}
       <div className="h-[calc(100vh-250px)] overflow-auto">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mb-4">
           {categories.map((category) => (
             <Card
               key={category.id}

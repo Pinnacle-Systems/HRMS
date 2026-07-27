@@ -1,6 +1,7 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+// ============ Existing Types (keep as is) ============
 export type AssignOnboardingForm = {
     employeeId: string;
     checklistId?: string;
@@ -21,6 +22,13 @@ export type SendWelcomeRequest = {
     employeeIds: string[];
 };
 
+export type CompleteTaskRequest = {
+    notes?: string;
+    status?: "COMPLETED" | "IN_PROGRESS" | "PENDING" | "OVERDUE";
+};
+
+export type ChecklistTaskType = "DOCUMENT" | "FORM" | "VIDEO" | "TRAINING" | "CUSTOM";
+
 export type ChecklistTaskForm = {
     id?: string;
     taskName?: string;
@@ -31,8 +39,6 @@ export type ChecklistTaskForm = {
     sortOrder?: number;
     required?: boolean;
 };
-
-export type ChecklistTaskType = "DOCUMENT" | "FORM" | "VIDEO" | "TRAINING" | "CUSTOM";
 
 export type ChecklistTaskRequest = {
     title: string;
@@ -57,12 +63,23 @@ export type OnboardingAssignment = {
     onboardingId?: string;
     employeeId?: string;
     employeeName?: string;
+    employeeCode?: string;
+    employeeEmail?: string;
+    branchName?: string;
+    departmentName?: string;
     checklistId?: string;
     checklistName?: string;
-    status?: string;
+    overallStatus?: "IN_PROGRESS" | "COMPLETED" | "PENDING" | "OVERDUE" | "SCHEDULED";
     progress?: number;
+    overallProgressPercent?: number;
+    totalChecklists?: number;
+    completedChecklists?: number;
     startDate?: string;
+    assignedAt?: string;
+    dueDate?: string;
     expectedEndDate?: string;
+    welcomeEmailSentAt?: string | null;
+    isActive?: boolean;
     active?: boolean;
     [key: string]: any;
 };
@@ -74,11 +91,51 @@ export type AssignedTaskDetail = {
     taskInstanceId?: string;
     taskName?: string;
     title?: string;
-    status?: string;
+    status?: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "OVERDUE";
     description?: string;
     taskType?: ChecklistTaskType;
     documentName?: string;
+    required?: boolean;
+    completedAt?: string | null;
+    fileUrl?: string | null;
+    fileName?: string | null;
+    notes?: string | null;
+    sortOrder?: number;
     [key: string]: any;
+};
+
+export type ChecklistWithTasks = {
+    id: string;
+    checklistId: string;
+    checklistName: string;
+    status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "OVERDUE";
+    dueDate: string | null;
+    completedAt: string | null;
+    totalTasks: number;
+    completedTasks: number;
+    skippedTasks: number;
+    progressPercent: number;
+    tasks: AssignedTaskDetail[];
+};
+
+export type OnboardingProgress = {
+    onboardingId: string;
+    employeeId: string;
+    employeeCode: string;
+    employeeName: string;
+    employeeEmail: string;
+    overallStatus: string;
+    dueDate: string | null;
+    assignedAt: string;
+    completedAt: string | null;
+    welcomeEmailSentAt: string | null;
+    notes: string | null;
+    totalChecklists: number;
+    completedChecklists: number;
+    overallProgressPercent: number;
+    isActive: boolean;
+    deactivatedAt: string | null;
+    checklists: ChecklistWithTasks[];
 };
 
 export type OnboardingDocument = {
@@ -89,6 +146,7 @@ export type OnboardingDocument = {
     documentName?: string;
     fileName?: string;
     fileUrl?: string;
+    fileSize?: number;
     uploadedAt?: string;
     notes?: string;
     [key: string]: any;
@@ -101,6 +159,63 @@ export type CreateDocumentRequest = {
     notes?: string;
 };
 
+export type OnboardingStats = {
+    totalOnboardings: number;
+    activeOnboardings: number;
+    completedOnboardings: number;
+    overdueOnboardings: number;
+    averageCompletionTime: number;
+    completionRate: number;
+    pendingTasks: number;
+    totalTasks: number;
+    documentsUploaded: number;
+    [key: string]: any;
+};
+
+export type ReminderRequest = {
+    employeeId: string;
+    reminderType?: "OVERDUE" | "UPCOMING_DEADLINE" | "WEEKLY_SUMMARY";
+    message?: string;
+};
+
+export type BulkAssignRequest = {
+    employeeIds: string[];
+    checklistIds: string[];
+    dueDate?: string;
+    notes?: string;
+};
+
+export type UpdateChecklistRequest = {
+    name?: string;
+    description?: string;
+    active?: boolean;
+};
+
+export type ExtendDeadlineRequest = {
+    newDueDate: string;
+    reason?: string;
+};
+
+export type UpdateAssignmentRequest = {
+    dueDate?: string;
+    notes?: string;
+    checklistIds?: string[];
+};
+
+export type ReviewOnboardingRequest = {
+    status: "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
+    comments?: string;
+};
+
+export type SkipTaskRequest = {
+    reason?: string;
+    status?: "SKIPPED";
+};
+
+export type AssistanceRequest = {
+    message: string;
+};
+
 export const CHECKLIST_TASK_TYPES: ChecklistTaskType[] = [
     "DOCUMENT",
     "FORM",
@@ -109,6 +224,7 @@ export const CHECKLIST_TASK_TYPES: ChecklistTaskType[] = [
     "CUSTOM",
 ];
 
+// ============ Utility Functions ============
 const compactString = (value?: string) => value?.trim();
 
 export const buildAssignOnboardingPayload = (
@@ -133,13 +249,11 @@ export const buildAssignOnboardingPayload = (
         payload.notes = compactString(form.notes);
     }
 
-    // The assignment UI currently captures startDate, but Swagger accepts dueDate.
-    // Do not send startDate unless the UI is changed to capture a true due date.
     return payload;
 };
 
-export const buildSendWelcomePayload = (employeeId: string): SendWelcomeRequest => ({
-    employeeIds: [employeeId],
+export const buildSendWelcomePayload = (employeeIds: string[]): SendWelcomeRequest => ({
+    employeeIds,
 });
 
 export const buildChecklistTaskPayload = (
@@ -156,6 +270,16 @@ export const buildChecklistTaskPayload = (
     required: form.required ?? true,
 });
 
+export const buildBulkAssignPayload = (
+    data: BulkAssignRequest
+): BulkAssignRequest => ({
+    employeeIds: data.employeeIds,
+    checklistIds: data.checklistIds,
+    ...(data.dueDate ? { dueDate: data.dueDate } : {}),
+    ...(data.notes ? { notes: data.notes } : {}),
+});
+
+// ============ Normalization Functions ============
 export const normalizeOnboardingAssignmentsResponse = (
     response: any,
 ): OnboardingAssignment[] => {
@@ -178,8 +302,10 @@ export const normalizeDocumentsResponse = (response: any): OnboardingDocument[] 
     return Array.isArray(documents) ? documents : [];
 };
 
+// ============ Main Service ============
 export const onBoardService = {
 
+    // ============ Checklist Management ============
     async createChecklist(data: any) {
         const response = await apiService.post(API_ENDPOINTS.ONBOARDING.CREATE, data);
         return response;
@@ -195,7 +321,7 @@ export const onBoardService = {
         return response;
     },
 
-    async updateChecklist(id: string, data: any) {
+    async updateChecklist(id: string, data: UpdateChecklistRequest) {
         const response = await apiService.put(API_ENDPOINTS.ONBOARDING.UPDATE(id), data);
         return response;
     },
@@ -205,6 +331,15 @@ export const onBoardService = {
         return response;
     },
 
+    // async duplicateChecklist(id: string, newName?: string) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.DUPLICATE(id),
+    //         { name: newName }
+    //     );
+    //     return response;
+    // },
+
+    // ============ Task Management ============
     async createTask(checklistId: string, data: ChecklistTaskForm, sortOrder?: number) {
         const response = await apiService.post(
             API_ENDPOINTS.ONBOARDING.CREATE_TASK(checklistId),
@@ -231,16 +366,61 @@ export const onBoardService = {
         return response;
     },
 
+    // async bulkCreateTasks(checklistId: string, tasks: ChecklistTaskForm[]) {
+    //     const payload = tasks.map((task, index) =>
+    //         buildChecklistTaskPayload(task, index)
+    //     );
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.BULK_TASKS(checklistId),
+    //         payload
+    //     );
+    //     return response;
+    // },
+
+    // ============ Task Completion ============
     async getEmployeeTasks(onboardingId: string, checklistId: string) {
         const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_BY_ID(onboardingId, checklistId));
         return response;
     },
 
-    async completeTask(taskId: string, data?: any) {
-        const response = await apiService.patch(API_ENDPOINTS.ONBOARDING.PATCH_TASK(taskId), data);
+    async completeTask(taskId: string, data?: CompleteTaskRequest) {
+        const response = await apiService.patch(
+            API_ENDPOINTS.ONBOARDING.PATCH_TASK(taskId),
+            data || { status: "COMPLETED" }
+        );
         return response;
     },
 
+    // async skipTask(taskId: string, data?: SkipTaskRequest) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.SKIP_TASK(taskId),
+    //         data || { status: "SKIPPED" }
+    //     );
+    //     return response;
+    // },
+
+    // async requestTaskAssistance(taskId: string, data: AssistanceRequest) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.REQUEST_ASSISTANCE(taskId),
+    //         data
+    //     );
+    //     return response;
+    // },
+
+    // async getTaskDetails(taskId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_TASK(taskId));
+    //     return response;
+    // },
+
+    // async startTask(taskId: string) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.START_TASK(taskId),
+    //         { status: "IN_PROGRESS" }
+    //     );
+    //     return response;
+    // },
+
+    // ============ Assignment Management ============
     async assignOnboarding(data: AssignOnboardingForm) {
         const response = await apiService.post(
             API_ENDPOINTS.ONBOARDING.ASSIGN,
@@ -249,8 +429,16 @@ export const onBoardService = {
         return response;
     },
 
+    // async bulkAssignOnboarding(data: BulkAssignRequest) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.BULK_ASSIGN,
+    //         buildBulkAssignPayload(data)
+    //     );
+    //     return response;
+    // },
+
     async deleteEmployeeOnboarding(id: string) {
-        const response = await apiService.delete(API_ENDPOINTS.ONBOARDING.DELETE_EMP(id));
+        const response = await apiService.delete(API_ENDPOINTS.ONBOARDING.DEACTIVATE(id));
         return response;
     },
 
@@ -259,11 +447,56 @@ export const onBoardService = {
         return response;
     },
 
+    async getAssignments(params?: OnboardingAssignmentsQuery) {
+        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.ASSIGNMENTS, { params });
+        return response;
+    },
+
+    async getEmployeeOnboardings(params?: OnboardingAssignmentsQuery) {
+        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.ASSIGNMENTS, { params });
+        return response;
+    },
+
+    // async getAssignmentById(id: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_ASSIGNMENT(id));
+    //     return response;
+    // },
+
+    // async updateAssignment(id: string, data: UpdateAssignmentRequest) {
+    //     const response = await apiService.put(API_ENDPOINTS.ONBOARDING.UPDATE_ASSIGNMENT(id), data);
+    //     return response;
+    // },
+
+    // async extendDeadline(id: string, data: ExtendDeadlineRequest) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.EXTEND_DEADLINE(id),
+    //         data
+    //     );
+    //     return response;
+    // },
+
+    // ============ Progress Tracking ============
     async getProgress(employeeId: string) {
         const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_PROGRESS(employeeId));
         return response;
     },
 
+    // async getOnboardingDetail(onboardingId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_DETAIL(onboardingId));
+    //     return response;
+    // },
+
+    // async getProgressSummary(params?: { department?: string; branch?: string; from?: string; to?: string }) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.PROGRESS_SUMMARY, { params });
+    //     return response;
+    // },
+
+    // async getChecklistProgress(checklistId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.CHECKLIST_PROGRESS(checklistId));
+    //     return response;
+    // },
+
+    // ============ Document Management ============
     async createDocument(data: CreateDocumentRequest) {
         if (!data.taskInstanceId) {
             throw new Error("taskInstanceId is required to upload an onboarding document");
@@ -293,6 +526,11 @@ export const onBoardService = {
         return response;
     },
 
+    // async getDocumentById(documentId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.GET_DOCUMENT(documentId));
+    //     return response;
+    // },
+
     async deleteDocument(taskInstanceId: string) {
         if (!taskInstanceId) {
             throw new Error("taskInstanceId is required to delete an onboarding document");
@@ -301,22 +539,236 @@ export const onBoardService = {
         return response;
     },
 
-    async sendWelcomeMessage(payload: any) {
+    // async updateDocument(documentId: string, data: { notes?: string; documentType?: string }) {
+    //     const response = await apiService.patch(API_ENDPOINTS.ONBOARDING.UPDATE_DOC(documentId), data);
+    //     return response;
+    // },
+
+    // async downloadDocument(documentId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.DOWNLOAD_DOC(documentId), {
+    //         responseType: 'blob'
+    //     });
+    //     return response;
+    // },
+
+    // async bulkUploadDocuments(employeeId: string, files: File[], taskInstanceId: string) {
+    //     const formData = new FormData();
+    //     files.forEach(file => formData.append("files", file));
+
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.BULK_UPLOAD_DOCS,
+    //         formData,
+    //         {
+    //             headers: { 'Content-Type': 'multipart/form-data' },
+    //             params: { employeeId, taskInstanceId }
+    //         }
+    //     );
+    //     return response;
+    // },
+
+    // ============ Notifications ============
+    async sendWelcomeMessage(payload: SendWelcomeRequest) {
         const response = await apiService.post(
             API_ENDPOINTS.ONBOARDING.SEND_WELCOME,
-            // buildSendWelcomePayload(employeeId),
-             payload 
+            payload
         );
         return response;
     },
 
-    getAssignments: async (params?: OnboardingAssignmentsQuery) => {
-        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.ASSIGNMENTS, { params });
-        return response;
-    },
+    // async sendReminder(data: ReminderRequest) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.SEND_REMINDER,
+    //         data
+    //     );
+    //     return response;
+    // },
 
-    getEmployeeOnboardings: async (params?: OnboardingAssignmentsQuery) => {
-        const response = await apiService.get(API_ENDPOINTS.ONBOARDING.ASSIGNMENTS, { params });
-        return response;
-    },
+    // async sendBulkReminder(employeeIds: string[], reminderType?: string) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.BULK_REMINDER,
+    //         { employeeIds, reminderType }
+    //     );
+    //     return response;
+    // },
+
+    // async sendCompletionNotification(employeeId: string) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.COMPLETION_NOTIFICATION,
+    //         { employeeId }
+    //     );
+    //     return response;
+    // },
+
+    // async getNotificationSettings() {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.NOTIFICATION_SETTINGS);
+    //     return response;
+    // },
+
+    // async updateNotificationSettings(data: any) {
+    //     const response = await apiService.put(API_ENDPOINTS.ONBOARDING.NOTIFICATION_SETTINGS, data);
+    //     return response;
+    // },
+
+    // // ============ Completion & Review ============
+    // async completeOnboarding(onboardingId: string) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.COMPLETE(onboardingId)
+    //     );
+    //     return response;
+    // },
+
+    // async getCompletionCertificate(onboardingId: string) {
+    //     const response = await apiService.get(
+    //         API_ENDPOINTS.ONBOARDING.CERTIFICATE(onboardingId)
+    //     );
+    //     return response;
+    // },
+
+    // async downloadCompletionCertificate(onboardingId: string) {
+    //     const response = await apiService.get(
+    //         API_ENDPOINTS.ONBOARDING.DOWNLOAD_CERTIFICATE(onboardingId),
+    //         { responseType: 'blob' }
+    //     );
+    //     return response;
+    // },
+
+    // async reviewOnboarding(onboardingId: string, data: ReviewOnboardingRequest) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.REVIEW(onboardingId),
+    //         data
+    //     );
+    //     return response;
+    // },
+
+    // ============ Analytics & Reports ============
+    // async getOnboardingStats(params?: { startDate?: string; endDate?: string }) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.STATS, { params });
+    //     return response;
+    // },
+
+    // async getDetailedReport(params?: {
+    //     startDate?: string;
+    //     endDate?: string;
+    //     department?: string;
+    //     branch?: string;
+    // }) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.REPORT, { params });
+    //     return response;
+    // },
+
+    // async exportReport(params?: any) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.EXPORT_REPORT, {
+    //         params,
+    //         responseType: 'blob'
+    //     });
+    //     return response;
+    // },
+
+    // async getEmployeeOnboardingHistory(employeeId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.EMPLOYEE_HISTORY(employeeId));
+    //     return response;
+    // },
+
+    // async getChecklistAnalytics(checklistId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.CHECKLIST_ANALYTICS(checklistId));
+    //     return response;
+    // },
+
+    // // ============ Template Management ============
+    // async saveAsTemplate(checklistId: string, templateName: string) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.SAVE_TEMPLATE,
+    //         { checklistId, templateName }
+    //     );
+    //     return response;
+    // },
+
+    // async getTemplates() {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.TEMPLATES);
+    //     return response;
+    // },
+
+    // async applyTemplate(templateId: string, employeeIds: string[]) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.APPLY_TEMPLATE,
+    //         { templateId, employeeIds }
+    //     );
+    //     return response;
+    // },
+
+    // async deleteTemplate(templateId: string) {
+    //     const response = await apiService.delete(API_ENDPOINTS.ONBOARDING.DELETE_TEMPLATE(templateId));
+    //     return response;
+    // },
+
+    // // ============ Employee Self-Service ============
+    // async getMyOnboarding() {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.MY_ONBOARDING);
+    //     return response;
+    // },
+
+    // async getMyTasks() {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.MY_TASKS);
+    //     return response;
+    // },
+
+    // async getMyDocuments() {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.MY_DOCUMENTS);
+    //     return response;
+    // },
+
+    // async markTaskAsStarted(taskId: string) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.START_TASK(taskId),
+    //         { status: "IN_PROGRESS" }
+    //     );
+    //     return response;
+    // },
+
+    // // ============ Workflow Actions ============
+    // async assignReviewer(onboardingId: string, reviewerId: string) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.ASSIGN_REVIEWER,
+    //         { onboardingId, reviewerId }
+    //     );
+    //     return response;
+    // },
+
+    // async getWorkflowStatus(onboardingId: string) {
+    //     const response = await apiService.get(API_ENDPOINTS.ONBOARDING.WORKFLOW_STATUS(onboardingId));
+    //     return response;
+    // },
+
+    // async approveStep(onboardingId: string, stepId: string, data?: any) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.APPROVE_STEP(onboardingId, stepId),
+    //         data
+    //     );
+    //     return response;
+    // },
+
+    // async rejectStep(onboardingId: string, stepId: string, reason: string) {
+    //     const response = await apiService.patch(
+    //         API_ENDPOINTS.ONBOARDING.REJECT_STEP(onboardingId, stepId),
+    //         { reason }
+    //     );
+    //     return response;
+    // },
+
+    // // ============ Integration APIs ============
+    // async syncWithHRIS(employeeId: string) {
+    //     const response = await apiService.post(
+    //         API_ENDPOINTS.ONBOARDING.SYNC_HRIS,
+    //         { employeeId }
+    //     );
+    //     return response;
+    // },
+
+    // async generateOnboardingLetter(employeeId: string) {
+    //     const response = await apiService.get(
+    //         API_ENDPOINTS.ONBOARDING.GENERATE_LETTER(employeeId),
+    //         { responseType: 'blob' }
+    //     );
+    //     return response;
+    // },
 };

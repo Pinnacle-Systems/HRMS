@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Alert,
   Box,
@@ -37,11 +37,9 @@ import {
   MenuItem,
   FormHelperText,
   Checkbox,
-  ListItemText,
   OutlinedInput,
   Switch,
   FormControlLabel,
-  InputAdornment,
   Menu,
 } from "@mui/material";
 import {
@@ -50,18 +48,15 @@ import {
   PlayArrow,
   QueryStats,
   Report,
-  Add as AddIcon,
   Refresh as RefreshIcon,
   FileDownload as FileDownloadIcon,
   Close as CloseIcon,
   Visibility as VisibilityIcon,
   Save as SaveIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
   Schema as SchemaIcon,
   CheckCircle as CheckCircleIcon,
   FilterList as FilterListIcon,
-  ReportOutlined,
   EditOutlined,
   DeleteOutlineOutlined,
 } from "@mui/icons-material";
@@ -84,7 +79,7 @@ import type {
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import type { TabPanelProps } from "../employees/type";
 import { getRowColor } from "../const";
 
@@ -123,9 +118,6 @@ const getStatusIcon = (status: string) => {
     default: return "📋";
   }
 };
-
-// Date formatting helper
-const formatDate = (date: string | Date) => dayjs(date).format("DD MMM YYYY");
 
 // ============ Main Component ============
 
@@ -222,15 +214,15 @@ export default function BiWorkspacePage() {
   // Report Export
   const [reportExportDialogOpen, setReportExportDialogOpen] = useState(false);
   const [reportExportJob, setReportExportJob] = useState<BIExportJob | null>(null);
-  const [reportExportLoading, setReportExportLoading] = useState(false);
+  const [_reportExportLoading, setReportExportLoading] = useState(false);
 
   // Pagination for drilldown
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Polling refs
-  const exportPollingIntervalRef = useRef<number | null>(null);
-  const reportExportPollingIntervalRef = useRef<number | null>(null);
+  const exportPollingIntervalRef = useRef<any | null>(null);
+  const reportExportPollingIntervalRef = useRef<any | null>(null);
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
   const [jsonError, setJsonError] = useState(false);
 

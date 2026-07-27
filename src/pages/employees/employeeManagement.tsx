@@ -45,11 +45,12 @@ import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
 import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
 import { Alert, Backdrop, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import { useAuth } from "../../auth/authContext.ts";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const navigate = useNavigate();
-
+  const { session } = useAuth();
   // State for employees
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [total, setTotal] = useState(0);
@@ -512,7 +513,7 @@ export default function EmployeeManagement() {
       departmentId: "",
       designationId: "",
       mobileNumber: "",
-      branchId: "",
+      branchId: session?.branchId || "",
     });
 
     setHasManualEmpId(false);
@@ -557,7 +558,7 @@ export default function EmployeeManagement() {
       emailAddress: employee.emailAddress,
       joiningDate: employee.joiningDate?.split("T")[0] || "",
       branch: employee.branch || "",
-      branchId: resolvedBranchId,
+      branchId: session?.branchId || resolvedBranchId,
       employeeId: employee.employeeId,
       departmentId: resolvedDepartmentId,
       designationId: resolvedDesignationId,
@@ -1528,7 +1529,8 @@ export default function EmployeeManagement() {
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth>
+            {
+              !session?.branchId && <FormControl fullWidth>
               <InputLabel>Branch</InputLabel>
               <Select
                 value={formData.branch || ""}
@@ -1558,6 +1560,7 @@ export default function EmployeeManagement() {
                 ))}
               </Select>
             </FormControl>
+            }
             <FormControl fullWidth>
               <InputLabel>
                 Employee Status
@@ -1626,8 +1629,13 @@ export default function EmployeeManagement() {
               /> */}
 
               <div className="md:col-span-2 border rounded-lg p-4 bg-gray-50">
-                <div className="font-semibold text-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-gray-800">
                   Employee ID Configuration
+                </div>
+                <Button variant="contained" size="small" onClick={getEmployeeIdForCreation}>
+                  Configure
+                </Button>
                 </div>
                 {!hasManualEmpId ? (
                   <>
@@ -1962,7 +1970,7 @@ export default function EmployeeManagement() {
               Download Template
             </Button>
           </div>
-          <div className="flex items-center mb-4">
+          <div className="flex items-center">
             <FormControlLabel
               control={
                 <Checkbox
@@ -1970,7 +1978,7 @@ export default function EmployeeManagement() {
                   onChange={(e) =>
                     setExcelHasEmployeeIdColumn(e.target.checked)
                   }
-                  className={`${!excelHasEmployeeIdColumn ? "animate-blink" : ""}`}
+                  className={`text-gray-800 ${!excelHasEmployeeIdColumn ? "animate-blink" : ""}`}
                   disabled={!employeeIdConfig?.configured}
                 />
               }
@@ -2008,6 +2016,10 @@ export default function EmployeeManagement() {
               ]
             </div>
           </div>
+          {
+            !employeeIdConfig?.configured &&
+            <div className="mb-2 text-[12px] text-amber-800">To configure Click "Add Employee" Button to configure the ID generation</div>
+          }
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"
@@ -2033,10 +2045,10 @@ export default function EmployeeManagement() {
               >
                 Accepted formats: CSV, XLSX &nbsp;·&nbsp; Max size: 10 MB
               </Typography>
-               <Typography
+              <Typography
                 variant="body1"
               >
-                Required Fields: <span className="text-red-500 font-bold">First Name - Last Name {!employeeIdConfig?.configured ? '- EmployeeID' : ''}</span>
+                Required Fields: <span className="text-red-500 font-bold">First Name - Last Name - Email {(!employeeIdConfig?.configured || excelHasEmployeeIdColumn) ? '- EmployeeID' : ''}</span>
               </Typography>
             </label>
           </div>

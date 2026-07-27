@@ -532,6 +532,15 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                     });
                     updateRule(rule.id, { values: newIds, _apiIds: newApiIds });
                   }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      padding: '0px 8px !important',
+                      minHeight: '38px',
+                    },
+                    '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+                      padding: '2px !important',
+                    },
+                  }}
                   renderInput={(params) => (
                     <TextField {...params} label="Select Values" placeholder="Choose…" />
                   )}

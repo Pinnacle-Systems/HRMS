@@ -47,7 +47,7 @@ describe("onBoardService Swagger payload adapters", () => {
     const { onBoardService } = await import("../../src/services/modules/onBoard");
     apiPost.mockResolvedValue({ data: {} });
 
-    await onBoardService.sendWelcomeMessage("employee-1");
+    await onBoardService.sendWelcomeMessage({employeeIds: ["employee-1"]});
 
     expect(apiPost).toHaveBeenCalledWith("/onboarding/send-welcome", {
       employeeIds: ["employee-1"],

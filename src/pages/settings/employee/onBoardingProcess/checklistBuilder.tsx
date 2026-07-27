@@ -18,8 +18,6 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
 import ArrowBackOutlined from "@mui/icons-material/ArrowBackOutlined";
 import CloseOutlined from "@mui/icons-material/CloseOutlined";
 import {
@@ -30,15 +28,19 @@ import { useUI } from "../../../../context/Snackbar";
 import {
   ArrowDownwardOutlined,
   ArrowUpwardOutlined,
+  DeleteOutlined,
   DescriptionOutlined,
+  EditOutlined,
 } from "@mui/icons-material";
 
 export const ChecklistBuilder = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [checklists, setChecklists] = useState<any[]>([]);
   const [selectedChecklist, setSelectedChecklist] = useState<any>(null);
-  const [isAddingChecklist, setIsAddingChecklist] = useState(false);
-  const [newChecklist, setNewChecklist] = useState({
+  const [isChecklistDialogOpen, setIsChecklistDialogOpen] = useState(false);
+  const [isEditingChecklist, setIsEditingChecklist] = useState(false);
+  const [checklistFormData, setChecklistFormData] = useState({
+    id: "",
     name: "",
     description: "",
     active: true,
@@ -52,7 +54,7 @@ export const ChecklistBuilder = () => {
     documentName: "",
     required: true,
   });
-  const [activeTab, setActiveTab] = useState(0);
+  // const [activeTab, setActiveTab] = useState(0);
 
   const fetchChecklists = async () => {
     try {
@@ -70,18 +72,74 @@ export const ChecklistBuilder = () => {
     fetchChecklists();
   }, []);
 
-  const handleAddChecklist = async () => {
-    if (!newChecklist.name) {
+  // ============ Checklist CRUD Operations ============
+  
+  const handleOpenAddChecklist = () => {
+    setIsEditingChecklist(false);
+    setChecklistFormData({
+      id: "",
+      name: "",
+      description: "",
+      active: true,
+    });
+    setIsChecklistDialogOpen(true);
+  };
+
+  const handleOpenEditChecklist = (checklist: any) => {
+    setIsEditingChecklist(true);
+    setChecklistFormData({
+      id: checklist.id,
+      name: checklist.name,
+      description: checklist.description || "",
+      active: checklist.active,
+    });
+    setIsChecklistDialogOpen(true);
+  };
+
+  const handleSaveChecklist = async () => {
+    if (!checklistFormData.name) {
       showSnackbar("Checklist name is required", "error");
       return;
     }
+
     try {
       showSpinner();
-      const response: any = await onBoardService.createChecklist(newChecklist);
-      setChecklists([...checklists, response.data]);
-      setIsAddingChecklist(false);
-      setNewChecklist({ name: "", description: "", active: true });
-      showSnackbar("Checklist created successfully!", "success");
+      
+      if (isEditingChecklist) {
+        // Update existing checklist
+        await onBoardService.updateChecklist(checklistFormData.id, {
+          name: checklistFormData.name,
+          description: checklistFormData.description,
+          active: checklistFormData.active,
+        });
+        
+        // Update the selected checklist if it's the one being edited
+        if (selectedChecklist?.id === checklistFormData.id) {
+          setSelectedChecklist({
+            ...selectedChecklist,
+            name: checklistFormData.name,
+            description: checklistFormData.description,
+            active: checklistFormData.active,
+          });
+        }
+        
+        showSnackbar("Checklist updated successfully!", "success");
+      } else {
+        // Create new checklist
+        const response: any = await onBoardService.createChecklist({
+          name: checklistFormData.name,
+          description: checklistFormData.description,
+          active: checklistFormData.active,
+        });
+        setChecklists([...checklists, response.data]);
+        showSnackbar("Checklist created successfully!", "success");
+      }
+      
+      // Refresh the list
+      fetchChecklists();
+      setIsChecklistDialogOpen(false);
+      resetChecklistForm();
+      
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
@@ -89,9 +147,44 @@ export const ChecklistBuilder = () => {
     }
   };
 
+  const resetChecklistForm = () => {
+    setChecklistFormData({
+      id: "",
+      name: "",
+      description: "",
+      active: true,
+    });
+    setIsEditingChecklist(false);
+  };
+
+  const handleDeleteChecklist = async (checklist: any) => {
+    // If we're viewing the checklist, close it first
+    if (selectedChecklist?.id === checklist.id) {
+      setSelectedChecklist(null);
+    }
+
+    showConfirmDialog({
+      title: 'Delete Checklist',
+      message: `Are you sure you want to delete "${checklist.name}"? This will delete all tasks associated with it.`,
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        try {
+          showSpinner();
+          await onBoardService.deleteChecklist(checklist.id);
+          fetchChecklists();
+          showSnackbar('Checklist deleted successfully!', 'success');
+        } catch (error: any) {
+          showSnackbar(error.message, 'error');
+        } finally {
+          hideSpinner();
+        }
+      }
+    });
+  };
+
   const handleSelectChecklist = async (checklist: any) => {
     setSelectedChecklist(checklist);
-    setActiveTab(0);
+    // setActiveTab(0);
     try {
       showSpinner();
       const response: any = await onBoardService.getChecklistById(checklist.id);
@@ -103,21 +196,7 @@ export const ChecklistBuilder = () => {
     }
   };
 
-  const handleUpdateChecklistStatus = async (active: boolean) => {
-    try {
-      showSpinner();
-      await onBoardService.updateChecklist(selectedChecklist.id, {
-        ...selectedChecklist,
-        active,
-      });
-      setSelectedChecklist({ ...selectedChecklist, active });
-      showSnackbar("Checklist updated successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
-  };
+  // ============ Task CRUD Operations ============
 
   const handleAddTask = async () => {
     if (!editTask.taskName) {
@@ -209,8 +288,7 @@ export const ChecklistBuilder = () => {
       newTasks[currentIndex],
     ];
 
-    // Update sort orders
-    const reorderData:any = newTasks.map((task, index) => ({
+    const reorderData: any = newTasks.map((task, index) => ({
       taskId: task.id,
       sortOrder: index,
     }));
@@ -227,33 +305,36 @@ export const ChecklistBuilder = () => {
     }
   };
 
-  // const handleDeleteChecklist = async () => {
-  //   showConfirmDialog({
-  //     title: 'Delete Checklist',
-  //     message: `Are you sure you want to delete "${selectedChecklist.name}"? This will delete all tasks associated with it.`,
-  //     confirmText: 'Delete',
-  //     onConfirm: async () => {
-  //       try {
-  //         showSpinner();
-  //         await onBoardService.deleteChecklist(selectedChecklist.id);
-  //         setSelectedChecklist(null);
-  //         fetchChecklists();
-  //         showSnackbar('Checklist deleted successfully!', 'success');
-  //       } catch (error: any) {
-  //         showSnackbar(error.message, 'error');
-  //       } finally {
-  //         hideSpinner();
-  //       }
-  //     }
-  //   });
+  // ============ Additional Features ============
+
+  // const handleDuplicateChecklist = async (checklistId: string) => {
+  //   const newName = prompt("Enter new checklist name:");
+  //   if (!newName) return;
+
+  //   try {
+  //     showSpinner();
+  //     await onBoardService.duplicateChecklist(checklistId, newName);
+  //     fetchChecklists();
+  //     showSnackbar("Checklist duplicated successfully!", "success");
+  //   } catch (error: any) {
+  //     showSnackbar(error.message, "error");
+  //   } finally {
+  //     hideSpinner();
+  //   }
   // };
 
-  // const getPriorityColor = (priority: string) => {
-  //   switch (priority) {
-  //     case 'High': return 'error';
-  //     case 'Medium': return 'warning';
-  //     case 'Low': return 'success';
-  //     default: return 'default';
+  // const handleSaveAsTemplate = async (checklistId: string) => {
+  //   const templateName = prompt("Enter template name:");
+  //   if (!templateName) return;
+
+  //   try {
+  //     showSpinner();
+  //     await onBoardService.saveAsTemplate(checklistId, templateName);
+  //     showSnackbar("Template saved successfully!", "success");
+  //   } catch (error: any) {
+  //     showSnackbar(error.message, "error");
+  //   } finally {
+  //     hideSpinner();
   //   }
   // };
 
@@ -271,7 +352,7 @@ export const ChecklistBuilder = () => {
         {!selectedChecklist && (
           <Button
             variant="contained"
-            onClick={() => setIsAddingChecklist(true)}
+            onClick={handleOpenAddChecklist}
             className="!bg-primary"
           >
             Create New Checklist
@@ -287,23 +368,50 @@ export const ChecklistBuilder = () => {
                 key={checklist.id}
                 className="cursor-pointer bg-white hover:shadow-lg transition-shadow"
               >
-                <CardContent onClick={() => handleSelectChecklist(checklist)}>
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-medium text-gray-800">
+                <CardContent>
+                  <div 
+                    className="flex justify-between items-start mb-2"
+                    onClick={() => handleSelectChecklist(checklist)}
+                  >
+                    <h3 className="font-bold text-[12px] text-gray-800 flex-1">
                       {checklist.name}
                     </h3>
-                    <Chip
-                      label={checklist.active ? "Active" : "Inactive"}
-                      size="small"
-                      color={checklist.active ? "success" : "default"}
-                    />
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip title="Edit Checklist">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleOpenEditChecklist(checklist)} 
+                          color="primary"
+                        >
+                          <EditOutlined fontSize="small" className="!w-4"/>
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Checklist">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleDeleteChecklist(checklist)} 
+                          color="error"
+                        >
+                          <DeleteOutlined fontSize="small" className="!w-4"/>
+                        </IconButton>
+                      </Tooltip>
+                    </div>
                   </div>
-                  <p className="text-gray-600 text-[12px] mb-2">
-                    {checklist.description || "No description"}
-                  </p>
-                  <p className="text-xs text-primary">
-                    Task Count: {checklist.taskCount}
-                  </p>
+                  <div onClick={() => handleSelectChecklist(checklist)}>
+                    <p className="text-gray-600 text-[12px] mb-2">
+                      {checklist.description || "No description"}
+                    </p>
+                    <div className="flex items-center gap-2 justify-between">
+                      <p className="text-xs text-primary">
+                        Task Count: {checklist.taskCount || 0}
+                      </p>
+                      <Chip
+                        label={checklist.active ? "Active" : "Inactive"}
+                        size="small"
+                        color={checklist.active ? "success" : "error"}
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             ))}
@@ -320,7 +428,7 @@ export const ChecklistBuilder = () => {
                 <ArrowBackOutlined className="text-gray-800" />
               </IconButton>
               <div>
-                <h2 className="text-medium font-semibold text-gray-800">
+                <h2 className="text-[12px] font-semibold text-gray-800">
                   {selectedChecklist.name}
                 </h2>
                 <p className="text-[12px] text-gray-600">
@@ -349,95 +457,14 @@ export const ChecklistBuilder = () => {
           </div>
 
           <div className="h-[calc(100vh-360px)] overflow-auto">
-            {/* <TableContainer
-              component={Paper}
-              elevation={0}
-              className="border border-gray-200"
-            >
-              <Table stickyHeader>
-                <TableHead className="bg-gray-100">
-                  <TableRow>
-                    <TableCell className="text-gray-800 !font-semibold">
-                      S No
-                    </TableCell>
-                    <TableCell className="text-gray-800 !font-semibold">
-                      Task Name
-                    </TableCell>
-                    <TableCell className="text-gray-800 !font-semibold">
-                      Description
-                    </TableCell>
-                    <TableCell className="text-gray-800 !font-semibold">
-                      Document Name
-                    </TableCell>
-                    <TableCell className="text-gray-800 !font-semibold">
-                      Task Type
-                    </TableCell>
-                    <TableCell className="text-gray-800 !font-semibold">
-                      Actions
-                    </TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody className="bg-white-50">
-                  {tasks.map((task, index) => (
-                    <TableRow key={task.id} sx={getRowColor(index)}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell className="font-medium">
-                        {task.title}
-                      </TableCell>
-                      <TableCell>{task.description}</TableCell>
-                      <TableCell>{task.documentName}</TableCell>
-                      <TableCell>{task.taskType}</TableCell>
-                      <TableCell className="!flex gap-1">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleReorderTasks(task.id, "up")}
-                          disabled={index === 0}
-                        >
-                          <ArrowUpwardOutlined fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleReorderTasks(task.id, "down")}
-                          disabled={index === tasks.length - 1}
-                        >
-                          <ArrowDownwardOutlined fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => {
-                            setEditTask({
-                              ...task,
-                              taskName: task.taskName || task.title || "",
-                            });
-                            setIsEditingTask(true);
-                          }}
-                          color="primary"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          onClick={() => handleDeleteTask(task.id)}
-                          color="error"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer> */}
             <div className="grid grid-cols-2 gap-4">
               {tasks.map((task, index) => (
                 <Card
                   key={task.id}
                   className="border border-gray-200 rounded-xl hover:shadow-md transition-shadow duration-200"
-                // sx={{
-                //   backgroundColor: index % 2 === 0 ? "#ffffff" : "#fafafa",
-                // }}
                 >
-                  <CardContent className="p-4 bg-white-50 dark:bg-head">
+                  <CardContent className="!p-4 bg-white-50 dark:bg-head">
                     <div className="flex items-start justify-between gap-4">
-                      {/* Left Section - Task Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-1">
                           <span className="text-sm font-medium text-gray-400 min-w-[30px]">
@@ -445,7 +472,7 @@ export const ChecklistBuilder = () => {
                           </span>
                           <Typography
                             variant="body1"
-                            className="font-semibold text-gray-800"
+                            className="!font-bold text-gray-800"
                           >
                             {task.title}
                           </Typography>
@@ -488,94 +515,84 @@ export const ChecklistBuilder = () => {
                                 className="!h-5 !text-[10px] text-blue-600 border-blue-200 bg-blue-50"
                               />
                             )}
-                            {/* {task.sortOrder !== undefined && (
-                              <Chip
-                                label={`Order: ${task.sortOrder + 1}`}
-                                size="small"
-                                variant="outlined"
-                                className="!h-5 !text-[10px] text-gray-500"
-                              />
-                            )} */}
                           </div>
                         </div>
                       </div>
 
-                      {/* Right Section - Actions */}
                       <div className="grid gap-y-3">
                         <div className="flex items-center gap-1">
-                        <Tooltip title="Move Up">
-                          <span>
+                          <Tooltip title="Move Up">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleReorderTasks(task.id, "up")}
+                                disabled={index === 0}
+                                className="hover:bg-gray-100"
+                              >
+                                <ArrowUpwardOutlined
+                                  fontSize="small"
+                                  className={
+                                    index === 0
+                                      ? "text-gray-300"
+                                      : "text-gray-600"
+                                  }
+                                />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+
+                          <Tooltip title="Move Down">
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() =>
+                                  handleReorderTasks(task.id, "down")
+                                }
+                                disabled={index === tasks.length - 1}
+                                className="hover:bg-gray-100"
+                              >
+                                <ArrowDownwardOutlined
+                                  fontSize="small"
+                                  className={
+                                    index === tasks.length - 1
+                                      ? "text-gray-300"
+                                      : "text-gray-600"
+                                  }
+                                />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Tooltip title="Edit Task">
                             <IconButton
                               size="small"
-                              onClick={() => handleReorderTasks(task.id, "up")}
-                              disabled={index === 0}
-                              className="hover:bg-gray-100"
+                              onClick={() => {
+                                setEditTask({
+                                  ...task,
+                                  taskName: task.taskName || task.title || "",
+                                });
+                                setIsEditingTask(true);
+                              }}
+                              className="hover:bg-blue-50 text-blue-600"
                             >
-                              <ArrowUpwardOutlined
-                                fontSize="small"
-                                className={
-                                  index === 0
-                                    ? "text-gray-300"
-                                    : "text-gray-600"
-                                }
-                              />
+                              <EditOutlined fontSize="small" color="primary" className="!w-4"/>
                             </IconButton>
-                          </span>
-                        </Tooltip>
+                          </Tooltip>
 
-                        <Tooltip title="Move Down">
-                          <span>
+                          <Tooltip title="Delete Task">
                             <IconButton
                               size="small"
-                              onClick={() =>
-                                handleReorderTasks(task.id, "down")
-                              }
-                              disabled={index === tasks.length - 1}
-                              className="hover:bg-gray-100"
+                              onClick={() => handleDeleteTask(task.id)}
+                              className="hover:bg-red-50 text-red-500"
                             >
-                              <ArrowDownwardOutlined
-                                fontSize="small"
-                                className={
-                                  index === tasks.length - 1
-                                    ? "text-gray-300"
-                                    : "text-gray-600"
-                                }
-                              />
+                              <DeleteOutlined fontSize="small" color="error" className="!w-4"/>
                             </IconButton>
-                          </span>
-                        </Tooltip>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Tooltip title="Edit Task">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setEditTask({
-                                ...task,
-                                taskName: task.taskName || task.title || "",
-                              });
-                              setIsEditingTask(true);
-                            }}
-                            className="hover:bg-blue-50 text-blue-600"
-                          >
-                            <EditIcon fontSize="small" color="primary"/>
-                          </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Delete Task">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteTask(task.id)}
-                            className="hover:bg-red-50 text-red-500"
-                          >
-                            <DeleteIcon fontSize="small" color="error"/>
-                          </IconButton>
-                        </Tooltip>
-                      </div>
+                          </Tooltip>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Progress indicator for tasks with status (optional) */}
                     {task.status && (
                       <div className="mt-2 ml-[42px]">
                         <div className="flex items-center gap-2">
@@ -611,13 +628,12 @@ export const ChecklistBuilder = () => {
               {tasks.length === 0 && (
                 <div className="text-center py-12 bg-gray-50 rounded-xl border border-gray-200 border-dashed">
                   <DescriptionOutlined className="text-gray-300 text-5xl mb-3" />
-                  <Typography variant="body1" color="textSecondary">
+                  <Typography variant="body1" className="text-gray-500">
                     No tasks added yet
                   </Typography>
                   <Typography
                     variant="body2"
-                    color="textSecondary"
-                    className="text-sm"
+                    className="text-gray-500"
                   >
                     Click the "Add Task" button to create your first task
                   </Typography>
@@ -625,39 +641,96 @@ export const ChecklistBuilder = () => {
               )}
             </div>
           </div>
-
-          {activeTab === 1 && (
-            <Card>
-              <CardContent>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={selectedChecklist.active}
-                      onChange={(e) =>
-                        handleUpdateChecklistStatus(e.target.checked)
-                      }
-                    />
-                  }
-                  label="Active"
-                />
-                <div className="mt-4">
-                  <Button
-                    variant="outlined"
-                    color="primary"
-                    onClick={() => {
-                      // Navigate to assign onboarding or show dialog
-                    }}
-                  >
-                    Assign to Employees
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
 
-      {/* Add/Edit Task Dialog */}
+      {/* ============ Unified Checklist Dialog (Add/Edit) ============ */}
+      <Dialog
+        open={isChecklistDialogOpen}
+        onClose={() => {
+          setIsChecklistDialogOpen(false);
+          resetChecklistForm();
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <div className="flex items-center justify-between p-2 border-b border-gray-200">
+          <span className="ml-4 text-gray-800 text-[12px]">
+            {isEditingChecklist ? "Edit Checklist" : "Create New Checklist"}
+          </span>
+          <IconButton
+            onClick={() => {
+              setIsChecklistDialogOpen(false);
+              resetChecklistForm();
+            }}
+          >
+            <CloseOutlined className="text-gray-800" />
+          </IconButton>
+        </div>
+        <DialogContent>
+          <div className="grid gap-y-6 pt-2">
+            <TextField
+              fullWidth
+              label="Checklist Name"
+              required
+              value={checklistFormData.name}
+              onChange={(e) =>
+                setChecklistFormData({ ...checklistFormData, name: e.target.value })
+              }
+              placeholder="Enter checklist name..."
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              multiline
+              rows={3}
+              value={checklistFormData.description}
+              onChange={(e) =>
+                setChecklistFormData({
+                  ...checklistFormData,
+                  description: e.target.value,
+                })
+              }
+              placeholder="Enter checklist description..."
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={checklistFormData.active}
+                  onChange={(e) =>
+                    setChecklistFormData({
+                      ...checklistFormData,
+                      active: e.target.checked,
+                    })
+                  }
+                />
+              }
+              label="Active"
+            />
+          </div>
+        </DialogContent>
+        <DialogActions className="!p-4 !border-t !border-gray-200">
+          <Button
+            onClick={() => {
+              setIsChecklistDialogOpen(false);
+              resetChecklistForm();
+            }}
+            variant="outlined"
+            className="!border-gray-200 !text-gray-800"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveChecklist}
+            variant="contained"
+            className="!bg-primary"
+          >
+            {isEditingChecklist ? "Update" : "Create"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ============ Add/Edit Task Dialog ============ */}
       <Dialog
         open={isEditingTask}
         onClose={() => setIsEditingTask(false)}
@@ -665,23 +738,24 @@ export const ChecklistBuilder = () => {
         fullWidth
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-200">
-          <div className="text-gray-800 ml-4"> {editTask.id ? "Update Task" : "Add New Task"}</div>
-          <IconButton>
-            <CloseOutlined
-              className="text-gray-800"
-              onClick={() => setIsEditingTask(false)}
-            />
+          <div className="text-gray-800 ml-4 text-[12px]">
+            {editTask.id ? "Update Task" : "Add New Task"}
+          </div>
+          <IconButton onClick={() => setIsEditingTask(false)}>
+            <CloseOutlined className="text-gray-800" />
           </IconButton>
         </div>
         <DialogContent>
-          <div className="space-y-6">
+          <div className="space-y-6 pt-2">
             <TextField
               fullWidth
               label="Task Name"
+              required
               value={editTask.taskName}
               onChange={(e) =>
                 setEditTask({ ...editTask, taskName: e.target.value })
               }
+              placeholder="Enter task name..."
             />
             <TextField
               fullWidth
@@ -692,6 +766,7 @@ export const ChecklistBuilder = () => {
               onChange={(e) =>
                 setEditTask({ ...editTask, description: e.target.value })
               }
+              placeholder="Enter task description..."
             />
             <FormControl fullWidth>
               <InputLabel>Task Type</InputLabel>
@@ -716,6 +791,7 @@ export const ChecklistBuilder = () => {
               onChange={(e) =>
                 setEditTask({ ...editTask, documentName: e.target.value })
               }
+              placeholder="Enter document name (if applicable)..."
             />
             <FormControlLabel
               control={
@@ -744,80 +820,6 @@ export const ChecklistBuilder = () => {
             className="!bg-primary"
           >
             {editTask.id ? "Update" : "Add"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Add Checklist Dialog */}
-      <Dialog
-        open={isAddingChecklist}
-        onClose={() => setIsAddingChecklist(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <div className="text-primary !border-b !p-2 flex items-center justify-between !border-gray-200">
-          <span className="ml-4 text-gray-800"> Add Checklist</span>
-          <IconButton
-            onClick={() => {
-              setIsAddingChecklist(false);
-            }}
-          >
-            <CloseOutlined className="!text-gray-800" />
-          </IconButton>
-        </div>
-        <DialogContent>
-          <div className="grid gap-4 pt-2">
-            <TextField
-              fullWidth
-              label="Checklist Name"
-              value={newChecklist.name}
-              onChange={(e) =>
-                setNewChecklist({ ...newChecklist, name: e.target.value })
-              }
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              multiline
-              rows={3}
-              value={newChecklist.description}
-              onChange={(e) =>
-                setNewChecklist({
-                  ...newChecklist,
-                  description: e.target.value,
-                })
-              }
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={newChecklist.active}
-                  onChange={(e) =>
-                    setNewChecklist({
-                      ...newChecklist,
-                      active: e.target.checked,
-                    })
-                  }
-                />
-              }
-              label="Active"
-            />
-          </div>
-        </DialogContent>
-        <DialogActions className="!p-4 !border-t !border-gray-200">
-          <Button
-            onClick={() => setIsAddingChecklist(false)}
-            variant="outlined"
-            className="!border-gray-200 !text-gray-800"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAddChecklist}
-            variant="contained"
-            className="!bg-primary"
-          >
-            Create
           </Button>
         </DialogActions>
       </Dialog>

@@ -236,7 +236,7 @@ export default function CategoryItems() {
       {/* Items Table */}
       <TableContainer
         className="h-[calc(100vh-295px)] overflow-auto">
-        <Table stickyHeader className="border border-gray-200 bg-white-50 rounded-sm">
+        <Table stickyHeader className="border border-gray-200 bg-white-50 rounded-sm w-max">
           <TableHead className="bg-gray-100">
             <TableRow>
               <TableCell className="!font-semibold text-gray-800">

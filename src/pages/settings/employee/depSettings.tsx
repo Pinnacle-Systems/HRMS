@@ -36,6 +36,7 @@ import { GlobalSort } from "../../../components/GlobalSort";
 import { getRowColor } from "../../const";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
+import { useAuth } from "../../../auth/authContext";
 
 interface Department {
   id: string;
@@ -74,6 +75,7 @@ export default function DepartmentSettings() {
   const [sortBy, setSortBy] = useState("departmentName");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("ASC");
   const [searchTerm, setSearchTerm] = useState("");
+  const { session } = useAuth();
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -85,7 +87,7 @@ export default function DepartmentSettings() {
     departmentName: "",
     departmentCode: "",
     departmentHeadId: "",
-    branchId: "",
+    branchId: session?.branchId || "",
     active: true,
   });
   const [selectedDepartmentHead, setSelectedDepartmentHead] =
@@ -164,11 +166,11 @@ export default function DepartmentSettings() {
       setSelectedDepartmentHead(
         department.departmentHeadId
           ? {
-              id: department.departmentHeadId,
-              name: String(
-                department.departmentHeadName || department.departmentHeadId,
-              ),
-            }
+            id: department.departmentHeadId,
+            name: String(
+              department.departmentHeadName || department.departmentHeadId,
+            ),
+          }
           : null,
       );
     } else {
@@ -178,7 +180,7 @@ export default function DepartmentSettings() {
         departmentName: "",
         departmentCode: "",
         departmentHeadId: "",
-        branchId: "",
+        branchId: session?.branchId || "",
         active: true,
       });
     }
@@ -507,11 +509,11 @@ export default function DepartmentSettings() {
         sx={commonsx}
       >
         <div className="flex items-center justify-between p-2 border-b border-gray-300">
-          <div className="text-gray-800 ml-4">
+          <div className="text-gray-800 ml-4 text-[12px]">
             {editingDepartment ? "Edit Department" : "Add New Department"}
           </div>
           <IconButton onClick={handleCloseDialog}>
-            <CloseOutlined className="!text-gray-800"/>
+            <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
         <DialogContent>
@@ -536,25 +538,28 @@ export default function DepartmentSettings() {
                 required
               />
             </div>
-            <div>
-              <FormControl fullWidth required>
-                <InputLabel>Select Branch</InputLabel>
-                <Select
-                  value={formData.branchId || ""}
-                  label="Select Branch"
-                  onChange={(e) =>
-                    handleSelectChange("branchId", e.target.value)
-                  }
-                >
-                  <MenuItem value="">Select Branch</MenuItem>
-                  {branches.map((branch) => (
-                    <MenuItem key={branch.id} value={branch.id}>
-                      {branch.branchName} ({branch.branchCode})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </div>
+            {
+              !session?.branchId &&
+              <div>
+                <FormControl fullWidth required>
+                  <InputLabel>Select Branch</InputLabel>
+                  <Select
+                    value={formData.branchId || ""}
+                    label="Select Branch"
+                    onChange={(e) =>
+                      handleSelectChange("branchId", e.target.value)
+                    }
+                  >
+                    <MenuItem value="">Select Branch</MenuItem>
+                    {branches.map((branch) => (
+                      <MenuItem key={branch.id} value={branch.id}>
+                        {branch.branchName} ({branch.branchCode})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
+            }
             {/* Department Head Autocomplete */}
             <div>
               <EmployeeAsyncCombobox

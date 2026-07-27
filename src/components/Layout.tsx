@@ -63,6 +63,8 @@ import {
   AssessmentOutlined,
   ViewQuiltOutlined,
   HubOutlined,
+  AccountCircleOutlined,
+  HowToRegOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -310,23 +312,23 @@ export default function Layout() {
       permissions: PAYROLL_PERMISSIONS.BANK_ADVICE,
     },
     {
-    text: "Payroll Reports",
-    path: "/payroll/reports",
-    icon: <AssessmentOutlined />,
-    permissions: PAYROLL_PERMISSIONS.REPORTS,
-  },
-  {
-    text: "Audit Logs",
-    path: "/payroll/audit",
-    icon: <HistoryOutlinedIcon />,
-    permissions: PAYROLL_PERMISSIONS.AUDIT,
-  },
-  {
-    text: "Employee Portal",
-    path: "/payroll/employee-portal",
-    icon: <ViewQuiltOutlined />,
-    permissions: PAYROLL_PERMISSIONS.PORTAL,
-  },
+      text: "Payroll Reports",
+      path: "/payroll/reports",
+      icon: <AssessmentOutlined />,
+      permissions: PAYROLL_PERMISSIONS.REPORTS,
+    },
+    {
+      text: "Audit Logs",
+      path: "/payroll/audit",
+      icon: <HistoryOutlinedIcon />,
+      permissions: PAYROLL_PERMISSIONS.AUDIT,
+    },
+    {
+      text: "Employee Portal",
+      path: "/payroll/employee-portal",
+      icon: <ViewQuiltOutlined />,
+      permissions: PAYROLL_PERMISSIONS.PORTAL,
+    },
   ];
 
   const filteredPayrollOperations = payrollOperations.filter(item =>
@@ -340,7 +342,7 @@ export default function Layout() {
   const filteredPayrollAdvanced = payrollAdvanced.filter(item =>
     hasPermission(userPermissions, item.permissions)
   );
-  
+
 
   const menuItems: NavItem[] = [
     {
@@ -348,6 +350,12 @@ export default function Layout() {
       icon: <DashboardOutlinedIcon />,
       path: user ? getDefaultRoute(user) : "/home",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
+    },
+    {
+      text: "Onboarding",
+      icon: <HowToRegOutlined />,
+      path: "/onboarding-process",
+      roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
     {
       text: "My Info",
@@ -517,83 +525,90 @@ export default function Layout() {
             <Box className="flex items-center gap-2">
               <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
               <div>
-                <div className="font-bold text-gray-700">
-                  Dot<span className="text-primary">HR</span>
-                </div>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="text-[12px] text-gray-800">{companyInfo.companyName}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-bold text-gray-700">
+                    Dot<span className="text-primary">{""}HR</span>
+                  </div>
                   {user && (
                     <div className="text-[10px] text-gray-400 leading-3">
                       {getWorkspaceLabel(user)}
                     </div>
                   )}
                 </div>
+                <div className="flex items-center gap-2">
+                  <div className="text-[12px] text-gray-800">{companyInfo.companyName}</div>
+                  <div className="text-[10px]">
+                    <div className="text-gray-800">{session?.branchName} <span className="text-primary font-bold">({session?.fiscalYearLabel})</span></div>
+                  </div>
+                </div>
               </div>
             </Box>
           </Box>
 
-          <Box className="flex items-center gap-2">
-            <Tooltip title="Search">
-              <IconButton
-                size="small"
-                aria-label="search"
-                color="inherit"
-                onClick={() => setSearchOpen(true)}
-              >
-                <Chip
-                  label="CTRL + P"
-                  icon={<SearchOutlined className="text-gray-500 !w-5" />}
+          <div>
+            <Box className="flex items-center gap-2">
+              <Tooltip title="Search">
+                <IconButton
                   size="small"
-                  variant="outlined"
-                  className="!text-gray-500"
-                />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Notifications">
-              <IconButton
-                size="small"
-                aria-label="show notifications"
-                color="inherit"
-                onClick={handleNotificationClick}
-              >
-                <Badge badgeContent={unreadCount} className="text-primary">
-                  <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
-                </Badge>
-              </IconButton>
-            </Tooltip>
+                  aria-label="search"
+                  color="inherit"
+                  onClick={() => setSearchOpen(true)}
+                >
+                  <Chip
+                    label="CTRL + P"
+                    icon={<SearchOutlined className="text-gray-500 !w-5" />}
+                    size="small"
+                    variant="outlined"
+                    className="!text-gray-500"
+                  />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Notifications">
+                <IconButton
+                  size="small"
+                  aria-label="show notifications"
+                  color="inherit"
+                  onClick={handleNotificationClick}
+                >
+                  <Badge badgeContent={unreadCount} className="text-primary">
+                    <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
               {/* <Tooltip title="Notifications"><IconButton><Badge badgeContent={3} color="error"><NotificationsIcon /></Badge></IconButton></Tooltip> */}
 
-            <Tooltip title="Theme Settings">
-              <IconButton
-                size="small"
-                onClick={handleConMenuOpen}
-                className="text-gray-500"
-              >
-                <ContrastOutlinedIcon className="!w-5" />
-              </IconButton>
-            </Tooltip>
+              <Tooltip title="Theme Settings">
+                <IconButton
+                  size="small"
+                  onClick={handleConMenuOpen}
+                  className="text-gray-500"
+                >
+                  <ContrastOutlinedIcon className="!w-5" />
+                </IconButton>
+              </Tooltip>
 
-            <Tooltip title="Account">
-              <IconButton
-                size="small"
-                edge="end"
-                onClick={handleProfileMenuOpen}
-                color="inherit"
-              >
-                <div className="flex items-center gap-5">
-                  <div className="relative group">
-                    <Avatar
-                      src={user?.profilePic}
-                      className="!w-8 !h-8 text-2xl cursor-pointer"
-                    >
-                      {avatarInitial}
-                    </Avatar>
+              <Tooltip title="Account">
+                <IconButton
+                  size="small"
+                  edge="end"
+                  onClick={handleProfileMenuOpen}
+                  color="inherit"
+                >
+                  <div className="flex items-center gap-5">
+                    <div className="relative group">
+                      <Avatar
+                        src={user?.profilePic}
+                        className="!w-8 !h-8 text-2xl cursor-pointer"
+                      >
+                        {avatarInitial}
+                      </Avatar>
+                    </div>
                   </div>
-                </div>
-              </IconButton>
-            </Tooltip>
-          </Box>
+                </IconButton>
+              </Tooltip>
+            </Box>
 
+          </div>
           <GlobalSearch
             open={searchOpen}
             onClose={() => setSearchOpen(false)}
@@ -611,14 +626,19 @@ export default function Layout() {
         onClose={handleProfileMenuClose}
         classes={{ paper: "bg-white" }}
       >
-        <MenuItem onClick={handleMyProfile} className="bg-white-50">
+        <MenuItem onClick={handleMyProfile} className="bg-white-50 !py-0">
           <ListItemIcon>
-            <Person4OutlinedIcon className="!w-4 dark:text-primary" />
+            {/* <Person4OutlinedIcon className="!w-4 dark:text-primary" /> */}
+            <AccountCircleOutlined className="!w-4 !h-4 text-gray-400" />
           </ListItemIcon>
-          <div className="text-gray-800">My Profile</div>
+          <div>
+            <div className="text-gray-800">My Profile</div>
+            <div className="text-gray-400 !text-[10px]">{session?.user.email}</div>
+          </div>
         </MenuItem>
+        <Divider />
         {user?.roles.includes("ADMIN") && (
-          <MenuItem onClick={() => { navigate("/settings/general/company-settings");handleProfileMenuClose(); }} className="bg-white-50">
+          <MenuItem onClick={() => { navigate("/settings/general/company-settings"); handleProfileMenuClose(); }} className="bg-white-50">
             <ListItemIcon>
               <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
             </ListItemIcon>

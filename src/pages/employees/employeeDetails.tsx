@@ -80,6 +80,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   IconButton,
   Typography,
 } from "@mui/material";
@@ -89,6 +90,13 @@ import { EmployeeSelector } from "../../components/PolicyManagement/Common/Emplo
 import { WebcamCapture } from "./webCam";
 import { useAuth } from "../../auth/authContext";
 import { attendanceService } from "../../services/modules/attendance";
+import useUnsavedChanges from "../../hooks/useUnsavedChanges";
+
+const isEqual = (obj1: any, obj2: any): boolean => {
+  if (obj1 === obj2) return true;
+  if (!obj1 || !obj2) return false;
+  return JSON.stringify(obj1) === JSON.stringify(obj2);
+};
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -118,6 +126,8 @@ const EditableGroup = ({
   categories,
   refreshCategoryOptions,
   document,
+  isSaving,
+  setIsSaving,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -135,19 +145,33 @@ const EditableGroup = ({
   const userId = session?.user.userId;
   const apiId = isAdmin ? id : userId;
 
+  const hasUnsavedChanges = isEditing && !isEqual(editData, data);
+
   const handleSave = async () => {
+    setIsSaving(true);
     try {
       await onSave(editData);
       setIsEditing(false);
+      setIsSaving(false);
     } catch (error) {
       console.error("Save failed:", error);
+      setIsSaving(false);
     }
   };
 
   const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      const userChoice = window.confirm(
+        'You have unsaved changes in "' + title + '". Are you sure you want to cancel?'
+      );
+      if (!userChoice) {
+        return;
+      }
+    }
     setEditData(data);
     setIsEditing(false);
   };
+
 
   const getFieldOptions = (fieldKey: string, fieldLabel: string) => {
     if (fieldKey == "department") {
@@ -352,7 +376,7 @@ const EditableGroup = ({
         // consentGiven: true,
         employeeId: editData?.id || null,
       };
-      const response: any = await employeeService.getAadhaarDetails(payload);      
+      const response: any = await employeeService.getAadhaarDetails(payload);
       if (response.success && response.data) {
         setEditData((prev: any) => ({
           ...prev,
@@ -375,7 +399,7 @@ const EditableGroup = ({
     }
   };
 
-  return (
+ return (
     <div className="mb-6 p-4 dark:bg-white-50 bg-white border rounded-lg mt-3 shadow-sm border-gray-300">
       <div>
         <div className="flex justify-between items-center mb-3">
@@ -385,6 +409,9 @@ const EditableGroup = ({
               {icon}{" "}
             </div>
             <div className="text-primary-dark "> {title}</div>
+            {isEditing && hasUnsavedChanges && (
+              <Chip label="Unsaved" size="small" color="warning" className="ml-2" />
+            )}
             <div>
               {matchedDocs.map((item: any) => (
                 <a
@@ -452,8 +479,9 @@ const EditableGroup = ({
                   size="small"
                   onClick={handleSave}
                   color="success"
+                  disabled={isSaving}
                 >
-                  <MaterialModule.SaveIcon fontSize="small" />
+                  {isSaving ? <CircularProgress size={20} /> : <MaterialModule.SaveIcon fontSize="small" />}
                 </MaterialModule.IconButton>
               </MaterialModule.Tooltip>
               <MaterialModule.Tooltip title="Cancel">
@@ -846,7 +874,9 @@ const EditableTableGroup = ({
   categories,
   refreshCategoryOptions,
   document,
-  error
+  error,
+  // isSaving,
+  setIsSaving,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -868,12 +898,28 @@ const EditableTableGroup = ({
     "add",
   );
 
-  const handleSave = () => {
-    onSave(editData);
-    setIsEditing(false);
+  const hasUnsavedChanges = isEditing && !isEqual(editData, data);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(editData);
+      setIsEditing(false);
+      setIsSaving(false);
+    } catch (error) {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      const userChoice = window.confirm(
+        'You have unsaved changes in "' + title + '". Are you sure you want to cancel?'
+      );
+      if (!userChoice) {
+        return;
+      }
+    }
     setEditData(data);
     setIsEditing(false);
   };
@@ -1213,6 +1259,12 @@ const EditableTableGroup = ({
                   {icon}{" "}
                 </div>
                 <div className="text-primary-dark "> {title} </div>
+                {isEditing && hasUnsavedChanges && (
+                  <Chip label="Unsaved" size="small" color="warning" className="ml-2" />
+                )}
+                {error &&
+                  <span className="text-[12px] bg-red-100 p-1 rounded-md text-red-500">{error}</span>
+                }
               </div>
               {(isAdmin || (!isAdmin && title !== "Training Details" && title !== "PF Details")) && (
                 <MaterialModule.Button
@@ -1247,6 +1299,9 @@ const EditableTableGroup = ({
                 {icon}{" "}
               </div>
               <div className="text-primary-dark "> {title} </div>
+               {isEditing && hasUnsavedChanges && (
+                  <Chip label="Unsaved" size="small" color="warning" className="ml-2" />
+                )}
               {error &&
                 <span className="text-[12px] bg-red-100 p-1 rounded-md text-red-500">{error}</span>
               }
@@ -2009,6 +2064,31 @@ export default function EmployeeDetails() {
   );
   const [categories, setCategories] = useState<Record<string, any[]>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [initialEmployee, setInitialEmployee] = useState<any>(null);
+
+  const hasUnsavedChanges = !isEqual(employee, initialEmployee);
+
+  const handleSaveForNavigation = async (callback?: () => void): Promise<void> => {
+    if (hasUnsavedChanges) {
+      const userChoice = window.confirm(
+        'You have unsaved changes. Do you want to save before leaving?'
+      );
+      if (userChoice) {
+        showSnackbar('Please save each section individually before leaving.', 'warning');
+        if (callback) callback();
+        return;
+      }
+    }
+    if (callback) callback();
+  };
+
+  useUnsavedChanges({
+    hasUnsavedChanges: hasUnsavedChanges && !isSaving,
+    onSave: handleSaveForNavigation,
+    message: 'You have unsaved employee data. Do you want to save before leaving?'
+  });
 
   // Policy tab state
   const [empPolicies, setEmpPolicies] = useState<any[]>([]);
@@ -2046,23 +2126,26 @@ export default function EmployeeDetails() {
     { label: "Policies", icon: <PolicyIcon /> },
   ];
 
-  // const fetchEmployeeDetailsUser = async (uid: any) => {
-  //   showSpinner();
-  //   try {
-  //     const response: any = await employeeService.getEmployeeById(uid);
-  //     setEmployee(response.data);
-  //   } catch (error: any) {
-  //     showSnackbar(error.message || "Failed to load employee details", "error");
-  //   } finally {
-  //     hideSpinner();
-  //   }
-  // };
+  const fetchEmployeeAttendance = async (uid: any) => {
+    try {
+      const res: any = await attendanceService.getEmployeeAttendance(uid, {
+        fromDate: dayjs().format('YYYY-MM-DD'),
+        toDate: dayjs().format('YYYY-MM-DD')
+      });
+      const data = res.data.length ? res.data[0] : "";
+      if (data.status == 'checked_in') {
+        setCheckIn(true);
+      }
+    } catch {
+      showSnackbar("Failed to load attendance records", "error");
+    }
+  };
 
-  // useEffect(() => {
-  //   // if (!session?.user.roles.includes('ADMIN')) {
-  //     fetchEmployeeDetailsUser(apiId);
-  //   // }
-  // }, []);
+  useEffect(() => {
+    if (!isAdmin) {
+      fetchEmployeeAttendance(apiId);
+    }
+  }, []);
 
   const handleWebcamCapture = async (file: File) => {
     try {
@@ -2087,6 +2170,7 @@ export default function EmployeeDetails() {
     try {
       const response: any = await employeeService.getEmployeeById(apiId);
       setEmployee(response.data);
+      setInitialEmployee(response.data);
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
       navigate("/employees");
@@ -2098,16 +2182,11 @@ export default function EmployeeDetails() {
   const fetchCategoryOptions = async () => {
     try {
       const response: any = await categoryService.getActiveCategoryItem();
-      // const response: any = await categoryService.getCategories();
       const categories = response.data.content || response.data || [];
       setCategories(categories);
       const optionsMap: Record<string, any[]> = {};
       for (const category of categories) {
-        //   const itemsResponse: any = await categoryService.getCategoryItems(
-        //     category.id,
-        //   );
         optionsMap[category.categoryName] = category.items || [];
-        // itemsResponse.data.content || itemsResponse.data || [];
       }
       setCategoryOptions(optionsMap);
     } catch (error) {
@@ -2539,7 +2618,6 @@ export default function EmployeeDetails() {
         attendanceSchemaId: updatedData.attendanceSchemaId,
         vehicleTypeId: updatedData.vehicleTypeId,
         hostel: updatedData.hostel,
-        // currentCompanyExperience: updatedData.currentCompanyExperience,
         referredBy: updatedData.referredBy,
         bonusPolicyId: updatedData.bonusPolicyId,
         otPolicyId: updatedData.otPolicyId,
@@ -2720,8 +2798,6 @@ export default function EmployeeDetails() {
             companyAddress: item.companyAddress,
             achievements: item.achievements,
             experience: Number(item.experience),
-            // "referenceName": item.referenceName,
-            // "referenceContact": item.referenceContact
           };
           await employeeService.updatePreviousEmployment(
             apiId,
@@ -2906,11 +2982,6 @@ export default function EmployeeDetails() {
 
   //IDENTITY INFO
   const updateIdentityInfo = async (updatedData: any) => {
-    // const aadhaarNumber = updatedData.aadhaarNumber.replace(/\D/g, "");
-    // if (aadhaarNumber.length !== 12) {
-    //   showSnackbar('Aadhaar Number should be in 12 digits','info');
-    //   return;
-    // };
     showSpinner();
     try {
       const payload = {
@@ -2953,25 +3024,6 @@ export default function EmployeeDetails() {
       hideSpinner();
     }
   };
-
-  //ESI INFO
-  // const updateESIInfo = async (updatedData: any) => {
-  //   showSpinner();
-  //   try {
-  //     const payload = {
-  //       esiNumber: updatedData.esiNumber,
-  //       esiJoiningDate: updatedData.esiJoiningDate,
-  //       esiRelievingDate: updatedData.esiRelievingDate,
-  //     };
-  //     await employeeService.updateEligibilityInfo(id, payload);
-  //     await fetchEmployeeDetails()
-  //     showSnackbar("Bank details updated successfully!", "success");
-  //   } catch (error: any) {
-  //     showSnackbar(error.message, "error");
-  //   } finally {
-  //     hideSpinner();
-  //   }
-  // };
 
   // Family Members
   const handleUpdateFamilyMembers = async (updatedData: any[]) => {
@@ -3319,6 +3371,13 @@ export default function EmployeeDetails() {
 
   return (
     <div className="">
+      {/* Show unsaved changes warning at top */}
+      {hasUnsavedChanges && (
+        <MaterialModule.Alert severity="warning" className="mb-4">
+          You have unsaved changes. Please save each section before leaving.
+        </MaterialModule.Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <MaterialModule.IconButton
@@ -3332,6 +3391,9 @@ export default function EmployeeDetails() {
           <div className="text-gray-500 text-[12px]">
             Complete information about{" "}
             <span className="font-medium text-primary">{employee.name}</span>
+            {hasUnsavedChanges && (
+              <Chip label="Unsaved Changes" size="small" color="warning" className="ml-2" />
+            )}
           </div>
         </div>
       </div>
@@ -3421,7 +3483,6 @@ export default function EmployeeDetails() {
               <div>
                 <Button
                   variant="contained"
-                  // className="!text-primary !border-primary"
                   color={!checkIn ? 'success' : 'error'}
                   onClick={!checkIn ? handleCheckIn : handleCheckOut}
                 >
@@ -3480,6 +3541,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableTableGroup
               title="Emergency Contacts"
@@ -3493,6 +3556,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3509,6 +3574,8 @@ export default function EmployeeDetails() {
               addDialogFields={addressColumns}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3526,6 +3593,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3540,6 +3609,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="Eligibility Information"
@@ -3549,6 +3620,8 @@ export default function EmployeeDetails() {
               onSave={updateEligibilityInfo}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="Verification"
@@ -3558,6 +3631,8 @@ export default function EmployeeDetails() {
               onSave={updateBackgroundInfo}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3574,6 +3649,8 @@ export default function EmployeeDetails() {
               addDialogFields={trainingDetailsColumns}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3590,6 +3667,8 @@ export default function EmployeeDetails() {
               addDialogFields={employmentColumns}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3605,6 +3684,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableTableGroup
               title="PF Details"
@@ -3620,6 +3701,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="PAN Details"
@@ -3631,6 +3714,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="Aadhaar Details"
@@ -3642,6 +3727,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="Passport Details"
@@ -3653,6 +3740,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="Insurance Details"
@@ -3664,6 +3753,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="ESI Details"
@@ -3675,6 +3766,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="PRAN Details"
@@ -3686,6 +3779,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
             <EditableGroup
               title="Login"
@@ -3695,6 +3790,8 @@ export default function EmployeeDetails() {
               onSave={updateIdentityInfo}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3712,6 +3809,8 @@ export default function EmployeeDetails() {
               categoryOptions={categoryOptions}
               categories={categories}
               refreshCategoryOptions={fetchCategoryOptions}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
@@ -3739,6 +3838,8 @@ export default function EmployeeDetails() {
                   ...categoryOptions,
                   nomineeName: familyMemberOptions,
                 }}
+                isSaving={isSaving}
+                setIsSaving={setIsSaving}
               />
             ))}
           </TabPanel>
@@ -3755,11 +3856,14 @@ export default function EmployeeDetails() {
               addDialogFields={attachmentAddFields}
               categoryOptions={categoryOptions}
               categories={categories}
+              isSaving={isSaving}
+              setIsSaving={setIsSaving}
             />
           </TabPanel>
 
           {/* Tab 10: Policies */}
           <TabPanel value={tabValue} index={10}>
+            {/* Policy tab content - unchanged */}
             <div className="p-4">
               {/* Section toggle buttons */}
               <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">
@@ -3855,42 +3959,6 @@ export default function EmployeeDetails() {
                     ))}
 
                   {/* All Assigned Policies */}
-                  {/* {policySection === 'assigned' && (
-                    empPolicies.length === 0 ? (
-                      <MaterialModule.Alert severity="info">No policies assigned to this employee.</MaterialModule.Alert>
-                    ) : (
-                      <MaterialModule.TableContainer className="bg-white border border-gray-200 rounded-md !max-h-[335px]">
-                        <MaterialModule.Table stickyHeader size="small">
-                          <MaterialModule.TableHead sx={{ bgcolor: 'action.hover' }}>
-                            <MaterialModule.TableRow>
-                              <MaterialModule.TableCell>S No</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Policy Name</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Domain</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Version</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Effective From</MaterialModule.TableCell>
-                              <MaterialModule.TableCell>Effective To</MaterialModule.TableCell>
-                            </MaterialModule.TableRow>
-                          </MaterialModule.TableHead>
-                          <MaterialModule.TableBody>
-                            {empPolicies.map((p: any, index: any) => (
-                              <MaterialModule.TableRow key={p.id || index} sx={getRowColor(index)}>
-                                <MaterialModule.TableCell>{index + 1}</MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{p.policyName || p.name || '—'}</MaterialModule.TableCell>
-                                <MaterialModule.TableCell>
-                                  <MaterialModule.Chip label={p.domainCode} size="small" variant="outlined" className="!text-gray-800" />
-                                </MaterialModule.TableCell>
-                                <MaterialModule.TableCell>
-                                  <MaterialModule.Chip label={p.policyVersion ? `v${p.policyVersion}` : '—'} size="small" className="!text-gray-800" />
-                                </MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{p.effectiveFrom ? formatDate(p.effectiveFrom) : '—'}</MaterialModule.TableCell>
-                                <MaterialModule.TableCell>{p.effectiveTo ? formatDate(p.effectiveTo) : 'Ongoing'}</MaterialModule.TableCell>
-                              </MaterialModule.TableRow>
-                            ))}
-                          </MaterialModule.TableBody>
-                        </MaterialModule.Table>
-                      </MaterialModule.TableContainer>
-                    )
-                  )} */}
                   {policySection === "assigned" &&
                     (empPolicies.length === 0 ? (
                       <MaterialModule.Alert severity="info">
@@ -4501,7 +4569,7 @@ export default function EmployeeDetails() {
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
 
-      {/* Policy Configuration Dialog with Sections */}
+      {/* Policy Configuration Dialog */}
       <MaterialModule.Dialog
         open={configDialogOpen}
         onClose={() => setConfigDialogOpen(false)}
