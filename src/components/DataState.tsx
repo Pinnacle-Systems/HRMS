@@ -35,7 +35,7 @@ export default function DataState({
 
   return (
     <Box
-      className={`w-full text-center bg-white-50 text-[12px] ${paddingClass} ${toneClasses[type]} ${
+      className={`w-full text-center bg-white-50 ${paddingClass} ${toneClasses[type]} ${
         compact ? "" : "border rounded-lg"
       }`}
     >
@@ -43,7 +43,7 @@ export default function DataState({
         {type === "loading" && (
           <CircularProgress size={compact ? 18 : 22} color="inherit" />
         )}
-        <div>{displayTitle}</div>
+        <div className="text-gray-400">{displayTitle}</div>
         {message && <div className="text-[12px] opacity-80">{message}</div>}
         {action && <div className="mt-1">{action}</div>}
       </div>

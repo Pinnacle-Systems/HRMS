@@ -709,7 +709,7 @@ export default function HrLeaveBalancesPage() {
                 ))}
               {!loading && ledger.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="p-8">
+                  <TableCell colSpan={7} className="p-8">
                     <DataState
                       compact
                       type="empty"

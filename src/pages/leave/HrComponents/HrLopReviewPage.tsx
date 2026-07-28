@@ -178,7 +178,7 @@ export default function HrLopReviewPage() {
             </span>
           )}
         </div>
-        <TableContainer className="overflow-auto border border-gray-200 rounded-sm h-[calc(100vh-425px)]">
+        <TableContainer className={`overflow-auto border border-gray-200 rounded-sm ${requests.length > 0 ? 'h-[calc(100vh-425px)]' : ''}`}>
           <Table stickyHeader>
             <TableHead>
               <TableRow className="bg-gray-50">
@@ -267,7 +267,7 @@ export default function HrLopReviewPage() {
               )}
               {!loading && requests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="p-8">
+                  <TableCell colSpan={9}>
                     <DataState compact type="empty" title="No pending requests to review." />
                   </TableCell>
                 </TableRow>

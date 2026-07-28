@@ -230,31 +230,31 @@ export default function Layout() {
     {
       text: "Dashboard",
       path: "/payroll",
-      icon: <DashboardOutlinedIcon sx={{ fontSize: 16 }} />,
+      icon: <DashboardOutlinedIcon className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.DASHBOARD,
     },
     {
       text: "Payroll Runs",
       path: "/payroll/runs",
-      icon: <ReceiptOutlined sx={{ fontSize: 16 }} />,
+      icon: <ReceiptOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.RUNS,
     },
     {
       text: "Generate Payroll",
       path: "/payroll/generate",
-      icon: <WorkOutlineOutlined sx={{ fontSize: 16 }} />,
+      icon: <WorkOutlineOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.GENERATE,
     },
     {
       text: "Employee Payslips",
       path: "/payroll/payslips",
-      icon: <AssignmentIndOutlined sx={{ fontSize: 16 }} />,
+      icon: <AssignmentIndOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.PAYSLIPS,
     },
     {
       text: "Employee View",
       path: "/payroll/employee-salary",
-      icon: <Person4OutlinedIcon sx={{ fontSize: 16 }} />,
+      icon: <Person4OutlinedIcon className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.EMPLOYEE_VIEW,
     },
   ];
@@ -263,31 +263,31 @@ export default function Layout() {
     {
       text: "Salary Components",
       path: "/payroll/components",
-      icon: <CategoryOutlined sx={{ fontSize: 16 }} />,
+      icon: <CategoryOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.COMPONENTS,
     },
     {
       text: "Salary Structure",
       path: "/payroll/structures",
-      icon: <AccountBalanceOutlined sx={{ fontSize: 16 }} />,
+      icon: <AccountBalanceOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.STRUCTURES,
     },
     {
       text: "Assign Salary",
       path: "/payroll/assign",
-      icon: <AttachMoney sx={{ fontSize: 16 }} />,
+      icon: <AttachMoney className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.ASSIGN,
     },
     {
       text: "Deductions",
       path: "/payroll/deductions",
-      icon: <PercentOutlined sx={{ fontSize: 16 }} />,
+      icon: <PercentOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.DEDUCTIONS,
     },
     {
       text: "Payroll Periods",
       path: "/payroll/periods",
-      icon: <CalendarTodayOutlined sx={{ fontSize: 16 }} />,
+      icon: <CalendarTodayOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.PERIODS,
     },
   ];
@@ -296,37 +296,37 @@ export default function Layout() {
     {
       text: "Loan/Advance Request",
       path: "/payroll/loan-advance-request",
-      icon: <RequestPageOutlined />,
+      icon: <RequestPageOutlined className="!w-4"/>,
       permissions: PAYROLL_PERMISSIONS.LOAN_ADVANCE,
     },
     {
       text: "Statutory Compliance",
       path: "/payroll/compliance",
-      icon: <Verified />,
+      icon: <Verified className="!w-4"/>,
       permissions: PAYROLL_PERMISSIONS.STATUTORY,
     },
     {
       text: "Bank Advice",
       path: "/payroll/bank-advice",
-      icon: <AccountBalanceOutlined />,
+      icon: <AccountBalanceOutlined className="!w-4"/>,
       permissions: PAYROLL_PERMISSIONS.BANK_ADVICE,
     },
     {
       text: "Payroll Reports",
       path: "/payroll/reports",
-      icon: <AssessmentOutlined />,
+      icon: <AssessmentOutlined className="!w-4"/>,
       permissions: PAYROLL_PERMISSIONS.REPORTS,
     },
     {
       text: "Audit Logs",
       path: "/payroll/audit",
-      icon: <HistoryOutlinedIcon />,
+      icon: <HistoryOutlinedIcon className="!w-4"/>,
       permissions: PAYROLL_PERMISSIONS.AUDIT,
     },
     {
       text: "Employee Portal",
       path: "/payroll/employee-portal",
-      icon: <ViewQuiltOutlined />,
+      icon: <ViewQuiltOutlined className="!w-4"/>,
       permissions: PAYROLL_PERMISSIONS.PORTAL,
     },
   ];
@@ -868,13 +868,12 @@ export default function Layout() {
           {visibleMenuItems.map((item: any, index) => (
             <Box key={`item-${index}-${item.text}`}>
               {item.isPayroll ? (
-                // Special rendering for Payroll with expandable sections
                 <>
                   {/* Payroll Parent Item */}
                   <Tooltip title={!open ? "Payroll" : ""}>
                     <ListItem disablePadding className="block whitespace-nowrap">
                       <ListItemButton
-                        className={`min-h-[30px] px-2.5 py-1 text-sm ${location.pathname.startsWith("/payroll")
+                        className={`min-h-[30px] px-2.5 py-1 text-[12px] ${location.pathname.startsWith("/payroll")
                           ? "text-primary !bg-primary-50"
                           : "text-gray-400"
                           } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
@@ -959,7 +958,7 @@ export default function Layout() {
                             <ListItemButton
                               key={child.path}
                               sx={{ pl: 4 }}
-                              className={`min-h-[32px] text-sm ${location.pathname === child.path ||
+                              className={`min-h-[32px] text-[12px] ${location.pathname === child.path ||
                                 (child.path === "/payroll" && location.pathname === "/payroll")
                                 ? "text-primary !bg-primary-50"
                                 : "text-gray-400"
@@ -997,7 +996,7 @@ export default function Layout() {
                             pl: 1.5,
                             pr: 1,
                             minHeight: '28px',
-                            mt: 0.5,
+                            // mt: 0.5,
                           }}
                           className="hover:!bg-transparent"
                           onClick={() => { setPayrollConfigOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollAdvancedOpen(false) }}
@@ -1034,7 +1033,7 @@ export default function Layout() {
                             <ListItemButton
                               key={child.path}
                               sx={{ pl: 4 }}
-                              className={`min-h-[32px] text-sm ${location.pathname === child.path
+                              className={`min-h-[32px] text-[12px] ${location.pathname === child.path
                                 ? "text-primary !bg-primary-50"
                                 : "text-gray-400"
                                 }`}
@@ -1066,7 +1065,7 @@ export default function Layout() {
 
                         {/* ADVANCED FEATURES Section */}
                         <ListItemButton
-                          sx={{ pl: 1.5, pr: 1, minHeight: '28px', mt: 0.5 }}
+                          sx={{ pl: 1.5, pr: 1, minHeight: '28px'}}
                           className="hover:!bg-transparent"
                           onClick={() => { setPayrollAdvancedOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollConfigOpen(false); }}
                         >
@@ -1079,6 +1078,7 @@ export default function Layout() {
                           </ListItemIcon>
                           <ListItemText
                             primary="ADVANCED FEATURES"
+                             className="!mt-0 !mb-0"
                             sx={{
                               "& .MuiTypography-root": {
                                 fontSize: "10px",
@@ -1096,7 +1096,7 @@ export default function Layout() {
                             <ListItemButton
                               key={child.path}
                               sx={{ pl: 4 }}
-                              className={`min-h-[32px] text-sm ${location.pathname === child.path
+                              className={`min-h-[32px] text-[12px] ${location.pathname === child.path
                                 ? "text-primary !bg-primary-50"
                                 : "text-gray-400"
                                 }`}
@@ -1115,7 +1115,7 @@ export default function Layout() {
                               </ListItemIcon>
                               <ListItemText
                                 primary={child.text}
-                                className="text-gray-800"
+                                className="!mt-0 !mb-0 text-gray-800"
                                 sx={{
                                   "& .MuiTypography-root": {
                                     fontSize: "12px",
@@ -1135,7 +1135,7 @@ export default function Layout() {
                   <Tooltip title={!open ? item.text : ""}>
                     <ListItem disablePadding className="block whitespace-nowrap">
                       <ListItemButton
-                        className={`min-h-[30px] px-2.5 py-1 text-sm ${location.pathname === item.path ||
+                        className={`min-h-[30px] px-2.5 py-1 text-[12px] ${location.pathname === item.path ||
                           location.pathname.startsWith(`${item.path}/`)
                           ? "text-primary !bg-primary-50"
                           : "text-gray-400"
@@ -1199,7 +1199,7 @@ export default function Layout() {
                           <ListItemButton
                             key={child.path}
                             sx={{ pl: 2 }}
-                            className={`min-h-[40px] text-sm ${location.pathname === child.path
+                            className={`min-h-[40px] text-[12px] ${location.pathname === child.path
                               ? "text-primary !bg-primary-50"
                               : "text-gray-400"
                               }`}
@@ -1238,7 +1238,7 @@ export default function Layout() {
                           <ListItemButton
                             key={child.path}
                             sx={{ pl: 2 }}
-                            className={`min-h-[40px] text-sm ${location.pathname === child.path
+                            className={`min-h-[40px] text-[12px] ${location.pathname === child.path
                               ? "text-primary !bg-primary-50"
                               : "text-gray-400"
                               }`}
@@ -1277,7 +1277,7 @@ export default function Layout() {
                           <ListItemButton
                             key={child.path}
                             sx={{ pl: 2 }}
-                            className={`min-h-[40px] text-sm ${location.pathname === child.path
+                            className={`min-h-[40px] text-[12px] ${location.pathname === child.path
                               ? "!bg-primary-50"
                               : "text-gray-400"
                               }`}
@@ -1321,7 +1321,7 @@ export default function Layout() {
                 <Tooltip title={!open ? item.text : ""}>
                   <ListItem disablePadding className="block whitespace-nowrap">
                     <ListItemButton
-                      className={`min-h-[48px] px-2.5 text-sm ${location.pathname === item.path ||
+                      className={`min-h-[48px] px-2.5 text-[12px] ${location.pathname === item.path ||
                         location.pathname.startsWith(`${item.path}/`)
                         ? "text-primary !bg-primary-50"
                         : "text-gray-400"

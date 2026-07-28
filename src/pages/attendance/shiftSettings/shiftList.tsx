@@ -553,7 +553,7 @@ export const ShiftList = () => {
           </TableBody>
         </Table>
         {filteredShifts.length === 0 && (
-          <div className="bg-white border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500"> No shifts available!</div>
+          <div className="border border-gray-200 border-t-0 text-center py-8 text-gray-400"> No shifts available!</div>
         )}
       </TableContainer>
 

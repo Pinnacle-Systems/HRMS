@@ -214,7 +214,7 @@ export function RemoteCheckins() {
               ) : checkins.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center">
-                    <div className="py-6 text-gray-500">
+                    <div className="py-6 text-gray-400">
                       No remote check-ins found
                     </div>
                   </TableCell>

@@ -590,7 +590,7 @@ export default function HrLeaveRequestsPage() {
                 ))}
               {!compOffLoading && compOffRequests.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <DataState compact type="empty" title="No pending comp-off requests." />
                   </TableCell>
                 </TableRow>

@@ -1005,7 +1005,7 @@ export default function HrPayrollInputsPage() {
         </TableContainer>
         {
           !employeeName &&
-          <div className="text-[12px] text-gray-600 text-center p-4 border borde-gray-200">Select Employee to Get Encashment Details</div>
+          <div className="text-[12px] text-gray-400 text-center p-6 border borde-gray-200">Select Employee to Get Encashment Details</div>
         }
       </div>
 

@@ -266,7 +266,7 @@ export function AttendanceDetailed() {
               ) : records.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={13} align="center">
-                    <div className="!py-8 text-gray-400 text-sm">No records found</div>
+                    <div className="!py-8 text-gray-400">No records found</div>
                   </TableCell>
                 </TableRow>
               ) : (

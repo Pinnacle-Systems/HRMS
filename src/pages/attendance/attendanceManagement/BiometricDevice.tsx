@@ -40,7 +40,6 @@ import {
   Computer as ComputerIcon,
   LocationOn as LocationIcon,
   Wifi as WifiIcon,
-  Settings as SettingsIcon,
   Sync as SyncIcon,
   Schedule as ScheduleIcon,
   VisibilityOutlined,
@@ -49,6 +48,11 @@ import {
   MoreVertOutlined,
   Person as PersonIcon,
   Send as SendIcon,
+  CloseOutlined,
+  NumbersOutlined,
+  ModelTrainingOutlined,
+  LocationOnOutlined,
+  SettingsOutlined,
 } from "@mui/icons-material";
 import {
   biometricService,
@@ -554,7 +558,7 @@ export const DeviceManagement: React.FC = () => {
     } catch (error: any) {
       showSnackbar(
         error?.message ||
-          `Failed to ${dialogMode === "add" ? "register" : "update"} device`,
+        `Failed to ${dialogMode === "add" ? "register" : "update"} device`,
         "error",
       );
     } finally {
@@ -599,10 +603,13 @@ export const DeviceManagement: React.FC = () => {
       maxWidth="md"
       fullWidth
     >
-      <DialogTitle className="border-b !border-gray-200 !p-2">
+      <DialogTitle className="border-b !border-gray-200 !p-2 flex justify-between items-center">
         <div className="ml-4">
           {dialogMode === "add" ? "Register New Device" : "Edit Device"}
         </div>
+        <IconButton onClick={handleCloseDialog}>
+          <CloseOutlined className="text-gray-800" />
+        </IconButton>
       </DialogTitle>
       <DialogContent className="!p-4">
         <Grid container spacing={3} sx={{ mt: 1 }}>
@@ -626,7 +633,7 @@ export const DeviceManagement: React.FC = () => {
               error={!!formErrors.deviceSerial}
               helperText={formErrors.deviceSerial}
               required
-              disabled={dialogMode === "edit"}
+            // disabled={dialogMode === "edit"}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -650,6 +657,7 @@ export const DeviceManagement: React.FC = () => {
               helperText={formErrors.ipAddress}
               required
               placeholder="192.168.1.100"
+              disabled={dialogMode === "edit"}
             />
           </Grid>
           <Grid size={{ xs: 12 }}>
@@ -760,7 +768,7 @@ export const DeviceManagement: React.FC = () => {
       <Box sx={{ display: "flex", alignItems: "center", py: 1 }}>
         {icon}
         <Box sx={{ ml: 2 }}>
-          <div className="text-[12px] text-gray-800 mb-1">{label}</div>
+          <div className="text-[12px] text-gray-500 mb-1">{label}</div>
           <div className="text-[12px] text-gray-800">{value || "N/A"}</div>
         </Box>
       </Box>
@@ -790,18 +798,9 @@ export const DeviceManagement: React.FC = () => {
               <Chip
                 label={selectedDevice.isActive ? "Active" : "Inactive"}
                 color={selectedDevice.isActive ? "success" : "error"}
-                icon={
-                  selectedDevice.isActive ? <CheckCircleIcon /> : <CancelIcon />
-                }
+                size="small"
               />
             </Box>
-            {/* <Chip
-                            label={selectedDevice.isActive ? "Active" : "Inactive"}
-                            color={selectedDevice.isActive ? "success" : "error"}
-                            icon={
-                                selectedDevice.isActive ? <CheckCircleIcon /> : <CancelIcon />
-                            }
-                        /> */}
           </Box>
         </DialogTitle>
         <DialogContent className="!px-5 !py-3">
@@ -850,36 +849,38 @@ export const DeviceManagement: React.FC = () => {
                 className="bg-white text-gray-800"
               >
                 <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <DetailItem
                       icon={<ComputerIcon color="primary" />}
                       label="Device Name"
                       value={selectedDevice.deviceName}
                     />
                     <DetailItem
-                      icon={<ComputerIcon color="primary" />}
+                      icon={<NumbersOutlined color="primary" />}
                       label="Serial Number"
                       value={selectedDevice.deviceSerial}
                     />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <DetailItem
-                      icon={<ComputerIcon color="primary" />}
+                      icon={<ModelTrainingOutlined color="primary" />}
                       label="Device Model"
                       value={selectedDevice.deviceModel}
                     />
-                  </Grid>
-                  <Grid size={{ xs: 12, md: 6 }}>
                     <DetailItem
                       icon={<WifiIcon color="primary" />}
                       label="IP Address"
                       value={selectedDevice.ipAddress}
                     />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <DetailItem
-                      icon={<LocationIcon color="primary" />}
+                      icon={<LocationOnOutlined color="primary" />}
                       label="Location"
                       value={selectedDevice.location}
                     />
                     <DetailItem
-                      icon={<SettingsIcon color="primary" />}
+                      icon={<SettingsOutlined color="primary" />}
                       label="Machine Type"
                       value={selectedDevice.machineType}
                     />
@@ -889,11 +890,11 @@ export const DeviceManagement: React.FC = () => {
             </Grid>
 
             {/* Configuration */}
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 6 }}>
               <div className="mb-2 text-[12px] text-gray-800">
                 Configuration
               </div>
-              <Paper variant="outlined" sx={{ p: 2 }} className="bg-white">
+              <Paper variant="outlined" sx={{ p: 1 }} className="bg-white">
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <DetailItem
@@ -904,7 +905,7 @@ export const DeviceManagement: React.FC = () => {
                   </Grid>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <DetailItem
-                      icon={<SettingsIcon color="primary" />}
+                      icon={<SettingsOutlined color="primary" />}
                       label="Machine Setup"
                       value={selectedDevice.machineSetUp}
                     />
@@ -914,11 +915,11 @@ export const DeviceManagement: React.FC = () => {
             </Grid>
 
             {/* Sync Information */}
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 6 }}>
               <div className="mb-2 text-[12px] text-gray-800">
                 Sync Information
               </div>
-              <Paper variant="outlined" sx={{ p: 2 }} className="bg-white">
+              <Paper variant="outlined" sx={{ p: 1 }} className="bg-white">
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <DetailItem
@@ -947,7 +948,7 @@ export const DeviceManagement: React.FC = () => {
               <div className="mb-2 text-[12px] text-gray-800">
                 System Information
               </div>
-              <Paper variant="outlined" sx={{ p: 2 }} className="bg-white">
+              <Paper variant="outlined" sx={{ p: 1 }} className="bg-white">
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, md: 6 }}>
                     <DetailItem
@@ -974,62 +975,62 @@ export const DeviceManagement: React.FC = () => {
             {Object.values(activeSyncs).filter(
               (s) => s.deviceId === selectedDevice.id,
             ).length > 0 && (
-              <Grid size={{ xs: 12 }}>
-                <div className="mb-2 text-[12px] text-gray-800">
-                  Active Syncs
-                </div>
-                <Paper variant="outlined" sx={{ p: 2 }} className="bg-white">
-                  {Object.values(activeSyncs)
-                    .filter((s) => s.deviceId === selectedDevice.id)
-                    .map((sync) => (
-                      <Box key={sync.id} sx={{ mb: 1 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            mb: 0.5,
-                          }}
-                        >
-                          <Typography variant="caption">
-                            {new Date(sync.startDate).toLocaleString()} -{" "}
-                            {new Date(sync.endDate).toLocaleString()}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={sync.status}
-                            color={
+                <Grid size={{ xs: 12 }}>
+                  <div className="mb-2 text-[12px] text-gray-800">
+                    Active Syncs
+                  </div>
+                  <Paper variant="outlined" sx={{ p: 2 }} className="bg-white">
+                    {Object.values(activeSyncs)
+                      .filter((s) => s.deviceId === selectedDevice.id)
+                      .map((sync) => (
+                        <Box key={sync.id} sx={{ mb: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              mb: 0.5,
+                            }}
+                          >
+                            <Typography variant="caption">
+                              {new Date(sync.startDate).toLocaleString()} -{" "}
+                              {new Date(sync.endDate).toLocaleString()}
+                            </Typography>
+                            <Chip
+                              size="small"
+                              label={sync.status}
+                              color={
+                                sync.status === "completed"
+                                  ? "success"
+                                  : sync.status === "failed"
+                                    ? "error"
+                                    : sync.status === "processing"
+                                      ? "warning"
+                                      : "default"
+                              }
+                            />
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={
                               sync.status === "completed"
-                                ? "success"
-                                : sync.status === "failed"
-                                  ? "error"
-                                  : sync.status === "processing"
-                                    ? "warning"
-                                    : "default"
+                                ? 100
+                                : sync.status === "processing"
+                                  ? 60
+                                  : sync.status === "failed"
+                                    ? 0
+                                    : 0
                             }
+                            sx={{ height: 6, borderRadius: 3 }}
                           />
+                          <Typography variant="caption" color="textSecondary">
+                            {sync.punchesApplied}/{sync.punchesReceived} punches
+                            applied
+                          </Typography>
                         </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={
-                            sync.status === "completed"
-                              ? 100
-                              : sync.status === "processing"
-                                ? 60
-                                : sync.status === "failed"
-                                  ? 0
-                                  : 0
-                          }
-                          sx={{ height: 6, borderRadius: 3 }}
-                        />
-                        <Typography variant="caption" color="textSecondary">
-                          {sync.punchesApplied}/{sync.punchesReceived} punches
-                          applied
-                        </Typography>
-                      </Box>
-                    ))}
-                </Paper>
-              </Grid>
-            )}
+                      ))}
+                  </Paper>
+                </Grid>
+              )}
           </Grid>
         </DialogContent>
         <DialogActions className="border-t border-gray-200 !p-4">
@@ -1598,7 +1599,7 @@ export const DeviceManagement: React.FC = () => {
                                 deviceHealth[device.id]?.status === "online"
                                   ? "success"
                                   : deviceHealth[device.id]?.status ===
-                                      "offline"
+                                    "offline"
                                     ? "error"
                                     : "warning"
                               }
@@ -1615,9 +1616,9 @@ export const DeviceManagement: React.FC = () => {
                         label={device.isActive ? "Active" : "Inactive"}
                         color={device.isActive ? "success" : "error"}
                         size="small"
-                        icon={
-                          device.isActive ? <CheckCircleIcon /> : <CancelIcon />
-                        }
+                        // icon={
+                        //   device.isActive ? <CheckCircleIcon /> : <CancelIcon />
+                        // }
                       />
                     </TableCell>
                     <TableCell>
@@ -1682,20 +1683,20 @@ export const DeviceManagement: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                       </Box> */}
-                       <Tooltip title="View Details">
-                          <IconButton
-                            size="small"
-                            color="info"
-                            onClick={() => handleOpenDetailsDialog(device)}
-                          >
-                            <VisibilityOutlined className="!text-primary" />
-                          </IconButton>
-                        </Tooltip>
+                      <Tooltip title="View Details">
+                        <IconButton
+                          size="small"
+                          color="info"
+                          onClick={() => handleOpenDetailsDialog(device)}
+                        >
+                          <VisibilityOutlined className="!text-primary" />
+                        </IconButton>
+                      </Tooltip>
                       <IconButton
                         size="small"
                         onClick={(e) => {
-                            handleMenuOpen(e, device.id);
-                            setSelectedMenuDevice(device)
+                          handleMenuOpen(e, device.id);
+                          setSelectedMenuDevice(device)
                         }}
                       >
                         <MoreVertOutlined />
@@ -1747,7 +1748,7 @@ export const DeviceManagement: React.FC = () => {
           <ListItemText>View Details</ListItemText>
         </MenuItem> */}
 
-         <MenuItem
+        <MenuItem
           onClick={() => {
             handleMenuClose();
             if (selectedMenuDevice) {
@@ -1756,7 +1757,7 @@ export const DeviceManagement: React.FC = () => {
           }}
         >
           <ListItemIcon>
-            <PersonIcon fontSize="small" color="primary" />
+            <PersonIcon fontSize="small" className="!w-4 text-gray-500" />
           </ListItemIcon>
           <ListItemText>Map Employee</ListItemText>
         </MenuItem>
@@ -1770,7 +1771,7 @@ export const DeviceManagement: React.FC = () => {
           }}
         >
           <ListItemIcon>
-            <SendIcon fontSize="small" color="primary" />
+            <SendIcon fontSize="small" color="success" className="!w-4" />
           </ListItemIcon>
           <ListItemText>Process Webhook</ListItemText>
         </MenuItem>
@@ -1789,7 +1790,7 @@ export const DeviceManagement: React.FC = () => {
           }}
         >
           <ListItemIcon>
-            <SyncIcon fontSize="small" color="primary" />
+            <SyncIcon fontSize="small" color="warning" />
           </ListItemIcon>
           <ListItemText>Sync</ListItemText>
         </MenuItem>
@@ -1803,7 +1804,7 @@ export const DeviceManagement: React.FC = () => {
           }}
         >
           <ListItemIcon>
-            <EditIcon fontSize="small" color="primary" />
+            <EditIcon fontSize="small" color="primary" className="!w-4" />
           </ListItemIcon>
           <ListItemText>Edit</ListItemText>
         </MenuItem>
@@ -1828,7 +1829,7 @@ export const DeviceManagement: React.FC = () => {
           </ListItemText>
         </MenuItem>
 
-       
+
       </Menu>
 
       {/* Dialogs */}
