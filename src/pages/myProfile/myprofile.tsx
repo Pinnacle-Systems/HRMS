@@ -527,7 +527,7 @@ export default function Profile() {
                 <div className="relative group">
                   <Avatar
                     src={userData.profilePicUrl}
-                    className="!w-24 !h-24 text-2xl cursor-pointer"
+                    className="!w-24 !h-24 !border !border-gray-200 text-2xl cursor-pointer"
                   >
                     {getInitials() || 'U'}
                   </Avatar>

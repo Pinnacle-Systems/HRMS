@@ -30,6 +30,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
+import ConfigurationViewer from '../../components/PolicyManagement/ConfigurationViewer';
 // import { useAuth } from '../../auth/authContext';
 
 const TabPanel: React.FC<TabPanelProps> = ({ children, index, value }) => {
@@ -203,7 +204,7 @@ export default function EditPolicy() {
   //   // try {
   //   //   await policyVersionService.exportConfigurtion(session?.accessToken)
   //   // } catch (error) {
-      
+
   //   // }
   // };
 
@@ -347,7 +348,13 @@ export default function EditPolicy() {
           )}
 
           <div className='mb-3 !bg-white'>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
+            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{
+              "& .MuiTabs-indicator": {
+                backgroundColor: "var(--color-primary)",
+                height: 3,
+                borderRadius: "3px 3px 0 0",
+              },
+            }}>
               <Tab label="Overview" className='!text-gray-800' />
               <Tab label="Version History" className='!text-gray-800' />
               <Tab label="Assignments" className='!text-gray-800' />
@@ -358,11 +365,15 @@ export default function EditPolicy() {
                 <Typography variant="subtitle1" gutterBottom>
                   Current Configuration
                 </Typography>
-                <div className='border border-gray-200 p-2 bg-head'>
+                {/* <div className='border border-gray-200 p-2 bg-head'>
                   <pre style={{ margin: 0, overflow: 'auto', fontSize: 12 }}>
                     {JSON.stringify(currentVersion?.configJson, null, 2)}
                   </pre>
-                </div>
+                </div> */}
+                <ConfigurationViewer
+                  configJson={currentVersion.configJson}
+                  versionNo={currentVersion.versionNo}
+                />
               </Box>
             </TabPanel>
 
@@ -377,7 +388,7 @@ export default function EditPolicy() {
                 onArchiveVersion={handleArchiveVersion}
                 onExpireVersion={handleExpireVersion}
                 onCompareVersions={handleCompareVersions}
-                // onExportVersion={handleExportVersion}
+              // onExportVersion={handleExportVersion}
               />
             </TabPanel>
 
@@ -432,7 +443,7 @@ export default function EditPolicy() {
                 value={effectiveFrom ? dayjs(effectiveFrom) : null}
                 onChange={(newValue) => {
                   setEffectiveFrom(
-                   newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
+                    newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
                   );
                 }}
                 maxDate={effectiveTo ? dayjs(effectiveTo) : undefined}
@@ -443,7 +454,7 @@ export default function EditPolicy() {
                   },
                 }}
               />
-               <DatePicker
+              <DatePicker
                 label="Effective To"
                 value={effectiveTo ? dayjs(effectiveTo) : null}
                 onChange={(newValue) => {
@@ -473,11 +484,15 @@ export default function EditPolicy() {
             <Typography variant="subtitle2" gutterBottom>
               Configuration Preview
             </Typography>
-            <div className='border border-gray-200 bg-gray-100 p-1 max-h-[300px] overflow-auto'>
+            {/* <div className='border border-gray-200 bg-gray-100 p-1 max-h-[300px] overflow-auto'>
               <pre style={{ margin: 0, fontSize: 11 }}>
                 {JSON.stringify(newVersionConfig, null, 2)}
               </pre>
-            </div>
+            </div> */}
+            <ConfigurationViewer
+              configJson={currentVersion.configJson}
+              versionNo={currentVersion.versionNo}
+            />
           </Box>
         </DialogContent>
         <DialogActions className='!p-4 border-t border-gray-200'>

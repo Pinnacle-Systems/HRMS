@@ -102,13 +102,13 @@ export const MasterSelect = ({
       )}
       sx={{
         ...sx,
-        '& .MuiOutlinedInput-root': {
-          padding: '0px 4px !important',
-          minHeight: '37px',
-        },
-        '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
-          padding: '2px !important',
-        },
+        // '& .MuiOutlinedInput-root': {
+        //   padding: '0px 4px !important',
+        //   minHeight: '37px',
+        // },
+        // '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+        //   padding: '2px !important',
+        // },
       }}
     />
   );

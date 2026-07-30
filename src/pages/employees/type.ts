@@ -13,12 +13,12 @@ export interface Employee {
   joiningDate: string;
   mobileNumber: string;
   departmentId: string;
-  department?: string;
+  department?: any;
   designationId: string;
   branch: string;
   branchId: string;
-  designation?: string;
-  employeeStatus?: string;
+  designation?: any;
+  employeeStatus?: any;
   employeeStatusId?: string;
   isActive?: boolean;
   deactivatedAt?: string;

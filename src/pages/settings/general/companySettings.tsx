@@ -77,7 +77,7 @@ const CompanySettings = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   // Check if there are unsaved changes
-  const hasUnsavedChanges = !isEqual(companyInfo, initialCompanyInfo) || 
+  const hasUnsavedChanges = !isEqual(companyInfo, initialCompanyInfo) ||
     (logoFile !== "" && typeof logoFile !== 'string' && !companyInfo.logoUrl) ||
     (signatureFile !== "" && typeof signatureFile !== 'string' && !companyInfo.signatureUrl);
 
@@ -371,7 +371,7 @@ const CompanySettings = () => {
         };
         setCompanyInfo(data);
         setInitialCompanyInfo(data);
-        
+
         if (response.data.countryId) {
           void fetchStatesByCountry(response.data.countryId);
         }
@@ -539,7 +539,7 @@ const CompanySettings = () => {
         return;
       }
     }
-    
+
     showConfirmDialog({
       title: "Delete Company",
       message: `Are you sure you want to delete "${companyInfo.companyName}"?`,
@@ -570,6 +570,17 @@ const CompanySettings = () => {
     "& .MuiFormHelperText-root": {
       fontSize: "10px",
       marginLeft: 0,
+    },
+    '& .MuiOutlinedInput-root': {
+      padding: '0px 4px !important',
+      minHeight: '37px !important',
+    },
+    "& .MuiSelect-select": {
+      padding: "5px !important",
+      width: "150px !important",
+    },
+    '& .MuiOutlinedInput-root .MuiAutocomplete-input': {
+      padding: '2px !important',
     },
   };
 
@@ -773,9 +784,9 @@ const CompanySettings = () => {
               Manage Fiscal Years
             </div>
             {hasUnsavedChanges && (
-              <Chip 
-                label="Unsaved Changes" 
-                size="small" 
+              <Chip
+                label="Unsaved Changes"
+                size="small"
                 color="warning"
                 className="ml-2"
               />

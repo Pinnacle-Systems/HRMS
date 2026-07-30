@@ -53,6 +53,7 @@ import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { companyService } from "../../../services/modules/company";
+import { useAuth } from "../../../auth/authContext";
 
 export default function BranchSettings() {
   // Pagination & Sorting State
@@ -82,6 +83,7 @@ export default function BranchSettings() {
 
   const [companyId, setCompanyId] = useState<string>("");
   const [banks, setBanks] = useState<Bank[]>([]);
+  const { session } = useAuth();
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -116,14 +118,16 @@ export default function BranchSettings() {
         params.search = searchTerm;
       }
       const response: any = await branchService.getBranches(params);
+      let branch: any;
       if (response.success) {
-        setBranches(response.data.content || response.data || []);
-        setTotal(
-          response.data.totalElements ||
-          response.data.total ||
-          response.data.length ||
-          0,
-        );
+        const res = response.data.content || response.data || [];
+        if (session?.branchId) {
+          branch = res.filter((item: any) => item.id === session?.branchId)
+        } else {
+          branch = res;
+        }
+        setBranches(branch);
+        setTotal(response.data.totalElements || response.data.total || response.data.length || 0);
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -1318,7 +1322,7 @@ export default function BranchSettings() {
           </IconButton>
         </div>
         <DialogContent>
-          <div className="grid grid-cols-2 gap-5 mt-2">
+          <div className="grid grid-cols-2 gap-5 mt-2" onKeyDown={handleEnterAsTab}>
             <Autocomplete
               fullWidth
               options={banks}

@@ -36,7 +36,7 @@ export default function DataState({
   return (
     <Box
       className={`w-full text-center bg-white-50 ${paddingClass} ${toneClasses[type]} ${
-        compact ? "" : "border rounded-lg"
+        compact ? "" : "border border-gray-200 rounded-lg"
       }`}
     >
       <div className="flex flex-col items-center justify-center gap-2">

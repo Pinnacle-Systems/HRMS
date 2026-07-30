@@ -26,6 +26,7 @@ import {
   getRowColor,
   getStickyLeftSx,
   getStickyRightSx,
+  handleEnterAsTab,
   stickyHeaderLeftSx,
   stickyHeaderRightSx,
 } from "../const";
@@ -44,8 +45,10 @@ import {
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
 import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
-import { Alert, Backdrop, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Autocomplete, Backdrop, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
+import { masterSx } from "./const.ts";
+import DataState from "../../components/DataState.tsx";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -121,7 +124,6 @@ export default function EmployeeManagement() {
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] =
     useState(false);
   const [adminRemarks, setAdminRemarks] = useState("");
-  const [downloading, setDownloading] = useState(false);
 
   const filterFields = useMemo(
     () =>
@@ -540,18 +542,30 @@ export default function EmployeeManagement() {
     const response: any = await employeeService.getEmployeeById(employee.id);
     setSelectedEmployee(response.data);
 
-    const resolvedDepartmentId =
-      employee.departmentId ||
-      departments.find((d) => d.departmentName === employee.department)?.id;
-    const resolvedDesignationId =
-      employee.designationId ||
-      designations.find((d) => d.name === employee.designation)?.id;
+    // const resolvedDepartmentId =
+    //   employee.departmentId ||
+    //   departments.find((d) => d.departmentName === employee.department)?.id;
+    // const resolvedDesignationId =
+    //   employee.designationId ||
+    //   designations.find((d) => d.name === employee.designation)?.id;
+    // const resolvedBranchId =
+    //   employee.branchId ||
+    //   branches.find((b) => b.branchName === employee.branch)?.id;
+    // const resolvedEmployeeStatusId =
+    //   employee.employeeStatusId ||
+    //   empStatus.find((s) => s.name === employee.employeeStatus)?.id;
+    const resolvedDepartment = departments.find(
+      (d) => d.id === employee.departmentId || d.departmentName === employee.department
+    );
+    const resolvedDesignation = designations.find(
+      (d) => d.id === employee.designationId || d.name === employee.designation
+    );
     const resolvedBranchId =
       employee.branchId ||
       branches.find((b) => b.branchName === employee.branch)?.id;
-    const resolvedEmployeeStatusId =
-      employee.employeeStatusId ||
-      empStatus.find((s) => s.name === employee.employeeStatus)?.id;
+    const resolvedEmployeeStatus = empStatus.find(
+      (s) => s.id === employee.employeeStatusId || s.name === employee.employeeStatus
+    );
 
     setFormData({
       name: employee.name,
@@ -560,13 +574,19 @@ export default function EmployeeManagement() {
       branch: employee.branch || "",
       branchId: session?.branchId || resolvedBranchId,
       employeeId: employee.employeeId,
-      departmentId: resolvedDepartmentId,
-      designationId: resolvedDesignationId,
-      department: employee.department,
-      designation: employee.designation,
+      // departmentId: resolvedDepartment,
+      // designationId: resolvedDesignation,
+      // department: employee.department,
+      // designation: employee.designation,
       mobileNumber: employee.mobileNumber || "",
-      employeeStatus: employee.employeeStatus || "",
-      employeeStatusId: resolvedEmployeeStatusId,
+      // employeeStatus: employee.employeeStatus || "",
+      // employeeStatusId: resolvedEmployeeStatus,
+      department: resolvedDepartment || null,
+      departmentId: resolvedDepartment?.id || employee.departmentId || "",
+      designation: resolvedDesignation || null,
+      designationId: resolvedDesignation?.id || employee.designationId || "",
+      employeeStatus: resolvedEmployeeStatus || null,
+      employeeStatusId: resolvedEmployeeStatus?.id || employee.employeeStatusId || "",
     });
     setEmployeeDialogOpen(true);
   };
@@ -583,7 +603,8 @@ export default function EmployeeManagement() {
     //   return;
     // }
     if (!validateEmployeeIdConfig()) return;
-    setDownloading(true);
+    // setDownloading(true);
+    showSpinner();
     try {
       if (isEditing) {
         const empId = selectedEmployee!.id;
@@ -664,7 +685,8 @@ export default function EmployeeManagement() {
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
-      setDownloading(false);
+      // setDownloading(false);
+      hideSpinner();
     }
   };
 
@@ -762,7 +784,7 @@ export default function EmployeeManagement() {
       return;
     }
     setUploadResult(null);
-    setDownloading(true);
+    showSpinner();
     try {
       const response: any = await employeeService.bulkUploadEmployees(
         uploadFile,
@@ -800,7 +822,7 @@ export default function EmployeeManagement() {
     } catch (error: any) {
       showSnackbar(error.message || "Failed to upload", "error");
     } finally {
-      setDownloading(false);
+      hideSpinner();
     }
   };
 
@@ -1352,13 +1374,25 @@ export default function EmployeeManagement() {
                 </TableCell>
               </TableRow>
             ))}
+            {employees.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                  <DataState
+                    compact
+                    type="empty"
+                    title="No Employee Found."
+                  />
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
+
         </Table>
-        {employees.length === 0 && (
+        {/* {employees.length === 0 && (
           <div className="text-center py-8 text-gray-500 border border-gray-200">
             No employees found
           </div>
-        )}
+        )} */}
       </TableContainer>
 
       {/* Pagination */}
@@ -1405,7 +1439,7 @@ export default function EmployeeManagement() {
           </IconButton>
         </div>
         <DialogContent>
-          {
+          {/* {
             downloading && (
               <Backdrop
                 sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
@@ -1413,8 +1447,8 @@ export default function EmployeeManagement() {
               >
                 <CircularProgress />
               </Backdrop>
-            )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+            )} */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2" onKeyDown={handleEnterAsTab}>
             {isEditing && (
               <TextField
                 fullWidth
@@ -1469,7 +1503,7 @@ export default function EmployeeManagement() {
                 }}
               />
             </LocalizationProvider>
-            <FormControl fullWidth>
+            {/* <FormControl fullWidth>
               <InputLabel>Department</InputLabel>
               <Select
                 value={formData.department || ""}
@@ -1498,8 +1532,8 @@ export default function EmployeeManagement() {
                   </MenuItem>
                 ))}
               </Select>
-            </FormControl>
-            <FormControl fullWidth>
+            </FormControl> */}
+            {/* <FormControl fullWidth>
               <InputLabel>Designation</InputLabel>
               <Select
                 value={formData.designation || ""}
@@ -1528,40 +1562,109 @@ export default function EmployeeManagement() {
                   </MenuItem>
                 ))}
               </Select>
-            </FormControl>
+            </FormControl> */}
+            <Autocomplete
+              fullWidth
+              options={departments}
+              getOptionLabel={(option) => option.departmentName || ""}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={formData.department || null}
+              onChange={(_, newValue) => {
+                setFormData({
+                  ...formData,
+                  department: newValue,
+                  departmentId: newValue?.id || "",
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Department"
+                  variant="outlined"
+                  className="!text-[12px]"
+                />
+              )}
+              sx={masterSx}
+            />
+            <Autocomplete
+              fullWidth
+              options={designations}
+              getOptionLabel={(option) => option.name || ""}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={formData.designation || null}
+              onChange={(_, newValue) => {
+                setFormData({
+                  ...formData,
+                  designation: newValue,
+                  designationId: newValue?.id || "",
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Designation"
+                  variant="outlined"
+                  className="!text-[12px]"
+                />
+              )}
+              sx={masterSx}
+            />
             {
               !session?.branchId && <FormControl fullWidth>
-              <InputLabel>Branch</InputLabel>
-              <Select
-                value={formData.branch || ""}
-                label="Branch"
-                className="!text-[12px]"
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    branch: e.target.value,
-                    branchId: branches.find(
-                      (d) => d.branchName === e.target.value,
-                    )?.id,
-                  })
-                }
-              >
-                <MenuItem value="" className="!text-[12px]">
-                  Select Branch
-                </MenuItem>
-                {branches.map((bran) => (
-                  <MenuItem
-                    key={bran.id}
-                    value={bran.branchName}
-                    className="!text-[12px]"
-                  >
-                    {bran.branchName} <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
+                <InputLabel>Branch</InputLabel>
+                <Select
+                  value={formData.branch || ""}
+                  label="Branch"
+                  className="!text-[12px]"
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      branch: e.target.value,
+                      branchId: branches.find(
+                        (d) => d.branchName === e.target.value,
+                      )?.id,
+                    })
+                  }
+                >
+                  <MenuItem value="" className="!text-[12px]">
+                    Select Branch
                   </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                  {branches.map((bran) => (
+                    <MenuItem
+                      key={bran.id}
+                      value={bran.branchName}
+                      className="!text-[12px]"
+                    >
+                      {bran.branchName} <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             }
-            <FormControl fullWidth>
+            <Autocomplete
+              fullWidth
+              options={empStatus}
+              getOptionLabel={(option) => option.name || ""}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={formData.employeeStatus || ""}
+              onChange={(_, newValue) => {
+                setFormData({
+                  ...formData,
+                  employeeStatus: newValue,
+                  employeeStatusId: newValue?.id || "",
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Employee Status"
+                  variant="outlined"
+                  className="!text-[12px]"
+                />
+              )}
+              sx={masterSx}
+            />
+            {/* <FormControl fullWidth>
               <InputLabel>
                 Employee Status
               </InputLabel>
@@ -1592,7 +1695,7 @@ export default function EmployeeManagement() {
                   </MenuItem>
                 ))}
               </Select>
-            </FormControl>
+            </FormControl> */}
             {!isEditing && (
               <TextField
                 fullWidth
@@ -1611,6 +1714,7 @@ export default function EmployeeManagement() {
                   <Checkbox
                     checked={hasManualEmpId}
                     onChange={(e) => setHasManualEmpId(e.target.checked)}
+                    className="text-gray-800"
                   />
                 }
                 label="Enter Employee ID Manually"
@@ -1628,14 +1732,14 @@ export default function EmployeeManagement() {
                 label="Configured"
               /> */}
 
-              <div className="md:col-span-2 border rounded-lg p-4 bg-gray-50">
+              <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold text-gray-800">
-                  Employee ID Configuration
-                </div>
-                <Button variant="contained" size="small" onClick={getEmployeeIdForCreation}>
-                  Configure
-                </Button>
+                    Employee ID Configuration
+                  </div>
+                  <Button variant="contained" size="small" onClick={getEmployeeIdForCreation}>
+                    Configure
+                  </Button>
                 </div>
                 {!hasManualEmpId ? (
                   <>
@@ -1934,7 +2038,7 @@ export default function EmployeeManagement() {
           </IconButton>
         </div>
         <DialogContent>
-          {
+          {/* {
             downloading && (
               <Backdrop
                 sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
@@ -1942,7 +2046,7 @@ export default function EmployeeManagement() {
               >
                 <CircularProgress />
               </Backdrop>
-            )}
+            )} */}
           <Alert severity="info" className="mb-4">
             Download the template, fill in employee details, and upload the
             file. Backend sends invite / welcome emails to newly imported
@@ -1954,7 +2058,7 @@ export default function EmployeeManagement() {
               variant="outlined"
               startIcon={<DownloadOutlined />}
               onClick={async () => {
-                setDownloading(true);
+                showSpinner();
                 try {
                   await employeeService.downloadBulkUploadTemplate();
                 } catch (error: any) {
@@ -1963,7 +2067,7 @@ export default function EmployeeManagement() {
                     "error",
                   );
                 } finally {
-                  setDownloading(false);
+                  hideSpinner();
                 }
               }}
             >

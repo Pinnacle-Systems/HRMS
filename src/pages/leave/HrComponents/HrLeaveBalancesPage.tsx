@@ -160,13 +160,12 @@ const BalanceRow = ({
           <Chip
             label={available}
             size="small"
-            className={`font-semibold ${
-              color === "success"
+            className={`font-semibold ${color === "success"
                 ? "!bg-green-50 !text-green-700 !border-green-200"
                 : color === "warning"
                   ? "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
                   : "!bg-red-50 !text-red-700 !border-red-200"
-            }`}
+              }`}
           />
         </TableCell>
         <TableCell sx={leaveTableBodyCellSx}>
@@ -217,6 +216,7 @@ export default function HrLeaveBalancesPage() {
   >([]);
   const [loading, setLoading] = useState(false);
   const { session } = useAuth();
+  const isHR = session?.user.roles.includes('HR');
 
   const handleEmployeeChange = async (id: string | null, name?: string) => {
     setEmployeeId(id);
@@ -292,7 +292,7 @@ export default function HrLeaveBalancesPage() {
             value={employeeId}
             onChange={(id) => handleEmployeeChange(id)}
             label="Search employee by name or ID"
-            filters={{ assignedHrId: session?.user.userId }}
+            filters={{ assignedHrId: isHR ? session?.user.userId : '' }}
           />
         </div>
       </div>
@@ -493,7 +493,7 @@ export default function HrLeaveBalancesPage() {
                     <Chip
                       label={leave.totalDays}
                       size="small"
-                      className= {`${leave.totalDays && leave.totalDays > 10 ? "!text-red-500 !bg-red-100" : 
+                      className={`${leave.totalDays && leave.totalDays > 10 ? "!text-red-500 !bg-red-100" :
                         leave.totalDays && leave.totalDays > 5 ? "!text-yellow-600 !bg-yellow-200" : "!text-blue-500 !bg-blue-100"}`}
                     />
                   </TableCell>
@@ -676,11 +676,10 @@ export default function HrLeaveBalancesPage() {
                     </TableCell>
                     <TableCell>
                       <span
-                        className={`text-[12px] px-2 py-1 rounded-full font-medium ${
-                          entry.transactionType === "ACCRUAL"
+                        className={`text-[12px] px-2 py-1 rounded-full font-medium ${entry.transactionType === "ACCRUAL"
                             ? "bg-green-100 text-green-700"
                             : "bg-red-100 text-red-700"
-                        }`}
+                          }`}
                       >
                         {entry.transactionType}
                       </span>

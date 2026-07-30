@@ -29,6 +29,7 @@ import {
   Assignment as AssignmentIcon,
   PlayArrow as TestIcon,
   CloseOutlined,
+  AssessmentOutlined,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { PolicyDefinition, PolicyVersion, PolicyAssignment, PolicyAuditLog } from '../../types/policy';
@@ -38,6 +39,7 @@ import { policyService } from '../../services';
 import { formatDate, formatDateTime } from '../../utils/dateFormatter';
 import { getStatusColor } from './const';
 import { getRowColor } from '../const';
+import ConfigurationViewer from '../../components/PolicyManagement/ConfigurationViewer';
 
 export default function PolicyDetails() {
   const { id } = useParams<{ id: string }>();
@@ -114,7 +116,7 @@ export default function PolicyDetails() {
     try {
       const res: any = await policyService.activateVersion(versionId);
       await syncPolicyStatus(res?.data?.status ?? 'ACTIVE');
-      await policyService.createNotify(versionId,{message: `Activated new version for policy ${policy?.policyName}`,channel:"push"})
+      await policyService.createNotify(versionId, { message: `Activated new version for policy ${policy?.policyName}`, channel: "push" })
       showSnackbar('Version activated successfully', 'success');
       loadPolicyData();
     } catch (error: any) {
@@ -183,11 +185,17 @@ export default function PolicyDetails() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <div className='mb-3 bg-white text-gray-800'>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-              <Tab label="Overview" className='text-gray-800' />
-              <Tab label="Versions" className='text-gray-800' />
-              <Tab label="Assignments" className='text-gray-800' />
-              <Tab label="Audit Log" className='text-gray-800' />
+            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{
+              "& .MuiTabs-indicator": {
+                backgroundColor: "var(--color-primary)",
+                height: 3,
+                borderRadius: "3px 3px 0 0",
+              },
+            }}>
+              <Tab label="Overview" className='!text-gray-800' />
+              <Tab label="Versions" className='!text-gray-800' />
+              <Tab label="Assignments" className='!text-gray-800' />
+              <Tab label="Audit Log" className='!text-gray-800' />
             </Tabs>
 
             <Box>
@@ -247,9 +255,8 @@ export default function PolicyDetails() {
                   <Typography variant="subtitle1" gutterBottom>
                     Current Version: v{currentVersion?.versionNo}
                   </Typography>
-                  {currentVersion?.configJson && (
+                  {/* {currentVersion?.configJson && (
                     <Box component="pre" className='bg-head' sx={{
-                      // bgcolor: 'action.hover',
                       p: 2,
                       borderRadius: 1,
                       overflow: 'auto',
@@ -257,7 +264,11 @@ export default function PolicyDetails() {
                     }}>
                       {JSON.stringify(currentVersion.configJson, null, 2)}
                     </Box>
-                  )}
+                  )} */}
+                  <ConfigurationViewer
+                    configJson={currentVersion.configJson}
+                    versionNo={currentVersion.versionNo}
+                  />
                 </Box>
               )}
 
@@ -275,7 +286,7 @@ export default function PolicyDetails() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {versions.map((version,index) => (
+                      {versions.map((version, index) => (
                         <TableRow key={version.id} sx={getRowColor(index)}>
                           <TableCell>v{version.versionNo}</TableCell>
                           <TableCell>{formatDateTime(version.effectiveFrom)}</TableCell>
@@ -337,7 +348,7 @@ export default function PolicyDetails() {
                         </TableRow>
                       ) : (
                         Object.entries(assignments).flatMap(([versionNo, versionAssignments]) =>
-                          versionAssignments?.map((assignment,index) => (
+                          versionAssignments?.map((assignment, index) => (
                             <TableRow key={assignment.id} sx={getRowColor(index)}>
                               <TableCell>v{versionNo}</TableCell>
                               <TableCell>
@@ -350,13 +361,13 @@ export default function PolicyDetails() {
                                             : 'All Employees'}
                               </TableCell>
                               <TableCell>
-                                {assignment.branchId ? assignment.branchName : 
+                                {assignment.branchId ? assignment.branchName :
                                   assignment.departmentId ? assignment.departmentName :
-                                  assignment.designationId ? assignment.designationName :
-                                  assignment.employmentType ? assignment.employmentTypeName :
-                                  assignment.employeeGroupId ? assignment.employeeGroupName :
-                                  assignment.employeeId ? assignment.employeeName :
-                                  'Company-wide'}
+                                    assignment.designationId ? assignment.designationName :
+                                      assignment.employmentType ? assignment.employmentTypeName :
+                                        assignment.employeeGroupId ? assignment.employeeGroupName :
+                                          assignment.employeeId ? assignment.employeeName :
+                                            'Company-wide'}
                               </TableCell>
                               <TableCell>{assignment.priority}</TableCell>
                               <TableCell>
@@ -398,7 +409,7 @@ export default function PolicyDetails() {
                               <TableRow key={log.id} sx={getRowColor(index)}>
                                 <TableCell>{index + 1}</TableCell>
                                 <TableCell>
-                                  <Chip label={log.actionType} size="small" variant="outlined" className='text-gray-800'/>
+                                  <Chip label={log.actionType} size="small" variant="outlined" className='text-gray-800' />
                                 </TableCell>
                                 <TableCell>{log.actionByName}</TableCell>
                                 <TableCell>{formatDateTime(log.actionDate)}</TableCell>
@@ -418,73 +429,111 @@ export default function PolicyDetails() {
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
-          <div className='p-3 mb-3 bg-white'>
-            <Typography variant="subtitle1" className='!mb-3'>
-              Quick Actions
-            </Typography>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<HistoryIcon />}
-              sx={{ mb: 1 }}
-              onClick={() => setActiveTab(1)}
-            >
-              View Version History
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<AssignmentIcon />}
-              sx={{ mb: 1 }}
-              onClick={() => setActiveTab(2)}
-            >
-              Manage Assignments
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<TestIcon />}
-              sx={{ mb: 1 }}
-              onClick={() => setTestDialogOpen(true)}
-            >
-              Test Policy
-            </Button>
-            <Button
-              fullWidth
-              variant='contained'
-              className='!bg-primary'
-              startIcon={<EditIcon />}
-              onClick={() => navigate(`/policies/${id}/edit`)}
-            >
-              Edit
-            </Button>
-          </div>
-
-          <div className="p-4 bg-white">
-            <Typography variant="subtitle1" className="!mb-3 font-semibold">
-              Statistics
-            </Typography>
-
-            <Box className="flex gap-4 flex-wrap">
-              <Chip
-                label={`Versions: ${versions.length ?? 0}`}
-                color="primary"
-                variant="outlined"
-              />
-
-              <Chip
-                label={`Assignments: ${Object.values(assignments).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)}`}
-                color="success"
-                variant="outlined"
-              />
-
-              {/* <Chip
-                label="Evaluations (30d): - 0"
-                color="warning"
-                variant="outlined"
-              /> */}
+          {/* Quick Actions Card */}
+          <Box className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+            <Box className="px-4 py-3 border-b border-gray-200 bg-head">
+              <Typography variant="subtitle2" className="font-semibold text-gray-700 flex items-center gap-2">
+                <span className="text-primary">⚡</span> Quick Actions
+              </Typography>
             </Box>
-          </div>
+
+            <Box className="p-4 space-y-2 bg-white-50">
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<HistoryIcon className='!w-4'/>}
+                onClick={() => setActiveTab(1)}
+                className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
+              >
+                View Version History
+              </Button>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<AssessmentOutlined className='!w-4'/>}
+                onClick={() => setActiveTab(2)}
+                className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
+              >
+                Manage Assignments
+              </Button>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<TestIcon className='!w-4'/>}
+                onClick={() => setTestDialogOpen(true)}
+                className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
+              >
+                Test Policy
+              </Button>
+
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<EditIcon className='!w-4'/>}
+                onClick={() => navigate(`/policies/${id}/edit`)}
+                className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
+              >
+                Edit Policy
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Statistics Card */}
+          <Box className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <Box className="px-4 py-3 border-b border-gray-200 bg-head">
+              <Typography variant="subtitle2" className="font-semibold text-gray-700 flex items-center gap-2">
+                <span className="text-primary">📊</span> Statistics
+              </Typography>
+            </Box>
+
+            <Box className="p-4 bg-white-50">
+              <Box className="grid grid-cols-1 gap-3">
+                <Box className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-300">
+                  <Box className="flex items-center gap-3">
+                    <Box className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <HistoryIcon className="text-blue-600" sx={{ fontSize: 16 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" className="text-gray-500 block">Versions</Typography>
+                      <Typography variant="h6" className="font-bold text-gray-800">
+                        {versions.length ?? 0}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box className="flex items-center justify-between p-3 bg-green-50/50 rounded-lg border border-green-300">
+                  <Box className="flex items-center gap-3">
+                    <Box className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                      <AssignmentIcon className="text-green-600" sx={{ fontSize: 16 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" className="text-gray-500 block">Assignments</Typography>
+                      <Typography variant="h6" className="font-bold text-gray-800">
+                        {Object.values(assignments).reduce((sum, arr) => sum + (arr?.length ?? 0), 0)}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                <Box className="flex items-center justify-between p-3 bg-amber-50/50 rounded-lg border border-amber-300">
+                  <Box className="flex items-center gap-3">
+                    <Box className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
+                      <span className="text-amber-600 text-xs font-bold">📋</span>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" className="text-gray-500 block">Audit Logs</Typography>
+                      <Typography variant="h6" className="font-bold text-gray-800">
+                        {auditLogs.length > 0 ? auditLogs.length : 0}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </Box>
+          </Box>
         </Grid>
       </Grid>
 
@@ -500,7 +549,7 @@ export default function PolicyDetails() {
         <DialogTitle className='text-gray-800 flex items-center justify-between border-b border-gray-200 !p-2'>
           <div className='!ml-4'>Reject Version</div>
           <IconButton>
-            <CloseOutlined  className='text-gray-800 !w-4'/>
+            <CloseOutlined className='text-gray-800 !w-4' />
           </IconButton>
         </DialogTitle>
         <DialogContent className='!p-4'>

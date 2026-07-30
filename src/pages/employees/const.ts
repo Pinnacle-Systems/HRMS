@@ -17,7 +17,7 @@ export const basicInfoFields = [
   { key: "marriageDate", label: "Date of Marriage", type: "date" },
   { key: "spouseName", label: "Spouse's Name" },
   { key: "fathersName", label: "Father's Name" },
-  { key: "height", label: "Height (cm)", type: "number"},
+  { key: "height", label: "Height (cm)", type: "number" },
   { key: "weight", label: "Weight (kg)", type: "number" },
   { key: "identificationMark", label: "Identification Mark" },
   { key: "hobbies", label: "Hobbies" },
@@ -84,7 +84,11 @@ export const employeeColumns = [
   { key: "name", label: "Name" },
   { key: "joiningDate", label: "Joining Date", type: "date" },
   { key: "confirmationDate", label: "Confirmation Date", type: "date" },
-  { key: "probationPeriod", label: "Probation Period (months)", type: "number" },
+  {
+    key: "probationPeriod",
+    label: "Probation Period (months)",
+    type: "number",
+  },
   { key: "noticePeriod", label: "Notice Period (days)", type: "number" },
   { key: "department", label: "Department", type: "select" },
   { key: "designation", label: "Designation", type: "select" },
@@ -192,7 +196,7 @@ export const trainingDetailsColumns = [
   { key: "trainingName", label: "Training Title" },
   { key: "fromDate", label: "From Date", type: "date" },
   { key: "toDate", label: "To Date", type: "date" },
-  { key: "durationHours", label: "Duration (Hours)" ,type: "number"},
+  { key: "durationHours", label: "Duration (Hours)", type: "number" },
   { key: "conductedBy", label: "Conducted By", type: "user" },
   { key: "certificateNo", label: "Certificate Number" },
   { key: "remarks", label: "Remarks", multiline: true },
@@ -231,9 +235,9 @@ export const bankColumns = [
 export const pfColumns = [
   { key: "pfNumber", label: "PF Account Number" },
   { key: "uan", label: "UAN Number" },
-  { key: "pfScheme", label: "PF Scheme", type: "select",  full: true },
+  { key: "pfScheme", label: "PF Scheme", type: "select", full: true },
   { key: "fromDate", label: "PF Joining Date", type: "date" },
-  { key: "toDate", label: "PF Relieving Date", type: "date"},
+  { key: "toDate", label: "PF Relieving Date", type: "date" },
   { key: "remarks", label: "Remarks", multiline: true },
   { key: "current", label: "Current", type: "boolean" },
 ];
@@ -290,7 +294,7 @@ export const familyColumns = [
   { key: "relationship", label: "Relationship", type: "select" },
   { key: "gender", label: "Gender", type: "select" },
   { key: "dateOfBirth", label: "Date of Birth", type: "date" },
-  { key: "age", label: "Age",type: "number" },
+  { key: "age", label: "Age", type: "number" },
   { key: "bloodGroup", label: "Blood Group", type: "select" },
   { key: "mobileNumber", label: "Mobile Number" },
   { key: "occupation", label: "Occupation" },
@@ -312,7 +316,11 @@ export const nominationConfigs: any = {
     title: "EPF Nominations",
     columns: [
       { key: "nomineeName", label: "Nominee Name", type: "select" },
-      { key: "sharePercentage", label: "Nomination Percentage (%)", type:'number' },
+      {
+        key: "sharePercentage",
+        label: "Nomination Percentage (%)",
+        type: "number",
+      },
     ],
   },
   EPS: {
@@ -327,7 +335,11 @@ export const nominationConfigs: any = {
     title: "Gratuity Nominations",
     columns: [
       { key: "nomineeName", label: "Nominee Name", type: "select" },
-      { key: "sharePercentage", label: "Nomination Percentage (%)", type:'number' },
+      {
+        key: "sharePercentage",
+        label: "Nomination Percentage (%)",
+        type: "number",
+      },
     ],
   },
 };
@@ -360,11 +372,30 @@ export const commonSx = {
   "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
     padding: "5px !important",
   },
+  "& .MuiOutlinedInput-root": {
+    padding: "0px 8px !important",
+    minHeight: "28px !important",
+  },
+  "& .MuiSelect-select": {
+    padding: "5px !important",
+    width: "150px !important",
+  },
+  "& .MuiOutlinedInput-root .MuiAutocomplete-input": {
+    padding: "2px !important",
+  },
 };
 
 export const masterSx = {
-  "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
-    padding: "1px !important",
+  // "& .MuiAutocomplete-inputRoot .MuiAutocomplete-input": {
+  //   padding: "1px !important",
+  // },
+  "& .MuiOutlinedInput-root": {
+    padding: "0px 4px !important",
+    minHeight: "37px !important",
+  },
+  "& .MuiSelect-select": {
+    padding: "5px !important",
+    width: "150px !important",
   },
 };
 
@@ -415,4 +446,90 @@ export const getPriorityColor = (priority: number) => {
   if (priority <= 30) return "#2196f3";
   if (priority <= 50) return "#ff9800";
   return "#f44336";
+};
+
+export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => {
+  console.log(obj1, 'obj1');
+  console.log(obj2, 'obj2');
+  
+  // Handle primitive types
+  if (obj1 === obj2) return true;
+
+  // Handle null and undefined
+  if (obj1 === null && obj2 === null) return true;
+  if (obj1 === null || obj2 === null) return false;
+  if (obj1 === undefined && obj2 === undefined) return true;
+  if (obj1 === undefined || obj2 === undefined) return false;
+
+  // Handle number vs string comparison
+  if (typeof obj1 === 'number' && typeof obj2 === 'string') {
+    return obj1 === Number(obj2) || String(obj1) === obj2;
+  }
+  if (typeof obj1 === 'string' && typeof obj2 === 'number') {
+    return Number(obj1) === obj2 || obj1 === String(obj2);
+  }
+
+  // Handle dates
+  if (obj1 instanceof Date && obj2 instanceof Date) {
+    return obj1.getTime() === obj2.getTime();
+  }
+  if (obj1 instanceof Date && typeof obj2 === 'string') {
+    return obj1.toISOString() === obj2 || obj1.toISOString().split('T')[0] === obj2;
+  }
+  if (typeof obj1 === 'string' && obj2 instanceof Date) {
+    return obj1 === obj2.toISOString() || obj1 === obj2.toISOString().split('T')[0];
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj1) && Array.isArray(obj2)) {
+    if (obj1.length !== obj2.length) return false;
+    for (let i = 0; i < obj1.length; i++) {
+      if (!isEqual(obj1[i], obj2[i], seen)) return false;
+    }
+    return true;
+  }
+
+  // Handle objects
+  if (typeof obj1 === 'object' && typeof obj2 === 'object') {
+    // Check for circular references
+    if (seen.has(obj1) || seen.has(obj2)) {
+      return seen.get(obj1) === seen.get(obj2);
+    }
+    seen.set(obj1, obj2);
+    seen.set(obj2, obj1);
+
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+    if (keys1.length !== keys2.length) return false;
+
+    for (const key of keys1) {
+      if (!keys2.includes(key)) return false;
+      
+      // FIXED: Special handling for nomination fields
+      // If comparing nomineeName, treat ID and name as different
+      if (key === 'nomineeName' || key === 'nomineeId') {
+        const val1 = obj1[key];
+        const val2 = obj2[key];
+        // If both are strings/numbers and they are different, mark as not equal
+        if (String(val1) !== String(val2)) {
+          console.log(`Difference found in ${key}: "${val1}" vs "${val2}"`);
+          return false;
+        }
+        continue;
+      }
+      
+      // For sharePercentage, compare as numbers
+      if (key === 'sharePercentage') {
+        if (Number(obj1[key]) !== Number(obj2[key])) {
+          return false;
+        }
+        continue;
+      }
+      
+      if (!isEqual(obj1[key], obj2[key], seen)) return false;
+    }
+    return true;
+  }
+
+  return obj1 === obj2;
 };

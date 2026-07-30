@@ -794,7 +794,7 @@ export default function AdminHolidayCalendarsPage() {
                     ))}
                     {standardHolidays.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5}>
+                        <TableCell colSpan={6}>
                           <DataState
                             compact
                             type="empty"

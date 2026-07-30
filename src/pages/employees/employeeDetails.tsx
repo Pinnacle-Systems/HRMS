@@ -40,6 +40,7 @@ import {
   getPriorityColor,
   getDomainColor,
   masterSx,
+  isEqual,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -70,6 +71,7 @@ import {
   PhotoCameraOutlined,
   AssignmentOutlined as PolicyIcon,
   SettingsOutlined,
+  WarningAmberOutlined,
 } from "@mui/icons-material";
 import { shiftService, type Shift } from "../../services/modules/shifts";
 import { auditLogService } from "../../services/modules/auditLogs";
@@ -92,11 +94,6 @@ import { useAuth } from "../../auth/authContext";
 import { attendanceService } from "../../services/modules/attendance";
 import useUnsavedChanges from "../../hooks/useUnsavedChanges";
 
-const isEqual = (obj1: any, obj2: any): boolean => {
-  if (obj1 === obj2) return true;
-  if (!obj1 || !obj2) return false;
-  return JSON.stringify(obj1) === JSON.stringify(obj2);
-};
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -128,6 +125,7 @@ const EditableGroup = ({
   document,
   isSaving,
   setIsSaving,
+  onUnsavedChange,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -147,11 +145,22 @@ const EditableGroup = ({
 
   const hasUnsavedChanges = isEditing && !isEqual(editData, data);
 
+  useEffect(() => {
+    onUnsavedChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, isEditing, editData, data, title]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditData(data);
+    }
+  }, [data, isEditing]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
       await onSave(editData);
       setIsEditing(false);
+      onUnsavedChange?.(false);
       setIsSaving(false);
     } catch (error) {
       console.error("Save failed:", error);
@@ -170,6 +179,7 @@ const EditableGroup = ({
     }
     setEditData(data);
     setIsEditing(false);
+    onUnsavedChange?.(false);
   };
 
 
@@ -339,20 +349,11 @@ const EditableGroup = ({
           formData.append("file", newItem.file);
           await employeeService.getAadhaarDetailsByDoc(formData);
         } catch (error: any) {
-          // if (error?.success) {
-          // getAadhaar()
           showSnackbar(
             error.message ||
             "OCR unavailable. Please enter Aadhaar number manually.",
             "info",
           );
-          // } else {
-          //   showSnackbar(
-          //     error?.response?.data?.message ||
-          //     "Failed to extract Aadhaar details",
-          //     "error"
-          //   );
-          // }
         }
       }
       await getDocuments(apiId);
@@ -399,7 +400,7 @@ const EditableGroup = ({
     }
   };
 
- return (
+  return (
     <div className="mb-6 p-4 dark:bg-white-50 bg-white border rounded-lg mt-3 shadow-sm border-gray-300">
       <div>
         <div className="flex justify-between items-center mb-3">
@@ -582,129 +583,110 @@ const EditableGroup = ({
                             : true
                         }
                       />
-                    ) : // : field.type === "master-select" ? (
-                      //   <MasterSelect
-                      //     label={field.label}
-                      //     value={editData[field.key] || ""}
-                      //     onChange={(newValue: any) =>
-                      //       handleMasterDataChange(field.key, newValue)
-                      //     }
-                      //     countries={field.key === "country" ? countries : []}
-                      //     states={field.key === "state" ? states : []}
-                      //     cities={field.key === "city" ? cities : []}
-                      //     disabled={loading}
-                      //   // sx={commonSx}
-                      //   />
-                      // )
-
-                      field.type === "user" ? (
-                        <EmployeeSelector
-                          value={(() => {
-                            if (editData[field.key1] && editData[field.key2]) {
-                              return {
-                                id: editData[field.key1],
-                                name: editData[field.key2],
-                                employeeId: editData[field.key1],
-                                emailAddress: "",
-                                mobileNumber: "",
-                                designation: "",
-                                department: "",
-                                branch: "",
-                                employeeStatus: "",
-                                joiningDate: "",
-                                createdAt: "",
-                                isActive: true,
-                                companyId: "",
-                                employmentType: "",
-                                employeeCategory: "",
-                                isOnProbation: false,
-                              } as unknown as Employee;
-                            }
-                            return null;
-                          })()}
-                          onChange={(newValue) => {
-                            if (Array.isArray(newValue)) {
-                              const ids = newValue.map((emp) => emp.id);
-                              const names = newValue.map((emp) => emp.name);
-                              setEditData((prev: any) => ({
-                                ...prev,
-                                [field.key]: names.join(", "),
-                                [`${field.key}Ids`]: ids,
-                                [field.key1]: null,
-                                [field.key2]: "",
-                              }));
-                            } else if (newValue) {
-                              setEditData((prev: any) => ({
-                                ...prev,
-                                [field.key]: newValue.name,
-                                [field.key1]: newValue.id,
-                                [field.key2]: newValue.name,
-                                [`${field.key}Ids`]: [],
-                              }));
-                            } else {
-                              setEditData((prev: any) => ({
-                                ...prev,
-                                [field.key]: "",
-                                [field.key1]: null,
-                                [field.key2]: "",
-                                [`${field.key}Ids`]: []
-                              }));
-                            }
-                          }}
-                          noLabel={true}
-                          isManager={field.key === "manager"}
-                          isHR={field.key === "assignedHr"}
-                        />
-                      ) : (
-                        <MaterialModule.TextField
-                          size="small"
-                          type={field.type === 'number' ? 'number' : 'text'}
-                          value={
-                            field.type === 'number'
-                              ? editData[field.key] !== null && editData[field.key] !== undefined
-                                ? String(editData[field.key])
-                                : ''
-                              : editData[field.key] || ''
+                    ) : field.type === "user" ? (
+                      <EmployeeSelector
+                        value={(() => {
+                          if (editData[field.key1] && editData[field.key2]) {
+                            return {
+                              id: editData[field.key1],
+                              name: editData[field.key2],
+                              employeeId: editData[field.key1],
+                              emailAddress: "",
+                              mobileNumber: "",
+                              designation: "",
+                              department: "",
+                              branch: "",
+                              employeeStatus: "",
+                              joiningDate: "",
+                              createdAt: "",
+                              isActive: true,
+                              companyId: "",
+                              employmentType: "",
+                              employeeCategory: "",
+                              isOnProbation: false,
+                            } as unknown as Employee;
                           }
-                          multiline={field.multiline || false}
-                          rows={field.multiline ? 3 : 1}
-                          disabled={
-                            field.disabled ||
-                            (editData?.aadhaarNumber &&
-                              lockableFields.includes(field.key))
+                          return null;
+                        })()}
+                        onChange={(newValue) => {
+                          if (Array.isArray(newValue)) {
+                            const ids = newValue.map((emp) => emp.id);
+                            const names = newValue.map((emp) => emp.name);
+                            setEditData((prev: any) => ({
+                              ...prev,
+                              [field.key]: names.join(", "),
+                              [`${field.key}Ids`]: ids,
+                              [field.key1]: null,
+                              [field.key2]: "",
+                            }));
+                          } else if (newValue) {
+                            setEditData((prev: any) => ({
+                              ...prev,
+                              [field.key]: newValue.name,
+                              [field.key1]: newValue.id,
+                              [field.key2]: newValue.name,
+                              [`${field.key}Ids`]: [],
+                            }));
+                          } else {
+                            setEditData((prev: any) => ({
+                              ...prev,
+                              [field.key]: "",
+                              [field.key1]: null,
+                              [field.key2]: "",
+                              [`${field.key}Ids`]: []
+                            }));
                           }
-                          slotProps={{
-                            htmlInput: {
-                              ...(field.key === "aadhaarNumber" && field.type !== 'number'
-                                ? { maxLength: 12 }
-                                : {}),
-                              ...(field.type === 'number' && {
-                                step: 'any',
-
-
-                              }),
-                            },
-                          }}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (field.type === 'number') {
-                              if (raw === '') {
-                                setEditData({ ...editData, [field.key]: null });
-                                return;
-                              }
-                              const num = Number(raw);
-                              if (!isNaN(num)) {
-                                setEditData({ ...editData, [field.key]: num });
-                              }
-                              // } else if (field.key === "aadhaarNumber") {
-                              // getAadhaar(raw);
-                            } else {
-                              setEditData({ ...editData, [field.key]: raw });
+                        }}
+                        noLabel={true}
+                        isManager={field.key === "manager"}
+                        isHR={field.key === "assignedHr"}
+                      />
+                    ) : (
+                      <MaterialModule.TextField
+                        size="small"
+                        type={field.type === 'number' ? 'number' : 'text'}
+                        value={
+                          field.type === 'number'
+                            ? editData[field.key] !== null && editData[field.key] !== undefined
+                              ? String(editData[field.key])
+                              : ''
+                            : editData[field.key] || ''
+                        }
+                        multiline={field.multiline || false}
+                        rows={field.multiline ? 3 : 1}
+                        disabled={
+                          field.disabled ||
+                          (editData?.aadhaarNumber &&
+                            lockableFields.includes(field.key)) || (field.key == "emailAddress" && editData[field.key])
+                        }
+                        slotProps={{
+                          htmlInput: {
+                            ...(field.key === "aadhaarNumber" && field.type !== 'number'
+                              ? { maxLength: 12 }
+                              : {}),
+                            ...(field.type === 'number' && {
+                              step: 'any',
+                            }),
+                          },
+                        }}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (field.type === 'number') {
+                            if (raw === '') {
+                              setEditData({ ...editData, [field.key]: null });
+                              return;
                             }
-                          }}
-                          fullWidth
-                        />
-                      )}
+                            const num = Number(raw);
+                            if (!isNaN(num)) {
+                              setEditData({ ...editData, [field.key]: num });
+                            }
+                          } else {
+                            setEditData({ ...editData, [field.key]: raw });
+                          }
+                        }}
+                        fullWidth
+                      />
+                    )}
                   </div>
                 ) : (
                   <div className="text-[12px] text-ellipsis overflow-hidden text-gray-800 mt-1">
@@ -875,8 +857,8 @@ const EditableTableGroup = ({
   refreshCategoryOptions,
   document,
   error,
-  // isSaving,
   setIsSaving,
+  onUnsavedChange,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(data);
@@ -884,8 +866,6 @@ const EditableTableGroup = ({
   const [newItemData, setNewItemData] = useState<any>({});
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  // const [isEdit, setIsEdit] = useState(false);
-  // const [isDoc, setIsDoc] = useState(false);
   const isMasterTab = title === "Addresses";
   const [dialogFields, setDialogFields] = useState(addDialogFields);
   const { id } = useParams();
@@ -899,12 +879,28 @@ const EditableTableGroup = ({
   );
 
   const hasUnsavedChanges = isEditing && !isEqual(editData, data);
+  const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    if (isEditing && !isEditingRef.current) {
+      setEditData(data);
+      isEditingRef.current = true;
+    } else if (!isEditing) {
+      setEditData(data);
+      isEditingRef.current = false;
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    onUnsavedChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
       await onSave(editData);
       setIsEditing(false);
+      onUnsavedChange?.(false);
       setIsSaving(false);
     } catch (error) {
       setIsSaving(false);
@@ -922,6 +918,7 @@ const EditableTableGroup = ({
     }
     setEditData(data);
     setIsEditing(false);
+    onUnsavedChange?.(false);
   };
 
   const handleCellChange = (rowIndex: number, field: string, value: any) => {
@@ -943,10 +940,6 @@ const EditableTableGroup = ({
       onDelete(rowToDelete.id);
     }
   };
-
-  useEffect(() => {
-    setEditData(data);
-  }, [data]);
 
   const handleAddClick = () => {
     setDialogType("add");
@@ -1092,10 +1085,6 @@ const EditableTableGroup = ({
   const { countries, loading, fetchStatesByCountry, fetchCitiesByState } =
     useMasterData(isMasterTab);
 
-  useEffect(() => {
-    setEditData(data);
-  }, [data]);
-
   // ====================== LOAD EXISTING DATA ======================
   const loadExistingMasterData = async () => {
     if (!editData?.length) return;
@@ -1103,20 +1092,15 @@ const EditableTableGroup = ({
     const newCityMap: any = {};
     for (let i = 0; i < editData.length; i++) {
       const row = editData[i];
-      // LOAD STATES for this row
       if (row.country && !stateOptionsMap[i]) {
-        // Only load if not already loaded
         const statesData = await fetchStatesByCountry(row.country);
         newStateMap[i] = statesData || [];
       }
-      // LOAD CITIES for this row
       if (row.state && !cityOptionsMap[i]) {
-        // Only load if not already loaded
         const citiesData = await fetchCitiesByState(row.state);
         newCityMap[i] = citiesData || [];
       }
     }
-    // Only update if we have new data
     if (Object.keys(newStateMap).length > 0) {
       setStateOptionsMap((prev: any) => ({ ...prev, ...newStateMap }));
     }
@@ -1147,7 +1131,6 @@ const EditableTableGroup = ({
           return updated;
         });
         const statesData = await fetchStatesByCountry(value);
-        // const citiesData = await fetchCitiesByCountry(value);
         setStateOptionsMap((prev: any) => ({
           ...prev,
           [rowIndex]: statesData || [],
@@ -1175,7 +1158,6 @@ const EditableTableGroup = ({
         }));
         return;
       }
-      // NORMAL FIELD
       setEditData((prev: any[]) => {
         const updated = [...prev];
         updated[rowIndex] = {
@@ -1217,7 +1199,6 @@ const EditableTableGroup = ({
         }));
         return;
       }
-      // NORMAL FIELD
       setNewItemData((prev: any) => ({
         ...prev,
         [key]: value,
@@ -1299,9 +1280,9 @@ const EditableTableGroup = ({
                 {icon}{" "}
               </div>
               <div className="text-primary-dark "> {title} </div>
-               {isEditing && hasUnsavedChanges && (
-                  <Chip label="Unsaved" size="small" color="warning" className="ml-2" />
-                )}
+              {isEditing && hasUnsavedChanges && (
+                <Chip label="Unsaved" size="small" color="warning" className="ml-2" />
+              )}
               {error &&
                 <span className="text-[12px] bg-red-100 p-1 rounded-md text-red-500">{error}</span>
               }
@@ -1401,7 +1382,7 @@ const EditableTableGroup = ({
             <MaterialModule.TableContainer
               component={MaterialModule.Paper}
               elevation={0}
-              className="border border-gray-200"
+              className="border border-gray-200 w-max"
             >
               <MaterialModule.Table>
                 <MaterialModule.TableHead className="bg-gray-100">
@@ -1548,28 +1529,6 @@ const EditableTableGroup = ({
                                       }}
                                     />
                                   </LocalizationProvider>
-                                  // <MaterialModule.TextField
-                                  //   size="small"
-                                  //   type="date"
-                                  //   value={row[col.key] || ""}
-                                  //   onChange={(e) =>
-                                  //     handleCellChange(
-                                  //       rowIndex,
-                                  //       col.key,
-                                  //       e.target.value,
-                                  //     )
-                                  //   }
-                                  //   fullWidth
-                                  //   sx={{
-                                  //     "& .MuiInputBase-root": {
-                                  //       fontSize: "12px",
-                                  //       minHeight: "32px",
-                                  //     },
-                                  //     "& .MuiInputBase-input": {
-                                  //       padding: "5px 10px",
-                                  //     },
-                                  //   }}
-                                  // />
                                 ) : col.type === "boolean" ? (
                                   <MaterialModule.FormControlLabel
                                     control={
@@ -1602,40 +1561,9 @@ const EditableTableGroup = ({
                                       )
                                     }
                                     disabled={loading}
-                                    // label={col.label + "j"}
-                                    sx={{
-                                      ...commonSx,
-                                      "& .MuiSelect-select": {
-                                        padding: "5px !important",
-                                        width: "150px !important",
-                                      },
-                                    }}
+                                    sx={commonSx}
                                   />
                                 ) : (
-                                  // <MaterialModule.TextField
-                                  //   size="small"
-                                  //   type={col.type == 'number' ? 'number' : 'text'}
-                                  //   value={row[col.key] || ""}
-                                  //   onChange={(e) =>
-                                  //     handleCellChange(
-                                  //       rowIndex,
-                                  //       col.key,
-                                  //       e.target.value,
-                                  //     )
-                                  //   }
-                                  //   fullWidth
-                                  //   variant="outlined"
-                                  //   sx={{
-                                  //     "& .MuiInputBase-root": {
-                                  //       fontSize: "12px",
-                                  //       minHeight: "auto",
-                                  //     },
-                                  //     "& .MuiInputBase-input": {
-                                  //       padding: "5px",
-                                  //       width: "150px !important",
-                                  //     },
-                                  //   }}
-                                  // />
                                   <MaterialModule.TextField
                                     size="small"
                                     type={col.type === 'number' ? 'number' : 'text'}
@@ -1666,9 +1594,7 @@ const EditableTableGroup = ({
                                     slotProps={{
                                       input: {
                                         ...(col.type === 'number' && {
-                                          step: 'any',       // allow decimals; use '1' for integers
-                                          // min: 0,         // optional
-                                          // max: 100,       // optional
+                                          step: 'any',
                                         }),
                                       }
                                     }}
@@ -1680,7 +1606,6 @@ const EditableTableGroup = ({
                                       },
                                       "& .MuiInputBase-input": {
                                         padding: "5px",
-                                        // width: "150px !important",
                                       },
                                     }}
                                   />
@@ -1894,7 +1819,6 @@ const EditableTableGroup = ({
                     className="!text-gray-800"
                   />
                 ) : field.type === "master-select" ? (
-                  // <div style={{ minWidth: "200px" }}>
                   <MasterSelect
                     type={field.key}
                     countries={countries}
@@ -1908,7 +1832,6 @@ const EditableTableGroup = ({
                     label={field.label}
                     sx={masterSx}
                   />
-                  // </div>
                 ) : field.type === "file" ? (
                   <>
                     <input
@@ -1945,26 +1868,6 @@ const EditableTableGroup = ({
                     )}
                   </>
                 ) : (
-                  // <MaterialModule.TextField
-                  //   fullWidth
-                  //   size="small"
-                  //   multiline={field.multiline}
-                  //   rows={field.multiline ? 3 : 0}
-                  //   disabled={field.disabled}
-                  //   label={field.label}
-                  //   value={newItemData[field.key] || ""}
-                  //   onChange={(e) =>
-                  //     setNewItemData({
-                  //       ...newItemData,
-                  //       [field.key]: e.target.value,
-                  //     })
-                  //   }
-                  //   sx={{
-                  //     "& .MuiInputLabel-root": {
-                  //       top: 0,
-                  //     },
-                  //   }}
-                  // />
                   <MaterialModule.TextField
                     fullWidth
                     size="small"
@@ -2064,11 +1967,23 @@ export default function EmployeeDetails() {
   );
   const [categories, setCategories] = useState<Record<string, any[]>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
-
   const [initialEmployee, setInitialEmployee] = useState<any>(null);
+  const [hasChildUnsavedChanges, setHasChildUnsavedChanges] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const hasUnsavedChanges = !isEqual(employee, initialEmployee);
+  const hasUnsavedChanges = !isEqual(employee, initialEmployee) || hasChildUnsavedChanges;
+
+  const handleChildUnsavedChange = (hasUnsaved: boolean) => {
+    setHasChildUnsavedChanges(hasUnsaved);
+  };
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      setHasChildUnsavedChanges(false);
+    }
+  }, [employee]);
 
   const handleSaveForNavigation = async (callback?: () => void): Promise<void> => {
     if (hasUnsavedChanges) {
@@ -2089,6 +2004,19 @@ export default function EmployeeDetails() {
     onSave: handleSaveForNavigation,
     message: 'You have unsaved employee data. Do you want to save before leaving?'
   });
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && !isSaving) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, isSaving]);
 
   // Policy tab state
   const [empPolicies, setEmpPolicies] = useState<any[]>([]);
@@ -2330,7 +2258,7 @@ export default function EmployeeDetails() {
         template: updatedData.templateId,
       };
       if (!payload.aadhaarNumber) {
-          payload['dateOfBirth'] = updatedData.dateOfBirth,
+        payload['dateOfBirth'] = updatedData.dateOfBirth,
           payload['fathersName'] = updatedData.fathersName
       }
       if (Object.keys(payload).length) {
@@ -3369,15 +3297,32 @@ export default function EmployeeDetails() {
     }
   }
 
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+    if (hasUnsavedChanges && !isSaving) {
+      const userChoice = window.confirm(
+        'You have unsaved changes. Are you sure you want to switch tabs without saving?'
+      );
+      if (!userChoice) {
+        return;
+      }
+    }
+    setTabValue(newValue);
+  };
+
+  const filterAuditLogs = (logs: any[], searchTerm: string) => {
+    if (!searchTerm.trim()) return logs;
+    const term = searchTerm.toLowerCase().trim();
+    return logs.filter(log => {
+      const fieldMatch = log.fieldName?.toLowerCase().includes(term) || false;
+      const oldValueMatch = log.oldValue?.toString().toLowerCase().includes(term) || false;
+      const newValueMatch = log.newValue?.toString().toLowerCase().includes(term) || false;
+      const userNameMatch = log.changedBy?.userName?.toLowerCase().includes(term) || false;
+      return fieldMatch || oldValueMatch || newValueMatch || userNameMatch;
+    });
+  };
+
   return (
     <div className="">
-      {/* Show unsaved changes warning at top */}
-      {hasUnsavedChanges && (
-        <MaterialModule.Alert severity="warning" className="mb-4">
-          You have unsaved changes. Please save each section before leaving.
-        </MaterialModule.Alert>
-      )}
-
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         <MaterialModule.IconButton
@@ -3392,7 +3337,23 @@ export default function EmployeeDetails() {
             Complete information about{" "}
             <span className="font-medium text-primary">{employee.name}</span>
             {hasUnsavedChanges && (
-              <Chip label="Unsaved Changes" size="small" color="warning" className="ml-2" />
+              <>
+                <span className="text-[12px] absolute top-[75px] right-[18px] ml-3 px-5 py-2.5 rounded-xl backdrop-blur-md bg-amber-50/90 border border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.3)] flex items-center gap-3 animate-slide-in">
+                  <div className="relative">
+                    <WarningAmberOutlined className="!w-4 !h-4 text-amber-500 animate-bounce" />
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-amber-700">Unsaved Changes</span>
+                    <span className="text-amber-600 hidden sm:inline">• Save each section</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:0ms]"></span>
+                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                    <span className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-bounce [animation-delay:300ms]"></span>
+                  </div>
+                </span>
+              </>
             )}
           </div>
         </div>
@@ -3504,7 +3465,7 @@ export default function EmployeeDetails() {
       <div className="">
         <MaterialModule.Tabs
           value={tabValue}
-          onChange={(_, val) => setTabValue(val)}
+          onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
           indicatorColor="primary"
@@ -3543,6 +3504,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableTableGroup
               title="Emergency Contacts"
@@ -3558,6 +3520,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3576,6 +3539,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3595,6 +3559,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3611,6 +3576,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="Eligibility Information"
@@ -3622,6 +3588,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="Verification"
@@ -3633,6 +3600,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3651,6 +3619,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3669,6 +3638,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3686,6 +3656,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableTableGroup
               title="PF Details"
@@ -3703,6 +3674,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="PAN Details"
@@ -3716,6 +3688,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="Aadhaar Details"
@@ -3729,6 +3702,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="Passport Details"
@@ -3742,6 +3716,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="Insurance Details"
@@ -3755,6 +3730,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="ESI Details"
@@ -3768,6 +3744,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="PRAN Details"
@@ -3781,6 +3758,7 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
             <EditableGroup
               title="Login"
@@ -3792,6 +3770,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -3811,37 +3790,42 @@ export default function EmployeeDetails() {
               refreshCategoryOptions={fetchCategoryOptions}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
           {/* Tab 8: Nominations */}
           <TabPanel value={tabValue} index={8}>
-            {nominationTypes.map((type) => (
-              <EditableTableGroup
-                key={type}
-                title={nominationConfigs[type].title}
-                icon={<MaterialModule.PeopleOutlineOutlined />}
-                data={
-                  employee.nominations?.filter(
-                    (n: any) => n.nominationType === type,
-                  ) || []
-                }
-                columns={nominationConfigs[type].columns}
-                onSave={handleUpdateNominations}
-                onAdd={(newItem: any) =>
-                  handleAddNomination({ ...newItem, nominationType: type })
-                }
-                onDelete={handleDeleteNomination}
-                addDialogFields={nominationConfigs[type].columns}
-                categories={categories}
-                categoryOptions={{
-                  ...categoryOptions,
-                  nomineeName: familyMemberOptions,
-                }}
-                isSaving={isSaving}
-                setIsSaving={setIsSaving}
-              />
-            ))}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-y-4 gap-x-8">
+              {nominationTypes.map((type) => (
+                <EditableTableGroup
+                  key={type}
+                  title={nominationConfigs[type].title}
+                  icon={<MaterialModule.PeopleOutlineOutlined />}
+                  data={
+                    employee.nominations?.filter(
+                      (n: any) => n.nominationType === type,
+                    ) || []
+                  }
+                  columns={nominationConfigs[type].columns}
+                  onSave={handleUpdateNominations}
+                  onAdd={(newItem: any) =>
+                    handleAddNomination({ ...newItem, nominationType: type })
+                  }
+                  onDelete={handleDeleteNomination}
+                  addDialogFields={nominationConfigs[type].columns}
+                  categories={categories}
+                  categoryOptions={{
+                    ...categoryOptions,
+                    nomineeName: familyMemberOptions,
+                  }}
+                  isSaving={isSaving}
+                  setIsSaving={setIsSaving}
+                  onUnsavedChange={handleChildUnsavedChange}
+                />
+              ))}
+            </div>
+
           </TabPanel>
 
           {/* Tab 9: Attachments */}
@@ -3858,6 +3842,7 @@ export default function EmployeeDetails() {
               categories={categories}
               isSaving={isSaving}
               setIsSaving={setIsSaving}
+              onUnsavedChange={handleChildUnsavedChange}
             />
           </TabPanel>
 
@@ -4386,15 +4371,41 @@ export default function EmployeeDetails() {
             <MaterialModule.CloseOutlined className="text-gray-800" />
           </MaterialModule.IconButton>
         </div>
-        <MaterialModule.DialogContent className="!p-2 border border-gray-200 m-3 bg-gray-200 !overflow-hidden">
+        <MaterialModule.DialogContent className="!p-0 border border-gray-200 m-3 !overflow-hidden">
+          <div className="sticky top-0 z-10 bg-white p-3 !pb-2 border-b border-gray-200">
+            <div className="relative">
+              <input
+                type="search"
+                placeholder="Search by field, value, or user..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-2 text-[12px] bg-white-50 border border-gray-200 rounded-lg"
+              />
+            </div>
+            {/* Search results count */}
+            {searchTerm && (
+              <div className="mt-1 ml-2 text-[10px] text-gray-500">
+                Found {filterAuditLogs(auditLogs, searchTerm).length} results
+              </div>
+            )}
+          </div>
           {auditLogs.length === 0 ? (
             <div className="text-center text-gray-400 py-16 text-sm">
               No audit records found.
             </div>
           ) : (
             (() => {
+              const filteredLogs = filterAuditLogs(auditLogs, searchTerm);
+
+              if (filteredLogs.length === 0) {
+                return (
+                  <div className="text-center text-gray-400 py-16 text-sm">
+                    No results found for "{searchTerm}"
+                  </div>
+                );
+              }
               const grouped = Object.entries(
-                auditLogs.reduce((acc: Record<string, any[]>, log: any) => {
+                filteredLogs.reduce((acc: Record<string, any[]>, log: any) => {
                   const key = log.fieldName || "-";
                   if (!acc[key]) acc[key] = [];
                   acc[key].push(log);
@@ -4417,7 +4428,7 @@ export default function EmployeeDetails() {
 
               return (
                 <div
-                  style={{ height: "calc(100vh - 250px)", overflowY: "auto" }}
+                  style={{ height: "calc(100vh - 280px)", overflowY: "auto" }}
                 >
                   {grouped.map((group) => {
                     const latest = group.logs[0];
@@ -4474,14 +4485,14 @@ export default function EmployeeDetails() {
                               <div className="text-gray-500">
                                 Previous Value
                               </div>
-                              <span className="text-red-500 whitespace-nowrap overflow-hidden text-ellipsis ">
+                              <span className="text-red-500 overflow-hidden text-ellipsis ">
                                 {latest.oldValue || "—"}
                               </span>
                             </div>
                             <span className="text-gray-500 w-[20px]">→</span>
-                            <div className="text-[12px] w-[230px] ">
+                            <div className="text-[12px] !w-[230px] ">
                               <div className="text-gray-500">Current Value</div>
-                              <span className="text-green-600 whitespace-nowrap overflow-hidden text-ellipsis">
+                              <span className="text-green-600 overflow-hidden text-ellipsis">
                                 {latest.newValue || "—"}
                               </span>
                             </div>

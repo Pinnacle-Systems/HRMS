@@ -45,6 +45,7 @@ export default function HrLeaveAdjustmentsPage() {
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { session } = useAuth();
+  const isHR = session?.user.roles.includes('HR');
 
   useEffect(() => {
     leaveService
@@ -193,7 +194,7 @@ export default function HrLeaveAdjustmentsPage() {
           label="Search employee by name or ID"
           error={Boolean(errors.employee)}
           helperText={errors.employee}
-          filters={{ assignedHrId: session?.user.userId }}
+          filters={{ assignedHrId: isHR ? session?.user.userId : '' }}
         />
       </div>
 

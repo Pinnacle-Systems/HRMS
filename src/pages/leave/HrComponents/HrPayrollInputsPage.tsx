@@ -71,6 +71,7 @@ export default function HrPayrollInputsPage() {
   const [selectedType, setSelectedType] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const { session } = useAuth();
+  const isHR = session?.user.roles.includes('HR');
 
   // Filter states
   const [employeeId, setEmployeeId] = useState<string | null>(null);
@@ -614,7 +615,7 @@ export default function HrPayrollInputsPage() {
               onChange={(employeeId, employee) =>
                 handleEmployeeChange(employeeId, employee)
               }
-              filters={{ assignedHrId: session?.user.userId }}
+              filters={{ assignedHrId: isHR ? session?.user.userId : '' }}
             />
           </div>
           <div className="md:col-span-2">
@@ -1005,7 +1006,7 @@ export default function HrPayrollInputsPage() {
         </TableContainer>
         {
           !employeeName &&
-          <div className="text-[12px] text-gray-400 text-center p-6 border borde-gray-200">Select Employee to Get Encashment Details</div>
+          <div className="text-[12px] text-gray-400 text-center p-6 border bg-white-50 border-gray-200">Select Employee to Get Encashment Details</div>
         }
       </div>
 
@@ -1129,7 +1130,7 @@ export default function HrPayrollInputsPage() {
                 ))}
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-8">
+                  <TableCell colSpan={8}>
                     <DataState
                       compact
                       type="loading"
@@ -1140,7 +1141,7 @@ export default function HrPayrollInputsPage() {
               )}
               {!loading && inputs.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="p-8">
+                  <TableCell colSpan={8}>
                     <DataState
                       compact
                       type="empty"

@@ -598,7 +598,7 @@ export default function Layout() {
                     <div className="relative group">
                       <Avatar
                         src={user?.profilePic}
-                        className="!w-8 !h-8 text-2xl cursor-pointer"
+                        className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
                       >
                         {avatarInitial}
                       </Avatar>
@@ -629,7 +629,7 @@ export default function Layout() {
         <MenuItem onClick={handleMyProfile} className="bg-white-50 !py-0">
           <ListItemIcon>
             {/* <Person4OutlinedIcon className="!w-4 dark:text-primary" /> */}
-            <AccountCircleOutlined className="!w-4 !h-4 text-gray-400" />
+            <AccountCircleOutlined className="!w-4 !h-4 text-gray-400 dark:text-primary" />
           </ListItemIcon>
           <div>
             <div className="text-gray-800">My Profile</div>
@@ -640,27 +640,27 @@ export default function Layout() {
         {user?.roles.includes("ADMIN") && (
           <MenuItem onClick={() => { navigate("/settings/general/company-settings"); handleProfileMenuClose(); }} className="bg-white-50">
             <ListItemIcon>
-              <SettingsOutlinedIcon className="!w-4 dark:text-primary" />
+              <SettingsOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
             </ListItemIcon>
             <div className="text-gray-800">Company Settings</div>
           </MenuItem>
         )}
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/branch-fiscal-year"); }} className="bg-white-50">
           <ListItemIcon>
-            <HubOutlined className="!w-3 dark:text-primary" />
+            <HubOutlined className="!w-3 text-gray-400 dark:text-primary" />
           </ListItemIcon>
           <div className="text-gray-800">Select Workspace</div>
         </MenuItem>
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
           <ListItemIcon>
-            <HistoryOutlinedIcon className="!w-4 dark:text-primary" />
+            <HistoryOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
           </ListItemIcon>
           <div className="text-gray-800">Audit Logs</div>
         </MenuItem>
         <Divider className="border border-gray-200" />
         <MenuItem onClick={handleLogout} className="bg-white text-error">
           <ListItemIcon>
-            <LogoutOutlinedIcon className="!w-4 dark:text-error" />
+            <LogoutOutlinedIcon className="!w-4 text-gray-400 dark:text-error" />
           </ListItemIcon>
           <div>Logout</div>
         </MenuItem>

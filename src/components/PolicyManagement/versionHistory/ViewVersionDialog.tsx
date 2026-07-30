@@ -9,6 +9,7 @@ import { type PolicyVersion, VersionStatus } from '../../../types/policy';
 import { statusConfig } from '../const';
 import { formatDate, formatDateTime } from '../../../utils/dateFormatter';
 import { policyService } from '../../../services';
+import ConfigurationViewer from '../ConfigurationViewer';
 
 interface ViewVersionDialogProps {
   open: boolean;
@@ -100,7 +101,7 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
               </Box>
             )}
 
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 2 }} className='!bg-white'/>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
               <HistoryIcon fontSize="small" className="text-primary" />
@@ -131,7 +132,7 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
                       {auditLogs.map((log: any) => (
                         <TableRow key={log.id}>
                           <TableCell>
-                            <Chip label={log.actionType} size="small" variant="outlined" />
+                            <Chip label={log.actionType} size="small" variant="outlined" className='!text-gray-800'/>
                           </TableCell>
                           <TableCell>{log.actionByName}</TableCell>
                           <TableCell>{formatDateTime(log.actionDate)}</TableCell>
@@ -144,10 +145,10 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
               )
             )}
 
-            <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 2 }} className='!bg-white'/>
 
             <Typography variant="subtitle2" gutterBottom>Configuration</Typography>
-            <Box
+            {/* <Box
               sx={{
                 bgcolor: 'var(--head)',
                 borderRadius: 1,
@@ -161,7 +162,11 @@ export const ViewVersionDialog: React.FC<ViewVersionDialogProps> = ({ open, vers
               <pre style={{ margin: 0, fontSize: 11, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                 {JSON.stringify(version.configJson, null, 2)}
               </pre>
-            </Box>
+            </Box> */}
+            <ConfigurationViewer
+              configJson={version.configJson}
+              versionNo={version.versionNo}
+            />
           </Box>
         )}
       </DialogContent>
