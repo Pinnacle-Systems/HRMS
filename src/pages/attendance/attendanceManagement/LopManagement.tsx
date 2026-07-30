@@ -155,6 +155,7 @@ export function LopManagement() {
                   endDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                 })
               }
+              minDate={params.startDate ? dayjs(params.startDate) : undefined}
               slotProps={{ textField: { size: "small", sx: { width: 160 } } }}
             />
           </LocalizationProvider>

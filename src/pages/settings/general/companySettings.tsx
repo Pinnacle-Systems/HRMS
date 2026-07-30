@@ -975,6 +975,7 @@ const CompanySettings = () => {
                 <DatePicker
                   label="End Date"
                   value={fiscalYearForm.endDate ? dayjs(fiscalYearForm.endDate) : null}
+                  minDate={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : undefined}
                   onChange={(newValue) =>
                     handleFiscalYearFieldChange("endDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
                   }

@@ -239,6 +239,7 @@ function FilterBar({
                   <DatePicker
                     label="To Date"
                     value={filters.to ? dayjs(filters.to) : null}
+                    minDate={dayjs(filters.from) ?? undefined}
                     onChange={(newValue) => {
                       onFilterChange(
                         "to",
@@ -3057,7 +3058,7 @@ export default function HrLeaveReportsPage() {
                               key={`cell-${index}`}
                               fill={
                                 CHART_COLORS_LIGHT[
-                                  index % CHART_COLORS_LIGHT.length
+                                index % CHART_COLORS_LIGHT.length
                                 ]
                               }
                             />
@@ -3210,7 +3211,7 @@ export default function HrLeaveReportsPage() {
                           key={`cell-${index}`}
                           fill={
                             CHART_COLORS_LIGHT[
-                              index % CHART_COLORS_LIGHT.length
+                            index % CHART_COLORS_LIGHT.length
                             ]
                           }
                         />
@@ -3332,7 +3333,7 @@ export default function HrLeaveReportsPage() {
                                 key={`cell-${index}`}
                                 fill={
                                   CHART_COLORS_LIGHT[
-                                    index % CHART_COLORS_LIGHT.length
+                                  index % CHART_COLORS_LIGHT.length
                                   ]
                                 }
                               />
@@ -3815,17 +3816,17 @@ export default function HrLeaveReportsPage() {
                         handleApplyFilters();
                       }}
                       displayEmpty
-                      // sx={{
-                      //   fontSize: "12px",
-                      //   bgcolor: "white",
-                      //   borderRadius: "8px",
-                      //   "& .MuiOutlinedInput-notchedOutline": {
-                      //     borderColor: "#e5e7eb",
-                      //   },
-                      //   "&:hover .MuiOutlinedInput-notchedOutline": {
-                      //     borderColor: "#d1d5db",
-                      //   },
-                      // }}
+                    // sx={{
+                    //   fontSize: "12px",
+                    //   bgcolor: "white",
+                    //   borderRadius: "8px",
+                    //   "& .MuiOutlinedInput-notchedOutline": {
+                    //     borderColor: "#e5e7eb",
+                    //   },
+                    //   "&:hover .MuiOutlinedInput-notchedOutline": {
+                    //     borderColor: "#d1d5db",
+                    //   },
+                    // }}
                     >
                       <MenuItem value="">All Leave Types</MenuItem>
                       {leaveTypeFilterOptions.map((type: any) => (
@@ -4110,84 +4111,93 @@ export default function HrLeaveReportsPage() {
       )}
 
       {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onChange={(_e, v) => {
-          setActiveTab(v);
-          const reportTypes: ReportType[] = [
-            "LEAVE_USAGE",
-            "LEAVE_USAGE",
-            "LEAVE_PENDING_APPROVALS",
-            "LEAVE_LOP",
-            "LEAVE_BALANCE",
-            "LEAVE_COMP_OFFS",
-          ];
-          setSelectedReportType(reportTypes[v]);
-        }}
-        className="mb-4"
-        sx={{
-          "& .MuiTab-root": {
-            fontSize: "12px",
-            textTransform: "none",
-            minHeight: "40px",
-            padding: "6px 20px",
-            fontWeight: 500,
-            borderRadius: "12px",
-            marginRight: "4px",
-            "&.Mui-selected": {
-              bgcolor: "rgba(144, 140, 140, 0.22)",
-              color: "var(--color-primary)",
-            },
-          },
-          "& .MuiTabs-indicator": {
-            display: "none",
-          },
-        }}
-      >
-        <Tab
-          className="text-gray-800"
-          icon={<DashboardOutlined />}
-          iconPosition="start"
-          label="Overview"
-        />
-        <Tab
-          className="text-gray-800"
-          icon={<InsightsOutlined />}
-          iconPosition="start"
-          label="Usage"
-        />
-        <Tab
-          className="text-gray-800"
-          icon={<PendingActionsOutlined />}
-          iconPosition="start"
-          label="Pending"
-        />
-        <Tab
-          className="text-gray-800"
-          icon={<WarningAmberOutlined />}
-          iconPosition="start"
-          label="LOP"
-        />
-        <Tab
-          className="text-gray-800"
-          icon={<AccountBalanceWalletOutlined />}
-          iconPosition="start"
-          label="Balance"
-        />
-        <Tab
-          className="text-gray-800"
-          icon={<EventAvailableOutlined />}
-          iconPosition="start"
-          label="Comp Off"
-        />
-        <Tab
-          className="text-gray-800"
-          icon={<CameraAltOutlined />}
-          iconPosition="start"
-          label="Snapshot"
-        />
+      <div className="flex items-center gap-4 flex-wrap">
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Tabs
+            value={activeTab}
+            onChange={(_e, v) => {
+              setActiveTab(v);
+              const reportTypes: ReportType[] = [
+                "LEAVE_USAGE",
+                "LEAVE_USAGE",
+                "LEAVE_PENDING_APPROVALS",
+                "LEAVE_LOP",
+                "LEAVE_BALANCE",
+                "LEAVE_COMP_OFFS",
+              ];
+              setSelectedReportType(reportTypes[v]);
+            }}
+            sx={{
+              alignItems: "center",
+              "& .MuiTabs-flexContainer": {
+                gap: "4px",
+                flexWrap: "wrap",
+                justifyContent: "center",
+              },
+              "& .MuiTab-root": {
+                marginRight: "4px",
+                minHeight: "40px",
+                height: "40px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                textTransform: "none",
+                fontWeight: 500,
+                padding: "6px 20px",
+                color: "#374151",
+                "&.Mui-selected": {
+                  color: "var(--color-primary, #1976d2)",
+                  backgroundColor: "var(--color-primary-50)",
+                  // border:  "1px solid var(--color-primary, #1976d2)",
+                },
+                "& .MuiTab-iconWrapper": {
+                  fontSize: "20px",
+                },
+              },
+              "& .MuiTabs-indicator": {
+                display: "none",
+              },
+            }}
+          >
+            <Tab
+              icon={<DashboardOutlined />}
+              iconPosition="start"
+              label="Overview"
+            />
+            <Tab
+              icon={<InsightsOutlined />}
+              iconPosition="start"
+              label="Usage"
+            />
+            <Tab
+              icon={<PendingActionsOutlined />}
+              iconPosition="start"
+              label="Pending"
+            />
+            <Tab
+              icon={<WarningAmberOutlined />}
+              iconPosition="start"
+              label="LOP"
+            />
+            <Tab
+              icon={<AccountBalanceWalletOutlined />}
+              iconPosition="start"
+              label="Balance"
+            />
+            <Tab
+              icon={<EventAvailableOutlined />}
+              iconPosition="start"
+              label="Comp Off"
+            />
+            <Tab
+              icon={<CameraAltOutlined />}
+              iconPosition="start"
+              label="Snapshot"
+            />
+          </Tabs>
+        </Box>
 
-        <Box className="flex items-center gap-2 flex-wrap ml-auto">
+        {/* Action Buttons */}
+        <Box className="flex items-center gap-2 flex-wrap flex-shrink-0">
           <IconButton
             size="small"
             className="!border !border-gray-300 !rounded-xl !p-2"
@@ -4210,7 +4220,7 @@ export default function HrLeaveReportsPage() {
             <Refresh fontSize="small" className="text-gray-500" />
           </IconButton>
         </Box>
-      </Tabs>
+      </div>
 
       {/* Content */}
       {renderTabContent()}
@@ -4374,6 +4384,7 @@ export default function HrLeaveReportsPage() {
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
                       <DatePicker
                         value={filters.to ? dayjs(filters.to) : null}
+                        minDate={filters.from ? dayjs(filters.from) : undefined}
                         onChange={(newValue) => {
                           setFilters({
                             ...filters,
@@ -4453,20 +4464,20 @@ export default function HrLeaveReportsPage() {
 
             {(selectedReportType === "LEAVE_USAGE" ||
               selectedReportType === "LEAVE_BALANCE") && (
-              <Box>
-                {/* <EmployeeSelector
+                <Box>
+                  {/* <EmployeeSelector
                     value={null}
                     onChange={(employee) => {
                       setFilters({ ...filters, employeeId: employee?.id || "" });
                     }}
                   /> */}
-                <EmployeeSelector
-                  value={null}
-                  onChange={handleAddEmployee}
-                  label="Search Employee"
-                />
-              </Box>
-            )}
+                  <EmployeeSelector
+                    value={null}
+                    onChange={handleAddEmployee}
+                    label="Search Employee"
+                  />
+                </Box>
+              )}
 
             {exporting && (
               <Box className="p-3">

@@ -211,13 +211,14 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                   <DatePicker
                     label="Effective From"
-                    value={(policyDefinition as any).effectiveFrom ? dayjs((policyDefinition as any).effectiveFrom) : null}
+                    value={policyDefinition.effectiveFrom ? dayjs(policyDefinition.effectiveFrom) : null}
                     onChange={(v) => onPolicyDefinitionChange({ ...policyDefinition, effectiveFrom: v ? dayjs(v).format('YYYY-MM-DD') : '' })}
                     slotProps={{ textField: { fullWidth: true, required: true } }}
                   />
                   <DatePicker
                     label="Effective To"
-                    value={(policyDefinition as any).effectiveTo ? dayjs((policyDefinition as any).effectiveTo) : null}
+                    value={policyDefinition.effectiveTo ? dayjs(policyDefinition.effectiveTo) : null}
+                    minDate={policyDefinition.effectiveFrom ? dayjs(policyDefinition.effectiveFrom) : undefined}
                     onChange={(v) => onPolicyDefinitionChange({ ...policyDefinition, effectiveTo: v ? dayjs(v).format('YYYY-MM-DD') : '' })}
                     slotProps={{ textField: { fullWidth: true } }}
                   />

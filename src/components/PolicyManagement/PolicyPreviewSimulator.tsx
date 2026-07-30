@@ -159,6 +159,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
                         toDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       })
                     }
+                    minDate={context.fromDate ? dayjs(context.fromDate) : undefined}
                     slotProps={{
                       textField: {
                         fullWidth: true,

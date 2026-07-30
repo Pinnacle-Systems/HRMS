@@ -543,6 +543,7 @@ export const ShiftRotation = () => {
               <DatePicker
                 label="End Date"
                 value={applyData.endDate ? dayjs(applyData.endDate) : null}
+                minDate={applyData.startDate ? dayjs(applyData.startDate) : undefined}
                 onChange={(e) =>
                   setApplyData({
                     ...applyData,

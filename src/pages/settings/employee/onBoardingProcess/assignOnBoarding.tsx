@@ -890,6 +890,7 @@ export const AssignOnboarding = () => {
               <DatePicker
                 label="Due Date (Optional)"
                 value={formData.dueDate ? dayjs(formData.dueDate) : null}
+                minDate={formData.startDate ? dayjs(formData.startDate) : undefined}
                 onChange={(date) =>
                   setFormData({
                     ...formData,

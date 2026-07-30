@@ -635,6 +635,7 @@ export default function HrPayrollInputsPage() {
               <DatePicker
                 label="To Date"
                 value={toDate}
+                minDate={fromDate ?? undefined}
                 onChange={(newValue) => newValue && setToDate(dayjs(newValue))}
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />

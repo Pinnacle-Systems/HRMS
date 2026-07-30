@@ -457,6 +457,7 @@ export default function CompOffsPage() {
           />
           <DatePicker
             value={toDate ? dayjs(toDate) : null}
+            minDate={dayjs(fromDate) ?? undefined}
             onChange={(newValue) =>
               setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
             }

@@ -853,6 +853,7 @@ export default function BiWorkspacePage() {
               <DatePicker
                 label="To"
                 value={dateRange.to ? dayjs(dateRange.to) : null}
+                minDate={dateRange.from ? dayjs(dateRange.from) : undefined}
                 onChange={(newValue) => setDateRange({ ...dateRange, to: newValue ? dayjs(newValue).format("YYYY-MM-DD") : null })}
               // slotProps={{ textField: { size: "small" } }}
               />

@@ -281,6 +281,7 @@ export default function AuditLogs() {
         <LocalizationProvider dateAdapter={AdapterDayjs}>
           <DatePicker
             value={filterToDate ? dayjs(filterToDate) : null}
+            minDate={filterFromDate ? dayjs(filterFromDate) : undefined}
             onChange={(d) => setFilterToDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
             slotProps={{ textField: { label: "To", sx: { width: 135, "& .MuiOutlinedInput-root": { borderRadius: "6px !important" } } } }}
           />

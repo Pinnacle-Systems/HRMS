@@ -609,6 +609,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
                 <DatePicker
                   label="Effective To (optional)"
                   value={rule.effectiveTo ? dayjs(rule.effectiveTo) : null}
+                  minDate={rule.effectiveFrom ? dayjs(rule.effectiveFrom) : undefined}
                   onChange={(v) =>
                     updateRule(rule.id, { effectiveTo: v ? dayjs(v).format('YYYY-MM-DD') : '' })
                   }

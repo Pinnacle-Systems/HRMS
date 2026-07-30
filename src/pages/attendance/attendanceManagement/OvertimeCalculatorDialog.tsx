@@ -135,6 +135,7 @@ export function OvertimeCalculatorDialog({
                       : "",
                   })
                 }
+                minDate={params.startDate ? dayjs(params.startDate) : undefined}
                 slotProps={{ textField: { size: "small", fullWidth: true } }}
               />
             </LocalizationProvider>
