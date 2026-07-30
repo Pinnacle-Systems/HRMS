@@ -45,7 +45,7 @@ import {
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
 import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
-import { Alert, Autocomplete, Backdrop, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
 import { masterSx } from "./const.ts";
 import DataState from "../../components/DataState.tsx";

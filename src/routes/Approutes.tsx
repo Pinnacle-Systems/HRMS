@@ -59,7 +59,7 @@ const CategoryItems = lazy(() => import("../pages/settings/employee/categoryItem
 const CategorySettings = lazy(() => import("../pages/settings/employee/otherCategory"));
 const EmployeeDetails = lazy(() => import("../pages/employees/employeeDetails"));
 const OnBoardingProcess = lazy(() => import("../pages/settings/employee/onBoardingProcess/onboard"));
-const Documentation = lazy(() => import("../pages/documentation/doc"));
+const Documentation = lazy(() => import("../pages/Documentation/doc.tsx"));
 const ShiftSettings = lazy(() => import("../pages/attendance/shiftSettings/shiftSettings"));
 const AttendanceReports = lazy(() => import("../pages/attendance/attendanceReport"));
 const PolicyDashboard = lazy(() => import("../pages/policies/PolicyDashboard"));
