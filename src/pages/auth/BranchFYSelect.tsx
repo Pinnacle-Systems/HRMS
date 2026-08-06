@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
 import { getDefaultRoute, redirectAfterSelect } from "../../auth/authMapper";
 import { getSessionContext, selectSessionContext } from "../../auth/authApi";
-import type { AuthSession } from "../../auth/authTypes";
+import type { AuthSession, Branch } from "../../auth/authTypes";
 
 export default function BranchFiscalYearSelectPage() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ export default function BranchFiscalYearSelectPage() {
   // Context options
   const [branchAssociated, setBranchAssociated] = useState(false);
   const [assignedBranchId, setAssignedBranchId] = useState<string | null>(null);
-  const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [fiscalYears, setFiscalYears] = useState<{ id: string; label: string; active: boolean }[]>([]);
   // const [activeFiscalYearId, setActiveFiscalYearId] = useState<string | null>(null);
 
@@ -226,7 +226,7 @@ export default function BranchFiscalYearSelectPage() {
                 <option value="">All branches</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
-                    {branch.name}
+                    {branch.name} - {branch.code}
                   </option>
                 ))}
               </select>

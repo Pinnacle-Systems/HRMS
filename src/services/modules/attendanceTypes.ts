@@ -201,6 +201,27 @@ export interface ProcessResult {
     checkOutTime?: string;
     shiftCode: string;
   }[];
+  skippedEmployees: {
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string;
+    reason: string;
+  }[];
+  summary: {
+    employeesProcessed: number,
+    employeesSkipped: number,
+    recordsCalculated: number,
+    present: number,
+    absent: number,
+    leave: number,
+    weeklyOff: number,
+    holidays: number,
+    late: number,
+    earlyOut: number,
+    missedPunches: number,
+    overtimeHours: number,
+    errors: number
+}
 }
 
 export interface DailyStatusEmployee {

@@ -53,32 +53,32 @@ class ApiService {
   // }
 
   // Generic POST request
-  async post(
+  async post<TResponse = unknown>(
     url: string,
     data?: RequestBody,
     config?: AxiosRequestConfig,
-  ): Promise<unknown> {
-    const response = await this.axiosInstance.post<unknown>(url, data, config);
+  ): Promise<TResponse> {
+    const response = await this.axiosInstance.post<TResponse>(url, data, config);
     return response.data;
   }
 
   // Generic PUT request
-  async put(
+  async put<TResponse = unknown>(
     url: string,
     data?: RequestBody,
     config?: AxiosRequestConfig,
-  ): Promise<unknown> {
-    const response = await this.axiosInstance.put<unknown>(url, data, config);
+  ): Promise<TResponse> {
+    const response = await this.axiosInstance.put<TResponse>(url, data, config);
     return response.data;
   }
 
   // Generic PATCH request
-  async patch(
+  async patch<TResponse = unknown>(
     url: string,
     data?: RequestBody,
     config?: AxiosRequestConfig,
-  ): Promise<unknown> {
-    const response = await this.axiosInstance.patch<unknown>(url, data, config);
+  ): Promise<TResponse> {
+    const response = await this.axiosInstance.patch<TResponse>(url, data, config);
     return response.data;
   }
 

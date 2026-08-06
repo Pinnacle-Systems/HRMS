@@ -287,6 +287,7 @@ export type SessionContext = {
 export interface Branch {
   id: string;
   name: string;
+  code: string;
 }
 export interface FiscalYear {
   id: string;

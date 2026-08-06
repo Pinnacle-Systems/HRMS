@@ -30,6 +30,7 @@ import {
   ListItemIcon,
   ListItemText,
   Menu,
+  Checkbox,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -38,7 +39,6 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Computer as ComputerIcon,
-  LocationOn as LocationIcon,
   Wifi as WifiIcon,
   Sync as SyncIcon,
   Schedule as ScheduleIcon,
@@ -53,25 +53,27 @@ import {
   ModelTrainingOutlined,
   LocationOnOutlined,
   SettingsOutlined,
+  EditOutlined,
 } from "@mui/icons-material";
 import {
   biometricService,
   type BiometricDevice,
   type CreateDeviceRequest,
   type DeviceHealth,
+  type FetchLogQuery,
   type SyncStatus,
 } from "../../../services/modules/biometricDevice";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { useUI } from "../../../context/Snackbar";
 import { getRowColor } from "../../const";
-import { DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { DatePicker, DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import dayjs from "dayjs";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { formatDateTime } from "../../../utils/dateFormatter";
 
 // ==================== MAIN COMPONENT ====================
 export const DeviceManagement: React.FC = () => {
-  const { showSnackbar } = useUI();
+  const { showSnackbar, hideSpinner, showSpinner } = useUI();
 
   // State
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
@@ -92,6 +94,7 @@ export const DeviceManagement: React.FC = () => {
     deviceModel: "",
     ipAddress: "",
     location: "",
+    port: 4370,
     syncFrequency: 5,
     machineType: "",
     machineSetUp: "",
@@ -144,6 +147,10 @@ export const DeviceManagement: React.FC = () => {
   const [_selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [selectedMenuDevice, setSelectedMenuDevice] = useState<BiometricDevice | null>(null);
 
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     const syncIds = Object.keys(activeSyncs);
@@ -192,6 +199,7 @@ export const DeviceManagement: React.FC = () => {
       machineType: "",
       machineSetUp: "",
       isActive: true,
+      port: 4370,
     });
     setFormErrors({});
     setOpenDialog(true);
@@ -210,6 +218,7 @@ export const DeviceManagement: React.FC = () => {
       machineType: device.machineType || "",
       machineSetUp: device.machineSetUp || "",
       isActive: device.isActive !== undefined ? device.isActive : true,
+      port: device.port || 4370,
     });
     setFormErrors({});
     setOpenDialog(true);
@@ -543,8 +552,7 @@ export const DeviceManagement: React.FC = () => {
 
   const handleSaveDevice = async () => {
     if (!validateForm()) return;
-
-    setLoading(true);
+    showSpinner();
     try {
       if (dialogMode === "add") {
         await biometricService.registerDevice(formData);
@@ -562,7 +570,7 @@ export const DeviceManagement: React.FC = () => {
         "error",
       );
     } finally {
-      setLoading(false);
+      hideSpinner();
     }
   };
 
@@ -580,6 +588,58 @@ export const DeviceManagement: React.FC = () => {
       await fetchDevices();
     } catch (error: any) {
       showSnackbar(error?.message || "Failed to update device status", "error");
+    }
+  };
+
+  const handleSelectDevice = (deviceId: string) => {
+    setSelectedDevices(prev => {
+      if (prev.includes(deviceId)) {
+        return prev.filter(id => id !== deviceId);
+      } else {
+        return [...prev, deviceId];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedDevices([]);
+    } else {
+      setSelectedDevices(devices.map(d => d.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const fetchLogs = async () => {
+    if (!fromDate || !toDate) {
+      showSnackbar("Please select both From Date and To Date", "warning");
+      return;
+    }
+
+    if (selectedDevices.length === 0) {
+      showSnackbar("Please select at least one device", "warning");
+      return;
+    }
+
+    try {
+      const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
+      // Format device IPs with ports as "ip:port"
+      const deviceIpsWithPorts = selectedDevicesData.map(device =>
+        `${device.ipAddress}:${device.port || 4370}`
+      );
+      const params: FetchLogQuery = {
+        from_date: fromDate,
+        to_date: toDate,
+        deviceIps: deviceIpsWithPorts,
+      };
+      const result: any = await biometricService.fetchLogs(params);
+      const punchesData = result || [];
+      showSnackbar(
+        `Successfully fetched ${punchesData.length} logs from ${selectedDevices.length} device(s)`,
+        "success"
+      );
+    } catch (err: any) {
+      showSnackbar(err?.message || "Failed to fetch logs from devices", "error");
     }
   };
 
@@ -723,7 +783,19 @@ export const DeviceManagement: React.FC = () => {
               ))}
             </TextField>
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Port"
+              value={formData.port}
+              onChange={handleFormChange("port")}
+              error={!!formErrors.port}
+              helperText={formErrors.port}
+              required
+              placeholder="Enter port "
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 2 }}>
             <FormControlLabel
               control={
                 <Switch
@@ -1491,7 +1563,7 @@ export const DeviceManagement: React.FC = () => {
 
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 4, md: 4 }}>
           <Card className="bg-white-50">
             <CardContent className="!text-gray-800">
               <div className="mb-1 text-[12px]">Total Devices</div>
@@ -1499,7 +1571,7 @@ export const DeviceManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 4, md: 4 }}>
           <Card className="bg-white-50">
             <CardContent className="!text-gray-800">
               <div className="mb-1 text-[12px]">Active Devices</div>
@@ -1509,7 +1581,7 @@ export const DeviceManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 4, md: 4 }}>
           <Card className="bg-white-50">
             <CardContent className="!text-gray-800">
               <div className="mb-1 text-[12px]">Inactive Devices</div>
@@ -1521,21 +1593,69 @@ export const DeviceManagement: React.FC = () => {
         </Grid>
       </Grid>
 
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en">
+        <Grid container spacing={2} sx={{ mb: 2 }} className="items-center">
+          <Grid size={{ xs: 6, sm: 3, md: 3 }}>
+            <DatePicker
+              label="From Date"
+              value={fromDate ? dayjs(fromDate) : null}
+              onChange={(newValue) => setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+              slotProps={{
+                textField: { fullWidth: true },
+              }}
+              format="YYYY-MM-DD"
+            />
+          </Grid>
+          <Grid size={{ xs: 6, sm: 3, md: 3 }}>
+            <DatePicker
+              label="To Date"
+              value={toDate ? dayjs(toDate) : null}
+              onChange={(newValue) => setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+              slotProps={{
+                textField: { fullWidth: true },
+              }}
+              format="YYYY-MM-DD"
+            />
+          </Grid>
+          {/* <Grid size={{ xs: 12, sm: 10, md: 6 }}>
+            <div className="text-[12px] text-red-700">
+              Note:To fetch the logs from the device , please select the from and to date here
+            </div>
+          </Grid> */}
+          <Grid size={{ xs: 6, sm: 6, md: 6 }} className="flex items-center whitespace-nowrap justify-end gap-2">
+            <Button
+              variant="contained"
+              color="success"
+              onClick={() => fetchLogs()}
+              disabled={selectedDevices.length === 0 || !fromDate || !toDate}
+            >
+              Fetch Logs ({selectedDevices.length} device{selectedDevices.length !== 1 ? 's' : ''} selected)
+            </Button>
+          </Grid>
+        </Grid>
+      </LocalizationProvider>
+
       {/* Devices Table */}
       <TableContainer className="border border-gray-200 rounded-md">
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell className="!font-bold">S No</TableCell>
-              <TableCell className="!font-bold">Device Name</TableCell>
+              <TableCell className="!font-bold sticky left-0 z-30">
+                <Checkbox
+                  checked={selectAll}
+                  indeterminate={selectedDevices.length > 0 && selectedDevices.length < devices.length}
+                  onChange={handleSelectAll}
+                />S No</TableCell>
+              <TableCell className="!font-bold sticky left-[58px] z-30">Device Name</TableCell>
               <TableCell className="!font-bold">Serial Number</TableCell>
               <TableCell className="!font-bold">Model</TableCell>
               <TableCell className="!font-bold">IP Address</TableCell>
+              <TableCell className="!font-bold">Port</TableCell>
               <TableCell className="!font-bold">Location</TableCell>
               <TableCell className="!font-bold">Health</TableCell>
               <TableCell className="!font-bold">Status</TableCell>
               <TableCell className="!font-bold">Last Sync</TableCell>
-              <TableCell className="!font-bold" align="center">
+              <TableCell className="!font-bold sticky right-0 z-30" align="center">
                 Actions
               </TableCell>
             </TableRow>
@@ -1561,10 +1681,16 @@ export const DeviceManagement: React.FC = () => {
                 // .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((device, i) => (
                   <TableRow key={device.id} sx={getRowColor(i)}>
-                    <TableCell>{i + 1}</TableCell>
-                    <TableCell>
+                    <TableCell className="sticky left-0 z-30 bg-inherit" >
+                      <Checkbox className=""
+                        checked={selectedDevices.includes(device.id)}
+                        onChange={() => handleSelectDevice(device.id)}
+                      />
+                      {i + 1}
+                    </TableCell>
+                    <TableCell className="sticky left-[58px] z-30 bg-inherit">
                       <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <ComputerIcon className="mr-1 text-primary" />
+                        {/* <ComputerIcon className="mr-1 text-primary" /> */}
                         <Typography variant="body2">
                           {device.deviceName}
                         </Typography>
@@ -1578,9 +1704,10 @@ export const DeviceManagement: React.FC = () => {
                         {device.ipAddress}
                       </Box>
                     </TableCell>
+                    <TableCell>{device.port}</TableCell>
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <LocationIcon sx={{ mr: 1, fontSize: 16 }} />
+                        <LocationOnOutlined sx={{ mr: 1, fontSize: 16 }} />
                         {device.location}
                       </Box>
                     </TableCell>
@@ -1605,7 +1732,7 @@ export const DeviceManagement: React.FC = () => {
                               }
                               variant="dot"
                             >
-                              <HealthAndSafetyOutlined />
+                              <HealthAndSafetyOutlined className="!text-gray-500" />
                             </Badge>
                           )}
                         </IconButton>
@@ -1616,16 +1743,16 @@ export const DeviceManagement: React.FC = () => {
                         label={device.isActive ? "Active" : "Inactive"}
                         color={device.isActive ? "success" : "error"}
                         size="small"
-                        // icon={
-                        //   device.isActive ? <CheckCircleIcon /> : <CancelIcon />
-                        // }
+                      // icon={
+                      //   device.isActive ? <CheckCircleIcon /> : <CancelIcon />
+                      // }
                       />
                     </TableCell>
                     <TableCell>
                       {/* {new Date(device.lastSyncAt).toLocaleString()} */}
                       {formatDateTime(device.lastSyncAt)}
                     </TableCell>
-                    <TableCell align="center">
+                    <TableCell align="center" className="sticky right-0 z-30 bg-inherit">
                       {/* <Box
                         sx={{
                           display: "flex",
@@ -1683,6 +1810,9 @@ export const DeviceManagement: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                       </Box> */}
+                      {/* <Tooltip title="Logs">
+                        <Button onClick={() => fetchLogs(device)}>Fetch Logs</Button>
+                      </Tooltip> */}
                       <Tooltip title="View Details">
                         <IconButton
                           size="small"
@@ -1699,7 +1829,7 @@ export const DeviceManagement: React.FC = () => {
                           setSelectedMenuDevice(device)
                         }}
                       >
-                        <MoreVertOutlined />
+                        <MoreVertOutlined className="!text-gray-800" />
                       </IconButton>
                     </TableCell>
                   </TableRow>
@@ -1752,6 +1882,40 @@ export const DeviceManagement: React.FC = () => {
           onClick={() => {
             handleMenuClose();
             if (selectedMenuDevice) {
+              handleOpenEditDialog(selectedMenuDevice);
+            }
+          }}
+        >
+          <ListItemIcon>
+            <EditOutlined fontSize="small" color="primary" className="!w-4" />
+          </ListItemIcon>
+          <ListItemText>Edit</ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            if (selectedMenuDevice) {
+              handleToggleDeviceStatus(selectedMenuDevice);
+            }
+          }}
+        >
+          <ListItemIcon>
+            {selectedMenuDevice?.isActive ? (
+              <CancelIcon fontSize="small" color="error" />
+            ) : (
+              <CheckCircleIcon fontSize="small" color="success" />
+            )}
+          </ListItemIcon>
+          <ListItemText>
+            {selectedMenuDevice?.isActive ? "Deactivate" : "Activate"}
+          </ListItemText>
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+            if (selectedMenuDevice) {
               handleOpenMapDialog(selectedMenuDevice);
             }
           }}
@@ -1795,39 +1959,7 @@ export const DeviceManagement: React.FC = () => {
           <ListItemText>Sync</ListItemText>
         </MenuItem>
 
-        <MenuItem
-          onClick={() => {
-            handleMenuClose();
-            if (selectedMenuDevice) {
-              handleOpenEditDialog(selectedMenuDevice);
-            }
-          }}
-        >
-          <ListItemIcon>
-            <EditIcon fontSize="small" color="primary" className="!w-4" />
-          </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
-        </MenuItem>
 
-        <MenuItem
-          onClick={() => {
-            handleMenuClose();
-            if (selectedMenuDevice) {
-              handleToggleDeviceStatus(selectedMenuDevice);
-            }
-          }}
-        >
-          <ListItemIcon>
-            {selectedMenuDevice?.isActive ? (
-              <CancelIcon fontSize="small" color="error" />
-            ) : (
-              <CheckCircleIcon fontSize="small" color="success" />
-            )}
-          </ListItemIcon>
-          <ListItemText>
-            {selectedMenuDevice?.isActive ? "Deactivate" : "Activate"}
-          </ListItemText>
-        </MenuItem>
 
 
       </Menu>

@@ -65,6 +65,7 @@ import {
   HubOutlined,
   AccountCircleOutlined,
   HowToRegOutlined,
+  GroupOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -355,7 +356,7 @@ export default function Layout() {
       text: "Onboarding",
       icon: <HowToRegOutlined />,
       path: "/onboarding-process",
-      roles: ["EMPLOYEE", "MANAGER", "HR"],
+      roles: ["EMPLOYEE", "MANAGER"],
     },
     {
       text: "My Info",
@@ -638,12 +639,20 @@ export default function Layout() {
         </MenuItem>
         <Divider />
         {user?.roles.includes("ADMIN") && (
+          <>
           <MenuItem onClick={() => { navigate("/settings/general/company-settings"); handleProfileMenuClose(); }} className="bg-white-50">
             <ListItemIcon>
               <SettingsOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
             </ListItemIcon>
             <div className="text-gray-800">Company Settings</div>
           </MenuItem>
+           <MenuItem onClick={() => { navigate("/user-management"); handleProfileMenuClose(); }} className="bg-white-50">
+            <ListItemIcon>
+              <GroupOutlined className="!w-4 text-gray-400 dark:text-primary" />
+            </ListItemIcon>
+            <div className="text-gray-800">User Management</div>
+          </MenuItem>
+          </>
         )}
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/branch-fiscal-year"); }} className="bg-white-50">
           <ListItemIcon>

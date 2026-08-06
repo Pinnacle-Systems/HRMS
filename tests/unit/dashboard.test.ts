@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { API_ENDPOINTS } from "../../src/services/api/endpoints";
 import { dashboardService } from "../../src/services/modules/dashboard";
 
-const mockGet = vi.fn();
-const mockPost = vi.fn();
-const mockPut = vi.fn();
-const mockDelete = vi.fn();
+const { mockGet, mockPost, mockPut, mockDelete } = vi.hoisted(() => ({
+  mockGet: vi.fn(),
+  mockPost: vi.fn(),
+  mockPut: vi.fn(),
+  mockDelete: vi.fn(),
+}));
 
-vi.mock("../api/api.config", () => ({
+vi.mock("../../src/services/api/api.config", () => ({
   apiService: {
     get: mockGet,
     post: mockPost,
@@ -26,6 +28,8 @@ describe("dashboardService", () => {
 
     await dashboardService.listBIReports();
 
-    expect(mockGet).toHaveBeenCalledWith(API_ENDPOINTS.DASHBOARD.REPORTS.GET);
+    expect(mockGet).toHaveBeenCalledWith(
+      API_ENDPOINTS.DASHBOARD.REPORTS.LIST_REPORTS(),
+    );
   });
 });

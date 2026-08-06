@@ -175,17 +175,15 @@ export const attendanceService = {
   },
 
   async processAttendance(payload: ProcessAttendancePayload) {
-    // if (USE_MOCK_ATTENDANCE_SERVICE) {
-    //   return Mock.mockResponse(Mock.postMockProcessResult(payload), "Attendance processed");
-    // }
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_PROCESS, payload);
   },
 
+   async validateAttendance(payload: ProcessAttendancePayload) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.VALIDATE, payload);
+  },
+
   async processAndCloseAttendance(payload: ProcessAttendancePayload) {
-    // if (USE_MOCK_ATTENDANCE_SERVICE) {
-    //   return Mock.mockResponse(Mock.postMockProcessResult(payload), "Attendance processed");
-    // }
-    return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_PROCESS, payload);
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.PROCESS_AND_CLOSE, payload);
   },
 
   async bulkProcess(payload: BulkProcessPayload) {

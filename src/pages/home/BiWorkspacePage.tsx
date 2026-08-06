@@ -75,6 +75,8 @@ import type {
   UpdateBIReportRequest,
   BIReportExportRequest,
   BIReportRunRequest,
+  DashboardBuilderPage,
+  DashboardQuerySet,
 } from "../../services/modules/dashboard";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -157,6 +159,27 @@ export default function BiWorkspacePage() {
   const [datasetSchema, setDatasetSchema] = useState<BIDatasetSchema | null>(null);
   const [schemaDialogOpen, setSchemaDialogOpen] = useState(false);
 
+  // Dashboard Builder / Query Set Administration
+  const [builderPages, setBuilderPages] = useState<DashboardBuilderPage[]>([]);
+  const [querySets, setQuerySets] = useState<DashboardQuerySet[]>([]);
+  const [editingBuilderPageId, setEditingBuilderPageId] = useState<string | null>(null);
+  const [editingQuerySetId, setEditingQuerySetId] = useState<string | null>(null);
+  const [builderPageForm, setBuilderPageForm] = useState({
+    pageKey: "",
+    title: "",
+    description: "",
+    displayOrder: 1,
+  });
+  const [querySetForm, setQuerySetForm] = useState({
+    title: "",
+    description: "",
+    datasetId: "",
+    queryType: "sql",
+    sqlText: "SELECT 1",
+    active: true,
+  });
+  const [presetId, setPresetId] = useState("");
+
   // ====== Dynamic Query State ======
   // The full query payload according to the BI API
   const [queryPayload, setQueryPayload] = useState<BIQueryRequest>({
@@ -233,6 +256,8 @@ export default function BiWorkspacePage() {
       { label: "Query Engine", icon: <QueryStats /> },
       { label: "Exports", icon: <Download /> },
       { label: "Datasets", icon: <SchemaIcon /> },
+      { label: "Builder", icon: <Dashboard /> },
+      { label: "Query Sets", icon: <FilterListIcon /> },
     ],
     []
   );
@@ -255,8 +280,28 @@ export default function BiWorkspacePage() {
       setDatasets(Array.isArray(datasetItems) ? datasetItems : []);
       if (datasetItems?.length > 0 && datasetItems[0]?.datasetId) {
         setSelectedDataset(datasetItems[0].datasetId);
-        // Load schema for the first dataset
         await loadSchemaForDataset(datasetItems[0].datasetId);
+      }
+
+      const adminResults = await Promise.allSettled([
+        dashboardService.listDashboardBuilderPages(),
+        dashboardService.listBIQuerySets(),
+      ]);
+
+      if (adminResults[0].status === "fulfilled") {
+        setBuilderPages(
+          Array.isArray(adminResults[0].value?.data)
+            ? adminResults[0].value.data
+            : []
+        );
+      }
+
+      if (adminResults[1].status === "fulfilled") {
+        setQuerySets(
+          Array.isArray(adminResults[1].value?.data)
+            ? adminResults[1].value.data
+            : []
+        );
       }
     } catch (err) {
       setError("Unable to load BI workspace data right now.");
@@ -815,6 +860,438 @@ export default function BiWorkspacePage() {
 
   // ============ Render Query Builder ============
 
+  const resetBuilderPageForm = () => {
+    setEditingBuilderPageId(null);
+    setBuilderPageForm({
+      pageKey: "",
+      title: "",
+      description: "",
+      displayOrder: 1,
+    });
+  };
+
+  const createBuilderPage = async () => {
+    try {
+      const response = await dashboardService.createDashboardBuilderPage({
+        pageKey: builderPageForm.pageKey,
+        title: builderPageForm.title,
+        description: builderPageForm.description,
+        displayOrder: builderPageForm.displayOrder,
+        active: true,
+        roles: [],
+        filters: [],
+        widgets: [],
+      });
+
+      if (response?.success) {
+        showSnackbar("Builder page created", "success");
+        resetBuilderPageForm();
+        await loadWorkspace();
+      } else {
+        showSnackbar(response?.message || "Unable to create builder page", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to create builder page", "error");
+    }
+  };
+
+  const handleEditBuilderPage = async (pageId: string) => {
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.getDashboardBuilderPage(pageId);
+      const page = response?.data;
+      if (!page) {
+        showSnackbar("Unable to load builder page", "error");
+        return;
+      }
+
+      setEditingBuilderPageId(pageId);
+      setBuilderPageForm({
+        pageKey: page.pageKey || "",
+        title: page.title || "",
+        description: page.description || "",
+        displayOrder: page.displayOrder || 1,
+      });
+      showSnackbar("Builder page loaded for editing", "success");
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to load builder page", "error");
+    }
+  };
+
+  const handleUpdateBuilderPage = async () => {
+    if (!editingBuilderPageId) return;
+
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.updateDashboardBuilderPage(editingBuilderPageId, {
+        pageKey: builderPageForm.pageKey,
+        title: builderPageForm.title,
+        description: builderPageForm.description,
+        displayOrder: builderPageForm.displayOrder,
+      });
+
+      if (response?.success) {
+        showSnackbar("Builder page updated", "success");
+        resetBuilderPageForm();
+        await loadWorkspace();
+      } else {
+        showSnackbar(response?.message || "Unable to update builder page", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to update builder page", "error");
+    }
+  };
+
+  const handleDeleteBuilderPage = async (pageId: string) => {
+    if (!window.confirm("Delete this dashboard builder page?")) return;
+
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.deleteDashboardBuilderPage(pageId);
+      if (response?.success) {
+        showSnackbar("Builder page deleted", "success");
+        await loadWorkspace();
+      } else {
+        showSnackbar(response?.message || "Unable to delete builder page", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to delete builder page", "error");
+    }
+  };
+
+  const resetQuerySetForm = () => {
+    setEditingQuerySetId(null);
+    setQuerySetForm({
+      title: "",
+      description: "",
+      datasetId: "",
+      queryType: "sql",
+      sqlText: "SELECT 1",
+      active: true,
+    });
+  };
+
+  const createQuerySet = async () => {
+    try {
+      const response = await dashboardService.createBIQuerySet({
+        title: querySetForm.title,
+        description: querySetForm.description,
+        datasetId: querySetForm.datasetId || selectedDataset,
+        queryType: querySetForm.queryType,
+        sqlText: querySetForm.sqlText,
+        queryJson: {},
+        paramBindings: {},
+        visualization: {},
+        active: querySetForm.active,
+      });
+
+      if (response?.success) {
+        showSnackbar("Query set created", "success");
+        resetQuerySetForm();
+        await loadWorkspace();
+      } else {
+        showSnackbar(response?.message || "Unable to create query set", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to create query set", "error");
+    }
+  };
+
+  const handleEditQuerySet = async (querySetId: string) => {
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.getBIQuerySet(querySetId);
+      const querySet = response?.data;
+      if (!querySet) {
+        showSnackbar("Unable to load query set", "error");
+        return;
+      }
+
+      setEditingQuerySetId(querySetId);
+      setQuerySetForm({
+        title: querySet.title || "",
+        description: querySet.description || "",
+        datasetId: querySet.datasetId || "",
+        queryType: querySet.queryType || "sql",
+        sqlText: querySet.sqlText || "SELECT 1",
+        active: querySet.active ?? true,
+      });
+      showSnackbar("Query set loaded for editing", "success");
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to load query set", "error");
+    }
+  };
+
+  const handleUpdateQuerySet = async () => {
+    if (!editingQuerySetId) return;
+
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.updateBIQuerySet(editingQuerySetId, {
+        title: querySetForm.title,
+        description: querySetForm.description,
+        datasetId: querySetForm.datasetId || selectedDataset,
+        queryType: querySetForm.queryType,
+        sqlText: querySetForm.sqlText,
+        active: querySetForm.active,
+      });
+
+      if (response?.success) {
+        showSnackbar("Query set updated", "success");
+        resetQuerySetForm();
+        await loadWorkspace();
+      } else {
+        showSnackbar(response?.message || "Unable to update query set", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to update query set", "error");
+    }
+  };
+
+  const handleDeleteQuerySet = async (querySetId: string) => {
+    if (!window.confirm("Delete this query set?")) return;
+
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.deleteBIQuerySet(querySetId);
+      if (response?.success) {
+        showSnackbar("Query set deleted", "success");
+        await loadWorkspace();
+      } else {
+        showSnackbar(response?.message || "Unable to delete query set", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Unable to delete query set", "error");
+    }
+  };
+
+  const handleLoadPreset = async () => {
+    if (!selectedDataset || !presetId.trim()) {
+      showSnackbar("Select a dataset and enter a preset id", "error");
+      return;
+    }
+
+    try {
+      const api = dashboardService as any;
+      const response: any = await api.getBIQueryPreset(selectedDataset, presetId.trim());
+      const preset = response?.data;
+      if (preset?.query) {
+        setQueryPayload({ ...queryPayload, ...preset.query });
+        setFilterConditions((preset.query.filters?.conditions || []).map((condition: any) => ({
+          field: condition.field || "",
+          operator: condition.operator || "eq",
+          value: String(condition.value ?? ""),
+        })));
+        setDateRange({
+          field: preset.query.dateRange?.field || "",
+          from: preset.query.dateRange?.from || null,
+          to: preset.query.dateRange?.to || null,
+          granularity: preset.query.dateRange?.granularity || "month",
+        });
+        setTopN(
+          preset.query.topN
+            ? {
+                dimension: preset.query.topN.dimension || "",
+                metric: preset.query.topN.metric || "",
+                limit: preset.query.topN.limit || 10,
+                includeOthers: preset.query.topN.includeOthers !== undefined ? preset.query.topN.includeOthers : true,
+              }
+            : null
+        );
+        setSort(
+          Array.isArray(preset.query.sort)
+            ? preset.query.sort.map((item: any) => ({ field: item.field, direction: item.direction }))
+            : []
+        );
+        showSnackbar("Preset loaded into the query builder", "success");
+      } else {
+        showSnackbar("Preset response did not include a query payload", "error");
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to load query preset", "error");
+    }
+  };
+
+  const renderBuilderAdmin = () => (
+    <Card>
+      <CardHeader title="Dashboard Builder" />
+      <CardContent className="space-y-4">
+        <Box className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <TextField
+            label="Page key"
+            value={builderPageForm.pageKey}
+            onChange={(e) =>
+              setBuilderPageForm((prev) => ({ ...prev, pageKey: e.target.value }))
+            }
+          />
+          <TextField
+            label="Title"
+            value={builderPageForm.title}
+            onChange={(e) =>
+              setBuilderPageForm((prev) => ({ ...prev, title: e.target.value }))
+            }
+          />
+          <TextField
+            label="Description"
+            value={builderPageForm.description}
+            onChange={(e) =>
+              setBuilderPageForm((prev) => ({ ...prev, description: e.target.value }))
+            }
+          />
+          <TextField
+            label="Display order"
+            type="number"
+            value={builderPageForm.displayOrder}
+            onChange={(e) =>
+              setBuilderPageForm((prev) => ({
+                ...prev,
+                displayOrder: Number(e.target.value || 1),
+              }))
+            }
+          />
+        </Box>
+        <Box className="flex gap-2">
+          <Button
+            variant="contained"
+            onClick={() => void (editingBuilderPageId ? handleUpdateBuilderPage() : createBuilderPage())}
+          >
+            {editingBuilderPageId ? "Update Dashboard Page" : "Create Dashboard Page"}
+          </Button>
+          {editingBuilderPageId && (
+            <Button variant="outlined" onClick={resetBuilderPageForm}>
+              Cancel
+            </Button>
+          )}
+        </Box>
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Page Key</TableCell>
+                <TableCell>Title</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {builderPages.map((page) => (
+                <TableRow key={page.id}>
+                  <TableCell>{page.pageKey}</TableCell>
+                  <TableCell>{page.title}</TableCell>
+                  <TableCell>{page.description}</TableCell>
+                  <TableCell align="right">
+                    <Box className="flex justify-end gap-1">
+                      <IconButton size="small" color="primary" onClick={() => void handleEditBuilderPage(page.id)}>
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => void handleDeleteBuilderPage(page.id)}>
+                        <DeleteOutlineOutlined fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+
+  const renderQuerySetAdmin = () => (
+    <Card>
+      <CardHeader title="Query Sets" />
+      <CardContent className="space-y-4">
+        <Box className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <TextField
+            label="Title"
+            value={querySetForm.title}
+            onChange={(e) =>
+              setQuerySetForm((prev) => ({ ...prev, title: e.target.value }))
+            }
+          />
+          <TextField
+            label="Description"
+            value={querySetForm.description}
+            onChange={(e) =>
+              setQuerySetForm((prev) => ({ ...prev, description: e.target.value }))
+            }
+          />
+          <TextField
+            label="Dataset id"
+            value={querySetForm.datasetId || selectedDataset}
+            onChange={(e) =>
+              setQuerySetForm((prev) => ({ ...prev, datasetId: e.target.value }))
+            }
+          />
+          <TextField
+            label="Query type"
+            value={querySetForm.queryType}
+            onChange={(e) =>
+              setQuerySetForm((prev) => ({ ...prev, queryType: e.target.value }))
+            }
+          />
+          <TextField
+            label="SQL text"
+            multiline
+            minRows={3}
+            value={querySetForm.sqlText}
+            onChange={(e) =>
+              setQuerySetForm((prev) => ({ ...prev, sqlText: e.target.value }))
+            }
+            className="md:col-span-2"
+          />
+        </Box>
+        <Box className="flex gap-2">
+          <Button
+            variant="contained"
+            onClick={() => void (editingQuerySetId ? handleUpdateQuerySet() : createQuerySet())}
+          >
+            {editingQuerySetId ? "Update Query Set" : "Create Query Set"}
+          </Button>
+          {editingQuerySetId && (
+            <Button variant="outlined" onClick={resetQuerySetForm}>
+              Cancel
+            </Button>
+          )}
+        </Box>
+
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Title</TableCell>
+                <TableCell>Dataset</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {querySets.map((querySet) => (
+                <TableRow key={querySet.id}>
+                  <TableCell>{querySet.title}</TableCell>
+                  <TableCell>{querySet.datasetId}</TableCell>
+                  <TableCell>{querySet.queryType}</TableCell>
+                  <TableCell align="right">
+                    <Box className="flex justify-end gap-1">
+                      <IconButton size="small" color="primary" onClick={() => void handleEditQuerySet(querySet.id)}>
+                        <EditOutlined fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => void handleDeleteQuerySet(querySet.id)}>
+                        <DeleteOutlineOutlined fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </CardContent>
+    </Card>
+  );
+
   const renderQueryBuilder = () => {
     if (!datasetSchema) {
       return <Typography className="text-gray-500">Select a dataset to see its schema and build queries.</Typography>;
@@ -824,6 +1301,23 @@ export default function BiWorkspacePage() {
 
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }} className="h-[calc(100vh-425px)] overflow-auto">
+        <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
+          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
+            Query Preset Loader
+          </Typography>
+          <Box className="flex gap-3 items-center">
+            <TextField
+              label="Preset id"
+              value={presetId}
+              onChange={(e) => setPresetId(e.target.value)}
+              size="small"
+            />
+            <Button variant="outlined" onClick={() => void handleLoadPreset()}>
+              Load Preset
+            </Button>
+          </Box>
+        </Paper>
+
         {/* Date Range */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
@@ -1943,6 +2437,8 @@ export default function BiWorkspacePage() {
           <TabPanel index={1} value={activeTab}>{renderQueryEngineTab()}</TabPanel>
           <TabPanel index={2} value={activeTab}>{renderExportsTab()}</TabPanel>
           <TabPanel index={3} value={activeTab}>{renderDatasetsTab()}</TabPanel>
+          <TabPanel index={4} value={activeTab}>{renderBuilderAdmin()}</TabPanel>
+          <TabPanel index={5} value={activeTab}>{renderQuerySetAdmin()}</TabPanel>
         </Box>
       </Paper>
 

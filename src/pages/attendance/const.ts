@@ -31,7 +31,7 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
 };
 
 export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
-  checked_in: "bg-green-100 text-green-700",
+  checked_in: "bg-cyan-100 text-cyan-700",
   checked_out: "bg-blue-100 text-blue-700",
   absent: "bg-red-100 text-red-700",
   present: "bg-green-100 text-green-700",

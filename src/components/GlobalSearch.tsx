@@ -458,6 +458,15 @@ const ALL_ITEMS: SearchItem[] = [
     keywords: ["doc", "help", "documentation"],
     roles: ["ADMIN", "HR", "EMPLOYEE", "MANAGER"],
   },
+   {
+    label: "User Management",
+    description: "Manage user accounts and permissions",
+    path: "/user-management",
+    category: "Account",
+    icon: <PeopleAltOutlinedIcon fontSize="small" />,
+    keywords: ["user", "account", "permission", "management"],
+    roles: ["ADMIN", "HR"],
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {

@@ -48,7 +48,6 @@ export default function AttendanceOverview() {
                     View real-time attendance summary, today's leave status, and holiday calendar
                 </div>
             </div>
-
             <div className="border border-gray-300 bg-white">
                 {/* Tab Navigation */}
                 <div className="flex items-center gap-2 border-b border-gray-300 p-2 overflow-x-auto">

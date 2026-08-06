@@ -27,3 +27,7 @@ test-results/
 *.njsproj
 *.sln
 *.sw?
+
+/backend/__pycache__
+/backend/venv
+/backend/app/venv

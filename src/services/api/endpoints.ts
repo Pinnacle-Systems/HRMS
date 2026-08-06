@@ -792,10 +792,11 @@ export const API_ENDPOINTS = {
     GET_FINALISED: "/attendance/finalised",
 
     POST_CHECKOUT: "/attendance/check-out",
-    POST_PROCESS: "/attendance/process",
     POST_BULK_PROCESS: "/attendance/bulk-process",
     POST_FINALISE: "/attendance/finalise",
     POST_UNLOCK: "/attendance/unlock",
+    POST_PROCESS: "/attendance/process",
+    VALIDATE: "/attendance/process/validate",
     PROCESS_AND_CLOSE: "/attendance/process-and-close",
 
     GET_LOCKS: "/attendance/locks",
@@ -860,37 +861,101 @@ export const API_ENDPOINTS = {
   },
 
   DASHBOARD: {
-    GET_PREFERENCES: (page: string) => `dashboard/${page}/preferences`,
-    GET_DASHBOARD: (page: string) => `dashboard/${page}`,
-    GET_WIDGETS: (page: string) => `dashboard/${page}/widgets`,
-    GET_CONTEXT: (page: string) => `dashboard/${page}/context`,
-    GET_PAGES: "dashboard/pages",
-    POST_DRILLDOWN: (page: string, wid: string) =>
-      `dashboard/${page}/widgets/${wid}/drilldown`,
-    RESET_PREFERENCES: (page: string) => `dashboard/${page}/preferences/reset`,
-    UPDATE_PREFERENCES: (page: string) => `dashboard/${page}/preferences`,
+    LIST_AVAILABLE_PAGES: () => `/dashboard/pages`,
+    RENDER_PAGE: (page: string) => `/dashboard/${page}`,
+    GET_PAGE_CONTEXT: (page: string) => `/dashboard/${page}/context`,
+    LIST_PAGE_WIDGETS: (page: string) => `/dashboard/${page}/widgets`,
+    GET_PAGE_PREFERENCES: (page: string) => `/dashboard/${page}/preferences`,
+    SAVE_PAGE_PREFERENCES: (page: string) => `/dashboard/${page}/preferences`,
+    RESET_PAGE_PREFERENCES: (page: string) =>
+      `/dashboard/${page}/preferences/reset`,
+    EXECUTE_WIDGET_DRILLDOWN: (page: string, widgetId: string) =>
+      `/dashboard/${page}/widgets/${widgetId}/drilldown`,
+
+    GET_PAGES: () => `/dashboard/pages`,
+    GET_DASHBOARD: (page: string) => `/dashboard/${page}`,
+    GET_CONTEXT: (page: string) => `/dashboard/${page}/context`,
+    GET_WIDGETS: (page: string) => `/dashboard/${page}/widgets`,
+    GET_PREFERENCES: (page: string) => `/dashboard/${page}/preferences`,
+    UPDATE_PREFERENCES: (page: string) => `/dashboard/${page}/preferences`,
+    RESET_PREFERENCES: (page: string) => `/dashboard/${page}/preferences/reset`,
+    POST_DRILLDOWN: (page: string, widgetId: string) =>
+      `/dashboard/${page}/widgets/${widgetId}/drilldown`,
+
+    BUILDER: {
+      LIST_PAGES: () => `/admin/dashboard/pages`,
+      GET_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
+      CREATE_PAGE: () => `/admin/dashboard/pages`,
+      UPDATE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
+      DELETE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
+      LIST_WIDGETS: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets`,
+      ADD_WIDGET: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets`,
+      UPDATE_WIDGET: (pageId: string, widgetId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
+      DELETE_WIDGET: (pageId: string, widgetId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
+      LIST_FILTERS: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters`,
+      ADD_FILTER: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters`,
+      UPDATE_FILTER: (pageId: string, filterId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
+      DELETE_FILTER: (pageId: string, filterId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
+      GET_BUILDER_META: () => `/admin/dashboard/meta`,
+    },
 
     BI_ASYNC_EXP: {
       GET_JOB: (jobref: string) => `/bi/exports/${jobref}`,
       DOWNLOAD: (jobref: string) => `/bi/exports/${jobref}/download`,
       POST: (id: string) => `/bi/datasets/${id}/exports`,
     },
+
     REPORTS: {
-      DELETE: (id: string) => `/bi/reports/${id}`,
+      GET_REPORT: (id: string) => `/bi/reports/${id}`,
+      LIST_REPORTS: () => `/bi/reports`,
+      CREATE_REPORT: () => `/bi/reports`,
+      UPDATE_REPORT: (id: string) => `/bi/reports/${id}`,
+      DELETE_REPORT: (id: string) => `/bi/reports/${id}`,
+      RUN_REPORT: (id: string) => `/bi/reports/${id}/run`,
+      EXPORT_REPORT: (id: string) => `/bi/reports/${id}/exports`,
+
+      // Backward-compatible aliases used by the existing BI workspace service.
+      GET: () => `/bi/reports`,
       GET_BY_ID: (id: string) => `/bi/reports/${id}`,
-      GET: "/bi/reports",
-      CREATE: "/bi/reports",
+      CREATE: () => `/bi/reports`,
+      UPDATE: (id: string) => `/bi/reports/${id}`,
+      DELETE: (id: string) => `/bi/reports/${id}`,
       RUN: (id: string) => `/bi/reports/${id}/run`,
       EXPORTS: (id: string) => `/bi/reports/${id}/exports`,
-      UPDATE: (id: string) => `/bi/reports/${id}`,
     },
+
     BI_QUERY_ENGINE: {
-      GET: "/bi/datasets",
-      GET_BY_ID: (id: string) => `/bi/datasets/${id}/schema`,
-      GET_PRESETS: (id: string, pid: string) =>
-        `/bi/datasets/${id}/presets/${pid}`,
-      POST_QUERY: (id: string) => `/bi/datasets/${id}/query`,
-      QUERY_VALIDATE: (id: string) => `/bi/datasets/${id}/query/validate`,
+      LIST_DATASETS: () => `/bi/datasets`,
+      GET_DATASET_SCHEMA: (datasetId: string) =>
+        `/bi/datasets/${datasetId}/schema`,
+      GET_QUERY_PRESET: (datasetId: string, presetId: string) =>
+        `/bi/datasets/${datasetId}/presets/${presetId}`,
+      EXECUTE_QUERY: (datasetId: string) => `/bi/datasets/${datasetId}/query`,
+      VALIDATE_QUERY: (datasetId: string) =>
+        `/bi/datasets/${datasetId}/query/validate`,
+
+      // Backward-compatible aliases used by the existing BI workspace service.
+      GET: () => `/bi/datasets`,
+      GET_BY_ID: (datasetId: string) => `/bi/datasets/${datasetId}/schema`,
+      POST_QUERY: (datasetId: string) => `/bi/datasets/${datasetId}/query`,
+      QUERY_VALIDATE: (datasetId: string) =>
+        `/bi/datasets/${datasetId}/query/validate`,
+    },
+
+    BI_QUERY_SETS: {
+      LIST_QUERY_SETS: () => `/admin/bi/query-sets`,
+      GET_QUERY_SET: (id: string) => `/admin/bi/query-sets/${id}`,
+      CREATE_QUERY_SET: () => `/admin/bi/query-sets`,
+      UPDATE_QUERY_SET: (id: string) => `/admin/bi/query-sets/${id}`,
+      DELETE_QUERY_SET: (id: string) => `/admin/bi/query-sets/${id}`,
     },
   },
 
@@ -904,5 +969,255 @@ export const API_ENDPOINTS = {
       `/org/company/${cid}/fiscal-years/${id}`,
     ACTIVATE: (cid: string, id: string) =>
       `/org/company/${cid}/fiscal-years/${id}/activate`,
+  },
+
+  ROLE_ADMIN: {
+    DELETE_USER_ROLES: (id: string, gid: string) =>
+      `/admin/users/${id}/role-grants/${gid}`,
+    GET_USER_ROLES: (id: string) => `/admin/users/${id}/role-grants`,
+    GET_ROLES: "/admin/roles",
+    CREATE_USER_ROLES: (id: string) => `/admin/users/${id}/role-grants`,
+  },
+
+  WHATSAPP: {
+    BASE: "/messaging/whatsapp-configs",
+    GET_ALL: "/messaging/whatsapp-configs",
+    GET_BY_ID: (id: string) => `/messaging/whatsapp-configs/${id}`,
+    CREATE: "/messaging/whatsapp-configs",
+    UPDATE: (id: string) => `/messaging/whatsapp-configs/${id}`,
+    DELETE: (id: string) => `/messaging/whatsapp-configs/${id}`,
+    SET_DEFAULT: (id: string) => `/messaging/whatsapp-configs/${id}/default`,
+  },
+
+  SMS: {
+    BASE: "/messaging/sms-configs",
+    GET_ALL: "/messaging/sms-configs",
+    GET_BY_ID: (id: string) => `/messaging/sms-configs/${id}`,
+    CREATE: "/messaging/sms-configs",
+    UPDATE: (id: string) => `/messaging/sms-configs/${id}`,
+    DELETE: (id: string) => `/messaging/sms-configs/${id}`,
+    SET_DEFAULT: (id: string) => `/messaging/sms-configs/${id}/default`,
+    TEST: (id: string) => `/messaging/sms-configs/${id}/test`,
+  },
+
+  EMAIL: {
+    BASE: "/messaging/email-configs",
+    GET_ALL: "/messaging/email-configs",
+    GET_BY_ID: (id: string) => `/messaging/email-configs/${id}`,
+    CREATE: "/messaging/email-configs",
+    UPDATE: (id: string) => `/messaging/email-configs/${id}`,
+    DELETE: (id: string) => `/messaging/email-configs/${id}`,
+    SET_DEFAULT: (id: string) => `/messaging/email-configs/${id}/default`,
+    TEST: (id: string) => `/messaging/email-configs/${id}/test`,
+  },
+
+  PAYROLL: {
+    DASHBOARD: "/payroll/dashboard",
+    RUNS: {
+      BASE: "/payroll/runs",
+      GET_BY_ID: (id: string) => `/payroll/runs/${id}`,
+      CREATE: "/payroll/runs",
+      // UPDATE: (id: string) => `/payroll/runs/${id}`,
+      // DELETE: (id: string) => `/payroll/runs/${id}`,
+      PROCESS: (id: string) => `/payroll/runs/${id}/process`,
+    },
+    PAYROLLRUNS: {
+      BASE: "/payroll-runs",
+      GET_BY_ID: (id: string) => `/payroll-runs/${id}`,
+      GET_ITEMS: (id: string) => `/payroll-runs/${id}/items`,
+      GET_PERIOD_DETAILS: "/payroll-runs/period-details",
+      CREATE: "/payroll-runs",
+      CANCEL: (id: string) => `/payroll-runs/${id}/cancel`,
+      PREVIEW: "/payroll-runs/preview",
+    },
+    GENERATE: {
+      PREVIEW: "/payroll/generate/preview",
+      // CREATE: "/payroll/generate",
+      // CONFIRM: "/payroll/generate/confirm",
+    },
+    PAYROLLPAYSLIPS: {
+      BASE: "/payroll/payslips",
+      GET_BY_EMPLOYEE_AND_PERIOD: (employeeId: string, period: string) =>
+        `/payroll/payslips/${employeeId}/${encodeURIComponent(period)}`,
+      DOWNLOAD: (employeeId: string) =>
+        `/payroll/payslips/${employeeId}/download`,
+      // BULK_DOWNLOAD: "/payroll/payslips/bulk-download",
+      // EMAIL: (employeeId: string) => `/payroll/payslips/${employeeId}/email`,
+    },
+    PAYSLIPS: {
+      BASE: "/payslips",
+      VIEW_PAYSLIP: (id: string) => `/payslips/${id}`,
+      DOWNLOAD: (id: string) => `/payslips/${id}/download`,
+      SUMMARY: "/payslips/summary",
+    },
+    SALARY_VIEW: {
+      BASE: (employeeId: string) => `/payroll/employee-salary/${employeeId}`,
+      // HISTORY: (employeeId: string) =>
+      //   `/payroll/employee-salary/${employeeId}/history`,
+      // YTD: (employeeId: string) => `/payroll/employee-salary/${employeeId}/ytd`,
+      EMP__SALARY_VIEW: (employeeId: string) => `/employee-salary-view/${employeeId}`,
+      EMP__DOWNLOAD_PAYSLIP: (employeeId: string) => `/employee-salary-view/${employeeId}/download-payslip`,
+    },
+    COMPONENTS: {
+      BASE: "/salary-components",
+      GET_BY_ID: (id: string) => `/salary-components/${id}`,
+      CREATE: "/salary-components",
+      SUMMARY: "/salary-components/summary",
+      VALIDATE: "/salary-components/validate-formula",
+      UPDATE: (id: string) => `/salary-components/${id}`,
+      DELETE: (id: string) => `/salary-components/${id}`,
+      // TOGGLE: (id: string) => `/salary-components/${id}/toggle`,
+    },
+    STRUCTURES: {
+      BASE: "/salary-structures",
+      GET_OPTIONS: "/salary-structures/component-options",
+      GET_BY_ID: (id: string) => `/salary-structures/${id}`,
+      CREATE: "/salary-structures",
+      UPDATE: (id: string) => `/salary-structures/${id}`,
+      UPDATE_EARNINGS: (id: string) => `/salary-structures/${id}/earnings`,
+      UPDATE_DEDUCTIONS: (id: string) => `/salary-structures/${id}/deductions`,
+      UPDATE_BASIC: (id: string) => `/salary-structures/${id}/basic`,
+      DELETE: (id: string) => `/salary-structures/${id}`,
+      PUBLISH: (id: string) => `/salary-structures/${id}/publish`,
+      UNPUBLISH: (id: string) => `/salary-structures/${id}/unpublish`,
+      DUPLICATE: (id: string) => `/salary-structures/${id}/duplicate`,
+      // DRAFT: (id: string) => `/salary-structures/${id}/draft`,
+      PREVIEW: "/salary-structures/preview",
+    },
+    ASSIGN: {
+      BASE: "/salary-assignments",
+      GET_BY_EMPLOYEE: (employeeId: string) =>
+        `/salary-assignments/employee/${employeeId}`,
+      EMPLOYEE_HISTORY: (employeeId: string) =>
+        `/salary-assignments/employee/${employeeId}/history`,
+      CREATE_BULK: "/salary-assignments/bulk",
+      CREATE: "/salary-assignments",
+      // UPDATE: (id: string) => `/salary-assignments/${id}`,
+      DELETE: (id: string) => `/salary-assignments/${id}`,
+      // EXPORT: "/salary-assignments/export",
+    },
+    DEDUCTIONS: {
+      BASE: "/payroll/deductions",
+      GET_ALL: "/payroll/deductions",
+      GET_BY_EMPLOYEE: (employeeId: string) =>
+        `/payroll/deductions/employee/${employeeId}`,
+      GET_BY_ID: (id: string) => `/payroll/deductions/${id}`,
+      CREATE: "/payroll/deductions",
+      UPDATE: (id: string) => `/payroll/deductions/${id}`,
+      DELETE: (id: string) => `/payroll/deductions/${id}`,
+      SUMMARY: (employeeId: string) =>
+        `/payroll/deductions/employee/${employeeId}/summary`,
+    },
+    PERIODS: {
+      BASE: "/payroll/periods",
+      GET_BY_ID: (id: string) => `/payroll/periods/${id}`,
+      CREATE: "/payroll/periods",
+      UPDATE: (id: string) => `/payroll/periods/${id}`,
+      DELETE: (id: string) => `/payroll/periods/${id}`,
+      // CLOSE: (id: string) => `/payroll/periods/${id}/close`,
+      // CURRENT: "/payroll/periods/current",
+    },
+    LOAN_ADVANCE: {
+      BASE: "/payroll/loan-advance-requests",
+      GET_ALL: "/payroll/loan-advance-requests",
+      GET_BY_ID: (id: string) => `/payroll/loan-advance-requests/${id}`,
+      GET_BY_EMPLOYEE: (employeeId: string) =>
+        `/payroll/loan-advance-requests/employee/${employeeId}`,
+      CREATE: "/payroll/loan-advance-requests",
+      UPDATE_STATUS: (id: string) =>
+        `/payroll/loan-advance-requests/${id}/status`,
+      UPDATE: (id: string) => `/payroll/loan-advance-requests/${id}`,
+      DELETE: (id: string) => `/payroll/loan-advance-requests/${id}`,
+      SUMMARY: "/payroll/loan-advance-requests/summary",
+    },
+    COMPLIANCE: {
+      BASE: "/statutory-compliance",
+      GET_BY_ID: (id: string) => `/statutory-compliance/${id}`,
+      DELETE: (id: string) => `/statutory-compliance/${id}`,
+      DOWNLOAD: (id: string) => `/statutory-compliance/${id}/download`,
+      OVERVIEW: "/statutory-compliance/overview",
+      UPDATE_STATUS: (id: string) => `/statutory-compliance/${id}/status`,
+      CREATE: "/statutory-compliance",
+      // GET_BY_TYPE_AND_PERIOD: (type: string, period: string) =>
+      //   `/statutory-compliance/${type}/${encodeURIComponent(period)}`,
+      // SUMMARY: "/statutory-compliance/summary",
+      GENERATE_REPORT: "/statutory-compliance/report",
+      UPDATE: (id: string) => `/statutory-compliance/${id}`,
+      // EXPORT: "/statutory-compliance/export",
+      // SUBMIT: "/statutory-compliance/submit",
+    },
+    BANK_ADVICE: {
+      BASE: "/bank-advices",
+      GET_BY_ID: (id: string) => `/bank-advices/${id}`,
+      GENERATE: "/bank-advices/generate",
+      SUMMARY: "/bank-advices/summary",
+      DOWNLOAD: (id: string) => `/bank-advices/${id}/download`,
+      // BULK: "/bank-advices/bulk",
+      // BANKS: "/bank-advices/banks",
+      DELETE: (id: string) => `/bank-advices/${id}`,
+    },
+    REPORTS: {
+      BASE: "/payroll/reports",
+      // GET_BY_ID: (id: string) => `/payroll/reports/${id}`,
+      GENERATE: "/payroll/reports/generate",
+      DOWNLOAD: (id: string) => `/payroll/reports/${id}/download`,
+      DELETE: (id: string) => `/payroll/reports/${id}`,
+      // TYPES: "/payroll/reports/types",
+      QUICK: (type: string) => `/payroll/reports/quick/${type}`,
+      // EMAIL: (id: string) => `/payroll/reports/${id}/email`,
+    },
+    PAYROLLREPORTS: {
+      BASE: "/payroll-reports",
+      DELETE: (id: string) => `/payroll-reports/${id}`,
+      GET_BY_ID: (id: string) => `/payroll-reports/${id}`,
+      DOWNLOAD: (id: string) => `/payroll-reports/${id}/download`,
+      SUMMARY: "/payroll-reports/summary",
+      GENERATE_BY_ID: (id: string) => `/payroll-reports/${id}/generate`,
+      GENERATE: "/payroll-reports/generate",
+    },
+    AUDIT: {
+      BASE: "/payroll-audit-logs",
+      SUMMARY: "/payroll-audit-logs/summary",
+      // GET_BY_ID: (id: string) => `/payroll/audit/${id}`,
+      // ACTIONS: "/payroll/audit/actions",
+      EXPORT: "/payroll-audit-logs/export",
+      CREATE: "/payroll-audit-logs",
+      // GET_BY_USER: (userId: string) => `/payroll/audit/user/${userId}`,
+    },
+    PORTAL: {
+      BASE: "/payroll/employee-portal",
+      // ADMIN_VIEW: "/payroll/employee-portal",
+      SELF_VIEW: "/payroll/employee-portal/self",
+      GET_BY_EMPLOYEE: (employeeId: string) =>
+        `/payroll/employee-portal/employee/${employeeId}`,
+      BANK_DETAILS: "/payroll/employee-portal/bank-details",
+      TAX_SUMMARY: "/payroll/employee-portal/tax-summary",
+      // PAYSLIPS: "/payroll/employee-portal/payslips",
+      // FEATURES: "/payroll/employee-portal/features",
+      // PAYSLIP_REQUEST: "/payroll/employee-portal/payslip/request",
+    },
+    EMP_PORTAL: {
+      SUMMARY: "/employee-portal/summary",
+      FEATURES: "/employee-portal/features",
+      EMPLOYEES: "/employee-portal/employees",
+      TAX_SUMMARY: (employeeId: string) => `/employee-portal/employees/${employeeId}/tax-summary`,
+      PAYSLIPS: (employeeId: string) => `/employee-portal/employees/${employeeId}/payslips`,
+
+    },
+    SETTINGS: {
+      BASE: "/payroll/settings",
+      // GET_BY_CATEGORY: (category: string) => `/payroll/settings/${category}`,
+      UPDATE: "/payroll/settings",
+      // UPDATE_CATEGORY: (category: string) => `/payroll/settings/${category}`,
+      // RESET: "/payroll/settings/reset",
+    },
+    // EMPLOYEES: {
+    //   BASE: "/employees",
+    //   GET_ALL: "/employees",
+    //   GET_BY_ID: (id: string) => `/employees/${id}`,
+    //   DEPARTMENTS: "/employees/departments",
+    //   DESIGNATIONS: "/employees/designations",
+    //   GRADES: "/employees/grades",
+    // },
   },
 };

@@ -96,6 +96,7 @@ const PayrollSettings = lazy(() => import("../pages/settings/payroll/payrollSett
 const PayrollReports = lazy(() => import("../pages/payroll/AdvancedFeature/PayrollReports.tsx"));
 const PayrollAudit = lazy(() => import("../pages/payroll/AdvancedFeature/PayrolAudit.tsx"));
 const EmployeePortal = lazy(() => import("../pages/payroll/AdvancedFeature/EmployeePortal"));
+const UserManagement = lazy(() => import("../pages/userManagement/userMangement"));
 
 const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
@@ -292,6 +293,7 @@ function AppRoutesContent() {
                     />
                   }
                 >
+                  <Route path="user-management" element={<UserManagement />} />
                   <Route path="employees" element={<Employees />} />
                   <Route path="employees/:id" element={<EmployeeDetails />} />
                 </Route>
@@ -301,7 +303,7 @@ function AppRoutesContent() {
                   element={
                     <ProtectedRoute
                       allowedRoles={["HR", "ADMIN"]}
-                    // requiredPermissions={[PERMISSIONS.POLICY_READ]}
+                      requiredPermissions={[PERMISSIONS.POLICY_READ]}
                     />
                   }
                 >
@@ -318,7 +320,7 @@ function AppRoutesContent() {
                   element={
                     <ProtectedRoute
                       allowedRoles={["HR", "ADMIN"]}
-                    // requiredPermissions={[PERMISSIONS.ATTENDANCE_READ]}
+                      requiredPermissions={[PERMISSIONS.ATTENDANCE_READ]}
                     />
                   }
                 >
@@ -335,7 +337,7 @@ function AppRoutesContent() {
                   element={
                     <ProtectedRoute
                       allowedRoles={["HR", "ADMIN"]}
-                    // requiredPermissions={[PERMISSIONS.PAYROLL_READ]}
+                      requiredPermissions={[PERMISSIONS.PAYROLL_READ]}
                     />
                   }
                 >
@@ -353,8 +355,8 @@ function AppRoutesContent() {
                   element={
                     <ProtectedRoute
                       allowedRoles={["HR", "ADMIN"]}
-                    // requiredPermissions={[PERMISSIONS.PAYROLL_WRITE]}
-                    // permissionMode="any"
+                      requiredPermissions={[PERMISSIONS.PAYROLL_WRITE]}
+                      permissionMode="any"
                     />
                   }
                 >
@@ -377,7 +379,7 @@ function AppRoutesContent() {
                 element={
                   <ProtectedRoute
                     allowedRoles={["ADMIN", "HR"]}
-                  // requiredPermissions={[PERMISSIONS.SETTINGS_READ]}
+                    requiredPermissions={[PERMISSIONS.SETTINGS_READ]}
                   />
                 }
               >
@@ -387,7 +389,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN"]}
-                      // requiredPermissions={[PERMISSIONS.SETTINGS_WRITE]}
+                        requiredPermissions={[PERMISSIONS.SETTINGS_WRITE]}
                       />
                     }
                   >
@@ -402,7 +404,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN", "HR", "MANAGER"]}
-                      // requiredPermissions={[PERMISSIONS.REPORT_READ]}
+                        requiredPermissions={[PERMISSIONS.REPORT_READ]}
                       />
                     }
                   >
@@ -414,7 +416,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN", "HR"]}
-                      // requiredPermissions={[PERMISSIONS.EMPLOYEE_WRITE]}
+                        requiredPermissions={[PERMISSIONS.EMPLOYEE_WRITE]}
                       />
                     }
                   >
@@ -429,7 +431,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN", "HR"]}
-                      // requiredPermissions={[PERMISSIONS.POLICY_WRITE]}
+                        requiredPermissions={[PERMISSIONS.POLICY_WRITE]}
                       />
                     }
                   >
@@ -443,7 +445,7 @@ function AppRoutesContent() {
                     element={
                       <ProtectedRoute
                         allowedRoles={["ADMIN"]}
-                        // requiredPermissions={[PERMISSIONS.PAYROLL_WRITE, PERMISSIONS.SETTINGS_WRITE]}
+                        requiredPermissions={[PERMISSIONS.PAYROLL_WRITE, PERMISSIONS.SETTINGS_WRITE]}
                         permissionMode="all"
                       />
                     }

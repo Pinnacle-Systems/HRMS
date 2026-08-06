@@ -24,6 +24,7 @@ import {
   Box,
   LinearProgress,
   Autocomplete,
+  CircularProgress,
 } from "@mui/material";
 import {
   LoginOutlined,
@@ -55,7 +56,7 @@ import {
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import { branchService } from "../../../services/modules/branch";
-import type { Department, Branches } from "../../employees/type";
+import type { Department, Branches, Employee } from "../../employees/type";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -68,6 +69,8 @@ import { EmployeeSelector } from "../../../components/PolicyManagement/Common/Em
 import { NotificationsActiveOutlined } from "@mui/icons-material";
 import { readExcelFile } from "../../../utils/timeStampFormatter";
 import { biometricService, type BiometricDevice } from "../../../services/modules/biometricDevice";
+import { formatDateTime } from "../../../utils/dateFormatter";
+import { employeeService } from "../../../services/modules/employees";
 interface RegisterEmployee {
   employeeId: string;
   employeeName: string;
@@ -185,6 +188,13 @@ export function DailyRegister() {
   const [importEndDate, setImportEndDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [importType, setImportType] = useState<'daywise' | 'weekwise' | 'monthwise'>('daywise');
 
+  // Add these state variables after the existing ones
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [selectAllDevices, setSelectAllDevices] = useState(false);
+  const [punchImportFromDate, setPunchImportFromDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [punchImportToDate, setPunchImportToDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [deviceImportLoading, setDeviceImportLoading] = useState(false);
+
   const loadRegister = useCallback(async () => {
     setLoading(true);
     showSpinner();
@@ -225,6 +235,8 @@ export function DailyRegister() {
   const [punchImporting, setPunchImporting] = useState(false);
   const [punchImportResult, setPunchImportResult] = useState<any>(null);
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
+  const [employeesData, setEmployeesData] = useState<Employee[]>([]);
+
 
   const loadTodaySummary = useCallback(async () => {
     try {
@@ -265,8 +277,9 @@ export function DailyRegister() {
       departmentService.getActiveDepartments(),
       branchService.getActiveBranches(),
       biometricService.getAllDevices(),
+      employeeService.getEmployees({ includeInactive: true, size: 10000 }), // Fetch all employees for matching
     ])
-      .then(([depRes, branRes, devRes]: any[]) => {
+      .then(([depRes, branRes, devRes, empRes]: any[]) => {
         setDepartments(
           Array.isArray(depRes.data?.content || depRes.data)
             ? depRes.data?.content || depRes.data
@@ -282,6 +295,11 @@ export function DailyRegister() {
             ? devRes.data?.content || devRes.data || devRes
             : [],
         );
+        setEmployeesData(
+          Array.isArray(empRes.data?.content || empRes.data || empRes)
+            ? empRes.data?.content || empRes.data || empRes
+            : [],
+        )
       })
       .catch(() => { });
   }, []);
@@ -1009,12 +1027,12 @@ export function DailyRegister() {
         source: punchSource,
         punches: validEntries.map((e) => ({
           employeeId: e.employeeId,
-          employeeCode: e.employeeCode || undefined,
+          employeeCode: e.employeeCode || "",
           timestamp: e.timestamp,
-          deviceId: e.deviceId || undefined,
+          deviceId: e.deviceId || e.machineInOutGridId || "",
         })),
       };
-
+      console.log("Importing punches with payload:", payload);
       const res: any = await attendanceService.importAttendance(payload);
       const data = res?.data?.data ?? res?.data;
       setPunchImportResult(data);
@@ -1110,6 +1128,98 @@ export function DailyRegister() {
       setEmployeesToRem([]);
     }
     setReminderDialogOpen(true);
+  };
+
+  // Add these handlers after the existing handlers
+  const handleSelectDevice = (deviceId: string) => {
+    setSelectedDeviceIds(prev => {
+      if (prev.includes(deviceId)) {
+        return prev.filter(id => id !== deviceId);
+      } else {
+        return [...prev, deviceId];
+      }
+    });
+  };
+
+  const handleSelectAllDevices = () => {
+    if (selectAllDevices) {
+      setSelectedDeviceIds([]);
+    } else {
+      setSelectedDeviceIds(devices.map(d => d.id));
+    }
+    setSelectAllDevices(!selectAllDevices);
+  };
+
+  // Add this function after the existing handlers
+  const handleFetchFromDevices = async () => {
+    if (!punchImportFromDate || !punchImportToDate) {
+      showSnackbar("Please select both From Date and To Date", "warning");
+      return;
+    }
+
+    if (selectedDeviceIds.length === 0) {
+      showSnackbar("Please select at least one device", "warning");
+      return;
+    }
+
+    if (dayjs(punchImportToDate).isBefore(dayjs(punchImportFromDate))) {
+      showSnackbar("End date must be after start date", "warning");
+      return;
+    }
+
+    setDeviceImportLoading(true);
+    showSpinner();
+
+    try {
+      const selectedDevicesData = devices.filter(d => selectedDeviceIds.includes(d.id));
+
+      // Format device IPs with ports as "ip:port"
+      const deviceIpsWithPorts = selectedDevicesData.map(device =>
+        `${device.ipAddress}:${device.port || 4370}`
+      );
+
+      // Call the fetch logs API
+      const result: any = await biometricService.fetchLogs({
+        from_date: punchImportFromDate,
+        to_date: punchImportToDate,
+        deviceIps: deviceIpsWithPorts,
+      });
+
+      const punchesData = result?.data || result || [];
+
+      if (punchesData.length === 0) {
+        showSnackbar("No punch logs found for the selected devices and date range", "info");
+        return;
+      }
+
+      const newPunchEntries = punchesData.map((punch: any) => {
+        const matchedEmp = employeesData.find(
+          (emp) => emp.id == punch.employeeId
+        );
+        console.log("Matched employee for punch:", matchedEmp);
+        return {
+          ...punch,
+          employeeName: matchedEmp ? matchedEmp.name : "Unknown",
+          employeeCode: matchedEmp ? matchedEmp.employeeId : "Unknown",
+          // deviceId: selectedDevicesData.find(d => d.id === punch.machineInOutGridId)?.id || "",
+        };
+      });
+      // Add to existing punch entries
+      setPunchEntries(prev => [...prev, ...newPunchEntries]);
+      console.log("Fetched punch logs from devices:", newPunchEntries);
+      showSnackbar(
+        `Successfully fetched ${newPunchEntries.length} punch logs from ${selectedDeviceIds.length} device(s)`,
+        "success"
+      );
+    } catch (err: any) {
+      showSnackbar(
+        err?.message || "Failed to fetch punch logs from devices",
+        "error"
+      );
+    } finally {
+      setDeviceImportLoading(false);
+      hideSpinner();
+    }
   };
 
   return (
@@ -1293,8 +1403,8 @@ export function DailyRegister() {
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 bg-primary/5 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
-          <GroupOutlined fontSize="small" className="text-primary" />
-          <span className="text-[12px] text-blue-500 font-bold">
+          <GroupOutlined fontSize="small" className="text-gray-500" />
+          <span className="text-[12px] text-green-700 font-bold">
             {selected.size} selected
           </span>
           <div className="flex items-center gap-2 ml-2 flex-wrap">
@@ -1377,8 +1487,8 @@ export function DailyRegister() {
                   "Status",
                   "Action",
                 ].map((h, i) => (
-                  <TableCell key={h} className={`!font-bold ${i == 0 ? '!sticky left-[52px] !z-40' :
-                    h == 'Action' ? '!sticky right-0 !z-40' : h == 'Status' ? '!sticky right-[52px] !z-40' : ''}`}>
+                  <TableCell key={h} className={`!font-bold ${i == 0 ? '!sticky left-[68px] !z-40' :
+                    h == 'Action' ? '!sticky right-0 !z-40' : h == 'Status' ? '!sticky right-[69px] !z-40' : ''}`}>
                     {h}
                   </TableCell>
                 ))}
@@ -1405,7 +1515,7 @@ export function DailyRegister() {
                 employees.map((emp, i) => (
                   <TableRow
                     key={emp.employeeId || i}
-                    selected={selected.has(emp.employeeId)}
+                    // selected={selected.has(emp.employeeId)}
                     sx={getRowColor(i)}
                   >
                     <TableCell padding="checkbox" className="!sticky left-0 !z-20 bg-inherit">
@@ -1418,7 +1528,7 @@ export function DailyRegister() {
                         disabled={emp.status == 'leave'}
                       /> <span className="ml-2">{i + 1}</span>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap !sticky left-[52px] !z-20 bg-inherit">
+                    <TableCell className="whitespace-nowrap !sticky left-[68px] !z-20 bg-inherit">
                       <span>{emp.employeeName}</span>
                       <span className="text-gray-500"> - {emp.employeeCode}</span>
                     </TableCell>
@@ -1445,7 +1555,7 @@ export function DailyRegister() {
                         <span>-</span>
                       )}
                     </TableCell>
-                    <TableCell className="!sticky right-[55px] !z-20 !bg-inherit">
+                    <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
                       <span
                         className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap
                         ${ATTENDANCE_STATUS_BG[emp.status] ?? "bg-gray-100 text-gray-600"}`}
@@ -2250,9 +2360,9 @@ export function DailyRegister() {
                 >
                   <MenuItem value="biometric">Biometric</MenuItem>
                   <MenuItem value="manual">Manual</MenuItem>
-                  <MenuItem value="mobile">Mobile</MenuItem>
+                  {/* <MenuItem value="mobile">Mobile</MenuItem>
                   <MenuItem value="web">Web</MenuItem>
-                  <MenuItem value="remote">Remote</MenuItem>
+                  <MenuItem value="remote">Remote</MenuItem> */}
                 </Select>
               </FormControl>
             </div>
@@ -2552,38 +2662,82 @@ export function DailyRegister() {
               <FormControl size="small" className="!min-w-[140px]">
                 <Select
                   value={punchSource}
-                  onChange={(e) => setPunchSource(e.target.value)}
+                  onChange={(e) => {
+                    setPunchSource(e.target.value);
+                    setPunchEntries([]);
+                    setPunchImportFromDate("");
+                    setPunchImportToDate("");
+                  }}
                   displayEmpty
                 >
                   <MenuItem value="manual">Manual</MenuItem>
                   <MenuItem value="biometric">Biometric</MenuItem>
-                  <MenuItem value="mobile">Mobile</MenuItem>
-                  <MenuItem value="web">Web</MenuItem>
+                  {/* <MenuItem value="mobile">Mobile</MenuItem>
+                  <MenuItem value="web">Web</MenuItem> */}
                 </Select>
               </FormControl>
+              {
+                punchSource === "manual" ? (
+                  <>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Add />}
+                      className="!text-primary !border-primary whitespace-nowrap"
+                      onClick={addPunchEntry}
+                    >
+                      Add Row
+                    </Button>
 
-              <Button
-                variant="outlined"
-                startIcon={<Add />}
-                className="!text-primary !border-primary whitespace-nowrap"
-                onClick={addPunchEntry}
-              >
-                Add Row
-              </Button>
+                    {punchEntries.length > 0 && (
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={clearPunchEntries}
+                      >
+                        Clear All
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 mt-5">
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        label="From Date"
+                        value={punchImportFromDate ? dayjs(punchImportFromDate) : null}
+                        onChange={(newValue) =>
+                          setPunchImportFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+                        }
+                        maxDate={dayjs()}
+                        slotProps={{ textField: { style: { width: '140px' } } }}
+                      />
+                      <DatePicker
+                        label="To Date"
+                        value={punchImportToDate ? dayjs(punchImportToDate) : null}
+                        onChange={(newValue) =>
+                          setPunchImportToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+                        }
+                        maxDate={dayjs()}
+                        minDate={punchImportFromDate ? dayjs(punchImportFromDate) : undefined}
+                        slotProps={{ textField: { style: { width: '140px' } } }}
+                      />
+                    </LocalizationProvider>
 
-              {punchEntries.length > 0 && (
-                <Button
-                  size="small"
-                  color="error"
-                  onClick={clearPunchEntries}
-                >
-                  Clear All
-                </Button>
-              )}
+                    <Button
+                      variant="contained"
+                      className="!bg-primary"
+                      onClick={handleFetchFromDevices}
+                      disabled={deviceImportLoading || selectedDeviceIds.length === 0}
+                      startIcon={deviceImportLoading ? <CircularProgress size={20} /> : <PunchClockOutlined />}
+                    >
+                      {deviceImportLoading ? 'Fetching...' : 'Fetch from Devices'}
+                    </Button>
+                  </div>
+                )
+              }
             </div>
 
             {/* Punch Entries - Grid Layout */}
-            {punchEntries.length > 0 && (
+            {punchSource === "manual" && punchEntries.length > 0 && (
               <div className="border border-gray-200 rounded overflow-hidden">
                 {/* Header */}
                 <div className="grid grid-cols-[25px_220px_180px_140px_95px] gap-4 bg-gray-50 px-3 py-2 border-b border-gray-200">
@@ -2672,16 +2826,108 @@ export function DailyRegister() {
               </div>
             )}
 
+            {/* Device Selection Table (only shown when "From Devices" is selected) */}
+            {punchSource === "biometric" && devices.length > 0 && (
+              <div className="border border-gray-200 rounded overflow-hidden">
+                <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-2 bg-gray-50 border-b items-center border-gray-200">
+                  <div className="flex items-center">
+                    <Checkbox
+                      size="small"
+                      checked={selectAllDevices}
+                      indeterminate={selectedDeviceIds.length > 0 && selectedDeviceIds.length < devices.length}
+                      onChange={handleSelectAllDevices}
+                    />
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">Device Name</div>
+                  <div className="text-[12px] font-medium text-gray-600">IP Address</div>
+                  <div className="text-[12px] font-medium text-gray-600">Location</div>
+                  <div className="text-[12px] font-medium text-gray-600">Status</div>
+                </div>
+
+                <div className="max-h-[200px] overflow-y-auto">
+                  {devices.map((device) => (
+                    <div
+                      key={device.id}
+                      className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-2 items-center border-b border-gray-200"
+                    >
+                      <div className="flex items-center">
+                        <Checkbox
+                          size="small"
+                          checked={selectedDeviceIds.includes(device.id)}
+                          onChange={() => handleSelectDevice(device.id)}
+                        />
+                      </div>
+                      <div className="text-[12px] text-gray-800">{device.deviceName}</div>
+                      <div className="text-[12px] text-gray-600">{device.ipAddress}:{device.port || 4370}</div>
+                      <div className="text-[12px] text-gray-600">{device.location || 'N/A'}</div>
+                      <div className="flex items-center gap-1">
+                        <span className={`w-2 h-2 rounded-full ${device.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                        <span className="text-[10px] text-gray-500">{device.isActive ? 'Active' : 'Inactive'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 text-[12px] text-gray-600">
+                  Selected: <strong>{selectedDeviceIds.length}</strong> device{selectedDeviceIds.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+            )}
+
+            {/* Show fetched entries from devices */}
+            {punchSource === "biometric" && punchEntries.length > 0 && (
+              <div className="border border-green-200 rounded overflow-hidden">
+                <div className="bg-green-50 px-3 py-2 border-b border-green-200 flex items-center justify-between">
+                  <span className="text-[12px] font-medium text-green-700">
+                    Fetched from Devices ({punchEntries.length} entries)
+                  </span>
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => {
+                      setPunchEntries([]);
+                    }}
+                  >
+                    Clear Fetched
+                  </Button>
+                </div>
+                <div className="max-h-[150px] overflow-y-auto">
+                  {punchEntries.map((entry, index) => (
+                    <div key={entry.id} className="grid grid-cols-[30px_1fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200">
+                      <div className="text-[12px] text-gray-400">{index + 1}</div>
+                      <div className="text-[12px]">
+                        <span className="font-medium">{entry.employeeName}</span>
+                        <span className="text-gray-500 ml-1">({entry.mid_no})</span>
+                      </div>
+                      <div className="text-[12px] text-gray-600">
+                        {/* {dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm:ss')} */}
+                        {formatDateTime(entry.timestamp) !== dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm:ss') && (
+                          <span className="ml-2 text-gray-500">{formatDateTime(entry.timestamp)}</span>
+                        )}
+                      </div>
+                      <div className="text-[12px] text-gray-500">
+                        {devices.find(d => d.id === entry.machineInOutGridId)?.deviceName || entry.deviceId}
+                        <span className="ml-1 text-red-500">({entry.machineIP})</span>
+                      </div>
+                      <div className="text-[12px] text-gray-500">
+                        {entry.machineType}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Import Result */}
             {punchImportResult && (
               <Alert
                 severity={punchImportResult.errors > 0 ? "warning" : "success"}
                 className="!py-1"
               >
-                <div className="flex items-center gap-4 text-sm flex-wrap">
-                  <span>Total: <strong>{punchImportResult.totalPunches}</strong></span>
-                  <span>•</span>
-                  <span>Days: <strong>{punchImportResult.daysImported}</strong></span>
+                <div className="flex items-center gap-4 text-[12px] justify-between">
+                  <div>Total Punches Imported: <strong>{punchImportResult.totalPunches} Punches</strong></div>
+                  <div>Import Type: <strong>{punchImportResult.importType}</strong></div>
+                  <div>Skipped : <strong>{punchImportResult.skipped}</strong></div>
                   {punchImportResult.errors > 0 && (
                     <>
                       <span>•</span>
@@ -2692,7 +2938,7 @@ export function DailyRegister() {
               </Alert>
             )}
 
-            {punchImporting && <LinearProgress />}
+            {(punchImporting || deviceImportLoading) && <LinearProgress />}
           </div>
         </DialogContent>
 

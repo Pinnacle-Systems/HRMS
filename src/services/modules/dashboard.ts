@@ -10,6 +10,82 @@ export interface DashboardPage {
   displayOrder: number;
 }
 
+export interface DashboardBuilderPage {
+  id: string;
+  pageKey: string;
+  title: string;
+  description: string;
+  displayOrder: number;
+  active: boolean;
+  roles: string[];
+  filters: DashboardBuilderFilter[];
+  widgets: DashboardBuilderWidget[];
+}
+
+export interface DashboardBuilderFilter {
+  id: string;
+  filterId: string;
+  label: string;
+  type: string;
+  lookupSource?: string;
+  required: boolean;
+  defaultExpression: string;
+  displayOrder: number;
+}
+
+export interface DashboardBuilderWidget {
+  id: string;
+  widgetId: string;
+  title: string;
+  type: string;
+  size: string;
+  position: number;
+  locked: boolean;
+  dataSource: string;
+  dataConfig: Record<string, any>;
+  actions: Record<string, any>;
+  active: boolean;
+  roles: string[];
+}
+
+export interface DashboardBuilderMeta {
+  chartTypes: {
+    value: string;
+    requiredConfig: string[];
+  }[];
+  filterTypes: {
+    value: string;
+    requiresLookupSource: boolean;
+  }[];
+  widgetSizes: string[];
+}
+
+export interface DashboardQuerySet {
+  id: string;
+  presetId: string;
+  title: string;
+  description: string;
+  datasetId: string;
+  queryType: string;
+  queryJson: Record<string, any>;
+  sqlText: string;
+  paramBindings: Record<string, any>;
+  visualization: Record<string, any>;
+  active: boolean;
+}
+
+export interface BIQueryPreset {
+  id: string;
+  name: string;
+  datasetId: string;
+  query: BIQueryRequest;
+  visualization?: {
+    type: string;
+    config: Record<string, any>;
+  };
+  description?: string;
+}
+
 export interface SupportedFilter {
   id: string;
   label: string;
@@ -280,13 +356,13 @@ export const dashboardService = {
 
   async getPages(): Promise<ApiResponse<DashboardPage[]>> {
     return apiService.get<ApiResponse<DashboardPage[]>>(
-      API_ENDPOINTS.DASHBOARD.GET_PAGES
+      API_ENDPOINTS.DASHBOARD.LIST_AVAILABLE_PAGES()
     );
   },
 
   async getPageContext(page: string): Promise<ApiResponse<DashboardContext>> {
     return apiService.get<ApiResponse<DashboardContext>>(
-      API_ENDPOINTS.DASHBOARD.GET_CONTEXT(page)
+      API_ENDPOINTS.DASHBOARD.GET_PAGE_CONTEXT(page)
     );
   },
 
@@ -295,14 +371,14 @@ export const dashboardService = {
     params?: Record<string, any>
   ): Promise<ApiResponse<DashboardData>> {
     return apiService.get<ApiResponse<DashboardData>>(
-      API_ENDPOINTS.DASHBOARD.GET_DASHBOARD(page),
+      API_ENDPOINTS.DASHBOARD.RENDER_PAGE(page),
       { params }
     );
   },
 
   async getPreferences(page: string): Promise<ApiResponse<DashboardPreferences>> {
     return apiService.get<ApiResponse<DashboardPreferences>>(
-      API_ENDPOINTS.DASHBOARD.GET_PREFERENCES(page)
+      API_ENDPOINTS.DASHBOARD.GET_PAGE_PREFERENCES(page)
     );
   },
 
@@ -311,21 +387,21 @@ export const dashboardService = {
     payload: UpdatePreferencesRequest
   ) {
     return apiService.put(
-      API_ENDPOINTS.DASHBOARD.UPDATE_PREFERENCES(page),
+      API_ENDPOINTS.DASHBOARD.SAVE_PAGE_PREFERENCES(page),
       payload
     );
   },
 
   async resetPreferences(page: string) {
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.RESET_PREFERENCES(page),
+      API_ENDPOINTS.DASHBOARD.RESET_PAGE_PREFERENCES(page),
       {}
     );
   },
 
   async getAvailableWidgets(page: string): Promise<ApiResponse<CatalogWidget[]>> {
     return apiService.get<ApiResponse<CatalogWidget[]>>(
-      API_ENDPOINTS.DASHBOARD.GET_WIDGETS(page)
+      API_ENDPOINTS.DASHBOARD.LIST_PAGE_WIDGETS(page)
     );
   },
 
@@ -335,7 +411,7 @@ export const dashboardService = {
     payload: DrilldownRequest
   ){
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.POST_DRILLDOWN(page, widgetId),
+      API_ENDPOINTS.DASHBOARD.EXECUTE_WIDGET_DRILLDOWN(page, widgetId),
       payload
     );
   },
@@ -344,13 +420,22 @@ export const dashboardService = {
 
   async listBIDatasets(): Promise<ApiResponse<BIDataset[]>> {
     return apiService.get<ApiResponse<BIDataset[]>>(
-      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.GET
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.LIST_DATASETS()
     );
   },
 
   async getBIDatasetSchema(datasetId: string): Promise<ApiResponse<BIDatasetSchema>> {
     return apiService.get<ApiResponse<BIDatasetSchema>>(
-      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.GET_BY_ID(datasetId)
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.GET_DATASET_SCHEMA(datasetId)
+    );
+  },
+
+  async getBIQueryPreset(
+    datasetId: string,
+    presetId: string,
+  ): Promise<ApiResponse<BIQueryPreset>> {
+    return apiService.get<ApiResponse<BIQueryPreset>>(
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.GET_QUERY_PRESET(datasetId, presetId)
     );
   },
 
@@ -359,7 +444,7 @@ export const dashboardService = {
     payload: BIQueryRequest
   ) {
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.POST_QUERY(datasetId),
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.EXECUTE_QUERY(datasetId),
       payload
     );
   },
@@ -369,7 +454,7 @@ export const dashboardService = {
     payload: BIQueryRequest
   ) {
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.QUERY_VALIDATE(datasetId),
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_ENGINE.VALIDATE_QUERY(datasetId),
       payload
     );
   },
@@ -378,19 +463,19 @@ export const dashboardService = {
 
   async listBIReports(): Promise<ApiResponse<BIReportListItem[]>> {
     return apiService.get<ApiResponse<BIReportListItem[]>>(
-      API_ENDPOINTS.DASHBOARD.REPORTS.GET
+      API_ENDPOINTS.DASHBOARD.REPORTS.LIST_REPORTS()
     );
   },
 
   async getBIReport(reportId: string): Promise<ApiResponse<BIReport>> {
     return apiService.get<ApiResponse<BIReport>>(
-      API_ENDPOINTS.DASHBOARD.REPORTS.GET_BY_ID(reportId)
+      API_ENDPOINTS.DASHBOARD.REPORTS.GET_REPORT(reportId)
     );
   },
 
   async createBIReport(payload: Partial<BIReport>) {
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.REPORTS.CREATE,
+      API_ENDPOINTS.DASHBOARD.REPORTS.CREATE_REPORT(),
       payload
     );
   },
@@ -400,14 +485,14 @@ export const dashboardService = {
     payload: Partial<BIReport>
   ) {
     return apiService.put(
-      API_ENDPOINTS.DASHBOARD.REPORTS.UPDATE(reportId),
+      API_ENDPOINTS.DASHBOARD.REPORTS.UPDATE_REPORT(reportId),
       payload
     );
   },
 
   async deleteBIReport(reportId: string): Promise<ApiResponse<{}>> {
     return apiService.delete<ApiResponse<{}>>(
-      API_ENDPOINTS.DASHBOARD.REPORTS.DELETE(reportId)
+      API_ENDPOINTS.DASHBOARD.REPORTS.DELETE_REPORT(reportId)
     );
   },
 
@@ -416,7 +501,7 @@ export const dashboardService = {
     payload: BIReportRunRequest
   ) {
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.REPORTS.RUN(reportId),
+      API_ENDPOINTS.DASHBOARD.REPORTS.RUN_REPORT(reportId),
       payload
     );
   },
@@ -426,7 +511,7 @@ export const dashboardService = {
     payload: BIReportExportRequest
   ) {
     return apiService.post(
-      API_ENDPOINTS.DASHBOARD.REPORTS.EXPORTS(reportId),
+      API_ENDPOINTS.DASHBOARD.REPORTS.EXPORT_REPORT(reportId),
       payload
     );
   },
@@ -455,5 +540,135 @@ export const dashboardService = {
       { responseType: "blob" }
     );
     return response as unknown as Blob;
+  },
+
+  // ============ Dashboard Builder Administration ============
+
+  async listDashboardBuilderPages(): Promise<ApiResponse<DashboardBuilderPage[]>> {
+    return apiService.get<ApiResponse<DashboardBuilderPage[]>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.LIST_PAGES()
+    );
+  },
+
+  async getDashboardBuilderPage(pageId: string): Promise<ApiResponse<DashboardBuilderPage>> {
+    return apiService.get<ApiResponse<DashboardBuilderPage>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.GET_PAGE(pageId)
+    );
+  },
+
+  async createDashboardBuilderPage(
+    payload: Partial<DashboardBuilderPage>
+  ): Promise<ApiResponse<DashboardBuilderPage>> {
+    return apiService.post<ApiResponse<DashboardBuilderPage>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.CREATE_PAGE(),
+      payload
+    );
+  },
+
+  async updateDashboardBuilderPage(pageId: string, payload: Partial<DashboardBuilderPage>) {
+    return apiService.put(
+      API_ENDPOINTS.DASHBOARD.BUILDER.UPDATE_PAGE(pageId),
+      payload
+    );
+  },
+
+  async deleteDashboardBuilderPage(pageId: string): Promise<ApiResponse<{}>> {
+    return apiService.delete<ApiResponse<{}>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.DELETE_PAGE(pageId)
+    );
+  },
+
+  async listDashboardBuilderWidgets(pageId: string): Promise<ApiResponse<DashboardBuilderWidget[]>> {
+    return apiService.get<ApiResponse<DashboardBuilderWidget[]>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.LIST_WIDGETS(pageId)
+    );
+  },
+
+  async addDashboardBuilderWidget(pageId: string, payload: Partial<DashboardBuilderWidget>) {
+    return apiService.post(
+      API_ENDPOINTS.DASHBOARD.BUILDER.ADD_WIDGET(pageId),
+      payload
+    );
+  },
+
+  async updateDashboardBuilderWidget(pageId: string, widgetId: string, payload: Partial<DashboardBuilderWidget>) {
+    return apiService.put(
+      API_ENDPOINTS.DASHBOARD.BUILDER.UPDATE_WIDGET(pageId, widgetId),
+      payload
+    );
+  },
+
+  async deleteDashboardBuilderWidget(pageId: string, widgetId: string): Promise<ApiResponse<{}>> {
+    return apiService.delete<ApiResponse<{}>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.DELETE_WIDGET(pageId, widgetId)
+    );
+  },
+
+  async listDashboardBuilderFilters(pageId: string): Promise<ApiResponse<DashboardBuilderFilter[]>> {
+    return apiService.get<ApiResponse<DashboardBuilderFilter[]>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.LIST_FILTERS(pageId)
+    );
+  },
+
+  async addDashboardBuilderFilter(pageId: string, payload: Partial<DashboardBuilderFilter>) {
+    return apiService.post(
+      API_ENDPOINTS.DASHBOARD.BUILDER.ADD_FILTER(pageId),
+      payload
+    );
+  },
+
+  async updateDashboardBuilderFilter(pageId: string, filterId: string, payload: Partial<DashboardBuilderFilter>) {
+    return apiService.put(
+      API_ENDPOINTS.DASHBOARD.BUILDER.UPDATE_FILTER(pageId, filterId),
+      payload
+    );
+  },
+
+  async deleteDashboardBuilderFilter(pageId: string, filterId: string): Promise<ApiResponse<{}>> {
+    return apiService.delete<ApiResponse<{}>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.DELETE_FILTER(pageId, filterId)
+    );
+  },
+
+  async getDashboardBuilderMeta(): Promise<ApiResponse<DashboardBuilderMeta>> {
+    return apiService.get<ApiResponse<DashboardBuilderMeta>>(
+      API_ENDPOINTS.DASHBOARD.BUILDER.GET_BUILDER_META()
+    );
+  },
+
+  // ============ BI Query Sets (Admin) ============
+
+  async listBIQuerySets(): Promise<ApiResponse<DashboardQuerySet[]>> {
+    return apiService.get<ApiResponse<DashboardQuerySet[]>>(
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_SETS.LIST_QUERY_SETS()
+    );
+  },
+
+  async getBIQuerySet(id: string): Promise<ApiResponse<DashboardQuerySet>> {
+    return apiService.get<ApiResponse<DashboardQuerySet>>(
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_SETS.GET_QUERY_SET(id)
+    );
+  },
+
+  async createBIQuerySet(
+    payload: Partial<DashboardQuerySet>
+  ): Promise<ApiResponse<DashboardQuerySet>> {
+    return apiService.post<ApiResponse<DashboardQuerySet>>(
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_SETS.CREATE_QUERY_SET(),
+      payload
+    );
+  },
+
+  async updateBIQuerySet(id: string, payload: Partial<DashboardQuerySet>) {
+    return apiService.put(
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_SETS.UPDATE_QUERY_SET(id),
+      payload
+    );
+  },
+
+  async deleteBIQuerySet(id: string): Promise<ApiResponse<{}>> {
+    return apiService.delete<ApiResponse<{}>>(
+      API_ENDPOINTS.DASHBOARD.BI_QUERY_SETS.DELETE_QUERY_SET(id)
+    );
   },
 };

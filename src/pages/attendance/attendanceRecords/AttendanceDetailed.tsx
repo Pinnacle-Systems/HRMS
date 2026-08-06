@@ -249,7 +249,10 @@ export function AttendanceDetailed() {
                 ].map((h) => (
                   <TableCell
                     key={h}
-                    className="!font-bold"
+                    className={`!font-bold !text-gray-700 !bg-gray-50 ${h === "S No" ? "!sticky left-0 !z-30" : ""} ${h === "Name" ? "!sticky left-[59px] !z-30" : ""}
+                     ${h === "Date" ? "!sticky left-[220px] !z-30" : ""} 
+                     ${h === "Status" ? "!sticky right-[88px] !z-30" : ""}
+                      ${h === "Actions" ? "!sticky right-0 !z-30" : ""}`}
                   >
                     {h}
                   </TableCell>
@@ -271,17 +274,17 @@ export function AttendanceDetailed() {
                 </TableRow>
               ) : (
                 records.map((r, index) => (
-                  <TableRow key={r.id || index} hover sx={getRowColor(index)}>
-                    <TableCell>{index + 1}</TableCell>
+                  <TableRow key={r.id || index}  sx={getRowColor(index)}>
+                    <TableCell className="sticky left-0 z-20 bg-inherit">{index + 1}</TableCell>
                     {/* <TableCell>{r.employeeCode}</TableCell> */}
-                    <TableCell className="whitespace-nowrap">
+                    <TableCell className="whitespace-nowrap sticky left-[59px] z-20 bg-inherit">
                       <div className="grid">
                         <div>{r.employeeName}  <span className="text-[10px] text-gray-500">({r.employeeCode})</span></div>
                         <div className="text-blue-500"> {r.department ?? "-"}</div>
                       </div>
                     </TableCell>
                     {/* <TableCell>{r.department ?? "-"}</TableCell> */}
-                    <TableCell className=" whitespace-nowrap">
+                    <TableCell className=" whitespace-nowrap sticky left-[220px] z-20 bg-inherit">
                       {dayjs(r.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
                     <TableCell>
@@ -312,12 +315,12 @@ export function AttendanceDetailed() {
                         <span className="text-orange-600">{formatMinutes(r.overtimeMinutes)}</span>
                       ) : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap sticky right-[88px] z-20 bg-inherit">
                       <span className={`whitespace-nowrap px-2 py-1 rounded-2xl ${ATTENDANCE_STATUS_BG[r.status] ?? "bg-gray-100 text-gray-600"}`}>
                         {ATTENDANCE_STATUS_LABELS[r.status] ?? r.status}
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap sticky right-0 z-20 bg-inherit">
                       <div className="flex items-center gap-1">
                         <Tooltip title="View Details">
                           <IconButton size="small" onClick={() => openDetail(r)}>
