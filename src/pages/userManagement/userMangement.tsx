@@ -49,7 +49,8 @@ import { getRowColor } from "../const";
 import { WhatsAppConfigurations } from "./whatsAppConfig";
 import { SMSConfigurations } from "./smsConfiguration";
 import { EmailConfigurations } from "./emailConfiguration";
-import { dialogsx, EMPTY_FORM, type EmailConfig, type SMSConfig, type User, type WhatsAppConfig } from "./const";
+import { EMPTY_FORM, type EmailConfig, type SMSConfig, type User, type WhatsAppConfig } from "./const";
+import { dialogSx } from "../../const";
 
 export default function UserManagement() {
     const [loading, setLoading] = useState(false);
@@ -945,7 +946,7 @@ export default function UserManagement() {
             </Dialog>
 
             {/* Email Configuration Dialog */}
-            <Dialog open={openEmailConfigDialog} onClose={() => setOpenEmailConfigDialog(false)} sx={dialogsx}>
+            <Dialog open={openEmailConfigDialog} onClose={() => setOpenEmailConfigDialog(false)} sx={dialogSx}>
                 <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
                     <div className="text-gray-800 text-[12px] ml-2">Email Configuration</div>
                     <IconButton onClick={() => setOpenEmailConfigDialog(false)}>
@@ -964,7 +965,7 @@ export default function UserManagement() {
             </Dialog>
 
             {/* SMS Configuration Dialog */}
-            <Dialog open={openSMSConfigDialog} onClose={() => setOpenSMSConfigDialog(false)} sx={dialogsx}>
+            <Dialog open={openSMSConfigDialog} onClose={() => setOpenSMSConfigDialog(false)} sx={dialogSx}>
                 <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
                     <div className="text-gray-800 text-[12px] ml-2">SMS Configuration</div>
                     <IconButton onClick={() => setOpenSMSConfigDialog(false)}>
@@ -983,7 +984,7 @@ export default function UserManagement() {
             </Dialog>
 
             {/* WhatsApp Configuration Dialog */}
-            <Dialog open={openWhatsAppConfigDialog} onClose={() => setOpenWhatsAppConfigDialog(false)} sx={dialogsx}>
+            <Dialog open={openWhatsAppConfigDialog} onClose={() => setOpenWhatsAppConfigDialog(false)} sx={dialogSx}>
                 <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
                     <div className="text-gray-800 text-[12px] ml-2">WhatsApp Configuration</div>
                     <IconButton onClick={() => setOpenWhatsAppConfigDialog(false)}>

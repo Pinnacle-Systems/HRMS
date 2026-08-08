@@ -48,10 +48,3 @@ export const EMPTY_FORM = {
   roleId: "",
   branchId: "",
 };
-
-export const dialogsx = {
-  "& .MuiDialog-paper": {
-    width: "1200px",
-    maxWidth: "1200px",
-  },
-};

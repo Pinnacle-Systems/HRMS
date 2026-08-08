@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Card,
@@ -16,7 +16,6 @@ import {
   TableHead,
   TableRow,
   TableContainer,
-  Paper,
   Chip,
   Stack,
   useTheme,
@@ -27,54 +26,69 @@ import {
   Step,
   StepLabel,
   Divider,
+  CircularProgress,
+  Alert,
+  AlertTitle,
+  Tabs,
+  Tab,
+  IconButton,
+  Tooltip,
+  Pagination,
 } from "@mui/material";
 import {
   ChevronRight as ChevronRightIcon,
   ChevronLeft as ChevronLeftIcon,
-  DragIndicator as GripVerticalIcon,
   Add as PlusIcon,
   Description as BookTemplateIcon,
   Layers as LayersIcon,
+  Error as ErrorIcon,
+  Refresh as RefreshIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  FileCopy as DuplicateIcon,
+  Publish as PublishIcon,
+  UnpublishedOutlined,
 } from "@mui/icons-material";
-
-// Mock data - replace with your actual API data
-const mockSalaryComponents = [
-  { id: "1", name: "Basic Salary", code: "BASIC", type: "earning", calculationType: "fixed", calculationValue: 40000, taxable: true },
-  { id: "2", name: "House Rent Allowance", code: "HRA", type: "earning", calculationType: "percentage_basic", calculationValue: 40, taxable: false },
-  { id: "3", name: "Conveyance Allowance", code: "CONV", type: "earning", calculationType: "fixed", calculationValue: 1600, taxable: false },
-  { id: "4", name: "Professional Tax", code: "PT", type: "deduction", calculationType: "fixed", calculationValue: 200, taxable: false },
-  { id: "5", name: "Provident Fund", code: "PF", type: "deduction", calculationType: "percentage_basic", calculationValue: 12, taxable: false },
-];
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
-
-const steps = [
-  { id: 1, name: "Basic Info", desc: "Name, code & applicability" },
-  { id: 2, name: "Earnings", desc: "Configure earning components" },
-  { id: 3, name: "Deductions", desc: "Configure deduction rules" },
-  { id: 4, name: "Review & Save", desc: "Review and publish" },
-];
-
-const employmentTypes = ["Permanent", "Contract", "Intern", "Consultant"];
-const grades = ["L1", "L2", "L3", "L4", "L5", "L6"];
-
-const calcLabel: Record<string, string> = {
-  fixed: "Fixed Amount",
-  percentage_ctc: "% of CTC",
-  percentage_basic: "% of Basic",
-  slab: "Slab Based",
-  formula: "Formula",
-};
+import { calcLabel, employmentTypes, formatCurrency, grades, STATUS_CHIP_OPTIONS, statusConfig, steps } from "../const";
+import { salaryStructureService } from "../../../services/modules/payrollServices/salarystructure";
+import { useUI } from "../../../context/Snackbar";
+import { getRowColor } from "../../const";
+import { formatDate } from "../../leave/leaveFormatters";
+import type { StructureItem } from "../../../services/modules/payrollServices/masters";
 
 export default function SalaryStructureTemplate() {
   const theme = useTheme();
+  const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
   const [currentStep, setCurrentStep] = useState(0);
+  // const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [salaryComponents, setSalaryComponents] = useState({
+    earnings: [{
+      id: '',
+      code: '',
+      name: '',
+      calculationType: '',
+      defaultValue: 0
+    }],
+    deductions: [{
+      id: '',
+      code: '',
+      name: '',
+      calculationType: '',
+      defaultValue: 0
+    }]
+  });
+  const [previewData, setPreviewData] = useState<any>(null);
+  // const [showPreview, setShowPreview] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [tabValue, setTabValue] = useState(0);
+  const [structures, setStructures] = useState<any[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [basicInfo, setBasicInfo] = useState({
     name: "",
@@ -82,12 +96,206 @@ export default function SalaryStructureTemplate() {
     description: "",
     applicableFor: [] as string[],
     gradeLevels: [] as string[],
+    status: ""
   });
   const [earnings, setEarnings] = useState<any[]>([]);
   const [deductions, setDeductions] = useState<any[]>([]);
 
-  const earningComponents = mockSalaryComponents.filter((c) => c.type === "earning");
-  const deductionComponents = mockSalaryComponents.filter((c) => c.type === "deduction");
+  useEffect(() => {
+    loadStructures();
+  }, [page, statusFilter, searchTerm]);
+
+  useEffect(() => {
+    loadOptions();
+  }, []);
+
+  const loadStructures = async () => {
+    // setLoading(true);
+    showSpinner();
+    try {
+      const params: any = {
+        page: page,
+        size: 10,
+        sort: "updatedAt,desc",
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter && statusFilter !== "all") params.status = statusFilter.toUpperCase();
+
+      const res: any = await salaryStructureService.getSalaryStructures(params);
+      setStructures(res.data?.content || []);
+      setTotalPages(res.data?.totalPages || 1);
+    } catch (error) {
+      console.error("Failed to load structures", error);
+      showSnackbar("Failed to load structures", "error");
+    } finally {
+      hideSpinner();
+      // setLoading(false);
+    }
+  };
+
+  const loadOptions = async () => {
+    showSpinner();
+    try {
+      const res: any = await salaryStructureService.getComponentOptions();
+      setSalaryComponents({
+        earnings: res.data?.earnings || [],
+        deductions: res.data?.deductions || []
+      });
+    } catch (error) {
+      showSnackbar("Failed to load structures", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const loadStructureForEdit = async (id: string) => {
+    showSpinner();
+    try {
+      const res: any = await salaryStructureService.getSalaryStructureById(id);
+      const data = res.data;
+
+      // Set editing state
+      setEditingId(id);
+      setIsEditing(true);
+
+      // Populate basic info
+      setBasicInfo({
+        name: data.name || "",
+        code: data.code || "",
+        description: data.description || "",
+        applicableFor: data.applicableFor || [],
+        gradeLevels: data.gradeLevels || [],
+        status: data.status || []
+      });
+
+      // Populate earnings
+      setEarnings(data.earnings?.map((e: any) => ({
+        componentId: e.componentId,
+        componentName: e.componentName || e.componentCode,
+        calculationLogic: e.calculationType || "FIXED",
+        value: e.value || 0,
+        sequence: e.sequence || 0,
+      })) || []);
+
+      // Populate deductions
+      setDeductions(data.deductions?.map((d: any) => ({
+        componentId: d.componentId,
+        componentName: d.componentName || d.componentCode,
+        calculationLogic: d.calculationType || "FIXED",
+        value: d.value || 0,
+        sequence: d.sequence || 0,
+      })) || []);
+
+      // Reset to first step
+      setCurrentStep(0);
+
+      // Switch to Create Structure tab
+      setTabValue(1);
+
+      showSnackbar("Structure loaded for editing", "success");
+    } catch (error: any) {
+      console.error("Failed to load structure", error);
+      showSnackbar(error?.message || "Failed to load structure", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleDuplicate = async (id: string) => {
+    showSpinner();
+    try {
+      await salaryStructureService.duplicateSalaryStructure(id);
+      showSnackbar("Structure duplicated successfully!", "success");
+      loadStructures();
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to duplicate structure", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handlePublish = async (id: string) => {
+    showSpinner();
+    try {
+      await salaryStructureService.publishSalaryStructure(id);
+      showSnackbar("Structure published successfully!", "success");
+      loadStructures();
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to publish structure", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleUnpublish = async (id: string) => {
+    showSpinner();
+    try {
+      await salaryStructureService.unpublishSalaryStructure(id);
+      showSnackbar("Structure unpublished successfully!", "success");
+      loadStructures();
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to unpublish structure", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleDelete = async (st: StructureItem) => {
+    showConfirmDialog({
+      title: 'Delete Structure',
+      message: `Are you sure you want to delete "${st.name}"?`,
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        try {
+          showSpinner();
+          await salaryStructureService.deleteSalaryStructure(st.id);
+          showSnackbar("Structure deleted successfully!", "success");
+          loadStructures();
+        } catch (error: any) {
+          showSnackbar(error?.message || "Failed to delete structure", "error");
+        } finally {
+          hideSpinner();
+        }
+      }
+    });
+  };
+
+  const fetchPreview = async () => {
+    if (earnings.length === 0 && deductions.length === 0) {
+      showSnackbar("Add at least one earning or deduction to preview", "warning");
+      return;
+    }
+
+    showSpinner();
+    try {
+      const payload = {
+        earnings: earnings.map((e) => ({
+          componentId: e.componentId,
+          value: e.value,
+          sequence: e.sequence || 0,
+        })),
+        deductions: deductions.map((d) => ({
+          componentId: d.componentId,
+          value: d.value,
+          sequence: d.sequence || 0,
+        })),
+      };
+      const res: any = await salaryStructureService.previewSalaryStructure(payload);
+      setPreviewData(res.data);
+      // setShowPreview(true);
+
+      if (res.data?.warnings?.length > 0) {
+        setValidationErrors(res.data.warnings);
+      } else {
+        setValidationErrors([]);
+      }
+    } catch (error: any) {
+      console.error("Failed to preview structure", error);
+      showSnackbar(error?.message || "Failed to preview structure", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
 
   const toggleEmploymentType = (type: string) => {
     setBasicInfo((prev) => ({
@@ -108,23 +316,46 @@ export default function SalaryStructureTemplate() {
   };
 
   const addComponent = (type: "earning" | "deduction", componentId: string) => {
-    const component = mockSalaryComponents.find((c) => c.id === componentId);
-    if (!component) return;
+    // Find the component in the correct array
+    const sourceArray = type === "earning"
+      ? salaryComponents.earnings
+      : salaryComponents.deductions;
+
+    const component = sourceArray.find((c: any) => c.id === componentId);
+    if (!component) {
+      showSnackbar("Component not found", "error");
+      return;
+    }
+
     const already = type === "earning" ? earnings : deductions;
-    if (already.some((a) => a.componentId === component.id)) return;
+    if (already.some((a: any) => a.componentId === component.id)) {
+      showSnackbar("Component already added", "warning");
+      return;
+    }
+
     const newAlloc = {
       componentId: component.id,
       componentName: component.name,
       calculationLogic: component.calculationType,
-      value: component.calculationValue || 0,
+      value: component.defaultValue || 0,
+      sequence: already.length + 1,
     };
-    if (type === "earning") setEarnings([...earnings, newAlloc]);
-    else setDeductions([...deductions, newAlloc]);
+
+    if (type === "earning") {
+      setEarnings([...earnings, newAlloc]);
+    } else {
+      setDeductions([...deductions, newAlloc]);
+    }
   };
 
   const removeComponent = (type: "earning" | "deduction", index: number) => {
-    if (type === "earning") setEarnings(earnings.filter((_, i) => i !== index));
-    else setDeductions(deductions.filter((_, i) => i !== index));
+    if (type === "earning") {
+      const updated = earnings.filter((_, i) => i !== index);
+      setEarnings(updated.map((e, i) => ({ ...e, sequence: i + 1 })));
+    } else {
+      const updated = deductions.filter((_, i) => i !== index);
+      setDeductions(updated.map((d, i) => ({ ...d, sequence: i + 1 })));
+    }
   };
 
   const updateValue = (type: "earning" | "deduction", index: number, value: number) => {
@@ -139,11 +370,56 @@ export default function SalaryStructureTemplate() {
     }
   };
 
-  const calculateTotalCTC = () => earnings.reduce((s, e) => s + (e.value || 0), 0);
+  const calculateTotalCTC = () => {
+    if (previewData) {
+      return previewData.annualCtc || 0;
+    }
+    return earnings.reduce((s, e) => s + (e.value || 0), 0);
+  };
+
+  const validateStep = () => {
+    switch (currentStep) {
+      case 0:
+        if (!basicInfo.name) {
+          showSnackbar("Please enter template name", "warning");
+          return false;
+        }
+        if (!basicInfo.code) {
+          showSnackbar("Please enter template code", "warning");
+          return false;
+        }
+        if (basicInfo.applicableFor.length === 0) {
+          showSnackbar("Please select at least one employment type", "warning");
+          return false;
+        }
+        return true;
+      case 1:
+        if (earnings.length === 0) {
+          showSnackbar("Please add at least one earning component", "warning");
+          return false;
+        }
+        const invalidEarnings = earnings.filter(e => e.value <= 0);
+        if (invalidEarnings.length > 0) {
+          showSnackbar("Please enter valid values for all earnings", "warning");
+          return false;
+        }
+        return true;
+      case 2:
+        const invalidDeductions = deductions.filter(d => d.value <= 0);
+        if (invalidDeductions.length > 0) {
+          showSnackbar("Please enter valid values for all deductions", "warning");
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  };
 
   const handleNext = () => {
-    if (currentStep === 0 && (!basicInfo.name || !basicInfo.code || basicInfo.applicableFor.length === 0)) {
-      return;
+    if (!validateStep()) return;
+    if (currentStep === 2) {
+      fetchPreview();
     }
     setCurrentStep((s) => Math.min(3, s + 1));
   };
@@ -152,560 +428,908 @@ export default function SalaryStructureTemplate() {
     setCurrentStep((s) => Math.max(0, s - 1));
   };
 
-  const handleSave = (draft = false) => {
-    // Toast notification would go here
-    console.log(draft ? "Draft Saved" : "Template Published");
+  const handleSave = async (draft = false) => {
+    if (!validateStep()) return;
+
+    setSaving(true);
+    showSpinner();
+    try {
+      const payload = {
+        name: basicInfo.name,
+        code: basicInfo.code,
+        description: basicInfo.description,
+        applicableFor: basicInfo.applicableFor,
+        gradeLevels: basicInfo.gradeLevels,
+        earnings: earnings.map((e, index) => ({
+          componentId: e.componentId,
+          value: e.value,
+          sequence: index + 1,
+        })),
+        deductions: deductions.map((d, index) => ({
+          componentId: d.componentId,
+          value: d.value,
+          sequence: index + 1,
+        })),
+      };
+
+      let res: any;
+      if (isEditing && editingId) {
+        // Update existing structure
+        res = await salaryStructureService.updateSalaryStructure(editingId, payload);
+        if (!draft) {
+          await salaryStructureService.publishSalaryStructure(editingId);
+        }
+        showSnackbar(draft ? "Draft updated successfully!" : "Structure published successfully!", "success");
+      } else {
+        // Create new structure
+        res = await salaryStructureService.createSalaryStructure(payload);
+        if (!draft) {
+          await salaryStructureService.publishSalaryStructure(res.data.id);
+        }
+        showSnackbar(draft ? "Draft saved successfully!" : "Template published successfully!", "success");
+      }
+
+      // Reset form and reload structures
+      resetForm();
+      loadStructures();
+      // Switch back to My Structures tab after save
+      setTabValue(0);
+    } catch (error: any) {
+      console.error("Failed to save structure", error);
+      showSnackbar(error?.message || "Failed to save structure", "error");
+    } finally {
+      hideSpinner();
+      setSaving(false);
+    }
   };
 
+  const resetForm = () => {
+    setBasicInfo({
+      name: "",
+      code: "",
+      description: "",
+      applicableFor: [],
+      gradeLevels: [],
+      status: ""
+    });
+    setEarnings([]);
+    setDeductions([]);
+    setCurrentStep(0);
+    // setShowPreview(false);
+    setPreviewData(null);
+    setValidationErrors([]);
+    setIsEditing(false);
+    setEditingId(null);
+  };
+
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    // If switching to Create tab and currently editing, keep the data
+    // If switching to My Structures tab, reset form
+    if (newValue === 0) {
+      // If there is unsaved data and not editing, confirm before switching
+      if (!isEditing && (basicInfo.name || earnings.length > 0 || deductions.length > 0)) {
+        if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
+          resetForm();
+          setTabValue(newValue);
+        }
+      } else {
+        resetForm();
+        setTabValue(newValue);
+      }
+    } else {
+      setTabValue(newValue);
+    }
+  };
+
+  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value - 1);
+  };
+
+  // if (loading && tabValue === 0) {
+  //   return (
+  //     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+  //       <CircularProgress />
+  //     </Box>
+  //   );
+  // }
+
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <Box
+    <div className="bg-white-50">
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          className="!border-b border-gray-200"
           sx={{
-            width: 40,
-            height: 40,
-            borderRadius: 2,
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            "& .MuiTabs-indicator": {
+              backgroundColor: "var(--color-primary)",
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+            },
           }}
         >
-          <LayersIcon sx={{ color: "primary.main" }} />
-        </Box>
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
-            Salary Structure Wizard
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-            Create a reusable salary structure template in 4 steps
-          </Typography>
-        </Box>
+          <Tab label={`My Structures (${structures.length})`} className="!text-gray-800" />
+          <Tab
+            label={isEditing ? "Edit Structure" : "Create Structure"}
+            className="!text-gray-800"
+          />
+        </Tabs>
       </Box>
 
-      {/* Stepper */}
-      <Stepper activeStep={currentStep} alternativeLabel sx={{ mb: 4 }}>
-        {steps.map((step) => (
-          <Step key={step.id}>
-            <StepLabel>
-              <Box>
-                <Typography variant="caption" sx={{ fontWeight: currentStep === step.id - 1 ? 600 : 400 }}>
-                  {step.name}
-                </Typography>
-                <Typography variant="caption" sx={{ display: "block", color: "text.secondary", fontSize: "0.65rem" }}>
-                  {step.desc}
-                </Typography>
+      {/* Tab 0: My Structures */}
+      {tabValue === 0 && (
+        <Box>
+          {/* Header */}
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+            <div className="flex items-center gap-4">
+              <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.1), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <LayersIcon sx={{ color: "primary.main" }} />
               </Box>
-            </StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+              <Box>
+                <div className="text-gray-800 text-[12px] font-bold">
+                  My Salary Structures
+                </div>
+                <div className="text-gray-500 text-[12px] mt-1">
+                  Manage your salary structures - draft, published, and archived
+                </div>
+              </Box>
+            </div>
+            <Button
+              variant="contained"
+              className="!bg-primary"
+              onClick={() => { resetForm(); setTabValue(1); }}
+              startIcon={<PlusIcon />}
+              sx={{ textTransform: "none" }}
+            >
+              Create New
+            </Button>
+          </Box>
 
-      {/* Step Content */}
-      <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <CardContent sx={{ p: 3 }}>
-          {/* Step 1: Basic Info */}
-          {currentStep === 0 && (
-            <Stack spacing={3}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Template Name *"
-                    value={basicInfo.name}
-                    onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
-                    placeholder="e.g., Standard Structure L1"
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Template Code *"
-                    value={basicInfo.code}
-                    onChange={(e) => setBasicInfo({ ...basicInfo, code: e.target.value.toUpperCase() })}
-                    placeholder="e.g., STD_L1"
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
+          {/* Filters */}
+          <div className="flex items-center gap-4 justify-between mb-4">
+            <TextField
+              placeholder="Search structures..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              sx={{ flex: 1, minWidth: 200, maxWidth: 350 }}
+            />
+            <div className="flex items-center gap-1">
+              {STATUS_CHIP_OPTIONS.map((o) => (
+                <Chip
+                  key={o.value}
+                  label={o.label}
+                  size="small"
+                  variant={statusFilter === o.value ? "filled" : "outlined"}
+                  color={statusFilter === o.value ? "primary" : "default"}
+                  onClick={() => {
+                    setStatusFilter(o.value);
+                    setPage(0);
+                  }}
+                  className="cursor-pointer text-gray-800"
+                  sx={{
+                    borderRadius: "8px",
+                    fontWeight: statusFilter === o.value ? 600 : 400,
+                    ...(statusFilter === o.value && {
+                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      color: "white",
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                      },
+                    }),
+                  }}
+                />
+              ))}
+            </div>
+          </div>
 
-              <TextField
-                label="Description"
-                value={basicInfo.description}
-                onChange={(e) => setBasicInfo({ ...basicInfo, description: e.target.value })}
-                placeholder="Describe this template..."
-                multiline
-                rows={3}
-                fullWidth
-                size="small"
+          {/* Structures Table */}
+          <TableContainer className="border border-gray-200 rounded-sm max-h-[calc(100vh-280px)] overflow-auto">
+            <Table stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell className="!font-bold">S No</TableCell>
+                  <TableCell className="!font-bold">Name</TableCell>
+                  <TableCell className="!font-bold">Code</TableCell>
+                  <TableCell className="!font-bold">Status</TableCell>
+                  <TableCell className="!font-bold" align="right">Earnings</TableCell>
+                  <TableCell className="!font-bold" align="right">Deductions</TableCell>
+                  <TableCell className="!font-bold" align="right">Annual CTC</TableCell>
+                  <TableCell className="!font-bold">Updated</TableCell>
+                  <TableCell className="!font-bold" align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {structures.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      <div className="py-6">No structures found. Create your first salary structure!</div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  structures.map((structure, i) => {
+                    const status = statusConfig[structure.status?.toLowerCase()] || statusConfig.draft;
+                    return (
+                      <TableRow key={structure.id} sx={getRowColor(i)}>
+                        <TableCell>{i + 1}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {structure.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={structure.code} size="small" className="text-gray-800 bg-gray-200" />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={status.label}
+                            size="small"
+                            sx={{ bgcolor: status.bgColor, color: status.color, fontWeight: 500 }}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">{structure.earningCount || 0}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2">{structure.deductionCount || 0}</Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {formatCurrency(structure.annualCtc || 0)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(structure.updatedAt)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              onClick={() => loadStructureForEdit(structure.id)}
+                            >
+                              <EditIcon fontSize="small" className="!w-3 text-blue-500" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Duplicate">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDuplicate(structure.id)}
+                            >
+                              <DuplicateIcon fontSize="small" className="!w-3 text-primary" />
+                            </IconButton>
+                          </Tooltip>
+                          {structure.status?.toLowerCase() === "draft" && (
+                            <Tooltip title="Publish">
+                              <IconButton
+                                size="small"
+                                onClick={() => handlePublish(structure.id)}
+                              >
+                                <PublishIcon fontSize="small" className="!w-3 text-green-600" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {structure.status?.toLowerCase() === "published" && (
+                            <Tooltip title="Unpublish">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleUnpublish(structure.id)}
+                              >
+                                <UnpublishedOutlined fontSize="small" className="!w-3 text-amber-500" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDelete(structure)}
+                            >
+                              <DeleteIcon fontSize="small" className="!w-4 text-error" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+              <Pagination
+                count={totalPages}
+                page={page + 1}
+                onChange={handlePageChange}
+                color="primary"
+                shape="rounded"
               />
-
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                  Applicable For *
-                </Typography>
-                <Grid container spacing={1}>
-                  {employmentTypes.map((type) => (
-                    <Grid size={{ xs: 6, sm: 3 }} key={type}>
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 1,
-                          p: 1.5,
-                          borderRadius: 1,
-                          border: `1px solid ${
-                            basicInfo.applicableFor.includes(type)
-                              ? theme.palette.primary.main
-                              : theme.palette.divider
-                          }`,
-                          bgcolor: basicInfo.applicableFor.includes(type)
-                            ? alpha(theme.palette.primary.main, 0.05)
-                            : "transparent",
-                          cursor: "pointer",
-                          "&:hover": {
-                            bgcolor: alpha(theme.palette.primary.main, 0.05),
-                          },
-                        }}
-                        onClick={() => toggleEmploymentType(type)}
-                      >
-                        <Checkbox checked={basicInfo.applicableFor.includes(type)} size="small" />
-                        <Typography variant="body2">{type}</Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                  Grade Levels
-                </Typography>
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                  {grades.map((grade) => (
-                    <Chip
-                      key={grade}
-                      label={grade}
-                      onClick={() => toggleGrade(grade)}
-                      color={basicInfo.gradeLevels.includes(grade) ? "primary" : "default"}
-                      variant={basicInfo.gradeLevels.includes(grade) ? "filled" : "outlined"}
-                      sx={{ cursor: "pointer" }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-            </Stack>
+            </Box>
           )}
+        </Box>
+      )}
 
-          {/* Step 2: Earnings */}
-          {currentStep === 1 && (
-            <Stack spacing={3}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Configure Earnings
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    Add earning components to this template
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: "right" }}>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                    Estimated Annual CTC
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: "success.main" }}>
-                    {formatCurrency(calculateTotalCTC())}
-                  </Typography>
-                </Box>
+      {/* Tab 1: Create/Edit Structure */}
+      {tabValue === 1 && (
+        <>
+          {/* Header */}
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.1), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <LayersIcon sx={{ color: "primary.main" }} />
               </Box>
-
-              <FormControl size="small" sx={{ maxWidth: 300 }}>
-                <InputLabel>Add earning component...</InputLabel>
-                <Select
-                  value=""
-                  onChange={(e) => addComponent("earning", e.target.value)}
-                  label="Add earning component..."
-                >
-                  {earningComponents.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.name} ({c.code})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {earnings.length > 0 ? (
-                <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                        <TableCell sx={{ width: 40 }} />
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Component
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Logic
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Value
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Preview
-                        </TableCell>
-                        <TableCell sx={{ width: 80 }} />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {earnings.map((e, i) => (
-                        <TableRow key={i}>
-                          <TableCell>
-                            <GripVerticalIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {e.componentName}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                              {calcLabel[e.calculationLogic] || e.calculationLogic}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <TextField
-                              type="number"
-                              value={e.value}
-                              onChange={(ev) => updateValue("earning", i, Number(ev.target.value))}
-                              size="small"
-                              sx={{ width: 100 }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {e.calculationLogic === "fixed"
-                                ? formatCurrency(e.value)
-                                : `${e.value}%`}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="text"
-                              size="small"
-                              onClick={() => removeComponent("earning", i)}
-                              sx={{ color: "error.main", textTransform: "none" }}
-                            >
-                              Remove
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box
-                  sx={{
-                    border: `2px dashed ${theme.palette.divider}`,
-                    borderRadius: 2,
-                    p: 6,
-                    textAlign: "center",
+              <Box>
+                <div className="text-gray-800 text-[12px] font-bold">
+                  {isEditing ? "Edit Salary Structure" : "Salary Structure Wizard"}
+                </div>
+                <div className="text-gray-500 text-[12px] mt-1">
+                  {isEditing ? `Editing: ${basicInfo.name}` : "Create a reusable salary structure template in 4 steps"}
+                </div>
+              </Box>
+            </Box>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {isEditing && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  onClick={() => {
+                    resetForm();
+                    setTabValue(0);
                   }}
+                  sx={{ textTransform: "none" }}
                 >
-                  <PlusIcon sx={{ fontSize: 32, color: "text.secondary", mb: 1 }} />
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    No earnings added yet. Select a component above.
-                  </Typography>
-                </Box>
+                  Cancel Edit
+                </Button>
               )}
-            </Stack>
-          )}
-
-          {/* Step 3: Deductions */}
-          {currentStep === 2 && (
-            <Stack spacing={3}>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Configure Deductions
-                </Typography>
-                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  Add statutory and voluntary deductions
-                </Typography>
-              </Box>
-
-              <FormControl size="small" sx={{ maxWidth: 300 }}>
-                <InputLabel>Add deduction component...</InputLabel>
-                <Select
-                  value=""
-                  onChange={(e) => addComponent("deduction", e.target.value)}
-                  label="Add deduction component..."
-                >
-                  {deductionComponents.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.name} ({c.code})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              {deductions.length > 0 ? (
-                <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                        <TableCell sx={{ width: 40 }} />
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Component
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Logic
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Value
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                          Limit
-                        </TableCell>
-                        <TableCell sx={{ width: 80 }} />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {deductions.map((d, i) => (
-                        <TableRow key={i}>
-                          <TableCell>
-                            <GripVerticalIcon sx={{ fontSize: 16, color: "text.secondary" }} />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {d.componentName}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                              {calcLabel[d.calculationLogic] || d.calculationLogic}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <TextField
-                              type="number"
-                              value={d.value}
-                              onChange={(ev) => updateValue("deduction", i, Number(ev.target.value))}
-                              size="small"
-                              sx={{ width: 100 }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                              {d.calculationLogic === "slab" ? "As per slab" : `${d.value}%`}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="text"
-                              size="small"
-                              onClick={() => removeComponent("deduction", i)}
-                              sx={{ color: "error.main", textTransform: "none" }}
-                            >
-                              Remove
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              ) : (
-                <Box
-                  sx={{
-                    border: `2px dashed ${theme.palette.divider}`,
-                    borderRadius: 2,
-                    p: 6,
-                    textAlign: "center",
-                  }}
-                >
-                  <PlusIcon sx={{ fontSize: 32, color: "text.secondary", mb: 1 }} />
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                    No deductions added yet. Select a component above.
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          )}
-
-          {/* Step 4: Review */}
-          {currentStep === 3 && (
-            <Stack spacing={3}>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Review & Publish
-              </Typography>
-
-              <Box
-                sx={{
-                  p: 2.5,
-                  borderRadius: 1,
-                  border: `1px solid ${theme.palette.divider}`,
-                  bgcolor: alpha(theme.palette.primary.main, 0.02),
-                }}
+             {
+              (currentStep == 1 || currentStep == 2 ) && (
+                 <Button
+                variant="outlined"
+                startIcon={<RefreshIcon fontSize="small" />}
+                onClick={loadOptions}
+                sx={{ textTransform: "none" }}
               >
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                Refresh Components
+              </Button>
+              )
+             }
+            </Box>
+          </Box>
+
+          {/* Stepper */}
+          <Stepper activeStep={currentStep} alternativeLabel sx={{ mb: 2 }}>
+            {steps.map((step) => (
+              <Step key={step.id}>
+                <StepLabel>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                      {basicInfo.name || "Untitled Template"}
+                    <Typography variant="caption" sx={{ fontWeight: currentStep === step.id - 1 ? 600 : 400 }}>
+                      {step.name}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-                      {basicInfo.description}
+                    <Typography variant="caption" className="text-gray-500" sx={{ display: "block", fontSize: "0.65rem" }}>
+                      {step.desc}
                     </Typography>
                   </Box>
-                  <Chip label={basicInfo.code} sx={{ fontFamily: "monospace" }} />
-                </Box>
-                <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
-                  {basicInfo.applicableFor.map((t) => (
-                    <Chip key={t} label={t} size="small" variant="outlined" />
-                  ))}
-                  {basicInfo.gradeLevels.map((g) => (
-                    <Chip key={g} label={g} size="small" color="primary" variant="outlined" />
-                  ))}
-                </Box>
-              </Box>
+                </StepLabel>
+              </Step>
+            ))}
+          </Stepper>
 
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Card
-                    sx={{
-                      borderRadius: 2,
-                      border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                    }}
-                  >
-                    <CardContent>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ color: "success.main", fontWeight: 600, mb: 1 }}
-                      >
-                        Earnings ({earnings.length})
-                      </Typography>
-                      <Stack spacing={1}>
-                        {earnings.length === 0 && (
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            No earnings configured
-                          </Typography>
-                        )}
-                        {earnings.map((e, i) => (
+          {/* Step Content */}
+          <Card className="bg-white h-[calc(100vh-355px)] !overflow-auto" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <CardContent sx={{ p: 2 }}>
+              {/* Step 1: Basic Info */}
+              {currentStep === 0 && (
+                <Stack spacing={1} className="mt-3">
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Template Name"
+                        value={basicInfo.name}
+                        onChange={(e) => setBasicInfo({ ...basicInfo, name: e.target.value })}
+                        placeholder="e.g., Standard Structure L1"
+                        fullWidth
+                        required
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        label="Template Code"
+                        value={basicInfo.code}
+                        onChange={(e) => setBasicInfo({ ...basicInfo, code: e.target.value.toUpperCase() })}
+                        placeholder="e.g., STD_L1"
+                        fullWidth
+                        required
+                        helperText="Unique code for this structure"
+                      />
+                    </Grid>
+                  </Grid>
+
+                  <TextField
+                    label="Description"
+                    value={basicInfo.description}
+                    onChange={(e) => setBasicInfo({ ...basicInfo, description: e.target.value })}
+                    placeholder="Describe this template..."
+                    multiline
+                    rows={3}
+                    fullWidth
+                  />
+
+                  <Box>
+                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500, mb: 1 }}>
+                      Applicable For <span className="text-red-500">*</span>
+                    </Typography>
+                    <Grid container spacing={1}>
+                      {employmentTypes.map((type) => (
+                        <Grid size={{ xs: 6, sm: 3 }} key={type}>
                           <Box
-                            key={i}
-                            sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                              p: 1.5,
+                              borderRadius: 1,
+                              border: `1px solid ${basicInfo.applicableFor.includes(type) ? theme.palette.primary.main : 'var(--border-color)'}`,
+                              bgcolor: basicInfo.applicableFor.includes(type) ? alpha(theme.palette.primary.main, 0.05) : "transparent",
+                              cursor: "pointer",
+                              "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.05) },
+                            }}
+                            onClick={() => toggleEmploymentType(type)}
                           >
-                            <Typography variant="body2">{e.componentName}</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {e.calculationLogic === "fixed"
-                                ? formatCurrency(e.value)
-                                : `${e.value}%`}
+                            <Checkbox checked={basicInfo.applicableFor.includes(type)} size="small" className="text-gray-500" />
+                            <Typography variant="body2" className="text-gray-800">{type}</Typography>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500, mb: 1 }}>
+                      Grade Levels
+                    </Typography>
+                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                      {grades.map((grade) => (
+                        <Chip
+                          key={grade}
+                          label={grade}
+                          onClick={() => toggleGrade(grade)}
+                          color={basicInfo.gradeLevels.includes(grade) ? "primary" : "default"}
+                          variant={basicInfo.gradeLevels.includes(grade) ? "filled" : "outlined"}
+                          sx={{ cursor: "pointer" }}
+                          className="text-gray-500"
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                </Stack>
+              )}
+
+              {/* Step 2: Earnings */}
+              {currentStep === 1 && (
+                <Stack spacing={3}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box>
+                      <Typography className="text-gray-800 !font-bold">
+                        Configure Earnings
+                      </Typography>
+                      <Typography className="text-gray-500 mt-1">
+                        Add earning components to this template
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: "right" }}>
+                      <Typography className="text-gray-500">
+                        Estimated Annual CTC
+                      </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 700, color: "success.main" }}>
+                        {formatCurrency(calculateTotalCTC())}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  <FormControl sx={{ maxWidth: 300 }}>
+                    <InputLabel>Add earning component...</InputLabel>
+                    <Select value="" onChange={(e) => addComponent("earning", e.target.value)} label="Add earning component...">
+                      {salaryComponents.earnings.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name} ({c.code})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {earnings.length > 0 ? (
+                    <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-500px)] overflow-auto">
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                            <TableCell sx={{ width: 40 }}>#</TableCell>
+                            <TableCell>Component</TableCell>
+                            <TableCell>Logic</TableCell>
+                            <TableCell>Value</TableCell>
+                            <TableCell>Preview</TableCell>
+                            <TableCell sx={{ width: 80 }}>Action</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {earnings.map((e, i) => (
+                            <TableRow key={i} sx={getRowColor(i)}>
+                              <TableCell>{i + 1}</TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {e.componentName}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {calcLabel[e.calculationLogic] || e.calculationLogic}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <TextField
+                                  type="number"
+                                  value={e.value}
+                                  onChange={(ev) => updateValue("earning", i, Number(ev.target.value))}
+                                  sx={{ width: 100 }}
+                                  size="small"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {e.calculationLogic === "FIXED" ? formatCurrency(e.value) : `${e.value}%`}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="text" color="error" size="small" onClick={() => removeComponent("earning", i)}>
+                                  Remove
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Box className="border-gray-200" sx={{ border: `2px dashed ${theme.palette.divider}`, borderRadius: 2, p: 6, textAlign: "center" }}>
+                      <PlusIcon sx={{ fontSize: 32, color: "text.secondary", mb: 1 }} className="text-gray-500" />
+                      <Typography className="text-gray-500">
+                        No earnings added yet. Select a component above.
+                      </Typography>
+                    </Box>
+                  )}
+                </Stack>
+              )}
+
+              {/* Step 3: Deductions */}
+              {currentStep === 2 && (
+                <Stack spacing={3}>
+                  <Box>
+                    <div className="text-gray-800 font-bold text-[12px]">
+                      Configure Deductions
+                    </div>
+                    <Typography className="text-gray-500">
+                      Add statutory and voluntary deductions
+                    </Typography>
+                  </Box>
+
+                  <FormControl sx={{ maxWidth: 300 }}>
+                    <InputLabel>Add deduction component...</InputLabel>
+                    <Select value="" onChange={(e) => addComponent("deduction", e.target.value)} label="Add deduction component...">
+                      {salaryComponents.deductions.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name} ({c.code})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {deductions.length > 0 ? (
+                    <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-500px)] overflow-auto">
+                      <Table>
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                            <TableCell sx={{ width: 40 }}>#</TableCell>
+                            <TableCell>Component</TableCell>
+                            <TableCell>Logic</TableCell>
+                            <TableCell>Value</TableCell>
+                            <TableCell>Limit</TableCell>
+                            <TableCell sx={{ width: 80 }}>Action</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {deductions.map((d, i) => (
+                            <TableRow key={i} sx={getRowColor(i)}>
+                              <TableCell>{i + 1}</TableCell>
+                              <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {d.componentName}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {calcLabel[d.calculationLogic] || d.calculationLogic}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <TextField
+                                  type="number"
+                                  value={d.value}
+                                  onChange={(ev) => updateValue("deduction", i, Number(ev.target.value))}
+                                  size="small"
+                                  sx={{ width: 100 }}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2">
+                                  {d.calculationLogic === "slab" ? "As per slab" : `${d.value}%`}
+                                </Typography>
+                              </TableCell>
+                              <TableCell>
+                                <Button variant="text" size="small" onClick={() => removeComponent("deduction", i)} sx={{ color: "error.main", textTransform: "none" }}>
+                                  Remove
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Box className="border-gray-200" sx={{ border: `2px dashed ${theme.palette.divider}`, borderRadius: 2, p: 6, textAlign: "center" }}>
+                      <PlusIcon sx={{ fontSize: 32, mb: 1 }} className="text-gray-800" />
+                      <Typography variant="body2" className="text-gray-800">
+                        No deductions added yet. Select a component above.
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Button
+                      variant="outlined"
+                      onClick={fetchPreview}
+                      disabled={earnings.length === 0 && deductions.length === 0}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Preview Structure
+                    </Button>
+                  </Box> */}
+                </Stack>
+              )}
+
+              {/* Step 4: Review */}
+              {currentStep === 3 && (
+                <Stack spacing={2}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600 }} className="text-gray-800">
+                      Review & Publish
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={fetchPreview}
+                      sx={{ textTransform: "none" }}
+                    >
+                      Refresh Preview
+                    </Button>
+                  </Box>
+
+                  {validationErrors.length > 0 && (
+                    <Alert severity="warning" icon={<ErrorIcon />}>
+                      <AlertTitle>Warnings</AlertTitle>
+                      <ul style={{ margin: 0, paddingLeft: 20 }}>
+                        {validationErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </Alert>
+                  )}
+
+                  <div className="p-3 rounded-md border border-gray-200 bg-head">
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <Box>
+                        <Typography variant="h6" sx={{ fontWeight: 600 }} className="text-gray-800">
+                          {basicInfo.name || "Untitled Template"}
+                        </Typography>
+                        <Typography variant="body2" className="text-gray-500 mt-1">
+                          {basicInfo.description || "No description provided"}
+                        </Typography>
+                      </Box>
+                      <Chip label={basicInfo.code} className="bg-gray-200 text-gray-800" />
+                    </Box>
+                    <Box sx={{ display: "flex", gap: 1, mt: 1.5, flexWrap: "wrap" }}>
+                      {basicInfo.applicableFor.map((t) => (
+                        <Chip key={t} label={t} size="small" variant="filled" color="info" />
+                      ))}
+                      {basicInfo.gradeLevels.map((g) => (
+                        <Chip key={g} label={g} size="small" color="primary" variant="outlined" />
+                      ))}
+                    </Box>
+                  </div>
+
+                  <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Card className="bg-white-50" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.success.main, 0.2)}` }}>
+                        <CardContent>
+                          <Typography variant="subtitle2" sx={{ color: "success.main", fontWeight: 600, mb: 1 }}>
+                            Earnings ({earnings.length})
+                          </Typography>
+                          <Stack spacing={1}>
+                            {earnings.length === 0 && (
+                              <Typography variant="body2" className="text-gray-500">
+                                No earnings configured
+                              </Typography>
+                            )}
+                            {earnings.map((e, i) => (
+                              <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <Typography variant="body2" className="text-gray-500">{e.componentName}<span className="text-[10px]">{' '}({e.calculationLogic})</span></Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800 !font-bold">
+                                  {e.calculationLogic === "FIXED" ? formatCurrency(e.value) : `${e.value}%`}
+                                </Typography>
+                              </Box>
+                            ))}
+                            {earnings.length > 0 && (
+                              <>
+                                <Divider className="border border-gray-200" />
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }} className="text-gray-800">
+                                    Gross Earnings
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 700, color: "success.main" }}>
+                                    {formatCurrency(previewData?.grossEarningsMonthly || earnings.reduce((s, e) => s + e.value, 0))}
+                                  </Typography>
+                                </Box>
+                              </>
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Card className="bg-white-50" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.error.main, 0.2)}` }}>
+                        <CardContent>
+                          <Typography variant="subtitle2" sx={{ color: "error.main", fontWeight: 600, mb: 1 }}>
+                            Deductions ({deductions.length})
+                          </Typography>
+                          <Stack spacing={1}>
+                            {deductions.length === 0 && (
+                              <Typography variant="body2" className="text-gray-500">
+                                No deductions configured
+                              </Typography>
+                            )}
+                            {deductions.map((d, i) => (
+                              <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <Typography variant="body2" className="text-gray-500">{d.componentName}<span className="text-[10px]">{' '}({d.calculationLogic})</span></Typography>
+                                <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
+                                  {d.calculationLogic === "FIXED" ? formatCurrency(d.value) : `${d.value}%`}
+                                </Typography>
+                              </Box>
+                            ))}
+                            {deductions.length > 0 && (
+                              <>
+                                <Divider className="border border-gray-200" />
+                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }} className="text-gray-800">
+                                    Total Deductions
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 700, color: "error.main" }}>
+                                    {formatCurrency(previewData?.totalDeductionsMonthly || deductions.reduce((s, d) => s + d.value, 0))}
+                                  </Typography>
+                                </Box>
+                              </>
+                            )}
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  </Grid>
+
+                  <Card sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                    <CardContent className="!pb-3">
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 12, sm: 3 }}>
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography variant="caption" className="text-gray-500">Gross Monthly</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: "success.main" }}>
+                              {formatCurrency(previewData?.grossEarningsMonthly)}
                             </Typography>
                           </Box>
-                        ))}
-                        {earnings.length > 0 && (
-                          <>
-                            <Divider />
-                            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                Total CTC
-                              </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: "success.main" }}>
-                                {formatCurrency(calculateTotalCTC())}
-                              </Typography>
-                            </Box>
-                          </>
-                        )}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Card
-                    sx={{
-                      borderRadius: 2,
-                      border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
-                    }}
-                  >
-                    <CardContent>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{ color: "error.main", fontWeight: 600, mb: 1 }}
-                      >
-                        Deductions ({deductions.length})
-                      </Typography>
-                      <Stack spacing={1}>
-                        {deductions.length === 0 && (
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                            No deductions configured
-                          </Typography>
-                        )}
-                        {deductions.map((d, i) => (
-                          <Box
-                            key={i}
-                            sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                          >
-                            <Typography variant="body2">{d.componentName}</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                              {d.calculationLogic === "fixed"
-                                ? formatCurrency(d.value)
-                                : `${d.value}%`}
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 3 }}>
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography variant="caption" className="text-gray-500">Total Deductions</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: "error.main" }}>
+                              {formatCurrency(previewData?.totalDeductionsMonthly)}
                             </Typography>
                           </Box>
-                        ))}
-                      </Stack>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 3 }}>
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography variant="caption" className="text-gray-500">Net Monthly</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main" }}>
+                              {formatCurrency(previewData?.netMonthly ||
+                                (earnings.reduce((s, e) => s + e.value, 0) - deductions.reduce((s, d) => s + d.value, 0))
+                              )}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 3 }}>
+                          <Box sx={{ textAlign: "center" }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }} className="text-gray-800">
+                              Annual CTC
+                            </Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 700, color: "primary.main" }}>
+                              {formatCurrency(previewData?.annualCtc || calculateTotalCTC())}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
                     </CardContent>
                   </Card>
-                </Grid>
-              </Grid>
-            </Stack>
-          )}
-        </CardContent>
-      </Card>
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Navigation */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 3 }}>
-        <Button
-          variant="outlined"
-          onClick={handleBack}
-          disabled={currentStep === 0}
-          startIcon={<ChevronLeftIcon fontSize="small" />}
-          sx={{ textTransform: "none" }}
-        >
-          Previous
-        </Button>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {currentStep === 3 && (
+          {/* Navigation */}
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", my: 2 }}>
             <Button
               variant="outlined"
-              onClick={() => handleSave(true)}
+              className={`!text-primary !border-primary ${currentStep == 0 ? 'invisible':''}`}
+              onClick={handleBack}
+              disabled={currentStep === 0 || saving}
+              startIcon={<ChevronLeftIcon fontSize="small" />}
               sx={{ textTransform: "none" }}
             >
-              Save as Draft
+              Previous
             </Button>
-          )}
-          {currentStep < 3 ? (
-            <Button
-              variant="contained"
-              onClick={handleNext}
-              endIcon={<ChevronRightIcon fontSize="small" />}
-              sx={{ textTransform: "none" }}
-            >
-              Next
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              onClick={() => handleSave(false)}
-              startIcon={<BookTemplateIcon fontSize="small" />}
-              sx={{ textTransform: "none" }}
-            >
-              Publish Template
-            </Button>
-          )}
-        </Box>
-      </Box>
-    </Box>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {currentStep === 3 && (
+                <>
+                  {
+                    basicInfo.status != 'PUBLISHED' &&
+                    <Button
+                      variant="outlined"
+                      onClick={() => handleSave(true)}
+                      disabled={saving}
+                      sx={{ textTransform: "none" }}
+                    >
+                      {saving ? "Saving..." : "Save as Draft"}
+                    </Button>
+                  }
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={() => handleSave(false)}
+                    disabled={saving}
+                    startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <BookTemplateIcon fontSize="small" />}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {saving ? "Publishing..." : isEditing ? basicInfo.status == 'DRAFT' ? "Update & Publish" : "Update" : "Publish Template"}
+                  </Button>
+                </>
+              )}
+              {currentStep < 3 && (
+                <Button
+                  variant="contained"
+                  className="!bg-primary"
+                  onClick={handleNext}
+                  disabled={saving}
+                  endIcon={<ChevronRightIcon fontSize="small" />}
+                  sx={{ textTransform: "none" }}
+                >
+                  Next
+                </Button>
+              )}
+            </Box>
+          </Box>
+        </>
+      )}
+    </div>
   );
 }

@@ -287,7 +287,7 @@ export function AttendanceMuster() {
         exportFormat: 'excel'
       }
       );
-      await apiService.downloadFromPath(res.data.fileUrl, `attendance_${month}_${year}.xlsx`);
+      await apiService.downloadFromPath(res.data.fileUrl, `attendance_${month}_${year}.pdf`);
       showSnackbar(`Muster exported successfully for ${MONTHS[month - 1]} ${year}`, "success");
     } catch (err: any) {
       showSnackbar(err?.message || "Export failed", "error");

@@ -61,6 +61,8 @@ import LeavePageShell from "../components/LeavePageShell";
 import { getRowColor } from "../../const";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { useAuth } from "../../../auth/authContext";
+import { formatCurrency } from "../../payroll/const";
+import { dialogsx } from "../../../const";
 
 
 export default function HrPayrollInputsPage() {
@@ -420,21 +422,6 @@ export default function HrPayrollInputsPage() {
   const handleTypeClick = (type: any) => {
     setSelectedType(type);
     setDetailsDialogOpen(true);
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  const dialogSx = {
-    "& .MuiDialog-paper": {
-      width: "600px",
-      maxWidth: "600px",
-    },
   };
 
   const renderSettlementSummary = (data: FinalSettlementProcess) => (
@@ -1162,7 +1149,7 @@ export default function HrPayrollInputsPage() {
         open={detailsDialogOpen}
         onClose={() => setDetailsDialogOpen(false)}
         maxWidth="sm"
-        sx={dialogSx}
+        sx={dialogsx}
       >
         <DialogTitle className="!pb-2">
           <div className="flex items-center gap-2">
@@ -1318,7 +1305,7 @@ export default function HrPayrollInputsPage() {
           setEncashmentPreviewData(null);
         }}
         maxWidth="md"
-        sx={dialogSx}
+        sx={dialogsx}
       >
         <DialogTitle className="border-b !p-2 border-gray-200">
           <div className="flex items-center gap-2 ml-4">
@@ -1506,7 +1493,7 @@ export default function HrPayrollInputsPage() {
           setEncashmentPreviewData(null);
         }}
         maxWidth="md"
-        sx={dialogSx}
+        sx={dialogsx}
       >
         <DialogTitle className="border-b border-gray-200 !p-2">
           <div className="flex items-center gap-2 ml-4">
@@ -1626,7 +1613,7 @@ export default function HrPayrollInputsPage() {
         open={settlementDialogOpen}
         onClose={() => setSettlementDialogOpen(false)}
         maxWidth="lg"
-        sx={dialogSx}
+        sx={dialogsx}
       >
         <DialogTitle className="border-b !p-2 border-gray-200">
           <div className="flex items-center gap-2 ml-4">
@@ -1748,7 +1735,7 @@ export default function HrPayrollInputsPage() {
       <Dialog
         open={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
-        sx={dialogSx}
+        sx={dialogsx}
       >
         <DialogTitle className="border-b border-gray-200 !p-4">
           Confirm Final Settlement

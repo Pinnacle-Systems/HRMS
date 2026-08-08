@@ -1014,12 +1014,12 @@ export const API_ENDPOINTS = {
   PAYROLL: {
     DASHBOARD: "/payroll/dashboard",
     RUNS: {
-      BASE: "/payroll/runs",
-      GET_BY_ID: (id: string) => `/payroll/runs/${id}`,
-      CREATE: "/payroll/runs",
+      BASE: "/payroll/runs", //
+      GET_BY_ID: (id: string) => `/payroll/runs/${id}`, //
+      CREATE: "/payroll/runs", //
       // UPDATE: (id: string) => `/payroll/runs/${id}`,
       // DELETE: (id: string) => `/payroll/runs/${id}`,
-      PROCESS: (id: string) => `/payroll/runs/${id}/process`,
+      PROCESS: (id: string) => `/payroll/runs/${id}/process`, //
     },
     PAYROLLRUNS: {
       BASE: "/payroll-runs",
@@ -1031,16 +1031,16 @@ export const API_ENDPOINTS = {
       PREVIEW: "/payroll-runs/preview",
     },
     GENERATE: {
-      PREVIEW: "/payroll/generate/preview",
+      PREVIEW: "/payroll/generate/preview", //
       // CREATE: "/payroll/generate",
       // CONFIRM: "/payroll/generate/confirm",
     },
     PAYROLLPAYSLIPS: {
-      BASE: "/payroll/payslips",
+      BASE: "/payroll/payslips", //
       GET_BY_EMPLOYEE_AND_PERIOD: (employeeId: string, period: string) =>
-        `/payroll/payslips/${employeeId}/${encodeURIComponent(period)}`,
+        `/payroll/payslips/${employeeId}/${encodeURIComponent(period)}`, //
       DOWNLOAD: (employeeId: string) =>
-        `/payroll/payslips/${employeeId}/download`,
+        `/payroll/payslips/${employeeId}/download`, //
       // BULK_DOWNLOAD: "/payroll/payslips/bulk-download",
       // EMAIL: (employeeId: string) => `/payroll/payslips/${employeeId}/email`,
     },
@@ -1051,12 +1051,14 @@ export const API_ENDPOINTS = {
       SUMMARY: "/payslips/summary",
     },
     SALARY_VIEW: {
-      BASE: (employeeId: string) => `/payroll/employee-salary/${employeeId}`,
+      BASE: (employeeId: string) => `/payroll/employee-salary/${employeeId}`, //
       // HISTORY: (employeeId: string) =>
       //   `/payroll/employee-salary/${employeeId}/history`,
       // YTD: (employeeId: string) => `/payroll/employee-salary/${employeeId}/ytd`,
-      EMP__SALARY_VIEW: (employeeId: string) => `/employee-salary-view/${employeeId}`,
-      EMP__DOWNLOAD_PAYSLIP: (employeeId: string) => `/employee-salary-view/${employeeId}/download-payslip`,
+      EMP__SALARY_VIEW: (employeeId: string) =>
+        `/employee-salary-view/${employeeId}`,
+      EMP__DOWNLOAD_PAYSLIP: (employeeId: string) =>
+        `/employee-salary-view/${employeeId}/download-payslip`,
     },
     COMPONENTS: {
       BASE: "/salary-components",
@@ -1096,17 +1098,18 @@ export const API_ENDPOINTS = {
       DELETE: (id: string) => `/salary-assignments/${id}`,
       // EXPORT: "/salary-assignments/export",
     },
-    DEDUCTIONS: {
-      BASE: "/payroll/deductions",
-      GET_ALL: "/payroll/deductions",
+    EMP_DEDUCTIONS: {
+      BASE: "/employee-deductions",
       GET_BY_EMPLOYEE: (employeeId: string) =>
-        `/payroll/deductions/employee/${employeeId}`,
-      GET_BY_ID: (id: string) => `/payroll/deductions/${id}`,
-      CREATE: "/payroll/deductions",
-      UPDATE: (id: string) => `/payroll/deductions/${id}`,
-      DELETE: (id: string) => `/payroll/deductions/${id}`,
-      SUMMARY: (employeeId: string) =>
-        `/payroll/deductions/employee/${employeeId}/summary`,
+        `/employee-deductions/employee/${employeeId}/overview`,
+      GET_BY_ID: (id: string) => `/employee-deductions/${id}`,
+      CREATE: "/employee-deductions",
+      FROM_LOAN: (id: string) => `/employee-deductions/from-loan/${id}`,
+      UPDATE: (id: string) => `/employee-deductions/${id}`,
+      DELETE: (id: string) => `/employee-deductions/${id}`,
+      STATUS: (id: string) => `/employee-deductions/${id}/status`,
+      // SUMMARY: (employeeId: string) =>
+      //   `/employee-deductions/employee/${employeeId}/summary`,
     },
     PERIODS: {
       BASE: "/payroll/periods",
@@ -1118,17 +1121,20 @@ export const API_ENDPOINTS = {
       // CURRENT: "/payroll/periods/current",
     },
     LOAN_ADVANCE: {
-      BASE: "/payroll/loan-advance-requests",
-      GET_ALL: "/payroll/loan-advance-requests",
-      GET_BY_ID: (id: string) => `/payroll/loan-advance-requests/${id}`,
-      GET_BY_EMPLOYEE: (employeeId: string) =>
-        `/payroll/loan-advance-requests/employee/${employeeId}`,
-      CREATE: "/payroll/loan-advance-requests",
-      UPDATE_STATUS: (id: string) =>
-        `/payroll/loan-advance-requests/${id}/status`,
-      UPDATE: (id: string) => `/payroll/loan-advance-requests/${id}`,
-      DELETE: (id: string) => `/payroll/loan-advance-requests/${id}`,
-      SUMMARY: "/payroll/loan-advance-requests/summary",
+      BASE: "/loan-requests",
+      GET_BY_ID: (id: string) => `/loan-requests/${id}`,
+      DOWNLOAD: (id: string) => `/loan-requests/${id}/download`,
+      // GET_BY_EMPLOYEE: (employeeId: string) =>
+      //   `/loan-requests/employee/${employeeId}`,
+      CREATE: "/loan-requests",
+      // UPDATE_STATUS: (id: string) =>
+      //   `/loan-requests/${id}/status`,
+      UPDATE: (id: string) => `/loan-requests/${id}`,
+      APPROVE: (id: string) => `/loan-requests/${id}/approve`,
+      REJECT: (id: string) => `/loan-requests/${id}/reject`,
+      // DELETE: (id: string) => `/loan-requests/${id}`,
+      SUMMARY: "/loan-requests/summary",
+      MY: "/loan-requests/my",
     },
     COMPLIANCE: {
       BASE: "/statutory-compliance",
@@ -1184,6 +1190,11 @@ export const API_ENDPOINTS = {
       CREATE: "/payroll-audit-logs",
       // GET_BY_USER: (userId: string) => `/payroll/audit/user/${userId}`,
     },
+    PAYROLL_AUDIT: {
+      BASE: "/payroll/audit",
+      EXPORT: "/payroll/audit/export",
+      ACTIONS: "/payroll/audit/actions",
+    },
     PORTAL: {
       BASE: "/payroll/employee-portal",
       // ADMIN_VIEW: "/payroll/employee-portal",
@@ -1200,9 +1211,10 @@ export const API_ENDPOINTS = {
       SUMMARY: "/employee-portal/summary",
       FEATURES: "/employee-portal/features",
       EMPLOYEES: "/employee-portal/employees",
-      TAX_SUMMARY: (employeeId: string) => `/employee-portal/employees/${employeeId}/tax-summary`,
-      PAYSLIPS: (employeeId: string) => `/employee-portal/employees/${employeeId}/payslips`,
-
+      TAX_SUMMARY: (employeeId: string) =>
+        `/employee-portal/employees/${employeeId}/tax-summary`,
+      PAYSLIPS: (employeeId: string) =>
+        `/employee-portal/employees/${employeeId}/payslips`,
     },
     SETTINGS: {
       BASE: "/payroll/settings",
@@ -1210,6 +1222,41 @@ export const API_ENDPOINTS = {
       UPDATE: "/payroll/settings",
       // UPDATE_CATEGORY: (category: string) => `/payroll/settings/${category}`,
       // RESET: "/payroll/settings/reset",
+    },
+    MASTERS: {
+      DEDUCTIONS: {
+        DELETE: (id: string) => `/payroll/deductions/${id}`,
+        GET_BY_ID: (empId: string) => `/payroll/deductions/employee/${empId}`,
+        CREATE: "/payroll/deductions",
+        UPDATE: (id: string) => `/payroll/deductions/${id}`,
+      },
+      COMPONENTS: {
+        DELETE: (id: string) => `/payroll/components/${id}`,
+        BASE: "/payroll/components",
+        CREATE: "/payroll/components",
+        UPDATE: (id: string) => `/payroll/components/${id}`,
+      },
+      STRUCTURES: {
+        BASE: "/payroll/structures",
+        CREATE: "/payroll/structures",
+      },
+      LOANADV: {
+        BASE: "/payroll/loan-advance-requests",
+        CREATE: "/payroll/loan-advance-requests",
+        UPDATE: (id: string) => `/payroll/loan-advance-requests/${id}/status`,
+      },
+      COMPLIANCE: {
+        BASE: "/payroll/compliance",
+        GENERATE_REPORT: "/payroll/compliance/generate-report",
+      },
+      BANKADVICE: {
+        BASE: "/payroll/bank-advice",
+        GENERATE: "/payroll/bank-advice/generate",
+      },
+      ASSIGN: {
+        GET_BY_ID: (empId: string) => `/payroll/assign/employee/${empId}`,
+        BASE: "/payroll/assign",
+      },
     },
     // EMPLOYEES: {
     //   BASE: "/employees",

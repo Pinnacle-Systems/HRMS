@@ -25,7 +25,24 @@ export const PAYROLL_PERMISSIONS = {
   PORTAL: [PERMISSIONS.PAYROLL_READ],
 };
 
-export const hasPermission = (userPermissions: string[], requiredPermissions: string[]): boolean => {
+export const hasPermission = (
+  userPermissions: string[],
+  requiredPermissions: string[],
+): boolean => {
   if (!requiredPermissions || requiredPermissions.length === 0) return true;
-  return requiredPermissions.some(p => userPermissions.includes(p));
+  return requiredPermissions.some((p) => userPermissions.includes(p));
+};
+
+export const dialogSx = {
+  "& .MuiDialog-paper": {
+    width: "1200px",
+    maxWidth: "1200px",
+  },
+};
+
+export const dialogsx = {
+  "& .MuiDialog-paper": {
+    width: "600px",
+    maxWidth: "600px",
+  },
 };

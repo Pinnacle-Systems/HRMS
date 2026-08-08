@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Card,
@@ -22,6 +22,7 @@ import {
   Tab,
   Tabs,
   Avatar,
+  CircularProgress,
 } from "@mui/material";
 import {
   ArrowBack as ArrowLeftIcon,
@@ -34,37 +35,17 @@ import {
   BarChart as BarChart3Icon,
   History as HistoryIcon,
 } from "@mui/icons-material";
+import { formatCurrency } from "../const";
+import { payrollRunsService } from "../../../services/modules/payrollServices/payrollRuns";
+import { payslipsService } from "../../../services/modules/payrollServices/payslips";
+import { useUI } from "../../../context/Snackbar";
+import { getRowColor } from "../../const";
 
-// Mock data - replace with your actual API data
-const mockPayrollRuns = [
-  {
-    id: "PR-2026-001",
-    period: "June 2026",
-    startDate: "01/06/2026",
-    endDate: "30/06/2026",
-    employeeCount: 248,
-    grossSalary: 2850000,
-    deductions: 450000,
-    netSalary: 2400000,
-    status: "processed",
-    createdBy: "HR Admin",
-    createdOn: "25 Jun 2026",
-  },
-];
-
-const mockPayrollEmployeeBreakdown = [
-  { employeeId: "EMP001", employeeName: "Rajesh Kumar", department: "Engineering", designation: "Senior Developer", grossSalary: 200000, deductions: 30000, netSalary: 170000 },
-  { employeeId: "EMP002", employeeName: "Priya Sharma", department: "Sales", designation: "Sales Manager", grossSalary: 150000, deductions: 25000, netSalary: 125000 },
-  { employeeId: "EMP003", employeeName: "Amit Patel", department: "HR", designation: "HR Executive", grossSalary: 100000, deductions: 15000, netSalary: 85000 },
-  { employeeId: "EMP004", employeeName: "Sneha Reddy", department: "Finance", designation: "Finance Analyst", grossSalary: 125000, deductions: 20000, netSalary: 105000 },
-];
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+const normalizeCollection = (response: any) => {
+  const payload = response?.data ?? response;
+  const candidates = [payload?.content, payload?.items, payload?.records, payload?.data?.content, payload?.data, payload];
+  const collection = candidates.find(Array.isArray);
+  return Array.isArray(collection) ? collection : [];
 };
 
 const TABS = [
@@ -76,47 +57,129 @@ const TABS = [
   { id: "history", label: "Approval History", icon: HistoryIcon },
 ];
 
-const earningRows = [
-  { name: "Basic Salary", total: 2520000, employees: 352 },
-  { name: "House Rent Allowance", total: 1260000, employees: 352 },
-  { name: "Conveyance Allowance", total: 563200, employees: 352 },
-  { name: "Special Allowance", total: 985600, employees: 248 },
-  { name: "Medical Allowance", total: 283200, employees: 227 },
-];
-
-const deductionRows = [
-  { name: "Provident Fund (Employee)", total: 302400, employees: 352, rate: "12% of Basic" },
-  { name: "Provident Fund (Employer)", total: 302400, employees: 352, rate: "12% of Basic" },
-  { name: "Professional Tax", total: 70400, employees: 352, rate: "Slab" },
-  { name: "Loan EMI", total: 245000, employees: 43, rate: "Fixed" },
-  { name: "Advance Recovery", total: 118950, employees: 27, rate: "Fixed" },
-];
-
-const approvalHistory = [
-  { step: "Payroll Generated", by: "Saravana Kumar", on: "06/05/2026 09:12 AM", status: "done" },
-  { step: "Finance Review", by: "Murugan R", on: "06/05/2026 11:30 AM", status: "done" },
-  { step: "Manager Approval", by: "Rajesh V", on: "06/05/2026 02:15 PM", status: "done" },
-  { step: "Bank Transfer Initiated", by: "System", on: "07/05/2026 08:00 AM", status: "done" },
-];
-
 export default function PayrollDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
+  const { showSpinner, hideSpinner, showSnackbar } = useUI();
   const [activeTab, setActiveTab] = useState("breakdown");
+  const [run, setRun] = useState<any | null>(null);
+  const [breakdown, setBreakdown] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState("");
 
-  const run = mockPayrollRuns.find((r) => r.id === id) ?? mockPayrollRuns[0];
-  const isProcessed = run.status === "processed" || run.status === "approved";
-  const [period, _setPeriod] = useState("May 2026");
+  useEffect(() => {
+    loadRun();
+  }, [id]);
+
+  const loadRun = async () => {
+    if (!id) return;
+    setLoading(true);
+    showSpinner();
+    try {
+      const [runResponse, itemsResponse]: any = await Promise.all([
+        payrollRunsService.getPayrollRunById(id),
+        payrollRunsService.getPayrollRunItems(id, { size: 100 }),
+      ]);
+      const runData = runResponse?.data ?? runResponse;
+      const items = normalizeCollection(itemsResponse).map((item: any) => ({
+        employeeId: item.employeeId || item.employeeCode,
+        employeeCode: item.employeeCode,
+        employeeName: item.employeeName || item.name,
+        department: item.department || "General",
+        designation: item.designation || "Employee",
+        grossSalary: item.gross || item.grossSalary || 0,
+        deductions: item.totalDeductions || item.deductions || 0,
+        netSalary: item.netPay || item.netSalary || 0,
+        basic: item.basic || 0,
+        hra: item.hra || 0,
+        conveyance: item.conveyance || 0,
+        special: item.special || 0,
+        pf: item.pf || 0,
+        professionalTax: item.professionalTax || 0,
+        tds: item.tds || 0,
+        loanAdvance: item.loanAdvance || 0,
+      }));
+      setRun(runData);
+      setBreakdown(items);
+      setPeriod(runData?.periodLabel || runData?.period || "Current period");
+    } catch (error) {
+      console.error("Failed to load payroll details", error);
+      showSnackbar("Failed to load payroll details", "error");
+    } finally {
+      hideSpinner();
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPayslip = async (employeeId: string) => {
+    // try {
+    //   const year = new Date().getFullYear();
+    //   const month = new Date().getMonth() + 1;
+    //   const res:any = await payslipsService.downloadPayslip(employeeId, year, month);
+    //   window.open(res.data.fileUrl, "_blank");
+    // } catch (error) {
+    //   showSnackbar("Failed to download payslip", "error");
+    // }
+  };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
     setActiveTab(newValue);
   };
 
+  const runId = "Payroll run";
+  const runPeriod = run?.periodLabel || run?.period || "Current period";
+  const runStart = run?.startedAt || run?.createdAt || "-";
+  // const runEnd = run?.finishedAt || run?.paymentDate || "-";
+  const runEmployeeCount = run?.totalEmployees || run?.employeeCount || breakdown.length;
+  const runGrossSalary = run?.totalGross || run?.grossSalary || 0;
+  const runDeductions = run?.totalDeductions || run?.deductions || 0;
+  const runNetSalary = run?.totalNetPay || run?.netSalary || 0;
+  const isProcessed = (run?.status || "").toLowerCase() === "completed" || 
+                      (run?.status || "").toLowerCase() === "approved";
+
+  // Calculate totals from breakdown
+  const totalBasic = breakdown.reduce((s, e) => s + (e.basic || 0), 0);
+  const totalHRA = breakdown.reduce((s, e) => s + (e.hra || 0), 0);
+  const totalConveyance = breakdown.reduce((s, e) => s + (e.conveyance || 0), 0);
+  const totalSpecial = breakdown.reduce((s, e) => s + (e.special || 0), 0);
+  const totalPF = breakdown.reduce((s, e) => s + (e.pf || 0), 0);
+  const totalPT = breakdown.reduce((s, e) => s + (e.professionalTax || 0), 0);
+  const totalTDS = breakdown.reduce((s, e) => s + (e.tds || 0), 0);
+  const totalLoan = breakdown.reduce((s, e) => s + (e.loanAdvance || 0), 0);
+
+  const earningRows = [
+    { name: "Basic Salary", total: totalBasic, employees: breakdown.length },
+    { name: "House Rent Allowance", total: totalHRA, employees: breakdown.length },
+    { name: "Conveyance Allowance", total: totalConveyance, employees: breakdown.length },
+    { name: "Special Allowance", total: totalSpecial, employees: breakdown.length },
+  ];
+
+  const deductionRows = [
+    { name: "Provident Fund", total: totalPF, employees: breakdown.length, rate: "12% of Basic" },
+    { name: "Professional Tax", total: totalPT, employees: breakdown.length, rate: "Slab" },
+    { name: "TDS", total: totalTDS, employees: breakdown.length, rate: "Slab" },
+    { name: "Loan/Advance", total: totalLoan, employees: breakdown.filter(e => e.loanAdvance > 0).length, rate: "Fixed" },
+  ];
+
+  const approvalHistory = [
+    { step: "Payroll Generated", by: run?.createdBy || "System", on: run?.createdAt ? new Date(run.createdAt).toLocaleString() : "-", status: "done" },
+    { step: "Processing", by: "System", on: run?.startedAt ? new Date(run.startedAt).toLocaleString() : "-", status: run?.status === "processing" ? "pending" : "done" },
+    { step: "Completed", by: "System", on: run?.finishedAt ? new Date(run.finishedAt).toLocaleString() : "-", status: isProcessed ? "done" : "pending" },
+  ];
+
+  // if (loading) {
+  //   return (
+  //     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+  //       <CircularProgress />
+  //     </Box>
+  //   );
+  // }
+
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+    <div className="bg-white-50">
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 3, flexWrap: "wrap", gap: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2, flexWrap: "wrap", gap: 2 }}>
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
           <IconButton
             onClick={() => navigate("/payroll/runs")}
@@ -126,16 +189,16 @@ export default function PayrollDetails() {
               "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
             }}
           >
-            <ArrowLeftIcon fontSize="small" />
+            <ArrowLeftIcon fontSize="small" className="text-gray-800"/>
           </IconButton>
           <Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
               <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                {run.id}
+                {runId}
               </Typography>
               <Chip
-                icon={<CheckCircleIcon fontSize="small" />}
-                label={run.status.charAt(0).toUpperCase() + run.status.slice(1)}
+                icon={<CheckCircleIcon fontSize="small" color={isProcessed ? 'success' : 'warning' }/>}
+                label={(run?.status || "Pending").charAt(0).toUpperCase() + (run?.status || "Pending").slice(1)}
                 sx={{
                   bgcolor: isProcessed ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.warning.main, 0.1),
                   color: isProcessed ? theme.palette.success.main : theme.palette.warning.main,
@@ -143,8 +206,8 @@ export default function PayrollDetails() {
                 }}
               />
             </Box>
-            <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-              Payroll Period: {run.period} &nbsp;|&nbsp; {run.startDate} – {run.endDate} &nbsp;|&nbsp; Created by {run.createdBy}
+            <Typography variant="body2" className="text-gray-500 mt-2">
+              Payroll Period: {runPeriod} &nbsp;|&nbsp; Started: {runStart} &nbsp;|&nbsp; Created by {run?.createdBy || "System"}
             </Typography>
           </Box>
         </Box>
@@ -153,29 +216,33 @@ export default function PayrollDetails() {
             variant="outlined"
             startIcon={<DownloadIcon fontSize="small" />}
             sx={{ textTransform: "none" }}
+            className="!text-primary !border-primary"
           >
             Download Report
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<CheckCircleIcon fontSize="small" />}
-            sx={{ textTransform: "none" }}
-          >
-            Approve Payroll
-          </Button>
+          {!isProcessed && (
+            <Button
+              variant="contained"
+              startIcon={<CheckCircleIcon fontSize="small" />}
+              sx={{ textTransform: "none" }}
+              className="!bg-primary"
+            >
+              Approve Payroll
+            </Button>
+          )}
         </Box>
       </Box>
 
       {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={3} sx={{ mb: 1 }}>
         {[
-          { label: "Employees Processed", value: run.employeeCount.toLocaleString(), icon: UsersIcon, color: theme.palette.primary.main },
-          { label: "Gross Salary", value: formatCurrency(run.grossSalary), icon: TrendingUpIcon, color: theme.palette.success.main },
-          { label: "Total Deductions", value: formatCurrency(run.deductions), icon: TrendingDownIcon, color: theme.palette.error.main },
-          { label: "Net Payable", value: formatCurrency(run.netSalary), icon: CheckCircleIcon, color: theme.palette.primary.main },
+          { label: "Employees Processed", value: runEmployeeCount.toLocaleString(), icon: UsersIcon, color: theme.palette.primary.main },
+          { label: "Gross Salary", value: formatCurrency(runGrossSalary), icon: TrendingUpIcon, color: theme.palette.success.main },
+          { label: "Total Deductions", value: formatCurrency(runDeductions), icon: TrendingDownIcon, color: theme.palette.error.main },
+          { label: "Net Payable", value: formatCurrency(runNetSalary), icon: CheckCircleIcon, color: theme.palette.primary.main },
         ].map((s) => (
-          <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={s.label}>
-            <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={s.label}>
+            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2.5, display: "flex", alignItems: "center", gap: 2 }}>
                 <Box
                   sx={{
@@ -192,10 +259,10 @@ export default function PayrollDetails() {
                   <s.icon fontSize="small" />
                 </Box>
                 <Box>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  <Typography variant="caption" className="text-gray-800">
                     {s.label}
                   </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }} className="text-gray-500">
                     {s.value}
                   </Typography>
                 </Box>
@@ -206,19 +273,26 @@ export default function PayrollDetails() {
       </Grid>
 
       {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs
           value={activeTab}
           onChange={handleTabChange}
           variant="scrollable"
           scrollButtons="auto"
+          className="border-b border-gray-200"
           sx={{
             "& .MuiTab-root": {
               textTransform: "none",
               minHeight: 48,
               px: 2,
             },
+            "& .MuiTabs-indicator": {
+              backgroundColor: "var(--color-primary)",
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+            },
           }}
+        
         >
           {TABS.map((tab) => (
             <Tab
@@ -227,20 +301,10 @@ export default function PayrollDetails() {
               label={tab.label}
               icon={<tab.icon fontSize="small" />}
               iconPosition="start"
+              className="!text-gray-800"
             />
           ))}
-        </Tabs>
-      </Box>
-
-      {/* Tab Content */}
-      {activeTab === "breakdown" && (
-        <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-          <CardContent sx={{ p: 0 }}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 2, pb: 0 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Employee Salary Breakdown
-              </Typography>
-              <Button
+           <Button
                 variant="outlined"
                 size="small"
                 startIcon={<DownloadIcon fontSize="small" />}
@@ -248,108 +312,105 @@ export default function PayrollDetails() {
               >
                 Export All
               </Button>
-            </Box>
-            <TableContainer>
-              <Table>
+        </Tabs>
+      </Box>
+
+      {/* Tab Content */}
+      {activeTab === "breakdown" && (
+       
+            <TableContainer className="border border-gray-200 rounded-sm h-[calc(100vh-320px)]">
+              <Table stickyHeader>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Employee ID
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Name
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Department
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Designation
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Gross
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Deductions
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Net
-                    </TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Payslip
-                    </TableCell>
+                  <TableRow>
+                    <TableCell className="!font-bold">S No</TableCell>
+                    <TableCell className="!font-bold">Employee ID</TableCell>
+                    <TableCell className="!font-bold">Name</TableCell>
+                    <TableCell className="!font-bold">Department</TableCell>
+                    <TableCell className="!font-bold">Designation</TableCell>
+                    <TableCell className="!font-bold" align="right">Gross</TableCell>
+                    <TableCell className="!font-bold" align="right">Deductions</TableCell>
+                    <TableCell className="!font-bold" align="right">Net</TableCell>
+                    <TableCell className="!font-bold" align="center">Payslip</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {mockPayrollEmployeeBreakdown.map((emp) => (
-                    <TableRow key={emp.employeeId} hover>
-                      <TableCell>
-                        <Typography variant="caption" sx={{ fontFamily: "monospace", color: "primary.main" }}>
-                          {emp.employeeId}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                          <Avatar
-                            sx={{
-                              width: 28,
-                              height: 28,
-                              bgcolor: alpha(theme.palette.primary.main, 0.1),
-                              color: "primary.main",
-                              fontSize: "0.65rem",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {emp.employeeName.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                          </Avatar>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {emp.employeeName}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                          {emp.department}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                          {emp.designation}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {formatCurrency(emp.grossSalary)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" sx={{ color: "error.main" }}>
-                          {formatCurrency(emp.deductions)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
-                          {formatCurrency(emp.netSalary)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Button
-                          variant="text"
-                          size="small"
-                          startIcon={<FileTextIcon fontSize="small" />}
-                        //   onClick={() => navigate(`payroll/payslips/${emp.employeeId}/May 2026`)}
-                          onClick={() => navigate(`/payroll/payslips/${emp.employeeId}/${encodeURIComponent(period)}`) }
-                          sx={{ textTransform: "none", fontSize: "0.7rem" }}
-                        >
-                          View
-                        </Button>
+                  {breakdown.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center">
+                        <div className="text-gray-500 py-6">No employees found</div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    breakdown.map((emp,i) => (
+                      <TableRow key={emp.employeeId} sx={getRowColor(i)}>
+                        <TableCell>{i+1}</TableCell>
+                        <TableCell>
+                          {/* <Typography variant="caption"> */}
+                            {emp.employeeCode}
+                          {/* </Typography> */}
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                            {/* <Avatar
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                color: "primary.main",
+                                fontSize: "0.65rem",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {emp.employeeName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                            </Avatar> */}
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {emp.employeeName}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {emp.department}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {emp.designation}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {formatCurrency(emp.grossSalary)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ color: "error.main" }}>
+                            {formatCurrency(emp.deductions)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
+                            {formatCurrency(emp.netSalary)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Button
+                            variant="text"
+                            size="small"
+                            startIcon={<FileTextIcon fontSize="small" />}
+                            onClick={() => navigate(`/payroll/payslips/${emp.employeeId}/${encodeURIComponent(period)}`)}
+                            sx={{ textTransform: "none", fontSize: "0.7rem" }}
+                          >
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-          </CardContent>
-        </Card>
+
       )}
 
       {activeTab === "earnings" && (
@@ -364,18 +425,10 @@ export default function PayrollDetails() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Component
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Employees
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Total Amount
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Avg per Employee
-                    </TableCell>
+                    <TableCell>Component</TableCell>
+                    <TableCell align="right">Employees</TableCell>
+                    <TableCell align="right">Total Amount</TableCell>
+                    <TableCell align="right">Avg per Employee</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -396,7 +449,7 @@ export default function PayrollDetails() {
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                          {formatCurrency(Math.round(r.total / r.employees))}
+                          {r.employees > 0 ? formatCurrency(Math.round(r.total / r.employees)) : "-"}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -409,7 +462,7 @@ export default function PayrollDetails() {
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        352
+                        {breakdown.length}
                       </Typography>
                     </TableCell>
                     <TableCell align="right">
@@ -419,7 +472,7 @@ export default function PayrollDetails() {
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        {formatCurrency(Math.round(earningRows.reduce((s, r) => s + r.total, 0) / 352))}
+                        {breakdown.length > 0 ? formatCurrency(Math.round(earningRows.reduce((s, r) => s + r.total, 0) / breakdown.length)) : "-"}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -442,18 +495,10 @@ export default function PayrollDetails() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Component
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Rate / Rule
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Employees
-                    </TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-                      Total Amount
-                    </TableCell>
+                    <TableCell>Component</TableCell>
+                    <TableCell>Rate / Rule</TableCell>
+                    <TableCell align="right">Employees</TableCell>
+                    <TableCell align="right">Total Amount</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -503,9 +548,9 @@ export default function PayrollDetails() {
           <CardContent sx={{ p: 3 }}>
             <Grid container spacing={3} sx={{ mb: 3 }}>
               {[
-                { label: "Income Tax (TDS)", value: formatCurrency(85000) },
-                { label: "Professional Tax", value: formatCurrency(70400) },
-                { label: "PF (Employer Share)", value: formatCurrency(302400) },
+                { label: "Income Tax (TDS)", value: formatCurrency(totalTDS) },
+                { label: "Professional Tax", value: formatCurrency(totalPT) },
+                { label: "PF (Employee Share)", value: formatCurrency(totalPF) },
               ].map((t) => (
                 <Grid size={{ xs: 12, sm: 4 }} key={t.label}>
                   <Paper
@@ -527,7 +572,7 @@ export default function PayrollDetails() {
               ))}
             </Grid>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Detailed tax computation per employee is available in the Employee Breakdown tab. 
+              Detailed tax computation per employee is available in the Employee Breakdown tab.
               Tax summary is based on declared investments as of the payroll date.
             </Typography>
           </CardContent>
@@ -544,13 +589,13 @@ export default function PayrollDetails() {
                 </Typography>
                 <Stack spacing={1.5}>
                   {[
-                    { label: "Period", value: run.period },
-                    { label: "Total Employees", value: run.employeeCount.toString() },
-                    { label: "Gross Payable", value: formatCurrency(run.grossSalary) },
-                    { label: "Total Deductions", value: formatCurrency(run.deductions) },
-                    { label: "Net Payable", value: formatCurrency(run.netSalary) },
-                    { label: "Payment Date", value: run.endDate },
-                    { label: "Status", value: run.status.toUpperCase() },
+                    { label: "Period", value: runPeriod },
+                    { label: "Total Employees", value: runEmployeeCount.toString() },
+                    { label: "Gross Payable", value: formatCurrency(runGrossSalary) },
+                    { label: "Total Deductions", value: formatCurrency(runDeductions) },
+                    { label: "Net Payable", value: formatCurrency(runNetSalary) },
+                    { label: "Payment Date", value: run?.paymentDate || "-" },
+                    { label: "Status", value: (run?.status || "PENDING").toUpperCase() },
                   ].map((r) => (
                     <Box
                       key={r.label}
@@ -582,38 +627,48 @@ export default function PayrollDetails() {
                   Department Distribution
                 </Typography>
                 <Stack spacing={1.5}>
-                  {[
-                    { dept: "Production", count: 142, net: 1520000 },
-                    { dept: "Maintenance", count: 89, net: 830000 },
-                    { dept: "QA / QC", count: 68, net: 620000 },
-                    { dept: "HR & Admin", count: 24, net: 380000 },
-                    { dept: "Sales & Mktg", count: 21, net: 290000 },
-                    { dept: "Others", count: 8, net: 175000 },
-                  ].map((d) => (
-                    <Box
-                      key={d.dept}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        py: 1,
-                        borderBottom: `1px solid ${theme.palette.divider}`,
-                        "&:last-child": { borderBottom: "none" },
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {d.dept}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          ({d.count} emp)
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
-                        {formatCurrency(d.net)}
+                  {(() => {
+                    const deptMap = breakdown.reduce((acc: any, emp) => {
+                      acc[emp.department] = (acc[emp.department] || 0) + emp.netSalary;
+                      return acc;
+                    }, {});
+                    const deptData = Object.entries(deptMap).map(([dept, total]) => ({
+                      dept,
+                      count: breakdown.filter(e => e.department === dept).length,
+                      net: total as number,
+                    }));
+                    return deptData.length > 0 ? (
+                      deptData.map((d) => (
+                        <Box
+                          key={d.dept}
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            py: 1,
+                            borderBottom: `1px solid ${theme.palette.divider}`,
+                            "&:last-child": { borderBottom: "none" },
+                          }}
+                        >
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {d.dept}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                              ({d.count} emp)
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
+                            {formatCurrency(d.net)}
+                          </Typography>
+                        </Box>
+                      ))
+                    ) : (
+                      <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center" }}>
+                        No department data available
                       </Typography>
-                    </Box>
-                  ))}
+                    );
+                  })()}
                 </Stack>
               </CardContent>
             </Card>
@@ -633,17 +688,17 @@ export default function PayrollDetails() {
                         width: 32,
                         height: 32,
                         borderRadius: "50%",
-                        bgcolor: alpha(theme.palette.success.main, 0.1),
-                        border: `2px solid ${theme.palette.success.main}`,
+                        bgcolor: h.status === "done" ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.warning.main, 0.1),
+                        border: `2px solid ${h.status === "done" ? theme.palette.success.main : theme.palette.warning.main}`,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <CheckCircleIcon sx={{ fontSize: 16, color: "success.main" }} />
+                      <CheckCircleIcon sx={{ fontSize: 16, color: h.status === "done" ? "success.main" : "warning.main" }} />
                     </Box>
                     {i < approvalHistory.length - 1 && (
-                      <Box sx={{ width: 2, height: 40, bgcolor: alpha(theme.palette.success.main, 0.3) }} />
+                      <Box sx={{ width: 2, height: 40, bgcolor: h.status === "done" ? alpha(theme.palette.success.main, 0.3) : alpha(theme.palette.warning.main, 0.3) }} />
                     )}
                   </Box>
                   <Box sx={{ pb: 3 }}>
@@ -660,6 +715,6 @@ export default function PayrollDetails() {
           </CardContent>
         </Card>
       )}
-    </Box>
+    </div>
   );
 }

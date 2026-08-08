@@ -49,6 +49,7 @@ import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions
 import { useAuth } from "../../auth/authContext.ts";
 import { masterSx } from "./const.ts";
 import DataState from "../../components/DataState.tsx";
+import { dialogsx } from "../../const.ts";
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -933,13 +934,6 @@ export default function EmployeeManagement() {
     setActionMenuEmployee(null);
   };
 
-  const dialogSx = {
-    "& .MuiDialog-paper": {
-      width: "600px",
-      maxWidth: "600px",
-    },
-  };
-
   return (
     <div className="">
       <div className="flex justify-between items-center mb-4">
@@ -1426,7 +1420,7 @@ export default function EmployeeManagement() {
         open={employeeDialogOpen}
         onClose={() => setEmployeeDialogOpen(false)}
         maxWidth="md"
-        sx={dialogSx}
+        sx={dialogsx}
       >
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
           <div className="text-gray-800 ml-4 text-[12px]">

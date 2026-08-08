@@ -31,6 +31,7 @@ import dayjs from "dayjs";
 import type { OvertimeCalculateParams } from "../../../services/modules/attendanceTypes";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { useState } from "react";
+import { dialogsx } from "../../../const";
 
 interface OvertimeCalculatorDialogProps {
   open: boolean;
@@ -80,15 +81,8 @@ export function OvertimeCalculatorDialog({
     });
   };
 
-  const dialogSx = {
-    "& .MuiDialog-paper": {
-      width: "600px",
-      maxWidth: "600px",
-    },
-  };
-
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth sx={dialogSx}>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth sx={dialogsx}>
       <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
         <span className="!pl-4 flex items-center gap-2">
           <CalculateOutlined className="text-primary" />
