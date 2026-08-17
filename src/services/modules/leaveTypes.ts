@@ -82,6 +82,7 @@ export type LeaveRequest = {
   hrVerified: boolean;
   hrVerifiedBy: string;
   hrVerifiedAt: string;
+  approvedByName: string;
 };
 
 export type LeaveBalance = {
@@ -160,6 +161,7 @@ export type LeaveCalculationResult = {
   payrollTreatment: string;
   policyApplied: Record<string, unknown>;
   dayBreakdown: any[];
+  paidDays: number;
 };
 
 export type Holiday = {
@@ -187,12 +189,13 @@ export type HolidayCalendar = {
   year: number;
   locations: string[];
   holidays: Holiday[];
-  branchId?: string;
+  branchIds?: string[];
   branchName?: string;
   active?: boolean;
   createdAt?: string;
   updatedAt?: string;
   holidaysCount?: number;
+  branchId?: string;
 };
 
 export type Holidays = {

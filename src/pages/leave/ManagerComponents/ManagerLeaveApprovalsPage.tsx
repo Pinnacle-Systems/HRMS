@@ -63,12 +63,10 @@ import {
   GroupOutlined,
   MoreVertOutlined,
   Person2Outlined,
-  WorkOutlineOutlined,
 } from "@mui/icons-material";
 import { CalendarIcon, ClockIcon } from "@mui/x-date-pickers";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { formatDateTime } from "../../../utils/dateFormatter";
-import { normalizeLeaveAuditEntries } from "../../../utils/leaveAudit";
 
 type ActionKind = "approve" | "reject" | "clarify" | "hrVerify";
 type ActionDialogState = {
@@ -96,7 +94,7 @@ export default function ManagerLeaveApprovalsPage() {
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(
     null,
   );
-  const [detailBalance, setDetailBalance] = useState<LeaveBalance | null>(null);
+  // const [detailBalance, setDetailBalance] = useState<LeaveBalance | null>(null);
   const [detailCalculation, setDetailCalculation] =
     useState<LeaveCalculationResult | null>(null);
   const [teamOverlap, setTeamOverlap] = useState<LeaveRequest[]>([]);
@@ -104,30 +102,13 @@ export default function ManagerLeaveApprovalsPage() {
   const [actionComments, setActionComments] = useState("");
   const [actionError, setActionError] = useState("");
   const currentManagerEmployeeId = resolveEmployeeIdFromSession(session);
-  // const [departments, setDepartments] = useState<Department[]>([]);
   const [actionAnchorEl, setActionAnchorEl] = useState<HTMLElement | null>(
     null,
   );
   const [actionRequest, setActionRequest] = useState<LeaveRequest | null>(null);
   const isAdmin = session?.user.roles.includes("ADMIN");
   const [manager, setManager] = useState<any>(null);
-
   const [auditEntries, setAuditEntries] = useState<any[]>([]);
-
-  // const getDepartments = async () => {
-  //   try {
-  //     const response: any = await departmentService.getActiveDepartments();
-  //     setDepartments(response.data.content || response.data || []);
-  //   } catch (error: any) {
-  //     console.error("Failed to load departments:", error.message);
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   if (isAdmin) {
-  //     getDepartments();
-  //   }
-  // }, []);
 
   const loadRequests = async () => {
     setLoading(true);
@@ -139,7 +120,6 @@ export default function ManagerLeaveApprovalsPage() {
           size: limit,
           sort: "createdAt,DESC",
           status: status || "PENDING",
-          // departmentId: department || undefined,
           leaveTypeId: leaveTypeId || undefined,
           fromDate: fromDate?.format("YYYY-MM-DD"),
           toDate: toDate?.format("YYYY-MM-DD"),
@@ -168,7 +148,6 @@ export default function ManagerLeaveApprovalsPage() {
             size: 100,
             sort: "createdAt,DESC",
           },
-          // currentManagerEmployeeId,
         ),
       ]);
       setLeaveTypes(typeResponse.data ?? []);
@@ -216,26 +195,37 @@ export default function ManagerLeaveApprovalsPage() {
     setTeamOverlap(getTeamOverlap(request, allManagerRequests));
 
     try {
-      const [balanceResponse, calculationResponse, auditResponse]: any = await Promise.all([
-        leaveService.getEmployeeLeaveBalances(request.employeeId),
-        leaveService.calculateLeaveDays({
-          employeeId: request.employeeId,
-          leaveTypeId: request.leaveTypeId,
-          fromDate: request.fromDate,
-          toDate: request.toDate,
-          // dayType: request.dayType,
-        }),
-        // session?.user.roles == "ADMIN" ?  leaveService.getLeaveAudit(request.id),
-      ]);
-      setDetailBalance(
-        balanceResponse.data?.content.find(
-          (balance: any) => balance.leaveTypeId === request.leaveTypeId,
-        ) ?? null,
-      );
-      setAuditEntries(normalizeLeaveAuditEntries(auditResponse));
+      // Fetch calculation data
+      const calculationResponse: any = await leaveService.calculateLeaveDays({
+        employeeId: request.employeeId,
+        leaveTypeId: request.leaveTypeId,
+        fromDate: request.fromDate,
+        toDate: request.toDate,
+      });
+
+
+      // Set calculation result
       setDetailCalculation(calculationResponse.data ?? null);
-    } catch {
-      setDetailBalance(null);
+
+      // Optionally fetch balance data if you have the API
+      // try {
+      //   const balanceResponse: any = await leaveService.getEmployeeLeaveBalances(
+      //     request.employeeId
+      //   );
+      //   if (balanceResponse.data?.content) {
+      //     const balance = balanceResponse.data.content.find(
+      //       (b: any) => b.leaveTypeId === request.leaveTypeId,
+      //     );
+      //     setDetailBalance(balance ?? null);
+      //   }
+      // } catch (balanceError) {
+      //   console.error("Failed to load balance:", balanceError);
+      //   setDetailBalance(null);
+      // }
+
+    } catch (error) {
+      console.error("Failed to load details:", error);
+      // setDetailBalance(null);
       setDetailCalculation(null);
       setAuditEntries([]);
     }
@@ -261,7 +251,7 @@ export default function ManagerLeaveApprovalsPage() {
 
   const submitAction = async () => {
     if (!actionDialog) return;
-    
+
     const comments = actionComments.trim();
     if (
       actionDialog.kind !== "approve" &&
@@ -282,15 +272,7 @@ export default function ManagerLeaveApprovalsPage() {
         comments: comments || "Send by manager",
         lopLeaveTypeId: actionDialog.request.leaveTypeId,
       };
-      // const response =
-      //   actionDialog.kind === "approve"
-      //     ? await leaveService.approveLeave(actionDialog.request.id, payload)
-      //     : actionDialog.kind === "reject"
-      //       ? await leaveService.rejectLeave(actionDialog.request.id, payload)
-      //       : await leaveService.requestLeaveClarification(
-      //           actionDialog.request.id,
-      //           payload,
-      //         );
+
       let response: any;
       if (actionDialog.kind === "approve") {
         response = await leaveService.approveLeave(
@@ -373,6 +355,14 @@ export default function ManagerLeaveApprovalsPage() {
     setPage(1);
   };
 
+  // Helper function to safely display balance after
+  const displayBalanceAfter = (value: number | undefined | null) => {
+    if (value === undefined || value === null) {
+      return "N/A";
+    }
+    return value;
+  };
+
   return (
     <LeavePageShell
       group="manager"
@@ -416,30 +406,6 @@ export default function ManagerLeaveApprovalsPage() {
                   </MenuItem>
                 ))}
               </TextField>
-              {/* <TextField
-                select
-                label="Department"
-                value={department}
-                slotProps={{
-                  inputLabel: { shrink: true },
-                  select: {
-                    displayEmpty: true,
-                    renderValue: (value: unknown) =>
-                      value ? String(value) : "All Departments",
-                  },
-                }}
-                onChange={(event) => {
-                  setDepartment(event.target.value);
-                  setPage(1);
-                }}
-              >
-                <MenuItem value="">All Departments</MenuItem>
-                {departments.map((item) => (
-                  <MenuItem key={item.id} value={item.id}>
-                    {item.departmentName}
-                  </MenuItem>
-                ))}
-              </TextField> */}
             </>
           )}
           <TextField
@@ -534,9 +500,7 @@ export default function ManagerLeaveApprovalsPage() {
                   <TableCell>{i + 1}</TableCell>
                   <TableCell>
                     <div className="font-medium">{request.employeeName}</div>
-                    <div
-                      className="text-[10px] text-blue-500"
-                    >
+                    <div className="text-[10px] text-blue-500">
                       {request.departmentName}
                     </div>
                   </TableCell>
@@ -576,17 +540,6 @@ export default function ManagerLeaveApprovalsPage() {
                   </TableCell>
                 </TableRow>
               ))}
-            {/* {loading && (
-              <TableRow>
-                <TableCell colSpan={9}>
-                  <DataState
-                    compact
-                    type="loading"
-                    title="Loading approval inbox..."
-                  />
-                </TableCell>
-              </TableRow>
-            )} */}
             {!loading && requests.length === 0 && (
               <TableRow>
                 <TableCell colSpan={10}>
@@ -614,7 +567,6 @@ export default function ManagerLeaveApprovalsPage() {
         />
       )}
 
-      {/* Enhanced Menu */}
       <Menu
         anchorEl={actionAnchorEl}
         open={Boolean(actionAnchorEl)}
@@ -623,7 +575,6 @@ export default function ManagerLeaveApprovalsPage() {
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        {/* <MenuItem className="text-gray-400"> */}
         <ApprovalActionBar
           variant="menu"
           size="small"
@@ -631,156 +582,7 @@ export default function ManagerLeaveApprovalsPage() {
           onReject={() => openActionDialog("reject", actionRequest)}
           onClarify={() => openActionDialog("clarify", actionRequest)}
         />
-        {/* </MenuItem> */}
       </Menu>
-
-      {/* <DetailsDialog
-        open={Boolean(selectedRequest)}
-        title="Leave Approval Details"
-        onClose={() => setSelectedRequest(null)}
-        maxWidth="lg"
-        actions={
-          <ApprovalActionBar
-            onClarify={
-              selectedPending && selectedRequest
-                ? () => openActionDialog("clarify", selectedRequest)
-                : undefined
-            }
-            onReject={
-              selectedPending && selectedRequest
-                ? () => openActionDialog("reject", selectedRequest)
-                : undefined
-            }
-            onApprove={
-              selectedPending && selectedRequest
-                ? () => openActionDialog("approve", selectedRequest)
-                : undefined
-            }
-            onClose={() => setSelectedRequest(null)}
-          />
-        }
-      >
-        {selectedRequest && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[12px]">
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Employee Summary</div>
-              <div className="space-y-2">
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Employee</span>
-                  <span className="text-gray-800 font-medium">
-                    {selectedRequest.employeeName}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Code</span>
-                  <span className="text-gray-800">{selectedRequest.employeeCode}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Department</span>
-                  <span className="text-gray-800">{selectedRequest.department}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Location</span>
-                  <span className="text-gray-800">{selectedRequest.location}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Leave Request Details</div>
-              <div className="space-y-2">
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Leave Type</span>
-                  <span className="text-gray-800">{selectedRequest.leaveTypeName}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Dates</span>
-                  <span className="text-gray-800">
-                    {formatDate(selectedRequest.fromDate)} - {formatDate(selectedRequest.toDate)}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Days</span>
-                  <span className="text-gray-800">{selectedRequest.days}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Status</span>
-                  <LeaveStatusBadge status={selectedRequest.status} />
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Available Leave Balance</div>
-              <div className="space-y-2">
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Available</span>
-                  <span className="text-gray-800">{detailBalance?.balance ?? "N/A"}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Pending</span>
-                  <span className="text-gray-800">{detailBalance?.pending ?? "N/A"}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-gray-500">Potential LOP</span>
-                  <span className="text-gray-800">{detailCalculation?.lopDays ?? 0}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Team Overlap</div>
-              {teamOverlap.length > 0 ? (
-                <div className="space-y-2 text-gray-800">
-                  {teamOverlap.map((item) => (
-                    <div key={item.id}>
-                      {item.employeeName} - {item.leaveTypeCode} ({formatDate(item.fromDate)} to {formatDate(item.toDate)})
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-gray-500">No overlapping team leave found.</div>
-              )}
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Reason</div>
-              <div className="text-gray-800">{selectedRequest.reason}</div>
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Attachments</div>
-              <div className="text-gray-500">No attachments uploaded.</div>
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Approval Timeline</div>
-              <div className="space-y-2 text-gray-800">
-                <div>Submitted on {formatDate(selectedRequest.appliedOn)}</div>
-                <div>Pending with {selectedRequest.managerName}</div>
-                {selectedRequest.approverRemarks && (
-                  <div>Remarks: {selectedRequest.approverRemarks}</div>
-                )}
-              </div>
-            </div>
-
-            <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
-              <div className="font-semibold text-primary mb-3">Policy Warnings</div>
-              <div className="space-y-2 text-gray-800">
-                {(detailCalculation?.lopDays ?? 0) > 0 && (
-                  <div>Insufficient balance may convert to LOP.</div>
-                )}
-                {teamOverlap.length > 0 && (
-                  <div>Team coverage risk due to overlapping leave.</div>
-                )}
-                {(detailCalculation?.lopDays ?? 0) === 0 && teamOverlap.length === 0 && (
-                  <div>No policy warnings for this mock request.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </DetailsDialog> */}
 
       <DetailsDialog
         open={Boolean(selectedRequest)}
@@ -874,31 +676,34 @@ export default function ManagerLeaveApprovalsPage() {
                 <div className="text-[12px] text-green-600">
                   Available Balance
                 </div>
-                <div
-                  className={`text-lg font-bold mt-0.5 ${(detailBalance?.closingBalance || 0) <
-                      (detailCalculation?.calculatedDays || 0)
-                      ? "text-red-600"
-                      : "text-green-700"
-                    }`}
+                <div className="text-lg font-bold mt-0.5 text-green-500"
+                // className={`text-lg font-bold mt-0.5 
+                //   ${(detailBalance?.closingBalance || 0) <
+                //   (detailCalculation?.currentBalance || 0)
+                //     ? "text-red-600"
+                //     : "text-green-700"}
+                // `}
                 >
-                  {detailBalance?.closingBalance || 0}
+                  {detailCalculation?.currentBalance ?? 0}
                 </div>
               </div>
               <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
                 <div className="text-[12px] text-purple-600">Balance After</div>
                 <div
-                  className={`text-lg font-bold mt-0.5 ${(detailCalculation?.balanceAfter || 0) < 0
+                  className={`text-lg font-bold mt-0.5 ${(detailCalculation?.balanceAfter ?? 0) <= 0
                       ? "text-red-600"
-                      : "text-purple-700"
+                      : (detailCalculation?.balanceAfter ?? 0) > 0
+                        ? "text-purple-700"
+                        : "text-gray-600"
                     }`}
                 >
-                  {detailCalculation?.balanceAfter ?? "N/A"}
+                  {displayBalanceAfter(detailCalculation?.balanceAfter)}
                 </div>
               </div>
               <div className="bg-amber-50 rounded-lg p-3 border border-amber-100">
                 <div className="text-[12px] text-amber-600">Potential LOP</div>
                 <div
-                  className={`text-lg font-bold mt-0.5 ${(detailCalculation?.potentialLop || 0) > 0
+                  className={`text-lg font-bold mt-0.5 ${(detailCalculation?.potentialLop || 0) >= 0
                       ? "text-amber-700"
                       : "text-green-700"
                     }`}
@@ -998,7 +803,7 @@ export default function ManagerLeaveApprovalsPage() {
               </div>
 
               {/* Leave Balance */}
-              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+              {/* <div className="border border-gray-200 rounded-lg p-4 bg-white">
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
                   <WorkOutlineOutlined className="w-4 h-4 text-primary" />
                   <h3 className="text-[12px] font-semibold text-gray-800">
@@ -1034,11 +839,12 @@ export default function ManagerLeaveApprovalsPage() {
                         Available Balance
                       </span>
                       <span
-                        className={`text-sm font-bold ${detailBalance.closingBalance <
-                            (detailCalculation?.calculatedDays || 0)
+                        className={`text-sm font-bold ${
+                          detailBalance.closingBalance <
+                          (detailCalculation?.calculatedDays || 0)
                             ? "text-red-600"
                             : "text-green-600"
-                          }`}
+                        }`}
                       >
                         {detailBalance.closingBalance}
                       </span>
@@ -1049,7 +855,7 @@ export default function ManagerLeaveApprovalsPage() {
                     No balance information available
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {/* Leave Impact */}
               <div className="border border-gray-200 rounded-lg p-4 bg-white">
@@ -1073,25 +879,45 @@ export default function ManagerLeaveApprovalsPage() {
                       Balance After Leave
                     </span>
                     <span
-                      className={`text-[11px] font-medium ${(detailCalculation?.balanceAfter || 0) < 0
+                      className={`text-[11px] font-medium ${(detailCalculation?.balanceAfter ?? 0) <= 0
                           ? "text-red-600"
-                          : "text-green-600"
+                          : (detailCalculation?.balanceAfter ?? 0) > 0
+                            ? "text-blue-400"
+                            : "text-gray-600"
                         }`}
                     >
-                      {detailCalculation?.balanceAfter ?? "N/A"}
+                      {displayBalanceAfter(detailCalculation?.balanceAfter)}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center py-1">
+                  {/* <div className="flex justify-between items-center py-1">
                     <span className="text-[11px] text-gray-500">
                       Potential LOP
                     </span>
                     <span
-                      className={`text-[11px] font-medium ${(detailCalculation?.potentialLop || 0) > 0
+                      className={`text-[11px] font-medium ${(detailCalculation?.potentialLop || 0) >= 0
                           ? "text-amber-600"
                           : "text-green-600"
                         }`}
                     >
                       {detailCalculation?.potentialLop || 0}
+                    </span>
+                  </div> */}
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-[11px] text-gray-500">
+                      LOP Days
+                    </span>
+                    <span
+                      className="text-[11px] font-medium text-red-500"
+                    >
+                      {detailCalculation?.lopDays || 0}
+                    </span>
+                  </div>
+                   <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
+                    <span className="text-[11px] text-gray-500">Paid Days</span>
+                    <span
+                      className="text-[11px] font-medium text-green-500"
+                    >
+                      {detailCalculation?.paidDays || 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-1 border-t border-gray-200 pt-2">
@@ -1160,14 +986,12 @@ export default function ManagerLeaveApprovalsPage() {
                             ? "Holidays excluded"
                             : "Holidays included"}
                         </span>
-                        {detailCalculation.policyApplied?.sandwichRule ==
-                          true ? (
-                          <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
-                            Sandwich rule applied
-                          </span>
-                        ) : (
-                          ""
-                        )}
+                        {detailCalculation.policyApplied?.sandwichRule ===
+                          true && (
+                            <span className="bg-white px-2 py-0.5 rounded border border-gray-200">
+                              Sandwich rule applied
+                            </span>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -1250,14 +1074,17 @@ export default function ManagerLeaveApprovalsPage() {
                         <div
                           className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${approval.actionTaken === "APPROVED"
                               ? "bg-green-500 ring-2 ring-green-300"
-                              : approval.actionTaken === "SUBMITTED"
+                              : approval.actionTaken === "SUBMITTED" ||
+                                approval.actionTaken === "RESUBMITTED"
                                 ? "bg-blue-500 ring-2 ring-blue-300"
                                 : approval.actionTaken === "REJECTED"
                                   ? "bg-red-500 ring-2 ring-red-300"
                                   : approval.actionTaken === "HR_VERIFIED"
                                     ? "bg-green-500 ring-2 ring-green-300"
-                                    :  approval.actionTaken === "SENT_TO_HR_VERIFICATION" ? "bg-yellow-500 ring-2 ring-yellow-300" 
-                                    : "bg-gray-500 ring-2 ring-gray-300"
+                                    : approval.actionTaken === "SENT_TO_HR_VERIFICATION" ||
+                                      approval.actionTaken === "CLARIFICATION_REQUESTED"
+                                      ? "bg-yellow-500 ring-2 ring-yellow-300"
+                                      : "bg-gray-500 ring-2 ring-gray-300"
                             }`}
                         />
                         <div>
@@ -1270,28 +1097,9 @@ export default function ManagerLeaveApprovalsPage() {
                               : "N/A"}{" "}
                             - {formatDateTime(approval.actionAt)}
                           </div>
-                          {/* {approval.actionComments && (
-                            <div className="text-[11px] text-gray-800 bg-gray-50 p-2 rounded mt-0.5">
-                              {approval.actionComments}
-                            </div>
-                          )} */}
-                          {/* {approval.remarks && (
-                            <div className="text-[11px] text-gray-800 bg-gray-50 p-2 rounded mt-0.5">
-                              {approval.remarks}
-                            </div>
-                          )} */}
                         </div>
                       </div>
                     ))}
-                  {/* <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 ring-2 ring-amber-200 flex-shrink-0"></div>
-                    <div>
-                      <div className="text-[10px] text-gray-500 uppercase tracking-wider">Pending With</div>
-                      <div className="text-[11px] text-gray-800 font-medium">
-                        {selectedRequest.managerName}
-                      </div>
-                    </div>
-                  </div> */}
                   {selectedRequest.approverRemarks && (
                     <div className="flex items-start gap-3">
                       <div className="w-2 h-2 rounded-full bg-gray-300 mt-1.5 flex-shrink-0"></div>
@@ -1323,7 +1131,6 @@ export default function ManagerLeaveApprovalsPage() {
                     )}
                 </div>
 
-                {/* Show attachments if they exist */}
                 {selectedRequest.attachments &&
                   selectedRequest.attachments.length > 0 ? (
                   <div className="space-y-2">
@@ -1341,11 +1148,6 @@ export default function ManagerLeaveApprovalsPage() {
                               {attachment.documentName ||
                                 `Attachment ${index + 1}`}
                             </div>
-                            {/* {attachment.fileSize && (
-                <div className="text-[10px] text-gray-500">
-                  {(attachment.fileSize / 1024).toFixed(1)} KB
-                </div>
-              )} */}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-2">
@@ -1374,9 +1176,10 @@ export default function ManagerLeaveApprovalsPage() {
                   </div>
                 )}
 
-                {/* Show action buttons when pending */}
-                {(selectedRequest.currentStatus === "PENDING" || selectedRequest.status === "PENDING") &&
-                  (selectedRequest.attachments && selectedRequest.attachments.length > 0) && (
+                {(selectedRequest.currentStatus === "PENDING" ||
+                  selectedRequest.status === "PENDING") &&
+                  selectedRequest.attachments &&
+                  selectedRequest.attachments.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-center">
                       <Button
                         variant="contained"
@@ -1402,7 +1205,9 @@ export default function ManagerLeaveApprovalsPage() {
                 </span>
               </div>
               {auditEntries.length === 0 ? (
-                <div className="text-sm text-gray-500">No audit history is available yet.</div>
+                <div className="text-sm text-gray-500">
+                  No audit history is available yet.
+                </div>
               ) : (
                 <div className="space-y-3 max-h-72 overflow-auto pr-1">
                   {auditEntries.map((entry, index) => (
@@ -1425,15 +1230,6 @@ export default function ManagerLeaveApprovalsPage() {
                             {entry.changedBy?.userName || "System"}
                           </span>
                         </div>
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-gray-600">
-
-
-                        {/* {entry.module ? (
-                                      <span className="rounded-full bg-white px-2 py-1">
-                                        {entry.module}
-                                      </span>
-                                    ) : null} */}
                       </div>
                       <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
                         <div className="rounded-md border border-red-500 bg-red-100/50 dark:bg-head p-2">

@@ -46,6 +46,7 @@ import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, sti
 import { GlobalPagination } from '../../components/GlobalPagination';
 import { usePolicyDomains } from '../../hooks/usePolicyDomains';
 import { selectSx } from '../../const';
+import { formatDateTime } from '../../utils/dateFormatter';
 
 export default function PolicyDashboard() {
   const [policies, setPolicies] = useState<PolicyDefinition[]>([]);
@@ -84,7 +85,7 @@ export default function PolicyDashboard() {
         status: statusFilter || undefined,
         sort: [
           'updatedAt,desc',
-          'createdAt,asc'
+          // 'createdAt,asc'
         ]
       });
       setPolicies(response.data.content || []);
@@ -412,7 +413,7 @@ export default function PolicyDashboard() {
                           {policy.effectiveFrom ? dayjs(policy.effectiveFrom).format("DD MMM YYYY") : 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {policy.updatedAt ? dayjs(policy.updatedAt).format("DD MMM YYYY") : 'N/A'}
+                          {policy.updatedAt ? formatDateTime(policy.updatedAt) : 'N/A'}
                         </TableCell>
                         <TableCell sx={{
                           ...getStickyRightSx(index),

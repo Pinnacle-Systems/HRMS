@@ -194,8 +194,8 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
     if (assignment.employmentType) {
       return `${assignment.employmentType} (Employment Type)`;
     }
-    if (assignment.template) {
-      return `${assignment.template} (Template)`;
+    if (assignment.templateName) {
+      return `${assignment.templateName} (Template)`;
     }
     if (assignment.employeeGroupId) {
       const des = templates.find(d => d.id === assignment.employeeGroupId);
@@ -305,7 +305,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
       case 'DESIGNATION': data.designationId = formData.values[0]; break;
       case 'EMPLOYMENT_TYPE': data.employmentType = formData.values[0] as EmploymentType; break;
       // case 'EMPLOYEE_GROUP': data.employeeGroupId = formData.values[0]; break;
-      case 'EMPLOYEE_TEMPLATE': data.template = formData.values[0]; break;
+      case 'EMPLOYEE_TEMPLATE': data.templateName = formData.values[0]; break;
       case 'SPECIFIC_EMPLOYEES': data.employeeId = formData.values[0]; break;
       case 'EMPLOYEE_CATEGORY': data.employeeCategory = formData.values[0] as EmployeeCategory; break;
     }
@@ -399,7 +399,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
                               : assignment.departmentId ? 'DEPARTMENT'
                                 : assignment.designationId ? 'DESIGNATION'
                                   : assignment.employmentType ? 'EMPLOYMENT_TYPE'
-                                    : assignment.template ? 'EMPLOYEE_TEMPLATE'
+                                    : assignment.templateName ? 'EMPLOYEE_TEMPLATE'
                                       : assignment.employeeGroupId ? 'EMPLOYEE_GROUP'
                                         : assignment.employeeCategory ? 'EMPLOYEE_CATEGORY'
                                           : 'SPECIFIC_EMPLOYEES'

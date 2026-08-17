@@ -479,7 +479,6 @@ import {
     Typography,
     Button,
     TextField,
-    InputAdornment,
     Select,
     MenuItem,
     FormControl,
@@ -497,12 +496,8 @@ import {
     useTheme,
     alpha,
     Grid,
-    CircularProgress,
 } from "@mui/material";
 import {
-    Search as SearchIcon,
-    FilterList as FilterIcon,
-    Download as DownloadIcon,
     PlayArrow as PlayIcon,
     Visibility as EyeIcon,
     CheckCircle as CheckCircleIcon,
@@ -511,7 +506,6 @@ import {
     Warning as AlertCircleIcon,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../auth/authContext";
 import { PermissionGuard } from "../../../auth/PermissionGuard";
 import { PERMISSIONS } from "../../../auth/Permissions";
 import { formatCurrency } from "../const";
@@ -558,10 +552,15 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
         bgColor: "#f3f4f6",
         icon: XCircleIcon,
     },
+    completed_with_errors: {
+        label: "COMPLETED_WITH_ERRORS",
+        color: "#f59e0b",
+        bgColor: "#fef3c7",
+        icon: AlertCircleIcon,
+    }
 };
 
 export default function PayrollRuns() {
-    const { hasPermission } = useAuth();
     const theme = useTheme();
     const navigate = useNavigate();
     const { showSpinner, hideSpinner, showSnackbar } = useUI();
@@ -569,7 +568,6 @@ export default function PayrollRuns() {
     const [statusFilter, setStatusFilter] = useState("all");
     const [page, setPage] = useState(1);
     const [payrollRuns, setPayrollRuns] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
     const pageSize = 6;
 
     useEffect(() => {
@@ -577,7 +575,6 @@ export default function PayrollRuns() {
     }, []);
 
     const loadPayrollRuns = async () => {
-        setLoading(true);
         showSpinner();
         try {
             const response: any = await payrollRunsService.getPayrollRuns();
@@ -588,18 +585,16 @@ export default function PayrollRuns() {
                 grossSalary: run.totalGross || 0,
                 deductions: run.totalDeductions || 0,
                 netSalary: run.totalNetPay || 0,
-                status: (run.status || "draft").toLowerCase(),
+                status: (run.status).toLowerCase(),
                 createdBy: run.createdBy || "System",
                 createdOn: run.createdAt || run.paymentDate || "-",
                 paymentDate: run.paymentDate,
             }));
             setPayrollRuns(runs);
         } catch (error) {
-            console.error("Failed to load payroll runs", error);
             showSnackbar("Failed to load payroll runs", "error");
         } finally {
             hideSpinner();
-            setLoading(false);
         }
     };
 
@@ -617,14 +612,6 @@ export default function PayrollRuns() {
     const totalNet = payrollRuns.reduce((s, r) => s + (r.netSalary || 0), 0);
     const totalGross = payrollRuns.reduce((s, r) => s + (r.grossSalary || 0), 0);
     const totalDeductions = payrollRuns.reduce((s, r) => s + (r.deductions || 0), 0);
-
-    if (loading) {
-        return (
-            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-                <CircularProgress />
-            </Box>
-        );
-    }
 
     return (
         <div className="bg-white-50">
@@ -700,6 +687,7 @@ export default function PayrollRuns() {
                     >
                         <MenuItem value="all">All Status</MenuItem>
                         <MenuItem value="completed">Completed</MenuItem>
+                        <MenuItem value="completed_with_errors">Completed with Errors</MenuItem>
                         <MenuItem value="approved">Approved</MenuItem>
                         <MenuItem value="processing">Processing</MenuItem>
                         <MenuItem value="draft">Draft</MenuItem>
@@ -715,8 +703,8 @@ export default function PayrollRuns() {
                     <Table>
                         <TableHead>
                             <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                                <TableCell className="!font-bold">S No</TableCell>
-                                <TableCell>Period</TableCell>
+                                <TableCell className="!font-bold sticky left-0 z-20">S No</TableCell>
+                                <TableCell className="!font-bold sticky left-[60px] z-20">Period</TableCell>
                                 <TableCell  className="!font-bold">Employees</TableCell>
                                 <TableCell  className="!font-bold" align="right">Gross Salary</TableCell>
                                 <TableCell  className="!font-bold" align="right">Deductions</TableCell>
@@ -724,7 +712,7 @@ export default function PayrollRuns() {
                                 <TableCell  className="!font-bold">Status</TableCell>
                                 <TableCell  className="!font-bold">Created By</TableCell>
                                 <TableCell  className="!font-bold">Created On</TableCell>
-                                <TableCell  className="!font-bold" align="center">Actions</TableCell>
+                                <TableCell  className="!font-bold sticky right-0 z-20" align="center">Actions</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -736,7 +724,7 @@ export default function PayrollRuns() {
                                 </TableRow>
                             ) : (
                                 paginated.map((run,i) => {
-                                    const sc = statusConfig[run.status] ?? statusConfig.draft;
+                                    const sc = statusConfig[run.status];                                    
                                     const Icon = sc.icon;
                                     return (
                                         <TableRow
@@ -744,12 +732,10 @@ export default function PayrollRuns() {
                                             sx={getRowColor(i)}
                                             onClick={() => navigate(`/payroll/runs/${run.id}`)}
                                         >
-                                            <TableCell>
-                                                <Typography variant="body2">
+                                            <TableCell className="sticky left-0 z-20 bg-inherit">
                                                     {i+1}
-                                                </Typography>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="sticky left-[60px] z-20 bg-inherit">
                                                 <Typography variant="body2" sx={{ fontWeight: 600,color: "primary.main" }}>
                                                     {run.period}
                                                 </Typography>
@@ -798,7 +784,7 @@ export default function PayrollRuns() {
                                                     {formatDate(run.createdOn)}
                                                 </Typography>
                                             </TableCell>
-                                            <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <TableCell className="sticky right-0 z-20 bg-inherit" onClick={(e) => e.stopPropagation()}>
                                                 <Stack direction="row">
                                                     <IconButton
                                                         size="small"

@@ -187,6 +187,7 @@ export interface PolicyConfig {
   rules?: PolicyRule[];
 
   entitlements?: EntitlementConfig[];
+  leaveTypes?: EntitlementConfig[];
   accrualRules?: AccrualRule;
   carryForward?: CarryForwardRule;
   approvalFlow?: ApprovalFlowConfig;
@@ -764,6 +765,7 @@ export interface RuleAction {
 // Legacy types (kept for backward compatibility)
 export interface EntitlementConfig {
   leaveType: string;
+  code?: string;
   name: string;
   annualEntitlement: number;
   accrualType: "MONTHLY" | "YEARLY" | "QUARTERLY";
@@ -822,7 +824,7 @@ export interface PolicyAssignment {
   effectiveFrom: string;
   effectiveTo?: string;
   conditions?: Record<string, any>;
-  template?: string;
+  templateName?: string;
   branchName?: string;
   departmentName?: string;
   designationName?: string;

@@ -84,6 +84,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     rawRoles,
     permissions,
     profilePic: data.profile?.profilePicUrl ?? "",
+    employeeId: data.profile?.employeeId ?? ""
   };
 
   const company: CompanyDetails = {
@@ -272,7 +273,7 @@ export function getDefaultRoute(user: AuthUser): string {
   if (user.roles.includes("ADMIN")) return "/admin/dashboard";
   if (user.roles.includes("HR")) return "/hr/dashboard";
   if (user.roles.includes("MANAGER")) return "/manager/dashboard";
-  if (user.roles.includes("EMPLOYEE")) return "/employee/dashboard";
+  if (user.roles.includes("EMPLOYEE") || user.roles.includes("ESS")) return "/employee/dashboard";
   return "/unauthorized";
 }
 

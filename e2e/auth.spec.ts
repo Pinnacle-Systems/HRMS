@@ -53,7 +53,6 @@ test.describe("public auth flow", () => {
     // });
 
     // await page.route("**/auth/login/select-tenant", async (route) => {
-    //    console.log("✅ Select tenant API called!");
     //   const request = route.request();
     //   const body = request.postDataJSON() as {
     //     tenantId: string;

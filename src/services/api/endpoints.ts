@@ -373,7 +373,7 @@ export const API_ENDPOINTS = {
 
     // ============ Assignment Management ============
     ASSIGN: "/onboarding/assign",
-    // BULK_ASSIGN: "/onboarding/assign/bulk",
+    BULK_ASSIGN: "/onboarding/assign-bulk",
     ASSIGNMENTS: "/onboarding/assignments",
     // GET_ASSIGNMENT: (id: string) => `/onboarding/assignments/${id}`,
     // UPDATE_ASSIGNMENT: (id: string) => `/onboarding/assignments/${id}`,
@@ -502,7 +502,7 @@ export const API_ENDPOINTS = {
     UPDATE: (id: string) => `/shifts/${id}`,
     UPDATE_ACTIVE: (id: string) => `/shifts/${id}/status`,
     SET_DEFAULT: (id: string) => `/shifts/${id}/default`,
-    GET_DEFAULT: "/shifts/default",
+    DEFAULT: "/shifts/default",
 
     GET_SWAP_REQUEST: "/shift-swap-requests",
     GET_SWAP_REQUEST_BYID: (id: string) => `/shift-swap-requests/${id}`,
@@ -1198,8 +1198,8 @@ export const API_ENDPOINTS = {
     PORTAL: {
       BASE: "/payroll/employee-portal",
       // ADMIN_VIEW: "/payroll/employee-portal",
-      SELF_VIEW: "/payroll/employee-portal/self",
-      GET_BY_EMPLOYEE: (employeeId: string) =>
+      SELF: "/payroll/employee-portal/self",
+      EMPLOYEE: (employeeId: string) =>
         `/payroll/employee-portal/employee/${employeeId}`,
       BANK_DETAILS: "/payroll/employee-portal/bank-details",
       TAX_SUMMARY: "/payroll/employee-portal/tax-summary",
@@ -1267,4 +1267,10 @@ export const API_ENDPOINTS = {
     //   GRADES: "/employees/grades",
     // },
   },
+
+  PERMISSION: {
+    ROLE_PERMISSIONS: (role: string) => `/admin/roles/${role}/permissions`,
+    GET: '/admin/permissions',
+    UPDATE_ROLE_PERMISSIONS: (role: string) => `/admin/roles/${role}/permissions`,
+  }
 };

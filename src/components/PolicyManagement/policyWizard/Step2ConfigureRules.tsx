@@ -87,8 +87,11 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
   const initialConfig = (config && Object.keys(config).length > 0
     ? config
     : (template.defaultConfig as PolicyConfig)) ?? ({} as PolicyConfig);
-
+  if (typeof initialConfig.carryForward === 'boolean') {
+    initialConfig.carryForward = {};
+  }
   const [localConfig, setLocalConfig] = useState<PolicyConfig>(initialConfig);
+  // console.log(localConfig);  
 
   const domainName = getDomainName(template.domainId);
   const { leaveTypes: leaveType } = useLeaveTypesList(domainName === 'Leave');
@@ -129,9 +132,13 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
     if (persistTimer.current) clearTimeout(persistTimer.current);
     setSaveStatus('saving');
     persistTimer.current = setTimeout(async () => {
-      const cfgToPersist = cfg?.entitlements
-        ? { ...cfg, entitlements: cfg.entitlements.filter((e) => e.leaveType) }
-        : cfg;
+      const fixedConfig = { ...cfg };
+    if (typeof fixedConfig.carryForward === 'boolean') {
+      fixedConfig.carryForward = {};
+    }
+      const cfgToPersist = fixedConfig?.entitlements
+        ? { ...fixedConfig, entitlements: fixedConfig.entitlements.filter((e) => e.leaveType = e.leaveType || e.name) }
+        : fixedConfig;
       const configJson = stripNulls(cfgToPersist) as Record<string, unknown>;
 
       if (policyId || template?.domainId) {

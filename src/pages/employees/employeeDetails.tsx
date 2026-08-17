@@ -93,6 +93,7 @@ import { WebcamCapture } from "./webCam";
 import { useAuth } from "../../auth/authContext";
 import { attendanceService } from "../../services/modules/attendance";
 import useUnsavedChanges from "../../hooks/useUnsavedChanges";
+import { ProfileCompletionBadge, ProfileCompletionProgress } from "./useProfileCompletion";
 
 
 function TabPanel(props: TabPanelProps) {
@@ -140,7 +141,7 @@ const EditableGroup = ({
   const { id } = useParams();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
-  const userId = session?.user.userId;
+  const userId = session?.user.employeeId ? session?.user.employeeId : session?.user.userId;
   const apiId = isAdmin ? id : userId;
 
   const hasUnsavedChanges = isEditing && !isEqual(editData, data);
@@ -426,7 +427,7 @@ const EditableGroup = ({
                 </a>
               ))}
             </div>
-            {title == "Aadhaar Details" &&
+            {title == "Aadhaar Details" && isAdmin && 
               <div className="text-[10px] underline text-sky-500 cursor-pointer" onClick={() => getAadhaar(editData.aadhaarNumber)}>Fetch Aadhaar Details</div>
             }
           </div>
@@ -871,7 +872,7 @@ const EditableTableGroup = ({
   const { id } = useParams();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
-  const userId = session?.user.userId;
+  const userId = session?.user.employeeId ? session?.user.employeeId : session?.user.userId;
   const apiId = isAdmin ? id : userId;
 
   const [dialogType, setDialogType] = useState<"add" | "edit" | "attachment">(
@@ -880,6 +881,14 @@ const EditableTableGroup = ({
 
   const hasUnsavedChanges = isEditing && !isEqual(editData, data);
   const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isEditing || !hasUnsavedChanges) {
+      setEditData(data);
+    }
+  }, [data, isEditing]);
+  // 7022763777
+  // jaikar.ss@bluechipssolutions.in
 
   useEffect(() => {
     if (isEditing && !isEditingRef.current) {
@@ -1955,7 +1964,8 @@ export default function EmployeeDetails() {
   const { session } = useAuth();
   const { id } = useParams();
   const isAdmin = session?.user.roles.includes('ADMIN');
-  const userId = session?.user.userId;
+  const isUser = session?.user.roles.includes('EMPLOYEE') || session?.user.roles.includes('MANAGER');
+  const userId = session?.user.employeeId ? session?.user.employeeId : session?.user.userId;
   const apiId = isAdmin ? id : userId;
 
   const navigate = useNavigate();
@@ -3137,6 +3147,7 @@ export default function EmployeeDetails() {
     name: `${member.name} (${member.relationship})`,
   }));
 
+
   const handleUpdateNominations = async (updatedData: any[]) => {
     showSpinner();
     try {
@@ -3275,7 +3286,7 @@ export default function EmployeeDetails() {
       const res: any = await attendanceService.checkIn({
         employeeId: apiId || "",
         checkInTime: new Date().toISOString(),
-        markedBy: session?.user.userId,
+        markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
       });
       showSnackbar(res.message, 'success');
       setCheckIn(true);
@@ -3290,7 +3301,7 @@ export default function EmployeeDetails() {
       const res: any = await attendanceService.checkOut({
         employeeId: apiId || "",
         checkOutTime: new Date().toISOString(),
-        markedBy: session?.user.userId,
+        markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
       });
       showSnackbar(res.message, 'success');
     } catch (error: any) {
@@ -3325,12 +3336,15 @@ export default function EmployeeDetails() {
     <div className="">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
-        <MaterialModule.IconButton
-          onClick={() => navigate("/employees")}
-          className="!bg-gray-100 !text-gray-800"
-        >
-          <MaterialModule.ArrowBackIcon />
-        </MaterialModule.IconButton>
+        {!isUser &&
+          <MaterialModule.IconButton
+            onClick={() => navigate("/employees")}
+            className="!bg-gray-100 !text-gray-800"
+          >
+            <MaterialModule.ArrowBackIcon />
+          </MaterialModule.IconButton>
+        }
+
         <div className="flex-1">
           <div className="font-semibold text-gray-800">Employee Details</div>
           <div className="text-gray-500 text-[12px]">
@@ -3429,28 +3443,40 @@ export default function EmployeeDetails() {
               </div>
             </div>
           </div>
-          {
-            isAdmin ? (
-              <div>
-                <Button
-                  variant="outlined"
-                  className="!text-primary !border-primary"
-                  onClick={handleOpenAuditLog}
-                >
-                  Audit Log
-                </Button>
+          <div className="flex items-center gap-2">
+            <div className="mr-2">
+              <ProfileCompletionProgress
+                employee={employee}
+                size={60}
+                showLabel={true}
+              />
+              <div className="mt-2">
+                 <ProfileCompletionBadge employee={employee} />
               </div>
-            ) : (
-              <div>
-                <Button
-                  variant="contained"
-                  color={!checkIn ? 'success' : 'error'}
-                  onClick={!checkIn ? handleCheckIn : handleCheckOut}
-                >
-                  {!checkIn ? 'Check In' : 'Check Out'}
-                </Button>
-              </div>
-            )}
+            </div>
+            {
+              isAdmin ? (
+                <div>
+                  <Button
+                    variant="outlined"
+                    className="!text-primary !border-primary"
+                    onClick={handleOpenAuditLog}
+                  >
+                    Audit Log
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <Button
+                    variant="contained"
+                    color={!checkIn ? 'success' : 'error'}
+                    onClick={!checkIn ? handleCheckIn : handleCheckOut}
+                  >
+                    {!checkIn ? 'Check In' : 'Check Out'}
+                  </Button>
+                </div>
+              )}
+          </div>
         </MaterialModule.CardContent>
       </MaterialModule.Card>
 

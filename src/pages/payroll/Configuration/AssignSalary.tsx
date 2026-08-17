@@ -137,7 +137,6 @@
 //       return;
 //     }
 //     // Toast notification would go here
-//     console.log(`Salary structure assigned to ${selectedEmployees.length} employee(s).`);
 //     setSelectedEmployees([]);
 //   };
 
@@ -652,7 +651,7 @@ export default function AssignSalaryStructure() {
     ifscCode: "",
     branch: "",
   });
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -673,7 +672,7 @@ export default function AssignSalaryStructure() {
       showSnackbar("Failed to load data", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
+      // setLoading(false);
     }
   };
 
@@ -697,7 +696,7 @@ export default function AssignSalaryStructure() {
       showSnackbar("Failed to load assignments", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
+      // setLoading(false);
     }
   };
 
@@ -749,7 +748,7 @@ export default function AssignSalaryStructure() {
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
       emp.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.id?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = selectedDept === "all" || emp.department === selectedDept;
     return matchesSearch && matchesDept;
@@ -841,13 +840,13 @@ const handlePageChange = (newPage: number) => {
     setPage(0);
   };
 
-  if (loading && tabValue === 0) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // if (loading && tabValue === 0) {
+  //   return (
+  //     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+  //       <CircularProgress />
+  //     </Box>
+  //   );
+  // }
 
   return (
     <div className="bg-white-50">
@@ -914,10 +913,8 @@ const handlePageChange = (newPage: number) => {
                         placeholder="Search by name or ID..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        size="small"
-                        sx={{ flex: 1 }}
                       />
-                      <FormControl size="small" sx={{ minWidth: 150 }}>
+                      <FormControl size="small" className="bg-white-50">
                         <Select
                           value={selectedDept}
                           onChange={(e) => setSelectedDept(e.target.value)}
@@ -932,7 +929,7 @@ const handlePageChange = (newPage: number) => {
                       </FormControl>
                     </Box>
 
-                    <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-380px)] overflow-auto">
+                    <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-340px)] overflow-auto">
                       <Table stickyHeader>
                         <TableHead>
                           <TableRow>
@@ -1002,14 +999,14 @@ const handlePageChange = (newPage: number) => {
 
             {/* Right: Assignment details */}
             <Grid size={{ xs: 12, md: breakdown ? 6 : 4, lg: breakdown ? 3 : 4 }}>
-              <Stack spacing={3}>
-                <Card className="bg-white h-full" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                  <CardContent sx={{ p: 2.5 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }} className="text-gray-800">
+              <Stack spacing={3} className="h-full">
+                <Card className="bg-white " sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                  <CardContent className="!h-[450px] !p-0 !overflow-auto">
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }} className="sticky top-0 z-30 p-4 bg-gray-200 text-gray-800">
                       Assignment Details
                     </Typography>
 
-                    <Stack spacing={3.5}>
+                    <Stack spacing={3} className="p-4">
                       <div className="p-3 rounded-sm bg-head flex items-center justify-between">
                         <Typography variant="body2" className="text-gray-800">
                           Selected Employees
@@ -1019,7 +1016,7 @@ const handlePageChange = (newPage: number) => {
                         </Typography>
                       </div>
 
-                      <FormControl fullWidth>
+                      <FormControl fullWidth className="!bg-white-50">
                         <InputLabel>Salary Template <span className="text-error">*</span></InputLabel>
                         <Select
                           value={selectedTemplate}
@@ -1039,7 +1036,7 @@ const handlePageChange = (newPage: number) => {
                         <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }} className="text-gray-800">
                           CTC Amount <span className="text-error">*</span>
                         </Typography>
-                        <Box sx={{ display: "flex", gap: 1 }}>
+                        <Box sx={{ display: "flex", gap: 1 }} >
                           <TextField
                             type="number"
                             value={ctcAmount || ""}
@@ -1047,8 +1044,9 @@ const handlePageChange = (newPage: number) => {
                             placeholder="0"
                             fullWidth
                             size="small"
+                            
                           />
-                          <FormControl size="small" sx={{ minWidth: 100 }}>
+                          <FormControl size="small" sx={{ minWidth: 100 }} className="!bg-white-50">
                             <Select
                               value={ctcMode}
                               onChange={(e) => setCtcMode(e.target.value as "annual" | "monthly")}
@@ -1081,14 +1079,12 @@ const handlePageChange = (newPage: number) => {
                               value={bankDetails.accountNumber}
                               onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
                               fullWidth
-                              size="small"
                             />
                             <TextField
                               label="Bank Name"
                               value={bankDetails.bankName}
                               onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
                               fullWidth
-                              size="small"
                             />
                             <Grid container spacing={1}>
                               <Grid size={{ xs: 6 }}>
@@ -1097,7 +1093,6 @@ const handlePageChange = (newPage: number) => {
                                   value={bankDetails.ifscCode}
                                   onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value.toUpperCase() })}
                                   fullWidth
-                                  size="small"
                                 />
                               </Grid>
                               <Grid size={{ xs: 6 }}>
@@ -1106,7 +1101,6 @@ const handlePageChange = (newPage: number) => {
                                   value={bankDetails.branch}
                                   onChange={(e) => setBankDetails({ ...bankDetails, branch: e.target.value })}
                                   fullWidth
-                                  size="small"
                                 />
                               </Grid>
                             </Grid>
@@ -1134,8 +1128,8 @@ const handlePageChange = (newPage: number) => {
             {breakdown && (
               <Grid size={{ xs: 12, md: 6, lg: 3 }}>
                 <Card className="bg-white h-full" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                  <CardContent sx={{ p: 2.5 }}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                  <CardContent className="!p-0">
+                    <Box className="p-4 bg-gray-200" sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                       <Typography variant="subtitle1" sx={{ fontWeight: 600 }} className="text-gray-800">
                         Salary Breakdown Preview
                       </Typography>
@@ -1144,7 +1138,7 @@ const handlePageChange = (newPage: number) => {
                       </Typography>
                     </Box>
 
-                    <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                    <Grid container spacing={1.5} sx={{ mb: 2, p:3 }}>
                       <Grid size={{ xs: 6 }}>
                         <Box sx={{ p: 1.5, borderRadius: 1, textAlign: "center", bgcolor: alpha(theme.palette.success.main, 0.08) }}>
                           <Typography variant="caption" sx={{ color: "success.main" }}>
@@ -1167,7 +1161,7 @@ const handlePageChange = (newPage: number) => {
                       </Grid>
                     </Grid>
 
-                    <Stack spacing={0.5} sx={{ mt: 1 }}>
+                    <Stack spacing={0.5} sx={{ mt: 1, p:3 }}>
                       {breakdown.earnings.map((item, i) => (
                         <Box
                           key={item.name}
@@ -1186,7 +1180,7 @@ const handlePageChange = (newPage: number) => {
                           </Typography>
                         </Box>
                       ))}
-                      <Box sx={{ borderTop: `1px solid ${theme.palette.divider}`, mt: 1, pt: 1 }}>
+                      <div className="border-t border-gray-200 p-2 mt-1">
                         {breakdown.deductions.map((item) => (
                           <Box
                             key={item.name}
@@ -1205,7 +1199,7 @@ const handlePageChange = (newPage: number) => {
                             </Typography>
                           </Box>
                         ))}
-                      </Box>
+                      </div>
                     </Stack>
                   </CardContent>
                 </Card>
@@ -1286,13 +1280,7 @@ const handlePageChange = (newPage: number) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
-                      <CircularProgress size={30} />
-                    </TableCell>
-                  </TableRow>
-                ) : assignments.length === 0 ? (
+                {assignments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                       <div className="text-gray-500">No assignments found</div>

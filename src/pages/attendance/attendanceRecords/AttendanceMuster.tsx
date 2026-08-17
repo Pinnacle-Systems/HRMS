@@ -393,7 +393,7 @@ export function AttendanceMuster() {
                     <TableRow>
                       {["S No", "Name", "Designation",
                         "Present", "Absent", "Late", "Half Day", "On Duty", "Leave", "Permission", "EarlyOut", "Lop", "Worked(h)", "OT (h)", "OT (m)", "Att %"].map((h, i) => (
-                          <TableCell key={h} className={`${i == 0 ? 'left-0 sticky bg-inherit !z-50' : i == 1 ? 'left-[58px] sticky bg-inherit !z-50' : i == 2 ? 'left-[168px] sticky bg-inherit !z-50' :
+                          <TableCell key={h} className={`${i == 0 ? 'left-0 sticky bg-inherit !z-50' : i == 1 ? 'left-[58px] sticky bg-inherit !z-50' : i == 2 ? 'left-[160px] sticky bg-inherit !z-50' :
                             i == 15 ? 'right-0 sticky bg-inherit !z-50' : ''} !font-bold whitespace-nowrap`}>{h}</TableCell>
                         ))}
                     </TableRow>
@@ -503,7 +503,7 @@ export function AttendanceMuster() {
                   <tbody>
                     {pagedEmployees.map((emp, ri) => (
                       <tr key={emp.employeeId} style={getRowColor(ri)}>
-                        <td className="sticky left-0 z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono">
+                        <td className="sticky left-0 z-10 bg-inherit whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono">
                           {emp.employeeCode}
                         </td>
                         <td className="sticky left-[50px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">

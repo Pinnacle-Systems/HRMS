@@ -58,6 +58,7 @@ export interface Department {
   id: string;
   departmentName: string;
   departmentCode: string;
+  branchName?: string;
 }
 
 export interface Designation {

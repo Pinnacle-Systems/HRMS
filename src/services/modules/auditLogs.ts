@@ -24,6 +24,7 @@ export interface AuditLogRecord {
   fieldName?: string;
   oldValue?: string;
   newValue?: string;
+  recordLabel?: string;
   actionType: AuditActionType;
   changedBy: {
     userId: string;

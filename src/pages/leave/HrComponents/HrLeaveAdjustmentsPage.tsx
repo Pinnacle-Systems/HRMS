@@ -194,7 +194,7 @@ export default function HrLeaveAdjustmentsPage() {
           label="Search employee by name or ID"
           error={Boolean(errors.employee)}
           helperText={errors.employee}
-          filters={{ assignedHrId: isHR ? session?.user.userId : '' }}
+          filters={{ assignedHrId: isHR ? session?.user.employeeId : '' }}
         />
       </div>
 

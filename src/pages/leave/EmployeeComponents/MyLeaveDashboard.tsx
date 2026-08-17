@@ -430,18 +430,18 @@ export default function MyLeaveDashboard() {
       title="My Leave"
       breadcrumbLabel="My Dashboard"
       subtitle="View balances, upcoming leave, and recent requests"
-      // actions={
-      //   <Button
-      //     variant="contained"
-      //     startIcon={<AddOutlinedIcon />}
-      //     className="!bg-primary"
-      //     onClick={() => navigate("/leaves/apply")}
-      //   >
-      //     Apply Leave
-      //   </Button>
-      // }
-      // contentClassName="p-3 space-y-3 mx-auto"
-      // titleClassName="text-[14px] font-bold text-gray-900"
+    // actions={
+    //   <Button
+    //     variant="contained"
+    //     startIcon={<AddOutlinedIcon />}
+    //     className="!bg-primary"
+    //     onClick={() => navigate("/leaves/apply")}
+    //   >
+    //     Apply Leave
+    //   </Button>
+    // }
+    // contentClassName="p-3 space-y-3 mx-auto"
+    // titleClassName="text-[14px] font-bold text-gray-900"
     >
 
       {loading && (
@@ -529,17 +529,27 @@ export default function MyLeaveDashboard() {
                       <div key={balance.leaveTypeId} className="bg-white rounded-lg border border-gray-200 hover:border-primary/30 p-3 transition-all duration-200 group">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-medium text-gray-700 whitespace-nowrap max-w-[120px]" title={balance.leaveTypeName}>
-                            {balance.leaveTypeName}<span className="text-[12px] ml-2 font-bold text-gray-500">[{balance.balance}]</span>
+                            {balance.leaveTypeName}<span className="text-[12px] ml-2 font-bold text-primary">[{balance.opening}]</span>
                           </span>
-                          <Button variant="outlined" className="!h-5 !px-2 !text-[12px] !text-primary !border-primary"  onClick={() => navigate("/leaves/apply",{
+                          <Button variant="outlined" className="!h-5 !px-2 !text-[12px] !text-primary !border-primary" onClick={() => navigate("/leaves/apply", {
                             state: balance.leaveTypeId
                           })}>Apply</Button>
                         </div>
                         <div className="mt-2 flex items-center justify-between text-[12px] text-gray-400 cursor-pointer">
-                          <span title="Opening">Opening: {balance.opening}</span>
-                          <span className="text-green-500" title="Accrued">Accrued: +{balance.credited}</span>
-                          <span className="text-red-500" title="Used">Used: {balance.availed}</span>
-                          {/* <span className="text-amber-500" title="Pending">{balance.pending}p</span> */}
+                          {/* <span title="Opening">Opening: {balance.opening}</span> */}
+                          {/* <span className="text-green-500" title="Accrued">Accrued: +{balance.credited}</span> */}
+                          <div>
+                            Used:<span className="text-red-500 text-[16px] !font-bold" title="Used"> {balance.availed}</span>
+                          </div>
+                          <div>
+                            Pending: <span className="text-amber-500 text-[16px] !font-bold" title="Pending">{balance.pending}</span>
+                          </div>
+                          <div>
+                            Credited: <span className="text-blue-500 text-[16px] !font-bold" title="Pending">+{balance.credited}</span>
+                          </div>
+                          <div>
+                            Balance: <span className="text-green-600 text-[16px] !font-bold" title="Accrued">{balance.balance}</span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -551,7 +561,7 @@ export default function MyLeaveDashboard() {
 
           {/* Upcoming & Recent */}
           {/* <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 !mb-3"> */}
-            {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <div className="w-1 h-6 bg-primary rounded-full"></div>
@@ -598,91 +608,91 @@ export default function MyLeaveDashboard() {
               </div>
             </div> */}
 
-            {/* Recent Requests */}
-            <div className="xl:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden !mb-4">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-6 bg-primary rounded-full"></div>
-                  <h3 className="font-semibold text-gray-900">Recent Requests <span className="text-[10px] font-normal text-gray-500">(This Month)</span></h3>
-                </div>
-              </div>
-              <div className="p-0">
-                <TableContainer
-                  component={Paper}
-                  elevation={0}
-                  sx={{
-                    ...leaveTableContainerSx,
-                    borderRadius: 0,
-                    boxShadow: 'none'
-                  }}
-                >
-                  <Table className={leaveTableClassName} sx={leaveTableSx}>
-                    <TableHead>
-                      <TableRow sx={{
-                        ...leaveTableHeaderRowSx,
-                        backgroundColor: '#f8fafc'
-                      }}>
-                        <TableCell className="text-[12px] !font-semibold">S No</TableCell>
-                        <TableCell className="text-[12px] !font-semibold">Leave Type</TableCell>
-                        <TableCell className="text-[12px] !font-semibold">From</TableCell>
-                        <TableCell className="text-[12px] !font-semibold">To</TableCell>
-                        <TableCell className="text-[12px] !font-semibold">Days</TableCell>
-                        <TableCell className="text-[12px] !font-semibold">Status</TableCell>
-                        <TableCell className="text-[12px] !font-semibold">Pay Type</TableCell>
-                        <TableCell className="text-[12px] !font-semibold text-center">Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {requests.map((request, index) => (
-                        <TableRow key={request.id} sx={getRowColor(index)}>
-                          <TableCell >
-                            {index + 1}
-                          </TableCell>
-                          <TableCell >
-                            {request.leaveTypeName}
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(request.fromDate)}
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(request.toDate)}
-                          </TableCell>
-                          <TableCell >{request.days}</TableCell>
-                          <TableCell>
-                            <LeaveStatusBadge status={request.status} />
-                          </TableCell>
-                          <TableCell>
-                            {request.payrollTreatment}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Tooltip title="View request" arrow>
-                              <IconButton
-                                size="small"
-                                onClick={() => setSelectedRequest(request)}
-                                className="transition-colors"
-                              >
-                                <VisibilityOutlinedIcon className="!w-4 !h-4 text-primary" />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {requests.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={8}>
-                            <DataState
-                              compact
-                              type="empty"
-                              title="No recent leave requests found."
-                            />
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+          {/* Recent Requests */}
+          <div className="xl:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden !mb-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-6 bg-primary rounded-full"></div>
+                <h3 className="font-semibold text-gray-900">Recent Requests <span className="text-[10px] font-normal text-gray-500">(This Month)</span></h3>
               </div>
             </div>
+            <div className="p-0">
+              <TableContainer
+                component={Paper}
+                elevation={0}
+                sx={{
+                  ...leaveTableContainerSx,
+                  borderRadius: 0,
+                  boxShadow: 'none'
+                }}
+              >
+                <Table className={leaveTableClassName} sx={leaveTableSx}>
+                  <TableHead>
+                    <TableRow sx={{
+                      ...leaveTableHeaderRowSx,
+                      backgroundColor: '#f8fafc'
+                    }}>
+                      <TableCell className="text-[12px] !font-semibold">S No</TableCell>
+                      <TableCell className="text-[12px] !font-semibold">Leave Type</TableCell>
+                      <TableCell className="text-[12px] !font-semibold">From</TableCell>
+                      <TableCell className="text-[12px] !font-semibold">To</TableCell>
+                      <TableCell className="text-[12px] !font-semibold">Days</TableCell>
+                      <TableCell className="text-[12px] !font-semibold">Status</TableCell>
+                      <TableCell className="text-[12px] !font-semibold">Pay Type</TableCell>
+                      <TableCell className="text-[12px] !font-semibold text-center">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {requests.map((request, index) => (
+                      <TableRow key={request.id} sx={getRowColor(index)}>
+                        <TableCell >
+                          {index + 1}
+                        </TableCell>
+                        <TableCell >
+                          {request.leaveTypeName}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(request.fromDate)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDate(request.toDate)}
+                        </TableCell>
+                        <TableCell >{request.days}</TableCell>
+                        <TableCell>
+                          <LeaveStatusBadge status={request.status} />
+                        </TableCell>
+                        <TableCell>
+                          {request.payrollTreatment}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Tooltip title="View request" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => setSelectedRequest(request)}
+                              className="transition-colors"
+                            >
+                              <VisibilityOutlinedIcon className="!w-4 !h-4 text-primary" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {requests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={8}>
+                          <DataState
+                            compact
+                            type="empty"
+                            title="No recent leave requests found."
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </div>
+          </div>
           {/* </div> */}
         </>
       )}
@@ -710,7 +720,7 @@ export default function MyLeaveDashboard() {
                   onClick={() => setSelectedRequest(null)}
                   className="hover:bg-gray-100 transition-colors"
                 >
-                  <CloseOutlinedIcon className="!text-gray-500 !w-5 !h-5" />
+                  <CloseOutlinedIcon className="!text-gray-500 !w-4 !h-4" />
                 </IconButton>
               </div>
             </div>
@@ -856,6 +866,12 @@ export default function MyLeaveDashboard() {
                               <div className="text-[10px] text-gray-400 mt-0.5">
                                 By: {approval.approverName} (Level {approval.approvalLevel})
                               </div>
+                              {
+                                approval.actionComments &&
+                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                  Comments: {approval.actionComments}
+                                </div>
+                              }
                             </div>
                           </div>
                         );
@@ -868,7 +884,7 @@ export default function MyLeaveDashboard() {
                   </div>
                 </div>
                 {/* Additional Info */}
-                <div className="rounded-lg p-3 border border-gray-200 bg-gray-50">
+                {/* <div className="rounded-lg p-3 border border-gray-200 bg-gray-50">
                   <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-500">
                     <div>
                       <span className="font-medium">Created:</span>{' '}
@@ -887,7 +903,7 @@ export default function MyLeaveDashboard() {
                       {selectedRequest.cancellationRequested ? 'Requested' : 'None'}
                     </div>
                   </div>
-                </div>
+                </div> */}
               </div>
             </DialogContent>
 

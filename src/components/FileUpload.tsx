@@ -145,7 +145,7 @@ export const FileUpload = ({
   const fileType = getFileType();
 
   return (
-    <Paper variant="outlined" className={`${compact ? "p-3" : "p-4"} bg-white`}>
+    <Paper variant="outlined" className={`${compact ? "p-3" : "p-4"} bg-white-50 border-gray-200`}>
       <Typography variant="subtitle2" className={`font-semibold !text-gray-800 ${compact ? "!mb-1" : "!mb-2"}`}>
         {label}
       </Typography>

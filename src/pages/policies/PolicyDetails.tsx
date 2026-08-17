@@ -289,9 +289,9 @@ export default function PolicyDetails() {
                       {versions.map((version, index) => (
                         <TableRow key={version.id} sx={getRowColor(index)}>
                           <TableCell>v{version.versionNo}</TableCell>
-                          <TableCell>{formatDateTime(version.effectiveFrom)}</TableCell>
+                          <TableCell>{formatDate(version.effectiveFrom)}</TableCell>
                           <TableCell>
-                            {version.effectiveTo ? formatDateTime(version.effectiveTo) : 'Ongoing'}
+                            {version.effectiveTo ? formatDate(version.effectiveTo) : 'Ongoing'}
                           </TableCell>
                           <TableCell>
                             <Chip
@@ -356,8 +356,10 @@ export default function PolicyDetails() {
                                   : assignment.departmentId ? 'Department'
                                     : assignment.designationId ? 'Designation'
                                       : assignment.employmentType ? 'Employment Type'
-                                        : assignment.employeeGroupId ? 'Template'
+                                        : assignment.templateName ? 'Template'
                                           : assignment.employeeId ? 'Specific Employee'
+                                          : assignment.employeeCategory ? 'Employee Category'
+
                                             : 'All Employees'}
                               </TableCell>
                               <TableCell>
@@ -365,8 +367,9 @@ export default function PolicyDetails() {
                                   assignment.departmentId ? assignment.departmentName :
                                     assignment.designationId ? assignment.designationName :
                                       assignment.employmentType ? assignment.employmentTypeName :
-                                        assignment.employeeGroupId ? assignment.employeeGroupName :
+                                        assignment.templateName ? assignment.templateName :
                                           assignment.employeeId ? assignment.employeeName :
+                                          assignment.employeeCategory ? assignment.employeeCategory :
                                             'Company-wide'}
                               </TableCell>
                               <TableCell>{assignment.priority}</TableCell>

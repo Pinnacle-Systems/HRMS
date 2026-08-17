@@ -90,7 +90,7 @@ export const employeeColumns = [
     type: "number",
   },
   { key: "noticePeriod", label: "Notice Period (days)", type: "number" },
-  { key: "department", label: "Department", type: "select" },
+  // { key: "department", label: "Department", type: "select" },
   { key: "designation", label: "Designation", type: "select" },
   // {
   //   key: "grade",
@@ -120,7 +120,7 @@ export const employeeColumns = [
     label: "Assigned HR",
     type: "user",
   },
-  { key: "empType", label: "Employment Type", type: "select" },
+  { key: "empType", label: "Employee Type", type: "select" },
   { key: "template", label: "Template", type: "select" },
   // { key: "branch", label: "Branch", type: "select" },
   {
@@ -449,8 +449,6 @@ export const getPriorityColor = (priority: number) => {
 };
 
 export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => {
-  console.log(obj1, 'obj1');
-  console.log(obj2, 'obj2');
   
   // Handle primitive types
   if (obj1 === obj2) return true;
@@ -512,7 +510,6 @@ export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => 
         const val2 = obj2[key];
         // If both are strings/numbers and they are different, mark as not equal
         if (String(val1) !== String(val2)) {
-          console.log(`Difference found in ${key}: "${val1}" vs "${val2}"`);
           return false;
         }
         continue;

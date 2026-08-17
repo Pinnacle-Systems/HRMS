@@ -20,6 +20,10 @@ import {
   Paper,
   CircularProgress,
   Fab,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import {
   CalendarToday as CalendarIcon,
@@ -32,9 +36,15 @@ import {
   Assessment as FileBarChartIcon,
   Close as CloseIcon,
   Add as AddIcon,
+  Edit as EditIcon,
 } from "@mui/icons-material";
 import { periodsService } from "../../../services/modules/payrollServices/period";
 import { useUI } from "../../../context/Snackbar";
+import { dialogsx } from "../../../const";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 
 const formatDate = (date: string | Date | null | undefined): string => {
   if (!date) return "-";
@@ -48,20 +58,19 @@ const formatDate = (date: string | Date | null | undefined): string => {
 
 const statusConfig: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
   pending: { label: "Pending", icon: ClockIcon, color: "#f59e0b", bgColor: "#fef3c7" },
-  processing: { label: "Processing", icon: PlayIcon, color: "#3b82f6", bgColor: "#dbeafe" },
+  scheduled: { label: "Scheduled", icon: PlayIcon, color: "#3b82f6", bgColor: "#dbeafe" },
   processed: { label: "Processed", icon: CheckCircleIcon, color: "#10b981", bgColor: "#d1fae5" },
   closed: { label: "Closed", icon: XCircleIcon, color: "#6b7280", bgColor: "#f3f4f6" },
 };
 
 export default function PayrollPeriodConfig() {
   const theme = useTheme();
-  const { showSpinner, hideSpinner, showSnackbar } = useUI();
+  const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
   const [periods, setPeriods] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [createForm, setCreateForm] = useState({
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [formData, setFormData] = useState({
+    id: "",
     name: "",
     startDate: "",
     endDate: "",
@@ -78,7 +87,6 @@ export default function PayrollPeriodConfig() {
   }, []);
 
   const loadPeriods = async () => {
-    setLoading(true);
     showSpinner();
     try {
       const response: any = await periodsService.getPeriods();
@@ -88,75 +96,114 @@ export default function PayrollPeriodConfig() {
       showSnackbar("Failed to load payroll periods", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
     }
   };
 
-  const handleCreatePeriod = async () => {
-    if (!createForm.name || !createForm.startDate || !createForm.endDate || !createForm.paymentDate) {
+  const openCreateDialog = () => {
+    setIsEditMode(false);
+    setFormData({
+      id: "",
+      name: "",
+      startDate: "",
+      endDate: "",
+      paymentDate: "",
+      cutoffDate: "",
+      workingDays: 22,
+      status: "pending",
+      holidays: [],
+    });
+    setNewHoliday({ name: "", date: "" });
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (period: any) => {
+    setIsEditMode(true);
+    setFormData({
+      id: period.id,
+      name: period.name || "",
+      startDate: period.startDate?.split("T")[0] || "",
+      endDate: period.endDate?.split("T")[0] || "",
+      paymentDate: period.paymentDate?.split("T")[0] || "",
+      cutoffDate: period.cutoffDate?.split("T")[0] || "",
+      workingDays: period.workingDays || 22,
+      status: period.status || "pending",
+      holidays: period.holidays || [],
+    });
+    setNewHoliday({ name: "", date: "" });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.startDate || !formData.endDate || !formData.paymentDate) {
       showSnackbar("Please fill all required fields", "warning");
       return;
     }
+
     showSpinner();
     try {
       const payload = {
-        name: createForm.name,
-        startDate: createForm.startDate,
-        endDate: createForm.endDate,
-        paymentDate: createForm.paymentDate,
-        cutoffDate: createForm.cutoffDate || createForm.startDate,
-        workingDays: createForm.workingDays,
-        status: createForm.status,
-        holidays: createForm.holidays,
+        name: formData.name,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        paymentDate: formData.paymentDate,
+        cutoffDate: formData.cutoffDate || formData.startDate,
+        workingDays: formData.workingDays,
+        status: formData.status,
+        holidays: formData.holidays,
       };
-      await periodsService.createPeriod(payload);
-      showSnackbar("Period created successfully!", "success");
-      setIsCreateDialogOpen(false);
-      setCreateForm({
-        name: "",
-        startDate: "",
-        endDate: "",
-        paymentDate: "",
-        cutoffDate: "",
-        workingDays: 22,
-        status: "pending",
-        holidays: [],
-      });
+
+      if (isEditMode) {
+        await periodsService.updatePeriod(formData.id, payload);
+        showSnackbar("Period updated successfully!", "success");
+      } else {
+        await periodsService.createPeriod(payload);
+        showSnackbar("Period created successfully!", "success");
+      }
+
+      setIsDialogOpen(false);
       loadPeriods();
+      resetForm();
     } catch (error: any) {
-      showSnackbar(error?.message || "Failed to create period", "error");
+      showSnackbar(error?.message || `Failed to ${isEditMode ? "update" : "create"} period`, "error");
     } finally {
       hideSpinner();
     }
   };
 
-  const handleUpdatePeriod = async () => {
-    if (!selectedPeriod) return;
-    showSpinner();
-    try {
-      await periodsService.updatePeriod(selectedPeriod.id, selectedPeriod);
-      showSnackbar("Period updated successfully!", "success");
-      setIsDialogOpen(false);
-      loadPeriods();
-    } catch (error: any) {
-      showSnackbar(error?.message || "Failed to update period", "error");
-    } finally {
-      hideSpinner();
-    }
+  const resetForm = () => {
+    setFormData({
+      id: "",
+      name: "",
+      startDate: "",
+      endDate: "",
+      paymentDate: "",
+      cutoffDate: "",
+      workingDays: 22,
+      status: "pending",
+      holidays: [],
+    });
+    setNewHoliday({ name: "", date: "" });
+    setIsEditMode(false);
   };
 
   const handleDeletePeriod = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this period?")) return;
-    showSpinner();
-    try {
-      await periodsService.deletePeriod(id);
-      showSnackbar("Period deleted successfully!", "success");
-      loadPeriods();
-    } catch (error: any) {
-      showSnackbar(error?.message || "Failed to delete period", "error");
-    } finally {
-      hideSpinner();
-    }
+    showConfirmDialog({
+      title: "Delete Period",
+      message: "Are you sure you want to delete this period?",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await periodsService.deletePeriod(id);
+          await loadPeriods();
+          showSnackbar("Period deleted successfully!", "success");
+        } catch (error: any) {
+          showSnackbar(error?.message || "Failed to delete period", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   const handleAddHoliday = () => {
@@ -164,27 +211,19 @@ export default function PayrollPeriodConfig() {
       showSnackbar("Please fill holiday name and date", "warning");
       return;
     }
-    setCreateForm({
-      ...createForm,
-      holidays: [...createForm.holidays, { name: newHoliday.name, date: newHoliday.date }],
+    setFormData({
+      ...formData,
+      holidays: [...formData.holidays, { name: newHoliday.name, date: newHoliday.date }],
     });
     setNewHoliday({ name: "", date: "" });
   };
 
   const handleRemoveHoliday = (index: number) => {
-    setCreateForm({
-      ...createForm,
-      holidays: createForm.holidays.filter((_, i) => i !== index),
+    setFormData({
+      ...formData,
+      holidays: formData.holidays.filter((_, i) => i !== index),
     });
   };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   return (
     <div>
@@ -202,17 +241,11 @@ export default function PayrollPeriodConfig() {
           <Button
             variant="contained"
             startIcon={<AddIcon fontSize="small" />}
-            onClick={() => setIsCreateDialogOpen(true)}
+            onClick={openCreateDialog}
             className="!bg-primary"
           >
             Create Period
           </Button>
-          {/* <Button variant="outlined" startIcon={<FileBarChartIcon fontSize="small" />} sx={{ textTransform: "none" }}>
-            Generate Reports
-          </Button>
-          <Button variant="outlined" startIcon={<DownloadIcon fontSize="small" />} sx={{ textTransform: "none" }}>
-            Export Data
-          </Button> */}
         </Box>
       </Box>
 
@@ -228,8 +261,8 @@ export default function PayrollPeriodConfig() {
           <Grid container spacing={2}>
             {periods.length === 0 ? (
               <Grid size={{ xs: 12 }}>
-                <Box sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
-                  <Typography variant="body1">No periods found. Click "Create Period" to add one.</Typography>
+                <Box sx={{ textAlign: "center", py: 4 }}>
+                  <Typography variant="body1" className="text-gray-800">No periods found. Click "Create Period" to add one.</Typography>
                 </Box>
               </Grid>
             ) : (
@@ -238,16 +271,13 @@ export default function PayrollPeriodConfig() {
                 const Icon = cfg.icon;
                 const isClosed = period.status === "closed";
 
-
                 return (
                   <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={period.id}>
                     <Paper className="bg-white-50"
                       sx={{
                         p: 2,
-                        cursor: "pointer",
                         borderRadius: 2,
                         border: `1px solid ${alpha(cfg.color, 0.3)}`,
-                        // bgcolor: alpha(cfg.color, 0.05),
                         bgcolor: isClosed ? alpha(theme.palette.grey[500], 0.05) : "background.paper",
                         transition: "all 0.2s",
                         "&:hover": { boxShadow: 2, borderColor: 'var(--color-primary)' },
@@ -255,10 +285,7 @@ export default function PayrollPeriodConfig() {
                       }}
                     >
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-                        <Box
-                          onClick={() => { setSelectedPeriod(period); setIsDialogOpen(true); }}
-                          sx={{ flex: 1 }}
-                        >
+                        <Box sx={{ flex: 1 }}>
                           <div className="text-[12px] text-gray-800 !font-bold">
                             {period.name}
                           </div>
@@ -271,37 +298,27 @@ export default function PayrollPeriodConfig() {
                           label={cfg.label}
                           size="small"
                           sx={{
-                            bgcolor: cfg.bgColor, color: cfg.color,
-                            fontSize: "0.65rem", fontWeight: 500,
+                            bgcolor: cfg.bgColor,
+                            color: cfg.color,
+                            fontSize: "0.65rem",
+                            fontWeight: 500,
                             "& .MuiChip-icon": { color: cfg.color },
                           }}
                         />
                       </Box>
                       <Stack spacing={0.75}>
                         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                          <div className="text-[12px] text-gray-500">
-                            Payment date
-                          </div>
-                          <div className="text-[12px] text-gray-800">
-                            {formatDate(period.paymentDate)}
-                          </div>
+                          <div className="text-[12px] text-gray-500">Payment date</div>
+                          <div className="text-[12px] text-gray-800">{formatDate(period.paymentDate)}</div>
                         </Box>
                         <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                          <div className="text-[12px] text-gray-500">
-                            Working days
-                          </div>
-                          <div className="text-[12px] text-gray-800">
-                            {period.workingDays}
-                          </div>
+                          <div className="text-[12px] text-gray-500">Working days</div>
+                          <div className="text-[12px] text-gray-800">{period.workingDays}</div>
                         </Box>
                         {period.holidays?.length > 0 && (
                           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                            <div className="text-[12px] text-gray-500">
-                              Holidays
-                            </div>
-                            <div className="text-[12px] text-gray-800">
-                              {period.holidays.length}
-                            </div>
+                            <div className="text-[12px] text-gray-500">Holidays</div>
+                            <div className="text-[12px] text-gray-800">{period.holidays.length}</div>
                           </Box>
                         )}
                       </Stack>
@@ -309,11 +326,8 @@ export default function PayrollPeriodConfig() {
                         <Button
                           variant="outlined"
                           size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedPeriod(period);
-                            setIsDialogOpen(true);
-                          }}
+                          startIcon={<EditIcon fontSize="small" />}
+                          onClick={() => openEditDialog(period)}
                           sx={{ textTransform: "none", flex: 1 }}
                         >
                           Edit
@@ -340,109 +354,167 @@ export default function PayrollPeriodConfig() {
         </CardContent>
       </Card>
 
-      {/* Create Period Dialog */}
-      <Dialog open={isCreateDialogOpen} onClose={() => setIsCreateDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
+      {/* Unified Create/Edit Dialog */}
+      <Dialog open={isDialogOpen} onClose={() => { setIsDialogOpen(false); resetForm(); }} maxWidth="md" sx={dialogsx}>
+        <DialogTitle className="!p-2 border-b border-gray-200">
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h6">Create New Payroll Period</Typography>
-            <IconButton onClick={() => setIsCreateDialogOpen(false)} size="small">
-              <CloseIcon />
+            <Typography variant="h6" className="!ml-4">
+              {isEditMode ? "Edit Payroll Period" : "Create New Payroll Period"}
+            </Typography>
+            <IconButton onClick={() => { setIsDialogOpen(false); resetForm(); }} size="small">
+              <CloseIcon className="!w-4 text-gray-800" />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2.5} sx={{ pt: 1 }}>
+        <DialogContent className="!p-7">
+          <Stack spacing={2.5}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12 }}>
                 <TextField
-                  label="Period Name *"
-                  value={createForm.name}
-                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  label="Period Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., August 2026"
                   fullWidth
-                  size="small"
+                  required
                 />
               </Grid>
             </Grid>
 
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Start Date *"
-                  type="date"
-                  value={createForm.startDate}
-                  onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
-                  fullWidth
-                  size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DatePicker
+                    label="Start Date"
+                    value={formData.startDate ? dayjs(formData.startDate) : null}
+                    onChange={(newValue) => {
+                      setFormData({
+                        ...formData,
+                        startDate: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                      });
+                    }}
+                    format="DD/MM/YYYY"
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DatePicker
+                    label="End Date"
+                    value={formData.endDate ? dayjs(formData.endDate) : null}
+                    onChange={(newValue) => {
+                      setFormData({
+                        ...formData,
+                        endDate: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                      });
+                    }}
+                    format="DD/MM/YYYY"
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                      }
+                    }}
+                  />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="End Date *"
-                  type="date"
-                  value={createForm.endDate}
-                  onChange={(e) => setCreateForm({ ...createForm, endDate: e.target.value })}
-                  fullWidth
-                  size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-            </Grid>
+            </LocalizationProvider>
 
             <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Payment Date *"
-                  type="date"
-                  value={createForm.paymentDate}
-                  onChange={(e) => setCreateForm({ ...createForm, paymentDate: e.target.value })}
-                  fullWidth
-                  size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <DatePicker
+                    label="Payment Date"
+                    value={formData.paymentDate ? dayjs(formData.paymentDate) : null}
+                    onChange={(newValue) => {
+                      setFormData({
+                        ...formData,
+                        paymentDate: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                      });
+                    }}
+                    format="DD/MM/YYYY"
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                      }
+                    }}
+                  />
+                </Grid>
+              </LocalizationProvider>
+
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Working Days"
                   type="number"
-                  value={createForm.workingDays}
-                  onChange={(e) => setCreateForm({ ...createForm, workingDays: Number(e.target.value) })}
+                  value={formData.workingDays}
+                  onChange={(e) => setFormData({ ...formData, workingDays: Number(e.target.value) })}
                   fullWidth
-                  size="small"
-                // inputProps={{ min: 1, max: 31 }}
+                  // inputProps={{ min: 1, max: 31 }}
                 />
               </Grid>
             </Grid>
 
+            {isEditMode && (
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  label="Status"
+                >
+                  <MenuItem value="pending">Pending</MenuItem>
+                  <MenuItem value="scheduled">Scheduled</MenuItem>
+                  <MenuItem value="processed">Processed</MenuItem>
+                  <MenuItem value="closed">Closed</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+
             <Box>
-              <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500, mb: 2 }}>
                 Holidays
               </Typography>
-              <Box sx={{ display: "flex", gap: 1 }}>
+              <div className="flex items-center gap-3">
                 <TextField
                   label="Holiday Name"
                   value={newHoliday.name}
                   onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
-                  size="small"
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, minWidth: 150 }}
                 />
-                <TextField
-                  label="Date"
-                  type="date"
-                  value={newHoliday.date}
-                  onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
-                  size="small"
-                  sx={{ width: 160 }}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-                <Button variant="outlined" onClick={handleAddHoliday} sx={{ textTransform: "none" }}>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DatePicker
+                    label="Date"
+                    value={newHoliday.date ? dayjs(newHoliday.date) : null}
+                    onChange={(newValue) => {
+                      setNewHoliday({
+                        ...newHoliday,
+                        date: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                      });
+                    }}
+                    format="DD/MM/YYYY"
+                    slotProps={{
+                      textField: {
+                        sx: { minWidth: 150 },
+                      }
+                    }}
+                  />
+                </LocalizationProvider>
+                <Button
+                  variant="outlined"
+                  onClick={handleAddHoliday}
+                  className="!text-primary !border-primary"
+                >
                   Add
                 </Button>
-              </Box>
-              {createForm.holidays.length > 0 && (
+              </div>
+              {formData.holidays.length > 0 && (
                 <Stack spacing={1} sx={{ mt: 1 }}>
-                  {createForm.holidays.map((h, i) => (
+                  {formData.holidays.map((h, i) => (
                     <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
                       <Box>
                         <Typography variant="body2">{h.name}</Typography>
@@ -451,7 +523,7 @@ export default function PayrollPeriodConfig() {
                         </div>
                       </Box>
                       <IconButton size="small" onClick={() => handleRemoveHoliday(i)}>
-                        <CloseIcon fontSize="small" />
+                        <CloseIcon fontSize="small" className="text-error !w-4" />
                       </IconButton>
                     </Box>
                   ))}
@@ -460,102 +532,20 @@ export default function PayrollPeriodConfig() {
             </Box>
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setIsCreateDialogOpen(false)} variant="outlined" sx={{ textTransform: "none" }}>
+        <DialogActions className="!p-4 border-t border-gray-200">
+          <Button
+            onClick={() => { setIsDialogOpen(false); resetForm(); }}
+            variant="outlined"
+            className="text-gray-800 border-gray-200"
+          >
             Cancel
           </Button>
-          <Button onClick={handleCreatePeriod} variant="contained" sx={{ textTransform: "none" }}>
-            Create Period
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Period Detail Dialog */}
-      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h6">Period Details — {selectedPeriod?.name}</Typography>
-            <IconButton onClick={() => setIsDialogOpen(false)} size="small">
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        <DialogContent dividers>
-          {selectedPeriod && (
-            <Stack spacing={2.5}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                    <div className="text-[12px] text-gray-800">
-                      Start Date
-                    </div>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {formatDate(selectedPeriod.startDate)}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                    <div className="text-[12px] text-gray-800">
-                      End Date
-                    </div>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {formatDate(selectedPeriod.endDate)}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Payment Date"
-                    type="date"
-                    value={selectedPeriod.paymentDate?.split("T")[0] || ""}
-                    onChange={(e) => setSelectedPeriod({ ...selectedPeriod, paymentDate: e.target.value })}
-                    fullWidth
-                    size="small"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label="Working Days"
-                    type="number"
-                    value={selectedPeriod.workingDays || ""}
-                    onChange={(e) => setSelectedPeriod({ ...selectedPeriod, workingDays: Number(e.target.value) })}
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-
-              {selectedPeriod.holidays?.length > 0 && (
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
-                    Holidays
-                  </Typography>
-                  <Stack spacing={1}>
-                    {selectedPeriod.holidays.map((h: any, i: number) => (
-                      <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.5, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                        <Typography variant="body2">{h.name}</Typography>
-                        <div className="text-[12px] text-gray-800">
-                          {formatDate(h.date)}
-                        </div>
-                      </Box>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setIsDialogOpen(false)} variant="outlined" sx={{ textTransform: "none" }}>
-            Close
-          </Button>
-          <Button onClick={handleUpdatePeriod} variant="contained" sx={{ textTransform: "none" }}>
-            Save Changes
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            className="!bg-primary"
+          >
+            {isEditMode ? "Update Period" : "Create Period"}
           </Button>
         </DialogActions>
       </Dialog>

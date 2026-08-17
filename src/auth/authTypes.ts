@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export type ApiRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS" | string;
 
-export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
+export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS";
 
 export type Permission =
   | "EMPLOYEE_READ"
@@ -41,6 +41,7 @@ export type AuthUser = {
   rawRoles: string[];
   permissions: string[];
   profilePic?: string;
+  employeeId?: string;
 };
 
 export type CompanyDetails = {
@@ -117,6 +118,7 @@ export type SetPasswordRequest = {
   resetToken: string;
   newPassword: string;
   confirmPassword: string;
+  tenantId?: string;
 };
 
 export type ActivateInviteRequest = {
@@ -154,6 +156,7 @@ export type UserProfile = {
   designation: string;
   hireDate: string;
   mfaType: string;
+  employeeId: string;
 };
 
 export type ProfilePictureResponse = {

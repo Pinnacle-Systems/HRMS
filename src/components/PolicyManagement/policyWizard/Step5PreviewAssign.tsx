@@ -3,7 +3,7 @@ import {
   Box, Typography, Grid, Card, CardContent, Divider, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions,
- CircularProgress,
+  CircularProgress,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
@@ -109,19 +109,21 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                   <TableRow>
                     <TableCell>Leave Type</TableCell>
                     <TableCell>Annual Days</TableCell>
-                    <TableCell>Max Consecutive</TableCell>
-                    <TableCell>Accrual</TableCell>
-                    <TableCell>Half Day</TableCell>
+                    <TableCell>Accrual Type</TableCell>
+                    <TableCell>Max Accrual</TableCell>
+                    <TableCell>Encashable</TableCell>
+                    <TableCell>Enable Pro-rata</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody className='bg-white-50'>
                   {config.entitlements.map((leave: any, i: number) => (
                     <TableRow key={i}>
-                      <TableCell><Chip label={leave.leaveType} size="small" className='text-gray-500 bg-gray-100' /> {leave.name}</TableCell>
+                      <TableCell><Chip label={leave.leaveType || leave.code} size="small" className='text-gray-500 bg-gray-100' /> {leave.name}</TableCell>
                       <TableCell>{leave.annualEntitlement} days</TableCell>
-                      <TableCell>{leave.maxConsecutiveDays || '—'}</TableCell>
                       <TableCell>{leave.accrualType}</TableCell>
-                      <TableCell>{leave.halfDayAllowed ? '✓' : '—'}</TableCell>
+                      <TableCell>{leave.maxAccrual || '-'}</TableCell>
+                      <TableCell>{leave.encashable ? '✓' : 'No'}</TableCell>
+                      <TableCell>{leave.enableProRata ? '✓' : 'No'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -278,10 +280,10 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
 
       {/* Test Dialog */}
       <Dialog open={previewDialogOpen} onClose={() => setPreviewDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Test Policy: {policyName}</DialogTitle>
-        <DialogContent>
+        <DialogTitle className='border-b border-gray-200 !p-2 !pl-4'>Test Policy: {policyName}</DialogTitle>
+        <DialogContent className='!p-4'>
           <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" sx={{ mb: 3 }}>
+            <Typography variant="body2" sx={{ mb: 2 }}>
               Select an employee to see how this policy would apply to them.
             </Typography>
             <EmployeeSelector

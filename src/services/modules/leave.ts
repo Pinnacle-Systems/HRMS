@@ -644,7 +644,7 @@ class LeaveService {
   }
 
   async createLeave(
-    payload: CreateLeaveRequestPayload,
+    payload: CreateLeaveRequestPayload, queryParams?: { employeeId?: string; userId?: string; tenantId?: string }
   ): Promise<LeaveApiResponse<LeaveRequest>> {
     // if (!USE_MOCK_LEAVE_SERVICE) {
     const apiPayload: CreateLeaveRequestApiPayload = {
@@ -659,10 +659,11 @@ class LeaveService {
       approverId: payload.approverId,
       attachmentIds: payload.attachmentIds,
     };
-    const response = (await apiService.post(
-      API_ENDPOINTS.LEAVE.BASE,
-      apiPayload,
-    )) as ApiEnvelope<LeaveRequestResponse>;
+     const params: Record<string, string> = {};
+  if (queryParams?.employeeId) params.employeeId = queryParams.employeeId;
+  if (queryParams?.userId) params.userId = queryParams.userId;
+  if (queryParams?.tenantId) params.tenantId = queryParams.tenantId;
+    const response = (await apiService.post(API_ENDPOINTS.LEAVE.BASE,apiPayload,{params})) as ApiEnvelope<LeaveRequestResponse>;
     return apiMappedResponse(
       response,
       mapLeaveRequestResponseToViewModel,
@@ -698,9 +699,12 @@ class LeaveService {
   }
 
   async createLeaveRequest(
-    payload: CreateLeaveRequestPayload,
+    payload: CreateLeaveRequestPayload,params?: string | { employeeId?: string; userId?: string; tenantId?: string }
   ): Promise<LeaveApiResponse<LeaveRequest>> {
-    return this.createLeave(payload);
+     const queryParams = typeof params === 'string' 
+    ? { employeeId: params } 
+    : params;
+    return this.createLeave(payload,queryParams);
   }
 
   async getLeaveById(id: string) {
@@ -1831,8 +1835,12 @@ class LeaveService {
   //   // );
   // }
 
-  async requestCompOffCredit(payload: CompOffCreditRequestPayload) {
-    return await apiService.post(API_ENDPOINTS.COMP_OFF.BASE, payload);
+  async requestCompOffCredit(payload: CompOffCreditRequestPayload,queryParams?: { employeeId?: string; userId?: string; tenantId?: string }) {
+     const params: Record<string, string> = {};
+  if (queryParams?.employeeId) params.employeeId = queryParams.employeeId;
+  if (queryParams?.userId) params.userId = queryParams.userId;
+  if (queryParams?.tenantId) params.tenantId = queryParams.tenantId;
+    return await apiService.post(API_ENDPOINTS.COMP_OFF.BASE, payload, {params});
     // if (!USE_MOCK_LEAVE_SERVICE) {
     //   const response = (await apiService.post(API_ENDPOINTS.COMP_OFF.BASE, {
     //     workedDate: payload.workedDate,

@@ -32,8 +32,9 @@ export default function ProtectedRoute({
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // const user = session.user;
+  const user = session.user;
   // const hasRole = !allowedRoles?.length || allowedRoles.some((role) => user.roles.includes(role));
+  
   const hasRole = !allowedRoles?.length || hasAnyRole(allowedRoles);
 
   // const hasPermission =
@@ -51,15 +52,15 @@ export default function ProtectedRoute({
   }
 
   if (!hasRole || !hasPermission) {
-    // logger.warn("Protected route denied access", {
-    //   path: location.pathname,
-    //   userId: user.userId,
-    //   roles: user.roles,
-    //   requiredRoles: allowedRoles,
-    //   requiredPermissions,
-    //   hasRole,
-    //   hasPermission,
-    // });
+    logger.warn("Protected route denied access", {
+      path: location.pathname,
+      userId: user.userId,
+      roles: user.roles,
+      requiredRoles: allowedRoles,
+      requiredPermissions,
+      hasRole,
+      hasPermission,
+    });
     return <Navigate to="/unauthorized" replace />;
   }
 

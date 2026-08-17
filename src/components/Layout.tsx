@@ -66,6 +66,7 @@ import {
   AccountCircleOutlined,
   HowToRegOutlined,
   GroupOutlined,
+  RequestQuoteOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -297,37 +298,37 @@ export default function Layout() {
     {
       text: "Loan/Advance Request",
       path: "/payroll/loan-advance-request",
-      icon: <RequestPageOutlined className="!w-4"/>,
+      icon: <RequestPageOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.LOAN_ADVANCE,
     },
     {
       text: "Statutory Compliance",
       path: "/payroll/compliance",
-      icon: <Verified className="!w-4"/>,
+      icon: <Verified className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.STATUTORY,
     },
     {
       text: "Bank Advice",
       path: "/payroll/bank-advice",
-      icon: <AccountBalanceOutlined className="!w-4"/>,
+      icon: <AccountBalanceOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.BANK_ADVICE,
     },
     {
       text: "Payroll Reports",
       path: "/payroll/reports",
-      icon: <AssessmentOutlined className="!w-4"/>,
+      icon: <AssessmentOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.REPORTS,
     },
     {
       text: "Audit Logs",
       path: "/payroll/audit",
-      icon: <HistoryOutlinedIcon className="!w-4"/>,
+      icon: <HistoryOutlinedIcon className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.AUDIT,
     },
     {
       text: "Employee Portal",
       path: "/payroll/employee-portal",
-      icon: <ViewQuiltOutlined className="!w-4"/>,
+      icon: <ViewQuiltOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.PORTAL,
     },
   ];
@@ -423,6 +424,12 @@ export default function Layout() {
           path: "/attendance/reports",
         },
       ],
+    },
+    {
+      text: "Loan/Advance Request",
+      icon: <RequestQuoteOutlined />,
+      path: "/payroll/loan-advance-request",
+      roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
     {
       text: "Payroll",
@@ -524,7 +531,15 @@ export default function Layout() {
               <MenuIcon />
             </IconButton>
             <Box className="flex items-center gap-2">
-              <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
+              {companyInfo.logoUrl ? (
+                <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
+              ) : (
+                <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-bold text-primary">
+                    {companyInfo.companyName?.charAt(0)?.toUpperCase() || "H"}
+                  </span>
+                </div>
+              )}
               <div>
                 <div className="flex items-center gap-2">
                   <div className="font-bold text-gray-700">
@@ -538,9 +553,6 @@ export default function Layout() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-[12px] text-gray-800">{companyInfo.companyName}</div>
-                  <div className="text-[10px]">
-                    <div className="text-gray-800">{session?.branchName} <span className="text-primary font-bold">({session?.fiscalYearLabel})</span></div>
-                  </div>
                 </div>
               </div>
             </Box>
@@ -548,6 +560,9 @@ export default function Layout() {
 
           <div>
             <Box className="flex items-center gap-2">
+              <div className="text-[10px]">
+                <div className="text-gray-800">{session?.branchName} <span className="text-primary font-bold">({session?.fiscalYearLabel})</span></div>
+              </div>
               <Tooltip title="Search">
                 <IconButton
                   size="small"
@@ -640,18 +655,18 @@ export default function Layout() {
         <Divider />
         {user?.roles.includes("ADMIN") && (
           <>
-          <MenuItem onClick={() => { navigate("/settings/general/company-settings"); handleProfileMenuClose(); }} className="bg-white-50">
-            <ListItemIcon>
-              <SettingsOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
-            </ListItemIcon>
-            <div className="text-gray-800">Company Settings</div>
-          </MenuItem>
-           <MenuItem onClick={() => { navigate("/user-management"); handleProfileMenuClose(); }} className="bg-white-50">
-            <ListItemIcon>
-              <GroupOutlined className="!w-4 text-gray-400 dark:text-primary" />
-            </ListItemIcon>
-            <div className="text-gray-800">User Management</div>
-          </MenuItem>
+            <MenuItem onClick={() => { navigate("/settings/general/company-settings"); handleProfileMenuClose(); }} className="bg-white-50">
+              <ListItemIcon>
+                <SettingsOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
+              </ListItemIcon>
+              <div className="text-gray-800">Company Settings</div>
+            </MenuItem>
+            <MenuItem onClick={() => { navigate("/user-management"); handleProfileMenuClose(); }} className="bg-white-50">
+              <ListItemIcon>
+                <GroupOutlined className="!w-4 text-gray-400 dark:text-primary" />
+              </ListItemIcon>
+              <div className="text-gray-800">User Management</div>
+            </MenuItem>
           </>
         )}
         <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/branch-fiscal-year"); }} className="bg-white-50">
@@ -1074,7 +1089,7 @@ export default function Layout() {
 
                         {/* ADVANCED FEATURES Section */}
                         <ListItemButton
-                          sx={{ pl: 1.5, pr: 1, minHeight: '28px'}}
+                          sx={{ pl: 1.5, pr: 1, minHeight: '28px' }}
                           className="hover:!bg-transparent"
                           onClick={() => { setPayrollAdvancedOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollConfigOpen(false); }}
                         >
@@ -1087,7 +1102,7 @@ export default function Layout() {
                           </ListItemIcon>
                           <ListItemText
                             primary="ADVANCED FEATURES"
-                             className="!mt-0 !mb-0"
+                            className="!mt-0 !mb-0"
                             sx={{
                               "& .MuiTypography-root": {
                                 fontSize: "10px",

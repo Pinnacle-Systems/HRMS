@@ -189,6 +189,7 @@ export interface ProcessResult {
   totalEmployees: number;
   processed: number;
   skipped: number;
+  skippedCount: number;
   errors: number;
   locked: boolean;
   message: string;

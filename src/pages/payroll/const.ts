@@ -123,7 +123,42 @@ export const statusConfig: Record<string, { label: string; color: string; bgColo
 };
 
 export const typeConfig = {
-  earning: { label: "Earning", color: "#10b981", bgColor: "#d1fae5" },
-  deduction: { label: "Deduction", color: "#ef4444", bgColor: "#fee2e2" },
-  benefit: { label: "Benefit", color: "#3b82f6", bgColor: "#dbeafe" },
+  EARNING: { label: "Earning", color: "#10b981", bgColor: "#d1fae5" },
+  DEDUCTION: { label: "Deduction", color: "#ef4444", bgColor: "#fee2e2" },
+  BENEFIT: { label: "Benefit", color: "#3b82f6", bgColor: "#dbeafe" },
+};
+
+export interface PayslipHistory {
+  runItemId: string;
+  periodLabel: string;
+  gross: number;
+  net: number;
+  generatedOn: string;
+}
+
+export interface EmployeePayslipsData {
+  currentMonthGross: number;
+  currentMonthNet: number;
+  ytdEarnings: number;
+  payslips: PayslipHistory[];
+}
+
+
+export interface PortalEmployee {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  designation: string;
+  department: string;
+  lastLogin: string;
+  status: string;
+}
+
+export const getCurrentMonthYear = () => {
+  const now = new Date();
+  const monthNames = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ];
+  return `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
 };

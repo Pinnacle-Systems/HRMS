@@ -77,6 +77,7 @@ export type LeaveRequestResponse = {
   hrVerifiedBy:string;
   hrVerifiedAt: string;
   hrVerified: boolean;
+  approvedByName: string;
 };
 
 export type LeaveTypeResponse = {
@@ -111,6 +112,15 @@ export type LeaveBalanceResponse = {
   adjustedDays?: number;
   closingBalance?: number;
   year?: number;
+  accrualType?: string;
+  annualEntitlement: number;
+  availableDays: number;
+  encashable: boolean;
+  leaveYear: number;
+  policyId: string;
+  policyName: string;
+  policyVersionId: string;
+  adjustmentDays: number
 };
 
 export type HolidayResponse = {
@@ -138,7 +148,7 @@ export type HolidayCalendarResponse = {
   calendarName?: string;
   name?: string;
   year?: number;
-  branchId?: string;
+  branchIds?: string[];
   branchName?: string;
   active?: boolean;
   createdAt?: string;
@@ -349,7 +359,7 @@ export function mapLeaveRequestResponseToViewModel(
     status: mapLeaveStatus(dto.currentStatus),
     appliedOn: asString(dto.submittedAt ?? dto.createdAt),
     approverId: dto.currentApproverId,
-    approverName: dto.currentApproverName,
+    approverName: dto.currentApproverName || dto.approvedByName,
     submittedAt: dto.submittedAt,
     approvedAt: dto.approvedAt,
     dates,
@@ -359,7 +369,8 @@ export function mapLeaveRequestResponseToViewModel(
     payrollTreatment: dto.payrollTreatment,
     hrVerified: dto.hrVerified,
     hrVerifiedAt: dto.hrVerifiedAt,
-    hrVerifiedBy: dto.hrVerifiedBy
+    hrVerifiedBy: dto.hrVerifiedBy,
+    approvedByName: dto.approvedByName
   };
 }
 
@@ -392,7 +403,7 @@ export function mapLeaveBalanceResponseToViewModel(
   const leaveTypeName = asString(dto.leaveTypeName);
   const accrued = asNumber(dto.accruedDays);
   const used = asNumber(dto.consumedDays);
-  const available = asNumber(dto.closingBalance);
+  const available = asNumber(dto.closingBalance || dto.availableDays);
 
   return {
     employeeId: asString(dto.employeeId),
@@ -402,9 +413,9 @@ export function mapLeaveBalanceResponseToViewModel(
     leaveTypeCode,
     name: leaveTypeName,
     leaveTypeName,
-    opening: asNumber(dto.openingBalance),
+    opening: asNumber(dto.openingBalance || dto.annualEntitlement),
     accrued,
-    credited: accrued,
+    credited: dto.adjustmentDays || accrued,
     used,
     availed: used,
     pending: asNumber(dto.pendingDays),
@@ -415,7 +426,7 @@ export function mapLeaveBalanceResponseToViewModel(
     accruedDays: asNumber(dto.accruedDays),
     closingBalance: available,
     consumedDays: asNumber(dto.consumedDays),
-    openingBalance: asNumber(dto.openingBalance),
+    openingBalance: asNumber(dto.openingBalance || dto.annualEntitlement),
   };
 }
 
@@ -448,7 +459,7 @@ export function mapHolidayCalendarResponseToViewModel(
     year: asNumber(dto.year, new Date().getFullYear()),
     locations: dto.locations ?? (branchName ? [branchName] : []),
     holidays: (dto.holidays ?? []).map(mapHolidayResponseToViewModel),
-    branchId: dto.branchId,
+    branchIds: dto.branchIds,
     branchName: dto.branchName,
     active: asBoolean(dto.active, true),
     createdAt: dto.createdAt,

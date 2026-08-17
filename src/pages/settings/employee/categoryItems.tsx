@@ -29,7 +29,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { categoryService } from "../../../services/modules/category";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { getRowColor } from "../../const";
+import { getRowColor, handleEnterAsTab } from "../../const";
 
 interface CategoryItem {
   id: string;
@@ -341,7 +341,7 @@ export default function CategoryItems() {
           </IconButton>
         </div>
         <DialogContent>
-          <div className="grid gap-5">
+          <div className="grid gap-5" onKeyDown={handleEnterAsTab}>
             <div>
               <TextField
                 fullWidth

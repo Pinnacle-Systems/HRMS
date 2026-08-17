@@ -9,17 +9,17 @@ export interface BankDetailsPayload {
 }
 
 export const employeePortalService = {
-  async getPortalData() {
-    return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.BASE);
-  },
+  // async getPortalData() {
+  //   return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.BASE);
+  // },
 
   async getSelfView() {
     return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.SELF_VIEW);
   },
 
-  async getEmployeePortalData(employeeId: string) {
-    return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.GET_BY_EMPLOYEE(employeeId));
-  },
+  // async getEmployeePortalData(employeeId: string) {
+  //   return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.GET_BY_EMPLOYEE(employeeId));
+  // },
 
   async updateBankDetails(payload: BankDetailsPayload) {
     return apiService.put(API_ENDPOINTS.PAYROLL.PORTAL.BANK_DETAILS, payload);

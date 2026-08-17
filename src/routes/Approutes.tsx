@@ -197,6 +197,7 @@ function AppRoutesContent() {
                   <Route path="documentation" element={<Documentation />} />
                   <Route path="my-info" element={<EmployeeDetails />} />
                   <Route path="onboarding-process" element={<OnBoardingProcess />} />
+                  <Route path="payroll/loan-advance-request" element={<LoanAdvanceRequestPage />} />
                 </Route>
 
                 {/* Employee Leave Routes */}
@@ -284,7 +285,7 @@ function AppRoutesContent() {
                   <Route path="employee/dashboard" element={<Home />} />
                 </Route>
 
-                {/* ============ EMPLOYEE MANAGEMENT ============ */}
+                {/* ============ EMPLOYEE MANAGEMENT- ADMIN/HR VIEW ============ */}
                 <Route
                   element={
                     <ProtectedRoute

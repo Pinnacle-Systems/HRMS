@@ -872,7 +872,6 @@ export function DailyRegister() {
         }
       }
     } catch (err: any) {
-      console.error('Import error:', err);
       const errorMessage = err?.response?.data?.message
         || err?.message
         || "Failed to import attendance";
@@ -1032,7 +1031,6 @@ export function DailyRegister() {
           deviceId: e.deviceId || e.machineInOutGridId || "",
         })),
       };
-      console.log("Importing punches with payload:", payload);
       const res: any = await attendanceService.importAttendance(payload);
       const data = res?.data?.data ?? res?.data;
       setPunchImportResult(data);
@@ -1043,6 +1041,7 @@ export function DailyRegister() {
       );
       loadRegister();
       loadTodaySummary();
+      setPunchImportOpen(false);
     } catch (err: any) {
       showSnackbar(
         err?.response?.data?.message ?? "Failed to import punches",
@@ -1191,22 +1190,22 @@ export function DailyRegister() {
         showSnackbar("No punch logs found for the selected devices and date range", "info");
         return;
       }
-
-      const newPunchEntries = punchesData.map((punch: any) => {
+      const newPunchEntriesFilter:any = punchesData.map((punch: any) => {
         const matchedEmp = employeesData.find(
-          (emp) => emp.id == punch.employeeId
+          (emp) => emp.midNo == punch.mid_no
         );
-        console.log("Matched employee for punch:", matchedEmp);
         return {
           ...punch,
           employeeName: matchedEmp ? matchedEmp.name : "Unknown",
           employeeCode: matchedEmp ? matchedEmp.employeeId : "Unknown",
+          employeeId: matchedEmp ? matchedEmp.id : "Unknown", //coment
           // deviceId: selectedDevicesData.find(d => d.id === punch.machineInOutGridId)?.id || "",
         };
       });
+      const newPunchEntries = newPunchEntriesFilter.filter((item:any) => item.employeeId  !== "Unknown")
+      
       // Add to existing punch entries
       setPunchEntries(prev => [...prev, ...newPunchEntries]);
-      console.log("Fetched punch logs from devices:", newPunchEntries);
       showSnackbar(
         `Successfully fetched ${newPunchEntries.length} punch logs from ${selectedDeviceIds.length} device(s)`,
         "success"
@@ -1464,7 +1463,7 @@ export function DailyRegister() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell padding="checkbox" className="!sticky left-0 !z-40">
+                <TableCell className="!sticky left-0 !z-40">
                   <Checkbox
                     size="small"
                     color="primary"
@@ -1518,7 +1517,7 @@ export function DailyRegister() {
                     // selected={selected.has(emp.employeeId)}
                     sx={getRowColor(i)}
                   >
-                    <TableCell padding="checkbox" className="!sticky left-0 !z-20 bg-inherit">
+                    <TableCell className="!sticky left-0 !z-20 bg-inherit">
                       <Checkbox
                         size="small"
                         color="primary"
@@ -2893,7 +2892,7 @@ export function DailyRegister() {
                 </div>
                 <div className="max-h-[150px] overflow-y-auto">
                   {punchEntries.map((entry, index) => (
-                    <div key={entry.id} className="grid grid-cols-[30px_1fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200">
+                    <div key={entry.id || index} className="grid grid-cols-[30px_1fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200">
                       <div className="text-[12px] text-gray-400">{index + 1}</div>
                       <div className="text-[12px]">
                         <span className="font-medium">{entry.employeeName}</span>

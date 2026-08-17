@@ -21,6 +21,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
+  const [mobileOtp, setMobileOtp] = useState("");
   const [visible, setIsVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [error, setError] = useState("");
@@ -69,8 +70,7 @@ export default function Login() {
               state: { session: outcome.session, fromLogin: true }
             });
           } else {
-            // navigate(getDefaultRoute(outcome.session.user), { replace: true });
-             redirectAfterAuth(outcome.session, navigate);
+            redirectAfterAuth(outcome.session, navigate);
           }
           break;
         
@@ -87,7 +87,6 @@ export default function Login() {
           break;
 
         case "tenantSelection":
-          // Store credentials for tenant-specific login
           navigate("/select-tenant", {
             replace: true,
             state: {
@@ -106,7 +105,7 @@ export default function Login() {
             replace: true,
             state: {
               email: outcome.email || email,
-              token: outcome.session?.accessToken // If token is available
+              token: outcome.session?.accessToken
             },
           });
           break;
@@ -132,35 +131,45 @@ export default function Login() {
     }
   };
 
+  // Handle mobile number + TOTP login
   const handleMobileLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    showSnackbar("Mobile OTP login is currently not available. Please use email/password.", "warning");
-    return;
-    /* Commented out as per API documentation
+    
+    // Validate mobile number
     if (!mobileNumber || mobileNumber.length < 10) {
-      showSnackbar("Please enter a valid mobile number", "warning");
+      showSnackbar("Please enter a valid 10-digit mobile number", "warning");
+      return;
+    }
+
+    // Validate TOTP
+    if (!mobileOtp || mobileOtp.length < 6) {
+      showSnackbar("Please enter the 6-digit TOTP from Google Authenticator", "warning");
       return;
     }
 
     setError("");
-    setIsLoading(true);
     showSpinner();
 
     try {
-      // According to API docs: "no endpoint currently issues that code to a phone pre-login"
-      // This will likely fail or return an error
-      const outcome = await login(
+      const outcome: any = await login(
         buildLoginRequest({
-          mobileNumber: mobileNumber,
+          mobileNumber: '+91' + mobileNumber,
+          mobileOtp: mobileOtp, // TOTP from Google Authenticator
+          tenantId: locationState.tenantId,
         })
       );
 
-      console.log("Mobile login outcome:", outcome);
-
       switch (outcome.type) {
         case "authenticated":
-          showSnackbar("Login successful!", "success");
-          navigate(getDefaultRoute(outcome.session.user), { replace: true });
+          if (outcome.mfaSetupRequired) {
+            showSnackbar("Please set up Multi-Factor Authentication", "warning");
+            navigate("/mfa-setup", {
+              replace: true,
+              state: { session: outcome.session, fromLogin: true }
+            });
+          } else {
+            redirectAfterAuth(outcome.session, navigate);
+          }
           break;
 
         case "mfaRequired":
@@ -182,6 +191,7 @@ export default function Login() {
               email: outcome.email || mobileNumber,
               sessionToken: outcome.sessionToken,
               mobileNumber: mobileNumber,
+              mobileOtp: mobileOtp,
               isMobileLogin: true,
             },
           });
@@ -197,8 +207,8 @@ export default function Login() {
           break;
 
         case "failed":
-          setError(outcome.message || "Failed to send OTP");
-          showSnackbar(outcome.message || "Failed to send OTP", "error");
+          setError(outcome.message || "Login failed");
+          showSnackbar(outcome.message || "Login failed", "error");
           break;
 
         default:
@@ -212,102 +222,12 @@ export default function Login() {
       console.error("Mobile login error:", err);
     } finally {
       hideSpinner();
-      setIsLoading(false);
     }
-    */
   };
-
-  // Handle mobile number OTP sending
-  // const handleSendOtp = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (!mobileNumber || mobileNumber.length < 10) {
-  //     showSnackbar("Please enter a valid mobile number", "warning");
-  //     return;
-  //   }
-
-  //   setError("");
-  //   showSpinner();
-
-  //   try {
-  //     const outcome: any = await login(
-  //       buildLoginRequest({
-  //         mobileNumber: mobileNumber,
-  //       })
-  //     );
-
-  //     switch (outcome.type) {
-  //       case "authenticated":
-  //         navigate(getDefaultRoute(outcome.session.user), { replace: true });
-  //         break;
-
-  //       case "mfaRequired":
-  //         navigate("/mfa", {
-  //           replace: true,
-  //           state: {
-  //             sessionToken: outcome.sessionToken,
-  //             mfaType: outcome.mfaType,
-  //           },
-  //         });
-  //         break;
-
-  //       case "tenantSelection":
-  //         navigate("/select-tenant", {
-  //           replace: true,
-  //           state: {
-  //             tenants: outcome.tenants,
-  //             email: outcome.email || mobileNumber,
-  //             sessionToken: outcome.sessionToken,
-  //             mobileNumber: mobileNumber,
-  //             isMobileLogin: true,
-  //           },
-  //         });
-  //         break;
-
-  //       case "mustChangePassword":
-  //         navigate("/reset-password", {
-  //           replace: true,
-  //           state: {
-  //             email: outcome.email || mobileNumber,
-  //           },
-  //         });
-  //         break;
-
-  //       case "failed":
-  //         // The API might return a message indicating OTP was sent
-  //         if (outcome.message?.toLowerCase().includes("otp") ||
-  //           outcome.message?.toLowerCase().includes("sent")) {
-  //           showSnackbar("OTP sent to your mobile number", "success");
-  //           navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
-  //         } else {
-  //           setError(outcome.message || "Failed to send OTP");
-  //           showSnackbar(outcome.message, "error");
-  //         }
-  //         break;
-
-  //       default:
-  //         // Assume OTP was sent
-  //         showSnackbar("OTP sent to your mobile number", "success");
-  //         navigateToOtpVerification(mobileNumber, "MOBILE_LOGIN");
-  //     }
-  //   } catch (err: unknown) {
-  //     const errMsg = err instanceof Error ? err.message : "Failed to send OTP";
-  //     setError(errMsg);
-  //     showSnackbar(errMsg, "error");
-  //   } finally {
-  //     hideSpinner();
-  //   }
-  // };
 
   const navigateToSignup = () => {
     navigate("/signup", { replace: true });
   };
-
-  // React.useEffect(() => {
-  //   if (locationState.fromSignup && locationState.verified) {
-  //     showSnackbar("Email verified successfully! Please login.", "success");
-  //   }
-  // }, [locationState, showSnackbar]);
-
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -315,7 +235,7 @@ export default function Login() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="w-full max-w-4xl h-[85vh] bg-white rounded-sm p-[25px] shadow-xl grid grid-cols-1 gap-6 md:grid-cols-2 overflow-hidden"
+        className="w-full max-w-4xl min-h-[90vh] bg-white rounded-sm p-[25px] shadow-xl grid grid-cols-1 gap-6 md:grid-cols-2 overflow-hidden"
       >
         {/* Left Section */}
         <div className="rounded-xl p-10 flex flex-col justify-between bg-gradient-to-bl from-primary-50 to-gray-100">
@@ -370,7 +290,10 @@ export default function Login() {
             Dot<span className="text-primary">HR</span> Platform
           </h2>
           <div className="text-[12px] mb-8 text-gray-400">
-            Enter your credentials to access your dashboard
+            {isMobile 
+              ? "Enter your mobile number and TOTP to access your dashboard" 
+              : "Enter your credentials to access your dashboard"
+            }
           </div>
 
           <form onSubmit={isMobile ? handleMobileLogin : handleEmailLogin} className="space-y-5">
@@ -386,7 +309,7 @@ export default function Login() {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="employee@company.com OR Emp ID"
+                    placeholder="employee@company.com or Emp ID"
                     className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                   />
@@ -429,11 +352,11 @@ export default function Login() {
                   </Link>
                 </div>
 
-                {error && (
+                {/* {error && (
                   <div className="text-sm text-error bg-red-50 border border-red-100 rounded-sm px-3 py-2">
                     {error}
                   </div>
-                )}
+                )} */}
 
                 <button
                   type="submit"
@@ -458,17 +381,38 @@ export default function Login() {
                       const value = e.target.value.replace(/\D/g, "");
                       setMobileNumber(value);
                     }}
-                    placeholder="Enter your mobile number"
+                    placeholder="Enter your 10-digit mobile number"
                     className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
                     required
                     maxLength={10}
                   />
                   {/* <p className="text-xs text-gray-400 mt-1">
-                    OTP will be sent to this number for verification
+                    Enter the mobile number registered with your account
                   </p> */}
-                  <p className="text-xs text-amber-600 mt-1">
-                    ⚠️ Mobile OTP login is currently not available. Please use email/password.
-                  </p>
+                </div>
+
+                {/* TOTP Input */}
+                <div>
+                  <label className="block text-sm mb-2" htmlFor="mobileOtp">
+                    Google Authenticator TOTP
+                  </label>
+                  <input
+                    id="mobileOtp"
+                    type="text"
+                    inputMode="numeric"
+                    value={mobileOtp}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      setMobileOtp(value);
+                    }}
+                    placeholder="Enter 6-digit TOTP from Google Authenticator"
+                    className="w-full bg-white text-sm px-4 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition"
+                    required
+                    maxLength={6}
+                  />
+                  {/* <p className="text-xs text-gray-400 mt-1">
+                    Open Google Authenticator app and enter the 6-digit code
+                  </p> */}
                 </div>
 
                 {error && (
@@ -477,18 +421,11 @@ export default function Login() {
                   </div>
                 )}
 
-                {/* <button
+                <button
                   type="submit"
                   className="w-full mt-2 text-sm bg-primary text-white py-3 rounded-sm font-semibold transition cursor-pointer hover:bg-primary-dark"
                 >
-                  Send OTP
-                </button> */}
-                <button
-                  type="submit"
-                  disabled={true}
-                  className="w-full mt-2 text-sm bg-gray-400 text-white py-3 rounded-sm font-semibold cursor-not-allowed opacity-60"
-                >
-                  Mobile Login (Unavailable)
+                  Sign in with Mobile
                 </button>
               </>
             )}
@@ -501,6 +438,7 @@ export default function Login() {
                 setIsMobile(!isMobile);
                 setError("");
                 setMobileNumber("");
+                setMobileOtp("");
                 setEmail("");
                 setPassword("");
               }}

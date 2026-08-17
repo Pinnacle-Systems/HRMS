@@ -12,6 +12,7 @@ type TenantLocationState = {
   loginId?: string;
   password?: string;
   mobileNumber?: string;
+  mobileOtp?: string;
   isMobileLogin?: boolean;
 };
 
@@ -20,12 +21,12 @@ export default function TenantSelectPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const state = (location.state || {}) as TenantLocationState;
-
   const tenants = state.tenants || [];
   const email = state.email || "";
   const loginId = state.loginId || email;
   const password = state.password || "";
   const mobileNumber = state.mobileNumber || "";
+  const mobileOtp = state.mobileOtp || "";
   const isMobileLogin = state.isMobileLogin || false;
 
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -66,6 +67,7 @@ export default function TenantSelectPage() {
       const loginRequest = isMobileLogin
         ? buildLoginRequest({
           mobileNumber: mobileNumber,
+          mobileOtp: mobileOtp,
           tenantId: selectedTenantId,
         })
         : buildLoginRequest({

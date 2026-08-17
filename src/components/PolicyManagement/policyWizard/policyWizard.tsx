@@ -57,7 +57,11 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
       setPolicyDefinition(policy.data);
       setPolicy(policy.data);
       if (latestVersion) {
-        setPolicyConfig(latestVersion.configJson);
+        const config = latestVersion.configJson;
+        if (typeof config.carryForward === 'boolean') {
+          config.carryForward = {};
+        }
+        setPolicyConfig(config);
         setCurrentVersionId(latestVersion.id);
       }
     } catch (err) {

@@ -272,7 +272,7 @@ export default function PolicySimulator() {
                   {result.policyName && (
                     <Chip
                       label={`Policy: ${result.policyName} v${result.policyVersion}`}
-                      size="small"
+                      size="small" className='text-gray-800' variant='outlined'
                     />
                   )}
                 </Box>
@@ -287,6 +287,7 @@ export default function PolicySimulator() {
                     key={idx}
                     severity={msg.type.toLowerCase() as any}
                     sx={{ mb: 1 }}
+                    // className={msg.type !== 'INFO' ?'text-gray-800':''}
                     icon={msg.type === 'INFO' ? <InfoIcon /> : undefined}
                   >
                     {msg.message}

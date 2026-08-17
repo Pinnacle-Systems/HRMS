@@ -87,7 +87,7 @@ export default function PasswordConfig() {
   const [isEditing, setIsEditing] = useState(false);
 
   // Check if there are unsaved changes - use useMemo to prevent unnecessary recalculations
-  const hasUnsavedChanges = isEditing && draftPolicy !== null && 
+  const hasUnsavedChanges = isEditing && draftPolicy !== null &&
     JSON.stringify(draftPolicy) !== JSON.stringify(policy);
 
   // Handle save with callback for navigation
@@ -113,7 +113,7 @@ export default function PasswordConfig() {
       setDraftPolicy(response);
       setSuccess("Password policy saved successfully.");
       setIsEditing(false);
-      
+
       if (callback) {
         callback();
       }
@@ -169,27 +169,27 @@ export default function PasswordConfig() {
 
   const updateNumericField =
     (field: NumericPolicyField) =>
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (!draftPolicy) return;
-      setDraftPolicy((current) => ({
-        ...current!,
-        [field]: Number(event.target.value),
-      }));
-      setSuccess(null);
-      setError(null);
-    };
+      (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!draftPolicy) return;
+        setDraftPolicy((current) => ({
+          ...current!,
+          [field]: Number(event.target.value),
+        }));
+        setSuccess(null);
+        setError(null);
+      };
 
   const updateBooleanField =
     (field: BooleanPolicyField) =>
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      if (!draftPolicy) return;
-      setDraftPolicy((current) => ({
-        ...current!,
-        [field]: event.target.checked,
-      }));
-      setSuccess(null);
-      setError(null);
-    };
+      (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!draftPolicy) return;
+        setDraftPolicy((current) => ({
+          ...current!,
+          [field]: event.target.checked,
+        }));
+        setSuccess(null);
+        setError(null);
+      };
 
   const handleEdit = () => {
     setDraftPolicy({ ...policy });
@@ -207,7 +207,7 @@ export default function PasswordConfig() {
         return;
       }
     }
-    
+
     setDraftPolicy(null);
     setIsEditing(false);
     setError(null);
@@ -294,16 +294,16 @@ export default function PasswordConfig() {
                   </div>
                   <div className="flex items-center gap-2">
                     {isEditing && hasUnsavedChanges && (
-                      <Chip 
-                        label="Unsaved" 
-                        size="small" 
+                      <Chip
+                        label="Unsaved"
+                        size="small"
                         color="warning"
                       />
                     )}
                     {!isEditing && (
-                      <IconButton 
-                        onClick={handleEdit} 
-                        size="small" 
+                      <IconButton
+                        onClick={handleEdit}
+                        size="small"
                         className="text-gray-500 hover:text-primary"
                         disabled={isSaving}
                       >
@@ -323,6 +323,13 @@ export default function PasswordConfig() {
                         value={draftPolicy?.minPasswordLength ?? policy.minPasswordLength}
                         onChange={updateNumericField("minPasswordLength")}
                         disabled={isSaving}
+                        slotProps={{
+                          htmlInput: {
+                            min: 8,
+                            max: 20,
+                            step: 1
+                          }
+                        }}
                       />
 
                       <TextField
@@ -368,7 +375,7 @@ export default function PasswordConfig() {
                         className="!text-gray-800 !border-gray-200"
                         onClick={handleCancel}
                         disabled={isSaving}
-                        startIcon={<CancelOutlined className="!text-gray-400"/>}
+                        startIcon={<CancelOutlined className="!text-gray-400" />}
                       >
                         Cancel
                       </Button>
@@ -466,9 +473,9 @@ export default function PasswordConfig() {
                       </Typography>
                     </div>
                     {isEditing && hasUnsavedChanges && (
-                      <Chip 
-                        label="Unsaved" 
-                        size="small" 
+                      <Chip
+                        label="Unsaved"
+                        size="small"
                         color="warning"
                       />
                     )}

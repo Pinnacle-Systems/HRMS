@@ -68,7 +68,7 @@ export default function CompOffsPage() {
   const [reason, setReason] = useState("");
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const currentEmployeeId = session?.user.userId ?? "";
+  const currentEmployeeId = session?.user.employeeId ? session?.user.employeeId : session?.user.userId ?? "";
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -231,7 +231,8 @@ export default function CompOffsPage() {
         ),
         reason,
         leaveTypeId: compOffLeaveType?.id,
-      });
+        approverId: "2122db24-272f-46fb-8482-e0dd03e614d8" //managerId
+      },{employeeId: currentEmployeeId,});
 
       if (response.success) {
         showSnackbar(
@@ -329,8 +330,8 @@ export default function CompOffsPage() {
         </div>
 
         <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl py-2 px-4 border border-gray-200/50">
-          <div className="text-[12px] text-gray-700">Expired</div>
-          <div className="text-xl font-bold text-gray-800">
+          <div className="text-[12px]">Expired</div>
+          <div className="text-xl font-bold">
             {statistics.expiredCount}
           </div>
           <div className="text-[12px] text-gray-600/70">Credits expired</div>
@@ -633,6 +634,7 @@ export default function CompOffsPage() {
                       setWorkedDate(value ? dayjs(value) : null);
                       setErrors((current) => ({ ...current, workedDate: "" }));
                     }}
+                    maxDate={dayjs().endOf('day')}
                     slots={{
                       openPickerIcon: CalendarMonthOutlinedIcon,
                     }}
@@ -708,3 +710,5 @@ export default function CompOffsPage() {
     </LeavePageShell>
   );
 }
+
+

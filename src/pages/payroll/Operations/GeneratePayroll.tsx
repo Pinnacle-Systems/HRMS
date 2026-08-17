@@ -446,8 +446,8 @@ export default function GeneratePayroll() {
                                 </Box>
                                 <Grid container spacing={3} sx={{ maxWidth: 600 }}>
                                     <Grid size={{ xs: 12, sm: 6 }}>
-                                        <FormControl fullWidth>
-                                            <InputLabel>Payroll Period *</InputLabel>
+                                        <FormControl fullWidth required>
+                                            <InputLabel>Payroll Period</InputLabel>
                                             <Select
                                                 value={selectedPeriodId}
                                                 onChange={(e) => handlePeriodChange(e.target.value)}
@@ -600,7 +600,7 @@ export default function GeneratePayroll() {
                                                     sx={getRowColor(i)}
                                                     onClick={() => toggleEmployee(emp.id)}
                                                 >
-                                                    <TableCell padding="checkbox">
+                                                    <TableCell>
                                                         <Checkbox
                                                             checked={selectedEmployees.includes(emp.id)}
                                                             onChange={() => toggleEmployee(emp.id)}
@@ -1155,7 +1155,7 @@ export default function GeneratePayroll() {
                                             </Typography>
                                             <Typography
                                                 variant="body2"
-                                                sx={{ color: "text.secondary", mt: 0.5 }}
+                                                className="text-gray-500"
                                             >
                                                 {successfulEarnings.length} payslips have been generated.
                                                 {failedSelected.length > 0 && (

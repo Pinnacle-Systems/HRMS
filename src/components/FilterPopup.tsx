@@ -15,6 +15,8 @@ import {
   Typography,
   Autocomplete,
   FormHelperText,
+  Chip,
+  Stack,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -27,12 +29,17 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type {
   FilterRule,
-  FilterCondition,
+  FilterConfig,
   FilterField,
   FilterPopupProps,
   FilterOperator,
 } from '../types/filter';
-import { operatorLabels, getOperatorsForFieldType, getInputTypeForOperator } from '../types/filterOperators';
+import {
+  operatorLabels,
+  getOperatorsForFieldType,
+  getOperatorRequiresValue,
+  getOperatorRequiresSecondValue,
+} from '../types/filterOperators';
 import dayjs from 'dayjs';
 import { selectSx } from '../const';
 
@@ -48,17 +55,21 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
 }) => {
   const [rules, setRules] = useState<FilterRule[]>(initialFilters?.rules || []);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [condition, setCondition] = useState<FilterCondition>(
+  const [condition, setCondition] = useState<'AND' | 'OR'>(
     initialFilters?.condition || "AND"
   );
 
   // Add new rule
   const addRule = () => {
+    const firstField = fields[0];
+    const operators = getOperatorsForFieldType(firstField?.type || 'text');
+
     const newRule: FilterRule = {
       id: generateId(),
-      field: fields[0]?.id || '',
-      operator: 'equals',
+      field: firstField?.id || '',
+      operator: operators[0] || 'equals',
       value: '',
+      value2: '',
     };
 
     setRules([...rules, newRule]);
@@ -81,27 +92,45 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
     return fields.find(f => f.id === fieldId);
   };
 
+  // Get field groups for organization
+  const getFieldGroups = () => {
+    const groups: Record<string, FilterField[]> = {};
+    fields.forEach(field => {
+      const group = field.group || 'General';
+      if (!groups[group]) groups[group] = [];
+      groups[group].push(field);
+    });
+    return groups;
+  };
+
   // Validate rule
   const validateRule = (rule: FilterRule): boolean => {
     const field = getField(rule.field);
     if (!field) return false;
 
-    if (rule.operator === 'isEmpty' || rule.operator === 'isNotEmpty') {
+    const operator = rule.operator;
+
+    // Boolean operators don't need value
+    if (['true', 'false', 'yes', 'no'].includes(operator)) {
       return true;
     }
 
-    if (rule.operator === 'between') {
+    // Empty/Null operators don't need value
+    if (['isEmpty', 'isNotEmpty', 'isNull', 'isNotNull'].includes(operator)) {
+      return true;
+    }
+
+    // Between requires both values
+    if (operator === 'between') {
       return !!rule.value && !!rule.value2;
     }
 
-    if (rule.operator === 'in' || rule.operator === 'notIn') {
+    // In/Not In requires array with values
+    if (operator === 'in' || operator === 'notIn') {
       return Array.isArray(rule.value) && rule.value.length > 0;
     }
 
-    if (field.type === 'boolean') {
-      return rule.value !== undefined && rule.value !== '';
-    }
-
+    // For other operators, value is required
     return rule.value !== undefined && rule.value !== null && rule.value !== '';
   };
 
@@ -124,18 +153,34 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
   // Apply filters
   const handleApply = () => {
     if (validateRules()) {
+      const validRules = rules.filter(rule => validateRule(rule));
       onApply({
         condition,
-        rules: rules.filter(rule => validateRule(rule)),
+        rules: validRules,
       });
-
       onClose();
     }
   };
+
   // Clear all filters
   const handleClear = () => {
     setRules([]);
     setErrors({});
+  };
+
+  // Check if operator requires value
+  const requiresValue = (operator: FilterOperator): boolean => {
+    return getOperatorRequiresValue(operator);
+  };
+
+  // Check if operator requires second value
+  const requiresSecondValue = (operator: FilterOperator): boolean => {
+    return getOperatorRequiresSecondValue(operator);
+  };
+
+  // Check if operator is boolean type
+  const isBooleanOperator = (operator: FilterOperator): boolean => {
+    return ['true', 'false', 'yes', 'no'].includes(operator);
   };
 
   // Render value input based on field type and operator
@@ -144,206 +189,173 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
     if (!field) return null;
 
     const operator = rule.operator;
-    if (operator === "isEmpty" || operator === "isNotEmpty") {
+
+    // Boolean operators - no input needed
+    if (isBooleanOperator(operator)) {
       return null;
     }
-    getInputTypeForOperator(operator, field.type);
+
+    // Empty/Null operators - no input needed
+    if (['isEmpty', 'isNotEmpty', 'isNull', 'isNotNull'].includes(operator)) {
+      return null;
+    }
 
     // Between operator
     if (operator === 'between') {
       return (
-        <Box sx={{ display: 'block', gap: 1, alignItems: 'center' }}>
-          {field.type === 'date' ? (
-            <>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DatePicker
-                  label="From"
-                  value={rule.value ? dayjs(rule.value) : null}
-                  onChange={(date) => {
-                    updateRule(rule.id, {
-                      value: date ? dayjs(date).format("YYYY-MM-DD") : "",
-                    });
-                  }}
-                  slotProps={{
-                    textField: {
-                      size: "small",
-                      sx: {
-                        flex: 1,
-                        "& .MuiInputLabel-root": {
-                          top: 0,
-                        },
-                        "& .MuiInputLabel-shrink": {
-                          top: 0,
-                        },
-                      },
-                    },
-                  }}
-                />
-
-                <DatePicker
-                  label="To"
-                  value={rule.value2 ? dayjs(rule.value2) : null}
-                  className='!mt-1'
-                  onChange={(date) => {
-                    updateRule(rule.id, {
-                      value2: date ? dayjs(date).format("YYYY-MM-DD") : "",
-                    });
-                  }}
-                  slotProps={{
-                    textField: {
-                      size: "small",
-                      sx: {
-                        flex: 1,
-                        "& .MuiInputLabel-root": {
-                          top: 0,
-                        },
-                        "& .MuiInputLabel-shrink": {
-                          top: 0,
-                        },
-                      },
-                    },
-                  }}
-                />
-              </LocalizationProvider>
-            </>
-          ) : (
-            <>
-              <TextField
-                type="number"
-                size="small"
-                placeholder="Min"
-                value={rule.value || ''}
-                onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-                sx={{ flex: 1 }}
-              />
-              <Typography variant="body2">to</Typography>
-              <TextField
-                type="number"
-                size="small"
-                placeholder="Max"
-                value={rule.value2 || ''}
-                onChange={(e) => updateRule(rule.id, { value2: e.target.value })}
-                sx={{ flex: 1 }}
-              />
-            </>
-          )}
-        </Box>
+        <Stack direction="row">
+          {renderSingleValueInput(rule, 'value', field)}
+          <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>
+            and
+          </Typography>
+          {renderSingleValueInput(rule, 'value2', field)}
+        </Stack>
       );
     }
 
     // In/Not In operators (multi-select)
     if (operator === 'in' || operator === 'notIn') {
       const options = field.options || [];
+      const selectedValues = Array.isArray(rule.value) ? rule.value : [];
+
       return (
         <Autocomplete
           multiple
           size="small"
           options={options}
-          className='!text-[12px]'
           getOptionLabel={(option) => option.label}
-          value={options.filter(opt => (rule.value || []).includes(opt.value))}
+          value={options.filter(opt => selectedValues.some(v => String(v) === String(opt.value)))}
           onChange={(_, newValue) => {
             updateRule(rule.id, { value: newValue.map(v => v.value) });
           }}
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder="Select values"
-              variant="outlined"
+              size="small"
+              placeholder="Select values..."
+              sx={{ minWidth: 200 }}
             />
           )}
-          sx={{ minWidth: 200 }}
+          renderTags={(value: any, getTagProps: any) =>
+            value.map((option: any, index: any) => (
+              <Chip
+                key={index}
+                label={option.label}
+                size="small"
+                {...getTagProps({ index })}
+              />
+            ))
+          }
         />
       );
     }
 
-    // Boolean field
-    if (field.type === 'boolean') {
-      return (
-        <Select
-          size="small"
-          value={rule.value === undefined ? '' : rule.value}
-          onChange={(e) => updateRule(rule.id, { value: e.target.value === 'true' })}
-          displayEmpty
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">Select</MenuItem>
-          <MenuItem value="true">Yes</MenuItem>
-          <MenuItem value="false">No</MenuItem>
-        </Select>
-      );
-    }
-
-    // Date field
-    if (field.type === 'date') {
-      return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <DatePicker
-            label="Select date"
-            value={rule.value ? dayjs(rule.value) : null}
-            onChange={(d) => {
-              updateRule(rule.id, { value: d ? dayjs(d).format('YYYY-MM-DD') : '' });
-            }}
-            slotProps={{
-              textField: {
-                size: 'small',
-                sx: {
-                  minWidth: 150,
-                  "& .MuiInputLabel-root": {
-                    top: 0,
-                  },
-                  "& .MuiInputLabel-shrink": {
-                    top: 0,
-                  },
-                }
-              },
-              openPickerButton: {
-                color: "primary",
-                edge: "end",
-              },
-            }}
-
-          />
-        </LocalizationProvider>
-      );
-    }
-
-    // Select field
-    if (field.type === 'select') {
-      return (
-        <Select
-          size="small"
-          value={rule.value || ''}
-          onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-          displayEmpty
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">Select value</MenuItem>
-          {field.options?.map(opt => (
-            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-          ))}
-        </Select>
-      );
-    }
-
-    // Default text/number input
-    return (
-      <TextField
-        type={field.type === 'number' ? 'number' : 'text'}
-        size="small"
-        placeholder={`Enter ${field.label.toLowerCase()}`}
-        value={rule.value || ''}
-        onChange={(e) => updateRule(rule.id, { value: e.target.value })}
-        sx={{ minWidth: 200 }}
-      />
-    );
+    // Single value input
+    return renderSingleValueInput(rule, 'value', field);
   };
 
-  // Get available operators for a field
-  const getAvailableOperators = (fieldId: string): FilterOperator[] => {
-    const field = getField(fieldId);
-    if (!field) return [];
-    return getOperatorsForFieldType(field.type);
+  // Render single value input
+  const renderSingleValueInput = (
+    rule: FilterRule,
+    key: 'value' | 'value2',
+    field: FilterField
+  ) => {
+    const value = rule[key] || '';
+
+    switch (field.type) {
+      case 'select':
+      case 'multiSelect':
+        return (
+          <FormControl size="small" sx={{ minWidth: 150, flex: 1 }}>
+            <Select
+              value={value}
+              onChange={(e) => updateRule(rule.id, { [key]: e.target.value })}
+              displayEmpty
+              sx={selectSx}
+            >
+              <MenuItem value="">Select...</MenuItem>
+              {field.options?.map((opt) => (
+                <MenuItem key={String(opt.value)} value={String(opt.value)}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        );
+
+      case 'boolean':
+        return (
+          <FormControl size="small" sx={{ minWidth: 150, flex: 1 }}>
+            <Select
+              value={String(value)}
+              onChange={(e) => updateRule(rule.id, { [key]: e.target.value === 'true' })}
+              displayEmpty
+              sx={selectSx}
+            >
+              <MenuItem value="">Select...</MenuItem>
+              <MenuItem value="true">True</MenuItem>
+              <MenuItem value="false">False</MenuItem>
+            </Select>
+          </FormControl>
+        );
+
+      case 'date':
+        return (
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              label={key === 'value' ? 'From' : 'To'}
+              value={value ? dayjs(value) : null}
+              onChange={(date) => {
+                updateRule(rule.id, {
+                  [key]: date ? dayjs(date).format('YYYY-MM-DD') : '',
+                });
+              }}
+              slotProps={{
+                textField: {
+                  size: 'small',
+                  sx: { minWidth: 150, flex: 1 },
+                },
+              }}
+            />
+          </LocalizationProvider>
+        );
+
+      case 'number':
+        return (
+          <TextField
+            type="number"
+            size="small"
+            value={value}
+            onChange={(e) => updateRule(rule.id, { [key]: e.target.value })}
+            placeholder="Enter value..."
+            sx={{ minWidth: 150, flex: 1 }}
+          />
+        );
+
+      case 'multiline':
+        return (
+          <TextField
+            size="small"
+            value={value}
+            onChange={(e) => updateRule(rule.id, { [key]: e.target.value })}
+            placeholder="Enter value..."
+            multiline
+            rows={2}
+            sx={{ minWidth: 200, flex: 1 }}
+          />
+        );
+
+      default:
+        return (
+          <TextField
+            size="small"
+            value={value}
+            onChange={(e) => updateRule(rule.id, { [key]: e.target.value })}
+            placeholder={`Enter ${field.label.toLowerCase()}...`}
+            sx={{ minWidth: 150, flex: 1 }}
+          />
+        );
+    }
   };
 
   return (
@@ -362,7 +374,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
             margin: 0,
             width: {
               xs: "100%",
-              sm: "700px",
+              sm: "750px",
             },
             maxWidth: "100%",
             height: "100vh",
@@ -385,10 +397,18 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           height: "100%",
         }}
       >
-        <DialogTitle className='border-b border-gray-200 flex align-c justify-between'>
+        <DialogTitle className='border-b border-gray-200 flex items-center justify-between'>
           <div className='flex items-center'>
             <FilterAltOutlined className='bg-primary-50 rounded-sm !w-5 text-primary' />
             <div className='text-gray-800 ml-2'>{title}</div>
+            {rules.length > 0 && (
+              <Chip
+                label={`${rules.length} filter${rules.length > 1 ? 's' : ''}`}
+                size="small"
+                color="primary"
+                sx={{ ml: 2 }}
+              />
+            )}
           </div>
           <IconButton onClick={onClose} size="small">
             <CloseIcon className='text-gray-800' />
@@ -397,44 +417,13 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
 
         <DialogContent sx={{
           "&.MuiDialogContent-root": {
-            padding: 1,
+            padding: 2,
             paddingTop: 2
           },
           overflowY: "auto",
           flex: 1,
         }}>
-          {/* AND OR OPERATOR */}
-          {/* {rules.length > 1 && (
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              <RadioGroup
-                row
-                value={condition}
-                onChange={(e) =>
-                  setCondition(e.target.value as FilterCondition)
-                }
-              >
-                <FormControlLabel
-                  value="AND"
-                  control={<Radio size="small" />}
-                  label="AND"
-                />
-
-                <FormControlLabel
-                  value="OR"
-                  control={<Radio size="small" />}
-                  label="OR"
-                />
-              </RadioGroup>
-            </Box>
-          )} */}
+          {/* AND/OR Condition Selector */}
           {rules.length > 1 && (
             <Box
               sx={{
@@ -464,21 +453,16 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                     textTransform: "none",
                     fontWeight: 600,
                     boxShadow: "none",
-                    backgroundColor:
-                      condition === "AND" ? "#1976d2" : "transparent",
+                    backgroundColor: condition === "AND" ? "#1976d2" : "transparent",
                     color: condition === "AND" ? "#fff" : "#6b7280",
                     "&:hover": {
-                      backgroundColor:
-                        condition === "AND"
-                          ? "#1976d2"
-                          : "#e5e7eb",
+                      backgroundColor: condition === "AND" ? "#1976d2" : "#e5e7eb",
                       boxShadow: "none",
                     },
                   }}
                 >
                   AND
                 </Button>
-
                 <Button
                   size="small"
                   variant={condition === "OR" ? "contained" : "text"}
@@ -489,14 +473,10 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                     textTransform: "none",
                     fontWeight: 600,
                     boxShadow: "none",
-                    backgroundColor:
-                      condition === "OR" ? "#1976d2" : "transparent",
+                    backgroundColor: condition === "OR" ? "#1976d2" : "transparent",
                     color: condition === "OR" ? "#fff" : "#6b7280",
                     "&:hover": {
-                      backgroundColor:
-                        condition === "OR"
-                          ? "#1976d2"
-                          : "#e5e7eb",
+                      backgroundColor: condition === "OR" ? "#1976d2" : "#e5e7eb",
                       boxShadow: "none",
                     },
                   }}
@@ -506,79 +486,107 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
               </Box>
             </Box>
           )}
+
           {/* Filter rules */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {rules.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+              <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
                 <Typography variant="body2" className='text-gray-800'>
                   No filters applied. Click "Add Filter" to get started.
                 </Typography>
               </Box>
             ) : (
               rules.map((rule) => {
-                const operators = getAvailableOperators(rule.field);
+                const field = getField(rule.field);
+                const operators = getOperatorsForFieldType(field?.type || 'text');
+                const fieldGroups = getFieldGroups();
+
                 return (
-                  <Box key={rule.id}>
-                    {/* Rule Row */}
-                    < Box
-                      sx={{
-                        display: 'flex',
-                        gap: 2,
-                        alignItems: 'flex-start',
-                        // p: 2,
-                        m: 1,
-                        // border: '1px solid',
-                        // borderColor: 'divider',
-                        // borderRadius: 2,
-                        bgcolor: 'bg-white',
-                      }}
+                  <Box
+                    key={rule.id}
+                    sx={{
+                      p: 2,
+                      border: '1px solid',
+                      borderColor: errors[rule.id] ? 'error.main' : 'divider',
+                      borderRadius: 2,
+                      bgcolor: 'background.paper',
+                      position: 'relative',
+                    }}
+                  >
+                    <Stack
+                      direction={{ xs: 'column', sm: 'row' }}
+                      spacing={2}
+                    // alignItems={{ xs: 'stretch', sm: 'center' }}
+                    // sx={{ width: '100%' }}
                     >
                       {/* Field selector */}
                       <FormControl size="small" sx={{ minWidth: 180 }}>
                         <InputLabel>Field</InputLabel>
+
                         <Select
-                          value={rule.field}
+                          value={rule.field || ''}
                           label="Field"
                           size='small'
                           sx={selectSx}
                           onChange={(e) => {
                             const newFieldId = e.target.value;
-                            const defaultOperators =
-                              getAvailableOperators(newFieldId);
+                            console.log('Field selected:', newFieldId);
+
+                            const newField = getField(newFieldId);
+                            const defaultOperators = getOperatorsForFieldType(
+                              newField?.type || 'text'
+                            );
 
                             updateRule(rule.id, {
                               field: newFieldId,
-                              operator:
-                                defaultOperators[0] || 'equals',
+                              operator: defaultOperators[0] || 'equals',
                               value: '',
                               value2: '',
                             });
+
+                            console.log('Updated rule:', rule);
                           }}
+                          displayEmpty
                         >
-                          {fields.map((f) => (
-                            <MenuItem key={f.id} value={f.id}>
-                              {f.label}
-                            </MenuItem>
-                          ))}
+                          <MenuItem value="" disabled>
+                            Select Field
+                          </MenuItem>
+                          {Object.entries(fieldGroups).map(([group, groupFields]) => [
+                            <MenuItem
+                              key={`${group}-header`}
+                              disabled
+                              sx={{ fontWeight: 'bold', color: 'text.secondary', opacity: 1 }}
+                            >
+                              {group}
+                            </MenuItem>,
+                            ...groupFields.map((f) => (
+                              <MenuItem key={f.id} value={f.id} sx={{ pl: 4 }}>
+                                {f.label}
+                              </MenuItem>
+                            ))
+                          ])}
                         </Select>
                       </FormControl>
 
                       {/* Operator selector */}
-                      <FormControl sx={{ minWidth: 180 }}>
+                      <FormControl size="small" sx={{ minWidth: 150 }}>
                         <InputLabel>Operator</InputLabel>
                         <Select
-                          value={rule.operator}
+                          value={rule.operator || ''}
                           label="Operator"
                           sx={selectSx}
                           onChange={(e) => {
                             updateRule(rule.id, {
-                              operator:
-                                e.target.value as FilterOperator,
+                              operator: e.target.value as FilterOperator,
                               value: '',
                               value2: '',
                             });
                           }}
+                          displayEmpty
                         >
+                          <MenuItem value="" disabled>
+                            Select Operator
+                          </MenuItem>
                           {operators.map((op) => (
                             <MenuItem key={op} value={op} className='!text-[12px]'>
                               {operatorLabels[op]}
@@ -588,7 +596,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                       </FormControl>
 
                       {/* Value input */}
-                      <Box sx={{ flex: 1 }}>
+                      <Box sx={{ flex: 1, minWidth: 200 }}>
                         {renderValueInput(rule)}
                         {errors[rule.id] && (
                           <FormHelperText error>
@@ -601,17 +609,17 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                       <IconButton
                         size="small"
                         onClick={() => removeRule(rule.id)}
-                        sx={{ mt: 0.5 }}
+                        sx={{ flex: '0 0 auto' }}
                       >
                         <DeleteIcon className='!text-red-500' />
                       </IconButton>
-                    </Box>
+                    </Stack>
                   </Box>
                 );
               })
             )}
           </Box>
-        </DialogContent >
+        </DialogContent>
 
         <DialogActions className='border-t border-gray-200 flex items-center !justify-between !p-4'>
           <Box>
@@ -635,14 +643,22 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
             )}
           </Box>
           <Box>
-            <Button variant='outlined' onClick={onClose} className='!text-gray-800 !border-gray-300'>Cancel</Button>
-            <Button onClick={handleApply} variant="contained" className='!bg-primary' sx={{ ml: 1 }}>
-              Apply Filters
+            <Button variant='outlined' onClick={onClose} className='!text-gray-800 !border-gray-300'>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleApply}
+              variant="contained"
+              className='!bg-primary'
+              sx={{ ml: 1 }}
+              disabled={rules.length === 0}
+            >
+              Apply Filters ({rules.filter(r => validateRule(r)).length})
             </Button>
           </Box>
         </DialogActions>
-      </Box >
-    </Dialog >
+      </Box>
+    </Dialog>
   );
 };
 

@@ -245,13 +245,13 @@ export function AttendanceDetailed() {
                 {[
                   "S No",  "Name", "Date",
                   "Shift", "Check In", "Check Out",
-                  "Worked", "Late", "Early Out", "OT", "Status", "Actions",
+                  "Worked", "Late In", "Early Out", "OT", "Status", "Actions",
                 ].map((h) => (
                   <TableCell
                     key={h}
                     className={`!font-bold !text-gray-700 !bg-gray-50 ${h === "S No" ? "!sticky left-0 !z-30" : ""} ${h === "Name" ? "!sticky left-[59px] !z-30" : ""}
-                     ${h === "Date" ? "!sticky left-[220px] !z-30" : ""} 
-                     ${h === "Status" ? "!sticky right-[88px] !z-30" : ""}
+                     ${h === "Date" ? "!sticky left-[123px] !z-30" : ""} 
+                     ${h === "Status" ? "!sticky right-[76px] !z-30" : ""}
                       ${h === "Actions" ? "!sticky right-0 !z-30" : ""}`}
                   >
                     {h}

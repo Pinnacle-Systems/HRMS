@@ -133,9 +133,9 @@ export const payrollRunsService = {
     return apiService.get(API_ENDPOINTS.PAYROLL.PAYROLLRUNS.GET_ITEMS(id), { params });
   },
 
-  async getPeriodDetails(params: { year: number; month: number }) {
-    return apiService.get(API_ENDPOINTS.PAYROLL.PAYROLLRUNS.GET_PERIOD_DETAILS, { params });
-  },
+  // async getPeriodDetails(params: { year: number; month: number }) {
+  //   return apiService.get(API_ENDPOINTS.PAYROLL.PAYROLLRUNS.GET_PERIOD_DETAILS, { params });
+  // },
 
   async createPayrollRun(payload: PayrollRunCreatePayload) {
     return apiService.post(API_ENDPOINTS.PAYROLL.PAYROLLRUNS.CREATE, payload);

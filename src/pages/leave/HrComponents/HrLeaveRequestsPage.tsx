@@ -276,7 +276,7 @@ export default function HrLeaveRequestsPage() {
     }
     try {
       await leaveService.hrVerified(request.id, payload);
-      selectedRequest ? selectedRequest.hrVerified = true  : '';
+      selectedRequest ? selectedRequest.hrVerified = true : '';
       loadRequests();
     } catch (error: any) {
       showSnackbar(error.msg, 'error')
@@ -507,14 +507,14 @@ export default function HrLeaveRequestsPage() {
       </Menu>
 
       {/* Comp-Off Requests Section */}
-      <Box sx={{ mt: 4 }}>
-        <div className="text-[12px] flex items-center gap-2 text-gray-800 !mt-6">
+      <Box sx={{ my: 4 }}>
+        <div className="text-[12px] flex items-center gap-2 text-gray-800 !mt-3">
           <EventNoteIcon fontSize="small" color="secondary" />
           Comp-Off Credit Approvals
           <Chip label={`${compOffRequests.length}`} size="small" color="secondary" variant="outlined" sx={{ ml: 1 }} />
         </div>
 
-        <TableContainer className="overflow-auto border border-gray-200 rounded-sm mt-3">
+        <TableContainer className="overflow-auto border border-gray-200 rounded-sm my-3">
           <Table size="small">
             <TableHead>
               <TableRow>
@@ -1255,8 +1255,8 @@ export default function HrLeaveRequestsPage() {
 
                 {/* Show action buttons when pending */}
                 {(selectedRequest.attachments && selectedRequest.attachments.length > 0) && (
-                    !selectedRequest.hrVerified ? (
-                      <div className="border-t border-gray-200 mt-3 pt-3 grid gap-3">
+                  !selectedRequest.hrVerified ? (
+                    <div className="border-t border-gray-200 mt-3 pt-3 grid gap-3">
                       <TextField
                         placeholder="Comments"
                         value={hrComments}
@@ -1275,19 +1275,19 @@ export default function HrLeaveRequestsPage() {
                         </Button>
                       </div>
                     </div>
-                    ) : (
-                     <div className="flex items-center justify-center mt-3">
+                  ) : (
+                    <div className="flex items-center justify-center mt-3">
                       <Button
-                          variant="contained"
-                          size="small"
-                          color="success"
-                        >
-                          Verified
-                        </Button>
-                        <div>{selectedRequest.hrVerifiedAt ? formatDateTime(selectedRequest.hrVerifiedAt) : ''}</div>
-                     </div>
-                    )
-                  )}
+                        variant="contained"
+                        size="small"
+                        color="success"
+                      >
+                        Verified
+                      </Button>
+                      <div>{selectedRequest.hrVerifiedAt ? formatDateTime(selectedRequest.hrVerifiedAt) : ''}</div>
+                    </div>
+                  )
+                )}
               </div>
             </div>
 

@@ -1,696 +1,4 @@
-// import { useEffect, useState } from "react";
-// import {
-//   Box,
-//   Card,
-//   CardContent,
-//   Typography,
-//   Button,
-//   Select,
-//   MenuItem,
-//   FormControl,
-//   InputLabel,
-//   Table,
-//   TableBody,
-//   TableCell,
-//   TableHead,
-//   TableRow,
-//   TableContainer,
-//   Paper,
-//   Chip,
-//   IconButton,
-//   Stack,
-//   useTheme,
-//   alpha,
-//   Grid,
-//   Dialog,
-//   DialogTitle,
-//   DialogContent,
-//   DialogActions,
-//   TextField,
-//   Avatar,
-//   LinearProgress,
-//   Alert,
-//   AlertTitle,
-// } from "@mui/material";
-// import {
-//   Add as PlusIcon,
-//   TrendingDown as TrendingDownIcon,
-//   AttachMoney as DollarSignIcon,
-//   Warning as AlertTriangleIcon,
-//   Edit as EditIcon,
-//   Block as BanIcon,
-//   Close as CloseIcon,
-// } from "@mui/icons-material";
-// import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
-// import { formatCurrency } from "../const";
-
-// const PIE_COLORS = ["#ef4444", "#f59e0b", "#10b981", "#8b5cf6"];
-
-// import { employeeDeductionsService } from "../../../services/modules/payrollServices/deductions";
-// import { employeeService } from "../../../services/modules/employees";
-
-// const normalizeCollection = (response: any) => {
-//   const payload = response?.data ?? response;
-//   const candidates = [payload?.content, payload?.items, payload?.records, payload?.data?.content, payload?.data, payload];
-//   const collection = candidates.find(Array.isArray);
-//   return Array.isArray(collection) ? collection : [];
-// };
-
-// const formatDate = (date: Date): string => {
-//   return date.toLocaleDateString("en-IN", {
-//     day: "2-digit",
-//     month: "short",
-//     year: "numeric",
-//   });
-// };
-
-// const typeLabels: Record<string, string> = {
-//   loan: "Loan EMI",
-//   advance: "Advance",
-//   canteen: "Canteen",
-//   other: "Other",
-// };
-
-// const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-//   active: { label: "Active", color: "#10b981", bgColor: "#d1fae5" },
-//   completed: { label: "Completed", color: "#6b7280", bgColor: "#f3f4f6" },
-//   stopped: { label: "Stopped", color: "#ef4444", bgColor: "#fee2e2" },
-// };
-
-// const deductionPieData = [
-//   { name: "Loans", value: 25000 },
-//   { name: "Advances", value: 5000 },
-//   { name: "Canteen", value: 3000 },
-// ];
-
-// export default function DeductionConfiguration() {
-//   const theme = useTheme();
-//   const [selectedEmployee, setSelectedEmployee] = useState("");
-//   const [employees, setEmployees] = useState<any[]>([]);
-//   const [deductions, setDeductions] = useState<any[]>([]);
-//   const [isDialogOpen, setIsDialogOpen] = useState(false);
-//   const [formData, setFormData] = useState<any>({
-//     type: "loan",
-//     name: "",
-//     amount: 0,
-//     installments: 0,
-//     interestRate: 0,
-//     status: "active",
-//     frequency: "monthly",
-//   });
-
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState("");
-
-//   useEffect(() => {
-//     const loadData = async () => {
-//       setLoading(true);
-//       try {
-//         const [employeesResponse, deductionsResponse] = await Promise.all([
-//           employeeService.getEmployees(),
-//           employeeDeductionsService.getEmployeeDeductions(),
-//         ]);
-//         const employeeList = normalizeCollection(employeesResponse).map((employee: any) => ({
-//           id: employee.id || employee.employeeId,
-//           name: employee.name || employee.employeeName || employee.fullName,
-//           designation: employee.designationName || employee.designation || "Employee",
-//           department: employee.departmentName || employee.department || "General",
-//           ctc: employee.ctc || employee.annualCtc || 0,
-//         }));
-//         const deductionList = normalizeCollection(deductionsResponse).map((deduction: any) => ({
-//           id: deduction.id || deduction.deductionId,
-//           employeeId: deduction.employeeId || deduction.empId,
-//           type: deduction.type || "loan",
-//           name: deduction.name || deduction.typeLabel || "Deduction",
-//           amount: deduction.monthlyAmount || deduction.amount || 0,
-//           installments: deduction.totalInstallments || deduction.installments || 0,
-//           startDate: deduction.startedOn || deduction.startDate,
-//           status: (deduction.status || "active").toLowerCase(),
-//         }));
-//         setEmployees(employeeList);
-//         setDeductions(deductionList);
-//         if (!selectedEmployee && employeeList.length) {
-//           setSelectedEmployee(employeeList[0].id);
-//         }
-//         setError("");
-//       } catch (err) {
-//         console.error("Failed to load deduction configuration", err);
-//         setError("Unable to load deduction configuration right now.");
-//       } finally {
-//         setLoading(false);
-//       }
-//     };
-
-//     loadData();
-//   }, []);
-
-//   const employee = employees.find((e) => e.id === selectedEmployee);
-//   const employeeDeductions = deductions.filter((d) => d.employeeId === selectedEmployee);
-//   const totalMonthlyDeduction = employeeDeductions.reduce((sum, d) => sum + d.amount, 0);
-
-//   const currencyFormatter = (value: any): [string, string] => {
-//     if (typeof value === 'number') {
-//       return [formatCurrency(value), "Amount"];
-//     }
-//     return [String(value || 0), "Amount"];
-//   };
-
-//   const handleAddDeduction = () => {
-//     if (!formData.name || !formData.amount) {
-//       return;
-//     }
-//     const newDeduction = {
-//       ...formData,
-//       id: `D${Date.now()}`,
-//       employeeId: selectedEmployee,
-//       startDate: new Date(),
-//     };
-//     setDeductions([...deductions, newDeduction]);
-//     setIsDialogOpen(false);
-//     setFormData({ type: "loan", name: "", amount: 0, installments: 0, interestRate: 0, status: "active", frequency: "monthly" });
-//   };
-
-//   const handleCloseDialog = () => {
-//     setIsDialogOpen(false);
-//     setFormData({ type: "loan", name: "", amount: 0, installments: 0, interestRate: 0, status: "active", frequency: "monthly" });
-//   };
-
-//   return (
-//     <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
-//       {/* Header */}
-//       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-//         <Box>
-//           <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
-//             Deduction Configuration
-//           </Typography>
-//           <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-//             Manage employee loans, advances, and recurring deductions
-//           </Typography>
-//         </Box>
-//         <Button
-//           variant="contained"
-//           startIcon={<PlusIcon fontSize="small" />}
-//           onClick={() => setIsDialogOpen(true)}
-//           sx={{ textTransform: "none" }}
-//         >
-//           Add Deduction
-//         </Button>
-//       </Box>
-
-//       {loading ? (
-//         <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>Loading deductions…</Box>
-//       ) : error ? (
-//         <Box sx={{ py: 4, textAlign: "center", color: "error.main" }}>{error}</Box>
-//       ) : (
-//       <Grid container spacing={3}>
-//         {/* Left Section */}
-//         <Grid size={{ xs: 12, lg: 8 }}>
-//           <Stack spacing={3}>
-//             {/* Employee Selector */}
-//             <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-//               <CardContent sx={{ p: 2 }}>
-//                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-//                   <Typography variant="body2" sx={{ fontWeight: 500, flexShrink: 0 }}>
-//                     Select Employee:
-//                   </Typography>
-//                   <FormControl size="small" sx={{ flex: 1 }}>
-//                     <Select
-//                       value={selectedEmployee}
-//                       onChange={(e) => setSelectedEmployee(e.target.value)}
-//                     >
-//                       {employees.map((emp) => (
-//                         <MenuItem key={emp.id} value={emp.id}>
-//                           {emp.name} — {emp.id}
-//                         </MenuItem>
-//                       ))}
-//                     </Select>
-//                   </FormControl>
-//                 </Box>
-//               </CardContent>
-//             </Card>
-
-//             {/* Employee Context Card */}
-//             {employee && (
-//               <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-//                 <CardContent sx={{ p: 2.5 }}>
-//                   <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-//                     <Avatar
-//                       sx={{
-//                         width: 48,
-//                         height: 48,
-//                         bgcolor: alpha(theme.palette.primary.main, 0.1),
-//                         color: "primary.main",
-//                         fontSize: "1rem",
-//                         fontWeight: 700,
-//                       }}
-//                     >
-//                       {employee.name.charAt(0)}
-//                     </Avatar>
-//                     <Box sx={{ flex: 1 }}>
-//                       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-//                         {employee.name}
-//                       </Typography>
-//                       <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                         {employee.designation} · {employee.department}
-//                       </Typography>
-//                     </Box>
-//                     <Box sx={{ textAlign: "right" }}>
-//                       <Typography variant="caption" sx={{ color: "text.secondary" }}>
-//                         Annual CTC
-//                       </Typography>
-//                       <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-//                         {formatCurrency(employee.ctc)}
-//                       </Typography>
-//                     </Box>
-//                   </Box>
-//                 </CardContent>
-//               </Card>
-//             )}
-
-//             {/* Deductions Table */}
-//             <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-//               <CardContent sx={{ p: 2.5 }}>
-//                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-//                   Active Deductions
-//                 </Typography>
-//                 <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-//                   <Table>
-//                     <TableHead>
-//                       <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-//                         <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-//                           Type
-//                         </TableCell>
-//                         <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-//                           Name
-//                         </TableCell>
-//                         <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }} align="right">
-//                           Monthly Amount
-//                         </TableCell>
-//                         <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-//                           Progress
-//                         </TableCell>
-//                         <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-//                           Started
-//                         </TableCell>
-//                         <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
-//                           Status
-//                         </TableCell>
-//                         <TableCell sx={{ width: 80 }} />
-//                       </TableRow>
-//                     </TableHead>
-//                     <TableBody>
-//                       {employeeDeductions.length === 0 ? (
-//                         <TableRow>
-//                           <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-//                             <TrendingDownIcon sx={{ fontSize: 32, color: "text.secondary", mb: 1, opacity: 0.3 }} />
-//                             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                               No deductions configured for this employee
-//                             </Typography>
-//                           </TableCell>
-//                         </TableRow>
-//                       ) : (
-//                         employeeDeductions.map((d) => {
-//                           const status = statusConfig[d.status] || statusConfig.active;
-//                           return (
-//                             <TableRow key={d.id} hover>
-//                               <TableCell>
-//                                 <Chip
-//                                   label={typeLabels[d.type] || d.type}
-//                                   size="small"
-//                                   variant="outlined"
-//                                 />
-//                               </TableCell>
-//                               <TableCell>
-//                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-//                                   {d.name}
-//                                 </Typography>
-//                               </TableCell>
-//                               <TableCell align="right">
-//                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-//                                   {formatCurrency(d.amount)}
-//                                 </Typography>
-//                               </TableCell>
-//                               <TableCell sx={{ minWidth: 120 }}>
-//                                 {d.installments ? (
-//                                   <Box>
-//                                     <LinearProgress
-//                                       variant="determinate"
-//                                       value={(5 / d.installments) * 100}
-//                                       sx={{ height: 6, borderRadius: 3, mb: 0.5 }}
-//                                     />
-//                                     <Typography variant="caption" sx={{ color: "text.secondary" }}>
-//                                       5 of {d.installments} paid
-//                                     </Typography>
-//                                   </Box>
-//                                 ) : (
-//                                   <Typography variant="caption" sx={{ color: "text.secondary" }}>
-//                                     Recurring
-//                                   </Typography>
-//                                 )}
-//                               </TableCell>
-//                               <TableCell>
-//                                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                                   {formatDate(d.startDate)}
-//                                 </Typography>
-//                               </TableCell>
-//                               <TableCell>
-//                                 <Chip
-//                                   label={status.label}
-//                                   size="small"
-//                                   sx={{
-//                                     bgcolor: status.bgColor,
-//                                     color: status.color,
-//                                     fontSize: "0.7rem",
-//                                     fontWeight: 500,
-//                                   }}
-//                                 />
-//                               </TableCell>
-//                               <TableCell>
-//                                 <Stack direction="row" spacing={0.5}>
-//                                   <IconButton
-//                                     size="small"
-//                                     sx={{
-//                                       color: "text.secondary",
-//                                       "&:hover": {
-//                                         color: "primary.main",
-//                                         bgcolor: alpha(theme.palette.primary.main, 0.08),
-//                                       },
-//                                     }}
-//                                   >
-//                                     <EditIcon fontSize="small" />
-//                                   </IconButton>
-//                                   <IconButton
-//                                     size="small"
-//                                     sx={{
-//                                       color: "text.secondary",
-//                                       "&:hover": {
-//                                         color: "error.main",
-//                                         bgcolor: alpha(theme.palette.error.main, 0.08),
-//                                       },
-//                                     }}
-//                                   >
-//                                     <BanIcon fontSize="small" />
-//                                   </IconButton>
-//                                 </Stack>
-//                               </TableCell>
-//                             </TableRow>
-//                           );
-//                         })
-//                       )}
-//                     </TableBody>
-//                   </Table>
-//                 </TableContainer>
-//               </CardContent>
-//             </Card>
-//           </Stack>
-//         </Grid>
-
-//         {/* Right Sidebar */}
-//         <Grid size={{ xs: 12, lg: 4 }}>
-//           <Stack spacing={3}>
-//             <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-//               <CardContent sx={{ p: 2.5 }}>
-//                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-//                   <DollarSignIcon sx={{ color: "primary.main" }} />
-//                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-//                     Deduction Summary
-//                   </Typography>
-//                 </Box>
-//                 <Stack spacing={2}>
-//                   <Box
-//                     sx={{
-//                       p: 2,
-//                       borderRadius: 1,
-//                       bgcolor: alpha(theme.palette.error.main, 0.08),
-//                     }}
-//                   >
-//                     <Typography variant="caption" sx={{ color: "error.main" }}>
-//                       Total Monthly Deduction
-//                     </Typography>
-//                     <Typography variant="h5" sx={{ fontWeight: 700, color: "error.main" }}>
-//                       {formatCurrency(totalMonthlyDeduction)}
-//                     </Typography>
-//                   </Box>
-//                   <Grid container spacing={1.5}>
-//                     <Grid size={{ xs: 6 }}>
-//                       <Box
-//                         sx={{
-//                           p: 1.5,
-//                           borderRadius: 1,
-//                           textAlign: "center",
-//                           bgcolor: alpha(theme.palette.primary.main, 0.04),
-//                         }}
-//                       >
-//                         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-//                           Active
-//                         </Typography>
-//                         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-//                           {employeeDeductions.filter(d => d.status === "active").length}
-//                         </Typography>
-//                       </Box>
-//                     </Grid>
-//                     <Grid size={{ xs: 6 }}>
-//                       <Box
-//                         sx={{
-//                           p: 1.5,
-//                           borderRadius: 1,
-//                           textAlign: "center",
-//                           bgcolor: alpha(theme.palette.primary.main, 0.04),
-//                         }}
-//                       >
-//                         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-//                           Total
-//                         </Typography>
-//                         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-//                           {employeeDeductions.length}
-//                         </Typography>
-//                       </Box>
-//                     </Grid>
-//                   </Grid>
-//                 </Stack>
-//               </CardContent>
-//             </Card>
-
-//             <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-//               <CardContent sx={{ p: 2.5 }}>
-//                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-//                   <TrendingDownIcon sx={{ color: "primary.main" }} />
-//                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-//                     Distribution
-//                   </Typography>
-//                 </Box>
-//                 <ResponsiveContainer width="100%" height={160}>
-//                   <PieChart>
-//                     <Pie
-//                       data={deductionPieData}
-//                       cx="50%"
-//                       cy="50%"
-//                       innerRadius={40}
-//                       outerRadius={68}
-//                       paddingAngle={3}
-//                       dataKey="value"
-//                     >
-//                       {deductionPieData.map((_e, i) => (
-//                         <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-//                       ))}
-//                     </Pie>
-//                     <ReTooltip formatter={currencyFormatter} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-//                   </PieChart>
-//                 </ResponsiveContainer>
-//                 <Stack spacing={1} sx={{ mt: 1 }}>
-//                   {deductionPieData.map((item, i) => (
-//                     <Box
-//                       key={item.name}
-//                       sx={{
-//                         display: "flex",
-//                         justifyContent: "space-between",
-//                         alignItems: "center",
-//                       }}
-//                     >
-//                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-//                         <Box
-//                           sx={{
-//                             width: 10,
-//                             height: 10,
-//                             borderRadius: "50%",
-//                             bgcolor: PIE_COLORS[i % PIE_COLORS.length],
-//                             flexShrink: 0,
-//                           }}
-//                         />
-//                         <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                           {item.name}
-//                         </Typography>
-//                       </Box>
-//                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
-//                         {formatCurrency(item.value)}
-//                       </Typography>
-//                     </Box>
-//                   ))}
-//                 </Stack>
-//               </CardContent>
-//             </Card>
-
-//             <Alert
-//               severity="warning"
-//               icon={<AlertTriangleIcon />}
-//               sx={{
-//                 borderRadius: 2,
-//                 border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
-//               }}
-//             >
-//               <AlertTitle sx={{ fontWeight: 600 }}>Important Note</AlertTitle>
-//               Deductions are automatically processed during payroll. Verify all amounts before saving.
-//             </Alert>
-//           </Stack>
-//         </Grid>
-//       </Grid>
-
-//       {/* Add Deduction Dialog */}
-//       <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-//         <DialogTitle>
-//           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-//             <Typography variant="h6">
-//               Add New Deduction
-//             </Typography>
-//             <IconButton onClick={handleCloseDialog} size="small">
-//               <CloseIcon />
-//             </IconButton>
-//           </Box>
-//         </DialogTitle>
-//         <DialogContent dividers>
-//           <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-//             Configure a deduction for {employee?.name}
-//           </Typography>
-//           <Stack spacing={2.5}>
-//             <Grid container spacing={2}>
-//               <Grid size={{ xs: 12, sm: 6 }}>
-//                 <FormControl fullWidth size="small">
-//                   <InputLabel>Deduction Type *</InputLabel>
-//                   <Select
-//                     value={formData.type}
-//                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-//                     label="Deduction Type *"
-//                   >
-//                     <MenuItem value="loan">Loan EMI</MenuItem>
-//                     <MenuItem value="advance">Salary Advance</MenuItem>
-//                     <MenuItem value="canteen">Canteen</MenuItem>
-//                     <MenuItem value="other">Other</MenuItem>
-//                   </Select>
-//                 </FormControl>
-//               </Grid>
-//               <Grid size={{ xs: 12, sm: 6 }}>
-//                 <TextField
-//                   label="Deduction Name *"
-//                   value={formData.name}
-//                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-//                   placeholder="e.g., Home Loan EMI"
-//                   fullWidth
-//                   size="small"
-//                 />
-//               </Grid>
-//             </Grid>
-
-//             {formData.type === "loan" && (
-//               <Grid container spacing={2}>
-//                 <Grid size={{ xs: 12, sm: 6 }}>
-//                   <TextField
-//                     label="Principal Amount"
-//                     type="number"
-//                     placeholder="500000"
-//                     fullWidth
-//                     size="small"
-//                   />
-//                 </Grid>
-//                 <Grid size={{ xs: 12, sm: 6 }}>
-//                   <TextField
-//                     label="Interest Rate (%)"
-//                     type="number"
-//                     value={formData.interestRate || ""}
-//                     onChange={(e) => setFormData({ ...formData, interestRate: Number(e.target.value) })}
-//                     placeholder="8.5"
-//                     fullWidth
-//                     size="small"
-//                   />
-//                 </Grid>
-//                 <Grid size={{ xs: 12, sm: 6 }}>
-//                   <TextField
-//                     label="Tenure (months)"
-//                     type="number"
-//                     value={formData.installments || ""}
-//                     onChange={(e) => setFormData({ ...formData, installments: Number(e.target.value) })}
-//                     placeholder="60"
-//                     fullWidth
-//                     size="small"
-//                   />
-//                 </Grid>
-//                 <Grid size={{ xs: 12, sm: 6 }}>
-//                   <TextField
-//                     label="EMI Amount *"
-//                     type="number"
-//                     value={formData.amount || ""}
-//                     onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-//                     placeholder="10000"
-//                     fullWidth
-//                     size="small"
-//                   />
-//                 </Grid>
-//               </Grid>
-//             )}
-
-//             {formData.type === "advance" && (
-//               <Grid container spacing={2}>
-//                 <Grid size={{ xs: 12, sm: 6 }}>
-//                   <TextField
-//                     label="Advance Amount *"
-//                     type="number"
-//                     value={formData.amount || ""}
-//                     onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-//                     placeholder="50000"
-//                     fullWidth
-//                     size="small"
-//                   />
-//                 </Grid>
-//                 <Grid size={{ xs: 12, sm: 6 }}>
-//                   <TextField
-//                     label="Repayment Installments"
-//                     type="number"
-//                     value={formData.installments || ""}
-//                     onChange={(e) => setFormData({ ...formData, installments: Number(e.target.value) })}
-//                     placeholder="10"
-//                     fullWidth
-//                     size="small"
-//                   />
-//                 </Grid>
-//               </Grid>
-//             )}
-
-//             {(formData.type === "canteen" || formData.type === "other") && (
-//               <TextField
-//                 label="Monthly Amount *"
-//                 type="number"
-//                 value={formData.amount || ""}
-//                 onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-//                 placeholder="3000"
-//                 fullWidth
-//                 size="small"
-//               />
-//             )}
-//           </Stack>
-//         </DialogContent>
-//         <DialogActions sx={{ p: 2.5 }}>
-//           <Button onClick={handleCloseDialog} variant="outlined" sx={{ textTransform: "none" }}>
-//             Cancel
-//           </Button>
-//           <Button onClick={handleAddDeduction} variant="contained" sx={{ textTransform: "none" }}>
-//             Add Deduction
-//           </Button>
-//         </DialogActions>
-//       </Dialog>
-//     </Box>
-//   );
-// }
-
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Box,
   Card,
@@ -724,6 +32,7 @@ import {
   Alert,
   AlertTitle,
   CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import {
   Add as PlusIcon,
@@ -733,173 +42,350 @@ import {
   Edit as EditIcon,
   Block as BanIcon,
   Close as CloseIcon,
+  CheckCircle as CheckCircleIcon,
+  Pause as PauseIcon,
+  Cancel as CancelIcon,
 } from "@mui/icons-material";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
 import { formatCurrency } from "../const";
-import { employeeDeductionsService } from "../../../services/modules/payrollServices/deductions";
-import { employeeService } from "../../../services/modules/employees";
+import {
+  employeeDeductionsService,
+  type EmployeeDeduction,
+  type Employee,
+  type EmployeeDeductionOverview,
+} from "../../../services/modules/payrollServices/deductions";
 import { useUI } from "../../../context/Snackbar";
+import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
+import { dialogsx } from "../../../const";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
 
 const PIE_COLORS = ["#ef4444", "#f59e0b", "#10b981", "#8b5cf6"];
 
 const typeLabels: Record<string, string> = {
-  loan: "Loan EMI",
-  advance: "Advance",
-  canteen: "Canteen",
-  other: "Other",
+  LOAN_EMI: "Loan EMI",
+  ADVANCE: "Salary Advance",
+  CANTEEN: "Canteen",
+  OTHER: "Other",
 };
 
-const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
-  active: { label: "Active", color: "#10b981", bgColor: "#d1fae5" },
-  completed: { label: "Completed", color: "#6b7280", bgColor: "#f3f4f6" },
-  stopped: { label: "Stopped", color: "#ef4444", bgColor: "#fee2e2" },
+// Updated status config with new status values
+const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
+  ACTIVE: { label: "Active", color: "#10b981", bgColor: "#d1fae5", icon: CheckCircleIcon },
+  PAUSED: { label: "Paused", color: "#f59e0b", bgColor: "#fef3c7", icon: PauseIcon },
+  COMPLETED: { label: "Completed", color: "#6b7280", bgColor: "#f3f4f6", icon: CheckCircleIcon },
+  CANCELLED: { label: "Cancelled", color: "#ef4444", bgColor: "#fee2e2", icon: CancelIcon },
 };
 
 export default function DeductionConfiguration() {
   const theme = useTheme();
-  const { showSpinner, hideSpinner, showSnackbar } = useUI();
-  const [selectedEmployee, setSelectedEmployee] = useState("");
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [deductions, setDeductions] = useState<any[]>([]);
+  const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [deductions, setDeductions] = useState<EmployeeDeduction[]>([]);
+  const [overviewData, setOverviewData] = useState<EmployeeDeductionOverview | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    type: "loan",
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [loadingOverview, setLoadingOverview] = useState(false);
+  const [selectedDeductionId, setSelectedDeductionId] = useState<string | null>(null);
+  
+  // Ref to track if overview has been loaded for current employee
+  const loadedEmployeeIdRef = useRef<string | null>(null);
+  
+  const [formData, setFormData] = useState<any>({
+    employeeId: "",
+    type: "LOAN_EMI",
     name: "",
     monthlyAmount: 0,
     totalInstallments: 0,
     totalAmount: 0,
     startedOn: new Date().toISOString().split("T")[0],
   });
+  const [formErrors, setFormErrors] = useState({
+    name: false,
+    monthlyAmount: false,
+  });
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const [employeesResponse, deductionsResponse]: any = await Promise.all([
-          employeeService.getEmployees(),
-          employeeDeductionsService.getEmployeeDeductions(),
-        ]);
-        const employeeList = (employeesResponse.data?.content || []).map((employee: any) => ({
-          id: employee.id,
-          name: employee.name,
-          designation: employee.designation,
-          department: employee.department,
-          ctc: employee.annualCtc || 0,
-        }));
-        const deductionList = (deductionsResponse.data || []).map((deduction: any) => ({
-          id: deduction.id,
-          employeeId: deduction.employeeId,
-          type: deduction.type || "loan",
-          name: deduction.name,
-          amount: deduction.monthlyAmount || 0,
-          installments: deduction.totalInstallments || 0,
-          startDate: deduction.startedOn,
-          status: deduction.status || "active",
-        }));
-        setEmployees(employeeList);
-        setDeductions(deductionList);
-        if (!selectedEmployee && employeeList.length) {
-          setSelectedEmployee(employeeList[0].id);
-        }
-      } catch (error) {
-        console.error("Failed to load deduction configuration", error);
-        showSnackbar("Unable to load deduction configuration", "error");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+    if (selectedEmployee?.id && selectedEmployee.id !== loadedEmployeeIdRef.current) {
+      loadEmployeeOverview(selectedEmployee.id);
+    }
+  }, [selectedEmployee]);
 
-  const employee = employees.find((e) => e.id === selectedEmployee);
-  const employeeDeductions = deductions.filter((d) => d.employeeId === selectedEmployee);
-  const totalMonthlyDeduction = employeeDeductions.reduce((sum, d) => sum + d.amount, 0);
-
-  const handleAddDeduction = async () => {
-    if (!formData.name || !formData.monthlyAmount) {
-      showSnackbar("Please fill all required fields", "warning");
+  const loadEmployeeOverview = async (employeeId: string) => {
+    // Prevent duplicate calls
+    if (loadedEmployeeIdRef.current === employeeId) {
       return;
     }
+    
+    setLoadingOverview(true);
+    try {
+      const response: any = await employeeDeductionsService.getEmployeeDeductionOverview(employeeId);
+      const data = response.data;
+      setOverviewData(data);
+      setDeductions(data?.activeDeductions || []);
+      
+      // Mark this employee as loaded
+      loadedEmployeeIdRef.current = employeeId;
+      
+      // Update employee details with overview data if available
+      if (data?.employee) {
+        setSelectedEmployee(prev => ({
+          ...prev,
+          ...data.employee
+        }));
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to load employee deductions", "error");
+      setDeductions([]);
+      setOverviewData(null);
+    } finally {
+      setLoadingOverview(false);
+    }
+  };
+
+  // Force refresh overview data (for after CRUD operations)
+  const refreshOverview = async () => {
+    if (selectedEmployee?.id) {
+      // Reset the loaded ref to force a reload
+      loadedEmployeeIdRef.current = null;
+      await loadEmployeeOverview(selectedEmployee.id);
+    }
+  };
+
+  const employeeDeductions = deductions.filter((d) => d.employeeId === selectedEmployee?.id);
+  const totalMonthlyDeduction = employeeDeductions.reduce((sum, d) => sum + d.monthlyAmount, 0);
+
+  // Use overview summary data if available
+  const summaryData = overviewData?.summary || {
+    compliant: 0,
+    pending: 0,
+    nonCompliant: 0,
+    total: 0,
+    totalAmount: 0,
+  };
+
+  const distributionData = overviewData?.distribution || [];
+
+  const handleOpenCreateDialog = () => {
+    setIsEditMode(false);
+    setSelectedDeductionId(null);
+    setFormData({
+      employeeId: selectedEmployee?.id || "",
+      type: "LOAN_EMI",
+      name: "",
+      monthlyAmount: 0,
+      totalInstallments: 0,
+      totalAmount: 0,
+      startedOn: new Date().toISOString().split("T")[0],
+    });
+    setFormErrors({ name: false, monthlyAmount: false });
+    setIsDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (deduction: EmployeeDeduction) => {
+    setIsEditMode(true);
+    setSelectedDeductionId(deduction.id);
+    setFormData({
+      employeeId: deduction.employeeId,
+      type: deduction.type,
+      name: deduction.name,
+      monthlyAmount: deduction.monthlyAmount,
+      totalInstallments: deduction.totalInstallments,
+      totalAmount: deduction.totalAmount,
+      startedOn: deduction.startedOn?.split("T")[0] || new Date().toISOString().split("T")[0],
+    });
+    setFormErrors({ name: false, monthlyAmount: false });
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmitDeduction = async () => {
+    // Validate
+    const errors = {
+      name: !formData.name.trim(),
+      monthlyAmount: formData.monthlyAmount <= 0,
+    };
+    setFormErrors(errors);
+
+    if (errors.name || errors.monthlyAmount) {
+      showSnackbar("Please fill all required fields correctly", "warning");
+      return;
+    }
+
     showSpinner();
     try {
       const payload = {
-        employeeId: selectedEmployee,
-        type: formData.type,
-        name: formData.name,
-        monthlyAmount: formData.monthlyAmount,
-        totalInstallments: formData.totalInstallments,
-        totalAmount: formData.totalAmount || formData.monthlyAmount * formData.totalInstallments,
-        startedOn: formData.startedOn,
+        ...formData,
+        employeeId: selectedEmployee?.id || formData.employeeId,
+        totalAmount: formData.totalAmount || formData.monthlyAmount * (formData.totalInstallments || 1),
       };
-      const res: any = await employeeDeductionsService.createEmployeeDeduction(payload);
-      setDeductions([...deductions, res.data]);
-      showSnackbar("Deduction added successfully!", "success");
+
+      if (isEditMode && selectedDeductionId) {
+        await employeeDeductionsService.updateEmployeeDeduction(selectedDeductionId, payload);
+        showSnackbar("Deduction updated successfully!", "success");
+      } else {
+        await employeeDeductionsService.createEmployeeDeduction(payload);
+        showSnackbar("Deduction added successfully!", "success");
+      }
+
+      // Refresh overview data
+      await refreshOverview();
+
       setIsDialogOpen(false);
-      setFormData({
-        type: "loan",
-        name: "",
-        monthlyAmount: 0,
-        totalInstallments: 0,
-        totalAmount: 0,
-        startedOn: new Date().toISOString().split("T")[0],
-      });
+      resetForm();
     } catch (error: any) {
-      showSnackbar(error?.message || "Failed to add deduction", "error");
+      showSnackbar(error?.message || `Failed to ${isEditMode ? "update" : "add"} deduction`, "error");
     } finally {
       hideSpinner();
     }
   };
 
   const handleDeleteDeduction = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this deduction?")) return;
-    showSpinner();
-    try {
-      await employeeDeductionsService.deleteEmployeeDeduction(id);
-      setDeductions(deductions.filter((d) => d.id !== id));
-      showSnackbar("Deduction deleted successfully!", "success");
-    } catch (error: any) {
-      showSnackbar(error?.message || "Failed to delete deduction", "error");
-    } finally {
-      hideSpinner();
+    showConfirmDialog({
+      title: "Delete Deduction",
+      message: "Are you sure you want to delete this deduction? This action cannot be undone.",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await employeeDeductionsService.deleteEmployeeDeduction(id);
+          // Refresh overview data
+          await refreshOverview();
+          showSnackbar("Deduction deleted successfully!", "success");
+        } catch (error: any) {
+          showSnackbar(error?.message || "Failed to delete deduction", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  const handleUpdateStatus = async (id: string, status: string) => {
+    const statusLabels: Record<string, string> = {
+      PAUSED: "pause",
+      ACTIVE: "activate",
+      CANCELLED: "cancel",
+      COMPLETED: "complete",
+    };
+    
+    showConfirmDialog({
+      title: `Update Status to ${status}`,
+      message: `Are you sure you want to ${statusLabels[status] || status.toLowerCase()} this deduction?`,
+      confirmText: "Update",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await employeeDeductionsService.updateEmployeeDeductionStatus(id, status);
+          // Refresh overview data
+          await refreshOverview();
+          showSnackbar(`Deduction ${statusLabels[status] || status.toLowerCase()}d successfully!`, "success");
+        } catch (error: any) {
+          showSnackbar(error?.message || "Failed to update status", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  const resetForm = () => {
+    setFormData({
+      employeeId: selectedEmployee?.id || "",
+      type: "LOAN_EMI",
+      name: "",
+      monthlyAmount: 0,
+      totalInstallments: 0,
+      totalAmount: 0,
+      startedOn: new Date().toISOString().split("T")[0],
+    });
+    setFormErrors({ name: false, monthlyAmount: false });
+    setIsEditMode(false);
+    setSelectedDeductionId(null);
+  };
+
+  const handleEmployeeChange = (employee: Employee | null) => {
+    setSelectedEmployee(employee);
+    if (employee?.id !== loadedEmployeeIdRef.current) {
+      loadedEmployeeIdRef.current = null;
     }
   };
 
-  const deductionPieData = employeeDeductions.reduce((acc: any[], d) => {
-    const existing = acc.find((item) => item.name === d.type);
-    if (existing) {
-      existing.value += d.amount;
-    } else {
-      acc.push({ name: typeLabels[d.type] || d.type, value: d.amount });
-    }
-    return acc;
-  }, []);
+  // Use distribution data from overview or calculate from deductions
+  const deductionPieData = distributionData.length > 0 
+    ? distributionData.map(item => ({
+        name: item.label,
+        value: item.amount,
+        color: item.color,
+      }))
+    : employeeDeductions.reduce((acc: any[], d) => {
+        if (d.status === "ACTIVE") {
+          const existing = acc.find((item) => item.name === d.type);
+          if (existing) {
+            existing.value += d.monthlyAmount;
+          } else {
+            acc.push({ name: typeLabels[d.type] || d.type, value: d.monthlyAmount });
+          }
+        }
+        return acc;
+      }, []);
 
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // Get available status actions based on current status
+  const getStatusActions = (currentStatus: string) => {
+    const actions: { label: string; value: string; icon: any; color: string }[] = [];
+    
+    if (currentStatus === "ACTIVE") {
+      actions.push({ 
+        label: "Pause", 
+        value: "PAUSED", 
+        icon: PauseIcon, 
+        color: "#f59e0b" 
+      });
+      actions.push({ 
+        label: "Cancel", 
+        value: "CANCELLED", 
+        icon: CancelIcon, 
+        color: "#ef4444" 
+      });
+    } else if (currentStatus === "PAUSED") {
+      actions.push({ 
+        label: "Activate", 
+        value: "ACTIVE", 
+        icon: CheckCircleIcon, 
+        color: "#10b981" 
+      });
+      actions.push({ 
+        label: "Cancel", 
+        value: "CANCELLED", 
+        icon: CancelIcon, 
+        color: "#ef4444" 
+      });
+    } else if (currentStatus === "COMPLETED" || currentStatus === "CANCELLED") {
+      // No actions for completed or cancelled
+    }
+    
+    return actions;
+  };
 
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+    <div className="bg-white-50">
       {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
+          <Typography variant="h5" className="text-gray-800 !font-bold">
             Deduction Configuration
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+          <Typography variant="body2" className="text-gray-500 mt-2">
             Manage employee loans, advances, and recurring deductions
           </Typography>
         </Box>
         <Button
           variant="contained"
           startIcon={<PlusIcon fontSize="small" />}
-          onClick={() => setIsDialogOpen(true)}
-          sx={{ textTransform: "none" }}
+          onClick={handleOpenCreateDialog}
+          className="!bg-primary"
+          disabled={!selectedEmployee}
         >
           Add Deduction
         </Button>
@@ -910,50 +396,46 @@ export default function DeductionConfiguration() {
         <Grid size={{ xs: 12, lg: 8 }}>
           <Stack spacing={3}>
             {/* Employee Selector */}
-            <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, flexShrink: 0 }}>
+                  <Typography variant="body2" className="text-gray-800">
                     Select Employee:
                   </Typography>
-                  <FormControl size="small" sx={{ flex: 1 }}>
-                    <Select
-                      value={selectedEmployee}
-                      onChange={(e) => setSelectedEmployee(e.target.value)}
-                    >
-                      {employees.map((emp) => (
-                        <MenuItem key={emp.id} value={emp.id}>
-                          {emp.name} — {emp.id}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <div className="w-[300px]">
+                    <EmployeeSelector
+                      value={selectedEmployee || null}
+                      onChange={handleEmployeeChange}
+                      placeholder="Search and select an employee…"
+                    />
+                  </div>
+                  {loadingOverview && <CircularProgress size={20} />}
                 </Box>
               </CardContent>
             </Card>
 
             {/* Employee Context Card */}
-            {employee && (
-              <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            {selectedEmployee && (
+              <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
                     <Avatar sx={{ width: 48, height: 48, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main" }}>
-                      {employee.name.charAt(0)}
+                      {selectedEmployee.name?.charAt(0) || "E"}
                     </Avatar>
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {employee.name}
+                      <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>
+                        {selectedEmployee.name}
                       </Typography>
-                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        {employee.designation} · {employee.department}
+                      <Typography variant="body2" className="text-gray-500">
+                        {selectedEmployee.designation} · {selectedEmployee.department}
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: "right" }}>
-                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      <Typography variant="caption" className="text-gray-500">
                         Annual CTC
                       </Typography>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                        {formatCurrency(employee.ctc)}
+                      <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 700 }}>
+                        {formatCurrency(selectedEmployee.annualCtc || 0)}
                       </Typography>
                     </Box>
                   </Box>
@@ -962,93 +444,158 @@ export default function DeductionConfiguration() {
             )}
 
             {/* Deductions Table */}
-            <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                  Active Deductions
+                <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
+                  {selectedEmployee ? "Active Deductions" : "Select an employee to view deductions"}
                 </Typography>
-                <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-                  <Table>
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                        <TableCell>Type</TableCell>
-                        <TableCell>Name</TableCell>
-                        <TableCell align="right">Monthly Amount</TableCell>
-                        <TableCell>Progress</TableCell>
-                        <TableCell>Started</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell sx={{ width: 80 }} />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {employeeDeductions.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                            <TrendingDownIcon sx={{ fontSize: 32, color: "text.secondary", mb: 1, opacity: 0.3 }} />
-                            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                              No deductions configured for this employee
-                            </Typography>
-                          </TableCell>
+                {loadingOverview ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : (
+                  <TableContainer className="border border-gray-200 rounded-md">
+                    <Table>
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                          <TableCell className="!font-bold">Type</TableCell>
+                          <TableCell className="!font-bold">Name</TableCell>
+                          <TableCell className="!font-bold" align="right">Monthly Amount</TableCell>
+                          <TableCell className="!font-bold">Progress</TableCell>
+                          <TableCell className="!font-bold">Started</TableCell>
+                          <TableCell className="!font-bold">Status</TableCell>
+                          <TableCell className="!font-bold" align="center">Actions</TableCell>
                         </TableRow>
-                      ) : (
-                        employeeDeductions.map((d) => {
-                          const status = statusConfig[d.status] || statusConfig.active;
-                          const progress = d.installments > 0 ? Math.round((d.paidInstallments || 0) / d.installments * 100) : 0;
-                          return (
-                            <TableRow key={d.id} hover>
-                              <TableCell>
-                                <Chip label={typeLabels[d.type] || d.type} size="small" variant="outlined" />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                  {d.name}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                  {formatCurrency(d.amount)}
-                                </Typography>
-                              </TableCell>
-                              <TableCell sx={{ minWidth: 120 }}>
-                                {d.installments > 0 ? (
-                                  <Box>
-                                    <LinearProgress variant="determinate" value={progress} sx={{ height: 6, borderRadius: 3, mb: 0.5 }} />
-                                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                      {progress}% repaid
-                                    </Typography>
-                                  </Box>
-                                ) : (
-                                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                                    Recurring
+                      </TableHead>
+                      <TableBody>
+                        {!selectedEmployee ? (
+                          <TableRow>
+                            <TableCell colSpan={7} align="center">
+                              <Typography variant="body2" className="text-gray-500 py-6">
+                                Please select an employee to view deductions
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : employeeDeductions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={7} align="center">
+                              <Typography variant="body2" className="text-gray-500 py-6">
+                                No deductions configured for this employee
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          employeeDeductions.map((d) => {
+                            const status = statusConfig[d.status] || statusConfig.ACTIVE;
+                            const StatusIcon = status.icon;
+                            const progress = d.totalInstallments > 0
+                              ? Math.round(((d.paidInstallments || 0) / d.totalInstallments) * 100)
+                              : 0;
+                            const statusActions = getStatusActions(d.status);
+
+                            return (
+                              <TableRow key={d.id} hover>
+                                <TableCell>
+                                  <Chip 
+                                    label={d.typeLabel || typeLabels[d.type] || d.type} 
+                                    size="small" 
+                                    className="text-gray-800" 
+                                    variant="outlined" 
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                    {d.name}
                                   </Typography>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                                  {new Date(d.startDate).toLocaleDateString()}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Chip
-                                  label={status.label}
-                                  size="small"
-                                  sx={{ bgcolor: status.bgColor, color: status.color, fontSize: "0.7rem", fontWeight: 500 }}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Stack direction="row" spacing={0.5}>
-                                  <IconButton size="small" onClick={() => handleDeleteDeduction(d.id)}>
-                                    <BanIcon fontSize="small" />
-                                  </IconButton>
-                                </Stack>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {formatCurrency(d.monthlyAmount)}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell sx={{ minWidth: 120 }}>
+                                  {d.totalInstallments > 0 ? (
+                                    <Box>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={progress}
+                                        sx={{ height: 6, borderRadius: 3, mb: 0.5 }}
+                                      />
+                                      <Typography variant="caption" className="text-gray-500">
+                                        {d.progressLabel || `${d.paidInstallments || 0} of ${d.totalInstallments} paid`}
+                                      </Typography>
+                                    </Box>
+                                  ) : (
+                                    <Typography variant="caption" className="text-gray-500">
+                                      Recurring
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" className="text-gray-500">
+                                    {d.startedOn ? new Date(d.startedOn).toLocaleDateString() : "-"}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={status.label}
+                                    size="small"
+                                    icon={<StatusIcon fontSize="small" />}
+                                    sx={{ bgcolor: status.bgColor, color: status.color, fontSize: "0.7rem", fontWeight: 500 }}
+                                  />
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Stack direction="row">
+                                    <Tooltip title="Edit">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleOpenEditDialog(d)}
+                                      >
+                                        <EditIcon fontSize="small" className="text-blue-500 !w-4"/>
+                                      </IconButton>
+                                    </Tooltip>
+                                    
+                                    {statusActions.map((action) => (
+                                      <Tooltip key={action.value} title={action.label}>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleUpdateStatus(d.id, action.value)}
+                                          sx={{ color: action.color }}
+                                        >
+                                          <action.icon fontSize="small" className="!w-4" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    ))}
+
+                                    {(d.status === "COMPLETED" || d.status === "CANCELLED") && (
+                                      <Tooltip title="No actions available">
+                                        <Typography variant="caption" className="text-gray-400" sx={{ px: 1 }}>
+                                          —
+                                        </Typography>
+                                      </Tooltip>
+                                    )}
+
+                                    <Tooltip title="Delete">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleDeleteDeduction(d.id)}
+                                        sx={{
+                                          color: theme.palette.error.main,
+                                        }}
+                                      >
+                                        <BanIcon fontSize="small" className="!w-4" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Stack>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
               </CardContent>
             </Card>
           </Stack>
@@ -1057,11 +604,11 @@ export default function DeductionConfiguration() {
         {/* Right Sidebar */}
         <Grid size={{ xs: 12, lg: 4 }}>
           <Stack spacing={3}>
-            <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
                   <DollarSignIcon sx={{ color: "primary.main" }} />
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                  <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>
                     Deduction Summary
                   </Typography>
                 </Box>
@@ -1074,23 +621,60 @@ export default function DeductionConfiguration() {
                       {formatCurrency(totalMonthlyDeduction)}
                     </Typography>
                   </Box>
+                  
+                  {/* Summary stats from overview API */}
+                  {summaryData.total > 0 && (
+                    <Grid container spacing={1.5}>
+                      <Grid size={{ xs: 4 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 1, textAlign: "center", bgcolor: alpha(theme.palette.success.main, 0.04) }}>
+                          <Typography variant="caption" className="text-gray-500">
+                            Compliant
+                          </Typography>
+                          <Typography variant="h6" className="text-gray-800" sx={{ fontWeight: 700, color: "success.main" }}>
+                            {summaryData.compliant}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 4 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 1, textAlign: "center", bgcolor: alpha(theme.palette.warning.main, 0.04) }}>
+                          <Typography variant="caption" className="text-gray-500">
+                            Pending
+                          </Typography>
+                          <Typography variant="h6" className="text-gray-800" sx={{ fontWeight: 700, color: "warning.main" }}>
+                            {summaryData.pending}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 4 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 1, textAlign: "center", bgcolor: alpha(theme.palette.error.main, 0.04) }}>
+                          <Typography variant="caption" className="text-gray-500">
+                            Non-Compliant
+                          </Typography>
+                          <Typography variant="h6" className="text-gray-800" sx={{ fontWeight: 700, color: "error.main" }}>
+                            {summaryData.nonCompliant}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    </Grid>
+                  )}
+
                   <Grid container spacing={1.5}>
                     <Grid size={{ xs: 6 }}>
                       <Box sx={{ p: 1.5, borderRadius: 1, textAlign: "center", bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        <Typography variant="caption" className="text-gray-500">
                           Active
                         </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                          {employeeDeductions.filter(d => d.status === "active").length}
+                        <Typography variant="h6" className="text-gray-800" sx={{ fontWeight: 700 }}>
+                          {employeeDeductions.filter(d => d.status === "ACTIVE").length}
                         </Typography>
                       </Box>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                       <Box sx={{ p: 1.5, borderRadius: 1, textAlign: "center", bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                        <Typography variant="caption" className="text-gray-500">
                           Total
                         </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        <Typography variant="h6" className="text-gray-800" sx={{ fontWeight: 700 }}>
                           {employeeDeductions.length}
                         </Typography>
                       </Box>
@@ -1100,12 +684,13 @@ export default function DeductionConfiguration() {
               </CardContent>
             </Card>
 
+            {/* Distribution Chart */}
             {deductionPieData.length > 0 && (
-              <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
                     <TrendingDownIcon sx={{ color: "primary.main" }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>
                       Distribution
                     </Typography>
                   </Box>
@@ -1121,7 +706,7 @@ export default function DeductionConfiguration() {
                         dataKey="value"
                       >
                         {deductionPieData.map((_e, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                          <Cell key={i} fill={_e.color || PIE_COLORS[i % PIE_COLORS.length]} />
                         ))}
                       </Pie>
                       <ReTooltip formatter={(value: any) => [formatCurrency(value), "Amount"]} />
@@ -1131,12 +716,12 @@ export default function DeductionConfiguration() {
                     {deductionPieData.map((item, i) => (
                       <Box key={item.name} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                          <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: item.color || PIE_COLORS[i % PIE_COLORS.length] }} />
+                          <Typography variant="body2" className="text-gray-500">
                             {item.name}
                           </Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        <Typography variant="body2" className="text-gray-500" sx={{ fontWeight: 500 }}>
                           {formatCurrency(item.value)}
                         </Typography>
                       </Box>
@@ -1146,53 +731,67 @@ export default function DeductionConfiguration() {
               </Card>
             )}
 
-            <Alert severity="warning" icon={<AlertTriangleIcon />} sx={{ borderRadius: 2 }}>
-              <AlertTitle sx={{ fontWeight: 600 }}>Important Note</AlertTitle>
-              Deductions are automatically processed during payroll. Verify all amounts before saving.
-            </Alert>
+            <div className="!mb-4">
+              <Alert severity="warning" icon={<AlertTriangleIcon />} sx={{ borderRadius: 2 }}>
+                <AlertTitle sx={{ fontWeight: 600 }}>Important Note</AlertTitle>
+                Deductions are automatically processed during payroll. Verify all amounts before saving.
+              </Alert>
+            </div>
           </Stack>
         </Grid>
       </Grid>
 
-      {/* Add Deduction Dialog */}
-      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
+      {/* Add/Edit Deduction Dialog */}
+      <Dialog
+        open={isDialogOpen}
+        onClose={() => { setIsDialogOpen(false); resetForm(); }}
+        maxWidth="md"
+        fullWidth
+        sx={dialogsx}
+      >
+        <DialogTitle className="!p-2 border-b border-gray-200">
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h6">Add New Deduction</Typography>
-            <IconButton onClick={() => setIsDialogOpen(false)} size="small">
-              <CloseIcon />
+            <Typography variant="h6" className="!ml-4">
+              {isEditMode ? "Edit Deduction" : "Add New Deduction"}
+            </Typography>
+            <IconButton onClick={() => { setIsDialogOpen(false); resetForm(); }} size="small">
+              <CloseIcon className="!w-4 text-gray-800" />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-            Configure a deduction for {employee?.name}
+        <DialogContent className="!p-4">
+          <Typography variant="body2" className="text-gray-500 !mb-6">
+            {isEditMode
+              ? "Update deduction details for selected employee"
+              : `Configure a deduction for ${selectedEmployee?.name || "selected employee"}`}
           </Typography>
           <Stack spacing={2.5}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Deduction Type *</InputLabel>
+                <FormControl fullWidth required>
+                  <InputLabel>Deduction Type</InputLabel>
                   <Select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                     label="Deduction Type *"
                   >
-                    <MenuItem value="loan">Loan EMI</MenuItem>
-                    <MenuItem value="advance">Salary Advance</MenuItem>
-                    <MenuItem value="canteen">Canteen</MenuItem>
-                    <MenuItem value="other">Other</MenuItem>
+                    <MenuItem value="LOAN_EMI">Loan EMI</MenuItem>
+                    <MenuItem value="ADVANCE">Salary Advance</MenuItem>
+                    <MenuItem value="CANTEEN">Canteen</MenuItem>
+                    <MenuItem value="OTHER">Other</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
-                  label="Deduction Name *"
+                  label="Deduction Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="e.g., Home Loan EMI"
                   fullWidth
-                  size="small"
+                  required
+                  error={formErrors.name}
+                  helperText={formErrors.name ? "Deduction name is required" : ""}
                 />
               </Grid>
             </Grid>
@@ -1200,13 +799,15 @@ export default function DeductionConfiguration() {
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
-                  label="Monthly Amount *"
+                  label="Monthly Amount"
                   type="number"
                   value={formData.monthlyAmount || ""}
                   onChange={(e) => setFormData({ ...formData, monthlyAmount: Number(e.target.value) })}
                   placeholder="10000"
                   fullWidth
-                  size="small"
+                  required
+                  error={formErrors.monthlyAmount}
+                  helperText={formErrors.monthlyAmount ? "Monthly amount is required" : ""}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -1215,33 +816,59 @@ export default function DeductionConfiguration() {
                   type="number"
                   value={formData.totalInstallments || ""}
                   onChange={(e) => setFormData({ ...formData, totalInstallments: Number(e.target.value) })}
-                  placeholder="60"
+                  placeholder="60 (leave 0 for recurring)"
                   fullWidth
-                  size="small"
                 />
               </Grid>
             </Grid>
 
-            <TextField
-              label="Start Date"
-              type="date"
-              value={formData.startedOn}
-              onChange={(e) => setFormData({ ...formData, startedOn: e.target.value })}
-              fullWidth
-              size="small"
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Start Date"
+                value={formData.startedOn ? dayjs(formData.startedOn) : null}
+                onChange={(newValue) => {
+                  setFormData({
+                    ...formData,
+                    startedOn: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                  });
+                }}
+                format="DD/MM/YYYY"
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    size: "small",
+                    required: true,
+                  }
+                }}
+              />
+            </LocalizationProvider>
+
+            {formData.type === "LOAN_EMI" && formData.totalInstallments > 0 && (
+              <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.info.main, 0.04) }}>
+                <Typography variant="caption" className="text-gray-500">
+                  Total Amount: {formatCurrency(formData.monthlyAmount * formData.totalInstallments)}
+                </Typography>
+              </Box>
+            )}
           </Stack>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setIsDialogOpen(false)} variant="outlined" sx={{ textTransform: "none" }}>
+        <DialogActions className="!p-4 border-t border-gray-200">
+          <Button
+            onClick={() => { setIsDialogOpen(false); resetForm(); }}
+            variant="outlined"
+            className="text-gray-800 border-gray-200"
+          >
             Cancel
           </Button>
-          <Button onClick={handleAddDeduction} variant="contained" sx={{ textTransform: "none" }}>
-            Add Deduction
+          <Button
+            onClick={handleSubmitDeduction}
+            variant="contained"
+            className="!bg-primary"
+          >
+            {isEditMode ? "Update Deduction" : "Add Deduction"}
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </div>
   );
 }

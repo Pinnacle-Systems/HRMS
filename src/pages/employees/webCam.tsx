@@ -158,7 +158,7 @@ export const WebcamCapture: React.FC<WebcamCaptureProps> = ({
           {title}
         </Typography>
         <IconButton onClick={onClose} size="small">
-          <CloseOutlined />
+          <CloseOutlined className="text-gray-800"/>
         </IconButton>
       </DialogTitle>
 

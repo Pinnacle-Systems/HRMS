@@ -50,7 +50,7 @@
 //           <Typography variant="h5" sx={{ fontWeight: 600 }}>
 //             Payroll Audit Logs
 //           </Typography>
-//           <Typography variant="body2" sx={{ color: "text.secondary" }}>
+//           <Typography variant="body2" className="text-gray-500">
 //             Track all payroll activities and changes
 //           </Typography>
 //         </Box>
@@ -73,7 +73,7 @@
 //           <Grid size={{ xs: 12, sm: 4 }} key={item.label}>
 //             <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
 //               <CardContent sx={{ p: 2.5 }}>
-//                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
+//                 <Typography variant="caption" className="text-gray-500">
 //                   {item.label}
 //                 </Typography>
 //                 <Typography variant="h5" sx={{ fontWeight: 700, color: item.color }}>
@@ -95,7 +95,7 @@
 //             input: {
 //               startAdornment: (
 //                 <InputAdornment position="start">
-//                   <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
+//                   <SearchIcon fontSize="small" className="text-gray-500" />
 //                 </InputAdornment>
 //               ),
 //             },
@@ -143,7 +143,7 @@
 //                   <TableCell>
 //                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 //                       <TimeIcon sx={{ fontSize: 14, color: "text.secondary" }} />
-//                       <Typography variant="body2" sx={{ color: "text.secondary" }}>
+//                       <Typography variant="body2" className="text-gray-500">
 //                         {new Date(log.timestamp).toLocaleString("en-IN", {
 //                           day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
 //                         })}
@@ -171,7 +171,7 @@
 //                     </Typography>
 //                   </TableCell>
 //                   <TableCell>
-//                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
+//                     <Typography variant="body2" className="text-gray-500">
 //                       {Object.entries(log.details).map(([key, value]) => `${key}: ${value}`).join(", ")}
 //                     </Typography>
 //                   </TableCell>
@@ -184,7 +184,7 @@
 
 //       {/* Pagination */}
 //       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 2 }}>
-//         <Typography variant="body2" sx={{ color: "text.secondary" }}>
+//         <Typography variant="body2" className="text-gray-500">
 //           Showing 1-10 of 1,847 logs
 //         </Typography>
 //         <Pagination count={93} page={page} onChange={handlePageChange} color="primary" shape="rounded" />
@@ -228,6 +228,11 @@ import {
 } from "@mui/icons-material";
 import { auditLogService } from "../../../services/modules/payrollServices/auditLogs";
 import { useUI } from "../../../context/Snackbar";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import dayjs from "dayjs";
+import { apiService } from "../../../services";
 
 const actionLabels: Record<string, string> = {
   PAYROLL_RUN_GENERATED: "Payroll Run Generated",
@@ -274,7 +279,7 @@ export default function PayrollAudit() {
           toDate: filters.toDate || undefined,
           page: page - 1,
           size: pageSize,
-          sort: ["timestamp,DESC"],
+          // sort: ["timestamp,DESC"],
         }),
         auditLogService.getAuditLogSummary(),
       ]);
@@ -299,7 +304,7 @@ export default function PayrollAudit() {
         fromDate: filters.fromDate || undefined,
         toDate: filters.toDate || undefined,
       });
-      window.open(res.data.fileUrl, "_blank");
+      await apiService.downloadFromPath(res.data.fileUrl,'audit_logs.pdf')
       showSnackbar("Export initiated successfully!", "success");
     } catch (error) {
       showSnackbar("Failed to export logs", "error");
@@ -308,23 +313,15 @@ export default function PayrollAudit() {
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
-    <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+    <div className="bg-white-50">
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>
             Payroll Audit Logs
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Typography variant="body2" className="text-gray-500 !mt-1">
             Track all payroll activities and changes
           </Typography>
         </Box>
@@ -341,9 +338,9 @@ export default function PayrollAudit() {
           { label: "This Week", value: summary?.thisWeek || 0, color: "#f59e0b" },
         ].map((item) => (
           <Grid size={{ xs: 12, sm: 4 }} key={item.label}>
-            <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2.5 }}>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                <Typography variant="caption" className="text-gray-500">
                   {item.label}
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: item.color }}>
@@ -356,24 +353,15 @@ export default function PayrollAudit() {
       </Grid>
 
       {/* Filters */}
-      <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 3, flexWrap: "wrap" }}>
+      <div className="flex itesm-center gap-2 my-3">
         <TextField
           placeholder="Search..."
           size="small"
-          sx={{ flex: 1, minWidth: 200, maxWidth: 300 }}
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                </InputAdornment>
-              ),
-            },
-          }}
+
         />
-        <FormControl size="small" sx={{ minWidth: 180 }}>
+        <FormControl sx={{ minWidth: 180 }}>
           <InputLabel>Action Type</InputLabel>
           <Select
             value={filters.actionType}
@@ -386,33 +374,40 @@ export default function PayrollAudit() {
             ))}
           </Select>
         </FormControl>
-        <TextField
-          type="date"
-          label="From Date"
-          size="small"
-          value={filters.fromDate}
-          onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <TextField
-          type="date"
-          label="To Date"
-          size="small"
-          value={filters.toDate}
-          onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-          slotProps={{ inputLabel: { shrink: true } }}
-        />
-        <Button variant="outlined" startIcon={<RefreshIcon fontSize="small" />} onClick={loadData} sx={{ textTransform: "none" }}>
+        <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <DatePicker
+            label="From Date"
+            value={dayjs(filters.fromDate)}
+            onChange={(newValue) => setFilters({ ...filters, fromDate: newValue ?dayjs(newValue).format("YYYY-MM-DD") : ""  })}
+            slotProps={{
+              textField: {
+                fullWidth: true,
+              },
+            }}
+          />
+          <DatePicker
+            label="To Date"
+            value={dayjs(filters.fromDate)}
+            onChange={(newValue) => setFilters({ ...filters, toDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "" })}
+            slotProps={{
+              textField: {
+                fullWidth: true,
+              },
+            }}
+          />
+        </LocalizationProvider>
+
+        <Button variant="outlined" startIcon={<RefreshIcon fontSize="small" />}
+          onClick={loadData} >
           Reset
         </Button>
-      </Box>
+      </div>
 
       {/* Audit Logs Table */}
-      <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <TableContainer>
-          <Table>
+        <TableContainer className="border border-gray-200 rounded-sm h-[calc(100vh-350px)] overflow-auto">
+          <Table stickyHeader>
             <TableHead>
-              <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+              <TableRow>
                 <TableCell>Timestamp</TableCell>
                 <TableCell>User</TableCell>
                 <TableCell>Action</TableCell>
@@ -433,7 +428,7 @@ export default function PayrollAudit() {
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <TimeIcon sx={{ fontSize: 14, color: "text.secondary" }} />
-                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                        <Typography variant="body2" className="text-gray-500">
                           {new Date(log.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                         </Typography>
                       </Box>
@@ -455,7 +450,7 @@ export default function PayrollAudit() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      <Typography variant="body2" className="text-gray-500">
                         {log.details}
                       </Typography>
                     </TableCell>
@@ -465,15 +460,14 @@ export default function PayrollAudit() {
             </TableBody>
           </Table>
         </TableContainer>
-      </Card>
 
       {/* Pagination */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 2 }}>
-        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        <Typography variant="body2" className="text-gray-500">
           Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, auditLogs.length)} of {auditLogs.length} logs
         </Typography>
         <Pagination count={totalPages} page={page} onChange={(_, v) => setPage(v)} color="primary" shape="rounded" />
       </Box>
-    </Box>
+    </div>
   );
 }

@@ -14,6 +14,9 @@ interface LeaveEntitlementsBlockProps extends RuleBlockProps {
 }
 
 export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ localConfig, set, leaveType }) => {
+  
+  // localConfig.entitlements = localConfig.entitlements && localConfig.entitlements.length ? localConfig.entitlements : localConfig.leaveTypes;
+
   const handleLeaveTypeChange = (index: number, field: keyof EntitlementConfig, value: any) => {
     const updated = [...(localConfig.entitlements || [])];
     if (field === 'leaveType') {
@@ -61,7 +64,7 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
                 <FormControl fullWidth>
                   <InputLabel>Leave Code</InputLabel>
                   <Select
-                    value={leave.leaveType}
+                    value={leave.leaveType || leave.code}
                     onChange={(e) => handleLeaveTypeChange(index, 'leaveType', e.target.value)}
                     label="Leave Code"
                     sx={selectSx}
@@ -75,7 +78,7 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
-                <TextField fullWidth label="Leave Name" disabled className='!dark:text-gray-100' value={leave.name} onChange={(e) => handleLeaveTypeChange(index, 'name', e.target.value)} />
+                <TextField fullWidth  disabled className='!dark:text-gray-100' value={leave.name} onChange={(e) => handleLeaveTypeChange(index, 'name', e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
                 <TextField fullWidth type="number" label="Annual Days" value={leave.annualEntitlement} onChange={(e) => handleLeaveTypeChange(index, 'annualEntitlement', parseInt(e.target.value) || 0)} />

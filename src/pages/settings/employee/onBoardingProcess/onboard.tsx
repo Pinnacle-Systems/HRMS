@@ -56,7 +56,7 @@ const OnBoardingProcess = () => {
     
     const isAdmin = session?.user?.roles?.includes('ADMIN') || 
                     session?.user?.roles?.includes('HR');
-    const userId = session?.user?.userId || "";
+    const userId = session?.user?.employeeId ? session?.user?.employeeId : session?.user?.userId || "";
 
     const [refreshKey, setRefreshKey] = useState(0);
     const [pendingTasksCount, setPendingTasksCount] = useState(0);

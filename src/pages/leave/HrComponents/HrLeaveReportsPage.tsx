@@ -4093,7 +4093,7 @@ export default function HrLeaveReportsPage() {
   };
 
   return (
-    <LeavePageShell group="hr" title="" subtitle="">
+    <LeavePageShell group="hr" title="Leave Reports" subtitle="Leave Reports">
       <div className="text-[12px] text-gray-800 font-bold">
         Analytics Dashboard
       </div>

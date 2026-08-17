@@ -6,6 +6,7 @@ export type AssignOnboardingForm = {
     employeeId: string;
     checklistId?: string;
     checklistIds?: string[];
+    employeeIds: string[];
     dueDate?: string;
     startDate?: string;
     notes?: string;
@@ -429,13 +430,13 @@ export const onBoardService = {
         return response;
     },
 
-    // async bulkAssignOnboarding(data: BulkAssignRequest) {
-    //     const response = await apiService.post(
-    //         API_ENDPOINTS.ONBOARDING.BULK_ASSIGN,
-    //         buildBulkAssignPayload(data)
-    //     );
-    //     return response;
-    // },
+    async bulkAssignOnboarding(data: BulkAssignRequest) {
+        const response = await apiService.post(
+            API_ENDPOINTS.ONBOARDING.BULK_ASSIGN,
+            buildBulkAssignPayload(data)
+        );
+        return response;
+    },
 
     async deleteEmployeeOnboarding(id: string) {
         const response = await apiService.delete(API_ENDPOINTS.ONBOARDING.DEACTIVATE(id));

@@ -1150,7 +1150,7 @@ export default function MyLeaveRequestsPage() {
                   </TableCell>
                   <TableCell>{formatDate(request.appliedOn)}</TableCell>
                   <TableCell>
-                    <div>{request.managerName || "-"}</div>
+                    <div>{request.managerName || request.approvedByName || "-"}</div>
                   </TableCell>
                   <TableCell
                     sx={{
@@ -1520,11 +1520,11 @@ export default function MyLeaveRequestsPage() {
                   (approval: any, _index: number) => (
                     <div key={approval.id} className="flex items-center gap-3">
                       <div
-                        className={`w-2 h-2 rounded-full ${approval.actionTaken === "APPROVED"
+                        className={`w-2 h-2 rounded-full ${approval.actionTaken === "APPROVED" || approval.actionTaken === "HR_VERIFIED"
                           ? "bg-emerald-500"
                           : approval.actionTaken === "REJECTED"
                             ? "bg-red-500"
-                            : approval.actionTaken === "SUBMITTED" ? "bg-blue-500" : "bg-amber-500"
+                            : approval.actionTaken === "SUBMITTED" || approval.actionTaken === "RESUBMITTED" ? "bg-blue-500" : "bg-amber-500"
                           }`}
                       ></div>
                       <div className="flex-1 flex items-center justify-between">
@@ -1534,11 +1534,11 @@ export default function MyLeaveRequestsPage() {
                             <div> {approval.actionComments}</div>
                           </div>
                           <span
-                            className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${approval.actionTaken === "APPROVED"
+                            className={`ml-2 text-[10px] px-1.5 py-0.5 rounded ${approval.actionTaken === "APPROVED" || approval.actionTaken === "HR_VERIFIED"
                               ? "bg-emerald-50 text-emerald-600"
                               : approval.actionTaken === "REJECTED"
                                 ? "bg-red-50 text-red-600"
-                                : approval.actionTaken === "SUBMITTED" ? "bg-blue-500" : "bg-amber-50 text-amber-600"
+                                : approval.actionTaken === "SUBMITTED" || approval.actionTaken === "RESUBMITTED" ? "bg-blue-500" : "bg-amber-50 text-amber-600"
                               }`}
                           >
                             {approval.actionTaken}
@@ -1813,3 +1813,5 @@ export default function MyLeaveRequestsPage() {
     </LeavePageShell>
   );
 }
+
+

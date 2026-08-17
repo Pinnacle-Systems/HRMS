@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Chip, Collapse, Box,
@@ -36,6 +36,15 @@ const ACTION_COLORS: Record<AuditActionType, { color: "success" | "primary" | "e
 
 const ACTION_TYPES: AuditActionType[] = ["CREATE", "UPDATE", "DELETE", "STATUS_CHANGE"];
 
+type GroupByOption = "none" | "record" | "screen";
+
+// Grouped log item with child entries
+interface GroupedAuditLog extends AuditLogRecord {
+  children?: AuditLogRecord[];
+  isGroup?: boolean;
+  groupKey?: string;
+}
+
 export default function AuditLogs() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [logs, setLogs] = useState<AuditLogRecord[]>([]);
@@ -43,6 +52,7 @@ export default function AuditLogs() {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<GroupByOption>("record");
 
   // Filters
   const [filterModule, setFilterModule] = useState("");
@@ -136,15 +146,77 @@ export default function AuditLogs() {
   const toggleExpand = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
 
-  const parseAndFormatValue = (value?: string) => {
-    if (!value) return 'empty';
+  // Group logs by recordId or screen
+  const groupedLogs = useMemo(() => {
+    if (groupBy === "none") return logs;
+
+    const groups = new Map<string, AuditLogRecord[]>();
+    const standalone: AuditLogRecord[] = [];
+
+    logs.forEach(log => {
+      let key: string | null = null;
+
+      if (groupBy === "record" && log.recordId) {
+        key = log.recordId;
+      } else if (groupBy === "screen" && log.screen) {
+        key = log.screen;
+      }
+
+      if (key) {
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+        groups.get(key)!.push(log);
+      } else {
+        standalone.push(log);
+      }
+    });
+
+    const result: GroupedAuditLog[] = [];
+
+    // Process groups - sort by most recent changedOn
+    groups.forEach((groupEntries, groupKey) => {
+      // Sort group entries by changedOn (newest first)
+      groupEntries.sort((a, b) =>
+        dayjs(b.changedOn).unix() - dayjs(a.changedOn).unix()
+      );
+
+      // Find the most recent entry as the "parent"
+      const latest = groupEntries[0];
+      const children = groupEntries.slice(1);
+
+      result.push({
+        ...latest,
+        children,
+        isGroup: true,
+        groupKey: groupKey,
+      });
+    });
+
+    // Add standalone logs
+    result.push(...standalone);
+
+    // Sort all items by changedOn (newest first)
+    result.sort((a, b) =>
+      dayjs(b.changedOn).unix() - dayjs(a.changedOn).unix()
+    );
+
+    return result;
+  }, [logs, groupBy]);
+
+  // Improved parse function that handles different value formats
+  const parseValue = (value?: string) => {
+    if (!value) return null;
+
+    if (!value.includes('=')) {
+      return value;
+    }
+
     try {
-
       let jsonStr = value
-        .replace(/(\w+)=/g, '"$1":') // Convert fieldName= to "fieldName":
-        .replace(/'/g, '"') // Replace single quotes with double quotes
-        .replace(/(\w+)=/g, '"$1":'); // Handle nested fields
-
+        .replace(/(\w+)=/g, '"$1":')
+        .replace(/'/g, '"');
+      jsonStr = jsonStr.replace(/(\w+)=/g, '"$1":');
       const parsed = JSON.parse(jsonStr);
       return parsed;
     } catch (e) {
@@ -163,7 +235,6 @@ export default function AuditLogs() {
     }
   };
 
-  // Helper to format nested objects as readable strings
   const formatValueDisplay = (value: any, indent = 0): string => {
     if (value === null || value === undefined) return 'empty';
     if (typeof value === 'string') return value;
@@ -180,30 +251,390 @@ export default function AuditLogs() {
     return String(value);
   };
 
-  // Function to compare two objects and show only changed fields
-  const getChangedFields = (oldObj: any, newObj: any) => {
+  const getChangedFields = (oldValue: any, newValue: any, fieldName: string) => {
+    if (typeof oldValue !== 'object' || typeof newValue !== 'object' ||
+      oldValue === null || newValue === null) {
+      return [{
+        field: fieldName,
+        oldValue: oldValue,
+        newValue: newValue
+      }];
+    }
+
     const changes: { field: string; oldValue: any; newValue: any }[] = [];
+    const allKeys = new Set([...Object.keys(oldValue || {}), ...Object.keys(newValue || {})]);
 
-    const compare = (oldVal: any, newVal: any, path: string) => {
-      if (oldVal === newVal) return;
+    for (const key of allKeys) {
+      const oldVal = oldValue?.[key];
+      const newVal = newValue?.[key];
 
-      if (typeof oldVal === 'object' && typeof newVal === 'object' && oldVal !== null && newVal !== null) {
-        const allKeys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
-        for (const key of allKeys) {
-          compare(oldVal[key], newVal[key], path ? `${path}.${key}` : key);
-        }
-      } else {
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
         changes.push({
-          field: path || 'root',
-          oldValue: oldVal,
-          newValue: newVal
+          field: key,
+          oldValue: oldVal ?? 'empty',
+          newValue: newVal ?? 'empty'
         });
       }
-    };
+    }
 
-    compare(oldObj, newObj, '');
-    return changes;
+    return changes.length > 0 ? changes : [{
+      field: fieldName,
+      oldValue: oldValue,
+      newValue: newValue
+    }];
   };
+
+  const isPrimitive = (value: any): boolean => {
+    return value === null ||
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean';
+  };
+
+  // Render field changes for a single log entry
+  const renderFieldChanges = (log: AuditLogRecord) => {
+    const oldParsed = parseValue(log.oldValue);
+    const newParsed = parseValue(log.newValue);
+
+    if (log.actionType === 'CREATE' || (!log.oldValue && log.newValue)) {
+      if (isPrimitive(newParsed) || newParsed === null) {
+        return (
+          <div className="bg-white rounded-lg p-3 border border-gray-200">
+            <div className="text-[13px] font-semibold text-gray-800 mb-2">
+              {log.fieldName || 'Record'}
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <div className="text-[10px] text-gray-400 uppercase mb-1">New Value</div>
+                <pre className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all">
+                  {newParsed ?? 'empty'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (typeof newParsed === 'object' && newParsed !== null) {
+        return (
+          <div className="bg-white rounded-lg p-3 border border-gray-200">
+            <div className="text-[13px] font-semibold text-gray-800 mb-2">
+              {log.fieldName || 'Record'} (New Object)
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {Object.entries(newParsed).map(([key, value]) => (
+                <div key={key} className="border-b border-gray-100 py-2">
+                  <div className="text-[11px] text-gray-400">{key}</div>
+                  <div className="text-[13px] text-gray-800 font-mono">
+                    {formatValueDisplay(value)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+    }
+
+    const changes = getChangedFields(oldParsed, newParsed, log.fieldName || 'Record');
+
+    return (
+      <div className="space-y-3">
+        {changes.map((change, idx) => (
+          <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200">
+            <div className="text-[13px] font-semibold text-gray-800 mb-2">
+              {change.field}
+            </div>
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <div className="text-[10px] text-gray-400 uppercase mb-1">Old Value</div>
+                <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all min-h-[40px]">
+                  {formatValueDisplay(change.oldValue) || 'empty'}
+                </div>
+              </div>
+              <div className="flex items-center pt-4">
+                <span className="text-gray-400 text-[20px]">→</span>
+              </div>
+              <div className="flex-1">
+                <div className="text-[10px] text-gray-400 uppercase mb-1">New Value</div>
+                <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all min-h-[40px]">
+                  {formatValueDisplay(change.newValue) || 'empty'}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Get group label based on group type
+  // const getGroupLabel = (log: GroupedAuditLog): string => {
+  //   if (groupBy === "record") {
+  //     return `Record: ${log.recordId || 'Unknown'}`;
+  //   } else if (groupBy === "screen") {
+  //     return `Screen: ${log.screen || 'Unknown'}`;
+  //   }
+  //   return '';
+  // };
+
+// Render a single audit log row
+const renderLogRow = (log: GroupedAuditLog, index: number, isChild: boolean = false) => {
+  const isExpanded = expandedId === log.id;
+  const hasChildren = log.children && log.children.length > 0;
+  const isGroupHeader = log.isGroup && hasChildren;
+
+  return (
+    <React.Fragment key={log.id}>
+      <TableRow
+        hover
+        sx={{
+          ...getRowColor(index),
+          backgroundColor: isChild ? 'rgba(0,0,0,0.02)' : undefined,
+          '&:hover': {
+            backgroundColor: isGroupHeader ? 'rgba(59, 130, 246, 0.04)' : undefined,
+          }
+        }}
+        className="cursor-pointer"
+        onClick={() => toggleExpand(log.id)}
+      >
+        <TableCell sx={{ padding: "4px", width: "40px" }}>
+          <IconButton size="small">
+            {isExpanded
+              ? <ExpandLessIcon className="!w-4 text-gray-800" />
+              : <ExpandMoreIcon className="!w-4 text-gray-800" />}
+          </IconButton>
+        </TableCell>
+        <TableCell className="!text-[12px]">
+          {isChild ? '↳' : page * limit + index + 1}
+        </TableCell>
+        <TableCell className="!text-[12px] font-medium text-gray-800">
+          {isGroupHeader ? (
+            <span className="flex items-center gap-2">
+              <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                {groupBy === "record" ? "Record" : "Screen"}
+              </span>
+              <span className="text-gray-600 font-normal">
+                {groupBy === "record" ? log.recordId : log.screen}
+              </span>
+              <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                {log.children!.length + 1} changes
+              </span>
+            </span>
+          ) : (
+            log.module
+          )}
+        </TableCell>
+        <TableCell className="!text-[12px] text-gray-600">
+          {isGroupHeader ? '—' : log.screen}
+        </TableCell>
+        <TableCell>
+          {isGroupHeader ? (
+            <Chip
+              label="Group"
+              size="small"
+              className="!text-[10px] !bg-gray-100 !text-gray-500"
+            />
+          ) : (
+            <Chip
+              label={ACTION_COLORS[log.actionType]?.label ?? log.actionType}
+              color={ACTION_COLORS[log.actionType]?.color ?? "default"}
+              size="small"
+              className="!text-[11px]"
+            />
+          )}
+        </TableCell>
+        <TableCell className="!text-[12px]">
+          <span className="font-medium text-gray-700">
+            {isGroupHeader ? '—' : (log.fieldName || '—')}
+          </span>
+        </TableCell>
+        <TableCell className="!text-[12px]">
+          {isGroupHeader ? (
+            <span className="text-gray-400 text-[11px]">
+              {log.children!.length + 1} entries
+            </span>
+          ) : (
+            <div className="flex items-center gap-1">
+              <PersonOutlinedIcon className="!w-3.5 text-gray-400" />
+              <span>{log.changedBy?.userName ?? "—"}</span>
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="!text-[12px] font-mono text-gray-600">
+          {isGroupHeader ? '—' : (log.ipAddress ?? "—")}
+        </TableCell>
+        <TableCell className="!text-[12px] text-gray-600">
+          {isGroupHeader ? (
+            <span className="text-gray-400 text-[11px]">
+              Latest: {formatDateTime(log.changedOn)}
+            </span>
+          ) : (
+            formatDateTime(log.changedOn)
+          )}
+        </TableCell>
+      </TableRow>
+
+      {/* Expand Detail Row */}
+      <TableRow>
+        <TableCell colSpan={9} sx={{ p: "0 !important", border: 0 }} className="!bg-blue-50/40">
+          <Collapse in={isExpanded}>
+            <Box sx={{ px: 6, py: 3 }}>
+              {isGroupHeader ? (
+                // Group header expansion - show all entries in the group
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 mb-4 flex-wrap">
+                    <div className="text-[12px] text-gray-400">
+                      {groupBy === "record" ? "Record ID" : "Screen"}
+                    </div>
+                    <div className="text-[14px] font-mono text-gray-800">
+                      {groupBy === "record" ? log.recordId : log.screen}
+                    </div>
+                    
+                    {/* Added: Changed By for the group */}
+                    <div className="flex items-center gap-1 text-[12px] text-gray-600 ml-4">
+                      <PersonOutlinedIcon className="!w-3.5 text-gray-400" />
+                      <span className="font-medium">Changed By:</span>
+                      <span>{log.changedBy?.userName ?? "—"}</span>
+                    </div>
+                    
+                    <div className="text-[12px] text-gray-400 ml-auto">
+                      Total changes: {log.children!.length + 1}
+                    </div>
+                  </div>
+
+                  {/* Show the latest entry first */}
+                  <div className="border-l-2 border-blue-300 pl-4 mb-4">
+                    <div className="text-[11px] text-gray-400 uppercase mb-2 flex items-center gap-2">
+                      <span>Latest Change</span>
+                      <span className="text-gray-400 font-normal lowercase text-[10px]">
+                        by {log.changedBy?.userName ?? "Unknown"}
+                      </span>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
+                        <Chip
+                          label={ACTION_COLORS[log.actionType]?.label ?? log.actionType}
+                          color={ACTION_COLORS[log.actionType]?.color ?? "default"}
+                          size="small"
+                        />
+                        <span className="text-[12px] text-gray-600">
+                          {log.fieldName ? `Field: ${log.fieldName}` : 'Creation'}
+                        </span>
+                        <span className="text-[11px] text-gray-400 ml-auto">
+                          {formatDateTime(log.changedOn)}
+                        </span>
+                      </div>
+                      {renderFieldChanges(log)}
+                    </div>
+                  </div>
+
+                  {/* All other changes */}
+                  {log.children && log.children.length > 0 && (
+                    <div>
+                      <div className="text-[11px] text-gray-400 uppercase mb-2">
+                        Previous Changes ({log.children.length})
+                      </div>
+                      <div className="space-y-2 pl-4">
+                        {log.children.map((child) => (
+                          <div key={child.id} className="border-l-2 border-gray-200 pl-4">
+                            <div className="bg-white rounded-lg p-3 border border-gray-200">
+                              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <Chip
+                                  label={ACTION_COLORS[child.actionType]?.label ?? child.actionType}
+                                  color={ACTION_COLORS[child.actionType]?.color ?? "default"}
+                                  size="small"
+                                  className="!text-[10px]"
+                                />
+                                <span className="text-[12px] text-gray-600">
+                                  {child.fieldName ? `Field: ${child.fieldName}` : 'Creation'}
+                                </span>
+                                {/* Added: Changed By for each child entry */}
+                                <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                                  <PersonOutlinedIcon className="!w-3 text-gray-400" />
+                                  {child.changedBy?.userName ?? "Unknown"}
+                                </span>
+                                <span className="text-[11px] text-gray-400 ml-auto">
+                                  {formatDateTime(child.changedOn)}
+                                </span>
+                              </div>
+                              {renderFieldChanges(child)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Individual log expansion (same as before)
+                <div className="flex flex-wrap gap-x-6 gap-y-4">
+                  {/* Record ID */}
+                  <div className="min-w-[150px]">
+                    <div className="text-[10px] text-gray-400 uppercase mb-1">Record ID</div>
+                    <div className="text-[12px] font-mono text-gray-700 break-all">{log.recordId || '—'}</div>
+                  </div>
+
+                  {/* Record Label */}
+                  {log.recordLabel && (
+                    <div className="min-w-[150px]">
+                      <div className="text-[10px] text-gray-400 uppercase mb-1">Record</div>
+                      <div className="text-[12px] font-medium text-gray-700">{log.recordLabel}</div>
+                    </div>
+                  )}
+
+                  {/* Changed By */}
+                  <div className="min-w-[150px]">
+                    <div className="text-[10px] text-gray-400 uppercase mb-1">Changed By</div>
+                    <div className="text-[12px] text-gray-700 flex items-center gap-1">
+                      <PersonOutlinedIcon className="!w-3.5 text-gray-400" />
+                      <span>{log.changedBy?.userName ?? "—"}</span>
+                    </div>
+                  </div>
+
+                  {/* Timestamp */}
+                  <div className="min-w-[150px]">
+                    <div className="text-[10px] text-gray-400 uppercase mb-1">Timestamp</div>
+                    <div className="text-[12px] text-gray-700">{formatDateTime(log.changedOn)}</div>
+                  </div>
+
+                  {/* Field Change Details */}
+                  {(log.fieldName || log.oldValue || log.newValue) && (
+                    <>
+                      <div className="w-full border-t border-gray-200 my-2" />
+                      <div className="w-full">
+                        <div className="text-[10px] text-gray-400 uppercase mb-2">Field Changes</div>
+                        {renderFieldChanges(log)}
+                      </div>
+                    </>
+                  )}
+
+                  {/* User Agent */}
+                  {log.userAgent && (
+                    <>
+                      <div className="w-full border-t border-gray-200 my-2" />
+                      <div className="w-full">
+                        <div className="text-[10px] text-gray-400 uppercase mb-1 flex items-center gap-1">
+                          <ComputerOutlinedIcon className="!w-3" /> User Agent
+                        </div>
+                        <div
+                          className="text-[11px] text-gray-800 font-mono rounded truncate cursor-pointer"
+                          title={log.userAgent}
+                        >
+                          {log.userAgent}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </React.Fragment>
+  );
+};
 
   return (
     <div>
@@ -307,6 +738,19 @@ export default function AuditLogs() {
             Clear
           </Button>
         )}
+        <div className="w-px h-5 bg-gray-300 shrink-0 ml-auto" />
+        <FormControl size="small" sx={{ width: 160 }}>
+          <Select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
+            displayEmpty
+            sx={{ fontSize: 12, borderRadius: "6px", "& .MuiSelect-select": { py: "5.5px" } }}
+          >
+            <MenuItem value="none">No Grouping</MenuItem>
+            <MenuItem value="record">Group by Record</MenuItem>
+            <MenuItem value="screen">Group by Screen</MenuItem>
+          </Select>
+        </FormControl>
       </div>
 
       {/* Table */}
@@ -316,7 +760,9 @@ export default function AuditLogs() {
             <TableRow>
               <TableCell sx={{ ...stickyHeaderLeftSx, minWidth: "40px", width: "40px" }} />
               <TableCell className="!font-semibold text-gray-800 !text-[12px]" sx={{ minWidth: "50px" }}>S No</TableCell>
-              <TableCell className="!font-semibold text-gray-800 !text-[12px]">Module</TableCell>
+              <TableCell className="!font-semibold text-gray-800 !text-[12px]">
+                {groupBy === "record" ? "Record / Module" : groupBy === "screen" ? "Screen / Module" : "Module"}
+              </TableCell>
               <TableCell className="!font-semibold text-gray-800 !text-[12px]">Screen</TableCell>
               <TableCell className="!font-semibold text-gray-800 !text-[12px]">Action</TableCell>
               <TableCell className="!font-semibold text-gray-800 !text-[12px]">Field Changed</TableCell>
@@ -326,192 +772,17 @@ export default function AuditLogs() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {logs.length === 0 ? (
+            {groupedLogs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center text-gray-400 py-10 !text-[12px]">
-                  <HistoryOutlinedIcon className="!w-8 !h-8 text-gray-300 mb-1" />
-                  <div>No audit logs found</div>
+                <TableCell colSpan={9} >
+                  <div className="text-center text-gray-400 py-10 !text-[12px]">
+                    <HistoryOutlinedIcon className="!w-8 !h-8 text-gray-300 mb-1" />
+                    <div>No audit logs found</div>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
-              logs.map((log, index) => (
-                <React.Fragment key={log.id}>
-                  <TableRow hover sx={getRowColor(index)} className="cursor-pointer" onClick={() => toggleExpand(log.id)}>
-                    <TableCell sx={{ padding: "4px", width: "40px" }}>
-                      <IconButton size="small">
-                        {expandedId === log.id
-                          ? <ExpandLessIcon className="!w-4 text-gray-800" />
-                          : <ExpandMoreIcon className="!w-4 text-gray-800" />}
-                      </IconButton>
-                    </TableCell>
-                    <TableCell className="!text-[12px]">{page * limit + index + 1}</TableCell>
-                    <TableCell className="!text-[12px] font-medium text-gray-800">{log.module}</TableCell>
-                    <TableCell className="!text-[12px] text-gray-600">{log.screen}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={ACTION_COLORS[log.actionType]?.label ?? log.actionType}
-                        color={ACTION_COLORS[log.actionType]?.color ?? "default"}
-                        size="small"
-                        className="!text-[11px]"
-                      />
-                    </TableCell>
-                    <TableCell className="!text-[12px]">
-                      <span className="font-medium text-gray-700">{log.fieldName}</span>
-
-                      {/* {log.fieldName ? (
-                        <div className="flex items-center gap-1 flex-wrap">
-                          <span className="font-medium text-gray-700">{log.fieldName}</span>
-                          {log.oldValue !== undefined && (
-                            <>
-                              <span className="text-gray-400">·</span>
-                              <span className="bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[11px] font-mono line-through">{log.oldValue || "—"}</span>
-                              <span className="text-gray-400">→</span>
-                              <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[11px] font-mono">{log.newValue || "—"}</span>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-[11px]">—</span>
-                      )} */}
-                    </TableCell>
-                    <TableCell className="!text-[12px]">
-                      <div className="flex items-center gap-1">
-                        <PersonOutlinedIcon className="!w-3.5 text-gray-400" />
-                        <span>{log.changedBy?.userName ?? "—"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="!text-[12px] font-mono text-gray-600">{log.ipAddress ?? "—"}</TableCell>
-                    <TableCell className="!text-[12px] text-gray-600">{formatDateTime(log.changedOn)}</TableCell>
-                  </TableRow>
-
-                  {/* Expand Detail Row */}
-                  <TableRow>
-                    <TableCell colSpan={9} sx={{ p: "0 !important", border: 0 }} className="!bg-blue-50/40">
-                      <Collapse in={expandedId === log.id}>
-                        <Box sx={{ px: 6, py: 3 }}>
-                          <div className="flex flex-wrap gap-x-6 gap-y-4">
-                            {/* Record ID */}
-                            <div className="min-w-[150px]">
-                              <div className="text-[10px] text-gray-400 uppercase mb-1">Record ID</div>
-                              <div className="text-[12px] font-mono text-gray-700 break-all">{log.recordId}</div>
-                            </div>
-
-                            {/* Changed By */}
-                            <div className="min-w-[150px]">
-                              <div className="text-[10px] text-gray-400 uppercase mb-1">Changed By</div>
-                              <div className="text-[12px] text-gray-700">{log.changedBy?.userName ?? "—"}</div>
-                            </div>
-
-                            {/* Timestamp */}
-                            <div className="min-w-[150px]">
-                              <div className="text-[10px] text-gray-400 uppercase mb-1">Timestamp</div>
-                              <div className="text-[12px] text-gray-700">{formatDateTime(log.changedOn)}</div>
-                            </div>
-
-                            {/* Field Change Details */}
-                            {log.fieldName  && (
-                              <>
-                                <div className="w-full border-t border-gray-200 my-2" />
-
-                                {/* Try to parse and show structured changes */}
-                                {(() => {
-                                  const oldParsed = parseAndFormatValue(log.oldValue);
-                                  const newParsed = parseAndFormatValue(log.newValue);
-
-                                  // If both are objects, show field-by-field comparison
-                                  if (typeof oldParsed === 'object' && typeof newParsed === 'object' &&
-                                    oldParsed !== null && newParsed !== null) {
-                                    const changes = getChangedFields(oldParsed, newParsed);
-
-                                    return (
-                                      <div className="w-full">
-                                        <div className="text-[10px] text-gray-400 uppercase mb-2">Field Changes</div>
-                                        <div className="space-y-3">
-                                          {changes.map((change, idx) => (
-                                            <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200">
-                                              <div className="text-[13px] font-semibold text-gray-800 mb-2">
-                                                {change.field}
-                                              </div>
-                                              <div className="flex items-start gap-4">
-                                                <div className="flex-1">
-                                                  <div className="text-[10px] text-gray-400 uppercase mb-1">Old Value</div>
-                                                  <pre className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
-                                                    {formatValueDisplay(change.oldValue) || 'empty'}
-                                                  </pre>
-                                                </div>
-                                                <div className="flex items-center pt-4">
-                                                  <span className="text-gray-400 text-[20px]">→</span>
-                                                </div>
-                                                <div className="flex-1">
-                                                  <div className="text-[10px] text-gray-400 uppercase mb-1">New Value</div>
-                                                  <pre className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
-                                                    {formatValueDisplay(change.newValue) || 'empty'}
-                                                  </pre>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    );
-                                  }
-
-                                  // Fallback: Show full values if parsing fails
-                                  return (
-                                    <div className="w-full">
-                                      <div className="text-[10px] text-gray-400 uppercase mb-2">Field Changes</div>
-                                      <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                        <div className="text-[13px] font-semibold text-gray-800 mb-2">
-                                          {log.fieldName}
-                                        </div>
-                                        <div className="flex items-start gap-4">
-                                          <div className="flex-1">
-                                            <div className="text-[10px] text-gray-400 uppercase mb-1">Old Value</div>
-                                            <pre className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
-                                              {log.oldValue ? log.oldValue : 'empty'}
-                                            </pre>
-                                          </div>
-                                          <div className="flex items-center pt-4">
-                                            <span className="text-gray-400 text-[20px]">→</span>
-                                          </div>
-                                          <div className="flex-1">
-                                            <div className="text-[10px] text-gray-400 uppercase mb-1">New Value</div>
-                                            <pre className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded text-[12px] font-mono whitespace-pre-wrap break-all max-h-[200px] overflow-auto">
-                                              {log.newValue ? log.newValue : 'empty'}
-                                            </pre>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })()}
-                              </>
-                            )}
-
-                            {/* User Agent */}
-                            {log.userAgent && (
-                              <>
-                                <div className="w-full border-t border-gray-200 my-2" />
-                                <div className="w-full">
-                                  <div className="text-[10px] text-gray-400 uppercase mb-1 flex items-center gap-1">
-                                    <ComputerOutlinedIcon className="!w-3" /> User Agent
-                                  </div>
-                                  <div
-                                    className="text-[11px] text-gray-800 font-mono rounded truncate cursor-pointer"
-                                    title={log.userAgent}
-                                  >
-                                    {log.userAgent}
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              ))
+              groupedLogs.map((log, index) => renderLogRow(log, index, false))
             )}
           </TableBody>
         </Table>

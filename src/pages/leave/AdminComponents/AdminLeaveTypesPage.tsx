@@ -339,12 +339,13 @@ export default function AdminLeaveTypesPage() {
               label="Pay Type"
               type="text"
               value={form.payrollTreatment ?? ""}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  payrollTreatment: event.target.value,
-                }))
-              }
+              disabled
+              // onChange={(event) =>
+              //   setForm((current) => ({
+              //     ...current,
+              //     payrollTreatment: form.paid ? 'PAID' : 'UNPAID',
+              //   }))
+              // }
             />
             <TextField
               className="col-span-3"
@@ -398,6 +399,7 @@ export default function AdminLeaveTypesPage() {
                       setForm((current) => ({
                         ...current,
                         paid: event.target.checked,
+                        payrollTreatment: event.target.checked ? 'PAID' : 'UNPAID',
                       }))
                     }
                     color="primary"

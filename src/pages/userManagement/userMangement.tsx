@@ -39,6 +39,7 @@ import {
     EmailOutlined,
     CloseOutlined,
     SmsOutlined,
+    SettingsAccessibilityOutlined,
 } from "@mui/icons-material";
 import { useAuth } from "../../auth/authContext";
 import { useUI } from "../../context/Snackbar";
@@ -51,6 +52,7 @@ import { SMSConfigurations } from "./smsConfiguration";
 import { EmailConfigurations } from "./emailConfiguration";
 import { EMPTY_FORM, type EmailConfig, type SMSConfig, type User, type WhatsAppConfig } from "./const";
 import { dialogSx } from "../../const";
+import PermissionSettings from "./permissionsettings";
 
 export default function UserManagement() {
     const [loading, setLoading] = useState(false);
@@ -346,6 +348,7 @@ export default function UserManagement() {
         // { label: "Users", icon: <PersonIcon /> },
         { label: "Role Mapping", icon: <SecurityIcon className="!w-4" /> },
         { label: "Configurations", icon: <SettingsIcon className="!w-4" /> },
+        { label: "Permission Settings", icon: <SettingsAccessibilityOutlined className="!w-4" /> },
     ];
 
     return (
@@ -410,7 +413,7 @@ export default function UserManagement() {
                     {selectedTab === 0 && (
                         <div className="space-y-3 h-[calc(100vh-240px)] overflow-y-auto">
                             {/* User Selection Section */}
-                            <div className="bg-white-50 rounded-md p-4 border border-gray-200">
+                            <div className="bg-white-50 flex items-center justify-between rounded-md p-4 border border-gray-200">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="p-2 bg-blue-100 rounded-lg">
                                         <PersonIcon className="text-blue-600 !w-5 !h-5" />
@@ -426,7 +429,7 @@ export default function UserManagement() {
                                 </div>
 
                                 <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
-                                    <div className="flex-1 w-full">
+                                    <div className="flex-1 w-[230px]">
                                         <EmployeeSelector
                                             value={selectedUser ? selectedUser : null}
                                             onChange={(value) => setSelectedUser(value)}
@@ -633,7 +636,7 @@ export default function UserManagement() {
                                                 </div>
                                             </div>
 
-                                            <div className="overflow-x-auto p-5 max-h-[calc(100vh-480px)] bg-white-50">
+                                            <div className="overflow-x-auto p-5 bg-white-50">
                                                 <Table className="border border-gray-200">
                                                     <TableHead>
                                                         <TableRow className="bg-gray-50">
@@ -844,6 +847,11 @@ export default function UserManagement() {
                                 </CardContent>
                             </Card>
                         </div>
+                    )}
+
+                    {/* Permission settings */}
+                    {selectedTab === 2 && (
+                        <PermissionSettings/>
                     )}
                 </div>
             </Paper>

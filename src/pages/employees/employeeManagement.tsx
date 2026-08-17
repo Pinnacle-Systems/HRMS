@@ -37,10 +37,10 @@ import type { FilterConfig } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
 import { applyFiltersToData } from "../../utils/filterUtils";
 import {
-  EMPLOYEE_FIELD_MAP,
   getEmployeeFilterFields,
   buildEmployeeServerFilterParams,
   isEmployeeServerSupportedFilter,
+  EMPLOYEE_FIELD_MAP,
 } from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
@@ -99,7 +99,8 @@ export default function EmployeeManagement() {
     "new" | "continue"
   >("new");
   const [empPrefix, setEmpPrefix] = useState("EMP");
-  const [empStartNumber, setEmpStartNumber] = useState("001");
+  const [empStartNumber, setEmpStartNumber] = useState("1");
+  const [zero, setZero] = useState(0);
   const [manualEmployeeId, setManualEmployeeId] = useState("");
   const [empDigitCount, setEmpDigitCount] = useState("4");
   const [employeeIdConfig, setEmployeeIdConfig] = useState<any>(null);
@@ -145,6 +146,7 @@ export default function EmployeeManagement() {
       // Always restore saved config values into the form fields
       setEmpCodeType(config.formatType.toLowerCase());
       setEmpPrefix(config.prefix || "EMP");
+      setZero(config.paddingWidth || 0);
       setEmpStartNumber(String(config.startingNumber || 1));
       setEmpDigitCount(String(config.numberOfDigits || 4));
       // Auto-select "continue" only when at least one employee has been generated
@@ -176,12 +178,12 @@ export default function EmployeeManagement() {
             : undefined,
         numberOfDigits:
           empCodeType === "alphanumeric" ? parseInt(empDigitCount) : undefined,
+        paddingWidth: zero ? zero : undefined
       };
       const res: any = await employeeService.previewEmployeeId(payload);
       const response = res?.data ?? res;
       setNextIdPreview(response.previewId);
     } catch (error: any) {
-      console.error("Failed to generate preview:", error);
       setNextIdPreview("Error generating preview");
     } finally {
       hideSpinner();
@@ -201,13 +203,14 @@ export default function EmployeeManagement() {
     //   generatePreview();
     // }, 300);
     const timer = setTimeout(() => {
-      if (empCodeType === "pattern" && (!empPrefix || !empStartNumber)) return;
+      if (empCodeType === "pattern" && (!empPrefix || !empStartNumber || !zero)) return;
       generatePreview();
     }, 300);
     return () => clearTimeout(timer);
   }, [
     empCodeType,
     empPrefix,
+    zero,
     empStartNumber,
     empDigitCount,
     empGenerationFlow,
@@ -241,6 +244,9 @@ export default function EmployeeManagement() {
   // };
 
   const handleApplyFilters = (filters: FilterConfig) => {
+    console.log('Applying filters:', filters);
+    console.log('Filters rules:', filters.rules);
+    console.log('First rule value:', filters.rules[0]?.value);
     setActiveFilters(filters);
     setPage(0);
   };
@@ -295,6 +301,7 @@ export default function EmployeeManagement() {
 
   // Fetch employees
   const getEmployees = async () => {
+    console.log(activeFilters)
     showSpinner();
     try {
       const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
@@ -307,6 +314,8 @@ export default function EmployeeManagement() {
       };
       if (searchTerm) params.search = searchTerm;
       if (includeInactive) params.includeInactive = true;
+      console.log(params);
+
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);
       const employeeData = employeePage.content as Employee[];
@@ -460,9 +469,11 @@ export default function EmployeeManagement() {
     const payload: any = { formatType: empCodeType.toUpperCase() };
     if (empCodeType === "pattern") {
       payload.prefix = empPrefix;
+      payload.paddingWidth = zero;
       payload.startingNumber = parseInt(empStartNumber);
     }
     if (empCodeType === "number") {
+      payload.paddingWidth = zero;
       payload.startingNumber = parseInt(empStartNumber);
     }
     if (empCodeType === "alphanumeric") {
@@ -522,7 +533,8 @@ export default function EmployeeManagement() {
     setHasManualEmpId(false);
     setEmpCodeType("pattern");
     setEmpPrefix("EMP");
-    setEmpStartNumber("001");
+    setZero(0);
+    setEmpStartNumber("1");
     setEmpDigitCount("4");
     setManualEmployeeId("");
     setSelectedEmployee(null);
@@ -649,6 +661,7 @@ export default function EmployeeManagement() {
             idCardNo: selectedEmployee?.idCardNo,
             midNo: selectedEmployee?.midNo,
             oldIdNo: selectedEmployee?.oldIdNo,
+            // mobileNumber: formData.mobileNumber || selectedEmployee?.mobileNumber,
           }),
         ]);
         showSnackbar("Employee updated successfully!", "success");
@@ -995,7 +1008,7 @@ export default function EmployeeManagement() {
           <Typography variant="caption" color="textSecondary">
             Filters ({activeFilters.condition}):
           </Typography>
-          {activeFilters.rules.map((rule) => {
+          {/* {activeFilters.rules.map((rule) => {
             const field = filterFields.find((f) => f.id === rule.field);
             const displayValue =
               field?.type === "select" || field?.type === "multiSelect"
@@ -1006,6 +1019,55 @@ export default function EmployeeManagement() {
               <Chip
                 key={rule.id}
                 label={`${field?.label} ${operatorLabels[rule.operator]} ${displayValue}`}
+                onDelete={() => removeFilter(rule.id)}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            );
+          })} */}
+          {activeFilters.rules.map((rule) => {
+            const field = filterFields.find((f) => f.id === rule.field);
+
+            // Helper to get display value based on field type
+            const getDisplayValue = () => {
+              if (!field) return rule.value;
+
+              // For select and multiSelect fields, show label instead of value
+              if (field.type === 'select' || field.type === 'multiSelect') {
+                const option = field.options?.find((o) => o.value === rule.value);
+                return option?.label ?? rule.value;
+              }
+
+              // For boolean fields
+              if (field.type === 'boolean') {
+                if (rule.value === true || rule.value === 'true' || rule.value === 'yes') return 'Yes';
+                if (rule.value === false || rule.value === 'false' || rule.value === 'no') return 'No';
+                return rule.value;
+              }
+
+              // For date fields
+              if (field.type === 'date' && rule.value) {
+                return dayjs(rule.value).format('DD/MM/YYYY');
+              }
+
+              // For between operator
+              if (rule.operator === 'between' && rule.value2) {
+                const val1 = field.type === 'date' ? dayjs(rule.value).format('DD/MM/YYYY') : rule.value;
+                const val2 = field.type === 'date' ? dayjs(rule.value2).format('DD/MM/YYYY') : rule.value2;
+                return `${val1} - ${val2}`;
+              }
+
+              return rule.value;
+            };
+
+            const displayValue = getDisplayValue();
+            const operatorLabel = operatorLabels[rule.operator] || rule.operator;
+
+            return (
+              <Chip
+                key={rule.id}
+                label={`${field?.label || rule.field} ${operatorLabel} ${displayValue || ''}`}
                 onDelete={() => removeFilter(rule.id)}
                 size="small"
                 color="primary"
@@ -1068,7 +1130,7 @@ export default function EmployeeManagement() {
             //   color="warning"
             //   sx={{ ml: 1, p:"5px", }}
             // />
-            <div className="h-[18px] w-[30px] text-[10px] ml-2 bg-blue-700 text-white font-bold rounded-[50%]">
+            <div className="bg-blue-700 text-white font-bold ml-3 rounded-full w-[60px] h-5">
               {getActiveFilterCount()}
             </div>
           )}
@@ -1277,7 +1339,8 @@ export default function EmployeeManagement() {
                     left: "70px",
                     minWidth: "100px",
                   }}
-                >
+                  className="hover:!text-blue-500 hover:!underline"
+                  onClick={() => { if (employee) navigate(`/employees/${employee.id}`); }}>
                   {employee.employeeId}
                 </TableCell>
                 <TableCell className="font-medium">
@@ -1472,6 +1535,16 @@ export default function EmployeeManagement() {
               required
               disabled={isEditing}
             />
+            {/* <TextField
+              fullWidth
+              label="Mobile Number"
+              type="email"
+              value={formData.mobileNumber}
+              onChange={(e) =>
+                setFormData({ ...formData, mobileNumber: e.target.value })
+              }
+              required
+            /> */}
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DatePicker
                 label="Date of Joining"
@@ -1557,10 +1630,42 @@ export default function EmployeeManagement() {
                 ))}
               </Select>
             </FormControl> */}
+            {
+              !session?.branchId && <FormControl fullWidth>
+                <InputLabel>Branch</InputLabel>
+                <Select
+                  value={formData.branch || ""}
+                  label="Branch"
+                  className="!text-[12px]"
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      branch: e.target.value,
+                      branchId: branches.find(
+                        (d) => d.branchName === e.target.value,
+                      )?.id,
+                    })
+                  }
+                >
+                  <MenuItem value="" className="!text-[12px]">
+                    Select Branch
+                  </MenuItem>
+                  {branches.map((bran) => (
+                    <MenuItem
+                      key={bran.id}
+                      value={bran.branchName}
+                      className="!text-[12px]"
+                    >
+                      {bran.branchName} <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            }
             <Autocomplete
               fullWidth
-              options={departments}
-              getOptionLabel={(option) => option.departmentName || ""}
+              options={formData.branch ? departments.filter((item) => item.branchName == formData.branch) : departments}
+              getOptionLabel={(option) => option.departmentName + ' - ' + (option.branchName) || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               value={formData.department || null}
               onChange={(_, newValue) => {
@@ -1603,38 +1708,7 @@ export default function EmployeeManagement() {
               )}
               sx={masterSx}
             />
-            {
-              !session?.branchId && <FormControl fullWidth>
-                <InputLabel>Branch</InputLabel>
-                <Select
-                  value={formData.branch || ""}
-                  label="Branch"
-                  className="!text-[12px]"
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      branch: e.target.value,
-                      branchId: branches.find(
-                        (d) => d.branchName === e.target.value,
-                      )?.id,
-                    })
-                  }
-                >
-                  <MenuItem value="" className="!text-[12px]">
-                    Select Branch
-                  </MenuItem>
-                  {branches.map((bran) => (
-                    <MenuItem
-                      key={bran.id}
-                      value={bran.branchName}
-                      className="!text-[12px]"
-                    >
-                      {bran.branchName} <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            }
+
             <Autocomplete
               fullWidth
               options={empStatus}
@@ -1768,7 +1842,7 @@ export default function EmployeeManagement() {
                     </FormControl>
 
                     {empGenerationFlow === "new" && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                      <div className={`grid grid-cols-1 ${empCodeType === "pattern" ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mt-6`}>
                         <FormControl fullWidth>
                           <InputLabel>
                             Format Type
@@ -1812,6 +1886,14 @@ export default function EmployeeManagement() {
                             <TextField
                               fullWidth
                               type="number"
+                              label="Zero"
+                              className="!text-[12px]"
+                              value={zero}
+                              onChange={(e) => setZero(Number(e.target.value))}
+                            />
+                            <TextField
+                              fullWidth
+                              type="number"
                               label="Starting Number"
                               className="!text-[12px]"
                               value={empStartNumber}
@@ -1833,14 +1915,24 @@ export default function EmployeeManagement() {
                           />
                         )}
                         {empCodeType === "number" && (
-                          <TextField
-                            fullWidth
-                            type="number"
-                            label="Starting Number"
-                            className="!text-[12px]"
-                            value={empStartNumber}
-                            onChange={(e) => setEmpStartNumber(e.target.value)}
-                          />
+                          <>
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Zero"
+                              className="!text-[12px]"
+                              value={zero}
+                              onChange={(e) => setZero(Number(e.target.value))}
+                            />
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Starting Number"
+                              className="!text-[12px]"
+                              value={empStartNumber}
+                              onChange={(e) => setEmpStartNumber(e.target.value)}
+                            />
+                          </>
                         )}
                       </div>
                     )}

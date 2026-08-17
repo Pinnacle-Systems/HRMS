@@ -108,7 +108,7 @@ export const employeeDeductionsService = {
   },
 
   async updateEmployeeDeductionStatus(id: string, status: string) {
-    return apiService.put(API_ENDPOINTS.PAYROLL.EMP_DEDUCTIONS.STATUS(id), null, {
+    return apiService.patch(API_ENDPOINTS.PAYROLL.EMP_DEDUCTIONS.STATUS(id), null, {
       params: { status }
     });
   },

@@ -112,7 +112,7 @@ const BalanceRow = ({
 }: {
   balance: LeaveBalance;
   index: any;
-}) => {
+}) => {  
   const [expanded, setExpanded] = useState(false);
   const available = balance.balance || 0;
   const color = getBalanceColor(available);
@@ -246,7 +246,7 @@ export default function HrLeaveBalancesPage() {
         }),
       ]);
       setEmployeeLeaves(empLeaveResponse.data?.content ?? []);
-      setEmployeeCompOffBalances(compOffBalanceResponse.data?.content ?? []);
+      setEmployeeCompOffBalances(compOffBalanceResponse.data?.content || compOffBalanceResponse.data ||  []);
       setBalances(balanceResponse.data?.content ?? []);
       setLedger(ledgerResponse.data?.content ?? []);
     } catch (err: any) {
@@ -292,7 +292,7 @@ export default function HrLeaveBalancesPage() {
             value={employeeId}
             onChange={(id) => handleEmployeeChange(id)}
             label="Search employee by name or ID"
-            filters={{ assignedHrId: isHR ? session?.user.userId : '' }}
+            filters={{ assignedHrId: isHR ? session?.user.employeeId ? session?.user.employeeId : session?.user.userId : '' }}
           />
         </div>
       </div>

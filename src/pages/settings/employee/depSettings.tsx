@@ -33,7 +33,7 @@ import { branchService } from "../../../services/modules/branch";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
-import { getRowColor } from "../../const";
+import { getRowColor, handleEnterAsTab } from "../../const";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { useAuth } from "../../../auth/authContext";
@@ -517,7 +517,7 @@ export default function DepartmentSettings() {
           </IconButton>
         </div>
         <DialogContent>
-          <div className="grid gap-5">
+          <div className="grid gap-5" onKeyDown={handleEnterAsTab}>
             <div>
               <TextField
                 fullWidth

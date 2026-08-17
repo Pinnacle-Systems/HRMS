@@ -65,7 +65,7 @@ import {
 } from "../../../services/modules/biometricDevice";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { useUI } from "../../../context/Snackbar";
-import { getRowColor } from "../../const";
+import { getRowColor, handleEnterAsTab } from "../../const";
 import { DatePicker, DateTimePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import dayjs from "dayjs";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -671,7 +671,7 @@ export const DeviceManagement: React.FC = () => {
           <CloseOutlined className="text-gray-800" />
         </IconButton>
       </DialogTitle>
-      <DialogContent className="!p-4">
+      <DialogContent className="!p-4" onKeyDown={handleEnterAsTab}>
         <Grid container spacing={3} sx={{ mt: 1 }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField

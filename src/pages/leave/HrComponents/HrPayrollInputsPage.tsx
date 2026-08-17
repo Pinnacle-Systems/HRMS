@@ -602,7 +602,7 @@ export default function HrPayrollInputsPage() {
               onChange={(employeeId, employee) =>
                 handleEmployeeChange(employeeId, employee)
               }
-              filters={{ assignedHrId: isHR ? session?.user.userId : '' }}
+              filters={{ assignedHrId: isHR ? session?.user.employeeId : '' }}
             />
           </div>
           <div className="md:col-span-2">

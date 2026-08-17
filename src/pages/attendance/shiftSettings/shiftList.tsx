@@ -58,6 +58,7 @@ import type { ShiftFormData } from './types';
 import { ShiftAdvancedConfig } from './shiftAdvancedConfig';
 import { categoryService } from '../../../services/modules/category';
 import { selectSx } from '../../../const';
+import { commonsx } from '../../employees/const';
 
 export const ShiftList = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -79,11 +80,12 @@ export const ShiftList = () => {
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
   const [defaultShiftId, setDefaultShiftId] = useState<string | null>(null);
-  
+  const [isDataLoading, setIsDataLoading] = useState(false);
+
   // Menu state
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState<ShiftFormData>({
     shiftName: '',
     shiftCode: '',
@@ -158,74 +160,101 @@ export const ShiftList = () => {
     }
   };
 
+  const fetchMasterData = async () => {
+    try {
+      showSpinner();
+      const category: any = await categoryService.getActiveCategoryItem();
+      const templateCategory = category.data.find(
+        (element: any) => element.categoryName?.toLowerCase().includes('template')
+      );
+      if (templateCategory) {
+        setTemplate(templateCategory.items || []);
+      } else {
+        const commonTemplate = category.data.find(
+          (element: any) => element.categoryName === 'Common Template'
+        );
+        if (commonTemplate) {
+          setTemplate(commonTemplate.items || []);
+        } else {
+          setTemplate([]);
+        }
+      }
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to fetch template data', 'error');
+      setTemplate([]);
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // Fetch master data on component mount
+  useEffect(() => {
+    fetchMasterData();
+  }, []);
+
+  // Fetch shifts after template is loaded
+  useEffect(() => {
+    if (template.length > 0) {
+      fetchData();
+    }
+  }, [template]);
+
+  // Re-fetch on page/limit/search changes
+  useEffect(() => {
+    if (template.length > 0) {
+      fetchData();
+    }
+  }, [page, limit, searchTerm]);
+
   const fetchData = async () => {
+    if (isDataLoading) return;
+    setIsDataLoading(true);
     try {
       showSpinner();
       const params: any = {
         page: page,
         size: limit,
-        sort: 'createdAt,desc'
+        sort: 'updatedAt,desc'
       };
       if (searchTerm) {
         params.search = searchTerm;
       }
+
+      const templateMap = new Map();
+      template.forEach((t: any) => {
+        templateMap.set(t.id, t.name);
+      });
+
       const [shiftsData, statsData, shiftType, defaultShift] = await Promise.all([
         shiftService.getShifts(params),
         shiftService.getShiftStats(),
         shiftService.getShiftTypes(),
         shiftService.getDefaultShift(),
       ]);
-      
+
       // Set default shift ID
-      if (defaultShift.id) {
+      if (defaultShift?.id) {
         setDefaultShiftId(defaultShift.id);
+      } else {
+        setDefaultShiftId(null);
       }
-      
-      const shiftsWithTemplateName =
-        shiftsData?.content?.map((shift) => ({
-          ...shift,
-          templateName:
-            template.find((t) => t.id === shift.templateId)?.name ?? '-',
-        })) ?? [];
+
+      const shiftsWithTemplateName = shiftsData?.content?.map((shift: any) => ({
+        ...shift,
+        templateName: templateMap.get(shift.templateId) || '-',
+        defaultShift: defaultShift?.id === shift.id,
+      })) ?? [];
       setShifts(shiftsWithTemplateName);
-      setTotal(shiftsData.totalElements || 0);
-      setStats(statsData);
-      setShiftTypes(shiftType.data);
+      setTotal(shiftsData?.totalElements || 0);
+      setStats(statsData || { totalShifts: 0, activeShifts: 0, nightShifts: 0, flexibleShifts: 0 });
+      setShiftTypes(shiftType?.data || []);
     } catch (error: any) {
       showSnackbar(error.message || 'Failed to fetch data', 'error');
     } finally {
       hideSpinner();
+      setIsDataLoading(false);
     }
   };
-
-  const fetchMasterData = async () => {
-    try {
-      showSpinner();
-      // const data: any = await categoryService.getCategoryItems("515d5fe8-2f41-41fe-aab3-6da80a5cfae1")
-      // setTemplate(data.data.content || []);
-      const category: any = await categoryService.getActiveCategoryItem();
-      const templateCategory = category.data.find(
-        (element: any) => element.categoryName?.toLowerCase().includes('template')
-      );
-      if (templateCategory) {
-        setTemplate(templateCategory.items);
-      }
-    } catch (error: any) {
-      showSnackbar(error.message || 'Failed to fetch data', 'error');
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  useEffect(() => {
-    fetchMasterData();
-  }, []);
-
-  useEffect(() => {
-    if (template.length > 0) {
-      fetchData();
-    }
-  }, [template, page, limit, searchTerm]);
 
   const handleSave = async () => {
     if (!formData.shiftName || !formData.shiftCode || !formData.startTime || !formData.endTime || !formData.templateId) {
@@ -256,7 +285,7 @@ export const ShiftList = () => {
       }
       setIsDialogOpen(false);
       resetForm();
-      fetchData();
+      await fetchData();
     } catch (error: any) {
       console.error('API Error:', error);
       showSnackbar(error.message || 'Failed to save shift', 'error');
@@ -273,8 +302,6 @@ export const ShiftList = () => {
       startTime: dayjs('2000-01-01 09:00'),
       endTime: dayjs('2000-01-01 18:00'),
       shiftType: 'General',
-      graceTime: 15,
-      breakTime: 60,
       isActive: true,
       color: '#3b82f6',
       weeklyOff: ['MON'],
@@ -285,9 +312,9 @@ export const ShiftList = () => {
   };
 
   const handleEdit = (shift: Shift) => {
-    const mappedWeeklyOff = shift.weeklyOff?.map((day: string) => 
-    dayMapping[day] || day
-  ) || [];
+    const mappedWeeklyOff = shift.weeklyOff?.map((day: string) =>
+      dayMapping[day] || day
+    ) || [];
     setEditingShift(shift);
     setFormData({
       shiftName: shift.shiftName,
@@ -323,7 +350,7 @@ export const ShiftList = () => {
           showSpinner();
           await shiftService.deleteShift(shift.id);
           showSnackbar('Shift deleted successfully!', 'success');
-          fetchData();
+          await fetchData();
         } catch (error: any) {
           showSnackbar(error.message || 'Failed to delete shift', 'error');
         } finally {
@@ -364,10 +391,19 @@ export const ShiftList = () => {
     }
   };
 
-  const filteredShifts = shifts.filter(shift =>
-    shift.shiftName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    shift.shiftCode?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const removeDefaultShift = async () => {
+    try {
+      showSpinner();
+      await shiftService.removeDefaultShift();
+      showSnackbar('Default shift removed successfully!', 'success');
+      await fetchData();
+    } catch (error: any) {
+      showSnackbar(error.message || 'Failed to set default shift', 'error');
+    } finally {
+      hideSpinner();
+      handleMenuClose();
+    }
+  };
 
   const statsCards = [
     { label: 'Total Shifts', value: stats.totalShifts, icon: <TimeIcon />, color: 'red' },
@@ -376,11 +412,30 @@ export const ShiftList = () => {
     { label: 'Flexible', value: stats.flexibleShifts, icon: <TimeIcon />, color: 'yellow' },
   ];
 
-  const commonsx = {
-    "& .MuiDialog-paper": {
-      width: "600px",
-      maxWidth: "600px",
-    },
+  const handleDefaultShiftToggle = async (shift: Shift) => {
+    const isDefault = defaultShiftId === shift.id;
+
+    if (isDefault) {
+      // If it's already default, remove it
+      await removeDefaultShift();
+    } else {
+      // If there's already a default shift, confirm before replacing
+      if (defaultShiftId) {
+        const defaultShift = shifts.find(s => s.id === defaultShiftId);
+        showConfirmDialog({
+          title: 'Change Default Shift',
+          message: `${defaultShift?.shiftName} is currently the default shift. Do you want to replace it with "${shift.shiftName}"?`,
+          confirmText: 'Replace',
+          cancelText: 'Cancel',
+          onConfirm: async () => {
+            await setAsDefault(shift.id);
+          }
+        });
+      } else {
+        // No default shift exists, set this as default
+        await setAsDefault(shift.id);
+      }
+    }
   };
 
   return (
@@ -462,12 +517,19 @@ export const ShiftList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredShifts.map((shift, index) => {
+            {shifts.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={11} align="center">
+                  <div className="py-6 text-gray-500">{isDataLoading ? 'Loading shifts...' : 'No shifts available'}</div>
+                </TableCell>
+              </TableRow>
+            )}
+            {shifts.map((shift, index) => {
               const isDefault = defaultShiftId === shift.id;
               return (
-                <TableRow 
-                  key={shift.id} 
-                  className="hover:bg-gray-50" 
+                <TableRow
+                  key={shift.id}
+                  className="hover:bg-gray-50"
                   sx={{
                     ...getRowColor(index),
                     ...(isDefault && {
@@ -534,8 +596,8 @@ export const ShiftList = () => {
                     ...getStickyRightSx(index),
                     minWidth: "50px",
                   }}>
-                    <IconButton 
-                      size="small" 
+                    <IconButton
+                      size="small"
                       onClick={(e) => handleMenuOpen(e, shift.id)}
                       aria-label="more options"
                     >
@@ -552,9 +614,6 @@ export const ShiftList = () => {
             })}
           </TableBody>
         </Table>
-        {filteredShifts.length === 0 && (
-          <div className="border border-gray-200 border-t-0 text-center py-8 text-gray-400"> No shifts available!</div>
-        )}
       </TableContainer>
 
       {/* Actions Menu */}
@@ -590,10 +649,9 @@ export const ShiftList = () => {
 
               <MenuItemMUI
                 onClick={() => {
-                  if (shift) setAsDefault(shift.id);
+                  if (shift) handleDefaultShiftToggle(shift);
                 }}
-                disabled={!shift?.isActive || isDefault}
-                sx={isDefault ? { opacity: 0.5 } : {}}
+                disabled={!shift?.isActive}
               >
                 <ListItemIcon>
                   {isDefault ? (
@@ -602,7 +660,7 @@ export const ShiftList = () => {
                     <StarBorderOutlined fontSize="small" color="success" className='!w-4' />
                   )}
                 </ListItemIcon>
-                {isDefault ? 'Default Shift' : 'Set as Default'}
+                {isDefault ? 'Remove as Default' : 'Set as Default'}
               </MenuItemMUI>
 
               <MenuItemMUI

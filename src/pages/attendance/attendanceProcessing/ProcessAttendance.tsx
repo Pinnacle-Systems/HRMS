@@ -121,14 +121,23 @@ export function ProcessAttendance() {
       const data = res?.data?.data ?? res?.data;
       setValidationResult(data);
 
-      if (data.skippedEmployees && data.skippedEmployees.length > 0) {
+      // Check for skipped employees
+      const skippedCount = data.skippedEmployees?.length || 0;
+      const readyCount = data.summary?.employeesProcessed || 0;
+
+      if (skippedCount > 0) {
         showSnackbar(
-          `${data.skippedEmployees.length} employee(s) have no shift assigned. Please fix before processing.`,
+          `${skippedCount} employee(s) have no shift assigned. Please fix before processing.`,
+          "warning"
+        );
+      } else if (readyCount === 0) {
+        showSnackbar(
+          "No employees found for the selected criteria. Please check your filters.",
           "warning"
         );
       } else {
         showSnackbar(
-          `Validation complete. ${data.processed} employee(s) ready for processing.`,
+          `Validation complete. ${readyCount} employee(s) ready for processing.`,
           "success"
         );
       }
@@ -163,18 +172,20 @@ export function ProcessAttendance() {
       return;
     }
 
-    const hasSkippedEmployees = validationResult?.skippedEmployees && validationResult?.skippedEmployees?.length > 0;
+    // Check if there are skipped employees from validation
+    const hasSkippedEmployees = validationResult?.skippedEmployees && validationResult.skippedEmployees.length > 0;
 
     if (hasSkippedEmployees) {
-      const skipEmployeeNames = validationResult.skippedEmployees
-        .map(emp => `• ${emp.employeeName} (${emp.employeeCode}): ${emp.reason}`)
+      const skippedNames = validationResult.skippedEmployees
+        .map(emp => `• ${emp.employeeName} (${emp.employeeCode})${emp.reason ? ` - ${emp.reason}` : ''}`)
         .join('\n');
 
       showConfirmDialog({
         title: "⚠️ Warning: Employees Will Be Skipped",
-        message:
-          `There are ${validationResult.skippedEmployees.length} employee(s) that will be skipped because they have no shift assigned.
-             ${skipEmployeeNames}`,
+        message: 
+          `${validationResult.skippedEmployees.length} employee(s) will be skipped because they have no shift assigned.\n\n` +
+          `Skipped employees:\n${skippedNames}\n\n` +
+          `These employees will be marked as absent. Do you want to continue?`,
         confirmText: "Continue Processing",
         cancelText: "Cancel & Fix Shifts",
         onConfirm: async () => {
@@ -184,6 +195,7 @@ export function ProcessAttendance() {
       return;
     }
 
+    // If no validation done, confirm with generic message
     if (!validationResult) {
       showConfirmDialog({
         title: "Process Attendance",
@@ -199,7 +211,8 @@ export function ProcessAttendance() {
       return;
     }
 
-    if (validationResult.processed === 0) {
+    // Check if there are any employees to process
+    if (validationResult.summary?.employeesProcessed === 0) {
       showSnackbar("No employees ready for processing. Please check your filters.", "warning");
       return;
     }
@@ -207,9 +220,9 @@ export function ProcessAttendance() {
     showConfirmDialog({
       title: "Process Attendance",
       message: reprocess
-        ? `Re-process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} from ${fromDate} to ${toDate}? 
-       This will overwrite existing processed records.`
-        : `Process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} from ${fromDate} to ${toDate}?`,
+        ? `Re-process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} from ${fromDate} to ${toDate}? \n\nThis will overwrite existing processed records.`
+        : `Process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} from ${fromDate} to ${toDate}?\n\n` +
+          `${validationResult.summary.employeesProcessed} employees will be processed.`,
       confirmText: "Process",
       cancelText: "Cancel",
       onConfirm: async () => {
@@ -241,38 +254,33 @@ export function ProcessAttendance() {
       setResult(data);
       setIsClosed(data?.locked || false);
 
+      // Check if there were skipped employees during processing
+      const skippedInProcess = data.skippedEmployees?.length || 0;
+      const processedCount = data.processed || 0;
+
+      // Show close option only for today's date and if processed > 0
       const isToday = fromDate === dayjs().format("YYYY-MM-DD") &&
         toDate === dayjs().format("YYYY-MM-DD");
-      const canClose = !data?.locked && data?.processed > 0;
-
-      // Show detailed summary
-      // if (data.summary) {
-      //   const summaryMessage = `
-      //   ✅ Processed: ${data.processed} employees
-      //   📊 Present: ${data.summary.present}
-      //   ❌ Absent: ${data.summary.absent}
-      //   ⏰ Late: ${data.summary.late}
-      //   🏖️ Leave/Off: ${data.summary.leave + data.summary.weeklyOff}
-      //   🎉 Holidays: ${data.summary.holidays}
-      //   ⏱️ Overtime: ${data.summary.overtimeHours}h
-      //   ${data.summary.errors > 0 ? `⚠️ Errors: ${data.summary.errors}` : ''}
-      // `;
-      // }
+      const canClose = !data?.locked && processedCount > 0;
 
       if (isToday && canClose) {
         setShowCloseOption(true);
         showSnackbar(
-          `${data?.processed ?? 0} ${workerType === 'Both' ? 'both Staff and Labour' : workerType} records processed successfully! 
-        ${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent. 
-        Click "Close & Finalize" to lock these records.`,
+          `${processedCount} ${workerType === 'Both' ? 'both Staff and Labour' : workerType} records processed successfully! ` +
+          `${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent. ` +
+          (skippedInProcess > 0 ? `${skippedInProcess} employee(s) skipped. ` : '') +
+          `Click "Close & Finalize" to lock these records.`,
           "info"
         );
       } else {
-        showSnackbar(
-          `Processed ${data?.processed ?? 0} ${workerType === 'Both' ? 'both Staff and Labour' : workerType} records successfully. 
-        ${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent.`,
-          "success"
-        );
+        let message = `Processed ${processedCount} ${workerType === 'Both' ? 'both Staff and Labour' : workerType} records successfully. ` +
+          `${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent.`;
+        
+        if (skippedInProcess > 0) {
+          message += ` ${skippedInProcess} employee(s) were skipped.`;
+        }
+        
+        showSnackbar(message, "success");
       }
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? "Failed to process attendance";
@@ -290,11 +298,15 @@ export function ProcessAttendance() {
       showSnackbar("No processed records to close", "warning");
       return;
     }
+    
+    const hasSkipped = result.skippedEmployees && result.skippedEmployees.length > 0;
+    
     showConfirmDialog({
       title: "Close & Finalize Attendance",
-      message: `Are you sure you want to close attendance for ${fromDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}? 
-       This will lock all records and prevent further modifications.
-        This action cannot be undone!`,
+      message: `Are you sure you want to close attendance for ${fromDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}? \n\n` +
+        `This will lock all records and prevent further modifications. ` +
+        (hasSkipped ? `${result.skippedEmployees.length} employee(s) were skipped and will remain unprocessed. ` : '') +
+        `This action cannot be undone!`,
       confirmText: "Close & Finalize",
       cancelText: "Cancel",
       onConfirm: async () => {
@@ -310,11 +322,12 @@ export function ProcessAttendance() {
             lockReason: `End of day processing - ${workerType === 'Both' ? 'both Staff and Labour' : workerType}`,
             lockedBy: session?.user.userId || "System",
           });
+          
           const updatedData = res?.data?.data ?? res?.data;
           setResult(prev => ({
             ...prev!,
-            locked: updatedData.locked,
-            message: updatedData.message
+            locked: updatedData.locked || true,
+            message: updatedData.message || "Attendance closed successfully"
           }));
           setIsClosed(true);
           setShowCloseOption(false);
@@ -339,6 +352,7 @@ export function ProcessAttendance() {
       showSnackbar("No processed records to close", "warning");
       return;
     }
+    
     const lockReason = prompt("Please provide a reason for closing this attendance:", "Manual closure");
     if (lockReason === null) return;
 
@@ -347,9 +361,12 @@ export function ProcessAttendance() {
       return;
     }
 
+    const hasSkipped = result.skippedEmployees && result.skippedEmployees.length > 0;
+
     showConfirmDialog({
       title: "Close & Finalize Attendance",
-      message: `Are you sure you want to close attendance for ${fromDate} to ${toDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}?`,
+      message: `Are you sure you want to close attendance for ${fromDate} to ${toDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}?` +
+        (hasSkipped ? `\n\nNote: ${result.skippedEmployees.length} employee(s) were skipped and will remain unprocessed.` : ''),
       confirmText: "Close",
       cancelText: "Cancel",
       onConfirm: async () => {
@@ -369,8 +386,8 @@ export function ProcessAttendance() {
           const updatedData = res?.data?.data ?? res?.data;
           setResult(prev => ({
             ...prev!,
-            locked: updatedData.locked,
-            message: updatedData.message
+            locked: updatedData.locked || true,
+            message: updatedData.message || "Attendance closed successfully"
           }));
           setIsClosed(true);
           setShowCloseOption(false);
@@ -389,6 +406,27 @@ export function ProcessAttendance() {
       },
     });
   }
+
+  // Helper to get skipped count from either validation or result
+  const getSkippedCount = () => {
+    if (result && result.skippedEmployees) {
+      return result.skippedEmployees.length;
+    }
+    if (validationResult && validationResult.skippedEmployees) {
+      return validationResult.skippedEmployees.length;
+    }
+    return 0;
+  };
+
+  const getSkippedEmployees = () => {
+    if (result && result.skippedEmployees) {
+      return result.skippedEmployees;
+    }
+    if (validationResult && validationResult.skippedEmployees) {
+      return validationResult.skippedEmployees;
+    }
+    return [];
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -416,11 +454,11 @@ export function ProcessAttendance() {
           </LocalizationProvider>
 
           <FormControl sx={{ width: 180 }} required>
-            <InputLabel>Worker Type *</InputLabel>
+            <InputLabel>Worker Type</InputLabel>
             <Select
               value={workerType}
               onChange={(e) => handleWorkerTypeChange(e.target.value as WorkerType)}
-              label="Worker Type *"
+              label="Worker Type"
               sx={selectSx}
             >
               {WORKER_TYPE_OPTIONS.map(option => (
@@ -494,12 +532,12 @@ export function ProcessAttendance() {
           {validationResult && (
             <div className="flex items-center gap-2">
               <Chip
-                label={`${validationResult.processed} ready`}
+                label={`${validationResult.summary?.employeesProcessed || 0} ready`}
                 size="small"
                 color="success"
                 className="text-green-700 bg-green-50"
               />
-              {validationResult.skippedEmployees.length > 0 && (
+              {(validationResult.skippedEmployees?.length || 0) > 0 && (
                 <Chip
                   label={`⚠️ ${validationResult.skippedEmployees.length} skipped`}
                   size="small"
@@ -507,7 +545,7 @@ export function ProcessAttendance() {
                   className="text-amber-700 bg-amber-50"
                 />
               )}
-              {validationResult.errors > 0 && (
+              {(validationResult.errors || 0) > 0 && (
                 <Chip
                   label={`❌ ${validationResult.errors} errors`}
                   size="small"
@@ -575,7 +613,9 @@ export function ProcessAttendance() {
           <div className="flex items-center gap-2">
             <InfoOutlined className="text-amber-600" />
             <span className="text-[12px] text-amber-800">
-              Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}. Click below to close and finalize.
+              Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}. 
+              {result.skippedEmployees?.length > 0 && ` ${result.skippedEmployees.length} employee(s) were skipped.`}
+              Click below to close and finalize.
             </span>
           </div>
           <button
@@ -592,11 +632,18 @@ export function ProcessAttendance() {
       {result && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
           <div className="flex items-center justify-between">
-            <div className="font-semibold text-gray-700">
+            <div className="font-semibold flex items-center gap-4 text-gray-700">
               Processing Results
               <span className="ml-2 text-xs font-normal text-gray-500">
                 {workerType === 'Both' ? 'Staff and Labour' : workerType}
               </span>
+              {
+                (result.skippedEmployees?.length || 0) > 0 &&
+                <span className="text-[12px] font-medium text-red-500 flex items-center gap-2">
+                  <WarningAmberOutlined fontSize="small" />
+                  {result.skippedEmployees.length} Employee(s) Skipped
+                </span>
+              }
             </div>
             {result.locked && (
               <Chip
@@ -611,10 +658,10 @@ export function ProcessAttendance() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Total Employees", value: result.totalEmployees, color: "text-blue-600", bg: "bg-blue-50" },
-              { label: "Processed", value: result.processed, color: "text-green-600", bg: "bg-green-50" },
-              { label: "Skipped", value: result.skippedEmployees.length, color: "text-amber-600", bg: "bg-amber-50" },
-              { label: "Errors", value: result.errors, color: "text-red-600", bg: "bg-red-50" },
+              { label: "Total Employees", value: result.totalEmployees || 0, color: "text-blue-600", bg: "bg-blue-50" },
+              { label: "Processed", value: result.processed || 0, color: "text-green-600", bg: "bg-green-50" },
+              { label: "Skipped", value: result.skippedEmployees?.length || result.skipped || result.skippedCount || 0, color: "text-amber-600", bg: "bg-amber-50" },
+              { label: "Errors", value: result.errors || 0, color: "text-red-600", bg: "bg-red-50" },
             ].map(({ label, value, color, bg }) => (
               <div key={label} className={`${bg} rounded-lg p-3 text-center`}>
                 <div className={`text-2xl font-bold ${color}`}>{value}</div>
@@ -675,7 +722,7 @@ export function ProcessAttendance() {
                       <TableCell align="center">
                         {emp.checkOutTime ? formatTime(emp.checkOutTime) : '-'}
                       </TableCell>
-                      <TableCell align="center">{emp.shiftCode}</TableCell>
+                      <TableCell align="center">{emp.shiftCode || '-'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -684,35 +731,41 @@ export function ProcessAttendance() {
           )}
 
           {/* Skipped Employees Table */}
-          {result.skippedEmployees && result.skippedEmployees.length > 0 && (
-            <TableContainer className="max-h-[calc(100vh-500px)]">
-              <Table size="small" stickyHeader className="text-[12px] border border-gray-200">
-                <TableHead>
-                  <TableRow className="bg-head">
-                    <TableCell className="!font-bold">S No</TableCell>
-                    <TableCell className="!font-bold">Code</TableCell>
-                    <TableCell className="!font-bold">Employee</TableCell>
-                    <TableCell className="!font-bold">Reason</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {result.skippedEmployees.map((emp, i) => (
-                    <TableRow key={emp.employeeId} hover sx={getRowColor(i)}>
-                      <TableCell className="text-gray-600 "><div className="py-2">{i + 1}</div></TableCell>
-                      <TableCell className="text-gray-600 "><div className="py-2">{emp.employeeCode}</div></TableCell>
-                      <TableCell className="font-medium  text-gray-800"><div className="py-2">{emp.employeeName}</div></TableCell>
-                      <TableCell className="text-gray-600 "><div className="py-2">{emp.reason}</div></TableCell>
+          {(result.skippedEmployees && result.skippedEmployees.length > 0) && (
+            <div>
+              <div className="text-[12px] font-medium text-amber-600 mb-2 flex items-center gap-2">
+                <WarningAmberOutlined fontSize="small" />
+                Skipped Employees ({result.skippedEmployees.length})
+              </div>
+              <TableContainer className="max-h-[300px] border border-gray-200 rounded">
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow className="bg-amber-50">
+                      <TableCell className="!font-bold">S No</TableCell>
+                      <TableCell className="!font-bold">Code</TableCell>
+                      <TableCell className="!font-bold">Employee</TableCell>
+                      <TableCell className="!font-bold">Reason</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {result.skippedEmployees.map((emp, i) => (
+                      <TableRow key={emp.employeeId} hover sx={getRowColor(i)}>
+                        <TableCell><div className="py-2">{i + 1}</div></TableCell>
+                        <TableCell>{emp.employeeCode}</TableCell>
+                        <TableCell>{emp.employeeName}</TableCell>
+                        <TableCell className="text-amber-600">{emp.reason || 'No shift assigned'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </div>
           )}
         </div>
       )}
 
       {/* Show validation results */}
-      {validationResult && !processing && (
+      {validationResult && !processing && !result && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="font-semibold text-gray-700">
@@ -722,8 +775,8 @@ export function ProcessAttendance() {
               </span>
             </div>
             <Chip
-              label={validationResult.skippedEmployees.length === 0 ? "Ready to Process" : "Issues Found"}
-              color={validationResult.skippedEmployees.length === 0 ? "success" : "warning"}
+              label={(validationResult.skippedEmployees?.length || 0) === 0 ? "Ready to Process" : "Issues Found"}
+              color={(validationResult.skippedEmployees?.length || 0) === 0 ? "success" : "warning"}
               size="small"
             />
           </div>
@@ -731,27 +784,34 @@ export function ProcessAttendance() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-blue-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-blue-600">{validationResult.totalEmployees}</div>
+              <div className="text-2xl font-bold text-blue-600">{validationResult.totalEmployees || 0}</div>
               <div className="text-xs text-blue-600">Total Employees</div>
             </div>
             <div className="bg-green-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-green-600">{validationResult.processed}</div>
+              <div className="text-2xl font-bold text-green-600">{validationResult.summary?.employeesProcessed || 0}</div>
               <div className="text-xs text-green-600">Ready for Processing</div>
             </div>
             <div className="bg-amber-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-amber-600">{validationResult.skippedEmployees.length}</div>
+              <div className="text-2xl font-bold text-amber-600">{validationResult.skippedEmployees?.length || 0}</div>
               <div className="text-xs text-amber-600">Will be Skipped</div>
             </div>
             <div className="bg-red-50 rounded-lg p-3 text-center">
-              <div className="text-2xl font-bold text-red-600">{validationResult.errors}</div>
+              <div className="text-2xl font-bold text-red-600">{validationResult.errors || 0}</div>
               <div className="text-xs text-red-600">Errors</div>
             </div>
           </div>
 
+          {/* Status Message */}
+          {validationResult.message && (
+            <Alert severity={validationResult.skippedEmployees?.length === 0 ? "success" : "warning"} sx={{ py: 0.5 }}>
+              <span className="text-xs">{validationResult.message}</span>
+            </Alert>
+          )}
+
           {/* Skipped Employees Table */}
-          {validationResult.skippedEmployees && validationResult.skippedEmployees.length > 0 && (
+          {(validationResult.skippedEmployees && validationResult.skippedEmployees.length > 0) && (
             <div id="skipped-employees">
-              <div className="text-[12px] font-medium text-red-500 mb-2 flex items-center gap-2 animate-blink">
+              <div className="text-[12px] font-medium text-amber-600 mb-2 flex items-center gap-2">
                 <WarningAmberOutlined fontSize="small" />
                 Skipped Employees - {validationResult.message || "No shift assigned for these employees"}
               </div>
@@ -771,7 +831,7 @@ export function ProcessAttendance() {
                         <TableCell><div className="p-2">{i + 1}</div></TableCell>
                         <TableCell>{emp.employeeCode}</TableCell>
                         <TableCell>{emp.employeeName}</TableCell>
-                        <TableCell className="text-amber-600">{emp.reason}</TableCell>
+                        <TableCell className="text-amber-600">{emp.reason || 'No shift assigned'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -783,92 +843,83 @@ export function ProcessAttendance() {
       )}
 
       {/* Attendance Summary Card */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-[13px] font-semibold text-gray-700">📊 Attendance Summary</h4>
-          {result?.summary && (
+      {result?.summary && (
+        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-[13px] font-semibold text-gray-700">📊 Attendance Summary</h4>
             <span className="text-[10px] text-gray-400">
               {result.processed} employees processed
-              {result.skippedEmployees.length > 0 && ` (${result.skippedEmployees.length} skipped)`}
-            </span>
-          )}
-        </div>
-
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-          {/* Present */}
-          <div className="bg-emerald-50 rounded-lg p-2 text-center border border-emerald-100">
-            <div className="text-lg font-bold text-emerald-700">
-              {result?.summary?.present || 0}
-            </div>
-            <div className="text-[10px] text-emerald-600 font-medium">Present</div>
-          </div>
-
-          {/* Absent */}
-          <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
-            <div className="text-lg font-bold text-red-700">
-              {result?.summary?.absent || 0}
-            </div>
-            <div className="text-[10px] text-red-600 font-medium">Absent</div>
-          </div>
-
-          {/* Late */}
-          <div className="bg-amber-50 rounded-lg p-2 text-center border border-amber-100">
-            <div className="text-lg font-bold text-amber-700">
-              {result?.summary?.late || 0}
-            </div>
-            <div className="text-[10px] text-amber-600 font-medium">Late</div>
-          </div>
-
-          {/* Leave & Weekly Off */}
-          <div className="bg-purple-50 rounded-lg p-2 text-center border border-purple-100">
-            <div className="text-lg font-bold text-purple-700">
-              {(result?.summary?.leave || 0) + (result?.summary?.weeklyOff || 0)}
-            </div>
-            <div className="text-[10px] text-purple-600 font-medium">Leave/Off</div>
-          </div>
-
-          {/* Holidays */}
-          <div className="bg-indigo-50 rounded-lg p-2 text-center border border-indigo-100">
-            <div className="text-lg font-bold text-indigo-700">
-              {result?.summary?.holidays || 0}
-            </div>
-            <div className="text-[10px] text-indigo-600 font-medium">Holidays</div>
-          </div>
-
-          {/* Early Out */}
-          <div className="bg-pink-50 rounded-lg p-2 text-center border border-pink-100">
-            <div className="text-lg font-bold text-pink-700">
-              {result?.summary?.earlyOut || 0}
-            </div>
-            <div className="text-[10px] text-pink-600 font-medium">Early Out</div>
-          </div>
-
-          {/* Missed Punches */}
-          <div className="bg-rose-50 rounded-lg p-2 text-center border border-rose-100">
-            <div className="text-lg font-bold text-rose-400">
-              {result?.summary?.missedPunches || 0}
-            </div>
-            <div className="text-[10px] text-rose-400 font-medium">Missed Punches</div>
-          </div>
-
-          {/* Overtime */}
-          <div className="bg-orange-50 rounded-lg p-2 text-center border border-orange-100">
-            <div className="text-lg font-bold text-orange-700">
-              {result?.summary?.overtimeHours || 0}h
-            </div>
-            <div className="text-[10px] text-orange-600 font-medium">Overtime</div>
-          </div>
-        </div>
-
-        {/* Errors Alert */}
-        {/* {result?.summary?.errors && (
-          <div className="mt-3 p-2 bg-rose-50 rounded-lg border border-rose-200 text-center">
-            <span className="text-[11px] text-rose-700">
-              ⚠️ {result.summary.errors} error{result.summary.errors > 1 ? 's' : ''} found during processing
+              {(result.skippedEmployees?.length || 0) > 0 && ` (${result.skippedEmployees.length} skipped)`}
             </span>
           </div>
-        )} */}
-      </div>
+
+          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+            {/* Present */}
+            <div className="bg-emerald-50 rounded-lg p-2 text-center border border-emerald-100">
+              <div className="text-lg font-bold text-emerald-700">
+                {result.summary?.present || 0}
+              </div>
+              <div className="text-[10px] text-emerald-600 font-medium">Present</div>
+            </div>
+
+            {/* Absent */}
+            <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
+              <div className="text-lg font-bold text-red-700">
+                {result.summary?.absent || 0}
+              </div>
+              <div className="text-[10px] text-red-600 font-medium">Absent</div>
+            </div>
+
+            {/* Late */}
+            <div className="bg-amber-50 rounded-lg p-2 text-center border border-amber-100">
+              <div className="text-lg font-bold text-amber-700">
+                {result.summary?.late || 0}
+              </div>
+              <div className="text-[10px] text-amber-600 font-medium">Late</div>
+            </div>
+
+            {/* Leave & Weekly Off */}
+            <div className="bg-purple-50 rounded-lg p-2 text-center border border-purple-100">
+              <div className="text-lg font-bold text-purple-700">
+                {(result.summary?.leave || 0) + (result.summary?.weeklyOff || 0)}
+              </div>
+              <div className="text-[10px] text-purple-600 font-medium">Leave/Off</div>
+            </div>
+
+            {/* Holidays */}
+            <div className="bg-indigo-50 rounded-lg p-2 text-center border border-indigo-100">
+              <div className="text-lg font-bold text-indigo-700">
+                {result.summary?.holidays || 0}
+              </div>
+              <div className="text-[10px] text-indigo-600 font-medium">Holidays</div>
+            </div>
+
+            {/* Early Out */}
+            <div className="bg-pink-50 rounded-lg p-2 text-center border border-pink-100">
+              <div className="text-lg font-bold text-pink-700">
+                {result.summary?.earlyOut || 0}
+              </div>
+              <div className="text-[10px] text-pink-600 font-medium">Early Out</div>
+            </div>
+
+            {/* Missed Punches */}
+            <div className="bg-rose-50 rounded-lg p-2 text-center border border-rose-100">
+              <div className="text-lg font-bold text-rose-400">
+                {result.summary?.missedPunches || 0}
+              </div>
+              <div className="text-[10px] text-rose-400 font-medium">Missed Punches</div>
+            </div>
+
+            {/* Overtime */}
+            <div className="bg-orange-50 rounded-lg p-2 text-center border border-orange-100">
+              <div className="text-lg font-bold text-orange-700">
+                {result.summary?.overtimeHours || 0}h
+              </div>
+              <div className="text-[10px] text-orange-600 font-medium">Overtime</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rules / Info Panel */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -881,6 +932,7 @@ export function ProcessAttendance() {
               <li>Select "Both" to process both Staff and Labour attendance together</li>
               <li>Use "Validate" first to check for any issues before processing</li>
               <li>Employees without shifts will be skipped and listed separately</li>
+              <li>Skipped employees will be marked as absent in the final record</li>
             </ul>
           </span>
         </Alert>

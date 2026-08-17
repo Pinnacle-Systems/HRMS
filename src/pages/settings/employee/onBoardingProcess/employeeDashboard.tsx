@@ -159,7 +159,7 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				file: selectedFile,
 				taskInstanceId: selectedTask?.taskInstanceId || selectedTask?.id || "",
 				employeeId: employeeId,
-				notes: `Uploaded for task: ${selectedTask?.title || selectedTask?.taskName}`,
+				// notes: `Uploaded for task: ${selectedTask?.title || selectedTask?.taskName}`,
 			});
 			showSnackbar("Document uploaded successfully! 📄", "success");
 			setIsUploadDialogOpen(false);

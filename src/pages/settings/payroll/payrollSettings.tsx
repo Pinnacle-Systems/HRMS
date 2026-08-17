@@ -42,7 +42,9 @@ import {
   Save as SaveIcon,
   ChevronRight as ChevronRightIcon,
   CheckCircle as CheckCircleIcon,
+  CancelOutlined,
 } from "@mui/icons-material";
+import { getRowColor } from "../../const";
 
 const NAV_ITEMS = [
   { id: "components", label: "Salary Components", icon: BoxesIcon },
@@ -97,13 +99,14 @@ const BoolDot = ({ value }: { value: boolean }) => {
         alignItems: "center",
         justifyContent: "center",
         mx: "auto",
-        bgcolor: value ? "success.light" : "grey.100",
+        // bgcolor: value ? "success.light" : "grey.100",
       }}
     >
       {value ? (
         <CheckCircleIcon sx={{ fontSize: 14, color: "success.main" }} />
       ) : (
-        <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "grey.400" }} />
+        // <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "grey.400" }} />
+        <CancelOutlined sx={{ fontSize: 14, color: "error.main" }} />
       )}
     </Box>
   );
@@ -113,50 +116,52 @@ const SalaryComponentsSettings = () => {
   const theme = useTheme();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Salary Components
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+          <Typography variant="body2" className="text-gray-500 !mt-1">
             Configure which components affect gross, PF, ESI, and tax calculations
           </Typography>
         </Box>
         <Button
           variant="contained"
           startIcon={<PlusIcon fontSize="small" />}
-          sx={{ textTransform: "none" }}
+          className="!bg-primary"
         >
           Add Component
         </Button>
       </Box>
 
-      <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-        <Table>
+      <TableContainer className="border border-gray-200 rounded-md">
+        <Table stickyHeader>
           <TableHead>
-            <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Component</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Code</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Type</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Affects Gross</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Affects PF</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Affects ESI</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Taxable</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Active</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Actions</TableCell>
+            <TableRow>
+              <TableCell className="!sticky !left-0 !z-30 !font-bold">S No</TableCell>
+              <TableCell className="!sticky !left-[45px] !z-30 !font-bold">Component</TableCell>
+              <TableCell className="!font-bold">Code</TableCell>
+              <TableCell className="!font-bold">Type</TableCell>
+              <TableCell align="center" className="!font-bold">Affects Gross</TableCell>
+              <TableCell align="center" className="!font-bold">Affects PF</TableCell>
+              <TableCell align="center" className="!font-bold">Affects ESI</TableCell>
+              <TableCell align="center" className="!font-bold">Taxable</TableCell>
+              <TableCell align="center" className="!font-bold">Active</TableCell>
+              <TableCell align="center" className="sticky right-0 z-30 !font-bold">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {salaryComponentSettings.map((c) => (
-              <TableRow key={c.code} hover>
-                <TableCell>
+            {salaryComponentSettings.map((c, i) => (
+              <TableRow key={c.code} sx={getRowColor(i)}>
+                <TableCell className="!sticky !left-0 !z-30 bg-inherit">{i + 1}</TableCell>
+                <TableCell className="!sticky !left-[45px] bg-inherit !z-30">
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {c.name}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Chip label={c.code} size="small" sx={{ fontFamily: "monospace", fontSize: "0.7rem" }} />
+                  <Chip label={c.code} size="small" className="text-gray-500 bg-gray-200" />
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -174,7 +179,7 @@ const SalaryComponentsSettings = () => {
                 <TableCell align="center"><BoolDot value={c.affectsESI} /></TableCell>
                 <TableCell align="center"><BoolDot value={c.taxable} /></TableCell>
                 <TableCell align="center"><BoolDot value={c.active} /></TableCell>
-                <TableCell align="center">
+                <TableCell align="center" className="sticky right-0 z-30 bg-inherit">
                   <Stack direction="row">
                     <IconButton
                       size="small"
@@ -183,7 +188,7 @@ const SalaryComponentsSettings = () => {
                         "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
                       }}
                     >
-                      <EditIcon fontSize="small" />
+                      <EditIcon fontSize="small" className="!w-4 text-blue-500" />
                     </IconButton>
                     <IconButton
                       size="small"
@@ -192,7 +197,7 @@ const SalaryComponentsSettings = () => {
                         "&:hover": { color: "error.main", bgcolor: alpha(theme.palette.error.main, 0.08) },
                       }}
                     >
-                      <DeleteIcon fontSize="small" />
+                      <DeleteIcon fontSize="small" className="text-error !w-4" />
                     </IconButton>
                   </Stack>
                 </TableCell>
@@ -209,37 +214,37 @@ const AllowancesSettings = () => {
   const theme = useTheme();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Allowances Configuration
         </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        <Typography variant="body2" className="text-gray-500 !mt-1">
           Configure allowance rules, limits, and tax exemption eligibility
         </Typography>
       </Box>
 
-      <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
-        <Table>
+      <TableContainer className="border border-gray-200 rounded-md ">
+        <Table stickyHeader>
           <TableHead>
-            <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Allowance</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Calculation Basis</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Exemption Limit</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Tax Exempt</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Actions</TableCell>
+            <TableRow>
+              <TableCell className="!font-bold">Allowance</TableCell>
+              <TableCell className="!font-bold">Calculation Basis</TableCell>
+              <TableCell className="!font-bold">Exemption Limit</TableCell>
+              <TableCell align="center" className="!font-bold">Tax Exempt</TableCell>
+              <TableCell align="center" className="!font-bold">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {allowanceSettings.map((a) => (
-              <TableRow key={a.name} hover>
+            {allowanceSettings.map((a, i) => (
+              <TableRow key={a.name} sx={getRowColor(i)}>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {a.name}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  <Typography variant="body2">
                     {a.basis}
                   </Typography>
                 </TableCell>
@@ -255,7 +260,7 @@ const AllowancesSettings = () => {
                       "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
                     }}
                   >
-                    <EditIcon fontSize="small" />
+                    <EditIcon fontSize="small" className="!w-4 text-blue-500" />
                   </IconButton>
                 </TableCell>
               </TableRow>
@@ -271,38 +276,38 @@ const DeductionRulesSettings = () => {
   const theme = useTheme();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Deduction Rules
         </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        <Typography variant="body2" className="text-gray-500 !mt-1">
           Statutory and custom deduction rules with employee/employer contributions
         </Typography>
       </Box>
 
-      <TableContainer component={Paper} sx={{ border: `1px solid ${theme.palette.divider}` }}>
+      <TableContainer className="border border-gray-200 rounded-md ">
         <Table>
           <TableHead>
             <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Deduction</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Applicability</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Employee Rate</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Employer Contribution</TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Cap</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>Actions</TableCell>
+              <TableCell className="!font-bold">Deduction</TableCell>
+              <TableCell className="!font-bold">Applicability</TableCell>
+              <TableCell className="!font-bold">Employee Rate</TableCell>
+              <TableCell className="!font-bold">Employer Contribution</TableCell>
+              <TableCell className="!font-bold">Cap</TableCell>
+              <TableCell align="center" className="!font-bold">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {deductionRules.map((d) => (
-              <TableRow key={d.name} hover>
+            {deductionRules.map((d, i) => (
+              <TableRow key={d.name} sx={getRowColor(i)}>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {d.name}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  <Typography variant="body2" >
                     {d.applicability}
                   </Typography>
                 </TableCell>
@@ -312,7 +317,7 @@ const DeductionRulesSettings = () => {
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  <Typography variant="body2" >
                     {d.employer}
                   </Typography>
                 </TableCell>
@@ -327,7 +332,7 @@ const DeductionRulesSettings = () => {
                       "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
                     }}
                   >
-                    <EditIcon fontSize="small" />
+                    <EditIcon fontSize="small" className="!w-4 text-blue-500" />
                   </IconButton>
                 </TableCell>
               </TableRow>
@@ -343,21 +348,21 @@ const TaxRulesSettings = () => {
   const theme = useTheme();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Tax Rules (Income Tax / TDS)
         </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        <Typography variant="body2" className="text-gray-500 !mt-1">
           Configure tax regime, slabs, and computation rules for FY 2026-27
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
                 Default Tax Regime
               </Typography>
               <Stack spacing={2}>
@@ -370,14 +375,14 @@ const TaxRulesSettings = () => {
                       sx={{
                         textTransform: "none",
                         py: 1.5,
-                        ...(r === "New Regime" && { bgcolor: "primary.main" }),
+                        ...(r === "New Regime" && { bgcolor: "var(--color-primary)" }),
                       }}
                     >
                       {r}
                     </Button>
                   ))}
                 </Box>
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                <Typography variant="caption" className="text-gray-500">
                   Employees can opt for a different regime during investment declaration.
                 </Typography>
               </Stack>
@@ -385,9 +390,9 @@ const TaxRulesSettings = () => {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
                 TDS Computation
               </Typography>
               <Stack spacing={1.5}>
@@ -397,10 +402,10 @@ const TaxRulesSettings = () => {
                   { label: "Perquisite Tax", value: "Disabled" },
                 ].map((s) => (
                   <Box key={s.label} sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    <Typography variant="body2" className="text-gray-500">
                       {s.label}
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
                       {s.value}
                     </Typography>
                   </Box>
@@ -411,19 +416,19 @@ const TaxRulesSettings = () => {
         </Grid>
       </Grid>
 
-      <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <Card className="border border-gray-200 bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
             New Regime Tax Slabs (FY 2026-27)
           </Typography>
-          <TableContainer>
+          <TableContainer className="border border-gray-200 rounded-sm">
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                  <TableCell sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
+                  <TableCell className="!font-bold">
                     Income Range
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600, fontSize: "0.65rem", textTransform: "uppercase" }}>
+                  <TableCell align="right" className="!font-bold">
                     Tax Rate
                   </TableCell>
                 </TableRow>
@@ -461,19 +466,19 @@ const PFESISettings = () => {
   const theme = useTheme();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           PF / ESI Settings
         </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        <Typography variant="body2" className="text-gray-500 !mt-1">
           Configure Provident Fund and Employee State Insurance parameters
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.info.main, 0.3)}` }}>
+          <Card className="bg-white" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.info.main, 0.3)}` }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "info.main", mb: 2 }}>
                 Provident Fund (EPF)
@@ -489,10 +494,10 @@ const PFESISettings = () => {
                 ].map((f) => (
                   <Box key={f.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
                         {f.label}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      <Typography variant="caption" className="text-gray-500">
                         {f.desc}
                       </Typography>
                     </Box>
@@ -501,13 +506,13 @@ const PFESISettings = () => {
                     </Typography>
                   </Box>
                 ))}
-                <Divider />
+                <Divider className="'border border-gray-200" />
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
                       Voluntary PF
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    <Typography variant="caption" className="text-gray-500">
                       Allow employees to contribute beyond 12%
                     </Typography>
                   </Box>
@@ -518,7 +523,7 @@ const PFESISettings = () => {
           </Card>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.success.main, 0.3)}` }}>
+          <Card className="bg-white" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.success.main, 0.3)}` }}>
             <CardContent sx={{ p: 2.5 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "success.main", mb: 2 }}>
                 Employee State Insurance (ESI)
@@ -532,10 +537,10 @@ const PFESISettings = () => {
                 ].map((f) => (
                   <Box key={f.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
                         {f.label}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      <Typography variant="caption" className="text-gray-500">
                         {f.desc}
                       </Typography>
                     </Box>
@@ -544,13 +549,13 @@ const PFESISettings = () => {
                     </Typography>
                   </Box>
                 ))}
-                <Divider />
+                <Divider className="border border-gray-200" />
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
                       ESI Enabled
                     </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    <Typography variant="caption" className="text-gray-500">
                       For eligible employees
                     </Typography>
                   </Box>
@@ -566,24 +571,22 @@ const PFESISettings = () => {
 };
 
 const ScheduleSettings = () => {
-  const theme = useTheme();
-
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Payroll Schedule
         </Typography>
-        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+        <Typography variant="body2" className="text-gray-500 !mt-1">
           Configure processing timelines and payment dates
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
                 Processing Schedule
               </Typography>
               <Stack spacing={2.5}>
@@ -597,36 +600,36 @@ const ScheduleSettings = () => {
                 </FormControl>
 
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                  <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500, mb: 0.5 }}>
                     Attendance Cutoff Date
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <TextField type="number" defaultValue={26} size="small" sx={{ width: 80 }} />
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    <Typography variant="body2" className="text-gray-500">
                       of each month
                     </Typography>
                   </Box>
                 </Box>
 
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }} className="text-gray-800">
                     Salary Payment Date
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <TextField type="number" defaultValue={5} size="small" sx={{ width: 80 }} />
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    <Typography variant="body2" className="text-gray-500">
                       of next month
                     </Typography>
                   </Box>
                 </Box>
 
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }} className="text-gray-800">
                     Processing Start Date
                   </Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <TextField type="number" defaultValue={1} size="small" sx={{ width: 80 }} />
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                    <Typography variant="body2" className="text-gray-500">
                       of next month
                     </Typography>
                   </Box>
@@ -634,11 +637,21 @@ const ScheduleSettings = () => {
               </Stack>
             </CardContent>
           </Card>
+          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon fontSize="small" />}
+              className="!bg-primary !mt-4"
+              onClick={() => console.log("Schedule settings saved!")}
+            >
+              Save Settings
+            </Button>
+          </Box>
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+          <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>
+              <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
                 Auto-Sync Features
               </Typography>
               <Stack spacing={1}>
@@ -656,16 +669,16 @@ const ScheduleSettings = () => {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      py: 1.5,
-                      borderBottom: `1px solid ${theme.palette.divider}`,
+                      py: 1,
                       "&:last-child": { borderBottom: "none" },
                     }}
+                    className="border-b border-gray-200"
                   >
                     <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
                         {s.label}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                      <Typography variant="caption" className="text-gray-500">
                         {s.desc}
                       </Typography>
                     </Box>
@@ -677,17 +690,6 @@ const ScheduleSettings = () => {
           </Card>
         </Grid>
       </Grid>
-
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon fontSize="small" />}
-          sx={{ textTransform: "none" }}
-          onClick={() => console.log("Schedule settings saved!")}
-        >
-          Save Settings
-        </Button>
-      </Box>
     </Stack>
   );
 };
@@ -696,19 +698,19 @@ const ApprovalWorkflowSettings = () => {
   const theme = useTheme();
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <Typography sx={{ fontWeight: 600 }}>
             Approval Workflow
           </Typography>
-          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+          <Typography variant="body2" className="text-gray-500 !mt-1">
             Define the multi-level approval chain for payroll processing
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Switch defaultChecked />
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Typography variant="body2" >
             Approval Required
           </Typography>
         </Box>
@@ -738,22 +740,22 @@ const ApprovalWorkflowSettings = () => {
                 <Box sx={{ width: 2, height: 32, bgcolor: alpha(theme.palette.primary.main, 0.2) }} />
               )}
             </Box>
-            <Card sx={{ flex: 1, borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <Card className="bg-white" sx={{ flex: 1, borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 600 }}>
                     {s.action}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  <Typography variant="caption" className="text-gray-500">
                     Role: <strong>{s.role}</strong>
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Box sx={{ textAlign: "right" }}>
-                    <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                    <Typography variant="caption" className="text-gray-800">
                       SLA
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    <Typography variant="body2" className="text-gray-500" sx={{ fontWeight: 600 }}>
                       {s.sla}
                     </Typography>
                   </Box>
@@ -765,7 +767,7 @@ const ApprovalWorkflowSettings = () => {
                       "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
                     }}
                   >
-                    <EditIcon fontSize="small" />
+                    <EditIcon fontSize="small" className="!w-4 text-blue-500" />
                   </IconButton>
                 </Box>
               </CardContent>
@@ -783,7 +785,7 @@ const ApprovalWorkflowSettings = () => {
         <Button
           variant="contained"
           startIcon={<SaveIcon fontSize="small" />}
-          sx={{ textTransform: "none" }}
+          className="!bg-primary"
           onClick={() => console.log("Workflow settings saved!")}
         >
           Save Workflow
@@ -811,25 +813,11 @@ export default function PayrollSettings() {
   const Content = contentMap[tab] ?? SalaryComponentsSettings;
 
   return (
-    <Box sx={{ display: "flex", height: "100%", p: 3, gap: 3 }}>
+    <Box sx={{ display: "flex", height: "100%", my: 3, gap: 2 }}>
       {/* Left Nav */}
       <Box sx={{ width: 240, flexShrink: 0 }}>
-        <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <CardContent sx={{ p: 1.5 }}>
-            <Typography
-              variant="caption"
-              sx={{
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                color: "text.secondary",
-                px: 1.5,
-                display: "block",
-                mb: 1,
-              }}
-            >
-              Settings
-            </Typography>
             <Stack spacing={0.5}>
               {NAV_ITEMS.map((item) => {
                 const active = tab === item.id;
@@ -840,23 +828,16 @@ export default function PayrollSettings() {
                     fullWidth
                     sx={{
                       justifyContent: "flex-start",
-                      gap: 1.5,
-                      px: 2,
-                      py: 1.5,
-                      borderRadius: 1,
-                      textTransform: "none",
-                      fontSize: "0.85rem",
-                      fontWeight: active ? 600 : 400,
                       color: active ? "primary.main" : "text.secondary",
-                      bgcolor: active ? alpha(theme.palette.primary.main, 0.08) : "transparent",
+                      bgcolor: active ? "var(--color-primary-100)" : "transparent",
                       "&:hover": {
-                        bgcolor: active ? alpha(theme.palette.primary.main, 0.12) : alpha(theme.palette.primary.main, 0.04),
+                        bgcolor: active ? "" : alpha(theme.palette.primary.main, 0.04),
                       },
                     }}
                   >
-                    <item.icon sx={{ fontSize: 18, color: active ? "primary.main" : "text.secondary" }} />
-                    <Box sx={{ flex: 1, textAlign: "left" }}>{item.label}</Box>
-                    {active && <ChevronRightIcon sx={{ fontSize: 14, color: "primary.main" }} />}
+                    <item.icon className="text-gray-500 dark:text-primary mr-2 !w-4" sx={{ fontSize: 18 }} />
+                    <Box sx={{ flex: 1, textAlign: "left" }} className={active ? 'text-black' : 'text-gray-800'}>{item.label}</Box>
+                    {active && <ChevronRightIcon className="text-primary" />}
                   </Button>
                 );
               })}

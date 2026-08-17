@@ -120,6 +120,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
   const [assignmentRules, setAssignmentRules] = useState<AssignmentRuleWithMeta[]>(
     config?.assignments || [],
   );
+  
   const versionId = editPolicy?.currentVersion?.id as string | undefined;
   const isEditMode = !!editPolicy;
   const category = [{ id: 'Staff', name: 'Staff' }, { id: 'Labour', name: 'Labour' }];

@@ -351,7 +351,7 @@ export default function Signup() {
                       onChange={handleChange}
                       onBlur={handleBlur}
                       placeholder="John"
-                      className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
+                      className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
                         ${touched.firstName && errors.firstName ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {touched.firstName && errors.firstName && (
@@ -369,7 +369,7 @@ export default function Signup() {
                       onChange={handleChange}
                       onBlur={handleBlur}
                       placeholder="Doe"
-                      className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
+                      className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
                         ${touched.lastName && errors.lastName ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {touched.lastName && errors.lastName && (
@@ -390,7 +390,7 @@ export default function Signup() {
                     onChange={handleChange}
                     onBlur={handleBlur}
                     placeholder="john@company.com"
-                    className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
+                    className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
                       ${touched.loginId && errors.loginId ? 'border-red-500' : 'border-gray-300'}`}
                   />
                   {touched.loginId && errors.loginId && (
@@ -414,7 +414,7 @@ export default function Signup() {
                     onBlur={handleBlur}
                     placeholder="9876543210"
                     maxLength={10}
-                    className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
+                    className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
                       ${touched.phone && errors.phone ? 'border-red-500' : 'border-gray-300'}`}
                   />
                   {touched.phone && errors.phone && (
@@ -436,7 +436,7 @@ export default function Signup() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         placeholder="StrongP@ss1"
-                        className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition pr-10
+                        className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition pr-10
                         ${touched.password && errors.password ? 'border-red-500' : 'border-gray-300'}`}
                       />
                       <button
@@ -470,7 +470,7 @@ export default function Signup() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         placeholder="Confirm your password"
-                        className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition pr-10
+                        className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition pr-10
                         ${touched.confirmPassword && errors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
                       />
                       <button
@@ -502,7 +502,7 @@ export default function Signup() {
                       onChange={handleChange}
                       onBlur={handleBlur}
                       placeholder="Acme Pvt Ltd"
-                      className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
+                      className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
                       ${touched.companyName && errors.companyName ? 'border-red-500' : 'border-gray-300'}`}
                     />
                     {touched.companyName && errors.companyName && (
@@ -523,7 +523,7 @@ export default function Signup() {
                         onChange={handleChange}
                         onBlur={handleBlur}
                         placeholder="acme"
-                        className={`w-full px-3 py-2 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
+                        className={`w-full px-3 py-2 bg-white-50 border rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition
                         ${touched.subdomain && errors.subdomain ? 'border-red-500' : 'border-gray-300'}`}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -9,6 +10,7 @@ import {
   FormControlLabel,
   IconButton,
   InputLabel,
+  ListItemText,
   MenuItem,
   Select,
   Switch,
@@ -178,7 +180,7 @@ export default function AdminHolidayCalendarsPage() {
 
     const payload: Partial<HolidayCalendar> = {
       calendarName: calendarForm.calendarName,
-      branchId: calendarForm.branchId,
+      branchIds: calendarForm.branchIds,
       active: calendarForm.active,
       year: calendarForm.year || new Date().getFullYear(),
     };
@@ -302,7 +304,7 @@ export default function AdminHolidayCalendarsPage() {
     showSpinner();
     try {
       const isOptional = isOptionalHoliday(holidayForm.holidayType || "PUBLIC");
-      
+
       const payload: any = {
         ...holidayForm,
         holidayCalendarId: selectedCalendar.id,
@@ -311,7 +313,7 @@ export default function AdminHolidayCalendarsPage() {
 
       const response: any = editingHolidayId
         ? await leaveService.updateHoliday(editingHolidayId, payload)
-        : await leaveService.  createHoliday(payload);
+        : await leaveService.createHoliday(payload);
 
       if (response.success) {
         showSnackbar(
@@ -385,7 +387,7 @@ export default function AdminHolidayCalendarsPage() {
         holidayType: "PUBLIC",
         optionalHoliday: false,
         active: true,
-        applicableTo:"Both"
+        applicableTo: "Both"
       },
     ]);
   };
@@ -652,21 +654,32 @@ export default function AdminHolidayCalendarsPage() {
 
             <div className="col-span-2">
               <FormControl fullWidth required>
-                <InputLabel>Select Branch</InputLabel>
+                <InputLabel>Select Branches</InputLabel>
                 <Select
-                  value={calendarForm.branchId || ""}
-                  label="Select Branch"
-                  onChange={(e) =>
+                  multiple
+                  value={calendarForm.branchIds || []}
+                  label="Select Branches"
+                  onChange={(e) => {
+                    const value = e.target.value;
                     setCalendarForm((current) => ({
                       ...current,
-                      branchId: e.target.value,
-                    }))
-                  }
+                      branchIds: typeof value === 'string' ? value.split(',') : value,
+                    }));
+                  }}
+                  renderValue={(selected) => {
+                    if (!selected || selected.length === 0) {
+                      return <em>Select Branches</em>;
+                    }
+                    return selected
+                      .map((id) => branches.find((b) => b.id === id)?.branchName)
+                      .filter(Boolean)
+                      .join(', ');
+                  }}
                 >
-                  <MenuItem value="">Select Branch</MenuItem>
                   {branches.map((branch) => (
                     <MenuItem key={branch.id} value={branch.id}>
-                      {branch.branchName}
+                      <Checkbox className="text-gray-800" checked={calendarForm.branchIds?.includes(branch.id) ?? false}  />
+                      <ListItemText primary={branch.branchName} />
                     </MenuItem>
                   ))}
                 </Select>
@@ -734,8 +747,8 @@ export default function AdminHolidayCalendarsPage() {
                   <Chip
                     label={standardHolidays.length}
                     size="small"
-                    color="success" 
-                    className="ml-2" 
+                    color="success"
+                    className="ml-2"
                   />
                 </div>
                 <Table
@@ -814,8 +827,8 @@ export default function AdminHolidayCalendarsPage() {
                   <Chip
                     label={optionalHolidays.length}
                     size="small"
-                    color="secondary" 
-                    className="ml-2" 
+                    color="secondary"
+                    className="ml-2"
                   />
                 </div>
                 <Table
@@ -874,7 +887,7 @@ export default function AdminHolidayCalendarsPage() {
                     ))}
                     {optionalHolidays.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5}>
+                        <TableCell colSpan={6}>
                           <DataState
                             compact
                             type="empty"
@@ -944,11 +957,11 @@ export default function AdminHolidayCalendarsPage() {
                   }
                   sx={selectSx}
                 >
-                    <MenuItem value="Staff">Staff</MenuItem>
-                    <MenuItem value="Labour">Labour</MenuItem>
-                    <MenuItem value="Both">Both</MenuItem>
+                  <MenuItem value="Staff">Staff</MenuItem>
+                  <MenuItem value="Labour">Labour</MenuItem>
+                  <MenuItem value="Both">Both</MenuItem>
                 </TextField>
-                <FormControlLabel 
+                <FormControlLabel
                   // className="justify-center"
                   control={
                     <Switch
@@ -1158,7 +1171,7 @@ export default function AdminHolidayCalendarsPage() {
                 holidayType: "PUBLIC",
                 optionalHoliday: false,
                 active: true,
-                applicableTo:"Both"
+                applicableTo: "Both"
               }]);
               setImportCalendarId("");
             }}

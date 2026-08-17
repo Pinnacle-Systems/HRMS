@@ -31,3 +31,9 @@ test-results/
 /backend/__pycache__
 /backend/venv
 /backend/app/venv
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

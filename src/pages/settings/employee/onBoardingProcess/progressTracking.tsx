@@ -309,7 +309,7 @@ export const ProgressTracking = () => {
 
   return (
     <div className="py-4 pb-0 bg-gray-50">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-2 flex justify-between items-center">
         <div>
           <Typography variant="h4" className="font-bold text-gray-800">
             Onboarding Progress Tracking
@@ -328,7 +328,7 @@ export const ProgressTracking = () => {
       </div>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} className="mb-6">
+      <Grid container spacing={3} className="mb-4">
         <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card className="!bg-gradient-to-r !from-blue-100 !to-blue-300 shadow-lg">
             <CardContent>
@@ -417,7 +417,7 @@ export const ProgressTracking = () => {
       </Grid>
 
       {/* Onboarding List */}
-      <TableContainer className="h-[calc(100vh-460px)] overflow-auto">
+      <TableContainer className="h-[calc(100vh-410px)] overflow-auto">
         <Table className="border border-gray-200 rounded-md">
           <TableHead className="bg-gray-100">
             <TableRow>

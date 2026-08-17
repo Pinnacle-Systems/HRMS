@@ -120,7 +120,7 @@ export default function HolidayCalendarPage() {
       if (!session?.user?.userId) return;
       try {
         const response: any = await leaveService.getOptionalHolidayByEmpId(
-          session?.user?.userId
+          session?.user?.employeeId ? session?.user?.employeeId : session?.user?.userId
         );
         if (response.success) {
           const selectedIds = response.data?.map((h: any) => h.id) || [];
@@ -804,7 +804,7 @@ export default function HolidayCalendarPage() {
             ))}
           </TextField>
 
-          <FormControl size="small" sx={{ minWidth: 250 }}>
+          <FormControl sx={{ minWidth: 250 }}>
             <InputLabel id="calendar-select-label">Calendar</InputLabel>
             <Select
               labelId="calendar-select-label"

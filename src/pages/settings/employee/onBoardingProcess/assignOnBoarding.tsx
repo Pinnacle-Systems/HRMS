@@ -30,6 +30,7 @@ import {
   Grid,
   Card,
   CardContent,
+  OutlinedInput,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -39,9 +40,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { onBoardService } from "../../../../services/modules/onBoard";
-import type { EmployeeSummaryResponse } from "../../../../services/modules/employees";
 import { useUI } from "../../../../context/Snackbar";
-import EmployeeAsyncCombobox from "../../../../components/employees/EmployeeAsyncCombobox";
 import dayjs from "dayjs";
 import {
   CloseOutlined,
@@ -53,6 +52,7 @@ import {
 import { getRowColor } from "../../../const";
 import { GlobalPagination } from "../../../../components/GlobalPagination";
 import type { OnboardingAssignment, OnboardingDetail } from "./type";
+import { EmployeeSelector } from "../../../../components/PolicyManagement/Common/EmployeeSelector";
 
 export const AssignOnboarding = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -61,8 +61,7 @@ export const AssignOnboarding = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] =
     useState<OnboardingAssignment | null>(null);
-  const [selectedEmployee, setSelectedEmployee] =
-    useState<EmployeeSummaryResponse | null>(null);
+  const [selectedEmployees, setSelectedEmployees] = useState<any[]>([]);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -70,7 +69,8 @@ export const AssignOnboarding = () => {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [formData, setFormData] = useState({
     employeeId: "",
-    checklistId: "",
+    employeeIds: [] as any[],
+    checklistIds: [] as string[],
     startDate: dayjs().format("YYYY-MM-DD"),
     dueDate: "",
     notes: "",
@@ -82,6 +82,9 @@ export const AssignOnboarding = () => {
   const [isBulkSending, setIsBulkSending] = useState(false);
   const [onboardingDetail, setOnboardingDetail] = useState<OnboardingDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  // State for bulk assign dialog
+  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
 
   const totalAssignments = assignments.length;
   const inProgressAssignments = assignments.filter(
@@ -201,32 +204,74 @@ export const AssignOnboarding = () => {
     });
   };
 
-  const handleAssign = async () => {
-    if (!formData.employeeId || !formData.checklistId) {
-      showSnackbar("Please select employee and checklist", "error");
+  // Open bulk assign dialog with selected employees
+  const handleOpenBulkAssign = () => {
+    const selectedEmployeeIds = Array.from(selectedAssignments)
+      .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
+      .filter((id): id is string => !!id);
+
+    if (selectedEmployeeIds.length === 0) {
+      showSnackbar("No employees selected", "error");
       return;
     }
+
+    // Get the selected employee objects
+    const selectedEmployeesList = assignments
+      .filter((a) => selectedAssignments.has(a.onboardingId))
+      .map((a) => ({
+        id: a.employeeId,
+        name: a.employeeName,
+        email: a.employeeEmail,
+        code: a.employeeCode,
+        // Add other fields as needed
+      }))
+      .filter((emp): emp is any => !!emp.id);
+
+    setSelectedEmployees(selectedEmployeesList as any);
+    setFormData({
+      ...formData,
+      employeeIds: selectedEmployeeIds,
+    });
+    setIsBulkAssignDialogOpen(true);
+  };
+
+  const handleAssign = async () => {
+    // Use employeeIds for multiple selection
+    const employeeIds = formData.employeeIds.length > 0
+      ? formData.employeeIds
+      : (formData.employeeId ? [formData.employeeId] : []);
+
+    if (employeeIds.length === 0 || formData.checklistIds.length === 0) {
+      showSnackbar("Please select employee(s) and at least one checklist", "error");
+      return;
+    }
+
     try {
       showSpinner();
       const payload = {
-        employeeId: formData.employeeId,
-        checklistId: formData.checklistId,
+        employeeIds: employeeIds, // Send array of employee IDs
+        checklistIds: formData.checklistIds,
         startDate: formData.startDate,
         ...(formData.dueDate ? { dueDate: formData.dueDate } : {}),
         ...(formData.notes ? { notes: formData.notes } : {}),
       };
-      await onBoardService.assignOnboarding(payload);
+
+      await onBoardService.bulkAssignOnboarding(payload);
+
       setIsDialogOpen(false);
+      setIsBulkAssignDialogOpen(false);
       setFormData({
         employeeId: "",
-        checklistId: "",
+        employeeIds: [],
+        checklistIds: [],
         startDate: dayjs().format("YYYY-MM-DD"),
         dueDate: "",
         notes: "",
       });
-      setSelectedEmployee(null);
+      setSelectedEmployees([]);
+      setSelectedAssignments(new Set());
       fetchData();
-      showSnackbar("Onboarding assigned successfully!", "success");
+      showSnackbar(`Onboarding assigned to ${employeeIds.length} employee(s) successfully!`, "success");
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
@@ -329,46 +374,53 @@ export const AssignOnboarding = () => {
     }
   };
 
-  const handleBulkAssign = async () => {
-    const selectedEmployeeIds = Array.from(selectedAssignments)
-      .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
-      .filter((id): id is string => !!id);
+  // const handleBulkAssign = async () => {
+  //   const selectedEmployeeIds = Array.from(selectedAssignments)
+  //     .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
+  //     .filter((id): id is string => !!id);
 
-    if (selectedEmployeeIds.length === 0) {
-      showSnackbar("No employees selected", "error");
-      return;
-    }
+  //   if (selectedEmployeeIds.length === 0) {
+  //     showSnackbar("No employees selected", "error");
+  //     return;
+  //   }
 
-    if (!formData.checklistId) {
-      showSnackbar("Please select a checklist", "error");
-      return;
-    }
+  //   if (formData.checklistIds.length === 0) {
+  //     showSnackbar("Please select at least one checklist", "error");
+  //     return;
+  //   }
 
-    showConfirmDialog({
-      title: "Bulk Assign Onboarding",
-      message: `Assign onboarding to ${selectedEmployeeIds.length} selected employees?`,
-      confirmText: "Assign",
-      onConfirm: async () => {
-        // try {
-        //   showSpinner();
-        //   const checklistIds = [formData.checklistId];
-        //   await onBoardService.bulkAssignOnboarding({
-        //     employeeIds: selectedEmployeeIds,
-        //     checklistIds: checklistIds,
-        //     dueDate: formData.dueDate || formData.startDate,
-        //     notes: "Bulk assignment",
-        //   });
-        //   showSnackbar("Bulk assignment completed!", "success");
-        //   setSelectedAssignments(new Set());
-        //   fetchData();
-        // } catch (error: any) {
-        //   showSnackbar(error.message, "error");
-        // } finally {
-        //   hideSpinner();
-        // }
-      },
-    });
-  };
+  //   showConfirmDialog({
+  //     title: "Bulk Assign Onboarding",
+  //     message: `Assign onboarding to ${selectedEmployeeIds.length} selected employees with ${formData.checklistIds.length} checklist(s)?`,
+  //     confirmText: "Assign",
+  //     onConfirm: async () => {
+  //       try {
+  //         showSpinner();
+  //         await onBoardService.bulkAssignOnboarding({
+  //           employeeIds: selectedEmployeeIds,
+  //           checklistIds: formData.checklistIds,
+  //           ...(formData.dueDate ? { dueDate: formData.dueDate } : {}),
+  //           ...(formData.notes ? { notes: formData.notes } : {}),
+  //         });
+  //         showSnackbar(`Bulk assignment completed for ${selectedEmployeeIds.length} employees!`, "success");
+  //         setSelectedAssignments(new Set());
+  //         setFormData({
+  //           employeeId: "",
+  //           employeeIds: [],
+  //           checklistIds: [],
+  //           startDate: dayjs().format("YYYY-MM-DD"),
+  //           dueDate: "",
+  //           notes: "",
+  //         });
+  //         fetchData();
+  //       } catch (error: any) {
+  //         showSnackbar(error.message, "error");
+  //       } finally {
+  //         hideSpinner();
+  //       }
+  //     },
+  //   });
+  // };
 
   const handleStatusFilterClick = (status: string) => {
     setStatusFilter(status);
@@ -446,7 +498,7 @@ export const AssignOnboarding = () => {
     selectedAssignments.size > 0 &&
     selectedAssignments.size < unsentAssignments.length;
 
-  // ============ Helper functions for details ============
+  // Helper functions for details
   const getTaskStatusIcon = (status: string) => {
     switch (status?.toUpperCase()) {
       case "COMPLETED":
@@ -499,7 +551,7 @@ export const AssignOnboarding = () => {
             <Button
               variant="contained"
               startIcon={<MarkEmailUnreadOutlined />}
-              onClick={handleBulkAssign}
+              onClick={handleOpenBulkAssign}
               className="!bg-primary"
             >
               Bulk Assign ({selectedAssignments.size})
@@ -690,6 +742,7 @@ export const AssignOnboarding = () => {
                         variant="caption"
                         color="text.secondary"
                         sx={{ display: "block", fontSize: "10px" }}
+                        className="hover:"
                       >
                         {assignment.completedChecklists || 0}/
                         {assignment.totalChecklists || 0} checklists
@@ -820,7 +873,7 @@ export const AssignOnboarding = () => {
         />
       )}
 
-      {/* Assign Dialog */}
+      {/* Assign New Onboarding Dialog with Multiple Employee Selection */}
       <Dialog
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
@@ -829,44 +882,105 @@ export const AssignOnboarding = () => {
       >
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
           <div className="text-gray-800 ml-4">Assign New Onboarding</div>
-          <IconButton>
-            <CloseOutlined
-              className="text-gray-800"
-              onClick={() => setIsDialogOpen(false)}
-            />
+          <IconButton onClick={() => setIsDialogOpen(false)}>
+            <CloseOutlined className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent>
           <div className="space-y-6 pt-6">
-            <FormControl fullWidth>
-              <EmployeeAsyncCombobox
-                value={formData.employeeId}
-                selectedEmployee={selectedEmployee}
-                label="Select Employee"
-                onChange={(employeeId, employee) => {
-                  setFormData({ ...formData, employeeId: employeeId || "" });
-                  setSelectedEmployee(employee || null);
-                }}
-                required
-              />
-            </FormControl>
+            {/* Multiple Employee Selector */}
+            <EmployeeSelector
+              value={selectedEmployees}
+              onChange={(value) => {
+                const employees = value as any[];
+                setSelectedEmployees(employees);
+                const employeeIds = employees.map(emp => emp.id || emp.employeeId).filter(id => id);
+                setFormData({
+                  ...formData,
+                  employeeIds: employeeIds,
+                  employeeId: employeeIds.length === 1 ? employeeIds[0] : ""
+                });
+              }}
+              multiple={true}
+              label="Select Employees"
+              placeholder="Search multiple employees..."
+            />
+            {/* <EmployeeSelector
+              value={selectedEmployees || null}
+              onChange={(value) => {
+                setSelectedEmployees(value as EmployeeSummaryResponse[]);
+                const employeeIds = (value as EmployeeSummaryResponse[]).map(emp => emp.id);
+                setFormData({ 
+                  ...formData, 
+                  employeeIds: employeeIds,
+                  employeeId: employeeIds.length === 1 ? employeeIds[0] : null
+                });
+              }}
+              multiple={true}
+              label="Select Employees"
+              placeholder="Search multiple employees..."
+            /> */}
+
+            {selectedEmployees.length > 0 && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selectedEmployees.map((emp) => (
+                  <Chip
+                    key={emp.id}
+                    label={emp.name || emp.emailAddress}
+                    size="small"
+                    className="!bg-primary-50 !text-primary"
+                    onDelete={() => {
+                      const newEmployees = selectedEmployees.filter(e => e.id !== emp.id);
+                      setSelectedEmployees(newEmployees);
+                      setFormData({
+                        ...formData,
+                        employeeIds: newEmployees.map(e => e.id)
+                      });
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
 
             <FormControl fullWidth>
               <InputLabel id="assign-onboarding-checklist-label">
-                Select Checklist
+                Select Checklists
               </InputLabel>
               <Select
                 labelId="assign-onboarding-checklist-label"
                 id="assign-onboarding-checklist"
-                value={formData.checklistId}
-                label="Select Checklist"
-                onChange={(e) =>
-                  setFormData({ ...formData, checklistId: e.target.value })
-                }
+                multiple
+                value={formData.checklistIds}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({
+                    ...formData,
+                    checklistIds: typeof value === 'string' ? value.split(',') : value
+                  });
+                }}
+                input={<OutlinedInput label="Select Checklists" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => {
+                      const checklist = checklists.find(c => c.id === value);
+                      return (
+                        <Chip
+                          key={value}
+                          label={checklist?.name || value}
+                          size="small"
+                          className="!bg-primary-50 !text-primary"
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
               >
                 {checklists.map((checklist) => (
                   <MenuItem key={checklist.id} value={checklist.id}>
-                    {checklist.name} ({checklist.taskCount || 0} tasks)
+                    <Checkbox checked={formData.checklistIds.indexOf(checklist.id) > -1} className="text-gray-800"/>
+                    <span className="text-gray-800">
+                      {checklist.name} ({checklist.taskCount || 0} tasks)
+                    </span>
                   </MenuItem>
                 ))}
               </Select>
@@ -914,19 +1028,149 @@ export const AssignOnboarding = () => {
             onClick={handleAssign}
             variant="contained"
             className="!bg-primary"
+            disabled={selectedEmployees.length === 0 || formData.checklistIds.length === 0}
           >
-            Assign
+            Assign to {selectedEmployees.length} Employee{selectedEmployees.length > 1 ? 's' : ''}
+            {formData.checklistIds.length > 0 && ` with ${formData.checklistIds.length} Checklist${formData.checklistIds.length > 1 ? 's' : ''}`}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Enhanced Details Dialog */}
+      {/* Bulk Assign Dialog */}
+      <Dialog
+        open={isBulkAssignDialogOpen}
+        onClose={() => setIsBulkAssignDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
+          <div className="text-gray-800 ml-4">
+            Bulk Assign Onboarding ({selectedEmployees.length} Employees)
+          </div>
+          <IconButton onClick={() => setIsBulkAssignDialogOpen(false)}>
+            <CloseOutlined className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <div className="space-y-6 pt-6">
+            {/* Display selected employees */}
+            <div>
+              <Typography variant="subtitle2" className="text-gray-700 !mb-2">
+                Selected Employees ({selectedEmployees.length})
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                {selectedEmployees.map((emp) => (
+                  <Chip
+                    key={emp.id}
+                    label={emp.name || emp.emailAddress}
+                    size="small"
+                    className="!bg-primary-50 !text-primary"
+                  />
+                ))}
+              </Box>
+            </div>
+
+            <FormControl fullWidth>
+              <InputLabel id="bulk-assign-checklist-label">
+                Select Checklists
+              </InputLabel>
+              <Select
+                labelId="bulk-assign-checklist-label"
+                id="bulk-assign-checklist"
+                multiple
+                value={formData.checklistIds}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({
+                    ...formData,
+                    checklistIds: typeof value === 'string' ? value.split(',') : value
+                  });
+                }}
+                input={<OutlinedInput label="Select Checklists" />}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((value) => {
+                      const checklist = checklists.find(c => c.id === value);
+                      return (
+                        <Chip
+                          key={value}
+                          label={checklist?.name || value}
+                          size="small"
+                          className="!bg-primary-50 !text-primary"
+                        />
+                      );
+                    })}
+                  </Box>
+                )}
+              >
+                {checklists.map((checklist) => (
+                  <MenuItem key={checklist.id} value={checklist.id}>
+                    <Checkbox checked={formData.checklistIds.indexOf(checklist.id) > -1} className="text-gray-800"/>
+                    <span className="text-gray-800">
+                      {checklist.name} ({checklist.taskCount || 0} tasks)
+                    </span>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Start Date"
+                value={dayjs(formData.startDate)}
+                onChange={(date) =>
+                  setFormData({
+                    ...formData,
+                    startDate: dayjs(date)?.format("YYYY-MM-DD") || "",
+                  })
+                }
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </LocalizationProvider>
+
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DatePicker
+                label="Due Date (Optional)"
+                value={formData.dueDate ? dayjs(formData.dueDate) : null}
+                minDate={formData.startDate ? dayjs(formData.startDate) : undefined}
+                onChange={(date) =>
+                  setFormData({
+                    ...formData,
+                    dueDate: date ? dayjs(date).format("YYYY-MM-DD") : "",
+                  })
+                }
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </LocalizationProvider>
+          </div>
+        </DialogContent>
+        <DialogActions className="border-t border-gray-200 !p-4">
+          <Button
+            onClick={() => setIsBulkAssignDialogOpen(false)}
+            className="!text-gray-800 !border-gray-200"
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssign}
+            variant="contained"
+            className="!bg-primary"
+            disabled={selectedEmployees.length === 0 || formData.checklistIds.length === 0}
+          >
+            Assign to {selectedEmployees.length} Employee{selectedEmployees.length > 1 ? 's' : ''}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Details Dialog - same as before */}
       <Dialog
         open={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
         maxWidth="lg"
         fullWidth
       >
+        {/* ... same details dialog content ... */}
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-3">
           <div className="flex items-center gap-2">
             <Avatar className="!w-10 !h-10 !bg-primary">
@@ -967,7 +1211,7 @@ export const AssignOnboarding = () => {
             <div className="space-y-4">
               {/* Summary Cards */}
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
                   <Card className="!bg-blue-50 !border !border-blue-500">
                     <CardContent className="!py-2 px-3">
                       <Typography variant="caption" color="textSecondary">
@@ -979,7 +1223,7 @@ export const AssignOnboarding = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
                   <Card className="!bg-green-50 !border !border-green-500">
                     <CardContent className="!py-2 px-3">
                       <Typography variant="caption" color="textSecondary">
@@ -991,7 +1235,7 @@ export const AssignOnboarding = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
                   <Card className="!bg-purple-50 !border !border-purple-500">
                     <CardContent className="!py-2 px-3">
                       <Typography variant="caption" color="textSecondary">
@@ -1003,7 +1247,7 @@ export const AssignOnboarding = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
                   <Card className="!bg-red-50 !border !border-red-500">
                     <CardContent className="!py-2 px-3">
                       <Typography variant="caption" color="textSecondary">
@@ -1017,7 +1261,7 @@ export const AssignOnboarding = () => {
                     </CardContent>
                   </Card>
                 </Grid>
-                <Grid size={{ xs: 12, sm: 4, md: 2 }}>
+                <Grid size={{ xs: 6, sm: 4, md: 2.4 }}>
                   <Card className="!bg-amber-50 !border !border-amber-500">
                     <CardContent className="!py-2 px-3">
                       <Typography variant="caption" color="textSecondary">
@@ -1153,7 +1397,6 @@ export const AssignOnboarding = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
-                                  {/* {getTaskStatusIcon(task.status)} */}
                                   <Chip
                                     label={getTaskStatusDisplay(task.status)}
                                     size="small"
@@ -1199,34 +1442,6 @@ export const AssignOnboarding = () => {
                   </CardContent>
                 </Card>
               )}
-
-              {/* Additional Info */}
-              {/* <Card className="bg-gray-50 border border-gray-200">
-                <CardContent>
-                  <Grid container spacing={2}>
-                    {onboardingDetail.welcomeEmailSentAt && (
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Typography variant="caption" className="text-gray-500 block">
-                          Welcome Email Sent
-                        </Typography>
-                        <Typography variant="body2">
-                          {dayjs(onboardingDetail.welcomeEmailSentAt).format("DD MMM YYYY HH:mm")}
-                        </Typography>
-                      </Grid>
-                    )}
-                    {onboardingDetail.notes && (
-                      <Grid size={{ xs: 12 }}>
-                        <Typography variant="caption" className="text-gray-500 block">
-                          Notes
-                        </Typography>
-                        <Typography variant="body2" className="bg-white p-2 rounded border border-gray-200">
-                          {onboardingDetail.notes}
-                        </Typography>
-                      </Grid>
-                    )}
-                  </Grid>
-                </CardContent>
-              </Card> */}
             </div>
           ) : (
             <Box className="text-center py-12">

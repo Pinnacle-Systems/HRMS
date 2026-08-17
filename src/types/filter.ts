@@ -1,28 +1,61 @@
-export type FilterOperator =
-  | "equals"
-  | "notEquals"
-  | "contains"
-  | "notContains"
-  | "startsWith"
-  | "endsWith"
-  | "greaterThan"
-  | "greaterThanOrEqual"
-  | "lessThan"
-  | "lessThanOrEqual"
-  | "between"
-  | "in"
-  | "notIn"
-  | "isEmpty"
-  | "isNotEmpty";
+export type FilterOperator = 
+  | 'equals' 
+  | 'notEquals' 
+  | 'contains' 
+  | 'notContains' 
+  | 'startsWith' 
+  | 'endsWith'
+  | 'isEmpty' 
+  | 'isNotEmpty' 
+  | 'isNull' 
+  | 'isNotNull'
+  | 'greaterThan' 
+  | 'lessThan' 
+  | 'greaterThanOrEqual' 
+  | 'lessThanOrEqual'
+  | 'between'
+  | 'in'
+  | 'notIn'
+  | 'before'
+  | 'after'
+  | 'onOrBefore'
+  | 'onOrAfter'
+  | 'true'
+  | 'false'
+  | 'yes'
+  | 'no';
 
-export type FilterCondition = "AND" | "OR";
+export type FilterFieldType = 
+  | 'text' 
+  | 'number' 
+  | 'date' 
+  | 'select' 
+  | 'multiSelect'
+  | 'boolean' 
+  | 'user' 
+  | 'master-select'
+  | 'multiline';
+
+export interface FilterOption {
+  value: string | number | boolean;
+  label: string;
+}
 
 export interface FilterField {
   id: string;
   label: string;
-  type: "text" | "number" | "date" | "boolean" | "select" | "multiSelect";
-  options?: Array<{ value: string; label: string }>;
+  type: FilterFieldType;
   placeholder?: string;
+  options?: FilterOption[];
+  categoryKey?: string;
+  isPolicy?: boolean;
+  key1?: string;
+  key2?: string;
+  disabled?: boolean;
+  multiline?: boolean;
+  full?: boolean;
+  group?: string;
+  required?: boolean;
 }
 
 export interface FilterRule {
@@ -33,8 +66,13 @@ export interface FilterRule {
   value2?: any;
 }
 
+export interface FilterCondition {
+  condition: 'AND' | 'OR';
+  rules: FilterRule[];
+}
+
 export interface FilterConfig {
-  condition: "AND" | "OR";
+  condition: 'AND' | 'OR';
   rules: FilterRule[];
 }
 
@@ -45,4 +83,12 @@ export interface FilterPopupProps {
   fields: FilterField[];
   initialFilters?: FilterConfig;
   title?: string;
+}
+
+export interface FilterOperatorOption {
+  value: FilterOperator;
+  label: string;
+  requiresValue: boolean;
+  requiresSecondValue?: boolean;
+  applicableTypes: FilterFieldType[];
 }

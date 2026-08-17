@@ -234,7 +234,9 @@ export default function HrLopReviewPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Tooltip title="Convert to Loss of Pay">
+                        { 
+                          request.payrollTreatment !== 'PAID' && 
+                          <Tooltip title="Convert to Loss of Pay">
                           <Button
                             size="small"
                             variant="outlined"
@@ -244,6 +246,7 @@ export default function HrLopReviewPage() {
                             Convert to LOP
                           </Button>
                         </Tooltip>
+                        }
                         <Tooltip title="Force Approve">
                           <Button
                             size="small"

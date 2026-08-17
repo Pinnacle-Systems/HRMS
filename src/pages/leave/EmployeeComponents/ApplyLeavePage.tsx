@@ -78,7 +78,7 @@ export default function ApplyLeavePage() {
   const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
   const [submitMode, setSubmitMode] = useState<"submit" | "draft" | null>(null);
-  const currentEmployeeId = session?.user.userId ?? "";
+  const currentEmployeeId = session?.user?.employeeId ? session?.user?.employeeId : session?.user?.userId ?? "";
   const leaveTypeId = (location.state as string) || "";
   // const [approverId, setApproverId] = useState("");
   const [calculateError, setCalculateError] = useState("");
@@ -160,6 +160,8 @@ export default function ApplyLeavePage() {
         };
         const response: any = await leaveService.calculateLeaveDays(payload);
         setCalculation(response.data ?? null);
+        console.log(response.data);
+
         setCalculateError("");
       } catch (err: any) {
         setCalculation(null);
@@ -241,6 +243,7 @@ export default function ApplyLeavePage() {
         throw new Error("Current employee id is unavailable");
       }
       const status: LeaveRequestStatus = mode === "draft" ? "DRAFT" : "PENDING";
+
       const payload = {
         employeeId: currentEmployeeId,
         leaveTypeId: form.leaveTypeId || leaveTypeId,
@@ -252,13 +255,13 @@ export default function ApplyLeavePage() {
         status,
         // approverId: approverId || undefined,
       };
-      
-      const createResponse = await leaveService.createLeaveRequest(payload);
+
+      const createResponse = await leaveService.createLeaveRequest(payload, { employeeId: currentEmployeeId, });
       if (!createResponse.success || !createResponse.data?.id) {
         throw new Error("Failed to create leave request");
       }
       const leaveRequestId = createResponse.data.id;
-      if (localAttachments.length > 0) {        
+      if (localAttachments.length > 0) {
         const uploadedAttachmentIds: string[] = [];
         for (const localAttachment of localAttachments) {
           try {
@@ -267,12 +270,12 @@ export default function ApplyLeavePage() {
               documentName: localAttachment.documentName,
               documentType: localAttachment.documentType || "LEAVE_ATTACHMENT"
             };
-            
-            const uploadResponse:any = await leaveService.uploadLeaveAttachment(
+
+            const uploadResponse: any = await leaveService.uploadLeaveAttachment(
               leaveRequestId,
               attachmentData
             );
-            
+
             if (uploadResponse.data?.id) {
               uploadedAttachmentIds.push(uploadResponse.data.id);
             } else {
@@ -303,7 +306,7 @@ export default function ApplyLeavePage() {
         "success",
       );
       navigate("/leaves/my-requests");
-      
+
     } catch (err: any) {
       showSnackbar(err?.message || "Failed to save leave request", "error");
     } finally {
@@ -355,7 +358,7 @@ export default function ApplyLeavePage() {
     return (
       <div className="mt-2 space-y-1.5">
         {localAttachments.map((attachment) => (
-          <div 
+          <div
             key={attachment.id}
             className="flex items-center justify-between bg-gray-50 rounded-lg p-2 border border-gray-200"
           >
@@ -442,7 +445,7 @@ export default function ApplyLeavePage() {
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded-full ${selectedLeaveType.paid
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : "bg-gray-50 text-gray-600 border border-gray-200"
+                          : "bg-red-50 text-red-600 border border-red-200"
                           }`}
                       >
                         {selectedLeaveType.paid ? "Paid" : "Unpaid"}
@@ -483,7 +486,7 @@ export default function ApplyLeavePage() {
                       <label className="text-[12px] font-medium text-gray-700 block mb-1">
                         Select Dates <span className="text-red-500">*</span>
                       </label>
-                      <div className="bg-gray-50/40">
+                      <div>
                         <CalendarView
                           selectedStartDate={form.fromDate}
                           selectedEndDate={form.toDate}
@@ -507,7 +510,7 @@ export default function ApplyLeavePage() {
 
                         {/* Show selected date summary */}
                         {form.fromDate && form.toDate && (
-                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600 bg-white p-2 rounded border border-gray-100">
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600 bg-white-50 p-2 rounded border border-gray-200">
                             <div className="flex items-center gap-3">
                               <span>
                                 <span className="font-medium">From:</span>{" "}
@@ -625,7 +628,7 @@ export default function ApplyLeavePage() {
                     </h3>
                     <p className="text-[10px] text-gray-500">Available days</p>
                   </div>
-                  {calculation?.insufficientBalance && (
+                  {(calculation?.insufficientBalance || calculation?.lopDays) && (
                     <span className="ml-auto text-[9px] font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full animate-pulse">
                       ⚠ LOP
                     </span>
@@ -775,12 +778,56 @@ export default function ApplyLeavePage() {
                       </div>
                     )}
 
+                    {(calculation.lopDays > 0 || calculation.insufficientBalance || (calculation.balanceAfter ?? 0) < 0) && (
+                      <div className="bg-gradient-to-r from-red-50 to-orange-50/70 border border-red-200 rounded-lg p-2.5">
+                        <div className="flex items-start gap-1.5">
+                          <div className="text-[10px] text-red-700">
+                            <span className="font-semibold">
+                              {calculation.insufficientBalance || (calculation.balanceAfter ?? 0) < 0
+                                ? "Insufficient Balance"
+                                : "LOP Applied"}
+                            </span>
+                            <span className="block mt-0.5">
+                              {calculation.lopDays > 0 ? (
+                                <>
+                                  {calculation.lopDays} day{calculation.lopDays > 1 ? 's' : ''} will be{" "}
+                                  <span className="font-semibold">LOP</span>
+                                  {calculation.paidDays > 0 && (
+                                    <span className="block text-[9px] text-green-600 mt-0.5">
+                                      ✅ {calculation.paidDays} day{calculation.paidDays > 1 ? 's' : ''} will be paid
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {Math.abs(calculation.balanceAfter || 0)} day{Math.abs(calculation.balanceAfter || 0) > 1 ? 's' : ''} will be{" "}
+                                  <span className="font-semibold">LOP</span>
+                                </>
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <Chip
+                            size="small"
+                            label={`Paid: ${calculation.paidDays || 0} days`}
+                            className="!bg-green-200 !text-green-800 !text-[9px] !h-5 !border !border-green-500"
+                          />
+                          <Chip
+                            size="small"
+                            label={`LOP: ${calculation.lopDays || calculation.potentialLop || 0} days`}
+                            className="!bg-red-100 !text-red-700 !text-[9px] !h-5 !border !border-red-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     {!calculation.insufficientBalance &&
                       calculation.potentialLop === 0 && (
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-start gap-1.5">
-                          <CheckCircleOutlineOutlined className="w-3.5 h-3.5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                          <div className="text-[10px] text-emerald-700">
-                            ✓ Sufficient balance available
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2 flex items-center gap-1.5">
+                          <CheckCircleOutlineOutlined className="w-4 text-emerald-600" />
+                          <div className="text-[10px] text-emerald-700 mt-0.5">
+                            Sufficient balance available ✓
                           </div>
                         </div>
                       )}
@@ -880,7 +927,7 @@ export default function ApplyLeavePage() {
           </div>
 
           {/* Action Buttons - Compact */}
-          <div className="flex flex-wrap justify-end items-center gap-2 border-t border-gray-200 pt-4 my-4">
+          <div className="sticky bottom-0 z-30 flex flex-wrap justify-end items-center gap-2 border-t border-gray-200 pt-4 pb-2 mt-4 bg-white">
             <Button
               variant="outlined"
               className="!text-gray-800 !border-gray-200"

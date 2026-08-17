@@ -595,6 +595,8 @@ export default function BranchSettings() {
     }
   };
 
+  const branchLicence = 2;
+
   return (
     <>
       <div className="flex justify-between items-center mt-3 mb-3">
@@ -603,11 +605,31 @@ export default function BranchSettings() {
           <span className="text-primary font-medium">
             {getCurrentRouteLabel()}
           </span>
+          {
+            branches.length == branchLicence && (
+              <span className="text-[12px] text-amber-700 bg-amber-100 px-4 py-1 border border-amber-500 rounded-full ml-2 
+              animate-blink hover:[animation:none] hover:cursor-pointer">
+                <strong className="mr-2">Branch Limit Exceeded!</strong>
+                Your license limit has been reached.
+                Please{" "}
+                <button
+                  type="button"
+                  className="font-semibold underline hover:no-underline"
+                  // onClick={handleUpgrade}
+                >
+                  upgrade
+                </button>{" "}
+                your plan to add more branches.
+              </span>
+            )
+          }
+          <span></span>
         </div>
         <Button
           variant="contained"
           onClick={() => handleOpenDialog()}
           className="!bg-primary"
+          disabled={branches.length == branchLicence ? true : false}
         >
           Add New Branch
         </Button>

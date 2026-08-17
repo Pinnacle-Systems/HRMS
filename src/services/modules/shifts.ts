@@ -267,9 +267,13 @@ class ShiftService {
     return apiService.patch(API_ENDPOINTS.SHIFTS.SET_DEFAULT(id));
   }
 
+  async removeDefaultShift() {
+    return apiService.delete(API_ENDPOINTS.SHIFTS.DEFAULT);
+  }
+
   async getDefaultShift() {
     const response:any = await apiService.get(
-      API_ENDPOINTS.SHIFTS.GET_DEFAULT,
+      API_ENDPOINTS.SHIFTS.DEFAULT,
     );
     return response.data;
   }
