@@ -1099,6 +1099,18 @@ export function DailyRegister() {
         color: "text-cyan-600",
         border: "border-cyan-500",
       },
+      {
+        label: "Not Yet In",
+        value: todaySummary.notYetIn,
+        color: "text-pink-600",
+        border: "border-pink-500",
+      },
+      {
+        label: "Attendance %",
+        value: todaySummary.attendancePercentage,
+        color: "text-emerald-600",
+        border: "border-emerald-500",
+      },
     ]
     : [];
 
@@ -1190,7 +1202,7 @@ export function DailyRegister() {
         showSnackbar("No punch logs found for the selected devices and date range", "info");
         return;
       }
-      const newPunchEntriesFilter:any = punchesData.map((punch: any) => {
+      const newPunchEntriesFilter: any = punchesData.map((punch: any) => {
         const matchedEmp = employeesData.find(
           (emp) => emp.midNo == punch.mid_no
         );
@@ -1202,8 +1214,8 @@ export function DailyRegister() {
           // deviceId: selectedDevicesData.find(d => d.id === punch.machineInOutGridId)?.id || "",
         };
       });
-      const newPunchEntries = newPunchEntriesFilter.filter((item:any) => item.employeeId  !== "Unknown")
-      
+      const newPunchEntries = newPunchEntriesFilter.filter((item: any) => item.employeeId !== "Unknown")
+
       // Add to existing punch entries
       setPunchEntries(prev => [...prev, ...newPunchEntries]);
       showSnackbar(
@@ -1221,12 +1233,23 @@ export function DailyRegister() {
     }
   };
 
+  const getSummaryHeader = () => {
+    const today = dayjs().format("YYYY-MM-DD");
+    const selectedDate = dayjs(date);
+
+    if (date === today) {
+      return "Today's Summary";
+    } else {
+      return `Summary for ${selectedDate.format("DD MMM YYYY")}`;
+    }
+  };
+
   return (
     <div className="p-4 space-y-3">
       {/* Summary cards */}
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-bold text-gray-500">
-          Today's Summary
+          {getSummaryHeader()}
         </div>
 
         <div className="flex gap-2">
@@ -1261,7 +1284,7 @@ export function DailyRegister() {
       </div>
 
       {statCards.length > 0 && (
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-2">
           {statCards.map(({ label, value, color, border }) => (
             <div
               key={label}

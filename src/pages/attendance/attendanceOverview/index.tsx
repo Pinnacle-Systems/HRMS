@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box } from "@mui/material";
+import { Box, Button } from "@mui/material";
 import {
     DashboardOutlined,
     BeachAccessOutlined,
@@ -9,6 +9,7 @@ import type { TabPanelProps } from "../types";
 import { HolidayCalendar } from "./HolidayCalendar";
 import { LeaveToday } from "./LeaveToday";
 import { AttendanceSummary } from "./AttendanceSummary";
+import { useNavigate } from "react-router-dom";
 
 function TabPanel({ children, value, index }: TabPanelProps) {
     return (
@@ -38,7 +39,7 @@ const TABS = [
 
 export default function AttendanceOverview() {
     const [activeTab, setActiveTab] = useState(0);
-
+    const navigate = useNavigate();
     return (
         <div className="w-full">
             {/* Header */}
@@ -50,7 +51,7 @@ export default function AttendanceOverview() {
             </div>
             <div className="border border-gray-300 bg-white">
                 {/* Tab Navigation */}
-                <div className="flex items-center gap-2 border-b border-gray-300 p-2 overflow-x-auto">
+                <div className="flex items-center justify-between gap-2 border-b border-gray-300 p-2 overflow-x-auto">
                     <div className="flex flex-nowrap gap-2">
                         {TABS.map((tab, index) => {
                             const active = activeTab === index;
@@ -70,6 +71,7 @@ export default function AttendanceOverview() {
                             );
                         })}
                     </div>
+                    <Button variant="contained" className="!bg-primary" onClick={()=>navigate('/attendance/process')}>Process Attendance</Button>
                 </div>
 
                 {/* Tab Content */}

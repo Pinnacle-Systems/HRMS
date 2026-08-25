@@ -13,6 +13,7 @@ import { leaveService } from "../../../services/modules/leave";
 import type {
   LeaveCalculationResult,
   LeaveDayType,
+  LeaveRequest,
   LeaveRequestStatus,
   LeaveType,
 } from "../../../services/modules/leaveTypes";
@@ -80,10 +81,13 @@ export default function ApplyLeavePage() {
   const [submitMode, setSubmitMode] = useState<"submit" | "draft" | null>(null);
   const currentEmployeeId = session?.user?.employeeId ? session?.user?.employeeId : session?.user?.userId ?? "";
   const leaveTypeId = (location.state as string) || "";
-  // const [approverId, setApproverId] = useState("");
   const [calculateError, setCalculateError] = useState("");
   const [localAttachments, setLocalAttachments] = useState<LocalAttachment[]>([]);
-
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  
+  // State for existing leave data
+  const [existingLeaveDates, setExistingLeaveDates] = useState<string[]>([]);
+  const [existingLeaveDetails, setExistingLeaveDetails] = useState<Map<string, string>>(new Map());
 
   const selectedLeaveType = useMemo(
     () => leaveTypes.find((leaveType) => leaveType.id === form.leaveTypeId),
@@ -95,6 +99,82 @@ export default function ApplyLeavePage() {
     leaveTypeName: selectedLeaveType?.name,
     totalDays: calculation?.days,
   });
+
+  // Prepare existing leave data from requests
+  const prepareExistingLeaveData = (leaveRequests: LeaveRequest[]) => {
+    const dates: string[] = [];
+    const details: Map<string, string> = new Map();
+
+    leaveRequests.forEach((request) => {
+      // Check if request has dates array
+      if (request.dates && Array.isArray(request.dates)) {
+        request.dates.forEach((dateObj: any) => {
+          if (dateObj.leaveDate) {
+            const dateStr = dateObj.leaveDate;
+            dates.push(dateStr);
+            details.set(
+              dateStr,
+              `${request.leaveTypeCode || 'Unknown'} - ${request.leaveTypeName || 'Leave'}`
+            );
+          }
+        });
+      } else {
+        // Fallback: use fromDate and toDate if dates array doesn't exist
+        if (request.fromDate && request.toDate) {
+          let current = dayjs(request.fromDate);
+          const end = dayjs(request.toDate);
+          while (current.isBefore(end) || current.isSame(end, 'day')) {
+            const dateStr = current.format('YYYY-MM-DD');
+            dates.push(dateStr);
+            details.set(
+              dateStr,
+              `${request.leaveTypeCode || 'Unknown'} - ${request.leaveTypeName || 'Leave'}`
+            );
+            current = current.add(1, 'day');
+          }
+        }
+      }
+    });
+
+    return { dates, details };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadRequests = async () => {
+      try {
+        if (!currentEmployeeId) {
+          throw new Error("Current employee id is unavailable");
+        }
+        const response = await leaveService.getMyLeaves({
+          page: 0,
+          size: 50,
+          sort: "createdAt,DESC",
+        });
+        if (isMounted) {
+          const data = response.data?.content ?? [];
+          setRequests(data);
+          
+          // Prepare existing leave data
+          const { dates, details } = prepareExistingLeaveData(data);
+          setExistingLeaveDates(dates);
+          setExistingLeaveDetails(details);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          showSnackbar(err?.message || "Failed to load leave requests", "error");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    loadRequests();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentEmployeeId, showSnackbar]);
 
   useEffect(() => {
     let isMounted = true;
@@ -123,7 +203,7 @@ export default function ApplyLeavePage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [showSnackbar]);
 
   useEffect(() => {
     if (leaveTypeId) {
@@ -178,6 +258,7 @@ export default function ApplyLeavePage() {
     form.toDate,
     form.toSession,
     currentEmployeeId,
+    showSnackbar,
   ]);
 
   useEffect(() => {
@@ -256,7 +337,7 @@ export default function ApplyLeavePage() {
         // approverId: approverId || undefined,
       };
 
-      const createResponse = await leaveService.createLeaveRequest(payload, { employeeId: currentEmployeeId, });
+      const createResponse = await leaveService.createLeaveRequest(payload, { employeeId: currentEmployeeId });
       if (!createResponse.success || !createResponse.data?.id) {
         throw new Error("Failed to create leave request");
       }
@@ -446,7 +527,7 @@ export default function ApplyLeavePage() {
                         className={`text-[10px] px-2 py-0.5 rounded-full ${selectedLeaveType.paid
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-red-50 text-red-600 border border-red-200"
-                          }`}
+                        }`}
                       >
                         {selectedLeaveType.paid ? "Paid" : "Unpaid"}
                       </span>
@@ -506,6 +587,9 @@ export default function ApplyLeavePage() {
                           minDate={dayjs().startOf("day")}
                           maxDate={dayjs().add(365, "day")}
                           leaveTypeId={form.leaveTypeId}
+                          onCalculate={calculate}
+                          existingLeaveDates={existingLeaveDates}
+                          existingLeaveDetails={existingLeaveDetails}
                         />
 
                         {/* Show selected date summary */}
@@ -686,7 +770,7 @@ export default function ApplyLeavePage() {
                           className={`text-lg font-bold ${calculation.insufficientBalance
                             ? "text-orange-500"
                             : "text-blue-600"
-                            }`}
+                          }`}
                         >
                           {calculation.calculatedDays}
                         </div>
@@ -707,7 +791,7 @@ export default function ApplyLeavePage() {
                           className={`text-lg font-bold ${calculation.balanceAfter < 0
                             ? "text-red-500"
                             : "text-emerald-600"
-                            }`}
+                          }`}
                         >
                           {calculation.balanceAfter}
                         </div>

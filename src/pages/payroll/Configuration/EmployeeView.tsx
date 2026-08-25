@@ -16,17 +16,12 @@ import {
   Chip,
   Avatar,
   LinearProgress,
-  Select,
-  MenuItem,
-  FormControl,
   Grid,
   useTheme,
   alpha,
   Stack,
   Divider,
   Tooltip,
-  CircularProgress,
-  Paper,
 } from "@mui/material";
 import {
   Download as DownloadIcon,
@@ -34,10 +29,7 @@ import {
   AttachMoney as DollarSignIcon,
   Description as FileTextIcon,
   CreditCard as CreditCardIcon,
-  Lightbulb as LightbulbIcon,
-  Favorite as HeartIcon,
   Info as InfoIcon,
-  AccountBalance as AccountBalanceIcon,
   Receipt as ReceiptIcon,
   Search as SearchIcon,
 } from "@mui/icons-material";
@@ -52,7 +44,6 @@ import {
   Legend,
 } from "recharts";
 import { formatCurrency, getCurrentMonthYear } from "../const";
-import { employeeService } from "../../../services/modules/employees";
 import { salaryViewService } from "../../../services/modules/payrollServices/salaryView";
 import { useUI } from "../../../context/Snackbar";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
@@ -136,14 +127,14 @@ export default function EmployeeSalaryView() {
     }
   };
 
-  const handleDownloadPayslip = async (periodLabel?: string) => {    
+  const handleDownloadPayslip = async (periodLabel?: string) => {
     if (!selectedEmployee) return;
     showSpinner();
     try {
       const response: any = await salaryViewService.downloadEmployeePayslip(selectedEmployee.id);
       const fileUrl = response.data?.fileUrl || response.data?.data?.fileUrl;
       if (fileUrl) {
-        await apiService.downloadFromPath(fileUrl, `payslip_${periodLabel}.pdf`);
+        await apiService.downloadFromPath(fileUrl, `payslip_${selectedEmployee.name}_${periodLabel}.pdf`);
       } else {
         showSnackbar("No payslip available for download", "warning");
       }
@@ -178,7 +169,6 @@ export default function EmployeeSalaryView() {
             <EmployeeSelector
               value={selectedEmployee}
               onChange={setSelectedEmployee}
-              label="Select Employee"
               placeholder="Search and select an employee..."
             />
           </div>
@@ -307,7 +297,7 @@ export default function EmployeeSalaryView() {
                               <Tooltip title={`${earning.leaveTypeCode || earning.componentCode || ""} · ${earning.leaveTypeName || earning.componentName || "Earning"}`}>
                                 <InfoIcon className="text-gray-500 !w-4" />
                               </Tooltip>
-                              <Typography variant="body2" className="text-gray-800">{earning.leaveTypeName || earning.componentName || `Earning ${index + 1}`}</Typography>
+                              <Typography variant="body2" className="text-gray-800">{earning.leaveTypeName || earning.componentName || earning.name || `Earning ${index + 1}`}</Typography>
                               {earning.days > 0 && <Chip label={`${earning.days} days`} size="small" variant="outlined" sx={{ fontSize: "10px", height: 20 }} />}
                             </Box>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
@@ -344,7 +334,7 @@ export default function EmployeeSalaryView() {
                       {structure.deductions?.map((deduction: any, index: number) => (
                         <Box key={deduction.leaveTypeId || index}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1.5, px: 1.5, borderRadius: 1, "&:hover": { bgcolor: alpha(theme.palette.error.main, 0.04) } }}>
-                            <Typography variant="body2" className="text-gray-800">{deduction.leaveTypeName || deduction.componentName || `Deduction ${index + 1}`}</Typography>
+                            <Typography variant="body2" className="text-gray-800">{deduction.leaveTypeName || deduction.componentName || deduction.name || `Deduction ${index + 1}`}</Typography>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: "error.main" }}>
                               - {formatCurrency(deduction.amount)}
                             </Typography>
@@ -417,7 +407,7 @@ export default function EmployeeSalaryView() {
                   Monthly Trend
                 </Typography>
                 {payrollHistory.monthlyTrend?.length > 0 ? (
-                  <div className="bg-white-50 !p-3" >
+                  <div className="bg-white-50 !p-3">
                     <ResponsiveContainer width="100%" height={280}>
                       <LineChart data={payrollHistory.monthlyTrend} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
@@ -431,7 +421,6 @@ export default function EmployeeSalaryView() {
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
-
                 ) : (
                   <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                     <Typography variant="body2" className="text-gray-800">
@@ -449,37 +438,63 @@ export default function EmployeeSalaryView() {
                 </Typography>
                 <Stack spacing={1}>
                   {payrollHistory.monthlyPayslips?.length > 0 ? (
-                    payrollHistory.monthlyPayslips.map((p: any) => (
-                      <Box key={p.periodLabel || p.runItemId} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.5, borderRadius: 1, "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) }, transition: "background-color 0.2s" }}>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                          <Box sx={{ width: 32, height: 32, borderRadius: 1, bgcolor: theme.palette.grey[100], display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <FileTextIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                    payrollHistory.monthlyPayslips.map((p: any, index: number) => {
+                      // Create a unique key using multiple properties
+                      const uniqueKey = p.runItemId || p.periodLabel || `payslip-${index}`;
+                      // Or use combination for guaranteed uniqueness
+                      const safeKey = `${p.periodLabel || 'payslip'}-${p.generatedOn || index}-${index}`;
+
+                      return (
+                        <Box
+                          key={safeKey}
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            p: 1.5,
+                            borderRadius: 1,
+                            "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                            transition: "background-color 0.2s"
+                          }}
+                        >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            <Box sx={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: 1,
+                              bgcolor: theme.palette.grey[100],
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center"
+                            }}>
+                              <FileTextIcon sx={{ fontSize: 16, color: "text.secondary" }} />
+                            </Box>
+                            <Box>
+                              <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
+                                {p.periodLabel}
+                              </Typography>
+                              <Typography variant="caption" className="text-gray-800">
+                                Gross: {formatCurrency(p.gross)} · Net: {formatCurrency(p.net)}
+                              </Typography>
+                            </Box>
                           </Box>
-                          <Box>
-                            <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
-                              {p.periodLabel}
-                            </Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <Typography variant="caption" className="text-gray-800">
-                              Gross: {formatCurrency(p.gross)} · Net: {formatCurrency(p.net)}
+                              {p.generatedOn ? formatDate(p.generatedOn) : ""}
                             </Typography>
+                            <Button
+                              variant="text"
+                              size="small"
+                              startIcon={<DownloadIcon fontSize="small" />}
+                              onClick={() => handleDownloadPayslip(p.periodLabel)}
+                              sx={{ textTransform: "none", fontSize: "0.75rem" }}
+                            >
+                              PDF
+                            </Button>
                           </Box>
                         </Box>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Typography variant="caption" className="text-gray-800">
-                            {p.generatedOn ? formatDate(p.generatedOn) : ""}
-                          </Typography>
-                          <Button
-                            variant="text"
-                            size="small"
-                            startIcon={<DownloadIcon fontSize="small" />}
-                            onClick={() => handleDownloadPayslip(p.periodLabel)}
-                            sx={{ textTransform: "none", fontSize: "0.75rem" }}
-                          >
-                            PDF
-                          </Button>
-                        </Box>
-                      </Box>
-                    ))
+                      );
+                    })
                   ) : (
                     <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
                       <Typography variant="body2" className="text-gray-800">
@@ -588,7 +603,7 @@ export default function EmployeeSalaryView() {
                 <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                   <CardContent sx={{ p: 2.5 }}>
                     <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
-                      Tax Computation — FY {taxSummary.financialYear || "2025-26"}
+                      Tax Computation - {taxSummary.financialYear}
                     </Typography>
                     <Stack spacing={2}>
                       <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5, px: 2, borderRadius: 1, bgcolor: alpha(theme.palette.info.main, 0.04) }}>

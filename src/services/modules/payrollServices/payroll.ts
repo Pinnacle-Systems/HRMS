@@ -239,4 +239,12 @@ export const payrollService = {
   // async updateSettings(payload: Settings) {
   //   return apiService.put(API_ENDPOINTS.PAYROLL.SETTINGS.UPDATE, payload);
   // },
+
+  async getPayrollSettings() {
+    return apiService.get(API_ENDPOINTS.PAYROLL.SETTINGS.BASE);
+  },
+
+  async updatePayrollSettings(settingsData: any) {
+    return apiService.put(API_ENDPOINTS.PAYROLL.SETTINGS.BASE, settingsData);
+  },
 };

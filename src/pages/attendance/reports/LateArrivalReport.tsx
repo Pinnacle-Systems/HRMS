@@ -100,7 +100,7 @@ export function LateArrivalReport({ onBack }: Props) {
             </LocalizationProvider>
           </FilterField>
           <FilterField label="Department">
-            <FormControl>
+            <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
                 <MenuItem value="">All Departments</MenuItem>
                 {departments.map((d) => (
@@ -109,14 +109,14 @@ export function LateArrivalReport({ onBack }: Props) {
               </Select>
             </FormControl>
           </FilterField>
-          <FilterField label="Min Absent Days">
+          <FilterField label="Min Late Minutes">
             <TextField type="number" value={minLateMinutes}
               onChange={e => setMinLateMinutes(Number(e.target.value))} style={{ width: 110 }} />
           </FilterField>
         </>
       }
     >
-      <TableContainer className="max-h-[calc(100vh-400px)]">
+      <TableContainer className="max-h-[calc(100vh-420px)]">
         <Table stickyHeader>
           <TableHead>
             <TableRow>
@@ -129,14 +129,14 @@ export function LateArrivalReport({ onBack }: Props) {
             {rows.map((r, i) => (
               <TableRow key={`${r.employeeId}-${r.attendanceDate}`} sx={getRowColor(i)}>
                 <TableCell>{i + 1}</TableCell>
-                <TableCell>{r.employeeCode}</TableCell>
+                <TableCell><div className="!py-2">{r.employeeCode}</div></TableCell>
                 <TableCell className="whitespace-nowrap">{r.employeeName}</TableCell>
                 <TableCell >{r.department}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   {dayjs(r.attendanceDate).format("DD MMM YYYY, ddd")}
                 </TableCell>
                 <TableCell >{r.shiftCode}</TableCell>
-                <TableCell>{formatTime(r.shiftStartTime)}</TableCell>
+                <TableCell>{dayjs(`2000-01-01 ${r.shiftStartTime}`).format('h:mm a')}</TableCell>
                 <TableCell > <span className="text-amber-700 ">{formatTime(r.checkInTime)}</span></TableCell>
                 <TableCell>
                   <span className={`px-2 py-0.5 rounded-full font-semibold

@@ -18,6 +18,8 @@ interface CalendarDate {
   session: SessionType;
   isDisabled: boolean;
   isMiddleDate: boolean;
+  hasExistingLeave: boolean; // New property
+  existingLeaveType?: string; // New property for tooltip
 }
 
 interface CalendarViewProps {
@@ -32,7 +34,9 @@ interface CalendarViewProps {
   excludedDates?: string[];
   disabledDates?: string[];
   leaveTypeId?: string;
-  onCalculate?: () => void; // Add this prop
+  onCalculate?: () => void;
+  existingLeaveDates?: string[]; 
+  existingLeaveDetails?: Map<string, string>;
 }
 
 export function CalendarView({
@@ -46,8 +50,9 @@ export function CalendarView({
   maxDate = dayjs().add(365, 'day'),
   excludedDates = [],
   disabledDates = [],
-  // leaveTypeId,
   onCalculate,
+  existingLeaveDates = [],
+  existingLeaveDetails = new Map(),
 }: CalendarViewProps) {
   const [currentMonth, setCurrentMonth] = useState(dayjs());
   const [isDragging, setIsDragging] = useState(false);
@@ -71,11 +76,16 @@ export function CalendarView({
       const isToday = current.isSame(dayjs(), 'day');
       const dateStr = current.format('YYYY-MM-DD');
       const isExcluded = excludedDates.includes(dateStr);
+      const hasExistingLeave = existingLeaveDates.includes(dateStr);
+      const existingLeaveType = existingLeaveDetails.get(dateStr) || '';
+      
+      // Check if date has existing leave and should be disabled
       const isDisabled = !isCurrentMonth || 
         current.isBefore(minDate, 'day') || 
         current.isAfter(maxDate, 'day') ||
         isExcluded ||
-        disabledDates.includes(dateStr);
+        disabledDates.includes(dateStr) ||
+        hasExistingLeave;
 
       // Check selection state
       let isSelected = false;
@@ -139,6 +149,8 @@ export function CalendarView({
         isMiddleDate,
         session,
         isDisabled,
+        hasExistingLeave,
+        existingLeaveType,
       });
 
       current = current.add(1, 'day');
@@ -147,7 +159,7 @@ export function CalendarView({
     return days;
   }, [currentMonth, selectedStartDate, selectedEndDate, fromSession, toSession, 
       dragStart, hoveredDate, isDragging, excludedDates, disabledDates, minDate, maxDate,
-      localDateSessions]);
+      localDateSessions, existingLeaveDates, existingLeaveDetails]);
 
   const weeks = useMemo(() => {
     const result: CalendarDate[][] = [];
@@ -166,6 +178,11 @@ export function CalendarView({
   // Handle session change for a specific date
   const handleDateSessionChange = (date: Dayjs, newSession: LeaveDayType) => {
     const dateStr = date.format('YYYY-MM-DD');
+    
+    // Check if date has existing leave - prevent changes
+    if (existingLeaveDates.includes(dateStr)) {
+      return;
+    }
     
     // Update local state
     const newSessions = new Map(localDateSessions);
@@ -188,6 +205,12 @@ export function CalendarView({
   // Toggle session for a date
   const toggleSessionForDate = (date: Dayjs) => {
     const dateStr = date.format('YYYY-MM-DD');
+    
+    // Don't allow session toggle on dates with existing leave
+    if (existingLeaveDates.includes(dateStr)) {
+      return;
+    }
+    
     const currentSession = localDateSessions.get(dateStr) || 
       (selectedStartDate && date.isSame(selectedStartDate, 'day') ? fromSession :
        selectedEndDate && date.isSame(selectedEndDate, 'day') ? toSession : 'FULL_DAY');
@@ -202,6 +225,7 @@ export function CalendarView({
   const handleMouseDown = (date: Dayjs) => {
     if (date.isBefore(minDate, 'day') || date.isAfter(maxDate, 'day')) return;
     if (excludedDates.includes(date.format('YYYY-MM-DD'))) return;
+    if (existingLeaveDates.includes(date.format('YYYY-MM-DD'))) return; // Prevent drag on existing leave
     
     setIsDragging(true);
     setDragStart(date);
@@ -219,7 +243,18 @@ export function CalendarView({
       const start = dragStart.isBefore(hoveredDate) ? dragStart : hoveredDate;
       const end = dragStart.isBefore(hoveredDate) ? hoveredDate : dragStart;
       
-      if (!start.isBefore(minDate, 'day') && !end.isAfter(maxDate, 'day')) {
+      // Check if any date in range has existing leave
+      let hasConflict = false;
+      let current = start;
+      while (current.isBefore(end) || current.isSame(end, 'day')) {
+        if (existingLeaveDates.includes(current.format('YYYY-MM-DD'))) {
+          hasConflict = true;
+          break;
+        }
+        current = current.add(1, 'day');
+      }
+      
+      if (!hasConflict && !start.isBefore(minDate, 'day') && !end.isAfter(maxDate, 'day')) {
         onDateRangeSelect(start, end);
         // Clear local sessions when new range is selected
         setLocalDateSessions(new Map());
@@ -240,6 +275,13 @@ export function CalendarView({
     if (isDragging) return;
     if (date.isBefore(minDate, 'day') || date.isAfter(maxDate, 'day')) return;
     if (excludedDates.includes(date.format('YYYY-MM-DD'))) return;
+    
+    const dateStr = date.format('YYYY-MM-DD');
+    
+    // Prevent clicking on dates with existing leave
+    if (existingLeaveDates.includes(dateStr)) {
+      return;
+    }
 
     // Check if date is in range or is selected
     const isInRange = selectedStartDate && selectedEndDate && 
@@ -265,7 +307,18 @@ export function CalendarView({
       const start = selectedStartDate.isBefore(date) ? selectedStartDate : date;
       const end = selectedStartDate.isBefore(date) ? date : selectedStartDate;
       
-      if (!start.isBefore(minDate, 'day') && !end.isAfter(maxDate, 'day')) {
+      // Check if any date in range has existing leave
+      let hasConflict = false;
+      let current = start;
+      while (current.isBefore(end) || current.isSame(end, 'day')) {
+        if (existingLeaveDates.includes(current.format('YYYY-MM-DD'))) {
+          hasConflict = true;
+          break;
+        }
+        current = current.add(1, 'day');
+      }
+      
+      if (!hasConflict && !start.isBefore(minDate, 'day') && !end.isAfter(maxDate, 'day')) {
         onDateRangeSelect(start, end);
         setLocalDateSessions(new Map());
         if (!start.isSame(end, 'day')) {
@@ -293,6 +346,11 @@ export function CalendarView({
   // Get day styles
   const getDayClassName = (day: CalendarDate) => {
     const baseClasses = "relative w-10 h-10 rounded-lg transition-all duration-200 flex items-center justify-center text-sm font-medium select-none";
+    
+    // Highlight existing leave dates in red
+    if (day.hasExistingLeave) {
+      return `${baseClasses} bg-red-100 text-red-700 cursor-not-allowed border-2 border-red-500`;
+    }
     
     if (day.isDisabled) {
       return `${baseClasses} text-gray-300 cursor-not-allowed opacity-40`;
@@ -331,6 +389,7 @@ export function CalendarView({
   // Render session buttons for any date in range
   const renderSessionButtons = (day: CalendarDate) => {
     if (!day.isInRange && !day.isSelected) return null;
+    if (day.hasExistingLeave) return null; // Don't show session buttons for existing leave
     
     const sessionColors = {
       'FULL_DAY': 'bg-blue-500',
@@ -359,16 +418,16 @@ export function CalendarView({
         {sessionCycle.map((session) => (
           <button
             key={session}
-              type="button"
+            type="button"
             onClick={(e) => {
               e.stopPropagation(); e.preventDefault();
               handleDateSessionChange(day.date, session);
             }}
-             onMouseDown={(e) => {
-            // Prevent mousedown from triggering drag
-            e.stopPropagation();
-            e.preventDefault();
-          }}
+            onMouseDown={(e) => {
+              // Prevent mousedown from triggering drag
+              e.stopPropagation();
+              e.preventDefault();
+            }}
             className={`text-[8px] px-1 py-0.5 rounded transition-all ${
               currentSession === session
                 ? `${sessionColors[session]} text-white font-bold`
@@ -440,7 +499,19 @@ export function CalendarView({
               const today = dayjs();
               const start = today;
               const end = today.add(preset.days, 'day');
-              if (!end.isAfter(maxDate, 'day')) {
+              
+              // Check if any date in preset range has existing leave
+              let hasConflict = false;
+              let current = start;
+              while (current.isBefore(end) || current.isSame(end, 'day')) {
+                if (existingLeaveDates.includes(current.format('YYYY-MM-DD'))) {
+                  hasConflict = true;
+                  break;
+                }
+                current = current.add(1, 'day');
+              }
+              
+              if (!hasConflict && !end.isAfter(maxDate, 'day')) {
                 onDateRangeSelect(start, end);
                 setLocalDateSessions(new Map());
                 onSessionChange('FULL_DAY', 'FULL_DAY');
@@ -457,6 +528,13 @@ export function CalendarView({
       {clickMode === 'session' && selectedStartDate && selectedEndDate && (
         <div className="mb-2 text-center text-[10px] text-primary bg-primary-50 py-1 rounded-lg border border-primary">
           🎯 Click any date in the range to change session (Full → AM → PM)
+        </div>
+      )}
+
+      {/* Existing Leave Warning */}
+      {existingLeaveDates.length > 0 && (
+        <div className="mb-2 text-center text-[10px] text-red-600 bg-red-50 py-1 rounded-lg border border-red-200">
+          ⚠️ Dates highlighted in red already have leave applications and cannot be selected
         </div>
       )}
 
@@ -483,11 +561,13 @@ export function CalendarView({
               >
                 <Tooltip
                   title={
-                    day.isDisabled 
-                      ? 'Not available' 
-                      : day.isInRange || day.isSelected
-                        ? `${day.date.format('DD MMM YYYY')}\nSession: ${day.session || 'Full Day'}\n${clickMode === 'session' ? 'Click to change session' : ''}`
-                        : day.date.format('DD MMM YYYY')
+                    day.hasExistingLeave 
+                      ? `❌ ${day.date.format('DD MMM YYYY')}\nLeave already applied${day.existingLeaveType ? `\nType: ${day.existingLeaveType}` : ''}\nCannot select this date`
+                      : day.isDisabled 
+                        ? 'Not available' 
+                        : day.isInRange || day.isSelected
+                          ? `${day.date.format('DD MMM YYYY')}\nSession: ${day.session || 'Full Day'}\n${clickMode === 'session' ? 'Click to change session' : ''}`
+                          : day.date.format('DD MMM YYYY')
                   }
                   placement="top"
                   arrow
@@ -496,7 +576,7 @@ export function CalendarView({
                     className={getDayClassName(day)}
                     onClick={(e) => !day.isDisabled && handleDateClick(day.date, e)}
                     style={{
-                      cursor: day.isDisabled 
+                      cursor: day.isDisabled || day.hasExistingLeave
                         ? 'not-allowed' 
                         : clickMode === 'session' && (day.isInRange || day.isSelected)
                           ? 'pointer'
@@ -505,28 +585,35 @@ export function CalendarView({
                   >
                     <span className="relative z-10">{day.date.format('D')}</span>
                     
+                    {/* Existing leave indicator - X mark */}
+                    {day.hasExistingLeave && (
+                      <span className="absolute inset-0 flex items-center justify-center text-red-600 text-lg font-bold opacity-40">
+                        ✕
+                      </span>
+                    )}
+                    
                     {/* Session indicator bar */}
                     {day.session && renderSessionBar(day.session)}
                     
                     {/* Session label on dates in range */}
-                    {(day.isInRange || day.isSelected) && day.session && (
+                    {(day.isInRange || day.isSelected) && day.session && !day.hasExistingLeave && (
                       <span className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2 text-[6px] font-bold text-white z-10">
                         {day.session === 'FULL_DAY' ? 'F' : day.session === 'FIRST_HALF' ? 'H' : 'S'}
                       </span>
                     )}
                     
                     {/* Selection indicator dot */}
-                    {day.isSelected && (
+                    {day.isSelected && !day.hasExistingLeave && (
                       <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary" />
                     )}
                     
                     {/* Today indicator */}
-                    {day.isToday && !day.isSelected && !day.isInRange && (
+                    {day.isToday && !day.isSelected && !day.isInRange && !day.hasExistingLeave && (
                       <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-primary" />
                     )}
 
                     {/* Click indicator for session mode */}
-                    {clickMode === 'session' && (day.isInRange || day.isSelected) && (
+                    {clickMode === 'session' && (day.isInRange || day.isSelected) && !day.hasExistingLeave && (
                       <div className="absolute inset-0 rounded-lg border-2 border-green-400 border-dashed opacity-0 group-hover:opacity-100 transition-opacity" />
                     )}
                   </div>
@@ -553,6 +640,10 @@ export function CalendarView({
         <div className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 border border-blue-500 rounded"></span>
           <span>Today</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="inline-block w-2.5 h-2.5 bg-red-100 border-2 border-red-500 rounded"></span>
+          <span className="text-red-600 font-medium">Leave Applied</span>
         </div>
         <span className="text-gray-300">|</span>
         <span>🔄 Click & drag to select</span>
@@ -606,6 +697,7 @@ export function CalendarView({
                 let current = selectedStartDate;
                 while (current.isBefore(selectedEndDate) || current.isSame(selectedEndDate, 'day')) {
                   const dateStr = current.format('YYYY-MM-DD');
+                  const hasExistingLeave = existingLeaveDates.includes(dateStr);
                   const session = localDateSessions.get(dateStr) || 
                     (current.isSame(selectedStartDate, 'day') ? fromSession :
                      current.isSame(selectedEndDate, 'day') ? toSession : 'FULL_DAY');
@@ -623,8 +715,8 @@ export function CalendarView({
                   };
                   
                   sessions.push(
-                    <span key={dateStr} className={`text-[8px] px-1.5 py-0.5 rounded ${colors[session as keyof typeof colors] || 'bg-gray-100 text-gray-600'}`}>
-                      {current.format('DD')} {labels[session as keyof typeof labels] || 'Full'}
+                    <span key={dateStr} className={`text-[8px] px-1.5 py-0.5 rounded ${hasExistingLeave ? 'bg-red-100 text-red-700 border border-red-400' : colors[session as keyof typeof colors] || 'bg-gray-100 text-gray-600'}`}>
+                      {current.format('DD')} {hasExistingLeave ? '🔴' : labels[session as keyof typeof labels] || 'Full'}
                     </span>
                   );
                   current = current.add(1, 'day');
@@ -634,44 +726,68 @@ export function CalendarView({
             </div>
           </div>
 
-          {/* Quick Set All */}
-          <div className="flex flex-wrap items-center justify-center gap-1 bg-gray-50 p-1.5 rounded-lg border border-gray-200">
-            <span className="text-[9px] text-gray-500">Set all to:</span>
-            {(['FULL_DAY', 'FIRST_HALF', 'SECOND_HALF'] as LeaveDayType[]).map((session) => (
-              <button
-                key={session}
-                onClick={() => {
-                  // Set all dates in range to this session
-                  if (selectedStartDate && selectedEndDate) {
-                    let current = selectedStartDate;
-                    const newSessions = new Map(localDateSessions);
-                    while (current.isBefore(selectedEndDate) || current.isSame(selectedEndDate, 'day')) {
-                      newSessions.set(current.format('YYYY-MM-DD'), session);
-                      current = current.add(1, 'day');
-                    }
-                    setLocalDateSessions(newSessions);
-                    
-                    // Also update from/to sessions
-                    onSessionChange(session, session);
-                    
-                    // Trigger recalculation
-                    if (onCalculate) {
-                      setTimeout(onCalculate, 100);
-                    }
-                  }
-                }}
-                className={`text-[9px] px-2 py-0.5 rounded transition-colors ${
-                  session === 'FULL_DAY' 
-                    ? 'bg-blue-500 text-white' 
-                    : session === 'FIRST_HALF' 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-yellow-500 text-white'
-                }`}
-              >
-                {session === 'FULL_DAY' ? 'Full Day' : session === 'FIRST_HALF' ? 'AM' : 'PM'}
-              </button>
-            ))}
-          </div>
+          {/* Quick Set All - Disabled if any date has existing leave */}
+          {!selectedStartDate || !selectedEndDate ? null : (() => {
+            let hasConflict = false;
+            let current = selectedStartDate;
+            while (current.isBefore(selectedEndDate) || current.isSame(selectedEndDate, 'day')) {
+              if (existingLeaveDates.includes(current.format('YYYY-MM-DD'))) {
+                hasConflict = true;
+                break;
+              }
+              current = current.add(1, 'day');
+            }
+            
+            return (
+              <div className={`flex flex-wrap items-center justify-center gap-1 bg-gray-50 p-1.5 rounded-lg border ${hasConflict ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                <span className="text-[9px] text-gray-500">Set all to:</span>
+                {(['FULL_DAY', 'FIRST_HALF', 'SECOND_HALF'] as LeaveDayType[]).map((session) => (
+                  <button
+                    key={session}
+                    onClick={() => {
+                      // Set all dates in range to this session
+                      if (selectedStartDate && selectedEndDate) {
+                        let current = selectedStartDate;
+                        const newSessions = new Map(localDateSessions);
+                        while (current.isBefore(selectedEndDate) || current.isSame(selectedEndDate, 'day')) {
+                          const dateStr = current.format('YYYY-MM-DD');
+                          // Skip dates with existing leave
+                          if (!existingLeaveDates.includes(dateStr)) {
+                            newSessions.set(dateStr, session);
+                          }
+                          current = current.add(1, 'day');
+                        }
+                        setLocalDateSessions(newSessions);
+                        
+                        // Also update from/to sessions
+                        onSessionChange(session, session);
+                        
+                        // Trigger recalculation
+                        if (onCalculate) {
+                          setTimeout(onCalculate, 100);
+                        }
+                      }
+                    }}
+                    disabled={hasConflict}
+                    className={`text-[9px] px-2 py-0.5 rounded transition-colors ${
+                      hasConflict 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-300 text-gray-500'
+                        : session === 'FULL_DAY' 
+                          ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                          : session === 'FIRST_HALF' 
+                            ? 'bg-green-500 text-white hover:bg-green-600' 
+                            : 'bg-yellow-500 text-white hover:bg-yellow-600'
+                    }`}
+                  >
+                    {session === 'FULL_DAY' ? 'Full Day' : session === 'FIRST_HALF' ? 'AM' : 'PM'}
+                  </button>
+                ))}
+                {hasConflict && (
+                  <span className="text-[8px] text-red-600 ml-1">⚠️ Some dates have existing leave</span>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

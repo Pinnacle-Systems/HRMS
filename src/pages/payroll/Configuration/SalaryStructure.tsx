@@ -48,38 +48,68 @@ import {
   FileCopy as DuplicateIcon,
   Publish as PublishIcon,
   UnpublishedOutlined,
+  AddCircle,
+  Info as InfoIcon,
 } from "@mui/icons-material";
-import { calcLabel, employmentTypes, formatCurrency, grades, STATUS_CHIP_OPTIONS, statusConfig, steps } from "../const";
+import { calcLabel, formatCurrency, STATUS_CHIP_OPTIONS, statusConfig, steps } from "../const";
 import { salaryStructureService } from "../../../services/modules/payrollServices/salarystructure";
 import { useUI } from "../../../context/Snackbar";
 import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import type { StructureItem } from "../../../services/modules/payrollServices/masters";
+import { useNavigate } from "react-router-dom";
+import { categoryService } from "../../../services/modules/category";
+
+// Helper function to get display value based on calculation type
+const getValueDisplay = (calculationLogic: string, value: number, componentName?: string, previewData?: any) => {
+  const isSpecialAllowance = componentName?.toLowerCase().includes('special') ||
+    componentName?.toLowerCase().includes('spl');
+
+  // For Special Allowance, show percentage if available from preview
+  if (isSpecialAllowance && previewData) {
+    const ctc = previewData.annualCtc / 12;
+    const percentage = ctc > 0 ? (value / ctc) * 100 : 0;
+    return `${formatCurrency(value)} (${percentage.toFixed(2)}% of CTC)`;
+  }
+  switch (calculationLogic) {
+    case "FIXED_AMOUNT":
+    case "FIXED":
+      return formatCurrency(value);
+    case "PERCENTAGE_OF_BASIC":
+      return `${value}% of Basic`;
+    case "PERCENTAGE_OF_CTC":
+      return `${value}% of CTC`;
+    case "SLAB_BASED":
+      return value > 0 ? `₹${value}/month` : "Slab Based";
+    case "FORMULA":
+      return "Formula";
+    default:
+      return `${value}%`;
+  }
+};
+
+// Helper to get calculation label
+const getCalculationLabel = (type: string) => {
+  return calcLabel[type] || type || "Fixed Amount";
+};
+
+// Helper to check if component is Special Allowance
+const isSpecialAllowance = (componentName: string) => {
+  return componentName?.toLowerCase().includes('special') || 
+         componentName?.toLowerCase().includes('spl');
+};
 
 export default function SalaryStructureTemplate() {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
   const [currentStep, setCurrentStep] = useState(0);
-  // const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [salaryComponents, setSalaryComponents] = useState({
-    earnings: [{
-      id: '',
-      code: '',
-      name: '',
-      calculationType: '',
-      defaultValue: 0
-    }],
-    deductions: [{
-      id: '',
-      code: '',
-      name: '',
-      calculationType: '',
-      defaultValue: 0
-    }]
+    earnings: [] as any[],
+    deductions: [] as any[]
   });
   const [previewData, setPreviewData] = useState<any>(null);
-  // const [showPreview, setShowPreview] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [tabValue, setTabValue] = useState(0);
   const [structures, setStructures] = useState<any[]>([]);
@@ -89,6 +119,8 @@ export default function SalaryStructureTemplate() {
   const [statusFilter, setStatusFilter] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const [basicInfo, setBasicInfo] = useState({
     name: "",
@@ -100,6 +132,8 @@ export default function SalaryStructureTemplate() {
   });
   const [earnings, setEarnings] = useState<any[]>([]);
   const [deductions, setDeductions] = useState<any[]>([]);
+  const [grades, setGrades] = useState<any[]>([]);
+  const [employmentTypes, setEmploymentTypes] = useState<any[]>([]);
 
   useEffect(() => {
     loadStructures();
@@ -109,8 +143,12 @@ export default function SalaryStructureTemplate() {
     loadOptions();
   }, []);
 
+  useEffect(() => {
+    loadMasters();
+  }, []);
+
   const loadStructures = async () => {
-    // setLoading(true);
+    setLoading(true);
     showSpinner();
     try {
       const params: any = {
@@ -129,7 +167,7 @@ export default function SalaryStructureTemplate() {
       showSnackbar("Failed to load structures", "error");
     } finally {
       hideSpinner();
-      // setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -142,7 +180,33 @@ export default function SalaryStructureTemplate() {
         deductions: res.data?.deductions || []
       });
     } catch (error) {
-      showSnackbar("Failed to load structures", "error");
+      showSnackbar("Failed to load components", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const loadMasters = async () => {
+    showSpinner();
+    try {
+      const category: any = await categoryService.getActiveCategoryItem();
+      const gradeRes = category.data.find(
+        (element: any) => element.categoryName?.toLowerCase().includes('grade')
+      );
+      if (gradeRes) {
+        setGrades(gradeRes.items || []);
+      }
+      const empTypeRes = category.data.find(
+        (element: any) => {
+          const categoryName = element.categoryName?.toLowerCase() || '';
+          return categoryName.includes('employee type')
+        }
+      );
+      if (empTypeRes) {
+        setEmploymentTypes(empTypeRes.items || []);
+      }
+    } catch (error) {
+      showSnackbar("Failed to load masters", "error");
     } finally {
       hideSpinner();
     }
@@ -154,43 +218,38 @@ export default function SalaryStructureTemplate() {
       const res: any = await salaryStructureService.getSalaryStructureById(id);
       const data = res.data;
 
-      // Set editing state
       setEditingId(id);
       setIsEditing(true);
 
-      // Populate basic info
       setBasicInfo({
         name: data.name || "",
         code: data.code || "",
         description: data.description || "",
         applicableFor: data.applicableFor || [],
         gradeLevels: data.gradeLevels || [],
-        status: data.status || []
+        status: data.status || "DRAFT"
       });
 
-      // Populate earnings
       setEarnings(data.earnings?.map((e: any) => ({
         componentId: e.componentId,
         componentName: e.componentName || e.componentCode,
-        calculationLogic: e.calculationType || "FIXED",
+        calculationLogic: e.calculationType || "FIXED_AMOUNT",
         value: e.value || 0,
         sequence: e.sequence || 0,
       })) || []);
 
-      // Populate deductions
       setDeductions(data.deductions?.map((d: any) => ({
         componentId: d.componentId,
         componentName: d.componentName || d.componentCode,
-        calculationLogic: d.calculationType || "FIXED",
+        calculationLogic: d.calculationType || "FIXED_AMOUNT",
         value: d.value || 0,
         sequence: d.sequence || 0,
       })) || []);
 
-      // Reset to first step
       setCurrentStep(0);
-
-      // Switch to Create Structure tab
       setTabValue(1);
+      setPreviewData(null);
+      setValidationErrors([]);
 
       showSnackbar("Structure loaded for editing", "success");
     } catch (error: any) {
@@ -266,23 +325,55 @@ export default function SalaryStructureTemplate() {
       return;
     }
 
+    setIsPreviewLoading(true);
     showSpinner();
     try {
-      const payload = {
-        earnings: earnings.map((e) => ({
+      // Check if Special Allowance exists
+      const hasSpecialAllowance = earnings.some(
+        e => isSpecialAllowance(e.componentName)
+      );
+
+      // If Special Allowance exists, set its value to 0 (it will be auto-calculated)
+      const earningsPayload = earnings.map(e => {
+        const isSpecial = isSpecialAllowance(e.componentName);
+        return {
           componentId: e.componentId,
-          value: e.value,
+          value: isSpecial ? 0 : e.value,
           sequence: e.sequence || 0,
-        })),
+        };
+      });
+
+      const payload = {
+        earnings: earningsPayload,
         deductions: deductions.map((d) => ({
           componentId: d.componentId,
           value: d.value,
           sequence: d.sequence || 0,
         })),
       };
+      
       const res: any = await salaryStructureService.previewSalaryStructure(payload);
       setPreviewData(res.data);
-      // setShowPreview(true);
+
+      // Update Special Allowance value in earnings with calculated value
+      if (res.data?.earnings) {
+        const specialEarning = res.data.earnings.find(
+          (pe: any) => isSpecialAllowance(pe.componentName)
+        );
+        
+        if (specialEarning) {
+          const updatedEarnings = earnings.map(e => {
+            if (isSpecialAllowance(e.componentName)) {
+              return {
+                ...e,
+                value: specialEarning.monthlyValue || 0,
+              };
+            }
+            return e;
+          });
+          setEarnings(updatedEarnings);
+        }
+      }
 
       if (res.data?.warnings?.length > 0) {
         setValidationErrors(res.data.warnings);
@@ -294,6 +385,7 @@ export default function SalaryStructureTemplate() {
       showSnackbar(error?.message || "Failed to preview structure", "error");
     } finally {
       hideSpinner();
+      setIsPreviewLoading(false);
     }
   };
 
@@ -316,7 +408,8 @@ export default function SalaryStructureTemplate() {
   };
 
   const addComponent = (type: "earning" | "deduction", componentId: string) => {
-    // Find the component in the correct array
+    if (!componentId) return;
+
     const sourceArray = type === "earning"
       ? salaryComponents.earnings
       : salaryComponents.deductions;
@@ -336,7 +429,7 @@ export default function SalaryStructureTemplate() {
     const newAlloc = {
       componentId: component.id,
       componentName: component.name,
-      calculationLogic: component.calculationType,
+      calculationLogic: component.calculationType || "FIXED_AMOUNT",
       value: component.defaultValue || 0,
       sequence: already.length + 1,
     };
@@ -374,7 +467,7 @@ export default function SalaryStructureTemplate() {
     if (previewData) {
       return previewData.annualCtc || 0;
     }
-    return earnings.reduce((s, e) => s + (e.value || 0), 0);
+    return earnings.reduce((s, e) => s + (e.value || 0), 0) * 12;
   };
 
   const validateStep = () => {
@@ -398,14 +491,17 @@ export default function SalaryStructureTemplate() {
           showSnackbar("Please add at least one earning component", "warning");
           return false;
         }
-        const invalidEarnings = earnings.filter(e => e.value <= 0);
+        // Skip validation for Special Allowance (auto-calculated)
+        const invalidEarnings = earnings.filter(e => 
+          e.value <= 0 && !isSpecialAllowance(e.componentName)
+        );
         if (invalidEarnings.length > 0) {
           showSnackbar("Please enter valid values for all earnings", "warning");
           return false;
         }
         return true;
       case 2:
-        const invalidDeductions = deductions.filter(d => d.value <= 0);
+        const invalidDeductions = deductions.filter(d => d.value < 0);
         if (invalidDeductions.length > 0) {
           showSnackbar("Please enter valid values for all deductions", "warning");
           return false;
@@ -454,14 +550,12 @@ export default function SalaryStructureTemplate() {
 
       let res: any;
       if (isEditing && editingId) {
-        // Update existing structure
         res = await salaryStructureService.updateSalaryStructure(editingId, payload);
         if (!draft) {
           await salaryStructureService.publishSalaryStructure(editingId);
         }
         showSnackbar(draft ? "Draft updated successfully!" : "Structure published successfully!", "success");
       } else {
-        // Create new structure
         res = await salaryStructureService.createSalaryStructure(payload);
         if (!draft) {
           await salaryStructureService.publishSalaryStructure(res.data.id);
@@ -469,10 +563,8 @@ export default function SalaryStructureTemplate() {
         showSnackbar(draft ? "Draft saved successfully!" : "Template published successfully!", "success");
       }
 
-      // Reset form and reload structures
       resetForm();
       loadStructures();
-      // Switch back to My Structures tab after save
       setTabValue(0);
     } catch (error: any) {
       console.error("Failed to save structure", error);
@@ -495,7 +587,6 @@ export default function SalaryStructureTemplate() {
     setEarnings([]);
     setDeductions([]);
     setCurrentStep(0);
-    // setShowPreview(false);
     setPreviewData(null);
     setValidationErrors([]);
     setIsEditing(false);
@@ -503,10 +594,7 @@ export default function SalaryStructureTemplate() {
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    // If switching to Create tab and currently editing, keep the data
-    // If switching to My Structures tab, reset form
     if (newValue === 0) {
-      // If there is unsaved data and not editing, confirm before switching
       if (!isEditing && (basicInfo.name || earnings.length > 0 || deductions.length > 0)) {
         if (window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
           resetForm();
@@ -525,13 +613,11 @@ export default function SalaryStructureTemplate() {
     setPage(value - 1);
   };
 
-  // if (loading && tabValue === 0) {
-  //   return (
-  //     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
-  //       <CircularProgress />
-  //     </Box>
-  //   );
-  // }
+  // Calculate percentage of CTC for a component
+  const calculatePercentageOfCTC = (value: number, monthlyCtc: number) => {
+    if (!monthlyCtc || monthlyCtc === 0) return 0;
+    return (value / monthlyCtc) * 100;
+  };
 
   return (
     <div className="bg-white-50">
@@ -643,10 +729,16 @@ export default function SalaryStructureTemplate() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {structures.length === 0 ? (
+                {loading ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center">
-                      <div className="py-6">No structures found. Create your first salary structure!</div>
+                      <CircularProgress size={32} />
+                    </TableCell>
+                  </TableRow>
+                ) : structures.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center">
+                      <div className="py-6 text-gray-500">No structures found. Create your first salary structure!</div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -787,18 +879,17 @@ export default function SalaryStructureTemplate() {
                   Cancel Edit
                 </Button>
               )}
-             {
-              (currentStep == 1 || currentStep == 2 ) && (
-                 <Button
-                variant="outlined"
-                startIcon={<RefreshIcon fontSize="small" />}
-                onClick={loadOptions}
-                sx={{ textTransform: "none" }}
-              >
-                Refresh Components
-              </Button>
-              )
-             }
+              {(currentStep === 1 || currentStep === 2) && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<RefreshIcon fontSize="small" />}
+                  onClick={loadOptions}
+                  sx={{ textTransform: "none" }}
+                >
+                  Refresh Components
+                </Button>
+              )}
             </Box>
           </Box>
 
@@ -823,7 +914,7 @@ export default function SalaryStructureTemplate() {
           {/* Step Content */}
           <Card className="bg-white h-[calc(100vh-355px)] !overflow-auto" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2 }}>
-              {/* Step 1: Basic Info */}
+              {/* Step 0: Basic Info */}
               {currentStep === 0 && (
                 <Stack spacing={1} className="mt-3">
                   <Grid container spacing={2}>
@@ -861,56 +952,62 @@ export default function SalaryStructureTemplate() {
                   />
 
                   <Box>
-                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500, mb: 1 }}>
+                    <Typography variant="body2" className="text-gray-800 !my-3">
                       Applicable For <span className="text-red-500">*</span>
                     </Typography>
                     <Grid container spacing={1}>
-                      {employmentTypes.map((type) => (
-                        <Grid size={{ xs: 6, sm: 3 }} key={type}>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              p: 1.5,
-                              borderRadius: 1,
-                              border: `1px solid ${basicInfo.applicableFor.includes(type) ? theme.palette.primary.main : 'var(--border-color)'}`,
-                              bgcolor: basicInfo.applicableFor.includes(type) ? alpha(theme.palette.primary.main, 0.05) : "transparent",
-                              cursor: "pointer",
-                              "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.05) },
-                            }}
-                            onClick={() => toggleEmploymentType(type)}
-                          >
-                            <Checkbox checked={basicInfo.applicableFor.includes(type)} size="small" className="text-gray-500" />
-                            <Typography variant="body2" className="text-gray-800">{type}</Typography>
-                          </Box>
-                        </Grid>
-                      ))}
+                      {employmentTypes.map((type) => {
+                        const typeName = type.name || type.value || type.label || String(type);
+                        return (
+                          <Grid size={{ xs: 6, sm: 4, md: 2 }} key={type.id || typeName}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                p: 1.5,
+                                borderRadius: 1,
+                                border: `1px solid ${basicInfo.applicableFor.includes(typeName) ? theme.palette.primary.main : 'var(--border-color)'}`,
+                                bgcolor: basicInfo.applicableFor.includes(typeName) ? alpha(theme.palette.primary.main, 0.05) : "transparent",
+                                cursor: "pointer",
+                                "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.05) },
+                              }}
+                              onClick={() => toggleEmploymentType(typeName)}
+                            >
+                              <Checkbox checked={basicInfo.applicableFor.includes(typeName)} size="small" className="text-gray-500" />
+                              <Typography variant="body2" className="text-gray-800">{typeName}</Typography>
+                            </Box>
+                          </Grid>
+                        )
+                      })}
                     </Grid>
                   </Box>
 
                   <Box>
-                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500, mb: 1 }}>
+                    <Typography variant="body2" className="text-gray-800 !my-3">
                       Grade Levels
                     </Typography>
                     <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                      {grades.map((grade) => (
-                        <Chip
-                          key={grade}
-                          label={grade}
-                          onClick={() => toggleGrade(grade)}
-                          color={basicInfo.gradeLevels.includes(grade) ? "primary" : "default"}
-                          variant={basicInfo.gradeLevels.includes(grade) ? "filled" : "outlined"}
-                          sx={{ cursor: "pointer" }}
-                          className="text-gray-500"
-                        />
-                      ))}
+                      {grades.map((grade) => {
+                        const gradeName = grade.name || grade.value || grade.label || String(grade);
+                        return (
+                          <Chip
+                            key={grade.id || gradeName}
+                            label={gradeName}
+                            onClick={() => toggleGrade(gradeName)}
+                            color={basicInfo.gradeLevels.includes(gradeName) ? "primary" : "default"}
+                            variant={basicInfo.gradeLevels.includes(gradeName) ? "filled" : "outlined"}
+                            sx={{ cursor: "pointer" }}
+                            className="text-gray-500"
+                          />
+                        )
+                      })}
                     </Box>
                   </Box>
                 </Stack>
               )}
 
-              {/* Step 2: Earnings */}
+              {/* Step 1: Earnings */}
               {currentStep === 1 && (
                 <Stack spacing={3}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -924,76 +1021,204 @@ export default function SalaryStructureTemplate() {
                     </Box>
                     <Box sx={{ textAlign: "right" }}>
                       <Typography className="text-gray-500">
-                        Estimated Annual CTC
+                        Estimated Monthly CTC
                       </Typography>
                       <Typography variant="h6" sx={{ fontWeight: 700, color: "success.main" }}>
-                        {formatCurrency(calculateTotalCTC())}
+                        {formatCurrency(earnings.reduce((s, e) => s + (e.value || 0), 0))}
                       </Typography>
                     </Box>
                   </Box>
 
                   <FormControl sx={{ maxWidth: 300 }}>
                     <InputLabel>Add earning component...</InputLabel>
-                    <Select value="" onChange={(e) => addComponent("earning", e.target.value)} label="Add earning component...">
+                    <Select
+                      value=""
+                      onChange={(e) => addComponent("earning", e.target.value)}
+                      label="Add earning component..."
+                    >
                       {salaryComponents.earnings.map((c) => (
                         <MenuItem key={c.id} value={c.id}>
                           {c.name} ({c.code})
                         </MenuItem>
                       ))}
+                      <MenuItem className="!text-primary" onClick={() => navigate("/payroll/components")}>
+                        <AddCircle className="mr-2" /> Add New Earning
+                      </MenuItem>
                     </Select>
                   </FormControl>
 
                   {earnings.length > 0 ? (
-                    <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-500px)] overflow-auto">
-                      <Table>
-                        <TableHead>
-                          <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                            <TableCell sx={{ width: 40 }}>#</TableCell>
-                            <TableCell>Component</TableCell>
-                            <TableCell>Logic</TableCell>
-                            <TableCell>Value</TableCell>
-                            <TableCell>Preview</TableCell>
-                            <TableCell sx={{ width: 80 }}>Action</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {earnings.map((e, i) => (
-                            <TableRow key={i} sx={getRowColor(i)}>
-                              <TableCell>{i + 1}</TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                  {e.componentName}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {calcLabel[e.calculationLogic] || e.calculationLogic}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <TextField
-                                  type="number"
-                                  value={e.value}
-                                  onChange={(ev) => updateValue("earning", i, Number(ev.target.value))}
-                                  sx={{ width: 100 }}
-                                  size="small"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                  {e.calculationLogic === "FIXED" ? formatCurrency(e.value) : `${e.value}%`}
-                                </Typography>
-                              </TableCell>
-                              <TableCell>
-                                <Button variant="text" color="error" size="small" onClick={() => removeComponent("earning", i)}>
-                                  Remove
-                                </Button>
-                              </TableCell>
+                    <>
+                      <TableContainer className="border border-gray-200 rounded-md overflow-auto">
+                        <Table>
+                          <TableHead>
+                            <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                              <TableCell sx={{ width: 40 }}>#</TableCell>
+                              <TableCell>Component</TableCell>
+                              <TableCell>Logic</TableCell>
+                              <TableCell>Value</TableCell>
+                              <TableCell>Preview</TableCell>
+                              <TableCell>% of CTC</TableCell>
+                              <TableCell sx={{ width: 80 }}>Action</TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                          </TableHead>
+                          <TableBody>
+                            {earnings.map((e, i) => {
+                              const isSpecial = isSpecialAllowance(e.componentName);
+                              const monthlyCtc = previewData?.annualCtc ? previewData.annualCtc / 12 : 0;
+                              let percentageOfCTC = 0;
+                              
+                              if (previewData && monthlyCtc > 0) {
+                                if (isSpecial) {
+                                  const specialEarning = previewData.earnings?.find(
+                                    (pe: any) => isSpecialAllowance(pe.componentName)
+                                  );
+                                  if (specialEarning) {
+                                    percentageOfCTC = (specialEarning.monthlyValue / monthlyCtc) * 100;
+                                  }
+                                } else {
+                                  percentageOfCTC = (e.value / monthlyCtc) * 100;
+                                }
+                              }
+                              
+                              return (
+                                <TableRow key={i} sx={getRowColor(i)}>
+                                  <TableCell>{i + 1}</TableCell>
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                        {e.componentName}
+                                      </Typography>
+                                      {isSpecial && (
+                                        <Chip
+                                          label="Balancing"
+                                          size="small"
+                                          color="primary"
+                                          sx={{ height: 16, fontSize: '0.55rem' }}
+                                        />
+                                      )}
+                                      {isSpecial && (
+                                        <Tooltip title="Special Allowance is automatically calculated to balance the CTC. Value = CTC - Sum of all other earnings.">
+                                          <IconButton size="small" sx={{ p: 0 }}>
+                                            <InfoIcon fontSize="small" className="text-gray-400" style={{ fontSize: '14px' }} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2">
+                                      {getCalculationLabel(e.calculationLogic)}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <TextField
+                                      type="number"
+                                      value={e.value}
+                                      onChange={(ev) => updateValue("earning", i, Number(ev.target.value))}
+                                      sx={{ width: 100 }}
+                                      size="small"
+                                      disabled={isSpecial}
+                                      placeholder={isSpecial ? "Auto" : ""}
+                                     
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                      {isSpecial && previewData ? 
+                                        formatCurrency(
+                                          previewData.earnings?.find(
+                                            (pe: any) => isSpecialAllowance(pe.componentName)
+                                          )?.monthlyValue || e.value
+                                        )
+                                        : getValueDisplay(e.calculationLogic, e.value, e.componentName, previewData)
+                                      }
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography 
+                                      variant="body2" 
+                                      sx={{ 
+                                        fontWeight: 600, 
+                                        color: isSpecial ? 'primary.main' : 'text.primary' 
+                                      }}
+                                    >
+                                      {percentageOfCTC > 0 ? `${percentageOfCTC.toFixed(2)}%` : '-'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Button 
+                                      variant="text" 
+                                      color="error" 
+                                      size="small" 
+                                      onClick={() => removeComponent("earning", i)}
+                                      disabled={isSpecial && earnings.length <= 1}
+                                    >
+                                      Remove
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+
+                      {/* Summary Section */}
+                      {previewData && (
+                        <Box sx={{ 
+                          display: 'flex', 
+                          justifyContent: 'flex-end', 
+                          mt: 2, 
+                          p: 1.5, 
+                          bgcolor: alpha(theme.palette.primary.main, 0.04),
+                          borderRadius: 1 
+                        }}>
+                          <Stack spacing={0.5} sx={{ minWidth: 250 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="caption" className="text-gray-500">
+                                Total CTC (Monthly)
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                {formatCurrency(previewData.annualCtc / 12)}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="caption" className="text-gray-500">
+                                Total Earnings
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.main' }}>
+                                {formatCurrency(previewData.grossEarningsMonthly)} ({((previewData.grossEarningsMonthly / (previewData.annualCtc / 12)) * 100).toFixed(2)}%)
+                              </Typography>
+                            </Box>
+                            {earnings.some(e => isSpecialAllowance(e.componentName)) && (
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <Typography variant="caption" className="text-gray-500">
+                                  Special Allowance
+                                </Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                                  {formatCurrency(
+                                    previewData.earnings?.find(
+                                      (pe: any) => isSpecialAllowance(pe.componentName)
+                                    )?.monthlyValue || 0
+                                  )} (
+                                  {(
+                                    ((previewData.earnings?.find(
+                                      (pe: any) => isSpecialAllowance(pe.componentName)
+                                    )?.monthlyValue || 0) / (previewData.annualCtc / 12)) * 100
+                                  ).toFixed(2)}%)
+                                </Typography>
+                              </Box>
+                            )}
+                            {isPreviewLoading && (
+                              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                <CircularProgress size={20} />
+                              </Box>
+                            )}
+                          </Stack>
+                        </Box>
+                      )}
+                    </>
                   ) : (
                     <Box className="border-gray-200" sx={{ border: `2px dashed ${theme.palette.divider}`, borderRadius: 2, p: 6, textAlign: "center" }}>
                       <PlusIcon sx={{ fontSize: 32, color: "text.secondary", mb: 1 }} className="text-gray-500" />
@@ -1005,7 +1230,7 @@ export default function SalaryStructureTemplate() {
                 </Stack>
               )}
 
-              {/* Step 3: Deductions */}
+              {/* Step 2: Deductions */}
               {currentStep === 2 && (
                 <Stack spacing={3}>
                   <Box>
@@ -1019,12 +1244,19 @@ export default function SalaryStructureTemplate() {
 
                   <FormControl sx={{ maxWidth: 300 }}>
                     <InputLabel>Add deduction component...</InputLabel>
-                    <Select value="" onChange={(e) => addComponent("deduction", e.target.value)} label="Add deduction component...">
+                    <Select
+                      value=""
+                      onChange={(e) => addComponent("deduction", e.target.value)}
+                      label="Add deduction component..."
+                    >
                       {salaryComponents.deductions.map((c) => (
                         <MenuItem key={c.id} value={c.id}>
                           {c.name} ({c.code})
                         </MenuItem>
                       ))}
+                      <MenuItem className="!text-primary" onClick={() => navigate("/payroll/components")}>
+                        <AddCircle className="mr-2" /> Add New Deduction
+                      </MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1037,7 +1269,7 @@ export default function SalaryStructureTemplate() {
                             <TableCell>Component</TableCell>
                             <TableCell>Logic</TableCell>
                             <TableCell>Value</TableCell>
-                            <TableCell>Limit</TableCell>
+                            <TableCell>Preview</TableCell>
                             <TableCell sx={{ width: 80 }}>Action</TableCell>
                           </TableRow>
                         </TableHead>
@@ -1052,7 +1284,7 @@ export default function SalaryStructureTemplate() {
                               </TableCell>
                               <TableCell>
                                 <Typography variant="body2">
-                                  {calcLabel[d.calculationLogic] || d.calculationLogic}
+                                  {getCalculationLabel(d.calculationLogic)}
                                 </Typography>
                               </TableCell>
                               <TableCell>
@@ -1065,8 +1297,8 @@ export default function SalaryStructureTemplate() {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2">
-                                  {d.calculationLogic === "slab" ? "As per slab" : `${d.value}%`}
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  {getValueDisplay(d.calculationLogic, d.value, d.componentName, previewData)}
                                 </Typography>
                               </TableCell>
                               <TableCell>
@@ -1087,21 +1319,10 @@ export default function SalaryStructureTemplate() {
                       </Typography>
                     </Box>
                   )}
-
-                  {/* <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                    <Button
-                      variant="outlined"
-                      onClick={fetchPreview}
-                      disabled={earnings.length === 0 && deductions.length === 0}
-                      sx={{ textTransform: "none" }}
-                    >
-                      Preview Structure
-                    </Button>
-                  </Box> */}
                 </Stack>
               )}
 
-              {/* Step 4: Review */}
+              {/* Step 3: Review */}
               {currentStep === 3 && (
                 <Stack spacing={2}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1153,7 +1374,7 @@ export default function SalaryStructureTemplate() {
 
                   <Grid container spacing={3}>
                     <Grid size={{ xs: 12, md: 6 }}>
-                      <Card className="bg-white-50" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.success.main, 0.2)}` }}>
+                      <Card className="!bg-white-50 !border-green-800 !border" sx={{ borderRadius: 2 }}>
                         <CardContent>
                           <Typography variant="subtitle2" sx={{ color: "success.main", fontWeight: 600, mb: 1 }}>
                             Earnings ({earnings.length})
@@ -1164,20 +1385,42 @@ export default function SalaryStructureTemplate() {
                                 No earnings configured
                               </Typography>
                             )}
-                            {earnings.map((e, i) => (
-                              <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <Typography variant="body2" className="text-gray-500">{e.componentName}<span className="text-[10px]">{' '}({e.calculationLogic})</span></Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800 !font-bold">
-                                  {e.calculationLogic === "FIXED" ? formatCurrency(e.value) : `${e.value}%`}
-                                </Typography>
-                              </Box>
-                            ))}
+                            {earnings.map((e, i) => {
+                              const isSpecial = isSpecialAllowance(e.componentName);
+                              const displayValue = isSpecial && previewData
+                                ? formatCurrency(
+                                    previewData.earnings?.find(
+                                      (pe: any) => isSpecialAllowance(pe.componentName)
+                                    )?.monthlyValue || e.value
+                                  )
+                                : getValueDisplay(e.calculationLogic, e.value, e.componentName, previewData);
+                              
+                              return (
+                                <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                  <Typography variant="body2" className="text-gray-500">
+                                    {e.componentName}
+                                    {isSpecial && (
+                                      <Chip
+                                        label="Balancing"
+                                        size="small"
+                                        color="primary"
+                                        sx={{ ml: 1, height: 16, fontSize: '0.55rem' }}
+                                      />
+                                    )}
+                                    <span className="text-[10px]"> ({getCalculationLabel(e.calculationLogic)})</span>
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800 !font-bold">
+                                    {displayValue}
+                                  </Typography>
+                                </Box>
+                              );
+                            })}
                             {earnings.length > 0 && (
                               <>
                                 <Divider className="border border-gray-200" />
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                   <Typography variant="body2" sx={{ fontWeight: 600 }} className="text-gray-800">
-                                    Gross Earnings
+                                    Gross Earnings (Monthly)
                                   </Typography>
                                   <Typography variant="body2" sx={{ fontWeight: 700, color: "success.main" }}>
                                     {formatCurrency(previewData?.grossEarningsMonthly || earnings.reduce((s, e) => s + e.value, 0))}
@@ -1191,7 +1434,7 @@ export default function SalaryStructureTemplate() {
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 6 }}>
-                      <Card className="bg-white-50" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.error.main, 0.2)}` }}>
+                      <Card className="!bg-white-50 !border-red-800 !border" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.error.main, 0.2)}` }}>
                         <CardContent>
                           <Typography variant="subtitle2" sx={{ color: "error.main", fontWeight: 600, mb: 1 }}>
                             Deductions ({deductions.length})
@@ -1204,9 +1447,12 @@ export default function SalaryStructureTemplate() {
                             )}
                             {deductions.map((d, i) => (
                               <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <Typography variant="body2" className="text-gray-500">{d.componentName}<span className="text-[10px]">{' '}({d.calculationLogic})</span></Typography>
+                                <Typography variant="body2" className="text-gray-500">
+                                  {d.componentName}
+                                  <span className="text-[10px]"> ({getCalculationLabel(d.calculationLogic)})</span>
+                                </Typography>
                                 <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
-                                  {d.calculationLogic === "FIXED" ? formatCurrency(d.value) : `${d.value}%`}
+                                  {getValueDisplay(d.calculationLogic, d.value, d.componentName, previewData)}
                                 </Typography>
                               </Box>
                             ))}
@@ -1215,7 +1461,7 @@ export default function SalaryStructureTemplate() {
                                 <Divider className="border border-gray-200" />
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                   <Typography variant="body2" sx={{ fontWeight: 600 }} className="text-gray-800">
-                                    Total Deductions
+                                    Total Deductions (Monthly)
                                   </Typography>
                                   <Typography variant="body2" sx={{ fontWeight: 700, color: "error.main" }}>
                                     {formatCurrency(previewData?.totalDeductionsMonthly || deductions.reduce((s, d) => s + d.value, 0))}
@@ -1230,13 +1476,13 @@ export default function SalaryStructureTemplate() {
                   </Grid>
 
                   <Card sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                    <CardContent className="!pb-3">
+                    <CardContent className="!pb-3 !bg-white-50">
                       <Grid container spacing={2}>
                         <Grid size={{ xs: 12, sm: 3 }}>
                           <Box sx={{ textAlign: "center" }}>
                             <Typography variant="caption" className="text-gray-500">Gross Monthly</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: "success.main" }}>
-                              {formatCurrency(previewData?.grossEarningsMonthly)}
+                              {formatCurrency(previewData?.grossEarningsMonthly || earnings.reduce((s, e) => s + e.value, 0))}
                             </Typography>
                           </Box>
                         </Grid>
@@ -1244,7 +1490,7 @@ export default function SalaryStructureTemplate() {
                           <Box sx={{ textAlign: "center" }}>
                             <Typography variant="caption" className="text-gray-500">Total Deductions</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: "error.main" }}>
-                              {formatCurrency(previewData?.totalDeductionsMonthly)}
+                              {formatCurrency(previewData?.totalDeductionsMonthly || deductions.reduce((s, d) => s + d.value, 0))}
                             </Typography>
                           </Box>
                         </Grid>
@@ -1252,7 +1498,8 @@ export default function SalaryStructureTemplate() {
                           <Box sx={{ textAlign: "center" }}>
                             <Typography variant="caption" className="text-gray-500">Net Monthly</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main" }}>
-                              {formatCurrency(previewData?.netMonthly ||
+                              {formatCurrency(
+                                previewData?.netMonthly ||
                                 (earnings.reduce((s, e) => s + e.value, 0) - deductions.reduce((s, d) => s + d.value, 0))
                               )}
                             </Typography>
@@ -1280,7 +1527,7 @@ export default function SalaryStructureTemplate() {
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", my: 2 }}>
             <Button
               variant="outlined"
-              className={`!text-primary !border-primary ${currentStep == 0 ? 'invisible':''}`}
+              className={`!text-primary !border-primary ${currentStep === 0 ? 'invisible' : ''}`}
               onClick={handleBack}
               disabled={currentStep === 0 || saving}
               startIcon={<ChevronLeftIcon fontSize="small" />}
@@ -1291,8 +1538,7 @@ export default function SalaryStructureTemplate() {
             <Box sx={{ display: "flex", gap: 1 }}>
               {currentStep === 3 && (
                 <>
-                  {
-                    basicInfo.status != 'PUBLISHED' &&
+                  {basicInfo.status !== 'PUBLISHED' && (
                     <Button
                       variant="outlined"
                       onClick={() => handleSave(true)}
@@ -1301,7 +1547,7 @@ export default function SalaryStructureTemplate() {
                     >
                       {saving ? "Saving..." : "Save as Draft"}
                     </Button>
-                  }
+                  )}
                   <Button
                     variant="contained"
                     color="success"
@@ -1310,7 +1556,7 @@ export default function SalaryStructureTemplate() {
                     startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <BookTemplateIcon fontSize="small" />}
                     sx={{ textTransform: "none" }}
                   >
-                    {saving ? "Publishing..." : isEditing ? basicInfo.status == 'DRAFT' ? "Update & Publish" : "Update" : "Publish Template"}
+                    {saving ? "Publishing..." : isEditing ? (basicInfo.status === 'DRAFT' ? "Update & Publish" : "Update") : "Publish Template"}
                   </Button>
                 </>
               )}
@@ -1319,11 +1565,11 @@ export default function SalaryStructureTemplate() {
                   variant="contained"
                   className="!bg-primary"
                   onClick={handleNext}
-                  disabled={saving}
+                  disabled={saving || isPreviewLoading}
                   endIcon={<ChevronRightIcon fontSize="small" />}
                   sx={{ textTransform: "none" }}
                 >
-                  Next
+                  {isPreviewLoading ? <CircularProgress size={20} color="inherit" /> : "Next"}
                 </Button>
               )}
             </Box>

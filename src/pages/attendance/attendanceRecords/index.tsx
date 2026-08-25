@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box } from "@mui/material";
+import { Box, Button } from "@mui/material";
 import {
    FormatListBulletedOutlined, TableChartOutlined,
 
@@ -11,6 +11,7 @@ import { AttendanceDetailed } from "./AttendanceDetailed";
 import { AttendanceMuster } from "./AttendanceMuster";
 import { DailyRegister } from "./DailyRegister";
 import { EmployeeView } from "./EmployeeView";
+import { useNavigate } from "react-router-dom";
 
 
 
@@ -47,6 +48,7 @@ const TABS = [
 
 export default function AttendanceRecords() {
   const [activeTab, setActiveTab] = useState(0);
+  const navigate = useNavigate();
 
   return (
     <div className="w-full">
@@ -60,7 +62,7 @@ export default function AttendanceRecords() {
 
       <div className="border border-gray-300 bg-white">
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-gray-300 p-2 overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 border-b border-gray-300 p-2 overflow-x-auto">
           <div className="flex flex-nowrap gap-2">
             {TABS.map((tab, index) => {
               const active = activeTab === index;
@@ -80,6 +82,7 @@ export default function AttendanceRecords() {
               );
             })}
           </div>
+          <Button variant="contained" className="!bg-primary" onClick={()=>navigate('/attendance/process')}>Process Attendance</Button>
         </div>
 
         {/* Tab Content */}

@@ -129,26 +129,52 @@ export function AttendanceSummary() {
     }
   };
 
-  const loadTrends = useCallback(async () => {
-    try {
-      const dates = Array.from({ length: 7 }, (_, i) => dayjs(selectedDate).subtract(6 - i, "day").format("YYYY-MM-DD"));
-      const trendRows: DailyTrend[] = await Promise.all(
-        dates.map(async (d) => {
-          const content = await getRegisterContent({ startDate: d,endDate: d, departmentId: departmentId || undefined,
-            branchId: branchId || undefined, });
-          return {
-            date: d,
-            present: content.filter((r) => ["present", "checked_in", "checked_out", "late","on_duty"].includes(r.status)).length,
-            absent: content.filter((r) => r.status === "absent").length,
-            late: content.filter((r) => r.status === "late").length,
-          };
-        })
-      );
-      setTrends(trendRows);
-    } catch {
-      setTrends([]);
-    }
-  }, [selectedDate]);
+const loadTrends = useCallback(async () => {
+  try {
+    const dates = Array.from({ length: 7 }, (_, i) => 
+      dayjs(selectedDate).subtract(6 - i, "day").format("YYYY-MM-DD")
+    );
+    
+    // Fetch all dates in parallel
+    const trendPromises = dates.map(async (d) => {
+      const params = {
+        startDate: d,
+        endDate: d,
+        departmentId: departmentId || undefined,
+        branchId: branchId || undefined,
+      };
+      
+      try {
+        const res: any = await attendanceService.getRegister(params);
+        const data = res?.data?.data ?? res?.data;
+        const content = Array.isArray(data) ? data : data?.content ?? [];
+        
+        return {
+          date: d,
+          present: content.filter((r: any) => 
+            ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)
+          ).length,
+          absent: content.filter((r: any) => r.status === "absent").length,
+          late: content.filter((r: any) => r.status === "late").length,
+        };
+      } catch (error) {
+        console.error(`Error fetching data for ${d}:`, error);
+        return {
+          date: d,
+          present: 0,
+          absent: 0,
+          late: 0,
+        };
+      }
+    });
+
+    const trendRows = await Promise.all(trendPromises);
+    setTrends(trendRows);
+  } catch (error) {
+    console.error('Error loading trends:', error);
+    setTrends([]);
+  }
+}, [selectedDate, departmentId, branchId]);
 
   const loadDepartmentWise = useCallback(async () => {
     if (departments.length === 0) {
@@ -251,7 +277,7 @@ export function AttendanceSummary() {
                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <DatePicker
                       label="Effective From"
-                      className="!w-[150px]"
+                      className="!w-[200px]"
                       value={selectedDate ? dayjs(selectedDate) : null}
                       onChange={(newValue) => { setSelectedDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); }}
                       maxDate={new Date() ? dayjs(new Date()) : undefined}

@@ -56,15 +56,15 @@ export function createMockAdminSession() {
   return createMockSession();
 }
 
-export async function mockLogoutApi(page: Page) {
-  await page.route("**/api/auth/logout", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true }),
-    });
-  });
-}
+// export async function mockLogoutApi(page: Page) {
+//   await page.route("**/api/auth/logout", async (route) => {
+//     await route.fulfill({
+//       status: 200,
+//       contentType: "application/json",
+//       body: JSON.stringify({ success: true }),
+//     });
+//   });
+// }
 
 export async function mockAllApis(page: Page) {
   // 1. Generic catch-all for all API requests

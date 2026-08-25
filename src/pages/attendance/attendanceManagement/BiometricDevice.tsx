@@ -31,10 +31,13 @@ import {
   ListItemText,
   Menu,
   Checkbox,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
 } from "@mui/material";
 import {
   Add as AddIcon,
-  Edit as EditIcon,
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
@@ -54,6 +57,11 @@ import {
   LocationOnOutlined,
   SettingsOutlined,
   EditOutlined,
+  Add,
+  CheckCircleOutlined,
+  WarningAmberOutlined,
+  Delete as DeleteIcon,
+  Save as SaveIcon,
 } from "@mui/icons-material";
 import {
   biometricService,
@@ -73,7 +81,7 @@ import { formatDateTime } from "../../../utils/dateFormatter";
 
 // ==================== MAIN COMPONENT ====================
 export const DeviceManagement: React.FC = () => {
-  const { showSnackbar, hideSpinner, showSpinner } = useUI();
+  const { showSnackbar, hideSpinner, showSpinner, showConfirmDialog } = useUI();
 
   // State
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
@@ -84,8 +92,6 @@ export const DeviceManagement: React.FC = () => {
     null,
   );
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
-  //   const [page, setPage] = useState(0);
-  //   const [rowsPerPage, setRowsPerPage] = useState(10)
 
   // Form State
   const [formData, setFormData] = useState<CreateDeviceRequest>({
@@ -139,6 +145,34 @@ export const DeviceManagement: React.FC = () => {
     {},
   );
 
+  // Bulk Mapping State
+  const [openBulkMapDialog, setOpenBulkMapDialog] = useState(false);
+  const [bulkMappings, setBulkMappings] = useState<Array<{
+    id: string;
+    deviceId: string;
+    deviceEmployeeCode: string;
+    hrmsEmployeeId: string;
+    hrmsEmployeeName: string;
+    hrmsEmployeeCode: string;
+    hrmsEmployee: any | null;
+    isActive: boolean;
+    status: 'pending' | 'success' | 'error';
+    errorMessage?: string;
+  }>>([]);
+  const [bulkMappingLoading, setBulkMappingLoading] = useState(false);
+  const [bulkMappingErrors, setBulkMappingErrors] = useState<{
+    [key: string]: string;
+  }>({});
+  const [selectedDeviceForBulk, setSelectedDeviceForBulk] = useState('');
+  const [bulkMappingResults, setBulkMappingResults] = useState<{
+    total: number;
+    successful: number;
+    failed: number;
+    errors: any[];
+    mappings: any[];
+  } | null>(null);
+  // const [bulkSelectedEmployee, setBulkSelectedEmployee] = useState<any>(null);
+
   const machineTypes = ["IN", "OUT", "IN / OUT"];
   const machineSetups = ["Single", "Separate"];
   const syncFrequencies = [1, 5, 10, 15, 30, 60];
@@ -163,7 +197,7 @@ export const DeviceManagement: React.FC = () => {
           checkSyncStatus(sync.deviceId, syncId);
         }
       });
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [activeSyncs]);
@@ -182,6 +216,153 @@ export const DeviceManagement: React.FC = () => {
       showSnackbar("Failed to fetch devices", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ==================== BULK MAPPING HANDLERS ====================
+  const addBulkMappingRow = () => {
+    const newMapping = {
+      id: `temp_${Date.now()}_${Math.random()}`,
+      deviceId: selectedDeviceForBulk || '',
+      deviceEmployeeCode: '',
+      hrmsEmployeeId: '',
+      hrmsEmployeeName: '',
+      hrmsEmployeeCode: '',
+      hrmsEmployee: null,
+      isActive: true,
+      status: 'pending' as const,
+    };
+    setBulkMappings([...bulkMappings, newMapping]);
+  };
+
+  const removeBulkMappingRow = (id: string) => {
+    setBulkMappings(bulkMappings.filter(m => m.id !== id));
+  };
+
+  const handleBulkMappingChange = (id: string, field: string, value: any) => {
+    setBulkMappings(bulkMappings.map(m =>
+      m.id === id ? { ...m, [field]: value } : m
+    ));
+  };
+
+  const handleBulkEmployeeSelect = (employee: any, mappingId: string) => {
+    setBulkMappings(bulkMappings.map(m =>
+      m.id === mappingId ? {
+        ...m,
+        hrmsEmployeeId: employee?.id || '',
+        hrmsEmployeeName: employee?.name || employee?.employeeName || '',
+        hrmsEmployeeCode: employee?.employeeId || employee?.employeeCode || '',
+        hrmsEmployee: employee,
+      } : m
+    ));
+  };
+
+  const resetBulkMappingDialog = () => {
+    setBulkMappings([]);
+    setBulkMappingErrors({});
+    setBulkMappingResults(null);
+    setSelectedDeviceForBulk('');
+    // setBulkSelectedEmployee(null);
+    setOpenBulkMapDialog(false);
+  };
+
+  const handleBulkSaveMapping = async () => {
+    const errors: { [key: string]: string } = {};
+    let hasError = false;
+
+    bulkMappings.forEach((mapping, index) => {
+      if (!mapping.deviceId) {
+        errors[`mapping_${index}_deviceId`] = 'Device is required';
+        hasError = true;
+      }
+      if (!mapping.deviceEmployeeCode) {
+        errors[`mapping_${index}_deviceEmployeeCode`] = 'Device employee code is required';
+        hasError = true;
+      }
+      if (!mapping.hrmsEmployeeId) {
+        errors[`mapping_${index}_hrmsEmployeeId`] = 'HRMS employee is required';
+        hasError = true;
+      }
+    });
+
+    if (hasError) {
+      setBulkMappingErrors(errors);
+      showSnackbar('Please fix all errors before saving', 'warning');
+      return;
+    }
+
+    setBulkMappingLoading(true);
+    showSpinner();
+
+    try {
+      const mappingsPayload = bulkMappings.map(m => ({
+        deviceId: m.deviceId,
+        deviceEmployeeCode: m.deviceEmployeeCode,
+        hrmsEmployeeId: m.hrmsEmployeeId,
+        isActive: m.isActive
+      }));
+
+      const payload: any = {
+        mappings: mappingsPayload
+      }
+      const response: any = await biometricService.mapEmployeeToDevice(payload);
+
+      const responseData = response?.data || response || {};
+      const mappings = responseData.mappings || [];
+      const total = responseData.total || mappings.length || 0;
+      const successful = responseData.successful || 0;
+      const failed = responseData.failed || 0;
+      const errors = responseData.errors || [];
+
+      setBulkMappings(prev => prev.map(m => {
+        const result = mappings.find(
+          (r: any) => r.hrmsEmployeeId === m.hrmsEmployeeId
+        );
+        if (result) {
+          return {
+            ...m,
+            status: result.status === 'success' ? 'success' : 'error',
+            errorMessage: result.error || (result.status === 'failed' ? 'Mapping failed' : undefined)
+          };
+        }
+        return m;
+      }));
+
+      setBulkMappingResults({
+        total: total,
+        successful: successful,
+        failed: failed,
+        errors: errors,
+        mappings: mappings
+      });
+
+      if (failed > 0 && successful > 0) {
+        showSnackbar(
+          `Saved ${successful} mappings with ${failed} errors`,
+          'warning'
+        );
+      } else if (failed > 0 && successful === 0) {
+        showSnackbar(
+          `All ${total} mappings failed to save`,
+          'error'
+        );
+      } else if (successful > 0) {
+        showSnackbar(`Successfully saved ${successful} mappings`, 'success');
+      } else {
+        showSnackbar('No mappings were saved', 'info');
+      }
+
+      if (failed === 0 && successful > 0) {
+        setTimeout(() => {
+          resetBulkMappingDialog();
+          fetchDevices();
+        }, 2000);
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || 'Failed to save mappings', 'error');
+    } finally {
+      setBulkMappingLoading(false);
+      hideSpinner();
     }
   };
 
@@ -238,16 +419,6 @@ export const DeviceManagement: React.FC = () => {
     setOpenDetails(false);
     setSelectedDevice(null);
   };
-
-  // const handleOpenSyncDialog = () => {
-  //   setSyncFormData({
-  //     deviceId: devices.length > 0 ? devices[0].id : "",
-  //     startDate: "",
-  //     endDate: "",
-  //   });
-  //   setSyncErrors({});
-  //   setOpenSyncDialog(true);
-  // };
 
   const handleCloseSyncDialog = () => {
     setOpenSyncDialog(false);
@@ -402,13 +573,11 @@ export const DeviceManagement: React.FC = () => {
     try {
       const status = await biometricService.getSyncStatus(deviceId, syncId);
 
-      // Update active syncs
       setActiveSyncs((prev) => ({
         ...prev,
         [syncId]: status,
       }));
 
-      // If sync is completed or failed, show notification
       if (status.status === "completed" || status.status === "failed") {
         showSnackbar(
           status.status === "completed"
@@ -417,7 +586,6 @@ export const DeviceManagement: React.FC = () => {
           status.status === "completed" ? "success" : "error",
         );
 
-        // Remove from active syncs after delay
         setTimeout(() => {
           setActiveSyncs((prev) => {
             const newSyncs = { ...prev };
@@ -442,7 +610,6 @@ export const DeviceManagement: React.FC = () => {
         endDate: syncFormData.endDate,
       });
 
-      // Add to active syncs
       setActiveSyncs((prev) => ({
         ...prev,
         [result.id]: result,
@@ -450,8 +617,6 @@ export const DeviceManagement: React.FC = () => {
 
       showSnackbar("Sync initiated successfully", "success");
       handleCloseSyncDialog();
-
-      // Initial status check
       await checkSyncStatus(result.deviceId, result.id);
     } catch (error: any) {
       showSnackbar(error?.message || "Failed to initiate sync", "error");
@@ -623,7 +788,6 @@ export const DeviceManagement: React.FC = () => {
 
     try {
       const selectedDevicesData = devices.filter(d => selectedDevices.includes(d.id));
-      // Format device IPs with ports as "ip:port"
       const deviceIpsWithPorts = selectedDevicesData.map(device =>
         `${device.ipAddress}:${device.port || 4370}`
       );
@@ -643,19 +807,261 @@ export const DeviceManagement: React.FC = () => {
     }
   };
 
-  //   const handleDeleteDevice = async (deviceId: string) => {
-  //     if (window.confirm('Are you sure you want to delete this device?')) {
-  //       try {
-  //         await biometricService.deleteDevice(deviceId);
-  //         showSnackbar('Device deleted successfully', 'success');
-  //         await fetchDevices();
-  //       } catch (error: any) {
-  //         showSnackbar(error?.message || 'Failed to delete device', 'error');
-  //       }
-  //     }
-  //   };
-
   // ==================== RENDER FUNCTIONS ====================
+
+  // Bulk Mapping Dialog
+  const renderBulkMapDialog = () => (
+    <Dialog
+      open={openBulkMapDialog}
+      onClose={resetBulkMappingDialog}
+      maxWidth="lg"
+      fullWidth
+    >
+      <DialogTitle className="border-b !border-gray-200 !p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-[12px]">Bulk Map Device Employees</span>
+            <Chip
+              label={`${bulkMappings.length} mappings`}
+              size="small"
+              color="primary"
+              variant="outlined"
+            />
+          </div>
+          <IconButton size="small" onClick={resetBulkMappingDialog}>
+            <CloseOutlined className="text-gray-800" />
+          </IconButton>
+        </div>
+      </DialogTitle>
+
+      <DialogContent className="!p-4">
+        <Typography variant="body2" className="text-gray-500" sx={{ mb: 3 }}>
+          Link multiple device employee codes (MID) to HRMS employees before syncing punches.
+          Add all mappings and save them in bulk.
+        </Typography>
+       
+        {/* Toolbar */}
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+          <FormControl sx={{ minWidth: 200 }}>
+            <InputLabel>Default Device</InputLabel>
+            <Select
+              value={selectedDeviceForBulk}
+              label="Default Device"
+              onChange={(e) => {
+                const deviceId = e.target.value;
+                setSelectedDeviceForBulk(deviceId);
+                setBulkMappings(bulkMappings.map(m => ({
+                  ...m,
+                  deviceId: deviceId
+                })));
+              }}
+            >
+              <MenuItem value="">Select Device</MenuItem>
+              {devices.map((device) => (
+                <MenuItem key={device.id} value={device.id}>
+                  {device.deviceName} ({device.deviceSerial})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            startIcon={<Add />}
+            onClick={addBulkMappingRow}
+            disabled={bulkMappingLoading}
+          >
+            Add Mapping
+          </Button>
+
+          {bulkMappings.length > 0 && (
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => {
+                showConfirmDialog({
+                  title: 'Clear All Mappings',
+                  message: 'Are you sure you want to clear all mappings?',
+                  confirmText: 'Clear All',
+                  onConfirm: () => setBulkMappings([]),
+                });
+              }}
+              disabled={bulkMappingLoading}
+            >
+              Clear All
+            </Button>
+          )}
+        </div>
+
+        {/* Mappings Table */}
+        {bulkMappings.length > 0 ? (
+          <TableContainer className="border border-gray-200 bg-white-50">
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="!font-semibold" style={{ width: '30px' }}>#</TableCell>
+                  <TableCell className="!font-semibold" style={{ minWidth: '100px' }}>
+                    Device Employee Code (MID)
+                  </TableCell>
+                  <TableCell className="!font-semibold" style={{ minWidth: '100px' }}>
+                    HRMS Employee (Employee ID)
+                  </TableCell>
+                  {/* <TableCell className="!font-semibold" style={{ width: '120px' }}>
+                    Status
+                  </TableCell> */}
+                  <TableCell className="!font-semibold" style={{ width: '80px' }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {bulkMappings.map((mapping, index) => (
+                  <TableRow key={mapping.id} hover>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>
+                      <TextField
+                        fullWidth
+                        className="!py-2"
+                        placeholder="e.g., 1000"
+                        value={mapping.deviceEmployeeCode}
+                        onChange={(e) => handleBulkMappingChange(
+                          mapping.id,
+                          'deviceEmployeeCode',
+                          e.target.value
+                        )}
+                        error={!!bulkMappingErrors[`mapping_${index}_deviceEmployeeCode`]}
+                        helperText={bulkMappingErrors[`mapping_${index}_deviceEmployeeCode`]}
+                        disabled={mapping.status === 'success' || bulkMappingLoading}
+                      // sx={{ minWidth: 100 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="!py-2">
+                        <EmployeeSelector
+                          value={mapping.hrmsEmployee || null}
+                          onChange={(employee: any) => {
+                            handleBulkEmployeeSelect(employee, mapping.id);
+                            if (bulkMappingErrors[`mapping_${index}_hrmsEmployeeId`]) {
+                              const newErrors = { ...bulkMappingErrors };
+                              delete newErrors[`mapping_${index}_hrmsEmployeeId`];
+                              setBulkMappingErrors(newErrors);
+                            }
+                          }}
+                          placeholder="Search employee by name or code"
+                        />
+                      </div>
+                      {bulkMappingErrors[`mapping_${index}_hrmsEmployeeId`] && (
+                        <Typography variant="caption" color="error">
+                          {bulkMappingErrors[`mapping_${index}_hrmsEmployeeId`]}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    {/* <TableCell>
+                      {mapping.status === 'pending' && (
+                        <Chip label="Pending" size="small" color="warning" />
+                      )}
+                      {mapping.status === 'success' && (
+                        <Chip label="Success" size="small" color="success" icon={<CheckCircleOutlined />} />
+                      )}
+                      {mapping.status === 'error' && (
+                        <Chip label="Error" size="small" color="error" icon={<ErrorOutlined />} />
+                      )}
+                    </TableCell> */}
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Tooltip title="Delete mapping">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => removeBulkMappingRow(mapping.id)}
+                            disabled={mapping.status === 'success' || bulkMappingLoading}
+                          >
+                            <CloseOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+            <Typography variant="body2" className="text-gray-500">
+              No mappings added yet. Click <strong>"Add Mapping"</strong> to start adding mappings.
+            </Typography>
+          </div>
+        )}
+
+         {/* Results Summary */}
+        {bulkMappingResults && (
+          <div
+            // severity={bulkMappingResults.failed > 0 ? "warning" : "success"}
+            className="mt-4 bg-green-100 p-2 px-4 text-green-800 rounded-md"
+            // icon={bulkMappingResults.failed > 0 ? <WarningAmberOutlined /> : <CheckCircleOutlined />}
+          >
+            <div className="flex items-center justify-between text-[12px]">
+              <span>
+                <strong>{bulkMappingResults.successful}</strong> successful
+                {bulkMappingResults.failed > 0 && (
+                  <span className="ml-2">
+                    <strong className="text-red-600">{bulkMappingResults.failed}</strong> failed
+                  </span>
+                )}
+              </span>
+              <Button
+                size="small"
+                variant="outlined"
+                className="!text-primary !border-primary"
+                onClick={() => setBulkMappingResults(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        )}
+
+
+        {/* Error Summary */}
+        {bulkMappingResults && bulkMappingResults.errors.length > 0 && (
+          <Alert severity="error" className="mt-4">
+            <div className="max-h-[100px] overflow-y-auto">
+              {bulkMappingResults.errors.map((error, index) => (
+                <div key={index} className="text-xs py-0.5">
+                  • {error.deviceEmployeeCode}: {error.error}
+                </div>
+              ))}
+            </div>
+          </Alert>
+        )}
+      </DialogContent>
+
+      <DialogActions className="!border-t border-gray-200 !p-3">
+        <Button
+          onClick={resetBulkMappingDialog}
+          disabled={bulkMappingLoading}
+          variant="outlined"
+          className="!border-gray-200 !text-gray-800"
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleBulkSaveMapping}
+          variant="contained"
+          disabled={bulkMappingLoading || bulkMappings.length === 0}
+          className="!bg-primary"
+          startIcon={bulkMappingLoading ? <CircularProgress size={20} /> : <SaveIcon />}
+        >
+          {bulkMappingLoading
+            ? 'Saving...'
+            : `Save ${bulkMappings.filter(m => m.status !== 'success').length} Mappings`
+          }
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
   const renderDeviceForm = () => (
     <Dialog
       open={openDialog}
@@ -693,7 +1099,6 @@ export const DeviceManagement: React.FC = () => {
               error={!!formErrors.deviceSerial}
               helperText={formErrors.deviceSerial}
               required
-            // disabled={dialogMode === "edit"}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -1094,7 +1499,7 @@ export const DeviceManagement: React.FC = () => {
                             }
                             sx={{ height: 6, borderRadius: 3 }}
                           />
-                          <Typography variant="caption" color="textSecondary">
+                          <Typography variant="caption" className="text-gray-500">
                             {sync.punchesApplied}/{sync.punchesReceived} punches
                             applied
                           </Typography>
@@ -1155,7 +1560,7 @@ export const DeviceManagement: React.FC = () => {
         <div className="ml-4">Map Device Employee</div>
       </DialogTitle>
       <DialogContent className="!p-4">
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" className="text-gray-500" sx={{ mb: 2 }}>
           Link the device employee code to the correct HRMS employee before syncing punches.
         </Typography>
         <Grid container spacing={3} sx={{ mt: 1 }}>
@@ -1257,7 +1662,7 @@ export const DeviceManagement: React.FC = () => {
         <div className="ml-4">Process Webhook Punch</div>
       </DialogTitle>
       <DialogContent className="!p-4">
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" className="text-gray-500" sx={{ mb: 2 }}>
           Send a biometric punch event to the HRMS webhook endpoint for processing.
         </Typography>
         <Grid container spacing={3} sx={{ mt: 1 }}>
@@ -1357,52 +1762,10 @@ export const DeviceManagement: React.FC = () => {
         <div className="ml-4">Initiate Manual Sync</div>
       </DialogTitle>
       <DialogContent className="!p-4">
-        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" className="text-gray-500" sx={{ mb: 2 }}>
           Select device and date range to sync attendance data
         </Typography>
         <Grid container spacing={3} sx={{ mt: 1 }}>
-          {/* <Grid size={{ xs: 12 }}>
-                        <TextField
-                            fullWidth
-                            select
-                            label="Device"
-                            value={syncFormData.deviceId}
-                            onChange={handleSyncFormChange('deviceId')}
-                            error={!!syncErrors.deviceId}
-                            helperText={syncErrors.deviceId}
-                            required
-                        >
-                            {devices.map((device) => (
-                                <MenuItem key={device.id} value={device.id}>
-                                    {device.deviceName} ({device.deviceSerial})
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                        <TextField
-                            fullWidth
-                            type="datetime-local"
-                            label="Start Date"
-                            value={syncFormData.startDate}
-                            onChange={handleSyncFormChange('startDate')}
-                            error={!!syncErrors.startDate}
-                            helperText={syncErrors.startDate}
-                            required
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                        <TextField
-                            fullWidth
-                            type="datetime-local"
-                            label="End Date"
-                            value={syncFormData.endDate}
-                            onChange={handleSyncFormChange('endDate')}
-                            error={!!syncErrors.endDate}
-                            helperText={syncErrors.endDate}
-                            required
-                        />
-                    </Grid> */}
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en">
             <Grid container spacing={3} sx={{ mt: 1 }}>
               <Grid size={{ xs: 12 }}>
@@ -1551,6 +1914,15 @@ export const DeviceManagement: React.FC = () => {
             Refresh
           </Button>
           <Button
+            variant="outlined"
+            className="!text-primary !border-primary"
+            startIcon={<PersonIcon />}
+            onClick={() => setOpenBulkMapDialog(true)}
+            sx={{ mr: 2 }}
+          >
+            Bulk Map
+          </Button>
+          <Button
             variant="contained"
             className="!bg-primary"
             startIcon={<AddIcon />}
@@ -1617,11 +1989,6 @@ export const DeviceManagement: React.FC = () => {
               format="YYYY-MM-DD"
             />
           </Grid>
-          {/* <Grid size={{ xs: 12, sm: 10, md: 6 }}>
-            <div className="text-[12px] text-red-700">
-              Note:To fetch the logs from the device , please select the from and to date here
-            </div>
-          </Grid> */}
           <Grid size={{ xs: 6, sm: 6, md: 6 }} className="flex items-center whitespace-nowrap justify-end gap-2">
             <Button
               variant="contained"
@@ -1677,178 +2044,98 @@ export const DeviceManagement: React.FC = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              devices
-                // .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((device, i) => (
-                  <TableRow key={device.id} sx={getRowColor(i)}>
-                    <TableCell className="sticky left-0 z-30 bg-inherit" >
-                      <Checkbox className=""
-                        checked={selectedDevices.includes(device.id)}
-                        onChange={() => handleSelectDevice(device.id)}
-                      />
-                      {i + 1}
-                    </TableCell>
-                    <TableCell className="sticky left-[58px] z-30 bg-inherit">
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        {/* <ComputerIcon className="mr-1 text-primary" /> */}
-                        <Typography variant="body2">
-                          {device.deviceName}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>{device.deviceSerial}</TableCell>
-                    <TableCell>{device.deviceModel}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <WifiIcon sx={{ mr: 1, fontSize: 16 }} />
-                        {device.ipAddress}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{device.port}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <LocationOnOutlined sx={{ mr: 1, fontSize: 16 }} />
-                        {device.location}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title="Click to check health">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleCheckDeviceHealth(device)}
-                          disabled={healthLoading === device.id}
-                        >
-                          {healthLoading === device.id ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <Badge
-                              color={
-                                deviceHealth[device.id]?.status === "online"
-                                  ? "success"
-                                  : deviceHealth[device.id]?.status ===
-                                    "offline"
-                                    ? "error"
-                                    : "warning"
-                              }
-                              variant="dot"
-                            >
-                              <HealthAndSafetyOutlined className="!text-gray-500" />
-                            </Badge>
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={device.isActive ? "Active" : "Inactive"}
-                        color={device.isActive ? "success" : "error"}
-                        size="small"
-                      // icon={
-                      //   device.isActive ? <CheckCircleIcon /> : <CancelIcon />
-                      // }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {/* {new Date(device.lastSyncAt).toLocaleString()} */}
-                      {formatDateTime(device.lastSyncAt)}
-                    </TableCell>
-                    <TableCell align="center" className="sticky right-0 z-30 bg-inherit">
-                      {/* <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          gap: 0.5,
-                        }}
-                      >
-                        <Tooltip title="View Details">
-                          <IconButton
-                            size="small"
-                            color="info"
-                            onClick={() => handleOpenDetailsDialog(device)}
-                          >
-                            <VisibilityOutlined className="!text-primary" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenEditDialog(device)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip
-                          title={device.isActive ? "Deactivate" : "Activate"}
-                        >
-                          <IconButton
-                            size="small"
-                            color={device.isActive ? "error" : "success"}
-                            onClick={() => handleToggleDeviceStatus(device)}
-                          >
-                            {device.isActive ? (
-                              <CancelIcon />
-                            ) : (
-                              <CheckCircleIcon />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Sync">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => {
-                              setSyncFormData({
-                                deviceId: device.id,
-                                startDate: "",
-                                endDate: "",
-                              });
-                              setOpenSyncDialog(true);
-                            }}
-                          >
-                            <SyncIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box> */}
-                      {/* <Tooltip title="Logs">
-                        <Button onClick={() => fetchLogs(device)}>Fetch Logs</Button>
-                      </Tooltip> */}
-                      <Tooltip title="View Details">
-                        <IconButton
-                          size="small"
-                          color="info"
-                          onClick={() => handleOpenDetailsDialog(device)}
-                        >
-                          <VisibilityOutlined className="!text-primary" />
-                        </IconButton>
-                      </Tooltip>
+              devices.map((device, i) => (
+                <TableRow key={device.id} sx={getRowColor(i)}>
+                  <TableCell className="sticky left-0 z-30 bg-inherit" >
+                    <Checkbox
+                      checked={selectedDevices.includes(device.id)}
+                      onChange={() => handleSelectDevice(device.id)}
+                    />
+                    {i + 1}
+                  </TableCell>
+                  <TableCell className="sticky left-[58px] z-30 bg-inherit">
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <Typography variant="body2">
+                        {device.deviceName}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>{device.deviceSerial}</TableCell>
+                  <TableCell>{device.deviceModel}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <WifiIcon sx={{ mr: 1, fontSize: 16 }} />
+                      {device.ipAddress}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{device.port}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <LocationOnOutlined sx={{ mr: 1, fontSize: 16 }} />
+                      {device.location}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip title="Click to check health">
                       <IconButton
                         size="small"
-                        onClick={(e) => {
-                          handleMenuOpen(e, device.id);
-                          setSelectedMenuDevice(device)
-                        }}
+                        onClick={() => handleCheckDeviceHealth(device)}
+                        disabled={healthLoading === device.id}
                       >
-                        <MoreVertOutlined className="!text-gray-800" />
+                        {healthLoading === device.id ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          <Badge
+                            color={
+                              deviceHealth[device.id]?.status === "online"
+                                ? "success"
+                                : deviceHealth[device.id]?.status === "offline"
+                                  ? "error"
+                                  : "warning"
+                            }
+                            variant="dot"
+                          >
+                            <HealthAndSafetyOutlined className="!text-gray-500" />
+                          </Badge>
+                        )}
                       </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={device.isActive ? "Active" : "Inactive"}
+                      color={device.isActive ? "success" : "error"}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {formatDateTime(device.lastSyncAt)}
+                  </TableCell>
+                  <TableCell align="center" className="sticky right-0 z-30 bg-inherit">
+                    <Tooltip title="View Details">
+                      <IconButton
+                        size="small"
+                        color="info"
+                        onClick={() => handleOpenDetailsDialog(device)}
+                      >
+                        <VisibilityOutlined className="!text-primary" />
+                      </IconButton>
+                    </Tooltip>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        handleMenuOpen(e, device.id);
+                        setSelectedMenuDevice(device)
+                      }}
+                    >
+                      <MoreVertOutlined className="!text-gray-800" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
-        {/* <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={devices.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={(e, newPage) => setPage(newPage)}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-        /> */}
       </TableContainer>
 
       <Menu
@@ -1864,20 +2151,6 @@ export const DeviceManagement: React.FC = () => {
           horizontal: "right",
         }}
       >
-        {/* <MenuItem
-          onClick={() => {
-            handleMenuClose();
-            if (selectedMenuDevice) {
-              handleOpenDetailsDialog(selectedMenuDevice);
-            }
-          }}
-        >
-          <ListItemIcon>
-            <VisibilityOutlined fontSize="small" className="!text-primary" />
-          </ListItemIcon>
-          <ListItemText>View Details</ListItemText>
-        </MenuItem> */}
-
         <MenuItem
           onClick={() => {
             handleMenuClose();
@@ -1912,7 +2185,7 @@ export const DeviceManagement: React.FC = () => {
           </ListItemText>
         </MenuItem>
 
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
             handleMenuClose();
             if (selectedMenuDevice) {
@@ -1924,9 +2197,9 @@ export const DeviceManagement: React.FC = () => {
             <PersonIcon fontSize="small" className="!w-4 text-gray-500" />
           </ListItemIcon>
           <ListItemText>Map Employee</ListItemText>
-        </MenuItem>
+        </MenuItem> */}
 
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
             handleMenuClose();
             if (selectedMenuDevice) {
@@ -1938,9 +2211,9 @@ export const DeviceManagement: React.FC = () => {
             <SendIcon fontSize="small" color="success" className="!w-4" />
           </ListItemIcon>
           <ListItemText>Process Webhook</ListItemText>
-        </MenuItem>
+        </MenuItem> */}
 
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
             handleMenuClose();
             if (selectedMenuDevice) {
@@ -1957,11 +2230,7 @@ export const DeviceManagement: React.FC = () => {
             <SyncIcon fontSize="small" color="warning" />
           </ListItemIcon>
           <ListItemText>Sync</ListItemText>
-        </MenuItem>
-
-
-
-
+        </MenuItem> */}
       </Menu>
 
       {/* Dialogs */}
@@ -1970,6 +2239,7 @@ export const DeviceManagement: React.FC = () => {
       {renderWebhookDialog()}
       {renderSyncDialog()}
       {renderDeviceDetails()}
+      {renderBulkMapDialog()}
     </Box>
   );
 };

@@ -99,12 +99,22 @@ export const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
   { value: "published", label: "Published" },
 ];
 
+// export const calcLabel: Record<string, string> = {
+//   FIXED_AMOUNT: "Fixed Amount",
+//   PERCENT_OF_CTC: "% of CTC",
+//   PERCENT_OF_BASIC: "% of Basic",
+//   SLAB_BASED : "Slab Based",
+//   FORMULA: "Formula",
+// };
+
 export const calcLabel: Record<string, string> = {
   FIXED_AMOUNT: "Fixed Amount",
-  PERCENT_OF_CTC: "% of CTC",
   PERCENT_OF_BASIC: "% of Basic",
-  SLAB_BASED : "Slab Based",
+  PERCENT_OF_CTC: "% of CTC",
   FORMULA: "Formula",
+  SLAB_BASED: "Slab Based",
+  FIXED: "Fixed Amount",
+  PERCENTAGE: "Percentage",
 };
 
 export const steps = [
@@ -114,8 +124,8 @@ export const steps = [
   { id: 4, name: "Review & Save", desc: "Review and publish" },
 ];
 
-export const employmentTypes = ["PERMANENT", "CONTRACT", "INTERN", "CONSULTANT"];
-export const grades = ["L1", "L2", "L3", "L4", "L5", "L6"];
+// export const employmentTypes = ["PERMANENT", "CONTRACT", "INTERN", "CONSULTANT"];
+// export const grades = ["L1", "L2", "L3", "L4", "L5", "L6"];
 
 export const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
   draft: { label: "Draft", color: "#6b7280", bgColor: "#f3f4f6" },

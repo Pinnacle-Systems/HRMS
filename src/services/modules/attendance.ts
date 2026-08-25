@@ -31,6 +31,7 @@ import type {
   ImportPunchesParams,
   ImportFileParams,
   BulkCheckinPayload,
+  LopQuery,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -242,6 +243,10 @@ export const attendanceService = {
     //   return Mock.mockResponse(Mock.getMockReportOvertime(params as any), "Overtime report loaded");
     // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_OVERTIME, { params });
+  },
+
+  async getReportLop(params: LopQuery) {
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.REPORT_LOP, { params });
   },
 
   async getReportAbsenteeism(params: AbsenteeismQuery) {

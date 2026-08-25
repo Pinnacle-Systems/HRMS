@@ -4,14 +4,15 @@ import {
   EventBusyOutlined, TouchAppOutlined, CorporateFareOutlined,
   ManageAccountsOutlined, BeachAccessOutlined,
 } from "@mui/icons-material";
-import { MonthlySummaryReport }   from "./reports/MonthlySummaryReport";
-import { LateArrivalReport }       from "./reports/LateArrivalReport";
-import { OvertimeReport }          from "./reports/OvertimeReport";
-import { AbsenteeismReport }       from "./reports/AbsenteeismReport";
-import { IrregularPunchReport }    from "./reports/IrregularPunchReport";
-import { DepartmentWiseReport }    from "./reports/DepartmentWiseReport";
-import { EmployeeHistoryReport }   from "./reports/EmployeeHistoryReport";
-import { LeaveUtilizationReport }  from "./reports/LeaveUtilizationReport";
+import { MonthlySummaryReport } from "./reports/MonthlySummaryReport";
+import { LateArrivalReport } from "./reports/LateArrivalReport";
+import { OvertimeReport } from "./reports/OvertimeReport";
+import { AbsenteeismReport } from "./reports/AbsenteeismReport";
+import { IrregularPunchReport } from "./reports/IrregularPunchReport";
+import { DepartmentWiseReport } from "./reports/DepartmentWiseReport";
+import { EmployeeHistoryReport } from "./reports/EmployeeHistoryReport";
+import { LeaveUtilizationReport } from "./reports/LeaveUtilizationReport";
+import { LopReport } from "./reports/LopReport";
 
 type ReportId =
   | "monthly-summary"
@@ -21,6 +22,7 @@ type ReportId =
   | "irregular-punch"
   | "department-wise"
   | "employee-history"
+  | "lop"
   | "leave-utilization";
 
 interface ReportMeta {
@@ -115,6 +117,16 @@ const REPORTS: ReportMeta[] = [
     border: "border-green-200 hover:border-green-400",
     tag: "Leave",
   },
+  {
+    id: "lop",
+    title: "Loss of Pay (LOP) Report",
+    description: "Employee-wise loss of pay days with absence details, LOP calculation, and reason tracking",
+    icon: <EventBusyOutlined fontSize="large" />,
+    color: "text-red-600",
+    bg: "bg-red-50",
+    border: "border-red-200 hover:border-red-400",
+    tag: "Monthly",
+  },
 ];
 
 function ReportCard({ report, onClick }: { report: ReportMeta; onClick: () => void }) {
@@ -144,14 +156,15 @@ function ReportCard({ report, onClick }: { report: ReportMeta; onClick: () => vo
 
 function renderReport(id: ReportId, onBack: () => void) {
   switch (id) {
-    case "monthly-summary":   return <MonthlySummaryReport onBack={onBack} />;
-    case "late-arrival":      return <LateArrivalReport onBack={onBack} />;
-    case "overtime":          return <OvertimeReport onBack={onBack} />;
-    case "absenteeism":       return <AbsenteeismReport onBack={onBack} />;
-    case "irregular-punch":   return <IrregularPunchReport onBack={onBack} />;
-    case "department-wise":   return <DepartmentWiseReport onBack={onBack} />;
-    case "employee-history":  return <EmployeeHistoryReport onBack={onBack} />;
+    case "monthly-summary": return <MonthlySummaryReport onBack={onBack} />;
+    case "late-arrival": return <LateArrivalReport onBack={onBack} />;
+    case "overtime": return <OvertimeReport onBack={onBack} />;
+    case "absenteeism": return <AbsenteeismReport onBack={onBack} />;
+    case "irregular-punch": return <IrregularPunchReport onBack={onBack} />;
+    case "department-wise": return <DepartmentWiseReport onBack={onBack} />;
+    case "employee-history": return <EmployeeHistoryReport onBack={onBack} />;
     case "leave-utilization": return <LeaveUtilizationReport onBack={onBack} />;
+    case "lop": return <LopReport onBack={onBack} />; // Add this
   }
 }
 
@@ -180,7 +193,7 @@ export default function AttendanceReports() {
               Periodic Reports
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {REPORTS.filter(r => ["monthly-summary", "absenteeism", "leave-utilization"].includes(r.id)).map(r => (
+              {REPORTS.filter(r => ["monthly-summary", "absenteeism", "leave-utilization","lop"].includes(r.id)).map(r => (
                 <ReportCard key={r.id} report={r} onClick={() => setActiveReport(r.id)} />
               ))}
             </div>

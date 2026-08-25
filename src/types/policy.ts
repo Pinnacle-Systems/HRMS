@@ -831,6 +831,7 @@ export interface PolicyAssignment {
   employmentTypeName?: string;
   employeeName?: string;
   employeeGroupName?: string;
+  template?: string;
 }
 
 export interface PolicyEvaluationRequest {
@@ -874,6 +875,7 @@ export interface Employee {
   grade?: string;
   shiftType?: string;
   location?: string;
+  annualCtc?: number
 }
 
 export interface Domain {

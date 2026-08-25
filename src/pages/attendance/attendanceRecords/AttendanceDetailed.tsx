@@ -250,7 +250,7 @@ export function AttendanceDetailed() {
                   <TableCell
                     key={h}
                     className={`!font-bold !text-gray-700 !bg-gray-50 ${h === "S No" ? "!sticky left-0 !z-30" : ""} ${h === "Name" ? "!sticky left-[59px] !z-30" : ""}
-                     ${h === "Date" ? "!sticky left-[123px] !z-30" : ""} 
+                     ${h === "Date" ? "!sticky left-[128px] !z-30" : ""} 
                      ${h === "Status" ? "!sticky right-[76px] !z-30" : ""}
                       ${h === "Actions" ? "!sticky right-0 !z-30" : ""}`}
                   >
@@ -284,7 +284,7 @@ export function AttendanceDetailed() {
                       </div>
                     </TableCell>
                     {/* <TableCell>{r.department ?? "-"}</TableCell> */}
-                    <TableCell className=" whitespace-nowrap sticky left-[220px] z-20 bg-inherit">
+                    <TableCell className=" whitespace-nowrap sticky left-[210px] z-20 bg-inherit">
                       {dayjs(r.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
                     <TableCell>

@@ -91,7 +91,7 @@ export default function UpcomingEventsPage() {
                 <Button
                     variant="outlined"
                     size="small"
-                    startIcon={<RefreshOutlinedIcon />}
+                    startIcon={<RefreshOutlinedIcon className="text-gray-800"/>}
                     onClick={() => loadEvents()}
                     disabled={loading}
                 >

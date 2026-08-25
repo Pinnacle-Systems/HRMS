@@ -174,11 +174,11 @@ export const employeePortalService = {
     };
   },
 
-  async getSelfFullPortalData(): Promise<SelfFullPortalData> {
+  async getSelfFullPortalData(empid: any): Promise<SelfFullPortalData> {
     const [selfView, taxSummary, payslips] = await Promise.all([
       this.getSelfView(),
       this.getSelfTaxSummary(),
-      this.getEmployeePayslips('self'),
+      this.getEmployeePayslips(empid),
     ]);
 
     return {

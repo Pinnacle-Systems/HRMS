@@ -1,5 +1,6 @@
 import { apiService } from "../services/api/api.config";
 import { API_ENDPOINTS } from "../services/api/endpoints";
+import { logger } from "../utils/logger";
 import { mapAuthResponseToSession, mapLoginResponseToOutcome } from "./authMapper";
 import {
   clearSession,
@@ -153,41 +154,108 @@ export async function selectTenant(
 }
 
 
+// export async function refreshSession(): Promise<AuthSession | null> {
+//   const refreshToken = getRefreshToken();
+
+//   if (!refreshToken) {
+//     return null;
+//   }
+
+//   const response = (await apiService.post(API_ENDPOINTS.AUTH.REFRESH, {
+//     refreshToken,
+//   })) as ApiResponse<AuthResponse>;
+
+//   if (!response.success || !response.data?.accessToken) {
+//     return null;
+//   }
+
+//   const currentSession = loadSession();
+//   const session =
+//     response.data.userId || response.data.roles?.length
+//       ? mapAuthResponseToSession({
+//           ...response.data,
+//           refreshToken: response.data.refreshToken || refreshToken,
+//         })
+//       : updateAccessToken(response.data.accessToken, response.data.expiresIn);
+
+//   if (!session && currentSession) {
+//     return updateAccessToken(response.data.accessToken, response.data.expiresIn);
+//   }
+
+//   if (!session) {
+//     return null;
+//   }
+
+//   saveSession(session);
+
+//   return session;
+// }
+
+// authApi.ts - Add this at the top
+let refreshPromise: Promise<AuthSession | null> | null = null;
+
 export async function refreshSession(): Promise<AuthSession | null> {
-  const refreshToken = getRefreshToken();
-
-  if (!refreshToken) {
-    return null;
+  // If refresh is already in progress, return that promise
+  if (refreshPromise) {
+    logger.debug("Refresh already in progress, returning existing promise");
+    return refreshPromise;
   }
 
-  const response = (await apiService.post(API_ENDPOINTS.AUTH.REFRESH, {
-    refreshToken,
-  })) as ApiResponse<AuthResponse>;
+  refreshPromise = (async () => {
+    try {
+      const refreshToken = getRefreshToken();
 
-  if (!response.success || !response.data?.accessToken) {
-    return null;
-  }
+      if (!refreshToken) {
+        logger.warn("No refresh token available");
+        return null;
+      }
 
-  const currentSession = loadSession();
-  const session =
-    response.data.userId || response.data.roles?.length
-      ? mapAuthResponseToSession({
-          ...response.data,
-          refreshToken: response.data.refreshToken || refreshToken,
-        })
-      : updateAccessToken(response.data.accessToken, response.data.expiresIn);
+      logger.info("Refreshing session with refresh token");
+      const response = (await apiService.post(API_ENDPOINTS.AUTH.REFRESH, {
+        refreshToken,
+      })) as ApiResponse<AuthResponse>;
 
-  if (!session && currentSession) {
-    return updateAccessToken(response.data.accessToken, response.data.expiresIn);
-  }
+      if (!response.success || !response.data?.accessToken) {
+        logger.warn("Refresh response invalid", { 
+          success: response.success,
+          hasAccessToken: Boolean(response.data?.accessToken)
+        });
+        return null;
+      }
 
-  if (!session) {
-    return null;
-  }
+      const currentSession = loadSession();
+      const session = response.data.userId || response.data.roles?.length
+        ? mapAuthResponseToSession({
+            ...response.data,
+            refreshToken: response.data.refreshToken || refreshToken,
+          })
+        : updateAccessToken(response.data.accessToken, response.data.expiresIn);
 
-  saveSession(session);
+      if (!session && currentSession) {
+        logger.info("Using existing session with new access token");
+        return updateAccessToken(response.data.accessToken, response.data.expiresIn);
+      }
 
-  return session;
+      if (!session) {
+        logger.warn("Failed to create session from refresh response");
+        return null;
+      }
+
+      logger.info("Session refreshed successfully", {
+        userId: session.user.userId,
+        expiresIn: session.expiresIn
+      });
+      saveSession(session);
+      return session;
+    } catch (error) {
+      logger.error("Refresh session failed", { error });
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 export async function logout(): Promise<void> {

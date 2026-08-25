@@ -23,6 +23,11 @@ export function loadSession(): AuthSession | null {
 
   try {
     const session = JSON.parse(raw) as AuthSession;
+     if (session.expiresAt && session.expiresAt < Date.now()) {
+      logger.warn("Session token expired, clearing");
+      clearSession();
+      return null;
+    }
     if (!session.accessToken || !session.refreshToken || !session.user) {
       logger.warn("Stored auth session is incomplete; clearing it");
       clearSession();
@@ -43,6 +48,16 @@ export function loadSession(): AuthSession | null {
   }
 }
 
+export function shouldRefreshSession(session: AuthSession | null): boolean {
+  if (!session) return false;
+  
+  const timeUntilExpiry = session.expiresAt - Date.now();
+  const fiveMinutes = 5 * 60 * 1000;
+  
+  // Refresh if less than 5 minutes remaining
+  return timeUntilExpiry < fiveMinutes;
+}
+
 export function clearSession(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   logger.debug("Cleared auth session");
@@ -59,6 +74,7 @@ export function getRefreshToken(): string | null {
 export function updateAccessToken(
   accessToken: string,
   expiresIn?: number,
+   additionalData?: Partial<Omit<AuthSession, 'accessToken' | 'expiresIn' | 'expiresAt'>>
 ): AuthSession | null {
   const session = loadSession();
 
@@ -73,6 +89,7 @@ export function updateAccessToken(
     expiresAt: expiresIn
       ? Date.now() + expiresIn * 1000
       : session.expiresAt,
+      ...additionalData, 
   };
 
   saveSession(updatedSession);

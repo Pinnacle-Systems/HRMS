@@ -24,6 +24,8 @@ export interface EmployeeDeduction {
   sourceRefId: string;
   createdAt: string;
   updatedAt: string;
+  employeeName: string;
+  employeeCode: string;
 }
 
 export interface Employee {
@@ -95,8 +97,8 @@ export const employeeDeductionsService = {
     return apiService.post(API_ENDPOINTS.PAYROLL.EMP_DEDUCTIONS.CREATE, payload);
   },
 
-  async createDeductionFromLoan(id: string) {
-    return apiService.post(API_ENDPOINTS.PAYROLL.EMP_DEDUCTIONS.FROM_LOAN(id));
+  async createDeductionFromLoan(loanRequestId: string) {
+    return apiService.post(API_ENDPOINTS.PAYROLL.EMP_DEDUCTIONS.FROM_LOAN(loanRequestId));
   },
 
   async updateEmployeeDeduction(id: string, payload: EmployeeDeductionUpdatePayload) {

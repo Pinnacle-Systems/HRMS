@@ -66,7 +66,7 @@ export default function SalaryComponentBuilder() {
     benefitComponents: 0,
     totalComponents: 0,
   });
-  
+
   // Formula validation states
   const [formulaValidation, setFormulaValidation] = useState<{
     valid: boolean;
@@ -80,7 +80,7 @@ export default function SalaryComponentBuilder() {
     name: "",
     code: "",
     componentType: "earning",
-    calculationType: "FIXED",
+    calculationType: "FIXED_AMOUNT",
     calculationValue: 0,
     taxable: false,
     displayOrder: 0,
@@ -101,7 +101,7 @@ export default function SalaryComponentBuilder() {
         salaryComponentsService.getComponents(),
         salaryComponentsService.getComponentSummary(),
       ]);
-      
+
       const list = (componentsResponse.data?.content || []).map((component: any) => ({
         id: component.id,
         name: component.name,
@@ -119,7 +119,7 @@ export default function SalaryComponentBuilder() {
         createdAt: component.createdAt,
         updatedAt: component.updatedAt,
       }));
-      
+
       setComponents(list);
       setSummary(summaryResponse.data || {
         earningComponents: 0,
@@ -141,14 +141,14 @@ export default function SalaryComponentBuilder() {
       showSnackbar("Please enter a formula to validate", "warning");
       return;
     }
-    
+
     setIsValidating(true);
     try {
       const response: any = await salaryComponentsService.validateFormula({
         expression: formData.formulaExpression,
       });
       setFormulaValidation(response.data);
-      
+
       if (response.data.valid) {
         showSnackbar("Formula is valid!", "success");
       } else {
@@ -166,7 +166,24 @@ export default function SalaryComponentBuilder() {
       showSnackbar("Please fill all required fields", "warning");
       return;
     }
-    
+
+    // Validate based on calculation type
+    if (formData.calculationType === "FIXED_AMOUNT" && formData.calculationValue <= 0) {
+      showSnackbar("Please enter a valid amount for Fixed Amount", "warning");
+      return;
+    }
+
+    if ((formData.calculationType === "PERCENT_OF_BASIC" || formData.calculationType === "PERCENT_OF_CTC") &&
+      (formData.calculationValue < 0 || formData.calculationValue > 100)) {
+      showSnackbar("Percentage must be between 0 and 100", "warning");
+      return;
+    }
+
+    if (formData.calculationType === "FORMULA" && !formData.formulaExpression) {
+      showSnackbar("Please enter a formula expression", "warning");
+      return;
+    }
+
     // If formula type, validate before saving
     if (formData.calculationType === "FORMULA" && formData.formulaExpression) {
       try {
@@ -182,7 +199,7 @@ export default function SalaryComponentBuilder() {
         return;
       }
     }
-    
+
     showSpinner();
     try {
       if (editingComponent) {
@@ -280,7 +297,7 @@ export default function SalaryComponentBuilder() {
     const matchesType = filterType === "all" || c.componentType === filterType;
     return matchesSearch && matchesType;
   });
-  
+
   return (
     <Box className="bg-white-50">
       {/* Header */}
@@ -352,7 +369,7 @@ export default function SalaryComponentBuilder() {
       </Box>
 
       {/* Table */}
-      <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-480px)] overflow-auto">
+      <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-370px)] overflow-auto">
         <Table stickyHeader>
           <TableHead>
             <TableRow>
@@ -360,7 +377,7 @@ export default function SalaryComponentBuilder() {
               <TableCell className="!font-bold">Component</TableCell>
               <TableCell className="!font-bold">Code</TableCell>
               <TableCell className="!font-bold">Type</TableCell>
-              <TableCell className="!font-bold">Calculation</TableCell>
+              <TableCell className="!font-bold">Calculation Type</TableCell>
               <TableCell className="!font-bold">Value</TableCell>
               <TableCell className="!font-bold">Taxable</TableCell>
               <TableCell className="!font-bold" align="center">Actions</TableCell>
@@ -395,11 +412,33 @@ export default function SalaryComponentBuilder() {
                         {calcLabel[component.calculationType] || component.calculationType}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {component.calculationType === "FIXED"
                           ? `₹${component.calculationValue?.toLocaleString()}`
                           : `${component.calculationValue}%`}
+                      </Typography>
+                    </TableCell> */}
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        {component.calculationType === "FIXED_AMOUNT" && (
+                          `₹${component.calculationValue?.toLocaleString()}`
+                        )}
+                        {component.calculationType === "PERCENT_OF_BASIC" && (
+                          `${component.calculationValue}% of Basic`
+                        )}
+                        {component.calculationType === "PERCENT_OF_CTC" && (
+                          `${component.calculationValue}% of CTC`
+                        )}
+                        {component.calculationType === "FORMULA" && (
+                          `Formula: ${component.formulaExpression || 'N/A'}`
+                        )}
+                        {component.calculationType === "SLAB_BASED" && (
+                          `₹${component.calculationValue}/month`
+                        )}
+                        {!component.calculationType && (
+                          `${component.calculationValue}%`
+                        )}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -432,15 +471,15 @@ export default function SalaryComponentBuilder() {
       </TableContainer>
 
       {/* Tips */}
-      <Box sx={{ mt: 3, p: 2.5, borderRadius: 2, border: `1px solid ${theme.palette.divider}`, bgcolor: alpha(theme.palette.primary.main, 0.04), display: "flex", gap: 2 }}>
+      <Box sx={{ mt: 1, p: 1.5, borderRadius: 2, border: `1px solid ${theme.palette.divider}`, bgcolor: alpha(theme.palette.primary.main, 0.04), display: "flex", gap: 2 }}>
         <Box sx={{ width: 32, height: 32, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.1), display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <CalculateIcon sx={{ fontSize: 16, color: "primary.main" }} />
         </Box>
         <Box>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Typography sx={{ fontWeight: 600 }}>
             Formula Builder Tips
           </Typography>
-          <Typography variant="body2" className="text-gray-500 mt-1">
+          <Typography className="text-gray-500 mt-1">
             Use component codes as variables in formulas. Example:{" "}
             <code className="border border-gray-200 p-1 bg-primary-100 font-bold text-primary">
               (BASIC * 0.5) + 1000
@@ -494,9 +533,9 @@ export default function SalaryComponentBuilder() {
                 value={formData.componentType}
                 onChange={(e) => setFormData({ ...formData, componentType: e.target.value })}
               >
-                <FormControlLabel value="earning" control={<Radio className="text-gray-800" />} label="Earning" />
-                <FormControlLabel value="deduction" control={<Radio className="text-gray-800" />} label="Deduction" />
-                <FormControlLabel value="benefit" control={<Radio className="text-gray-800" />} label="Benefit" />
+                <FormControlLabel value="earning" checked={formData.componentType == 'EARNING' ? true : false} control={<Radio className="text-gray-800" />} label="Earning" />
+                <FormControlLabel value="deduction" checked={formData.componentType == 'DEDUCTION' ? true : false} control={<Radio className="text-gray-800" />} label="Deduction" />
+                <FormControlLabel value="benefit" checked={formData.componentType == 'BENEFIT' ? true : false} control={<Radio className="text-gray-800" />} label="Benefit" />
               </RadioGroup>
             </FormControl>
 
@@ -512,9 +551,14 @@ export default function SalaryComponentBuilder() {
                     }}
                     label="Calculation Type"
                   >
-                    {Object.entries(calcLabel).map(([k, v]) => (
+                    {/* {Object.entries(calcLabel).map(([k, v]) => (
                       <MenuItem key={k} value={k}>{v}</MenuItem>
-                    ))}
+                    ))} */}
+                    <MenuItem value="FIXED_AMOUNT">Fixed Amount</MenuItem>
+                    <MenuItem value="PERCENT_OF_BASIC">% of Basic</MenuItem>
+                    <MenuItem value="PERCENT_OF_CTC">% of CTC</MenuItem>
+                    <MenuItem value="FORMULA">Formula</MenuItem>
+                    <MenuItem value="SLAB_BASED">Slab Based</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -559,10 +603,10 @@ export default function SalaryComponentBuilder() {
                     {isValidating ? "Validating..." : "Validate Formula"}
                   </Button>
                 </Box>
-                
+
                 {formulaValidation && (
-                  <Alert 
-                    severity={formulaValidation.valid ? "success" : "error"} 
+                  <Alert
+                    severity={formulaValidation.valid ? "success" : "error"}
                     sx={{ mt: 2 }}
                     icon={formulaValidation.valid ? <CheckCircleIcon /> : <ErrorIcon />}
                   >

@@ -13,6 +13,8 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   holiday: "Holiday",
   weekly_off: "Weekly Off",
   irregular: "Irregular",
+  missed_punch: "Missed Punch",
+  missed_out: "Missed Punch"
 };
 
 export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
@@ -28,6 +30,8 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   holiday: "#64748b",
   weekly_off: "#94a3b8",
   irregular: "#ec4899",
+  missed_punch: "#ec4899",
+  missed_out: "#ec4899"
 };
 
 export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
@@ -43,6 +47,8 @@ export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
   holiday: "bg-slate-100 text-slate-600",
   weekly_off: "bg-gray-100 text-gray-500",
   irregular: "bg-pink-100 text-pink-700",
+  missed_punch: "bg-pink-100 text-pink-700",
+  missed_out: "bg-pink-100 text-pink-700"
 };
 
 export const MUSTER_STATUS_CELL: Record<string, string> = {
@@ -58,6 +64,7 @@ export const MUSTER_STATUS_CELL: Record<string, string> = {
   holiday: "bg-slate-300 text-slate-700",
   weekly_off: "bg-gray-200 text-gray-500",
   irregular: "bg-pink-500 text-white",
+  missed_punch: "bg-pink-500 text-white",
 };
 
 export const MUSTER_STATUS_ABBR: Record<string, string> = {
@@ -101,7 +108,8 @@ export const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "permission", label: "Permission" },
   { value: "holiday", label: "Holiday" },
   { value: "weekly_off", label: "Weekly Off" },
-  { value: "irregular", label: "Irregular" },
+  // { value: "irregular", label: "Irregular" },
+  { value: "missed_punch", label: "Missed Punch" },
 ];
 
 export function formatMinutes(minutes: number): string {

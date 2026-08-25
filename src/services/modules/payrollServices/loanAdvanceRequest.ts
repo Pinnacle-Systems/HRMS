@@ -101,8 +101,8 @@ export const loanAdvanceService = {
     return apiService.post(API_ENDPOINTS.PAYROLL.LOAN_ADVANCE.REJECT(id), payload);
   },
 
-  async getLoanAdvanceSummary() {
-    return apiService.get(API_ENDPOINTS.PAYROLL.LOAN_ADVANCE.SUMMARY);
+  async getLoanAdvanceSummary(params: any) {
+    return apiService.get(API_ENDPOINTS.PAYROLL.LOAN_ADVANCE.SUMMARY, {params});
   },
 
   async getMyLoanRequests(params?: LoanAdvanceMyQuery) {

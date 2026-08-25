@@ -3,6 +3,7 @@ import { IconButton, Tooltip, CircularProgress, Button } from "@mui/material";
 import {
   ArrowBackOutlined, FileDownloadOutlined,
   PictureAsPdfOutlined, TableViewOutlined, RefreshOutlined,
+  NoteAltOutlined,
 } from "@mui/icons-material";
 import { attendanceService } from "../../../services/modules/attendance";
 import { apiService } from "../../../services/api/api.config";
@@ -84,11 +85,12 @@ export function ReportLayout({
                 <TableViewOutlined fontSize="small" className="text-green-600 !w-4" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Export PDF">
-              <IconButton size="small" onClick={() => handleExport("pdf")} className="border border-gray-300">
+            {/* <Tooltip title="Export CSV">
+              <IconButton size="small" onClick={() => handleExport("csv")} className="border border-gray-300">
                 <PictureAsPdfOutlined fontSize="small" className="text-red-500 !w-4" />
+                <NoteAltOutlined fontSize="small" className="text-red-500 !w-4"/>
               </IconButton>
-            </Tooltip>
+            </Tooltip> */}
             <Tooltip title="Export CSV">
               <IconButton size="small" onClick={() => handleExport("csv")} className="border border-gray-300">
                 <FileDownloadOutlined fontSize="small" className="text-blue-500 !w-4" />
@@ -110,7 +112,7 @@ export function ReportLayout({
             className="!bg-primary !p-2 !px-5"
             startIcon={generating
               ? <><CircularProgress size={14} /> </>
-              : <><RefreshOutlined  /> </>
+              : <><RefreshOutlined  className="text-gray-800"/> </>
             }
           >
             {generating ? 'Generating...':'Generate'}

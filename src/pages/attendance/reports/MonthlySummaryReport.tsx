@@ -92,7 +92,7 @@ export function MonthlySummaryReport({ onBack }: Props) {
             </FormControl>
           </FilterField>
           <FilterField label="Department">
-            <FormControl>
+            <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
                 <MenuItem value="">All Departments</MenuItem>
                 {departments.map((d) => (
@@ -104,7 +104,7 @@ export function MonthlySummaryReport({ onBack }: Props) {
         </>
       }
     >
-      <TableContainer className="max-h-[calc(100vh-420px)]">
+      <TableContainer className="max-h-[calc(100vh-380px)]">
         <Table stickyHeader>
           <TableHead>
             <TableRow>
@@ -120,7 +120,7 @@ export function MonthlySummaryReport({ onBack }: Props) {
               <TableRow key={r.employeeId} sx={getRowColor(i)}>
                 <TableCell>{i + 1}</TableCell>
                 <TableCell>{r.employeeCode}</TableCell>
-                <TableCell className="whitespace-nowrap">{r.employeeName}</TableCell>
+                <TableCell className="whitespace-nowrap"><div className="!p-2">{r.employeeName}</div></TableCell>
                 <TableCell>{r.department}</TableCell>
                 <TableCell>{r.designation}</TableCell>
                 <TableCell className="!text-center !font-bold"><span className="!text-green-600">{r.presentDays}</span></TableCell>
@@ -147,11 +147,11 @@ export function MonthlySummaryReport({ onBack }: Props) {
           </TableBody>
         </Table>
       </TableContainer>
-      <GlobalPagination
+      {/* <GlobalPagination
         total={total} page={page} limit={limit}
         onPageChange={p => { setPage(p); generate(p, limit); }}
         onLimitChange={l => { setLimit(l); setPage(1); generate(1, l); }}
-      />
+      /> */}
     </ReportLayout>
   );
 }

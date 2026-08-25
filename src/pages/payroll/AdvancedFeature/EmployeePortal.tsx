@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Card,
@@ -35,7 +35,6 @@ import {
   Person as PersonIcon,
   Receipt as ReceiptIcon,
   AccountBalance as BankIcon,
-  CheckCircle as CheckCircleIcon,
   AccessTime as TimeIcon,
   Refresh as RefreshIcon,
   Download as DownloadIcon,
@@ -53,6 +52,8 @@ import { getRowColor } from "../../const";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { salaryViewService } from "../../../services/modules/payrollServices/salaryView";
 import { apiService } from "../../../services";
+import { useNavigate } from "react-router-dom";
+import type { Department } from "../../employees/type";
 
 const formatDate = (dateString: string) => {
   if (!dateString) return "-";
@@ -69,6 +70,7 @@ export default function EmployeePortal() {
   const theme = useTheme();
   const { session } = useAuth();
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
+  const navigate = useNavigate();
 
   // User role checks
   const userRoles = session?.user?.roles || [];
@@ -80,26 +82,22 @@ export default function EmployeePortal() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogType, setDialogType] = useState<"payslip" | "bank" | "profile" | "loan">("bank");
-  const [loading, setLoading] = useState(false);
 
   // Portal data
   const [portalData, setPortalData] = useState<any>(null);
   const [employees, setEmployees] = useState<PortalEmployee[]>([]);
-  const [summary, setSummary] = useState<any>(null);
-  const [features, setFeatures] = useState<Feature[]>([]);
+  const [features, setFeatures] = useState<any[]>([]);
   const [payslipData, setPayslipData] = useState<EmployeePayslipsData | null>(null);
   const [taxSummary, setTaxSummary] = useState<any>(null);
   const [selfData, setSelfData] = useState<any>(null);
-  const [employeePortalData, setEmployeePortalData] = useState<any>(null);
 
   // Filters
   const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
-  // Pagination
-  const [totalElements, setTotalElements] = useState(0);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
+  const [totalElements, setTotalElements] = useState(0);
 
   // Bank form
   const [bankForm, setBankForm] = useState({
@@ -109,116 +107,98 @@ export default function EmployeePortal() {
     branch: "",
   });
 
-  // Load data based on role
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Load employee-specific data when employee is selected
-  useEffect(() => {
-    if (selectedEmployeeId && isAdmin) {
-      loadEmployeeData(selectedEmployeeId);
-    }
-  }, [selectedEmployeeId]);
-
-  const loadData = async () => {
-    setLoading(true);
+  // Load data function with useCallback to prevent recreation
+  const loadData = useCallback(async () => {
     showSpinner();
     try {
-      const promises: any[] = [];
-
       if (isAdmin) {
-        // Admin/HR view - get all employees, summary, and features
-        promises.push(
-          employeePortalService.getPortalSummary(),
+        // Admin/HR view - get all employees and features
+        const promises: any[] = [
           employeePortalService.getPortalEmployees({
-            page,
+            page: page - 1,
             size: limit,
             search: searchQuery || undefined,
             departmentId: departmentFilter !== "all" ? departmentFilter : undefined
           }),
           employeePortalService.getPortalFeatures(),
-          employeePortalService.getEmployeePortalData()
-        );
+        ];
 
-        // Get departments
+        // Load departments
         try {
           const depRes: any = await departmentService.getActiveDepartments();
           if (depRes.data?.content) {
             setDepartments(depRes.data.content);
           }
         } catch (error) {
-          console.error("Failed to load departments", error);
+          showSnackbar("Failed to load departments", 'error');
         }
-      } else {
-        // ESS view - get self data
-        promises.push(
-          employeePortalService.getSelfView(),
-          employeePortalService.getSelfFullPortalData(),
-          employeePortalService.getPortalFeatures()
-        );
-      }
 
-      const results = await Promise.allSettled(promises);
-
-      if (isAdmin) {
-        const [summaryResult, employeesResult, featuresResult, portalResult] = results;
-
-        if (summaryResult.status === 'fulfilled') {
-          setSummary(summaryResult.value.data);
-        }
+        const results = await Promise.allSettled(promises);
+        const [employeesResult, featuresResult] = results;
 
         if (employeesResult.status === 'fulfilled') {
           const data = employeesResult.value.data;
-          setEmployees(data?.content || []);
-          setTotalElements(data?.totalElements || 0);
+          const content = data?.content || data?.items || data?.records || [];
+          const total = data?.totalElements || data?.total || data?.totalCount || content.length || 0;
+          
+          setEmployees(content);
+          setTotalElements(total);
+
+          // Auto-select first employee if available and no employee selected
+          if (content.length > 0 && !selectedEmployee && !selectedEmployeeId) {
+            const firstEmp = content[0];
+            setSelectedEmployee(firstEmp);
+            setSelectedEmployeeId(firstEmp.employeeId);
+          }
         }
 
         if (featuresResult.status === 'fulfilled') {
           setFeatures(featuresResult.value.data || []);
-        }
-
-        if (portalResult.status === 'fulfilled') {
-          setEmployeePortalData(portalResult.value.data);
-          setPortalData(portalResult.value.data);
-        }
-
-        // Auto-select first employee if available
-        if (employeesResult.status === 'fulfilled' && employeesResult.value.data?.content?.length > 0 && !selectedEmployee) {
-          const firstEmp = employeesResult.value.data.content[0];
-          setSelectedEmployee(firstEmp);
-          setSelectedEmployeeId(firstEmp.employeeId);
         }
       } else {
-        const [selfResult, fullDataResult, featuresResult] = results;
-
-        if (selfResult.status === 'fulfilled') {
-          setSelfData(selfResult.value.data);
+        // ESS view - single API call is enough
+        const response: any = await employeePortalService.getSelfView();
+        
+        // Extract data from response
+        const data = response?.data?.data || response?.data || response || {};
+        
+        // Set employee data
+        setSelfData(data.employee || {});
+        
+        // Set summary data
+        if (data.summary) {
+          setPayslipData({
+            currentMonthGross: data.summary.currentMonthGross || 0,
+            currentMonthNet: data.summary.currentMonthNet || 0,
+            ytdEarnings: data.summary.ytdEarnings || 0,
+            payslips: data.recentPayslips?.map((p: any, index: number) => ({
+              runItemId: `${p.period}-${index}`,
+              periodLabel: p.period || "N/A",
+              gross: p.gross || 0,
+              net: p.net || 0,
+              generatedOn: p.generatedOn || new Date().toISOString(),
+            })) || []
+          });
         }
-
-        if (fullDataResult.status === 'fulfilled') {
-          const data = fullDataResult.value;
-          setPayslipData(data.payslips);
-          setTaxSummary(data.taxSummary);
-          setSelfData(data.selfView);
+        
+        // Set features
+        if (data.features) {
+          setFeatures(data.features);
         }
-
-        if (featuresResult.status === 'fulfilled') {
-          setFeatures(featuresResult.value.data || []);
-        }
+        
+        // Set portal data
+        setPortalData(data);
       }
-
     } catch (error) {
-      console.error("Failed to load portal data", error);
       showSnackbar("Failed to load portal data", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
     }
-  };
+  }, [isAdmin, page, limit, searchQuery, departmentFilter, selectedEmployee, selectedEmployeeId]);
 
-  const loadEmployeeData = async (employeeId: string) => {
-    if (!employeeId) return;
+  // Load employee-specific data when employee is selected (Admin only)
+  const loadEmployeeData = useCallback(async (employeeId: string) => {
+    if (!employeeId || !isAdmin) return;
     showSpinner();
     try {
       const fullData = await employeePortalService.getEmployeeFullPortalData(employeeId);
@@ -226,12 +206,30 @@ export default function EmployeePortal() {
       setPayslipData(fullData.payslips);
       setPortalData(fullData.portalData);
     } catch (error) {
-      console.error("Failed to load employee data", error);
       showSnackbar("Failed to load employee data", "error");
     } finally {
       hideSpinner();
     }
-  };
+  }, [isAdmin]);
+
+  // Initial load
+  useEffect(() => {
+    loadData();
+  }, []); // Only run once on mount
+
+  // Reload when pagination or filters change (admin only)
+  useEffect(() => {
+    if (isAdmin) {
+      loadData();
+    }
+  }, [page, limit, searchQuery, departmentFilter, isAdmin]);
+
+  // Load employee data when selected employee changes (admin only)
+  useEffect(() => {
+    if (selectedEmployeeId && isAdmin) {
+      loadEmployeeData(selectedEmployeeId);
+    }
+  }, [selectedEmployeeId, isAdmin, loadEmployeeData]);
 
   const handleUpdateBank = async () => {
     if (!bankForm.accountNumber || !bankForm.bankName || !bankForm.ifscCode) {
@@ -257,7 +255,7 @@ export default function EmployeePortal() {
   };
 
   const handleViewPayslip = (runItemId: string) => {
-    window.open(`/payroll/payslips/${runItemId}`, "_blank");
+    navigate(`/payroll/payslips/${runItemId}`);
   };
 
   const handleEmployeeSelect = (employee: any) => {
@@ -270,58 +268,45 @@ export default function EmployeePortal() {
     showSnackbar("Data refreshed!", "success");
   };
 
-  // Handle search with debounce
-  useEffect(() => {
-    if (isAdmin) {
-      const timer = setTimeout(() => {
-        loadData();
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [searchQuery, departmentFilter, page, limit]);
-
-  // Filter employees (already filtered via API, but keep for client-side fallback)
-  const filteredEmployees = employees;
-
   // Pagination handlers
   const handlePageChange = (newPage: number) => {
-    setPage(newPage - 1);
+    setPage(newPage);
   };
 
   const handleLimitChange = (newLimit: number) => {
     setLimit(newLimit);
-    setPage(0);
+    setPage(1);
   };
 
-   const handleDownloadPayslip = async (periodLabel?: string) => {  
-      
-      if (!selectedEmployee) return;
-      showSpinner();
-      try {
-        const response: any = await salaryViewService.downloadEmployeePayslip(selectedEmployee.employeeId);
-        const fileUrl = response.data?.fileUrl || response.data?.data?.fileUrl;
-        if (fileUrl) {
-          await apiService.downloadFromPath(fileUrl, `payslip_${selectedEmployee.employeeId}_${periodLabel}.pdf`);
-        } else {
-          showSnackbar("No payslip available for download", "warning");
-        }
-      } catch (error: any) {
-        showSnackbar(error.message || "Failed to download payslip", "error");
-      } finally {
-        hideSpinner();
+  const handleDownloadPayslip = async (periodLabel?: string) => {
+    if (!selectedEmployee) return;
+    showSpinner();
+    try {
+      const response: any = await salaryViewService.downloadEmployeePayslip(selectedEmployee.employeeId);
+      const fileUrl = response.data?.fileUrl || response.data?.data?.fileUrl;
+      if (fileUrl) {
+        await apiService.downloadFromPath(fileUrl, `payslip_${selectedEmployee.employeeId}_${periodLabel}.pdf`);
+        showSnackbar("Payslip downloaded successfully!", "success");
+      } else {
+        showSnackbar("No payslip available for download", "warning");
       }
-    };
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to download payslip", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
 
   // ESS View - Employee Self Service
   if (!isAdmin) {
     return (
-      <Box sx={{ p: 3, bgcolor: "background.default", minHeight: "100vh" }}>
+      <div className="bg-white-50">
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
           <Box>
             <Typography variant="h5" sx={{ fontWeight: 600 }}>
               My Payroll Portal
             </Typography>
-            <Typography variant="body2" className="text-gray-500 !mt-1">
+            <Typography className="text-gray-500 !mt-1">
               View your payroll information and self-service features
             </Typography>
           </Box>
@@ -329,36 +314,36 @@ export default function EmployeePortal() {
             variant="outlined"
             startIcon={<RefreshIcon fontSize="small" />}
             onClick={handleRefresh}
-            sx={{ textTransform: "none" }}
+            size="small"
           >
             Refresh
           </Button>
         </Box>
 
         {/* Employee Profile Card */}
-        <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", mb: 3 }}>
+        <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", mb: 3 }}>
           <CardContent sx={{ p: 3 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
               <Avatar sx={{ width: 64, height: 64, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main", fontSize: "1.5rem" }}>
-                {selfData?.employeeName?.charAt(0) || "U"}
+                {selfData?.name?.charAt(0) || "U"}
               </Avatar>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {selfData?.employeeName || "Employee"}
+                <Typography className="text-gray-800" sx={{ fontWeight: 600 }}>
+                  {selfData?.name || "Employee"}
                 </Typography>
-                <Typography variant="body2" className="text-gray-500">
+                <Typography className="text-gray-500">
                   {selfData?.designation} · {selfData?.department}
                 </Typography>
                 <Typography variant="caption" className="text-gray-500">
-                  {selfData?.employeeCode}
+                  {selfData?.id}
                 </Typography>
               </Box>
               <Box sx={{ textAlign: "right" }}>
                 <Typography variant="caption" className="text-gray-500">
-                  Last Login
+                  Email
                 </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {formatDate(selfData?.lastLogin)}
+                <Typography sx={{ fontWeight: 500 }} className="text-gray-800">
+                  {selfData?.email || "-"}
                 </Typography>
               </Box>
             </Box>
@@ -373,7 +358,7 @@ export default function EmployeePortal() {
             { label: "YTD Earnings", value: formatCurrency(payslipData?.ytdEarnings || 0), color: "#f59e0b" },
           ].map((item) => (
             <Grid size={{ xs: 12, sm: 4 }} key={item.label}>
-              <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+              <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <CardContent sx={{ p: 2.5, textAlign: "center" }}>
                   <Typography variant="caption" className="text-gray-500">
                     {item.label}
@@ -388,20 +373,21 @@ export default function EmployeePortal() {
         </Grid>
 
         {/* Payslips History */}
-        <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <CardContent sx={{ p: 2.5 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+            <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
               My Payslips
             </Typography>
             <TableContainer>
-              <Table>
+              <Table className="border border-gray-200 rounded-sm">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>S No</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Period</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600 }}>Gross</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600 }}>Net</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Gross</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Net</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Generated On</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 600 }}>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -412,39 +398,40 @@ export default function EmployeePortal() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    payslipData?.payslips?.map((payslip) => (
-                      <TableRow key={payslip.runItemId} hover>
+                    payslipData?.payslips?.map((payslip, index) => (
+                      <TableRow key={`${payslip.periodLabel}-${index}`} sx={getRowColor(index)}>
+                        <TableCell>{index+1}</TableCell>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          <Typography sx={{ fontWeight: 500 }}>
                             {payslip.periodLabel}
                           </Typography>
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2">{formatCurrency(payslip.gross)}</Typography>
+                        <TableCell>
+                          <Typography>{formatCurrency(payslip.gross)}</Typography>
                         </TableCell>
-                        <TableCell align="right">
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
+                        <TableCell>
+                          <Typography sx={{ fontWeight: 600, color: "success.main" }}>
                             {formatCurrency(payslip.net)}
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" className="text-gray-500">
+                          <Typography className="text-gray-500">
                             {formatDate(payslip.generatedOn)}
                           </Typography>
                         </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row">
+                        <TableCell>
+                          <div className="flex items-center">
                             <Tooltip title="View">
                               <IconButton size="small" onClick={() => handleViewPayslip(payslip.runItemId)}>
-                                <ViewIcon fontSize="small" />
+                                <ViewIcon fontSize="small" className="!w-4 !text-primary"/>
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Download">
                               <IconButton size="small">
-                                <DownloadIcon fontSize="small" />
+                                <DownloadIcon fontSize="small" className="!w-4 !text-blue-500"/>
                               </IconButton>
                             </Tooltip>
-                          </Stack>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -459,46 +446,56 @@ export default function EmployeePortal() {
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mt: 4, mb: 2 }}>
           Self-Service Features
         </Typography>
-        <Grid container spacing={3}>
+        <Grid container spacing={3} className="!mb-4">
           {features.map((feature) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={feature.key}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={feature.id}>
               <Card
+                className="!bg-head"
                 sx={{
                   borderRadius: 2,
                   boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  cursor: feature.available ? "pointer" : "default",
-                  opacity: feature.available ? 1 : 0.6,
+                  cursor: feature.enabled ? "pointer" : "default",
+                  opacity: feature.enabled ? 1 : 0.6,
                   transition: "all 0.2s",
                   "&:hover": {
-                    boxShadow: feature.available ? 2 : "0 1px 3px rgba(0,0,0,0.06)",
-                    transform: feature.available ? "translateY(-2px)" : "none",
+                    boxShadow: feature.enabled ? 2 : "0 1px 3px rgba(0,0,0,0.06)",
+                    transform: feature.enabled ? "translateY(-2px)" : "none",
                   },
                 }}
                 onClick={() => {
-                  if (feature.available && feature.key === "bank-details") {
+                  if (feature.enabled && feature.id === "update_bank") {
                     setDialogType("bank");
                     setOpenDialog(true);
                   }
                 }}
               >
                 <CardContent sx={{ p: 2.5, textAlign: "center" }}>
-                  <Box sx={{ width: 56, height: 56, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main", mx: "auto", mb: 1.5 }}>
-                    {feature.key === "payslips" && <ReceiptIcon />}
-                    {feature.key === "bank-details" && <BankIcon />}
-                    {feature.key === "tax-summary" && <FileIcon />}
-                    {feature.key === "profile" && <SettingsIcon />}
-                    {!feature.key && <PersonIcon />}
+                  <Box sx={{ 
+                    width: 56, 
+                    height: 56, 
+                    borderRadius: 2, 
+                    display: "flex", 
+                    alignItems: "center", 
+                    justifyContent: "center", 
+                    bgcolor: alpha(theme.palette.primary.main, 0.1), 
+                    color: "primary.main", 
+                    mx: "auto", 
+                    mb: 1.5 
+                  }}>
+                    {feature.id === "view_payslips" && <ReceiptIcon />}
+                    {feature.id === "update_bank" && <BankIcon />}
+                    {feature.id === "view_tax" && <FileIcon />}
+                    {feature.id === "loan_request" && <PersonIcon />}
+                    {feature.id === "profile_settings" && <SettingsIcon />}
+                    {!feature.id && <PersonIcon />}
                   </Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                    {feature.name}
-                  </Typography>
-                  <Typography variant="caption" className="text-gray-500">
-                    {feature.description}
+                  <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>
+                    {feature.label}
                   </Typography>
                   <Chip
-                    label={feature.available ? "Available" : "Coming Soon"}
+                    label={feature.enabled ? "Available" : "Coming Soon"}
                     size="small"
-                    color={feature.available ? "success" : "default"}
+                    color={feature.enabled ? "success" : "default"}
                     sx={{ mt: 1 }}
                   />
                 </CardContent>
@@ -506,7 +503,7 @@ export default function EmployeePortal() {
             </Grid>
           ))}
         </Grid>
-      </Box>
+      </div>
     );
   }
 
@@ -519,7 +516,7 @@ export default function EmployeePortal() {
           <Typography variant="h5" className="text-gray-800" sx={{ fontWeight: 600, color: "text.primary" }}>
             Employee Portal
           </Typography>
-          <Typography variant="body2" className="text-gray-500 !mt-1">
+          <Typography className="text-gray-500 !mt-1">
             Self-service payroll access for employees
           </Typography>
         </Box>
@@ -528,39 +525,12 @@ export default function EmployeePortal() {
             variant="outlined"
             startIcon={<RefreshIcon fontSize="small" />}
             onClick={handleRefresh}
-            sx={{ textTransform: "none" }}
+            size="small"
           >
             Refresh
           </Button>
         </Box>
       </Box>
-
-      {/* Summary Cards */}
-      <Grid container spacing={3} sx={{ mb: 1 }}>
-        {[
-          { label: "Total Employees", value: summary?.total || employees.length || 0, color: "#3b82f6", icon: <PersonIcon /> },
-          { label: "Compliant", value: summary?.compliant || 0, color: "#10b981", icon: <CheckCircleIcon /> },
-          { label: "Pending", value: summary?.pending || 0, color: "#f59e0b", icon: <TimeIcon /> },
-        ].map((item) => (
-          <Grid size={{ xs: 12, sm: 4 }} key={item.label}>
-            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <CardContent sx={{ p: 2, display: "flex", alignItems: "center", gap: 2 }}>
-                <Box sx={{ width: 40, height: 40, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", bgcolor: alpha(item.color, 0.1), color: item.color }}>
-                  {item.icon}
-                </Box>
-                <Box>
-                  <Typography variant="h5" className="text-gray-800" sx={{ fontWeight: 700 }}>
-                    {item.value}
-                  </Typography>
-                  <Typography variant="caption" className="text-gray-500">
-                    {item.label}
-                  </Typography>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
 
       {/* Tabs */}
       <Box className="bg-white border-b border-gray-200">
@@ -581,31 +551,33 @@ export default function EmployeePortal() {
       {/* Tab 0: Employee List */}
       {tabValue === 0 && (
         <div className="bg-white !p-2 !pb-0">
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1}}>
             <TextField
               placeholder="Search employees..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
+              sx={{ minWidth: 200 }}
             />
             <FormControl size="small" className="bg-white-50" sx={{ minWidth: 200 }}>
               <Select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                label="Department"
+                displayEmpty
               >
                 <MenuItem value="all">All Departments</MenuItem>
                 {departments.map((dept) => (
-                  <MenuItem key={dept.id} value={dept.id}>{dept.name}</MenuItem>
+                  <MenuItem key={dept.id} value={dept.id}>{dept.departmentName}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Box>
 
-          <TableContainer className="border border-gray-200 mt-1 rounded-md h-[calc(100vh-370px)] overflow-auto">
+          <TableContainer className="border border-gray-200 mt-1 rounded-md h-[calc(100vh-285px)] overflow-auto">
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
+                  <TableCell className="!font-bold">S No</TableCell>
                   <TableCell className="!font-bold">Employee</TableCell>
                   <TableCell className="!font-bold">Designation</TableCell>
                   <TableCell className="!font-bold">Department</TableCell>
@@ -614,27 +586,29 @@ export default function EmployeePortal() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredEmployees.length === 0 ? (
+                {employees.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center">
                       <div className="py-6 text-gray-500">No employees found</div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredEmployees.map((emp, i) => (
+                  employees.map((emp, i) => (
                     <TableRow
                       key={emp.employeeId}
                       selected={selectedEmployeeId === emp.employeeId}
                       onClick={() => handleEmployeeSelect(emp)}
                       sx={getRowColor(i)}
+                      className="hover:cursor-pointer"
                     >
+                      <TableCell>{(page - 1) * limit + i + 1}</TableCell>
                       <TableCell>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                           <Avatar sx={{ width: 32, height: 32, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main" }}>
                             {emp.employeeName?.charAt(0) || "E"}
                           </Avatar>
                           <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            <Typography sx={{ fontWeight: 500 }}>
                               {emp.employeeName}
                             </Typography>
                             <Typography variant="caption" className="text-gray-500">
@@ -644,10 +618,10 @@ export default function EmployeePortal() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{emp.designation || '-'}</Typography>
+                        <Typography>{emp.designation || '-'}</Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" className="text-gray-500">
+                        <Typography className="text-gray-500">
                           {emp.department || '-'}
                         </Typography>
                       </TableCell>
@@ -671,7 +645,7 @@ export default function EmployeePortal() {
                               setOpenDialog(true);
                             }}
                           >
-                            <ReceiptIcon fontSize="small" className="text-blue-600 !w-4"/>
+                            <ReceiptIcon fontSize="small" className="text-blue-600 !w-4" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Update Bank Details">
@@ -686,7 +660,7 @@ export default function EmployeePortal() {
                               setOpenDialog(true);
                             }}
                           >
-                            <BankIcon fontSize="small" className="text-amber-500 !w-4"/>
+                            <BankIcon fontSize="small" className="text-amber-500 !w-4" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Download Payslip">
@@ -703,7 +677,7 @@ export default function EmployeePortal() {
                               }
                             }}
                           >
-                            <FileDownloadIcon fontSize="small" className="text-green-700 !w-4"/>
+                            <FileDownloadIcon fontSize="small" className="text-green-700 !w-4" />
                           </IconButton>
                         </Tooltip>
                       </TableCell>
@@ -718,7 +692,7 @@ export default function EmployeePortal() {
           {totalElements > 0 && (
             <GlobalPagination
               total={totalElements}
-              page={page + 1}
+              page={page}
               limit={limit}
               onPageChange={handlePageChange}
               onLimitChange={handleLimitChange}
@@ -733,34 +707,44 @@ export default function EmployeePortal() {
       {tabValue === 1 && (
         <Grid container spacing={3} className="my-4">
           {features.map((feature) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={feature.key}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={feature.id}>
               <Card
                 className="bg-white"
                 sx={{
                   borderRadius: 2,
                   boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                  cursor: "default",
+                  cursor: feature.enabled ? "pointer" : "default",
                   transition: "all 0.2s",
-                  opacity: feature.available ? 1 : 0.6,
+                  opacity: feature.enabled ? 1 : 0.6,
+                }}
+                onClick={() => {
+                  if (feature.enabled && feature.id === "update_bank") {
+                    setDialogType("bank");
+                    setOpenDialog(true);
+                  }
                 }}
               >
-                <CardContent className="grid items-center justify-center" sx={{ p: 2.5, textAlign: "center" }}>
-                  <Box sx={{ width: 56, height: 56, borderRadius: 2, display: "flex", alignItems: "center", 
+                <CardContent sx={{ p: 2.5, textAlign: "center" }}>
+                  <Box sx={{
+                    width: 56, height: 56, borderRadius: 2, display: "flex", alignItems: "center",
                     justifyContent: "center", bgcolor: alpha(theme.palette.primary.main, 0.1),
-                    color: "primary.main", mx: "auto", mb: 1.5 }}>
-                    {feature.key === "VIEW_PAYSLIPS" && <ReceiptIcon/>}
-                    {feature.key === "UPDATE_BANK" && <BankIcon />}
-                    {feature.key === "VIEW_TAX" && <FileIcon />}
-                    {feature.key === "PROFILE_SETTINGS" && <SettingsIcon />}
-                    {feature.key === "LOAN_REQUEST" && <PersonIcon />}
+                    color: "primary.main", mx: "auto", mb: 1.5
+                  }}>
+                    {feature.id === "view_payslips" && <ReceiptIcon />}
+                    {feature.id === "update_bank" && <BankIcon />}
+                    {feature.id === "view_tax" && <FileIcon />}
+                    {feature.id === "loan_request" && <PersonIcon />}
+                    {feature.id === "profile_settings" && <SettingsIcon />}
                   </Box>
                   <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>
-                    {feature.name}
+                    {feature.label}
                   </Typography>
-                  <Typography variant="caption" className="text-gray-500">
-                    {feature.description}
-                  </Typography>
-                  <Chip label={feature.available ? "Available" : "Coming Soon"} size="small" color={feature.available ? "success" : "default"} sx={{ mt: 1 }} />
+                  <Chip 
+                    label={feature.enabled ? "Available" : "Coming Soon"} 
+                    size="small" 
+                    color={feature.enabled ? "success" : "default"} 
+                    sx={{ mt: 1 }} 
+                  />
                 </CardContent>
               </Card>
             </Grid>
@@ -778,7 +762,7 @@ export default function EmployeePortal() {
 
             {!selectedEmployee && (
               <Box sx={{ textAlign: "center", py: 4 }}>
-                <Typography variant="body2" className="text-gray-500">
+                <Typography className="text-gray-500">
                   Select an employee from the Employee List tab to view payslips
                 </Typography>
               </Box>
@@ -809,6 +793,7 @@ export default function EmployeePortal() {
                   <Table>
                     <TableHead>
                       <TableRow>
+                        <TableCell sx={{ fontWeight: 600 }}>S No</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Period</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Gross</TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>Net</TableCell>
@@ -819,42 +804,43 @@ export default function EmployeePortal() {
                     <TableBody>
                       {payslipData.payslips?.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} align="center">
+                          <TableCell colSpan={6} align="center">
                             <div className="text-gray-500 py-6">No payslips found for this employee</div>
                           </TableCell>
                         </TableRow>
                       ) : (
                         payslipData.payslips?.map((payslip, i) => (
-                          <TableRow key={payslip.runItemId} sx={getRowColor(i)}>
+                          <TableRow key={`${payslip.periodLabel}-${i}`} sx={getRowColor(i)}>
+                            <TableCell>{i + 1}</TableCell>
                             <TableCell>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              <Typography sx={{ fontWeight: 500 }}>
                                 {payslip.periodLabel}
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2">{formatCurrency(payslip.gross)}</Typography>
+                              <Typography>{formatCurrency(payslip.gross)}</Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
+                              <Typography sx={{ fontWeight: 600, color: "success.main" }}>
                                 {formatCurrency(payslip.net)}
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" className="text-gray-500">
+                              <Typography className="text-gray-500">
                                 {formatDate(payslip.generatedOn)}
                               </Typography>
                             </TableCell>
                             <TableCell align="center">
-                                <Tooltip title="View">
-                                  <IconButton size="small" onClick={() => handleViewPayslip(payslip.runItemId)}>
-                                    <ViewIcon fontSize="small" className="text-primary"/>
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title="Download">
-                                  <IconButton size="small">
-                                    <DownloadIcon fontSize="small" className="text-blue-500"/>
-                                  </IconButton>
-                                </Tooltip>
+                              <Tooltip title="View">
+                                <IconButton size="small" onClick={() => handleViewPayslip(payslip.runItemId)}>
+                                  <ViewIcon fontSize="small" className="text-primary !w-4" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Download">
+                                <IconButton size="small" onClick={() => handleDownloadPayslip(payslip.periodLabel)}>
+                                  <DownloadIcon fontSize="small" className="text-blue-500 !w-4" />
+                                </IconButton>
+                              </Tooltip>
                             </TableCell>
                           </TableRow>
                         ))
@@ -878,7 +864,7 @@ export default function EmployeePortal() {
 
             {!selectedEmployee && (
               <Box sx={{ textAlign: "center", py: 4 }}>
-                <Typography variant="body2" className="text-gray-500">
+                <Typography className="text-gray-500">
                   Select an employee from the Employee List tab to view tax summary
                 </Typography>
               </Box>
@@ -895,17 +881,17 @@ export default function EmployeePortal() {
                   </Box>
                   <Stack spacing={2} sx={{ mt: 2 }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5, px: 2, borderRadius: 1, bgcolor: alpha(theme.palette.info.main, 0.04) }}>
-                      <Typography variant="body2" className="text-gray-500">Gross Annual Income</Typography>
-                      <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 600 }}>{formatCurrency(taxSummary.grossAnnualIncome || 0)}</Typography>
+                      <Typography className="text-gray-500">Gross Annual Income</Typography>
+                      <Typography className="text-gray-800" sx={{ fontWeight: 600 }}>{formatCurrency(taxSummary.grossAnnualIncome || 0)}</Typography>
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5, px: 2, borderRadius: 1, bgcolor: alpha(theme.palette.success.main, 0.04) }}>
-                      <Typography variant="body2" className="text-gray-500">Exemptions & Deductions</Typography>
-                      <Typography variant="body2" sx={{ color: "success.main", fontWeight: 600 }}>- {formatCurrency(taxSummary.exemptionsDeductions || 0)}</Typography>
+                      <Typography className="text-gray-500">Exemptions & Deductions</Typography>
+                      <Typography sx={{ color: "success.main", fontWeight: 600 }}>- {formatCurrency(taxSummary.exemptionsDeductions || 0)}</Typography>
                     </Box>
-                    <Divider className="border border-gray-200"/>
+                    <Divider className="border border-gray-200" />
                     <Box sx={{ display: "flex", justifyContent: "space-between", p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.08) }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.main" }}>Net Taxable Income</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: "primary.main" }}>{formatCurrency(taxSummary.netTaxableIncome || 0)}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: "primary.main" }}>Net Taxable Income</Typography>
+                      <Typography sx={{ fontWeight: 700, color: "primary.main" }}>{formatCurrency(taxSummary.netTaxableIncome || 0)}</Typography>
                     </Box>
                   </Stack>
                 </Grid>
@@ -913,17 +899,17 @@ export default function EmployeePortal() {
                 <Grid size={{ xs: 12, md: 6 }}>
                   <Stack spacing={2}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5, px: 2, borderRadius: 1, bgcolor: alpha(theme.palette.warning.main, 0.04) }}>
-                      <Typography variant="body2" className="text-gray-500">Tax Computed</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: "warning.main" }}>{formatCurrency(taxSummary.taxComputed || 0)}</Typography>
+                      <Typography className="text-gray-500">Tax Computed</Typography>
+                      <Typography sx={{ fontWeight: 600, color: "warning.main" }}>{formatCurrency(taxSummary.taxComputed || 0)}</Typography>
                     </Box>
                     <Box sx={{ display: "flex", justifyContent: "space-between", py: 1.5, px: 2, borderRadius: 1, bgcolor: alpha(theme.palette.success.main, 0.04) }}>
-                      <Typography variant="body2" className="text-gray-500">TDS Deducted</Typography>
-                      <Typography variant="body2" sx={{ color: "success.main", fontWeight: 600 }}>- {formatCurrency(taxSummary.tdsDeducted || 0)}</Typography>
+                      <Typography className="text-gray-500">TDS Deducted</Typography>
+                      <Typography sx={{ color: "success.main", fontWeight: 600 }}>- {formatCurrency(taxSummary.tdsDeducted || 0)}</Typography>
                     </Box>
-                    <Divider className="border border-gray-200"/>
+                    <Divider className="border border-gray-200" />
                     <Box sx={{ display: "flex", justifyContent: "space-between", p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.error.main, 0.08) }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: "error.main" }}>Balance Tax Payable</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: "error.main" }}>{formatCurrency(taxSummary.balanceTaxPayable || 0)}</Typography>
+                      <Typography sx={{ fontWeight: 600, color: "error.main" }}>Balance Tax Payable</Typography>
+                      <Typography sx={{ fontWeight: 700, color: "error.main" }}>{formatCurrency(taxSummary.balanceTaxPayable || 0)}</Typography>
                     </Box>
                   </Stack>
                 </Grid>
@@ -976,7 +962,7 @@ export default function EmployeePortal() {
           )}
           {dialogType === "payslip" && selectedEmployee && (
             <Box>
-              <Typography variant="body2" className="text-gray-800 !mb-2">
+              <Typography className="text-gray-800 !mb-2">
                 Viewing payslips for <strong>{selectedEmployee.employeeName}</strong>
               </Typography>
               {payslipData?.payslips?.length ? (
@@ -1000,7 +986,7 @@ export default function EmployeePortal() {
                   </Button>
                 ))
               ) : (
-                <Typography variant="body2" sx={{ color: "text.secondary", textAlign: "center", py: 2 }}>
+                <Typography sx={{ color: "text.secondary", textAlign: "center", py: 2 }}>
                   No payslips available for this employee
                 </Typography>
               )}

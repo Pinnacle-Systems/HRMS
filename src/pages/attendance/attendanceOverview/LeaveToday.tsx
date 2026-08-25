@@ -127,7 +127,7 @@ export function LeaveToday() {
           </FormControl>
           <Tooltip title="Refresh">
             <IconButton size="small" onClick={loadLeaves}>
-              <RefreshOutlined fontSize="small" />
+              <RefreshOutlined fontSize="small" className="text-gray-800"/>
             </IconButton>
           </Tooltip>
         </div>
@@ -161,7 +161,7 @@ export function LeaveToday() {
                 <TableCell>{l.employeeCode}</TableCell>
                 <TableCell>{l.department}</TableCell>
                 <TableCell>
-                  <Chip label={l.leaveType} size="small" variant="outlined" />
+                  <Chip label={l.leaveType} size="small" variant="outlined" className="text-gray-800"/>
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-xs">
                   {dayjs(l.fromDate).format("DD MMM")} -{" "}

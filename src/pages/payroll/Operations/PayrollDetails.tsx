@@ -136,6 +136,7 @@ export default function PayrollDetails() {
         lopDays: item.lopDays || 0,
         lopAmount: item.lopAmount || 0,
         otherDeductions: item.otherDeductions || 0,
+        payslipId: item.payslipId
       }));
       setRun(runData);
       setBreakdown(items);
@@ -587,7 +588,7 @@ export default function PayrollDetails() {
                           variant="text"
                           size="small"
                           startIcon={<FileTextIcon fontSize="small" />}
-                          onClick={() => navigate(`/payroll/payslips/${emp.employeeId}/${encodeURIComponent(period)}`)}
+                          onClick={() => navigate(`/payroll/payslips/${emp.payslipId}/${encodeURIComponent(period)}`)}
                           sx={{ textTransform: "none", fontSize: "0.7rem" }}
                           disabled={emp.status?.toLowerCase() === "failed"}
                         >

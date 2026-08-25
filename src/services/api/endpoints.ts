@@ -805,6 +805,7 @@ export const API_ENDPOINTS = {
     REPORT_MONTHLY_SUMMARY: "/attendance/reports/monthly-summary",
     REPORT_LATE_ARRIVAL: "/attendance/reports/late-arrivals",
     REPORT_OVERTIME: "/attendance/reports/overtime",
+    REPORT_LOP: "/attendance/reports/lop",
     REPORT_ABSENTEEISM: "/attendance/reports/absenteeism",
     REPORT_IRREGULAR_PUNCH: "/attendance/reports/irregular-punch",
     REPORT_DEPARTMENT_WISE: "/attendance/reports/department-wise",
@@ -1117,6 +1118,8 @@ export const API_ENDPOINTS = {
       CREATE: "/payroll/periods",
       UPDATE: (id: string) => `/payroll/periods/${id}`,
       DELETE: (id: string) => `/payroll/periods/${id}`,
+      SUMMARY: "/payroll/periods/day-summary",
+      // GET /api/payroll/periods/day-summary?startDate=2026-08-01&endDate=2026-08-31
       // CLOSE: (id: string) => `/payroll/periods/${id}/close`,
       // CURRENT: "/payroll/periods/current",
     },
@@ -1219,7 +1222,7 @@ export const API_ENDPOINTS = {
     SETTINGS: {
       BASE: "/payroll/settings",
       // GET_BY_CATEGORY: (category: string) => `/payroll/settings/${category}`,
-      UPDATE: "/payroll/settings",
+      // UPDATE: "/payroll/settings",
       // UPDATE_CATEGORY: (category: string) => `/payroll/settings/${category}`,
       // RESET: "/payroll/settings/reset",
     },

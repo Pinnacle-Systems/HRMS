@@ -14,6 +14,8 @@ export interface Period {
   holidays: Holiday[];
   periodMonth?: string;
   periodYear?: string;
+  month: number;
+  year: number;
 }
 
 export interface Holiday {
@@ -46,6 +48,10 @@ export interface PeriodUpdatePayload {
 export const periodsService = {
   async getPeriods() {
     return apiService.get(API_ENDPOINTS.PAYROLL.PERIODS.BASE);
+  },
+
+  async getSummaryPeriods(params: any) {
+    return apiService.get(API_ENDPOINTS.PAYROLL.PERIODS.SUMMARY , {params});
   },
 
   async getPeriodById(id: string) {

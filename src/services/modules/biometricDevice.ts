@@ -149,11 +149,15 @@ export interface SyncRequest {
   endDate: string;
 }
 
-export interface EmployeeMapRequest {
+export interface mapp {
   deviceId: string;
   deviceEmployeeCode: string;
   hrmsEmployeeId: string;
   isActive: boolean;
+}
+
+export interface EmployeeMapRequest {
+  mappings: mapp[];
 }
 
 export interface EmployeeMapResponse {
@@ -242,7 +246,7 @@ export const biometricService = {
   },
 
   async mapEmployeeToDevice(
-    data: EmployeeMapRequest,
+    data: mapp | mapp[],
   ): Promise<EmployeeMapResponse> {
     const response: any = await apiService.post(
       API_ENDPOINTS.ATTENDANCE.BIOMETRIC.POST_MAP,
@@ -277,11 +281,11 @@ export const biometricService = {
       const response = await apiService.get(
         "http://localhost:8000/fetch-logs",
         {
-         params: {
-          from_date: params.from_date,
-          to_date: params.to_date,
-          device_ips: deviceIpsString,
-        },
+          params: {
+            from_date: params.from_date,
+            to_date: params.to_date,
+            device_ips: deviceIpsString,
+          },
         },
       );
       return unwrapApiData<DeviceHealth>(response);

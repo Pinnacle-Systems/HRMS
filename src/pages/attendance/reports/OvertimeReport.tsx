@@ -134,7 +134,7 @@ export function OvertimeReport({ onBack }: Props) {
           </div>
         </div>
       )}
-      <TableContainer className="max-h-[calc(100vh-420px)]">
+      <TableContainer className="max-h-[calc(100vh-457px)]">
         <Table stickyHeader>
           <TableHead>
             <TableRow>
@@ -154,11 +154,11 @@ export function OvertimeReport({ onBack }: Props) {
                   {dayjs(r.attendanceDate).format("DD MMM YYYY, ddd")}
                 </TableCell>
                 <TableCell >{r.shiftCode}</TableCell>
-                <TableCell >{formatTime(r.shiftEndTime)}</TableCell>
-                <TableCell className="!font-semibold"><span className="text-orange-700 ">{formatTime(r.checkOutTime)}</span></TableCell>
+                <TableCell><div className="!text-error !font-bold !p-2">{dayjs(`2000-01-01 ${r.shiftEndTime}`).format('h:mm a')}</div></TableCell>
+                <TableCell className="!font-semibold"><span className="text-green-700 ">{formatTime(r.checkOutTime)}</span></TableCell>
                 <TableCell >
                   <span className={`px-2 py-0.5 rounded-full font-semibold
-                    ${r.overtimeMinutes >= 120 ? "bg-orange-100 text-orange-700" : "bg-yellow-50 text-yellow-700"}`}>
+                    ${r.overtimeMinutes >= 120 ? "bg-orange-200 text-orange-700" : "bg-yellow-200 text-yellow-700"}`}>
                     {formatMinutes(r.overtimeMinutes)}
                   </span>
                 </TableCell>

@@ -365,6 +365,7 @@ export default function Layout() {
       path: "/my-info",
       roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
+
     {
       text: "Employees",
       icon: <PeopleAltOutlinedIcon />,
@@ -429,6 +430,12 @@ export default function Layout() {
       text: "Loan/Advance Request",
       icon: <RequestQuoteOutlined />,
       path: "/payroll/loan-advance-request",
+      roles: ["EMPLOYEE", "MANAGER", "HR"],
+    },
+    {
+      text: "My Portal",
+      icon: <AssessmentOutlined />,
+      path: "/my-portal",
       roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
     {

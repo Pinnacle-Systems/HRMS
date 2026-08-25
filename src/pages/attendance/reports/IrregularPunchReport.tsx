@@ -110,7 +110,7 @@ export function IrregularPunchReport({ onBack }: Props) {
             </LocalizationProvider>
           </FilterField>
           <FilterField label="Department">
-            <FormControl>
+            <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
                 <MenuItem value="">All Departments</MenuItem>
                 {departments.map((d) => (
@@ -149,7 +149,7 @@ export function IrregularPunchReport({ onBack }: Props) {
             {rows.map((r, i) => (
               <TableRow key={`${r.employeeId}-${r.attendanceDate}`} sx={getRowColor(i)}>
                 <TableCell>{i + 1}</TableCell>
-                <TableCell>{r.employeeCode}</TableCell>
+                <TableCell><div className="py-2">{r.employeeCode}</div></TableCell>
                 <TableCell className="whitespace-nowrap">{r.employeeName}</TableCell>
                 <TableCell>{r.department}</TableCell>
                 <TableCell className="whitespace-nowrap">

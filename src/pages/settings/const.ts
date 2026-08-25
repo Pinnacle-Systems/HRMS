@@ -522,12 +522,12 @@ export const tabs = [
         path: "/settings/payroll/payroll-settings",
         roles: ["ADMIN"] as UserRole[],
       },
-      {
-        id: "salary-components",
-        label: "Salary Components",
-        path: "/settings/payroll/payroll-settings/components",
-        roles: ["ADMIN"] as UserRole[],
-      },
+      // {
+      //   id: "salary-components",
+      //   label: "Salary Components",
+      //   path: "/settings/payroll/payroll-settings/components",
+      //   roles: ["ADMIN"] as UserRole[],
+      // },
       {
         id: "allowances-config",
         label: "Allowances Configuration",

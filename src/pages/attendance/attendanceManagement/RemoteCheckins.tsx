@@ -178,7 +178,7 @@ export function RemoteCheckins() {
             onClick={loadCheckins}
             className="!text-gray-400"
           >
-            <RefreshOutlined fontSize="small" />
+            <RefreshOutlined fontSize="small" className="text-gray-800"/>
           </IconButton>
         </Tooltip>
       </div>

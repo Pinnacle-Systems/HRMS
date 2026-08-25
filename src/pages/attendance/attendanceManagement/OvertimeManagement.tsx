@@ -7,13 +7,11 @@ import {
 } from "@mui/material";
 import {
   CalculateOutlined, CloseOutlined,
-  FilterListOutlined, RefreshOutlined,
   VisibilityOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { departmentService } from "../../../services/modules/department";
 import type { Department } from "../../employees/type";
 import dayjs from "dayjs";
@@ -21,6 +19,7 @@ import { getRowColor } from "../../const";
 import { useOvertimeCalculator } from "../../../hooks/useOTCalculator";
 import { OvertimeCalculatorDialog } from "./OvertimeCalculatorDialog";
 import { useAuth } from "../../../auth/authContext";
+import { selectSx } from "../../../const";
 
 interface OvertimeRecord {
   // recordId: string;
@@ -82,7 +81,7 @@ export function OvertimeManagement() {
     showSpinner();
     try {
       const res: any = await attendanceService.getOvertimeApprovalRequired({
-        managerId: selectedEmployee?.id || undefined,
+        // employeeId: selectedEmployee?.id || undefined,
         departmentId: departmentId || undefined,
         dateRangeStart: dayjs().startOf("month").format("YYYY-MM-DD"),
       });
@@ -192,12 +191,12 @@ export function OvertimeManagement() {
     loadOvertime();
   };
 
-  const stats = {
-    pending: records.filter(r => r.otApprovalStatus === "pending").length,
-    approved: records.filter(r => r.otApprovalStatus === "approved").length,
-    rejected: records.filter(r => r.otApprovalStatus === "rejected").length,
-    totalHours: records.reduce((sum, r) => sum + r.overtimeHours, 0),
-  };
+  // const stats = {
+  //   pending: records.filter(r => r.otApprovalStatus === "pending").length,
+  //   approved: records.filter(r => r.otApprovalStatus === "approved").length,
+  //   rejected: records.filter(r => r.otApprovalStatus === "rejected").length,
+  //   totalHours: records.reduce((sum, r) => sum + r.overtimeHours, 0),
+  // };
 
   return (
     <div className="p-4 space-y-3">
@@ -207,17 +206,33 @@ export function OvertimeManagement() {
           <h2 className="text-[12px] font-semibold text-gray-800">Overtime Management</h2>
           <p className="text-[12px] text-gray-500">Manage and approve overtime requests</p>
         </div>
-        <Button
-          variant="contained"
-          startIcon={<CalculateOutlined />}
-          onClick={handleOpenCalculator}
-          className="!bg-primary"
-        >
-          Calculate OT
-        </Button>
+        <div className="flex items-center gap-2">
+          <FormControl className="!w-[220px]">
+            <InputLabel>Department</InputLabel>
+            <Select
+              value={departmentId}
+              label="Department"
+              onChange={(e) => setDepartmentId(e.target.value)}
+              sx={selectSx}
+            >
+              <MenuItem value="">All</MenuItem>
+              {departments.map(d => (
+                <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button
+            variant="contained"
+            startIcon={<CalculateOutlined />}
+            onClick={handleOpenCalculator}
+            className="!bg-primary"
+          >
+            Calculate OT
+          </Button>
+        </div>
       </div>
       {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      {/* <div className="bg-white-50 border border-gray-200 rounded-lg p-4">
         <div className="flex flex-wrap items-center gap-3">
           <FilterListOutlined className="text-gray-500" />
           <div className="w-[220px]">
@@ -225,7 +240,7 @@ export function OvertimeManagement() {
               value={selectedEmployee}
               onChange={setSelectedEmployee}
               label="Select Employee"
-              isManager={true}
+              // isManager={true}
             />
           </div>
           <FormControl className="!w-[220px]">
@@ -243,41 +258,41 @@ export function OvertimeManagement() {
           </FormControl>
           <Tooltip title="Refresh">
             <IconButton size="small" onClick={loadOvertime}>
-              <RefreshOutlined fontSize="small" />
+              <RefreshOutlined fontSize="small" className="text-gray-800"/>
             </IconButton>
           </Tooltip>
         </div>
-      </div>
+      </div> */}
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* <div className="grid grid-cols-4 gap-3">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-blue-600">{stats.pending}</div>
-          <div className="text-xs text-gray-500">Pending Approval</div>
+          <div className="text-[12px] text-black">Pending Approval</div>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-green-600">{stats.approved}</div>
-          <div className="text-xs text-gray-500">Approved</div>
+          <div className="text-[12px] text-black">Approved</div>
         </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
-          <div className="text-xs text-gray-500">Rejected</div>
+          <div className="text-[12px] text-black">Rejected</div>
         </div>
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-orange-600">
             {stats.totalHours.toFixed(1)}h
           </div>
-          <div className="text-xs text-gray-500">Total OT Hours</div>
+          <div className="text-[12px] text-black">Total OT Hours</div>
         </div>
-      </div>
+      </div> */}
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer className="max-h-[calc(100vh-485px)]">
+        <TableContainer className="max-h-[calc(100vh-325px)]">
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                {["S No", "Employee","Department", "Attendance Date", "Overtime Minutes", "OT Hours", "OT ApprovedBy", "otRemarks", "Status", "Actions"].map((h) => (
+                {["S No", "Employee", "Department", "Attendance Date", "Overtime Minutes", "OT Hours", "Status", "Actions"].map((h) => (
                   <TableCell key={h} className="!font-bold">{h}</TableCell>
                 ))}
               </TableRow>
@@ -299,19 +314,22 @@ export function OvertimeManagement() {
                 records.map((r, i) => (
                   <TableRow key={r.recordId} hover sx={getRowColor(i)}>
                     <TableCell>{i + 1}</TableCell>
-                    <TableCell className="whitespace-nowrap">{r.employeeName} <span className="text-gray-500 text-[10px]">({r.employeeCode})</span></TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      <div>{r.employeeName} </div>
+                      <span className="text-primary text-[10px]">({r.employeeCode})</span>
+                    </TableCell>
                     <TableCell>{r.department || '-'}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {dayjs(r.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
-                    <TableCell className="font-semibold text-orange-600">
-                      {r.overtimeMinutes.toFixed(1)}h
+                    <TableCell align="center">
+                      {r.overtimeMinutes.toFixed(0)} min
                     </TableCell>
-                    <TableCell className="font-semibold text-orange-600">
-                      {r.overtimeHours.toFixed(1)}h
+                    <TableCell align="center">
+                      {r.overtimeHours.toFixed(1)} h
                     </TableCell>
-                    <TableCell>{r.otApprovedBy || '-'}</TableCell>
-                    <TableCell>{r.otRemarks || '-'}</TableCell>
+                    {/* <TableCell>{r.otApprovedBy || '-'}</TableCell>
+                    <TableCell>{r.otRemarks || '-'}</TableCell> */}
 
                     <TableCell>
                       <Chip

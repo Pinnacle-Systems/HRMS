@@ -129,7 +129,7 @@ export function EmployeeHistoryReport({ onBack }: Props) {
         </div>
       )}
 
-      <TableContainer className="max-h-[calc(100vh-490px)]">
+      <TableContainer className="max-h-[calc(100vh-485px)]">
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
@@ -146,7 +146,7 @@ export function EmployeeHistoryReport({ onBack }: Props) {
                 <TableCell className="whitespace-nowrap">
                   {dayjs(r.attendanceDate).format("DD MMM YYYY")}
                 </TableCell>
-                <TableCell>{r.dayOfWeek}</TableCell>
+                <TableCell><div className="py-2">{r.dayOfWeek}</div></TableCell>
                 <TableCell>{r.shiftCode}</TableCell>
                 <TableCell>{r.checkInTime ? formatTime(r.checkInTime) : '-'}</TableCell>
                 <TableCell>{r.checkOutTime ? formatTime(r.checkOutTime) : '-'}</TableCell>

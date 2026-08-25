@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box } from "@mui/material";
+import { Box, Button } from "@mui/material";
 import {
   EditNoteOutlined,
   LocationOnOutlined,
@@ -15,6 +15,7 @@ import { RemoteCheckins } from "./RemoteCheckins";
 import { LopManagement } from "./LopManagement";
 import OfflineSyncManagement from "./offlineSync";
 import DeviceManagement from "./BiometricDevice";
+import { useNavigate } from "react-router-dom";
 
 
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -32,34 +33,35 @@ const TABS = [
     component: <CorrectionsView />,
   },
   {
-  label: "Remote Check-ins",
-  icon: <LocationOnOutlined className="!w-4" />,
-  component: <RemoteCheckins />,
-},
-{
-  label: "Overtime",
-  icon: <AccessTimeOutlined className="!w-4" />,
-  component: <OvertimeManagement />,
-},
-{
-  label: "LOP",
-  icon: <MoneyOffCsredOutlined className="!w-4" />,
-  component: <LopManagement />,
-},
-{
-  label: "Device Integration",
-  icon: <FingerprintOutlined className="!w-4" />,
-  component: <DeviceManagement />,
-},
-{
-  label: "Offline Sync",
-  icon: <OfflinePinOutlined className="!w-4" />,
-  component: <OfflineSyncManagement />,
-},
+    label: "Remote Check-ins",
+    icon: <LocationOnOutlined className="!w-4" />,
+    component: <RemoteCheckins />,
+  },
+  {
+    label: "Overtime",
+    icon: <AccessTimeOutlined className="!w-4" />,
+    component: <OvertimeManagement />,
+  },
+  {
+    label: "LOP",
+    icon: <MoneyOffCsredOutlined className="!w-4" />,
+    component: <LopManagement />,
+  },
+  {
+    label: "Device Integration",
+    icon: <FingerprintOutlined className="!w-4" />,
+    component: <DeviceManagement />,
+  },
+  {
+    label: "Offline Sync",
+    icon: <OfflinePinOutlined className="!w-4" />,
+    component: <OfflineSyncManagement />,
+  },
 ];
 
 export default function AttendanceManagement() {
   const [activeTab, setActiveTab] = useState(0);
+  const navigate = useNavigate();
 
   return (
     <div className="w-full">
@@ -73,7 +75,7 @@ export default function AttendanceManagement() {
 
       <div className="border border-gray-300 bg-white">
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-gray-300 p-2 overflow-x-auto">
+        <div className="flex items-center justify-between gap-2 border-b border-gray-300 p-2 overflow-x-auto">
           <div className="flex flex-nowrap gap-2">
             {TABS.map((tab, index) => {
               const active = activeTab === index;
@@ -93,6 +95,7 @@ export default function AttendanceManagement() {
               );
             })}
           </div>
+          <Button variant="contained" className="!bg-primary" onClick={() => navigate('/attendance/process')}>Process Attendance</Button>
         </div>
 
         {/* Tab Content */}

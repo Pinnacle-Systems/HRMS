@@ -10,8 +10,8 @@ import {
   clearSession,
   getAccessToken,
   getRefreshToken,
-  updateAccessToken,
 } from "../../auth/authSession";
+import { refreshSession } from "../../auth/authApi"; // ✅ Import centralized refresh
 import { logger } from "../../utils/logger";
 import { assertSafeQueryParams } from "../../utils/apiGuards";
 
@@ -45,14 +45,18 @@ type ErrorResponseData = {
   errors?: Record<string, string[]>;
 };
 
-type RefreshResponseData = {
-  data?: {
-    accessToken?: string;
-    expiresIn?: number;
-  };
-};
+const PUBLIC_ROUTE_PATHS = new Set([
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+  "/verify-otp",
+  "/mfa",
+  "/select-tenant",
+  "/unauthorized",
+  "/branch-fiscal-year",
+]);
 
-const PUBLIC_ROUTE_PATHS = new Set(["/login","/signup", "/forgot-password", "/reset-password", "/verify-otp", "/mfa", "/select-tenant", "/unauthorized"]);
 const PUBLIC_REQUEST_PATHS = [
   API_ENDPOINTS.AUTH.LOGIN,
   API_ENDPOINTS.AUTH.SIGNUP,
@@ -68,6 +72,7 @@ const PUBLIC_REQUEST_PATHS = [
   API_ENDPOINTS.AUTH.SIGNUP,
   API_ENDPOINTS.AUTH.ACTIVATE_INVITE,
   API_ENDPOINTS.PASSWORD_POLICY.BASE,
+  API_ENDPOINTS.AUTH.REFRESH,
 ];
 
 function isPublicRequest(requestUrl: string): boolean {
@@ -102,12 +107,6 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-
-      // Add company context
-      // const companyId = localStorage.getItem('company_id');
-      // if (companyId) {
-      //   config.headers['X-Company-Id'] = companyId;
-      // }
 
       // Remove Content-Type for FormData
       if (config.data instanceof FormData) {
@@ -157,26 +156,37 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         durationMs: metadata?.startTime ? Date.now() - metadata.startTime : undefined,
       });
 
-      // Handle 401 Unauthorized
       if (
         error.response?.status === 401 &&
         !originalRequest._retry &&
-        !isRefreshRequest
+        !isRefreshRequest 
       ) {
+        // If it's a public route/request, just reject
         if (isPublicRoute || isPublicRequestUrl) {
-          logger.info("Skipping login redirect for public auth request", {
+          logger.debug("Skipping refresh for public route/request", {
             url: requestUrl,
             pathname: typeof window !== "undefined" ? window.location.pathname : undefined,
           });
           return Promise.reject(error);
         }
 
+        // Check if refresh token exists before attempting refresh
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) {
+          logger.warn("No refresh token available, redirecting to login");
+          clearSession();
+          if (typeof window !== "undefined") {
+            window.location.href = "/login";
+          }
+          return Promise.reject(error);
+        }
+
+        // If already refreshing, queue this request
         if (isRefreshing) {
-          logger.info("Queueing request while token refresh is in progress", {
+          logger.debug("Queueing request while token refresh is in progress", {
             url: requestUrl,
           });
 
-          // Queue the request while token is refreshing
           return new Promise((resolve, reject) => {
             failedQueue.push({ resolve, reject });
           })
@@ -190,36 +200,32 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
             .catch((err) => Promise.reject(err));
         }
 
+        // Mark request as retried and start refresh
         originalRequest._retry = true;
         isRefreshing = true;
+
         logger.info("Refreshing access token after unauthorized response", {
           url: requestUrl,
         });
 
         try {
-          const refreshToken = getRefreshToken();
-          if (!refreshToken) {
-            throw new Error("No refresh token");
+          // Use centralized refreshSession function
+          const newSession = await refreshSession();
+
+          if (!newSession) {
+            throw new Error("Refresh failed - no session returned");
           }
 
-          const response = await axiosInstance.post<RefreshResponseData>(
-            API_ENDPOINTS.AUTH.REFRESH,
-            {
-              refreshToken: refreshToken,
-            },
-          );
+          const accessToken = newSession.accessToken;
+          logger.info("Access token refreshed successfully", {
+            userId: newSession.user?.userId,
+            expiresIn: newSession.expiresIn,
+          });
 
-          const { accessToken, expiresIn } = response.data.data || {};
-          if (!accessToken) {
-            throw new Error("Refresh response did not include an access token");
-          }
-          updateAccessToken(accessToken, expiresIn);
-          logger.info("Access token refreshed successfully");
-
-          // Process queued requests
+          // Process queued requests with new token
           processQueue(null, accessToken);
 
-          // Retry original request
+          // Retry original request with new token
           originalRequest.headers = {
             ...originalRequest.headers,
             Authorization: `Bearer ${accessToken}`,
@@ -228,14 +234,32 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         } catch (refreshError) {
           // Refresh failed - clear session and redirect to login
           logger.error("Access token refresh failed; clearing session", {
-            error: refreshError,
+            error: refreshError instanceof Error ? refreshError.message : String(refreshError),
           });
+
           processQueue(refreshError, null);
           clearSession();
-          window.location.href = "/login";
+
+          // Only redirect if not already on login page
+          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+            window.location.href = "/login";
+          }
+
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
+        }
+      }
+
+      // Handle 403 Forbidden - user doesn't have permission
+      if (error.response?.status === 403) {
+        logger.warn("Access forbidden", {
+          url: requestUrl,
+          method: originalRequest?.method?.toUpperCase(),
+        });
+        // You might want to redirect to unauthorized page
+        if (typeof window !== "undefined" && !window.location.pathname.includes("/unauthorized")) {
+          // window.location.href = "/unauthorized";
         }
       }
 

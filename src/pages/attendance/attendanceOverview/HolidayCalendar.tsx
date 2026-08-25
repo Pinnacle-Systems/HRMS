@@ -66,7 +66,7 @@ export function HolidayCalendar() {
           </FormControl>
           <Tooltip title="Refresh">
             <IconButton size="small" onClick={loadHolidays}>
-              <RefreshOutlined fontSize="small" />
+              <RefreshOutlined fontSize="small" className="text-gray-800"/>
             </IconButton>
           </Tooltip>
         </div>
@@ -99,7 +99,7 @@ export function HolidayCalendar() {
                     <Chip label={h.optional === true ? "Yes" : "No"} size="small" variant="outlined" color={h.optional === true ? "success" : "error"} />
                   </TableCell>
                   <TableCell>
-                    <Chip label={h.type} size="small" variant="outlined" />
+                    <Chip label={h.type} size="small" variant="outlined" className="text-gray-800"/>
                   </TableCell>
                   {/* <TableCell>{h.state || "—"}</TableCell> */}
                 </TableRow>

@@ -92,13 +92,13 @@ export const employeeColumns = [
   { key: "noticePeriod", label: "Notice Period (days)", type: "number" },
   // { key: "department", label: "Department", type: "select" },
   { key: "designation", label: "Designation", type: "select" },
-  // {
-  //   key: "grade",
-  //   label: "Grade",
-  //   type: "select",
-  //   categoryKey: "GRADE",
-  //   isPolicy: false,
-  // },
+  {
+    key: "grade",
+    label: "Grade",
+    type: "select",
+    categoryKey: "GRADE",
+    isPolicy: false,
+  },
   // {
   //   key: "band",
   //   label: "Band / Pay Category",

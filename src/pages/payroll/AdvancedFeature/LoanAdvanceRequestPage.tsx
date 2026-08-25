@@ -29,14 +29,13 @@ import {
   Avatar,
   Tabs,
   Tab,
-  CircularProgress,
+  Tooltip,
 } from "@mui/material";
 import {
   CheckCircle as CheckCircleIcon,
   Pending as PendingIcon,
   Cancel as CancelIcon,
   Add as AddIcon,
-  Visibility as ViewIcon,
   Download as DownloadIcon,
   CloseOutlined,
   Edit as EditIcon,
@@ -58,7 +57,7 @@ export default function LoanAdvanceRequest() {
   const theme = useTheme();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
-  const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
+  const { showSpinner, hideSpinner, showSnackbar } = useUI();
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -81,9 +80,12 @@ export default function LoanAdvanceRequest() {
   const loadData = async () => {
     showSpinner();
     try {
+      let params = {
+        employeeId: session?.user.employeeId
+      }
       const [requestsRes, summaryRes]: any = await Promise.all([
         isAdmin ? loanAdvanceService.getLoanRequests({ size: 100 }) : loanAdvanceService.getMyLoanRequests({ size: 100 }),
-        loanAdvanceService.getLoanAdvanceSummary(),
+        loanAdvanceService.getLoanAdvanceSummary(!isAdmin ?  params : '' ),
       ]);
       setRequests(requestsRes.data?.content || []);
       setSummary(summaryRes.data);
@@ -384,48 +386,56 @@ export default function LoanAdvanceRequest() {
                       />
                     </TableCell>
                     <TableCell align="center">
-                        {/* Edit button - only for pending requests and for the employee who created it or admin */}
-                        {(req.status === "PENDING" && (!isAdmin || req.employeeId === session?.user?.userId)) && (
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleEditClick(req)}
-                            sx={{ color: "info.main" }}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                        
-                        {/* Approve/Reject buttons - Admin/Manager only */}
-                        {isAdmin && req.status === "PENDING" && (
-                          <>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleApprove(req.id)} 
+                      {/* Edit button - only for pending requests and for the employee who created it or admin */}
+                      {(req.status === "PENDING" && (!isAdmin || req.employeeId === session?.user?.userId)) && (
+                        <IconButton
+                          size="small"
+                          onClick={() => handleEditClick(req)}
+                          sx={{ color: "info.main" }}
+                        >
+                          <EditIcon fontSize="small" className="!w-4 text-blue-500" />
+                        </IconButton>
+                      )}
+
+                      {/* Approve/Reject buttons - Admin/Manager only */}
+                      {isAdmin && req.status === "PENDING" && (
+                        <>
+                          <Tooltip title="Approve">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleApprove(req.id)}
                               sx={{ color: "success.main" }}
                             >
                               <CheckCircleIcon fontSize="small" />
                             </IconButton>
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleReject(req.id)} 
+                          </Tooltip>
+                          <Tooltip title="Reject">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleReject(req.id)}
                               sx={{ color: "error.main" }}
                             >
                               <CancelIcon fontSize="small" />
                             </IconButton>
-                       
-                          </>
-                        )}
-                        {
-                          isAdmin && 
-                           <IconButton size="small" onClick={() => handleDownload(req)}>
-                          <DownloadIcon fontSize="small" color="primary" />
-                        </IconButton>
-                        }
-                        {
-                          req.status != 'PENDING' && !isAdmin &&
-                          <div className="text-gray-500">No actions</div>
-                        }
-                        
+                          </Tooltip>
+
+
+                        </>
+                      )}
+                      {
+                        isAdmin &&
+                        <Tooltip title="Download">
+                          <IconButton size="small" onClick={() => handleDownload(req)}>
+                            <DownloadIcon fontSize="small" color="primary" />
+                          </IconButton>
+                        </Tooltip>
+
+                      }
+                      {
+                        req.status != 'PENDING' && !isAdmin &&
+                        <div className="text-gray-500">No actions</div>
+                      }
+
                     </TableCell>
                   </TableRow>
                 );
@@ -502,9 +512,9 @@ export default function LoanAdvanceRequest() {
           <Button onClick={handleDialogClose} variant="outlined" className="!border-gray-200 !text-gray-800">
             Cancel
           </Button>
-          <Button 
-            onClick={isEditMode ? handleUpdateRequest : handleCreateRequest} 
-            variant="contained" 
+          <Button
+            onClick={isEditMode ? handleUpdateRequest : handleCreateRequest}
+            variant="contained"
             className="!bg-primary"
           >
             {isEditMode ? "Update Request" : "Submit Request"}

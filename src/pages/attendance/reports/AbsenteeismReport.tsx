@@ -92,7 +92,7 @@ export function AbsenteeismReport({ onBack }: Props) {
             </FormControl>
           </FilterField>
           <FilterField label="Department">
-            <FormControl>
+            <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
                 <MenuItem value="">All Departments</MenuItem>
                 {departments.map((d) => (
@@ -108,7 +108,7 @@ export function AbsenteeismReport({ onBack }: Props) {
         </>
       }
     >
-      <TableContainer className="max-h-[calc(100vh-400px)]">
+      <TableContainer className="max-h-[calc(100vh-380px)]">
         <Table stickyHeader>
           <TableHead>
             <TableRow>
@@ -136,7 +136,7 @@ export function AbsenteeismReport({ onBack }: Props) {
                   </TableCell>
                   <TableCell >{i + 1}</TableCell>
                   <TableCell >{r.employeeCode}</TableCell>
-                  <TableCell className=" whitespace-nowrap">{r.employeeName}</TableCell>
+                  <TableCell className=" whitespace-nowrap"><div className="py-2">{r.employeeName}</div></TableCell>
                   <TableCell>{r.department}</TableCell>
                   <TableCell className=" !text-center"><span className="text-gray-700">{r.totalWorkingDays}</span></TableCell>
                   <TableCell className=" !text-center !font-semibold"><span className="text-green-600">{r.presentDays}</span></TableCell>
@@ -180,11 +180,11 @@ export function AbsenteeismReport({ onBack }: Props) {
           </TableBody>
         </Table>
       </TableContainer>
-      <GlobalPagination
+      {/* <GlobalPagination
         total={total} page={page} limit={limit}
         onPageChange={p => { setPage(p); generate(p, limit); }}
         onLimitChange={l => { setLimit(l); setPage(1); generate(1, l); }}
-      />
+      /> */}
     </ReportLayout>
   );
 }

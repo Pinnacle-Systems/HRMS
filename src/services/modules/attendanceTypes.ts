@@ -11,6 +11,8 @@ export type AttendanceStatus =
   | "permission"
   | "holiday"
   | "weekly_off"
+  | "missed_punch"
+  | "missed_out"
   | "irregular";
 
 export type AttendanceCategory = "regular" | "irregular" | "on_duty" | "leave";
@@ -136,6 +138,7 @@ export interface MusterRow {
   totalOT: number;
   totalLate: number;
   attendancePercentage: number;
+  totalMissedOut: number;
 }
 
 export interface MusterData {
@@ -496,6 +499,14 @@ export interface LateArrivalQuery extends DateRangeQuery {
 export interface OvertimeQuery extends DateRangeQuery {
   minOtMinutes?: number;
 }
+export interface LopQuery {
+  startDate: string;
+  endDate: string;
+  departmentId?: string;
+  branchId?: string;
+  page?: number;
+  size?: number;
+}
 export interface AbsenteeismQuery extends MonthYearQuery {
   minAbsentDays?: number;
 }
@@ -804,4 +815,15 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
   timestamp: string;
+}
+
+export interface LopSummaryRow {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  department: string;
+  workingDays: number;
+  presentDays: number;
+  lopDays: number;
+  lopDates: string[];
 }

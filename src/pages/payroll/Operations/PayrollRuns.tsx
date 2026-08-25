@@ -1,476 +1,3 @@
-// import { useEffect, useState } from "react";
-// import {
-//     Box,
-//     Card,
-//     CardContent,
-//     Typography,
-//     Button,
-//     TextField,
-//     InputAdornment,
-//     Select,
-//     MenuItem,
-//     FormControl,
-//     InputLabel,
-//     Table,
-//     TableBody,
-//     TableCell,
-//     TableHead,
-//     TableRow,
-//     TableContainer,
-//     Chip,
-//     IconButton,
-//     Stack,
-//     Pagination,
-//     useTheme,
-//     alpha,
-//     Grid,
-// } from "@mui/material";
-// import {
-//     Search as SearchIcon,
-//     FilterList as FilterIcon,
-//     Download as DownloadIcon,
-//     PlayArrow as PlayIcon,
-//     Visibility as EyeIcon,
-//     CheckCircle as CheckCircleIcon,
-//     AccessTime as ClockIcon,
-//     Cancel as XCircleIcon,
-//     Warning as AlertCircleIcon,
-// } from "@mui/icons-material";
-// import { useNavigate } from "react-router-dom";
-// import { useAuth } from "../../../auth/authContext";
-// import { PermissionGuard } from "../../../auth/PermissionGuard";
-// import { PERMISSIONS } from "../../../auth/Permissions";
-// import { formatCurrency } from "../const";
-// import { payrollRunsService } from "../../../services/modules/payrollServices/payrollRuns";
-// import { selectSx } from "../../../const";
-
-// const normalizeCollection = (response: any) => {
-//     const payload = response?.data ?? response;
-//     const candidates = [payload?.content, payload?.items, payload?.records, payload?.data?.content, payload?.data, payload];
-//     const collection = candidates.find(Array.isArray);
-//     return Array.isArray(collection) ? collection : [];
-// };
-
-// const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-//     processed: {
-//         label: "Processed",
-//         color: "#10b981",
-//         bgColor: "#d1fae5",
-//         icon: CheckCircleIcon,
-//     },
-//     approved: {
-//         label: "Approved",
-//         color: "#3b82f6",
-//         bgColor: "#dbeafe",
-//         icon: CheckCircleIcon,
-//     },
-//     pending: {
-//         label: "Pending",
-//         color: "#f59e0b",
-//         bgColor: "#fef3c7",
-//         icon: ClockIcon,
-//     },
-//     draft: {
-//         label: "Draft",
-//         color: "#6b7280",
-//         bgColor: "#f3f4f6",
-//         icon: AlertCircleIcon,
-//     },
-//     rejected: {
-//         label: "Rejected",
-//         color: "#ef4444",
-//         bgColor: "#fee2e2",
-//         icon: XCircleIcon,
-//     },
-// };
-
-// export default function PayrollRuns() {
-//     const { hasPermission } = useAuth();
-//     const theme = useTheme();
-//     const navigate = useNavigate();
-//     const [search, setSearch] = useState("");
-//     const [statusFilter, setStatusFilter] = useState("all");
-//     const [page, setPage] = useState(1);
-//     const [payrollRuns, setPayrollRuns] = useState<any[]>([]);
-//     const [loading, setLoading] = useState(true);
-//     const [error, setError] = useState("");
-//     const pageSize = 6;
-
-//     useEffect(() => {
-//         const loadPayrollRuns = async () => {
-//             setLoading(true);
-//             try {
-//                 const response: any = await payrollRunsService.getPayrollRuns();
-//                 const runs = normalizeCollection(response).map((run: any) => ({
-//                     id: run.id || run.payrollRunId || `PR-${run.periodYear || ""}${run.periodMonth || ""}`,
-//                     period: run.periodLabel || `${run.periodMonth || ""}/${run.periodYear || ""}`,
-//                     employeeCount: run.totalEmployees || run.employeeCount || 0,
-//                     grossSalary: run.totalGross || run.grossSalary || 0,
-//                     deductions: run.totalDeductions || run.deductions || 0,
-//                     netSalary: run.totalNetPay || run.netSalary || 0,
-//                     status: (run.status || "pending").toLowerCase(),
-//                     createdBy: run.createdBy || run.createdByName || "System",
-//                     createdOn: run.createdAt || run.paymentDate || "-",
-//                     paymentDate: run.paymentDate,
-//                 }));
-//                 setPayrollRuns(runs);
-//                 setError("");
-//             } catch (err) {
-//                 console.error("Failed to load payroll runs", err);
-//                 setError("Unable to load payroll runs right now.");
-//             } finally {
-//                 setLoading(false);
-//             }
-//         };
-
-//         loadPayrollRuns();
-//     }, []);
-
-//     const filtered = payrollRuns.filter((r) => {
-//         const matchSearch =
-//             r.id.toLowerCase().includes(search.toLowerCase()) ||
-//             r.period.toLowerCase().includes(search.toLowerCase()) ||
-//             r.createdBy.toLowerCase().includes(search.toLowerCase());
-//         const matchStatus = statusFilter === "all" || r.status === statusFilter;
-//         return matchSearch && matchStatus;
-//     });
-
-//     const totalPages = Math.ceil(filtered.length / pageSize);
-//     const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-//     const totalNet = payrollRuns.reduce((s, r) => s + (r.netSalary || 0), 0);
-//     const totalGross = payrollRuns.reduce((s, r) => s + (r.grossSalary || 0), 0);
-//     const totalDeductions = payrollRuns.reduce((s, r) => s + (r.deductions || 0), 0);
-
-//     const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-//         setPage(value);
-//     };
-
-//     return (
-//         <div className="bg-white-50">
-//             {/* Header */}
-//             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-//                 <Box>
-//                     <div className="text-gray-800 text-[12px] font-bold">
-//                         Payroll Runs
-//                     </div>
-//                     <div className="text-[12px] text-gray-500 mt-0.5">
-//                         Manage and track all payroll processing runs
-//                     </div>
-//                 </Box>
-//                 <Box sx={{ display: "flex", gap: 1 }}>
-//                     {hasPermission(PERMISSIONS.REPORT_EXPORT) && (
-//                         <Button
-//                             variant="outlined"
-//                             startIcon={<DownloadIcon fontSize="small" />}
-//                             sx={{ textTransform: "none" }}
-//                         >
-//                             Export
-//                         </Button>
-//                     )}
-//                     <PermissionGuard permissions={PERMISSIONS.PAYROLL_WRITE}>
-//                         <Button
-//                             variant="contained"
-//                             startIcon={<PlayIcon fontSize="small" />}
-//                             className="!bg-primary"
-//                             onClick={() => navigate("/payroll/generate")}
-//                         >
-//                             Generate Payroll
-//                         </Button>
-//                     </PermissionGuard>
-//                 </Box>
-//             </Box>
-
-//             {/* Summary KPI */}
-//             <Grid container spacing={2} sx={{ mb: 3 }}>
-//                 {[
-//                     { label: "Total Runs", value: payrollRuns.length.toString(), sub: "All time" },
-//                     { label: "Total Gross", value: formatCurrency(totalGross), sub: "Cumulative" },
-//                     { label: "Total Deductions", value: formatCurrency(totalDeductions), sub: "Cumulative" },
-//                     { label: "Total Net Paid", value: formatCurrency(totalNet), sub: "Cumulative" },
-//                 ].map((s) => (
-//                     <Grid size={{ xs: 6, sm: 3 }} key={s.label}>
-//                         <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-//                             <CardContent sx={{ p: 2 }}>
-//                                 <div className="text-gray-500 text-[12px]">
-//                                     {s.label}
-//                                 </div>
-//                                 <div className="text-[12px] mt-1 text-gray-800 font-bold">
-//                                     {s.value}
-//                                 </div>
-//                                 <div className="text-[12px] mt-1 text-gray-500">
-//                                     {s.sub}
-//                                 </div>
-//                             </CardContent>
-//                         </Card>
-//                     </Grid>
-//                 ))}
-//             </Grid>
-
-//             {/* Filters */}
-//             <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 3 }}>
-//                 <TextField
-//                     placeholder="Search by ID, period, created by..."
-//                     value={search}
-//                     onChange={(e) => {
-//                         setSearch(e.target.value);
-//                         setPage(1);
-//                     }}
-//                     // size="small"
-//                     // sx={{ flex: 1, maxWidth: 300 }}
-//                     // slotProps={{
-//                     //     input: {
-//                     //         startAdornment: (
-//                     //             <InputAdornment position="start">
-//                     //                 <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
-//                     //             </InputAdornment>
-//                     //         ),
-//                     //     },
-//                     // }}
-//                 />
-//                 <FormControl size="small" sx={{ minWidth: 150 }}>
-//                     {/* <InputLabel id="status-filter-label">Status</InputLabel> */}
-//                     <Select
-//                         labelId="status-filter-label"
-//                         value={statusFilter}
-//                         onChange={(e) => {
-//                             setStatusFilter(e.target.value);
-//                             setPage(1);
-//                         }}
-//                         label="Status"
-//                         className="bg-white-50"
-//                         sx={selectSx}
-//                         startAdornment={
-//                             <FilterIcon fontSize="small" className="text-gray-500 mr-1" />
-//                         }
-//                     >
-//                         <MenuItem value="all">All Status</MenuItem>
-//                         <MenuItem value="processed">Processed</MenuItem>
-//                         <MenuItem value="approved">Approved</MenuItem>
-//                         <MenuItem value="pending">Pending</MenuItem>
-//                         <MenuItem value="draft">Draft</MenuItem>
-//                         <MenuItem value="rejected">Rejected</MenuItem>
-//                     </Select>
-//                 </FormControl>
-//             </Box>
-
-//             {/* Table */}
-//             {loading ? (
-//                 <Box sx={{ py: 4, textAlign: "center", color: "text.secondary" }}>Loading payroll runs…</Box>
-//             ) : error ? (
-//                 <Box sx={{ py: 4, textAlign: "center", color: "error.main" }}>{error}</Box>
-//             ) : (
-//             <div className="border border-gray-200 rounded-sm">
-//                 <TableContainer>
-//                     <Table >
-//                         <TableHead>
-//                             <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-//                                 <TableCell
-//                                     // sx={{
-//                                     //     fontWeight: 600,
-//                                     //     fontSize: "0.65rem",
-//                                     //     textTransform: "uppercase",
-//                                     //     letterSpacing: "0.5px",
-//                                     //     color: "text.secondary",
-//                                     // }}
-//                                 >
-//                                     Payroll ID
-//                                 </TableCell>
-//                                 <TableCell
-                                   
-//                                 >
-//                                     Period
-//                                 </TableCell>
-//                                 <TableCell
-                                   
-//                                 >
-//                                     Employees
-//                                 </TableCell>
-//                                 <TableCell
-                                    
-//                                 >
-//                                     Gross Salary
-//                                 </TableCell>
-//                                 <TableCell
-                                   
-//                                 >
-//                                     Deductions
-//                                 </TableCell>
-//                                 <TableCell
-                                    
-//                                 >
-//                                     Net Salary
-//                                 </TableCell>
-//                                 <TableCell
-                                    
-//                                 >
-//                                     Status
-//                                 </TableCell>
-//                                 <TableCell
-                                   
-//                                 >
-//                                     Created By
-//                                 </TableCell>
-//                                 <TableCell
-                                   
-//                                 >
-//                                     Created On
-//                                 </TableCell>
-//                                 <TableCell
-//                                     align="center"
-                                   
-//                                 >
-//                                     Actions
-//                                 </TableCell>
-//                             </TableRow>
-//                         </TableHead>
-//                         <TableBody>
-//                             {paginated.length === 0 ? (
-//                                 <TableRow>
-//                                     <TableCell colSpan={10} align="center" sx={{ py: 6, color: "text.secondary" }}>
-//                                         <div className="py-8">No payroll runs found matching your filters.</div>
-//                                     </TableCell>
-//                                 </TableRow>
-//                             ) : (
-//                                 paginated.map((run) => {
-//                                     const sc = statusConfig[run.status] ?? statusConfig.pending;
-//                                     const Icon = sc.icon;
-//                                     return (
-//                                         <TableRow
-//                                             key={run.id}
-//                                             hover
-//                                             sx={{
-//                                                 cursor: "pointer",
-//                                                 transition: "background-color 0.2s",
-//                                                 "&:hover": {
-//                                                     bgcolor: alpha(theme.palette.primary.main, 0.04),
-//                                                 },
-//                                             }}
-//                                             onClick={() => navigate(`/payroll/runs/${run.id}`)}
-//                                         >
-//                                             <TableCell>
-//                                                 <Typography
-//                                                     variant="body2"
-//                                                     sx={{
-//                                                         fontFamily: "monospace",
-//                                                         fontSize: "0.75rem",
-//                                                         fontWeight: 600,
-//                                                         color: "primary.main",
-//                                                     }}
-//                                                 >
-//                                                     {run.id}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell>
-//                                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-//                                                     {run.period}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell align="right">
-//                                                 <Typography variant="body2">
-//                                                     {run.employeeCount.toLocaleString()}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell align="right">
-//                                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
-//                                                     {formatCurrency(run.grossSalary)}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell align="right">
-//                                                 <Typography variant="body2" sx={{ color: "error.main" }}>
-//                                                     {formatCurrency(run.deductions)}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell align="right">
-//                                                 <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
-//                                                     {formatCurrency(run.netSalary)}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell>
-//                                                 <Chip
-//                                                     icon={<Icon fontSize="small" />}
-//                                                     label={sc.label}
-//                                                     size="small"
-//                                                     sx={{
-//                                                         bgcolor: sc.bgColor,
-//                                                         color: sc.color,
-//                                                         fontSize: "0.7rem",
-//                                                         fontWeight: 500,
-//                                                         "& .MuiChip-icon": {
-//                                                             color: sc.color,
-//                                                         },
-//                                                     }}
-//                                                 />
-//                                             </TableCell>
-//                                             <TableCell>
-//                                                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                                                     {run.createdBy}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell>
-//                                                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                                                     {run.createdOn}
-//                                                 </Typography>
-//                                             </TableCell>
-//                                             <TableCell onClick={(e) => e.stopPropagation()}>
-//                                                 <Stack direction="row">
-//                                                     <IconButton
-//                                                         size="small"
-//                                                         sx={{
-//                                                             color: "text.secondary",
-//                                                             "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
-//                                                         }}
-//                                                         onClick={() => navigate(`/payroll/runs/${run.id}`)}
-//                                                     >
-//                                                         <EyeIcon fontSize="small" />
-//                                                     </IconButton>
-//                                                     <IconButton
-//                                                         size="small"
-//                                                         sx={{
-//                                                             color: "text.secondary",
-//                                                             "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
-//                                                         }}
-//                                                     >
-//                                                         <DownloadIcon fontSize="small" />
-//                                                     </IconButton>
-//                                                 </Stack>
-//                                             </TableCell>
-//                                         </TableRow>
-//                                     );
-//                                 })
-//                             )}
-//                         </TableBody>
-//                     </Table>
-//                 </TableContainer>
-//             </div>
-//             )}
-
-//             {/* Pagination */}
-//             {totalPages > 1 && (
-//                 <Box
-//                     sx={{
-//                         display: "flex",
-//                         justifyContent: "space-between",
-//                         alignItems: "center",
-//                         mt: 2,
-//                     }}
-//                 >
-//                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
-//                         Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} runs
-//                     </Typography>
-//                     <Pagination
-//                         count={totalPages}
-//                         page={page}
-//                         onChange={handlePageChange}
-//                         color="primary"
-//                         shape="rounded"
-//                     />
-//                 </Box>
-//             )}
-//         </div>
-//     );
-// }
-
 import { useEffect, useState } from "react";
 import {
     Box,
@@ -492,7 +19,6 @@ import {
     Chip,
     IconButton,
     Stack,
-    Pagination,
     useTheme,
     alpha,
     Grid,
@@ -514,6 +40,7 @@ import { useUI } from "../../../context/Snackbar";
 import { selectSx } from "../../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import { getRowColor } from "../../const";
+import { GlobalPagination } from "../../../components/GlobalPagination";
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
     completed: {
@@ -561,54 +88,79 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
 };
 
 export default function PayrollRuns() {
-    const theme = useTheme();
     const navigate = useNavigate();
     const { showSpinner, hideSpinner, showSnackbar } = useUI();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
-    const [page, setPage] = useState(1);
     const [payrollRuns, setPayrollRuns] = useState<any[]>([]);
-    const pageSize = 6;
+    const [loading, setLoading] = useState(true);
+
+    // Pagination state (0-based page for API)
+    const [page, setPage] = useState(0);
+    const [limit, setLimit] = useState(10);
+    const [total, setTotal] = useState(0);
 
     useEffect(() => {
         loadPayrollRuns();
-    }, []);
+    }, [page, limit, search, statusFilter]);
 
     const loadPayrollRuns = async () => {
+        setLoading(true);
         showSpinner();
         try {
-            const response: any = await payrollRunsService.getPayrollRuns();
-            const runs = (response.data?.content || []).map((run: any) => ({
+            const response: any = await payrollRunsService.getPayrollRuns({
+                page: page,
+                size: limit,
+                status: statusFilter !== "all" ? statusFilter : undefined,
+            });
+
+            const data = response.data || response;
+            const content = data.content || data.items || data.records || [];
+
+            const runs = content.map((run: any) => ({
                 id: run.id,
                 period: run.periodLabel || `${run.periodMonth}/${run.periodYear}`,
                 employeeCount: run.totalEmployees || 0,
                 grossSalary: run.totalGross || 0,
                 deductions: run.totalDeductions || 0,
                 netSalary: run.totalNetPay || 0,
-                status: (run.status).toLowerCase(),
+                status: (run.status || "").toLowerCase(),
                 createdBy: run.createdBy || "System",
                 createdOn: run.createdAt || run.paymentDate || "-",
                 paymentDate: run.paymentDate,
             }));
+
             setPayrollRuns(runs);
+            setTotal(data.totalElements || data.total || data.totalCount || runs.length);
         } catch (error) {
+            console.error("Failed to load payroll runs", error);
             showSnackbar("Failed to load payroll runs", "error");
         } finally {
+            setLoading(false);
             hideSpinner();
         }
     };
 
-    const filtered = payrollRuns.filter((r) => {
-        const matchSearch = r.id.toLowerCase().includes(search.toLowerCase()) ||
-            r.period.toLowerCase().includes(search.toLowerCase()) ||
-            r.createdBy.toLowerCase().includes(search.toLowerCase());
-        const matchStatus = statusFilter === "all" || r.status === statusFilter;
-        return matchSearch && matchStatus;
-    });
+    const handlePageChange = (newPage: number) => {
+        setPage(newPage - 1); // Convert from 1-based (UI) to 0-based (API)
+    };
 
-    const totalPages = Math.ceil(filtered.length / pageSize);
-    const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+    const handleLimitChange = (newLimit: number) => {
+        setLimit(newLimit);
+        setPage(0); // Reset to first page when changing page size
+    };
 
+    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearch(e.target.value);
+        setPage(0); // Reset to first page when searching
+    };
+
+    const handleStatusChange = (value: string) => {
+        setStatusFilter(value);
+        setPage(0); // Reset to first page when filtering
+    };
+
+    // Calculate totals from all data (not just current page)
     const totalNet = payrollRuns.reduce((s, r) => s + (r.netSalary || 0), 0);
     const totalGross = payrollRuns.reduce((s, r) => s + (r.grossSalary || 0), 0);
     const totalDeductions = payrollRuns.reduce((s, r) => s + (r.deductions || 0), 0);
@@ -616,7 +168,7 @@ export default function PayrollRuns() {
     return (
         <div className="bg-white-50">
             {/* Header */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                 <Box>
                     <div className="text-gray-800 text-[12px] font-bold">
                         Payroll Runs
@@ -640,16 +192,16 @@ export default function PayrollRuns() {
             </Box>
 
             {/* Summary KPI */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={1} sx={{ mb: 2 }}>
                 {[
-                    { label: "Total Runs", value: payrollRuns.length.toString(), sub: "All time" },
+                    { label: "Total Runs", value: total.toString(), sub: "All time" },
                     { label: "Total Gross", value: formatCurrency(totalGross), sub: "Cumulative" },
                     { label: "Total Deductions", value: formatCurrency(totalDeductions), sub: "Cumulative" },
                     { label: "Total Net Paid", value: formatCurrency(totalNet), sub: "Cumulative" },
                 ].map((s) => (
                     <Grid size={{ xs: 6, sm: 3 }} key={s.label}>
-                        <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-                            <CardContent sx={{ p: 2 }}>
+                        <Card className="bg-white !border !border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                            <CardContent className="!pb-3 !p-3">
                                 <div className="text-gray-500 text-[12px]">{s.label}</div>
                                 <div className="text-[12px] mt-1 text-gray-800 font-bold">{s.value}</div>
                                 <div className="text-[12px] mt-1 text-gray-500">{s.sub}</div>
@@ -660,28 +212,17 @@ export default function PayrollRuns() {
             </Grid>
 
             {/* Filters */}
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 3 }}>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1 }}>
                 <TextField
                     placeholder="Search by ID, period, created by..."
                     value={search}
-                    onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                    onChange={handleSearch}
                     size="small"
-                    // sx={{ flex: 1, maxWidth: 300 }}
-                    // slotProps={{
-                    //     input: {
-                    //         startAdornment: (
-                    //             <InputAdornment position="start">
-                    //                 <SearchIcon fontSize="small" sx={{ color: "text.secondary" }} />
-                    //             </InputAdornment>
-                    //         ),
-                    //     },
-                    // }}
                 />
                 <FormControl size="small" sx={{ minWidth: 150 }} className="bg-white dark:bg-white-50">
-                    <InputLabel>Status</InputLabel>
                     <Select
                         value={statusFilter}
-                        onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                        onChange={(e) => handleStatusChange(e.target.value)}
                         label="Status"
                         sx={selectSx}
                     >
@@ -698,120 +239,131 @@ export default function PayrollRuns() {
             </Box>
 
             {/* Table */}
-            <div className="border border-gray-200 rounded-sm">
-                <TableContainer>
-                    <Table>
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                                <TableCell className="!font-bold sticky left-0 z-20">S No</TableCell>
-                                <TableCell className="!font-bold sticky left-[60px] z-20">Period</TableCell>
-                                <TableCell  className="!font-bold">Employees</TableCell>
-                                <TableCell  className="!font-bold" align="right">Gross Salary</TableCell>
-                                <TableCell  className="!font-bold" align="right">Deductions</TableCell>
-                                <TableCell  className="!font-bold" align="right">Net Salary</TableCell>
-                                <TableCell  className="!font-bold">Status</TableCell>
-                                <TableCell  className="!font-bold">Created By</TableCell>
-                                <TableCell  className="!font-bold">Created On</TableCell>
-                                <TableCell  className="!font-bold sticky right-0 z-20" align="center">Actions</TableCell>
+            <TableContainer className="bg-white border border-gray-200 rounded-sm h-[calc(100vh-331px)] overflow-auto">
+                <Table stickyHeader>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell className="!font-bold !sticky left-0 !z-30">S No</TableCell>
+                            <TableCell className="!font-bold !sticky left-[60px] !z-30">Period</TableCell>
+                            <TableCell className="!font-bold">Employees</TableCell>
+                            <TableCell className="!font-bold" align="right">Gross Salary</TableCell>
+                            <TableCell className="!font-bold" align="right">Deductions</TableCell>
+                            <TableCell className="!font-bold" align="right">Net Salary</TableCell>
+                            <TableCell className="!font-bold">Status</TableCell>
+                            <TableCell className="!font-bold">Created By</TableCell>
+                            <TableCell className="!font-bold">Created On</TableCell>
+                            <TableCell className="!font-bold sticky right-0 !z-30" align="center">Actions</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow>
+                                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                                    <Typography sx={{ color: "text.secondary" }}>
+                                        Loading payroll runs...
+                                    </Typography>
+                                </TableCell>
                             </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {paginated.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={10} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                                        <div className="py-8">No payroll runs found matching your filters.</div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                paginated.map((run,i) => {
-                                    const sc = statusConfig[run.status];                                    
-                                    const Icon = sc.icon;
-                                    return (
-                                        <TableRow
-                                            key={run.id}
-                                            sx={getRowColor(i)}
-                                            onClick={() => navigate(`/payroll/runs/${run.id}`)}
-                                        >
-                                            <TableCell className="sticky left-0 z-20 bg-inherit">
-                                                    {i+1}
-                                            </TableCell>
-                                            <TableCell className="sticky left-[60px] z-20 bg-inherit">
-                                                <Typography variant="body2" sx={{ fontWeight: 600,color: "primary.main" }}>
-                                                    {run.period}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2">
-                                                    {run.employeeCount.toLocaleString()}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                                    {formatCurrency(run.grossSalary)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2" sx={{ color: "error.main" }}>
-                                                    {formatCurrency(run.deductions)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
-                                                    {formatCurrency(run.netSalary)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    icon={<Icon fontSize="small" />}
-                                                    label={sc.label}
-                                                    size="small"
-                                                    sx={{
-                                                        bgcolor: sc.bgColor,
-                                                        color: sc.color,
-                                                        fontSize: "0.7rem",
-                                                        fontWeight: 500,
-                                                        "& .MuiChip-icon": { color: sc.color },
-                                                    }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" className="text-gray-800">
-                                                    {run.createdBy}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" className="text-gray-800">
-                                                    {formatDate(run.createdOn)}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell className="sticky right-0 z-20 bg-inherit" onClick={(e) => e.stopPropagation()}>
-                                                <Stack direction="row">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => navigate(`/payroll/runs/${run.id}`)}
-                                                        sx={{ "&:hover": { color: "primary.main" } }}
-                                                    >
-                                                        <EyeIcon fontSize="small" className="text-primary"/>
-                                                    </IconButton>
-                                                </Stack>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-            </div>
+                        ) : payrollRuns.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={10} align="center" sx={{ py: 6, color: "text.secondary" }}>
+                                    <div className="py-8">No payroll runs found matching your filters.</div>
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            payrollRuns.map((run, i) => {
+                                const sc = statusConfig[run.status] || statusConfig.draft;
+                                const Icon = sc.icon;
+                                const serialNumber = page * limit + i + 1;
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 2 }}>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} runs
-                    </Typography>
-                    <Pagination count={totalPages} page={page} onChange={(_, v) => setPage(v)} color="primary" shape="rounded" />
-                </Box>
+                                return (
+                                    <TableRow
+                                        key={run.id}
+                                        sx={getRowColor(i)}
+                                        onClick={() => navigate(`/payroll/runs/${run.id}`)}
+                                    >
+                                        <TableCell className="sticky left-0 z-20 bg-inherit">
+                                            {serialNumber}
+                                        </TableCell>
+                                        <TableCell className="sticky left-[60px] z-20 bg-inherit">
+                                            <Typography sx={{ fontWeight: 600, color: "primary.main" }}>
+                                                {run.period}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Typography>
+                                                {run.employeeCount.toLocaleString()}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <Typography sx={{ fontWeight: 500 }}>
+                                                {formatCurrency(run.grossSalary)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <Typography sx={{ color: "error.main" }}>
+                                                {formatCurrency(run.deductions)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <Typography sx={{ fontWeight: 600, color: "success.main" }}>
+                                                {formatCurrency(run.netSalary)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                icon={<Icon fontSize="small" />}
+                                                label={sc.label}
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: sc.bgColor,
+                                                    color: sc.color,
+                                                    fontSize: "0.7rem",
+                                                    fontWeight: 500,
+                                                    "& .MuiChip-icon": { color: sc.color },
+                                                }}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography className="text-gray-800">
+                                                {run.createdBy}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography className="text-gray-800">
+                                                {formatDate(run.createdOn)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell className="sticky right-0 z-20 bg-inherit" onClick={(e) => e.stopPropagation()}>
+                                            <Stack direction="row">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => navigate(`/payroll/runs/${run.id}`)}
+                                                    sx={{ "&:hover": { color: "primary.main" } }}
+                                                >
+                                                    <EyeIcon fontSize="small" className="text-primary" />
+                                                </IconButton>
+                                            </Stack>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+
+            {/* Global Pagination */}
+            {total > 0 && (
+                <GlobalPagination
+                    total={total}
+                    page={page + 1} // Convert from 0-based (state) to 1-based (UI)
+                    limit={limit}
+                    onPageChange={handlePageChange}
+                    onLimitChange={handleLimitChange}
+                    pageSizeOptions={[10, 20, 50, 100]}
+                    showTotal={true}
+                />
             )}
         </div>
     );

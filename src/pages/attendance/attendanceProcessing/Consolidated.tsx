@@ -396,7 +396,6 @@ export function AttendanceConsolidated() {
               <TableRow>
                 {[
                   "S No",
-                  "Emp Code",
                   "Name",
                   "Period",
                   "Working Days",
@@ -449,9 +448,9 @@ export function AttendanceConsolidated() {
                     sx={getRowColor(index)}
                   >
                     <TableCell>{index + 1}</TableCell>
-                    <TableCell>{r.employeeCode}</TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {r.employeeName}
+                      <div>{r.employeeName}</div>
+                      <div className="text-primary">({r.employeeCode})</div>
                     </TableCell>
                     {/* <TableCell>{r.department}</TableCell> */}
                     <TableCell className="whitespace-nowrap">
@@ -460,7 +459,7 @@ export function AttendanceConsolidated() {
                     </TableCell>
                     <TableCell>{r.workingDays}</TableCell>
                     <TableCell>
-                      <span className="text-green-600 font-medium">
+                      <span className="text-green-600 font-bold">
                         {r.presentDays}
                       </span>
                     </TableCell>
@@ -469,13 +468,13 @@ export function AttendanceConsolidated() {
                     <TableCell>{r.weeklyOffDays}</TableCell>
                     <TableCell>{r.totalWorkedHours}</TableCell>
                     <TableCell>
-                      <span className="text-blue-600 font-medium">
+                      <span className="text-blue-600 !font-bold">
                         {r.payableDays}
                       </span>
                     </TableCell>
                     <TableCell>
                       {r.lopDays > 0 ? (
-                        <span className="text-red-600 font-medium">
+                        <span className="text-red-600 !font-bold">
                           {r.lopDays}
                         </span>
                       ) : (
@@ -484,7 +483,7 @@ export function AttendanceConsolidated() {
                     </TableCell>
                     <TableCell>
                       {r.overtimeHours > 0 ? (
-                        <span className="text-orange-600 font-medium">
+                        <span className="text-orange-600 font-bold">
                           {r.overtimeHours}
                         </span>
                       ) : (

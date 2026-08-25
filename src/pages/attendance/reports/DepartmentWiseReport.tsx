@@ -113,7 +113,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
           </ResponsiveContainer>
         </div>
       ) : (
-        <TableContainer className="max-h-[calc(100vh-400px)]">
+        <TableContainer className="max-h-[calc(100vh-440px)]">
           <Table stickyHeader>
             <TableHead>
               <TableRow>
@@ -127,7 +127,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
                 <TableRow key={r.department} sx={getRowColor(i)}>
                   <TableCell>{i+1}</TableCell>
                   <TableCell>{r.department}</TableCell>
-                  <TableCell className="!text-center">{r.totalEmployees}</TableCell>
+                  <TableCell className="!text-center"><div className="py-2">{r.totalEmployees}</div></TableCell>
                   <TableCell className="!text-center">{r.totalWorkingDays}</TableCell>
                   <TableCell className="!text-center !font-semibold"><span className="text-green-600">{r.totalPresentDays}</span></TableCell>
                   <TableCell className="!text-center !font-semibold"><span className="text-red-500">{r.totalAbsentDays}</span></TableCell>

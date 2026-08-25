@@ -18,6 +18,7 @@ export interface PayslipListItem {
   employeeName: string;
   departmentId: string;
   department: string;
+  designation: string;
   designationId: string;
   payDays: number;
   grossSalary: number;

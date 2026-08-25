@@ -19,11 +19,12 @@ import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import type { MusterRow } from "../../../services/modules/attendanceTypes";
 import { apiService } from "../../../services";
+import { shiftService, type Shift } from "../../../services/modules/shifts";
 
 const LEGEND = [
   { abbr: "P", label: "Present", color: "bg-green-500" },
   { abbr: "A", label: "Absent", color: "bg-red-500" },
-  { abbr: "L", label: "Late", color: "bg-amber-400" },
+  { abbr: "L", label: "Late", color: "bg-amber-500" },
   { abbr: "H", label: "Half Day", color: "bg-blue-700" },
   { abbr: "OD", label: "On Duty", color: "bg-cyan-500" },
   { abbr: "LV", label: "Leave", color: "bg-violet-400" },
@@ -34,13 +35,13 @@ const LEGEND = [
 ];
 
 const STATUS_MAPPINGS: any = {
-  present: { abbr: 'P', class: 'bg-green-100 border border-green-700 text-green-700'},
+  present: { abbr: 'P', class: 'bg-green-100 border border-green-700 text-green-700' },
   absent: { abbr: 'A', class: 'bg-red-100 border border-red-700 text-red-700' },
   'half-day': { abbr: 'HD', class: 'bg-blue-100 border border-blue-700 text-blue-700' },
   late: { abbr: 'L', class: 'bg-amber-100 text-amber-700 border border-amber-700' },
   leave: { abbr: 'LV', class: 'bg-violet-100 text-violet-700 border border-violet-700' },
-  holiday: { abbr: 'HO', class: 'bg-slate-100 text-slate-700 border border-slate-300'},
-  'weekly-off': { abbr: 'WO', class: 'bg-gray-100 text-gray-500 border border-gray-700' },
+  holiday: { abbr: 'HO', class: 'bg-slate-100 text-slate-700 border border-slate-300' },
+  'weekly_off': { abbr: 'WO', class: 'bg-gray-100 text-gray-500 border border-gray-700' },
   'on-duty': { abbr: 'OD', class: 'bg-cyan-100 text-cyan-500 border border-cyan-700' },
   permission: { abbr: 'PM', class: 'bg-orange-100 text-orange-700 border border-orange-700' },
   irregular: { abbr: 'IR', class: 'bg-pink-100 text-pink-700 border border-pink-700' },
@@ -76,7 +77,7 @@ const getAttendanceStatus = (cell: any): {
   if (checkIn && checkOut) {
     // Full day present
     amStatus = firstHalf === "late" ? "late" : "present";
-    pmStatus = secondHalf === "late" ? "late" :"present";
+    pmStatus = secondHalf === "late" ? "late" : "present";
     overallStatus = firstHalf === "late" ? "late" : "present";
     details.push(`✅ Full Day (${formatTime(checkIn)} - ${formatTime(checkOut)})`);
   } else if (checkIn && !checkOut) {
@@ -111,10 +112,10 @@ const getAttendanceStatus = (cell: any): {
     pmStatus = "holiday";
     overallStatus = "holiday";
     details.push("🎉 Holiday");
-  } else if (firstHalf === "weekly-off" || secondHalf === "weekly-off") {
-    amStatus = "weekly-off";
-    pmStatus = "weekly-off";
-    overallStatus = "weekly-off";
+  } else if (firstHalf === "weekly_off" || secondHalf === "weekly_off") {
+    amStatus = "weekly_off";
+    pmStatus = "weekly_off";
+    overallStatus = "weekly_off";
     details.push("📅 Weekly Off");
   } else {
     // Default to firstHalf/secondHalf values if they exist
@@ -149,6 +150,7 @@ export function AttendanceMuster() {
   const [month, setMonth] = useState(curMonth);
   const [year, setYear] = useState(curYear);
   const [departmentId, setDepartmentId] = useState("");
+  const [shiftId, setShifttId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [employees, setEmployees] = useState<MusterRow[]>([]);
   const [holidays, setHolidays] = useState<string[]>([]);
@@ -157,6 +159,7 @@ export function AttendanceMuster() {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [viewMode, setViewMode] = useState<"muster" | "register">("muster");
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -213,6 +216,9 @@ export function AttendanceMuster() {
       const branRes: any = await branchService.getActiveBranches();
       const branData = branRes.data?.content || branRes.data || [];
       setBranches(branData);
+      const shiftRes: any = await shiftService.getActiveShifts();
+      const shiftData = shiftRes.data?.content || shiftRes.data || [];
+      setShifts(shiftData);
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }
@@ -316,6 +322,15 @@ export function AttendanceMuster() {
         </div>
         <div className="flex items-center gap-2">
           <FormControl className="!w-[180px]">
+            <InputLabel>Shift</InputLabel>
+            <Select value={shiftId} onChange={(e) => setShifttId(e.target.value)} label="Shift" sx={selectSx}>
+              {/* <MenuItem value="">All Shift</MenuItem> */}
+              {shifts.map(d => (
+                <MenuItem key={d.id} value={d.id}>{d.shiftName} ({d.shiftCode})</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl className="!w-[180px]">
             <InputLabel>Department</InputLabel>
             <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
               <MenuItem value="">All Departments</MenuItem>
@@ -387,14 +402,14 @@ export function AttendanceMuster() {
             <div className="flex justify-center py-16 text-gray-400 text-sm">No register data for selected period</div>
           ) : (
             <>
-              <TableContainer className="max-h-[calc(100vh-400px)]">
+              <TableContainer className="max-h-[calc(100vh-370px)]">
                 <Table stickyHeader>
                   <TableHead>
                     <TableRow>
                       {["S No", "Name", "Designation",
-                        "Present", "Absent", "Late", "Half Day", "On Duty", "Leave", "Permission", "EarlyOut", "Lop", "Worked(h)", "OT (h)", "OT (m)", "Att %"].map((h, i) => (
+                        "Present", "Absent", "Late", "Half Day", "On Duty", "Leave", "Permission", "EarlyOut", "Lop","Week Off","Holidays", "Worked(h)", "OT (h)", "OT (m)", "Att %"].map((h, i) => (
                           <TableCell key={h} className={`${i == 0 ? 'left-0 sticky bg-inherit !z-50' : i == 1 ? 'left-[58px] sticky bg-inherit !z-50' : i == 2 ? 'left-[160px] sticky bg-inherit !z-50' :
-                            i == 15 ? 'right-0 sticky bg-inherit !z-50' : ''} !font-bold whitespace-nowrap`}>{h}</TableCell>
+                            i == 17 ? 'right-0 sticky bg-inherit !z-50' : ''} !font-bold whitespace-nowrap`}>{h}</TableCell>
                         ))}
                     </TableRow>
                   </TableHead>
@@ -414,18 +429,20 @@ export function AttendanceMuster() {
                             <span className="text-blue-500 text-[10px]">{r.department}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="!text-center"><span className="!text-green-600 !font-bold">{r.totalPresent ?? r.presentDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-red-500 !font-bold">{r.totalAbsent ?? r.absentDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-amber-400 !font-bold">{r.totalLate ?? r.lateDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-blue-500 !font-bold">{r.totalHalfDay ?? r.halfDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-cyan-500 !font-bold">{r.totalOnDuty ?? r.onDutyDays ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-green-600 !font-bold">{r.totalPresent ?? r.presentDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-red-500 !font-bold">{r.totalAbsent ?? r.absentDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-amber-400 !font-bold">{r.totalLate ?? r.lateDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-blue-500 !font-bold">{r.totalHalfDay ?? r.halfDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-cyan-500 !font-bold">{r.totalOnDuty ?? r.onDutyDays ?? "-"}</span></TableCell>
 
-                        <TableCell className="!text-center"><span className="!text-violet-400 !font-bold">{r.totalLeave ?? r.leaveDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-orange-500 !font-bold">{r.permissionDays ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-violet-400 !font-bold">{r.totalLeave ?? r.leaveDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-orange-500 !font-bold">{r.permissionDays ?? "-"}</span></TableCell>
 
-                        <TableCell className="!text-center"><span className="!text-sky-500 !font-bold">{r.earlyOutDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-red-600 !font-bold">{r.lossOfPayDays ?? "—"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-emerald-500 !font-bold">{r.totalWorkedHours ?? "—"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-sky-500 !font-bold">{r.earlyOutDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-red-600 !font-bold">{r.lossOfPayDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-gray-500 !font-bold">{r.weeklyOffDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-gray-300 !font-bold">{r.holidayDays ?? "-"}</span></TableCell>
+                        <TableCell className="!text-center"><span className="!text-emerald-500 !font-bold">{r.totalWorkedHours ?? "-"}</span></TableCell>
                         <TableCell className="!text-center">{r.otHours ?? 0}</TableCell>
                         <TableCell className="!text-center">{((r.otHours ?? 0) * 60).toFixed(0)}</TableCell>
                         <TableCell className="!text-center sticky right-0 z-20 bg-inherit" sx={{
@@ -469,7 +486,7 @@ export function AttendanceMuster() {
             <div className="flex justify-center py-16 text-gray-400 text-sm">No data for selected period</div>
           ) : (
             <>
-              <div className="overflow-x-auto max-h-[calc(100vh-400px)]">
+              <div className="overflow-x-auto max-h-[calc(100vh-370px)]">
                 <table className="text-xs border-collapse min-w-full">
                   <thead>
                     {/* Day numbers row */}
@@ -477,7 +494,7 @@ export function AttendanceMuster() {
                       <th className="sticky left-0 top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
                         Code
                       </th>
-                      <th className="sticky left-[50px] top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
+                      <th className="sticky left-[90px] top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
                         Employee
                       </th>
                       {dayNumbers.map((d) => (
@@ -492,11 +509,12 @@ export function AttendanceMuster() {
                           <div className="text-[9px] font-normal text-gray-400">{getDayLabel(d)}</div>
                         </th>
                       ))}
-                      <th className="sticky top-0 right-[214px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
-                      <th className="sticky top-0 right-[178px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
-                      <th className="sticky top-0 right-[142px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
-                      <th className="sticky top-0 right-[94px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
-                      <th className="sticky top-0 right-[43px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(m)</th>
+                      <th className="sticky top-0 right-[244px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
+                      <th className="sticky top-0 right-[207px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
+                      <th className="sticky top-0 right-[171px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
+                      <th className="sticky top-0 right-[135px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">LV</th>
+                      <th className="sticky top-0 right-[95px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">IR</th>
+                      <th className="sticky top-0 right-[47px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
                       <th className="sticky top-0 right-0 z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">Att%</th>
                     </tr>
                   </thead>
@@ -506,7 +524,7 @@ export function AttendanceMuster() {
                         <td className="sticky left-0 z-10 bg-inherit whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono">
                           {emp.employeeCode}
                         </td>
-                        <td className="sticky left-[50px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">
+                        <td className="sticky left-[90px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">
                           {emp.employeeName}
                         </td>
                         {/* {dayNumbers.map((d) => {
@@ -655,18 +673,20 @@ export function AttendanceMuster() {
                             </Tooltip>
                           );
                         })} */}
-                        <td className="sticky right-[214px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
+                        <td className="sticky right-[244px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
                           {emp.totalPresent}
                         </td>
-                        <td className="sticky right-[178px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
-                        <td className="sticky right-[142px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
-                        <td className="sticky right-[94px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
+                        <td className="sticky right-[207px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
+                        <td className="sticky right-[171px] z-10 bg-inherit px-2 py-1.5 text-center text-amber-600 font-semibold">{emp.totalLate}</td>
+                        <td className="sticky right-[135px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
+                        <td className="sticky right-[95px] z-10 bg-inherit px-2 py-1.5 text-center text-pink-600 font-semibold">{emp.totalMissedOut}</td>
+                        <td className="sticky right-[47px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
                           {/* {(emp.totalOT / 60).toFixed(1)} */}
                           {emp.totalOT}
                         </td>
-                        <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
+                        {/* <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
                           {(emp.totalOT * 60).toFixed(0)}
-                        </td>
+                        </td> */}
                         <td className="sticky right-0 z-10 bg-inherit px-2 py-1.5 text-center">
                           <span className={`text-xs font-semibold ${emp.attendancePercentage >= 90 ? "text-green-600" : emp.attendancePercentage >= 75 ? "text-amber-600" : "text-red-500"}`}>
                             {emp.attendancePercentage.toFixed(0)}%

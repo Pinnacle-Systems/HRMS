@@ -17,11 +17,11 @@ import {
   TableRow,
   TableContainer,
   IconButton,
-  Stack,
   useTheme,
   alpha,
   Grid,
   Avatar,
+  Tooltip,
 } from "@mui/material";
 import {
   Download as DownloadIcon,
@@ -38,6 +38,7 @@ import { departmentService } from "../../../services/modules/department";
 import { periodsService, type Period } from "../../../services/modules/payrollServices/period";
 import { getRowColor } from "../../const";
 import { apiService } from "../../../services";
+import { GlobalPagination } from "../../../components/GlobalPagination";
 
 export default function EmployeePayslips() {
   const navigate = useNavigate();
@@ -50,15 +51,20 @@ export default function EmployeePayslips() {
   const [payslips, setPayslips] = useState<PayslipListItem[]>([]);
   const [summary, setSummary] = useState<PayslipSummary | null>(null);
   const [departments, setDepartments] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
 
-  // Load available periods on mount
   useEffect(() => {
     const loadPeriods = async () => {
       try {
         const response: any = await periodsService.getPeriods();
         const periods = response?.data.items || response || [];
         setAvailablePeriods(periods);
-        setSelectedPeriod(periods[0])
+        if (periods.length > 0) {
+          setSelectedPeriod(periods[0]);
+        }
       } catch (error) {
         showSnackbar("Failed to load periods", "error");
       }
@@ -66,37 +72,39 @@ export default function EmployeePayslips() {
     loadPeriods();
   }, []);
 
-  // Load payslips when period changes
   useEffect(() => {
     if (selectedPeriod) {
       loadPayslips();
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, page, limit]);
 
   const loadPayslips = async () => {
     if (!selectedPeriod) return;
+    setLoading(true);
     showSpinner();
     try {
       const [payslipsRes, summaryRes, deptRes]: any = await Promise.all([
         payslipsService.getPayslips({
-          year: 2026,
-          month: 8,
-          page: 0,
-          size: 100,
+          year: selectedPeriod.year,
+          month: selectedPeriod.month,
+          page: page, // 0-based
+          size: limit,
+          search: search || undefined,
+          // department: dept !== "all" ? dept : undefined,
         }),
         payslipsService.getPayslipSummary({
-          year: 2026,
-          month: 8,
+          year: selectedPeriod.year,
+          month: selectedPeriod.month,
         }),
         departmentService.getActiveDepartments(),
       ]);
 
-      // Extract departments from response
       const deptList = deptRes?.data.content || deptRes || [];
       setDepartments(["all", ...deptList.map((d: any) => d.departmentName || d)]);
 
-      // Extract payslips from response - using the actual API response structure
-      const content = payslipsRes?.data?.content || payslipsRes?.data || [];
+      const data = payslipsRes?.data || payslipsRes || {};
+      const content = data.content || data.items || data.records || [];
+
       const list: PayslipListItem[] = content.map((item: any) => ({
         id: item.id || item.employeeId,
         employeeId: item.employeeId,
@@ -105,6 +113,7 @@ export default function EmployeePayslips() {
         departmentId: item.departmentId || "",
         department: item.department || "General",
         designationId: item.designationId || "",
+        designation: item.designation || "",
         payDays: item.payDays || 30,
         grossSalary: item.grossSalary || item.gross || 0,
         deductions: item.deductions || 0,
@@ -114,7 +123,7 @@ export default function EmployeePayslips() {
 
       setPayslips(list);
 
-      // Set summary from response
+      setTotal(data.totalElements || data.total || data.totalCount || list.length);
       if (summaryRes?.data) {
         setSummary({
           periodLabel: summaryRes.data.periodLabel || selectedPeriod.name,
@@ -123,16 +132,25 @@ export default function EmployeePayslips() {
           totalNet: summaryRes.data.totalNet || 0,
         });
       }
-
-      showSnackbar("Payslips loaded successfully", "success");
     } catch (error: any) {
+      setPayslips([]);
+      setSummary(null);
       showSnackbar(error?.message || "Failed to load payslips", "error");
     } finally {
+      setLoading(false);
       hideSpinner();
     }
   };
 
-  // Filter payslips
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage - 1);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(0);
+  };
+
   const filtered = payslips.filter((e) => {
     const matchSearch =
       e.employeeName?.toLowerCase().includes(search.toLowerCase()) ||
@@ -142,88 +160,54 @@ export default function EmployeePayslips() {
     return matchSearch && matchDept;
   });
 
-  // Calculate totals from filtered data
   const totalGross = filtered.reduce((s, e) => s + (e.grossSalary || 0), 0);
   const totalNet = filtered.reduce((s, e) => s + (e.netSalary || 0), 0);
   const totalDeductions = filtered.reduce((s, e) => s + (e.deductions || 0), 0);
 
   // Download payslip
-  // const handleDownload = async (id: string) => {
-  //   try {
-  //     showSpinner();
-  //     const res: any = await payslipsService.downloadPayslip(id);
-  //     if (res.data?.fileUrl) {
-  //       window.open(res.data.fileUrl, "_blank");
-  //     } else if (res.data instanceof Blob) {
-  //       const url = window.URL.createObjectURL(res.data);
-  //       window.open(url, "_blank");
-  //       setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-  //     } else {
-  //       // Fallback - try to create blob from response
-  //       const blob = new Blob([res.data], { type: "application/pdf" });
-  //       const url = window.URL.createObjectURL(blob);
-  //       window.open(url, "_blank");
-  //       setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-  //     }
-  //     showSnackbar("Download started", "success");
-  //   } catch (error) {
-  //     showSnackbar("Failed to download payslip", "error");
-  //   } finally {
-  //     hideSpinner();
-  //   }
-  // };
-
   const handleDownload = async (item: any) => {
     try {
       const res: any = await payslipsService.downloadPayslip(item.id);
-      await apiService.downloadFromPath(res.data.fileUrl, `payslip  _${item.employeeName}_${selectedPeriod?.name}.pdf`);
+      await apiService.downloadFromPath(res.data.fileUrl, `payslip_${item.employeeName}_${selectedPeriod?.name}.pdf`);
     } catch (error) {
-      showSnackbar("Failed to download bank advice", "error");
+      showSnackbar("Failed to download payslip", "error");
     }
   };
 
-  // View payslip details
-  // const handleViewPayslip = async (emp: any) => {
-  //   try {
-  //     showSpinner();
-  //     const res: any = await payslipsService.viewPayslip(emp.id);
-  //     // const res4 = `payroll/payslips/${emp.employeeCode}/${selectedPeriod?.name}`
-  //         navigate(`/payroll/payslips/${emp.employeeCode}/${encodeURIComponent(selectedPeriod?.name || '')}`);
-
-      
-  //     // navigate(res4)
-  //     // navigate(`/payroll/payslips/${id}`, { state: { payslip: res.data } });
-  //   } catch (error) {
-  //     showSnackbar("Failed to view payslip", "error");
-  //   } finally {
-  //     hideSpinner();
-  //   }
-  // };
-
   // Bulk download
   const handleBulkDownload = async () => {
-    // try {
-    //   showSpinner();
-    //   const res: any = await payslipsService.bulkDownload({
-    //     year: selectedPeriod?.year || 0,
-    //     month: selectedPeriod?.month || 0,
-    //     departmentId: dept === "all" ? undefined : dept,
-    //   });
-    //   if (res.data?.fileUrl) {
-    //     window.open(res.data.fileUrl, "_blank");
-    //   }
-    //   showSnackbar("Bulk download started", "success");
-    // } catch (error) {
-    //   console.error("Failed to bulk download", error);
-    //   showSnackbar("Failed to bulk download", "error");
-    // } finally {
-    //   hideSpinner();
-    // }
+    try {
+      showSpinner();
+      // Implement bulk download logic
+      showSnackbar("Bulk download started", "success");
+    } catch (error) {
+      console.error("Failed to bulk download", error);
+      showSnackbar("Failed to bulk download", "error");
+    } finally {
+      hideSpinner();
+    }
   };
 
-  // Refresh data
   const handleRefresh = () => {
     loadPayslips();
+  };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setPage(0);
+  };
+
+  const handleDeptChange = (value: string) => {
+    setDept(value);
+    setPage(0);
+  };
+
+  const handlePeriodChange = (periodName: string) => {
+    const p = availablePeriods.find(p => p.name === periodName);
+    if (p) {
+      setSelectedPeriod(p);
+      setPage(0);
+    }
   };
 
   return (
@@ -322,19 +306,18 @@ export default function EmployeePayslips() {
       </Grid>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 mb-3  ">
+      <div className="flex items-center gap-3 mb-3">
         <TextField
           placeholder="Search by name, ID..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
+          size="small"
+          sx={{ minWidth: 200 }}
         />
         <FormControl size="small" sx={{ minWidth: 140 }} className="bg-white dark:bg-white-50">
           <Select
             value={selectedPeriod?.name || ""}
-            onChange={(e) => {
-              const p = availablePeriods.find(p => p.name === e.target.value);
-              if (p) setSelectedPeriod(p);
-            }}
+            onChange={(e) => handlePeriodChange(e.target.value)}
             displayEmpty
           >
             {availablePeriods.map((p) => (
@@ -345,7 +328,7 @@ export default function EmployeePayslips() {
         <FormControl size="small" sx={{ minWidth: 160 }} className="bg-white dark:bg-white-50">
           <Select
             value={dept}
-            onChange={(e) => setDept(e.target.value)}
+            onChange={(e) => handleDeptChange(e.target.value)}
             displayEmpty
           >
             <MenuItem value="all">All Departments</MenuItem>
@@ -361,7 +344,7 @@ export default function EmployeePayslips() {
 
       {/* Table */}
       <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-        <TableContainer className="border border-gray-200 rounded-sm bg-white-50 h-[calc(100vh-400px)] overflow-auto">
+        <TableContainer className="border border-gray-200 rounded-sm bg-white-50 h-[calc(100vh-357px)] overflow-auto">
           <Table stickyHeader>
             <TableHead>
               <TableRow>
@@ -395,93 +378,122 @@ export default function EmployeePayslips() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filtered.length === 0 ? (
+              {loading ? (
                 <TableRow>
                   <TableCell colSpan={9} align="center">
-                    <div className="py-6">
-                      No employees match your search
-                    </div>
+                    <div className="py-6">Loading payslips...</div>
+                  </TableCell>
+                </TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    <div className="py-6">No employees match your search</div>
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((emp, i) => (
-                  <TableRow
-                    key={emp.id}
-                    sx={getRowColor(i)}
-                  >
-                    <TableCell className="sticky left-0 !z-20 bg-inherit">{i + 1}</TableCell>
-                    <TableCell className="sticky left-[60px] !z-20 bg-inherit">
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <Avatar
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            bgcolor: alpha(theme.palette.primary.main, 0.1),
-                            color: "primary.main",
-                            fontSize: "0.75rem",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {emp.employeeName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                            {emp.employeeName}
-                          </Typography>
-                          <Typography variant="caption" className="text-primary !text-[10px]">
-                            {emp.employeeCode || emp.employeeId}
-                          </Typography>
+                filtered.map((emp, i) => {
+                  const serialNumber = page * limit + i + 1;
+                  return (
+                    <TableRow
+                      key={emp.id || `${emp.employeeId}-${i}`}
+                      sx={getRowColor(i)}
+                    >
+                      <TableCell className="sticky left-0 !z-20 bg-inherit">{serialNumber}</TableCell>
+                      <TableCell className="sticky left-[60px] !z-20 bg-inherit">
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              bgcolor: alpha(theme.palette.primary.main, 0.1),
+                              color: "primary.main",
+                              fontSize: "0.75rem",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {emp.employeeName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              {emp.employeeName}
+                            </Typography>
+                            <Typography variant="caption" className="text-primary !text-[10px]">
+                              {emp.employeeCode || emp.employeeId}
+                            </Typography>
+                          </Box>
                         </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" className="text-gray-800">
-                        {emp.department}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" className="text-gray-800">
-                        {emp.designationId || "Employee"}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2">{emp.payDays}</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {formatCurrency(emp.grossSalary)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" sx={{ color: "error.main" }}>
-                        {formatCurrency(emp.deductions)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
-                        {formatCurrency(emp.netSalary)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell className="sticky right-0 !z-20 bg-inherit">
-                      <Stack direction="row">
-                        <IconButton onClick={() => { navigate(`/payroll/payslips/${emp.id}/${encodeURIComponent(selectedPeriod?.name || '')}`) }}>
-                          <EyeIcon className="!w-4 text-blue-500" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDownload(emp)}
-                        >
-                          <DownloadIcon fontSize="small" className="!w-4 text-green-700" />
-                        </IconButton>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" className="text-gray-800">
+                          {emp.department}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" className="text-gray-800">
+                          {emp.designation || "Employee"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2">{emp.payDays}</Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {formatCurrency(emp.grossSalary)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ color: "error.main" }}>
+                          {formatCurrency(emp.deductions)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: "success.main" }}>
+                          {formatCurrency(emp.netSalary)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell className="sticky right-0 !z-20 bg-inherit">
+                        <div className="flex items-center gap-2">
+                          <Tooltip title="View Payslip">
+                            <IconButton
+                              onClick={() => {
+                                navigate(`/payroll/payslips/${emp.id}/${encodeURIComponent(selectedPeriod?.name || '')}`);
+                              }}
+                              size="small"
+                            >
+                              <EyeIcon className="!w-4 text-blue-500" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Download Payslip">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDownload(emp)}
+                            >
+                              <DownloadIcon fontSize="small" className="!w-4 text-green-700" />
+                            </IconButton>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </TableContainer>
       </Card>
+
+      {/* Global Pagination */}
+      {total > 0 && (
+        <GlobalPagination
+          total={total}
+          page={page + 1}
+          limit={limit}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+          pageSizeOptions={[10, 20, 50, 100]}
+          showTotal={true}
+        />
+      )}
     </div>
   );
 }

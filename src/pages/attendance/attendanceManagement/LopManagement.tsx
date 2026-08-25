@@ -125,7 +125,7 @@ export function LopManagement() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 pt-6">
+      <div className="bg-white-50 border border-gray-200 rounded-lg p-4 pt-6">
         <div className="flex flex-wrap items-center gap-4">
           <div className="w-[250px]">
             <EmployeeSelector
@@ -206,9 +206,9 @@ export function LopManagement() {
               {/* Summary Cards */}
               <Grid container spacing={2}>
                 <Grid size={{ xs: 3 }}>
-                  <Card className="bg-blue-50 border border-blue-200">
+                  <Card className="bg-white-50 border border-blue-500">
                     <CardContent className="p-3">
-                      <Typography variant="caption" className="text-blue-600 font-medium block">
+                      <Typography variant="caption" className="text-blue-600 !font-bold block">
                         Total Employees
                       </Typography>
                       <Typography variant="h5" className="font-bold text-blue-700">
@@ -218,9 +218,9 @@ export function LopManagement() {
                   </Card>
                 </Grid>
                 <Grid size={{ xs: 3 }}>
-                  <Card className="bg-red-50 border border-red-200">
+                  <Card className="bg-white-50 border border-red-500">
                     <CardContent className="p-3">
-                      <Typography variant="caption" className="text-red-600 font-medium block">
+                      <Typography variant="caption" className="text-red-600 !font-bold block">
                         Total LOP Days
                       </Typography>
                       <Typography variant="h5" className="font-bold text-red-700">
@@ -230,9 +230,9 @@ export function LopManagement() {
                   </Card>
                 </Grid>
                 <Grid size={{ xs: 3 }}>
-                  <Card className="bg-green-50 border border-green-200">
+                  <Card className="bg-white-50 border border-green-500">
                     <CardContent className="p-3">
-                      <Typography variant="caption" className="text-green-600 font-medium block">
+                      <Typography variant="caption" className="text-green-600 !font-bold block">
                         Total Working Days
                       </Typography>
                       <Typography variant="h5" className="font-bold text-green-700">
@@ -242,12 +242,12 @@ export function LopManagement() {
                   </Card>
                 </Grid>
                 <Grid size={{ xs: 3 }}>
-                  <Card className="bg-purple-50 border border-purple-200">
+                  <Card className="bg-white-50 border border-purple-500">
                     <CardContent className="p-3">
-                      <Typography variant="caption" className="text-purple-600 font-medium block">
+                      <Typography variant="caption" className="text-purple-800 !font-bold block">
                         Total Present Days
                       </Typography>
-                      <Typography variant="h5" className="font-bold text-purple-700">
+                      <Typography variant="h5" className="font-bold text-purple-800">
                         {stats.totalPresentDays}
                       </Typography>
                     </CardContent>

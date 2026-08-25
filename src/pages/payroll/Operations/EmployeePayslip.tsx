@@ -13,7 +13,6 @@ import {
   TableRow,
   useTheme,
   alpha,
-  CircularProgress,
 } from "@mui/material";
 import {
   ArrowBack as ArrowLeftIcon,
@@ -27,6 +26,10 @@ import { formatCurrency } from "../const";
 import { useUI } from "../../../context/Snackbar";
 import { payslipsService } from "../../../services/modules/payrollServices/payslips";
 import { getRowColor } from "../../const";
+import { useAuth } from "../../../auth/authContext";
+import { formatDate } from "../../leave/leaveFormatters";
+import { apiService } from "../../../services";
+import { companyService } from "../../../services/modules/company";
 
 export default function EmployeePayslip() {
   const { empId, period } = useParams();
@@ -36,6 +39,8 @@ export default function EmployeePayslip() {
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
   const [payslip, setPayslip] = useState<any>(null);
   const employeeId = empId || " ";
+  const { session } = useAuth();
+  const [companyData , setCompanyData] = useState<any>({});
 
   const decodedPeriod = period ? decodeURIComponent(period) : "May 2026";
 
@@ -49,8 +54,18 @@ export default function EmployeePayslip() {
     // Otherwise, fetch by employee ID and period
     if (employeeId) {
       loadPayslip();
+      fetchCompanyData();
     }
   }, [employeeId, period]);
+
+  const fetchCompanyData = async () => {
+      try {
+        const companyData: any = await companyService.getCompanyById(session?.company.companyId);
+        setCompanyData(companyData.data || {});
+      } catch (error) {
+        showSnackbar('Error fetching company data:', 'error');
+      }
+    };
 
   const loadPayslip = async () => {
     showSpinner();
@@ -70,7 +85,7 @@ export default function EmployeePayslip() {
       showSpinner();
       const res: any = await payslipsService.downloadPayslip(payslip?.id || employeeId || "");
       if (res.data?.fileUrl) {
-        window.open(res.data.fileUrl, "_blank");
+        await apiService.downloadFromPath(res.data.fileUrl, `Payslip_${payslip.periodLabel}.pdf`);
       }
       showSnackbar("Download started", "success");
     } catch (error) {
@@ -129,7 +144,7 @@ export default function EmployeePayslip() {
           className="!text-gray-800 !border-gray-200"
           startIcon={<ArrowLeftIcon fontSize="small" />}
           onClick={() => navigate("/payroll/payslips")}
-          
+
         >
           Back
         </Button>
@@ -168,7 +183,7 @@ export default function EmployeePayslip() {
           sx={{
             px: 4,
             py: 3,
-            bgcolor: "primary.main",
+            bgcolor: "info.main",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -190,21 +205,27 @@ export default function EmployeePayslip() {
             </Box>
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 700, color: "white" }}>
-                SRG Engineering Works
+                {companyData.companyName}
               </Typography>
               <Typography variant="caption" sx={{ color: alpha(theme.palette.common.white, 0.8) }}>
-                Industrial Component Manufacturing
+                {companyData.aliasName || 'Industrial Component Manufacturing'}
+              </Typography>
+              <Typography  sx={{ color: alpha(theme.palette.common.white, 0.8) }}>
+                {companyData.companyAddress}
               </Typography>
             </Box>
           </Box>
           <Box sx={{ textAlign: "right", color: alpha(theme.palette.common.white, 0.8) }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, justifyContent: "flex-end" }}>
               <MailIcon sx={{ fontSize: 12 }} />
-              <Typography variant="caption">hr@srgengineering.com</Typography>
+              <Typography variant="caption">{companyData.email}</Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, justifyContent: "flex-end" }}>
               <PhoneIcon sx={{ fontSize: 12 }} />
-              <Typography variant="caption">+91 44 2345 6789</Typography>
+              <Typography variant="caption">{companyData.phoneNo}</Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, justifyContent: "flex-end" }}>
+              <Typography variant="caption" className="!font-bold">{companyData.gstNo}</Typography>
             </Box>
           </Box>
         </Box>
@@ -240,24 +261,27 @@ export default function EmployeePayslip() {
               ["Employee Name", employeeData.employeeName || "-"],
               ["Designation", employeeData.designation || "-"],
               ["Department", employeeData.department || "-"],
-              ["Date of Joining", employeeData.joiningDate || "-"],
+              ["Date of Joining", employeeData.dateOfJoining || "-"],
               ["Employment Type", employeeData.employmentType || "Permanent"],
-              ["UAN Number", employeeData.uanNumber || "-"],
-              ["PAN Number", employeeData.panNumber || "-"],
-              ["PF Account No.", employeeData.pfAccount || "-"],
+              ["UAN Number", employeeData.uan || "-"],
+              ["PAN Number", employeeData.pan || "-"],
+              ["PF Account No.", employeeData.pfAccountNumber || "-"],
               ["Pay Days", employeeData.payDays || "30"],
               ["LOP Days", employeeData.lopDays || "0"],
               ["Pay Date", employeeData.paymentDate || "-"],
-            ].map(([label, value]) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={label}>
-                <Typography variant="caption" className="text-gray-800" sx={{ fontWeight: 600, textTransform: "uppercase" }}>
-                  {label}
-                </Typography>
-                <Typography variant="body2" className="text-gray-500" sx={{ fontWeight: 500, mt: 0.25 }}>
-                  {value || "-"}
-                </Typography>
-              </Grid>
-            ))}
+            ].map(([label, value]) => {
+              const isDateLabel = label.toLowerCase().includes('date');
+              return (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={label}>
+                  <div className="text-gray-500 !font-bold !text-[12px]">
+                    {label}
+                  </div>
+                  <Typography className="text-gray-800" sx={{ fontWeight: 500, mt: 0.25 }}>
+                    {isDateLabel ? value ? formatDate(value) : '-' : value || "-"}
+                  </Typography>
+                </Grid>
+              )
+            })}
           </Grid>
         </Box>
 
@@ -266,7 +290,7 @@ export default function EmployeePayslip() {
           <Grid container spacing={4}>
             {/* Earnings */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <Typography variant="caption" sx={{ color: "success.main", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <Typography className="!font-bold" sx={{ color: "success.main", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Earnings
               </Typography>
               <Table size="small" className="border border-gray-200 rounded-md" sx={{ mt: 1 }}>
@@ -283,8 +307,8 @@ export default function EmployeePayslip() {
                 <TableBody>
                   {earnings.map((e, i) => (
                     <TableRow key={e.name} sx={getRowColor(i)}>
-                      <TableCell sx={{ fontSize: "0.85rem" }}>{e.name}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.85rem", fontWeight: 500 }}>
+                      <TableCell> <div className="!py-2">{e.name}</div></TableCell>
+                      <TableCell align="right">
                         {formatCurrency(e.amount)}
                       </TableCell>
                     </TableRow>
@@ -292,7 +316,7 @@ export default function EmployeePayslip() {
                   <TableRow sx={{ borderTop: `2px solid ${theme.palette.success.main}`, bgcolor: alpha(theme.palette.success.main, 0.08) }}>
                     <TableCell sx={{ fontWeight: 700, color: "success.main" }}>Gross Salary</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, color: "success.main" }}>
-                      {formatCurrency(gross)}
+                      <div className="!py-2">{formatCurrency(gross)}</div>
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -318,8 +342,8 @@ export default function EmployeePayslip() {
                 <TableBody>
                   {deductions.map((d, i) => (
                     <TableRow key={d.name} sx={getRowColor(i)}>
-                      <TableCell sx={{ fontSize: "0.85rem" }}>{d.name}</TableCell>
-                      <TableCell align="right" sx={{ fontSize: "0.85rem", fontWeight: 500, color: "error.main" }}>
+                      <TableCell><div className="!py-2">{d.name}</div></TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 500, color: "error.main" }}>
                         {formatCurrency(d.amount)}
                       </TableCell>
                     </TableRow>
@@ -327,7 +351,7 @@ export default function EmployeePayslip() {
                   <TableRow sx={{ borderTop: `2px solid ${theme.palette.error.main}`, bgcolor: alpha(theme.palette.error.main, 0.08) }}>
                     <TableCell sx={{ fontWeight: 700, color: "error.main" }}>Total Deductions</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, color: "error.main" }}>
-                      {formatCurrency(totalDeductions)}
+                      <div className="!py-2">{formatCurrency(totalDeductions)}</div>
                     </TableCell>
                   </TableRow>
                 </TableBody>
@@ -338,7 +362,7 @@ export default function EmployeePayslip() {
 
         {/* Tax Details */}
         <Box sx={{ px: 4, pb: 2 }}>
-          <Typography variant="caption" className="text-gray-500" sx={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <Typography className="text-gray-800 !font-bold">
             Tax Details
           </Typography>
           <Paper
@@ -354,7 +378,7 @@ export default function EmployeePayslip() {
             <Grid container spacing={1.5}>
               {[
                 ["Annual CTC", formatCurrency(employeeData.annualCtc || 0)],
-                ["Taxable Income (Est.)", formatCurrency(employeeData.taxableIncome || 0)],
+                ["Taxable Income (Est.)", formatCurrency(employeeData.taxableIncomeEst || 0)],
                 ["TDS This Month", formatCurrency(employeeData.tds || 0)],
                 ["PF (Employer Share)", formatCurrency(employeeData.pfEmployerShare || 0)],
                 ["ESI Applicable", employeeData.esiApplicable ? "Yes" : "No"],
@@ -364,7 +388,7 @@ export default function EmployeePayslip() {
                   <Typography variant="caption" className="text-gray-500">
                     {label}
                   </Typography>
-                  <Typography variant="body2" className="text-gray-500" sx={{ fontWeight: 500 }}>
+                  <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
                     {value}
                   </Typography>
                 </Grid>

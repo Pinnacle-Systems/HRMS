@@ -15,6 +15,8 @@ import type {
   SelectTenantRequest,
 } from "./authTypes";
 
+export const TOKEN_EXPIRY_EVENT = 'token-expiry-warning';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(() => loadSession());
   const isLoading = false;
@@ -29,30 +31,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [session]);
 
-   const login = useCallback(
-    async (request: LoginRequest): Promise<LoginOutcome> => {
-        logger.info("Login started", {
-        loginId: request.loginId,
-        hasMobileNumber: Boolean(request.mobileNumber),
-        tenantId: request.tenantId,
-      });
-      const outcome:any = await authApi.login(request);
-       logger.info("Login completed", {
-        outcome: outcome.type,
-        userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
-        roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
-      });
+  //  const login = useCallback(
+  //   async (request: LoginRequest): Promise<LoginOutcome> => {
+  //       logger.info("Login started", {
+  //       loginId: request.loginId,
+  //       hasMobileNumber: Boolean(request.mobileNumber),
+  //       tenantId: request.tenantId,
+  //     });
+  //     const outcome:any = await authApi.login(request);
+  //      logger.info("Login completed", {
+  //       outcome: outcome.type,
+  //       userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
+  //       roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
+  //     });
 
-      if (outcome.type === "authenticated" || 
-          (outcome.type === "mustChangePassword" && outcome.session)) {
-        setSession(outcome.session);
-        apiService.setAuthToken(outcome.session.accessToken);
-      }
+  //     if (outcome.type === "authenticated" || 
+  //         (outcome.type === "mustChangePassword" && outcome.session)) {
+  //       setSession(outcome.session);
+  //       apiService.setAuthToken(outcome.session.accessToken);
+  //     }
 
-      return outcome;
-    },
-    [],
-  );
+  //     return outcome;
+  //   },
+  //   [],
+  // );
 
   // const login = useCallback(
   //   async (request: LoginRequest): Promise<LoginOutcome> => {
@@ -84,11 +86,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //   [],
   // );
 
+  const login = useCallback(
+    async (request: LoginRequest): Promise<LoginOutcome> => {
+      logger.info("Login started", {
+        loginId: request.loginId,
+        hasMobileNumber: Boolean(request.mobileNumber),
+        tenantId: request.tenantId,
+      });
+
+      const outcome = await authApi.login(request);
+
+      logger.info("Login completed", {
+        outcome: outcome.type,
+        userId: outcome.type === "authenticated" ? outcome.session?.user.userId : undefined,
+        roles: outcome.type === "authenticated" ? outcome.session?.user.roles : undefined,
+      });
+
+      if (outcome.type === "authenticated" && outcome.session) {
+        setSession(outcome.session);
+        apiService.setAuthToken(outcome.session.accessToken);
+      } else if (outcome.type === "mustChangePassword" && outcome.session) {
+        setSession(outcome.session);
+        apiService.setAuthToken(outcome.session.accessToken);
+      }
+
+      return outcome;
+    },
+    [],
+  );
+
   const selectTenant = useCallback(
     async (request: SelectTenantRequest): Promise<LoginOutcome> => {
       logger.info("Tenant selection started", { tenantId: request.tenantId });
       const previewOutcome: any = await authApi.selectTenant(request);
-       logger.info("Tenant selection completed", {
+      logger.info("Tenant selection completed", {
         tenantId: request.tenantId,
         outcome: previewOutcome.type,
         userId: previewOutcome.type === "authenticated" ? previewOutcome.session.user.userId : undefined,
@@ -168,8 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logger.info("Verifying mobile OTP", { mobileNumber });
       const outcome: any = await authApi.verifyMobileOtp(mobileNumber, otp);
 
-      if (outcome.type === "authenticated" || 
-          (outcome.type === "mustChangePassword" && outcome.session)) {
+      if (outcome.type === "authenticated" ||
+        (outcome.type === "mustChangePassword" && outcome.session)) {
         setSession(outcome.session);
         apiService.setAuthToken(outcome.session.accessToken);
       }
@@ -205,15 +236,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   const setSessionCall = useCallback((newSession: AuthSession | null) => {
-  setSession(newSession);
-  if (newSession) {
-    saveSession(newSession);
-    apiService.setAuthToken(newSession.accessToken);
-  } else {
-    clearSession();
-    apiService.setAuthToken(null);
-  }
-}, []);
+    setSession(newSession);
+    if (newSession) {
+      saveSession(newSession);
+      apiService.setAuthToken(newSession.accessToken);
+    } else {
+      clearSession();
+      apiService.setAuthToken(null);
+    }
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -241,8 +272,179 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //   }
   // }, [session]);
 
-   useEffect(() => {
+  useEffect(() => {
     apiService.setAuthToken(session?.accessToken ?? null);
+  }, [session]);
+
+  useEffect(() => {
+    let refreshTimer: any | null = null;
+    let isMounted = true;
+
+    const scheduleRefresh = (expiresInSeconds: number) => {
+      // Clear any existing timer
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+
+      // Refresh ~60 seconds before expiry
+      const refreshMs = Math.max((expiresInSeconds - 60) * 1000, 5000);
+
+      logger.debug(`Scheduling auto-refresh in ${Math.round(refreshMs / 1000)}s`);
+
+      refreshTimer = setTimeout(async () => {
+        if (!isMounted) return;
+
+        logger.info("Auto-refreshing session before expiry");
+        try {
+          const newSession = await refreshSession();
+
+          if (newSession && isMounted) {
+            // Re-schedule for next cycle
+            scheduleRefresh(newSession.expiresIn);
+          } else if (isMounted) {
+            logger.warn("Auto-refresh failed, logging out");
+            await logout();
+          }
+        } catch (error) {
+          logger.error("Auto-refresh error", { error });
+          if (isMounted) {
+            await logout();
+          }
+        }
+      }, refreshMs);
+    };
+
+    if (session) {
+      const timeUntilExpiry = session.expiresAt - Date.now();
+      if (timeUntilExpiry > 0) {
+        scheduleRefresh(session.expiresIn);
+      } else {
+        // Already expired - refresh now
+        logger.warn("Session already expired, attempting immediate refresh");
+        refreshSession().then(newSession => {
+          if (newSession && isMounted) {
+            setSession(newSession);
+            apiService.setAuthToken(newSession.accessToken);
+          } else if (isMounted) {
+            logout();
+          }
+        });
+      }
+    }
+
+    return () => {
+      isMounted = false;
+      if (refreshTimer) {
+        clearTimeout(refreshTimer);
+        refreshTimer = null;
+      }
+    };
+  }, [session, refreshSession, logout]);
+
+  // useEffect(() => {
+  //   const bootstrap = async () => {
+  //     const storedSession = loadSession();
+  //     if (storedSession) {
+  //       // Check if token is close to expiry
+  //       const timeUntilExpiry = storedSession.expiresAt - Date.now();
+  //       const fiveMinutes = 5 * 60 * 1000;
+
+  //       if (timeUntilExpiry < fiveMinutes) {
+  //         // Refresh early
+  //         await refreshSession();
+  //       } else {
+  //         setSession(storedSession);
+  //       }
+  //     }
+  //   };
+
+  //   bootstrap();
+  // }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const bootstrap = async () => {
+      try {
+        const storedSession = loadSession();
+        if (storedSession && isMounted) {
+          // Check if token is close to expiry
+          const timeUntilExpiry = storedSession.expiresAt - Date.now();
+          const fiveMinutes = 5 * 60 * 1000;
+
+          if (timeUntilExpiry < fiveMinutes) {
+            // Refresh early
+            logger.info("Token close to expiry on bootstrap, refreshing");
+            const newSession = await refreshSession();
+            if (newSession && isMounted) {
+              setSession(newSession);
+              apiService.setAuthToken(newSession.accessToken);
+            } else if (isMounted) {
+              // Refresh failed, clear session
+              clearSession();
+              setSession(null);
+              apiService.setAuthToken(null);
+            }
+          } else if (isMounted) {
+            // Token is still valid
+            setSession(storedSession);
+            apiService.setAuthToken(storedSession.accessToken);
+          }
+        }
+      } catch (error) {
+        logger.error("Bootstrap auth failed", { error });
+        if (isMounted) {
+          clearSession();
+          setSession(null);
+          apiService.setAuthToken(null);
+        }
+      }
+    };
+
+    bootstrap();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+   useEffect(() => {
+    let checkInterval: any | null = null;
+    
+    if (session) {
+      const checkTokenExpiry = () => {
+        const timeUntilExpiry = session.expiresAt - Date.now();
+        const secondsUntilExpiry = Math.floor(timeUntilExpiry / 1000);
+        
+        // Emit event at specific thresholds
+        const thresholds = [300, 180, 120, 60, 30, 15, 10, 5];
+        thresholds.forEach(threshold => {
+          if (secondsUntilExpiry <= threshold && secondsUntilExpiry > threshold - 2) {
+            // Dispatch custom event
+            const event = new CustomEvent(TOKEN_EXPIRY_EVENT, {
+              detail: {
+                timeRemaining: secondsUntilExpiry,
+                threshold,
+                isCritical: threshold <= 60,
+              }
+            });
+            window.dispatchEvent(event);
+            
+            logger.info(`Token expiry warning: ${secondsUntilExpiry}s remaining`);
+          }
+        });
+      };
+
+      // Check every second
+      checkInterval = setInterval(checkTokenExpiry, 1000);
+    }
+
+    return () => {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+      }
+    };
   }, [session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

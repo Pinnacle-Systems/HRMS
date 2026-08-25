@@ -6,6 +6,7 @@ import {
 import {
   PersonOutlined, ScheduleOutlined, EventNoteOutlined,
   WorkOutlineOutlined,
+  TimeToLeaveOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -64,32 +65,33 @@ export function EmployeeView() {
   }
 
   // Computed summary from loaded records
- const summary = records.length > 0 ? {
-  present: records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length,
-  absent: records.filter(r => r.status === "absent").length,
-  late: records.filter(r => r.status === "late").length,
-  leave: records.filter(r => r.status === "leave").length,
-  onDuty: records.filter(r => r.status === "on_duty").length,
-  permission: records.filter(r => r.status === "permission").length,
-  holiday: records.filter(r => r.status === "holiday").length,
-  weeklyOff: records.filter(r => r.status === "weekly_off").length,
-  totalOT: records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0),
-  totalWorked: records.reduce((sum, r) => sum + (r.workedMinutes || 0), 0),
-  totalLateMinutes: records.reduce((sum, r) => sum + (r.lateMinutes || 0), 0),
-  totalEarlyOutMinutes: records.reduce((sum, r) => sum + (r.earlyOutMinutes || 0), 0),
-  workingDays: records.filter(r => !["holiday", "weekly_off"].includes(r.status)).length,
-  totalEmployees: records.length,
-  // Additional useful metrics
-  presentPercentage: records.length > 0 
-    ? Math.round((records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length / records.length) * 100) 
-    : 0,
-  latePercentage: records.length > 0 
-    ? Math.round((records.filter(r => r.status === "late").length / records.length) * 100) 
-    : 0,
-  absentPercentage: records.length > 0 
-    ? Math.round((records.filter(r => r.status === "absent").length / records.length) * 100) 
-    : 0,
-} : null;
+  const summary = records.length > 0 ? {
+    present: records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length,
+    absent: records.filter(r => r.status === "absent").length,
+    late: records.filter(r => r.status === "late").length,
+    leave: records.filter(r => r.status === "leave").length,
+    onDuty: records.filter(r => r.status === "on_duty").length,
+    permission: records.filter(r => r.status === "permission").length,
+    holiday: records.filter(r => r.status === "holiday").length,
+    weeklyOff: records.filter(r => r.status === "weekly_off").length,
+    missedPunch: records.filter(r => r.status === "missed_out").length,
+    totalOT: records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0),
+    totalWorked: records.reduce((sum, r) => sum + (r.workedMinutes || 0), 0),
+    totalLateMinutes: records.reduce((sum, r) => sum + (r.lateMinutes || 0), 0),
+    totalEarlyOutMinutes: records.reduce((sum, r) => sum + (r.earlyOutMinutes || 0), 0),
+    workingDays: records.filter(r => !["holiday", "weekly_off"].includes(r.status)).length,
+    totalEmployees: records.length,
+    // Additional useful metrics
+    presentPercentage: records.length > 0
+      ? Math.round((records.filter(r => ["present", "checked_in", "checked_out"].includes(r.status)).length / records.length) * 100)
+      : 0,
+    latePercentage: records.length > 0
+      ? Math.round((records.filter(r => r.status === "late").length / records.length) * 100)
+      : 0,
+    absentPercentage: records.length > 0
+      ? Math.round((records.filter(r => r.status === "absent").length / records.length) * 100)
+      : 0,
+  } : null;
 
   return (
     <div className="p-4 space-y-4">
@@ -199,6 +201,18 @@ export function EmployeeView() {
               </div>
             </div>
 
+            {attendanceInfo.workedMinutesToday && (
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                  <TimeToLeaveOutlined fontSize="small" className="text-green-600" />
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">Worked Min Today</div>
+                  <div className="text-sm font-semibold text-emerald-700">{attendanceInfo.workedMinutesToday}</div>
+                </div>
+              </div>
+            )}
+
             {/* Today Check-in with time */}
             {attendanceInfo.todayCheckIn && (
               <div className="flex items-center gap-2.5">
@@ -227,7 +241,7 @@ export function EmployeeView() {
               </div>
             )}
 
-             {/* Pending Leaves Badge */}
+            {/* Pending Leaves Badge */}
             {attendanceInfo.pendingLeaves > 0 && (
               <div className="ml-auto">
                 <div className="flex items-center gap-2 bg-violet-50 border border-violet-200/60 rounded-full px-3 py-1.5">
@@ -246,40 +260,41 @@ export function EmployeeView() {
       ) : null}
 
       {/* Summary chips */}
-     {summary && (
-  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
-    {[
-      { label: "Working Days", value: summary.workingDays, color: "text-gray-700", bg: "bg-gray-100" },
-      { label: "Present", value: summary.present, color: "text-green-600", bg: "bg-green-50" },
-      { label: "Absent", value: summary.absent, color: "text-red-500", bg: "bg-red-50" },
-      { label: "Late (min)", value: summary.totalLateMinutes || 0, color: "text-amber-600", bg: "bg-amber-50" },
-      { label: "Early Out", value: summary.totalEarlyOutMinutes || 0, color: "text-sky-600", bg: "bg-sky-50" },
-      { label: "Leave", value: summary.leave, color: "text-violet-600", bg: "bg-violet-50" },
-      { label: "On Duty", value: summary.onDuty, color: "text-cyan-600", bg: "bg-cyan-50" },
-      { label: "Permission", value: summary.permission, color: "text-pink-600", bg: "bg-pink-50" },
-      { label: "Holiday", value: summary.holiday, color: "text-indigo-600", bg: "bg-indigo-50" },
-      { label: "Weekly Off", value: summary.weeklyOff, color: "text-gray-600", bg: "bg-gray-50" },
-      { label: "OT (min)", value: summary.totalOT || 0, color: "text-orange-600", bg: "bg-orange-50" },
-      { label: "Worked (min)", value: summary.totalWorked || 0, color: "text-blue-600", bg: "bg-blue-50" },
-    ].map(({ label, value, color, bg }) => (
-      <div key={label} className={`${bg} rounded-lg p-2 text-center`}>
-        <div className={`text-base font-bold ${color}`}>{value}</div>
-        <div className={`text-[10px] ${color} mt-0.5`}>{label}</div>
-      </div>
-    ))}
-  </div>
-)}
+      {summary && (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-2">
+          {[
+            { label: "Working Days", value: summary.workingDays, color: "text-gray-700", bg: "bg-gray-100" },
+            { label: "Present", value: summary.present, color: "text-green-600", bg: "bg-green-50" },
+            { label: "Absent", value: summary.absent, color: "text-red-500", bg: "bg-red-50" },
+            { label: "Missed Punch", value: summary.missedPunch || 0, color: "text-pink-600", bg: "bg-pink-50" },
+            { label: "Leave", value: summary.leave, color: "text-violet-600", bg: "bg-violet-50" },
+            // { label: "On Duty", value: summary.onDuty, color: "text-cyan-600", bg: "bg-cyan-50" },
+            // { label: "Permission", value: summary.permission, color: "text-pink-600", bg: "bg-pink-50" },
+            { label: "Holiday", value: summary.holiday, color: "text-indigo-600", bg: "bg-indigo-50" },
+            { label: "Weekly Off", value: summary.weeklyOff, color: "text-gray-600", bg: "bg-gray-200" },
+            { label: "Late (min)", value: summary.totalLateMinutes || 0, color: "text-amber-600", bg: "bg-amber-50" },
+            { label: "Early Out (min)", value: summary.totalEarlyOutMinutes || 0, color: "text-sky-600", bg: "bg-sky-50" },
+            { label: "OT (min)", value: summary.totalOT || 0, color: "text-orange-600", bg: "bg-orange-50" },
+            { label: "Worked (min)", value: summary.totalWorked || 0, color: "text-blue-600", bg: "bg-blue-50" },
+          ].map(({ label, value, color, bg }) => (
+            <div key={label} className={`${bg} rounded-lg p-2 text-center`}>
+              <div className={`text-base font-bold ${color}`}>{value}</div>
+              <div className={`text-[10px] ${color} mt-0.5`}>{label}</div>
+            </div>
+          ))}
+        </div>
+      )}
       {/* Attendance records table */}
       {(loading || records.length > 0) && (
         <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
           {loading ? (
             <div className="flex justify-center py-12"><CircularProgress /></div>
           ) : (
-            <TableContainer className="max-h-[calc(100vh-500px)] overflow-auto">
+            <TableContainer className="max-h-[calc(100vh-290px)] overflow-auto">
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    {["S No","Date", "Day", "Check In", "Check Out", "Worked", "Late","Early Out", "OT", "Status"].map(h => (
+                    {["S No", "Date", "Day", "Check In", "Check Out", "Worked", "Late", "Early Out", "OT", "Status"].map(h => (
                       <TableCell key={h} className="!font-bold whitespace-nowrap">{h}</TableCell>
                     ))}
                   </TableRow>
@@ -299,7 +314,7 @@ export function EmployeeView() {
                         {dayjs(r.attendanceDate).format("ddd")}
                       </TableCell>
                       {/* <TableCell>{r.shiftCode}</TableCell> */}
-                      <TableCell> 
+                      <TableCell>
                         {r.checkInTime
                           ? <span className="text-green-700">{formatTime(r.checkInTime)}</span>
                           : <span>-</span>}
@@ -327,7 +342,7 @@ export function EmployeeView() {
                           ? <span className="text-orange-600">{formatMinutes(r.overtimeMinutes)}</span>
                           : "-"}
                       </TableCell>
-                      <TableCell  sx={{
+                      <TableCell sx={{
                         padding: '8px !important',
                       }}>
                         <span className={` px-2 py-0.5 rounded-lg whitespace-nowrap

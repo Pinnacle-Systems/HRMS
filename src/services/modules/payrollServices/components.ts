@@ -14,8 +14,8 @@ export interface SalaryComponent {
   id: string;
   name: string;
   code: string;
-  componentType: string;
-  calculationType: string;
+  componentType: 'EARNING' | 'DEDUCTION' | 'BENEFIT';
+  calculationType: 'FIXED_AMOUNT' | 'PERCENT_OF_BASIC' | 'PERCENT_OF_CTC' | 'FORMULA' | 'SLAB_BASED';
   calculationValue: number;
   formulaExpression: string;
   minAmount: number;

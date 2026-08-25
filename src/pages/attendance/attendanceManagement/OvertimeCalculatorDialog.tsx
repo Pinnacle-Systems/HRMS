@@ -82,7 +82,7 @@ export function OvertimeCalculatorDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth sx={dialogsx}>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
         <span className="!pl-4 flex items-center gap-2">
           <CalculateOutlined className="text-primary" />
@@ -96,7 +96,7 @@ export function OvertimeCalculatorDialog({
       <DialogContent className="!p-4 !mt-3">
         <div className="space-y-4">
           {/* Date Range */}
-          <div className="grid grid-cols-1 gap-4 gap-y-7">
+          <div className="grid grid-cols-3 gap-4 gap-y-7">
             <EmployeeSelector
               value={selectedEmployee || null}
               onChange={handleEmployeeChange}
@@ -194,7 +194,7 @@ export function OvertimeCalculatorDialog({
             //       ))}
             //     </TableBody>
             // </TableContainer>
-            <TableContainer className="border border-gray-200 rounded">
+            <TableContainer className="border border-gray-200 rounded-sm">
               <Table size="small">
                 <TableHead>
                   <TableRow className="bg-gray-50">
@@ -204,7 +204,7 @@ export function OvertimeCalculatorDialog({
                     ></TableCell>
                     <TableCell className="!font-bold">Employee</TableCell>
                     <TableCell className="!font-bold">Code</TableCell>
-										<TableCell className="!font-bold text-right">
+                    <TableCell className="!font-bold text-right">
                       Total OT (mins)
                     </TableCell>
                     <TableCell className="!font-bold text-right">
@@ -238,9 +238,9 @@ export function OvertimeCalculatorDialog({
                             {hasDays && (
                               <IconButton size="small">
                                 {isExpanded ? (
-                                  <ExpandLessOutlined fontSize="small" />
+                                  <ExpandLessOutlined fontSize="small" className="!text-gray-800"/>
                                 ) : (
-                                  <ExpandMoreOutlined fontSize="small" />
+                                  <ExpandMoreOutlined fontSize="small" className="!text-gray-800"/>
                                 )}
                               </IconButton>
                             )}
@@ -249,19 +249,19 @@ export function OvertimeCalculatorDialog({
                             {ot.employeeName}
                           </TableCell>
                           <TableCell>{ot.employeeCode}</TableCell>
-													<TableCell className="text-right">
+                          <TableCell className="text-right">
                             <span className="text-orange-600 font-bold">
-                              {ot.totalOtMinutes?.toFixed(1) || 0}
+                              {ot.totalOtMinutes?.toFixed(0) || 0} min
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-orange-600 font-bold">
-                              {ot.totalOtHours?.toFixed(1) || 0}
+                              {ot.totalOtHours?.toFixed(1) || 0} h
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <span className="text-blue-600 font-bold">
-                              {ot.weightedOtHours?.toFixed(1) || 0}
+                              {ot.weightedOtHours?.toFixed(1) || 0} h
                             </span>
                           </TableCell>
                           <TableCell className="text-center">
@@ -278,6 +278,7 @@ export function OvertimeCalculatorDialog({
                               variant={
                                 ot.rateMultiplierApplied ? "filled" : "outlined"
                               }
+                              className="text-gray-800"
                             />
                           </TableCell>
                           <TableCell className="text-center">
@@ -304,16 +305,14 @@ export function OvertimeCalculatorDialog({
                                 sx={{
                                   m: 1,
                                   p: 1.5,
-                                  backgroundColor: "#f8fafc",
                                   borderRadius: 1.5,
-                                  border: "1px solid #e2e8f0",
                                 }}
                               >
                                 <div className="space-y-1">
                                   {ot.days.map((day: any, dayIndex: number) => (
                                     <div
                                       key={dayIndex}
-                                      className="flex items-center justify-between bg-white border border-gray-100 rounded px-3 py-1.5 hover:bg-gray-50"
+                                      className="flex items-center justify-between bg-white border border-gray-200 rounded px-3 py-1.5 hover:bg-gray-50"
                                     >
                                       <div className="flex items-center gap-3">
                                         <span className="text-xs font-medium text-gray-700 min-w-[80px]">
@@ -335,22 +334,22 @@ export function OvertimeCalculatorDialog({
                                                 : "default"
                                           }
                                           variant="outlined"
-                                          className="!h-5 !text-[10px]"
+                                          className="!h-5 !text-[10px] text-gray-800"
                                         />
                                       </div>
                                       <div className="flex items-center gap-3">
                                         <span className="text-[10px] text-gray-500">
-                                          ×{day.multiplier || 1}
-                                        </span>
-																				 <span className="text-xs font-semibold text-orange-600 min-w-[45px] text-right">
-                                          {(day.otMinutes || 0).toFixed(1)}h
+                                          ×{ot.rateMultiplierApplied ?  day.multiplier : 1}
                                         </span>
                                         <span className="text-xs font-semibold text-orange-600 min-w-[45px] text-right">
-                                          {(day.otHours || 0).toFixed(1)}h
+                                          {(day.otMinutes || 0).toFixed(0)} min
+                                        </span>
+                                        <span className="text-xs font-semibold text-orange-600 min-w-[45px] text-right">
+                                          {(day.otHours || 0).toFixed(1)} h
                                         </span>
                                         <span className="text-gray-300">→</span>
                                         <span className="text-xs font-semibold text-blue-600 min-w-[45px] text-right">
-                                          {(day.weightedHours || 0).toFixed(1)}h
+                                          {(day.weightedHours || 0).toFixed(1)} h
                                         </span>
                                       </div>
                                     </div>
@@ -361,6 +360,20 @@ export function OvertimeCalculatorDialog({
                                       Total
                                     </span>
                                     <div className="flex items-center gap-3">
+                                      <Chip
+                                        label={
+                                          ot.rateMultiplierApplied
+                                            ? "Multiplier Applied"
+                                            : "No Multiplier"
+                                        }
+                                        size="small"
+                                        color={
+                                          ot.rateMultiplierApplied
+                                            ? "success"
+                                            : "default"
+                                        }
+                                        className="!h-5 !text-[10px] text-gray-800"
+                                      />
                                       <span className="text-xs font-semibold text-orange-600 min-w-[45px] text-right">
                                         {ot.days
                                           .reduce(
@@ -382,20 +395,7 @@ export function OvertimeCalculatorDialog({
                                           .toFixed(1)}
                                         h
                                       </span>
-                                      <Chip
-                                        label={
-                                          ot.rateMultiplierApplied
-                                            ? "Multiplier Applied"
-                                            : "No Multiplier"
-                                        }
-                                        size="small"
-                                        color={
-                                          ot.rateMultiplierApplied
-                                            ? "success"
-                                            : "default"
-                                        }
-                                        className="!h-5 !text-[10px]"
-                                      />
+
                                     </div>
                                   </div>
                                 </div>

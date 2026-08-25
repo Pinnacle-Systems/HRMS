@@ -376,7 +376,7 @@ export default function MyLeaveRequestsPage() {
     closeActionMenu();
     showConfirmDialog({
       title: "Request Leave Cancellation",
-      message: `Request cancellation for approved leave ${request.id}?`,
+      message: `Request cancellation for approved leave ${request.leaveTypeName} (${request.leaveTypeCode})?`,
       confirmText: "Request Cancellation",
       cancelText: "Cancel",
       onConfirm: async () => {

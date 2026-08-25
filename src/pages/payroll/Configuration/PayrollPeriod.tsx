@@ -16,14 +16,12 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Switch,
-  Paper,
-  CircularProgress,
-  Fab,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Paper,
+  CircularProgress,
 } from "@mui/material";
 import {
   CalendarToday as CalendarIcon,
@@ -31,12 +29,10 @@ import {
   CheckCircle as CheckCircleIcon,
   PlayArrow as PlayIcon,
   Cancel as XCircleIcon,
-  Settings as Settings2Icon,
-  Download as DownloadIcon,
-  Assessment as FileBarChartIcon,
   Close as CloseIcon,
   Add as AddIcon,
   Edit as EditIcon,
+  Assessment as FileBarChartIcon,
 } from "@mui/icons-material";
 import { periodsService } from "../../../services/modules/payrollServices/period";
 import { useUI } from "../../../context/Snackbar";
@@ -69,6 +65,8 @@ export default function PayrollPeriodConfig() {
   const [periods, setPeriods] = useState<any[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [formData, setFormData] = useState({
     id: "",
     name: "",
@@ -76,7 +74,7 @@ export default function PayrollPeriodConfig() {
     endDate: "",
     paymentDate: "",
     cutoffDate: "",
-    workingDays: 22,
+    workingDays: 0,
     status: "pending",
     holidays: [] as { name: string; date: string }[],
   });
@@ -86,16 +84,46 @@ export default function PayrollPeriodConfig() {
     loadPeriods();
   }, []);
 
+  // Auto-load summary when dates change in create mode
+  useEffect(() => {
+    if (!isEditMode && formData.startDate && formData.endDate) {
+      const delayDebounceFn = setTimeout(() => {
+        loadSummaryPeriods();
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [formData.startDate, formData.endDate, isEditMode]);
+
   const loadPeriods = async () => {
     showSpinner();
     try {
       const response: any = await periodsService.getPeriods();
       setPeriods(response.data?.items || response.data || []);
     } catch (error) {
-      console.error("Failed to load payroll periods", error);
       showSnackbar("Failed to load payroll periods", "error");
     } finally {
       hideSpinner();
+    }
+  };
+
+  const loadSummaryPeriods = async () => {
+    if (!formData.startDate || !formData.endDate) {
+      return;
+    }
+
+    setIsLoadingSummary(true);
+    const params = {
+      startDate: formData.startDate,
+      endDate: formData.endDate
+    };
+    try {
+      const response: any = await periodsService.getSummaryPeriods(params);
+      setSummaryData(response.data);
+    } catch (error) {
+      showSnackbar("Failed to load period summary", "error");
+      setSummaryData(null);
+    } finally {
+      setIsLoadingSummary(false);
     }
   };
 
@@ -108,11 +136,12 @@ export default function PayrollPeriodConfig() {
       endDate: "",
       paymentDate: "",
       cutoffDate: "",
-      workingDays: 22,
+      workingDays: 0,
       status: "pending",
       holidays: [],
     });
     setNewHoliday({ name: "", date: "" });
+    setSummaryData(null);
     setIsDialogOpen(true);
   };
 
@@ -125,11 +154,12 @@ export default function PayrollPeriodConfig() {
       endDate: period.endDate?.split("T")[0] || "",
       paymentDate: period.paymentDate?.split("T")[0] || "",
       cutoffDate: period.cutoffDate?.split("T")[0] || "",
-      workingDays: period.workingDays || 22,
+      workingDays: period.workingDays || 0,
       status: period.status || "pending",
       holidays: period.holidays || [],
     });
     setNewHoliday({ name: "", date: "" });
+    setSummaryData(null);
     setIsDialogOpen(true);
   };
 
@@ -147,7 +177,7 @@ export default function PayrollPeriodConfig() {
         endDate: formData.endDate,
         paymentDate: formData.paymentDate,
         cutoffDate: formData.cutoffDate || formData.startDate,
-        workingDays: formData.workingDays,
+        workingDays: formData.workingDays || summaryData.workingDays,
         status: formData.status,
         holidays: formData.holidays,
       };
@@ -178,11 +208,12 @@ export default function PayrollPeriodConfig() {
       endDate: "",
       paymentDate: "",
       cutoffDate: "",
-      workingDays: 22,
+      workingDays: 0,
       status: "pending",
       holidays: [],
     });
     setNewHoliday({ name: "", date: "" });
+    setSummaryData(null);
     setIsEditMode(false);
   };
 
@@ -223,6 +254,145 @@ export default function PayrollPeriodConfig() {
       ...formData,
       holidays: formData.holidays.filter((_, i) => i !== index),
     });
+  };
+
+  const handleLoadSummary = async () => {
+    await loadSummaryPeriods();
+  };
+
+  // Render summary component
+  const renderSummary = () => {
+    if (isLoadingSummary) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          <CircularProgress size={30} />
+        </Box>
+      );
+    }
+
+    if (!summaryData) {
+      return (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <Typography variant="body2" className="text-gray-800">
+            {isEditMode 
+              ? "Click 'Load Summary' to view period details" 
+              : "Select start and end dates to view summary"}
+          </Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Stack spacing={2}>
+        {/* Date Range */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="subtitle2" className="text-gray-800">
+            Period
+          </Typography>
+          <Typography variant="body2" className="text-gray-800">
+            {formatDate(summaryData.startDate)} - {formatDate(summaryData.endDate)}
+          </Typography>
+        </Box>
+
+        {/* Summary Stats */}
+        <Grid container spacing={1.5}>
+          <Grid size={{ xs: 3 }}>
+            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+              <Typography variant="h6" color="primary">
+                {summaryData.totalDays}
+              </Typography>
+              <Typography variant="caption" className="text-gray-800">
+                Total Days
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 3 }}>
+            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.success.main, 0.04) }}>
+              <Typography variant="h6" color="success">
+                {summaryData.workingDays}
+              </Typography>
+              <Typography variant="caption" className="text-gray-800">
+                Working
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 3 }}>
+            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.warning.main, 0.04) }}>
+              <Typography variant="h6" color="warning">
+                {summaryData.weekends}
+              </Typography>
+              <Typography variant="caption" className="text-gray-800">
+                Weekends
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid size={{ xs: 3 }}>
+            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.info.main, 0.04) }}>
+              <Typography variant="h6" color="info">
+                {summaryData.holidays}
+              </Typography>
+              <Typography variant="caption" className="text-gray-800">
+                Holidays
+              </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+
+        {/* Holiday List */}
+        {summaryData.holidayList && summaryData.holidayList.length > 0 && (
+          <Box>
+            <Typography variant="subtitle2" className="text-gray-800" gutterBottom>
+              Holiday List
+            </Typography>
+            <Stack spacing={0.5}>
+              {summaryData.holidayList.map((holiday: any, index: number) => (
+                <Box 
+                  key={index} 
+                  sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    p: 1,
+                    borderRadius: 1,
+                    bgcolor: alpha(theme.palette.info.main, 0.04),
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body2" className="text-gray-800">
+                      {holiday.name}
+                    </Typography>
+                    <Typography variant="caption" className="text-gray-800">
+                      {formatDate(holiday.date)}
+                    </Typography>
+                  </Box>
+                  <Chip 
+                    label={holiday.type} 
+                    size="small"
+                    color={holiday.type === 'PUBLIC' ? 'error' : 'warning'}
+                    variant="outlined"
+                    sx={{ height: 20, fontSize: '0.6rem' }}
+                  />
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {/* Summary Footer */}
+        <Box sx={{ 
+          p: 1.5, 
+          borderRadius: 1, 
+          bgcolor: alpha(theme.palette.success.main, 0.04),
+          border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`
+        }}>
+          <Typography variant="caption" className="text-gray-500" align="center">
+            Total: {summaryData.totalDays} days | Working: {summaryData.workingDays} | 
+            Non-working: {summaryData.weekends + summaryData.holidays}
+          </Typography>
+        </Box>
+      </Stack>
+    );
   };
 
   return (
@@ -366,8 +536,10 @@ export default function PayrollPeriodConfig() {
             </IconButton>
           </Box>
         </DialogTitle>
+        
         <DialogContent className="!p-7">
           <Stack spacing={2.5}>
+            {/* Basic Fields */}
             <Grid container spacing={2}>
               <Grid size={{ xs: 12 }}>
                 <TextField
@@ -454,7 +626,6 @@ export default function PayrollPeriodConfig() {
                   value={formData.workingDays}
                   onChange={(e) => setFormData({ ...formData, workingDays: Number(e.target.value) })}
                   fullWidth
-                  // inputProps={{ min: 1, max: 31 }}
                 />
               </Grid>
             </Grid>
@@ -475,6 +646,30 @@ export default function PayrollPeriodConfig() {
               </FormControl>
             )}
 
+            {/* Summary Section */}
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <div className="text-[12px] text-gray-800">
+                  Period Summary
+                </div>
+                {isEditMode && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FileBarChartIcon fontSize="small" />}
+                    onClick={handleLoadSummary}
+                    className="!text-primary !border-primary"
+                  >
+                    Load Summary
+                  </Button>
+                )}
+              </Box>
+              <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.primary.main, 0.02) }}>
+                {renderSummary()}
+              </Paper>
+            </Box>
+
+            {/* Holidays Section */}
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 500, mb: 2 }}>
                 Holidays
@@ -532,11 +727,12 @@ export default function PayrollPeriodConfig() {
             </Box>
           </Stack>
         </DialogContent>
+        
         <DialogActions className="!p-4 border-t border-gray-200">
           <Button
             onClick={() => { setIsDialogOpen(false); resetForm(); }}
             variant="outlined"
-            className="text-gray-800 border-gray-200"
+            className="!text-gray-800 !border-gray-200"
           >
             Cancel
           </Button>

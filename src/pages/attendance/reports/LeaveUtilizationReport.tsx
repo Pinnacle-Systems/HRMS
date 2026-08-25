@@ -110,7 +110,7 @@ export function LeaveUtilizationReport({ onBack }: Props) {
             </FormControl>
           </FilterField>
           <FilterField label="Department">
-            <FormControl>
+            <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
                 <MenuItem value="">All Departments</MenuItem>
                 {departments.map((d) => (
@@ -149,9 +149,9 @@ export function LeaveUtilizationReport({ onBack }: Props) {
                 <TableCell className="whitespace-nowrap">{r.employeeName}</TableCell>
                 <TableCell>{r.department}</TableCell>
                 <TableCell>
-                  <span className="text-violet-700">
+                  <div className="!py-2">
                     {r.leaveType}
-                  </span>
+                  </div>
                 </TableCell>
                 <TableCell className="!text-center"><span className="text-gray-600">
                   {r.openingBalance}
@@ -183,14 +183,14 @@ export function LeaveUtilizationReport({ onBack }: Props) {
             {rows.length > 0 && (
               <TableRow className="bg-gray-100 border-t-2 border-gray-300">
                 <TableCell colSpan={5} className="!font-bold text-gray-700 px-3 py-2">Totals</TableCell>
-                <TableCell className="!text-center !font-bold text-gray-600">—</TableCell>
+                <TableCell className="!text-center !font-bold text-gray-600">-</TableCell>
                 <TableCell className="!text-center !font-bold"><span className="text-blue-700">+{totals.accrued}</span></TableCell>
                 <TableCell className="!text-center !font-bold"><span className="text-red-600">-{totals.taken}</span></TableCell>
                 <TableCell className="!text-center !font-bold">
-                  <span className="text-amber-600">{totals.encashed > 0 ? `-${totals.encashed}` : "—"}</span>
+                  <span className="text-amber-600">{totals.encashed > 0 ? `-${totals.encashed}` : "-"}</span>
                 </TableCell>
                 <TableCell className="!text-center !font-bold text-gray-400">
-                  {totals.lapsed > 0 ? `-${totals.lapsed}` : "—"}
+                  {totals.lapsed > 0 ? `-${totals.lapsed}` : "-"}
                 </TableCell>
                 <TableCell className="!text-center !font-bold text-gray-700">{totals.closing}</TableCell>
               </TableRow>
@@ -198,11 +198,11 @@ export function LeaveUtilizationReport({ onBack }: Props) {
           </TableBody>
         </Table>
       </TableContainer>
-      <GlobalPagination
+      {/* <GlobalPagination
         total={total} page={page} limit={limit}
         onPageChange={p => { setPage(p); generate(p, limit); }}
         onLimitChange={l => { setLimit(l); setPage(1); generate(1, l); }}
-      />
+      /> */}
     </ReportLayout>
   );
 }
