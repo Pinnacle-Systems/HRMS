@@ -2,8 +2,7 @@ import type { ReactNode } from "react";
 import { IconButton, Tooltip, CircularProgress, Button } from "@mui/material";
 import {
   ArrowBackOutlined, FileDownloadOutlined,
-  PictureAsPdfOutlined, TableViewOutlined, RefreshOutlined,
-  NoteAltOutlined,
+  TableViewOutlined, RefreshOutlined,
 } from "@mui/icons-material";
 import { attendanceService } from "../../../services/modules/attendance";
 import { apiService } from "../../../services/api/api.config";

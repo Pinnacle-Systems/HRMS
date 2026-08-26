@@ -6,7 +6,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from "@mui/material";
 import { attendanceService } from "../../../services/modules/attendance";
-import { GlobalPagination } from "../../../components/GlobalPagination";
+// import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import { departmentService } from "../../../services/modules/department";
@@ -37,7 +37,7 @@ export function LopReport({ onBack }: Props) {
   const [rows, setRows] = useState<LopSummaryRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, _setLimit] = useState(20);
   const [generating, setGenerating] = useState(false);
 
   // Running totals

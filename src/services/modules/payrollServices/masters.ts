@@ -1,7 +1,3 @@
-import { apiService } from "../../api/api.config";
-import { API_ENDPOINTS } from "../../api/endpoints";
-
-
 // ===== DEDUCTIONS =====
 export interface DeductionQuery {
   employeeId?: string;

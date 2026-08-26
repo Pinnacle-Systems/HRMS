@@ -20,8 +20,6 @@ import {
   Warning as AlertTriangleIcon,
   CheckCircle as CheckCircleIcon,
   Description as FileTextIcon,
-  ArrowUpward as ArrowUpRightIcon,
-  ArrowDownward as ArrowDownRightIcon,
   PlayArrow as PlayIcon,
   Refresh as RefreshIcon,
   ChevronRight as ChevronRightIcon,

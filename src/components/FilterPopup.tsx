@@ -29,7 +29,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type {
   FilterRule,
-  FilterConfig,
+  // FilterConfig,
   FilterField,
   FilterPopupProps,
   FilterOperator,
@@ -37,8 +37,8 @@ import type {
 import {
   operatorLabels,
   getOperatorsForFieldType,
-  getOperatorRequiresValue,
-  getOperatorRequiresSecondValue,
+  // getOperatorRequiresValue,
+  // getOperatorRequiresSecondValue,
 } from '../types/filterOperators';
 import dayjs from 'dayjs';
 import { selectSx } from '../const';
@@ -169,14 +169,14 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
   };
 
   // Check if operator requires value
-  const requiresValue = (operator: FilterOperator): boolean => {
-    return getOperatorRequiresValue(operator);
-  };
+  // const requiresValue = (operator: FilterOperator): boolean => {
+  //   return getOperatorRequiresValue(operator);
+  // };
 
-  // Check if operator requires second value
-  const requiresSecondValue = (operator: FilterOperator): boolean => {
-    return getOperatorRequiresSecondValue(operator);
-  };
+  // // Check if operator requires second value
+  // const requiresSecondValue = (operator: FilterOperator): boolean => {
+  //   return getOperatorRequiresSecondValue(operator);
+  // };
 
   // Check if operator is boolean type
   const isBooleanOperator = (operator: FilterOperator): boolean => {
@@ -236,16 +236,29 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
               sx={{ minWidth: 200 }}
             />
           )}
-          renderTags={(value: any, getTagProps: any) =>
-            value.map((option: any, index: any) => (
-              <Chip
-                key={index}
-                label={option.label}
-                size="small"
-                {...getTagProps({ index })}
-              />
-            ))
-          }
+          // renderTags={(value: any, getTagProps: any) =>
+          //   value.map((option: any, index: any) => (
+          //     <Chip
+          //       key={index}
+          //       label={option.label}
+          //       size="small"
+          //       {...getTagProps({ index })}
+          //     />
+          //   ))
+          // }
+          // renderTags={(value:any, getTagProps:any) =>
+          //   value.map((option, index) => {
+          //     const { key, ...tagProps } = getTagProps({ index });
+          //     return (
+          //       <Chip
+          //         key={key || index}
+          //         label={option.label}
+          //         size="small"
+          //         {...tagProps}
+          //       />
+          //     );
+          //   })
+          // }
         />
       );
     }

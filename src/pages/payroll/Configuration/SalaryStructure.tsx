@@ -329,9 +329,9 @@ export default function SalaryStructureTemplate() {
     showSpinner();
     try {
       // Check if Special Allowance exists
-      const hasSpecialAllowance = earnings.some(
-        e => isSpecialAllowance(e.componentName)
-      );
+      // const hasSpecialAllowance = earnings.some(
+      //   e => isSpecialAllowance(e.componentName)
+      // );
 
       // If Special Allowance exists, set its value to 0 (it will be auto-calculated)
       const earningsPayload = earnings.map(e => {
@@ -614,10 +614,10 @@ export default function SalaryStructureTemplate() {
   };
 
   // Calculate percentage of CTC for a component
-  const calculatePercentageOfCTC = (value: number, monthlyCtc: number) => {
-    if (!monthlyCtc || monthlyCtc === 0) return 0;
-    return (value / monthlyCtc) * 100;
-  };
+  // const calculatePercentageOfCTC = (value: number, monthlyCtc: number) => {
+  //   if (!monthlyCtc || monthlyCtc === 0) return 0;
+  //   return (value / monthlyCtc) * 100;
+  // };
 
   return (
     <div className="bg-white-50">

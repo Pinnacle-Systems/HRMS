@@ -21,8 +21,6 @@ import {
   alpha,
   Tab,
   Tabs,
-  Avatar,
-  CircularProgress,
   Tooltip,
 } from "@mui/material";
 import {
@@ -37,7 +35,6 @@ import {
   History as HistoryIcon,
   Error as ErrorIcon,
   Warning as WarningIcon,
-  Close as CloseIcon,
 } from "@mui/icons-material";
 import { formatCurrency } from "../const";
 import { payrollRunsService } from "../../../services/modules/payrollServices/payrollRuns";
@@ -70,7 +67,7 @@ export default function PayrollDetails() {
   const [run, setRun] = useState<any | null>(null);
   const [breakdown, setBreakdown] = useState<any[]>([]);
   const [filteredBreakdown, setFilteredBreakdown] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("");
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
 
@@ -105,7 +102,7 @@ export default function PayrollDetails() {
 
   const loadRun = async () => {
     if (!id) return;
-    setLoading(true);
+    // setLoading(true);
     showSpinner();
     try {
       const [runResponse, itemsResponse]: any = await Promise.all([
@@ -150,7 +147,7 @@ export default function PayrollDetails() {
       showSnackbar("Failed to load payroll details", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
+      // setLoading(false);
     }
   };
 

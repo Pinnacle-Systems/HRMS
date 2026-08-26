@@ -31,7 +31,6 @@ import dayjs from "dayjs";
 import type { OvertimeCalculateParams } from "../../../services/modules/attendanceTypes";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { useState } from "react";
-import { dialogsx } from "../../../const";
 
 interface OvertimeCalculatorDialogProps {
   open: boolean;

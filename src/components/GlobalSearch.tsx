@@ -16,7 +16,7 @@ import Box from "@mui/material/Box";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import PeopleAltOutlinedIcon from "@mui/icons-material/PeopleAltOutlined";
 import AssignmentOutlinedIcon from "@mui/icons-material/AssignmentOutlined";
-import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
+// import AttachMoneyOutlinedIcon from "@mui/icons-material/AttachMoneyOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import TrackChangesOutlined from "@mui/icons-material/TrackChanges";
 import PolicyOutlined from "@mui/icons-material/PolicyOutlined";

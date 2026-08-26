@@ -318,7 +318,7 @@ export default function GeneratePayroll() {
                 previewData: previewData, // Send the preview data
             };
 
-            const res: any = await payrollRunsService.createPayrollRun(payload);
+            await payrollRunsService.createPayrollRun(payload);
             // setPayrollRunId(res.data.id);
             setDone(true);
 

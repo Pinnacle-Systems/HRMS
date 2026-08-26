@@ -18,7 +18,6 @@ import {
   Grid,
   LinearProgress,
   IconButton,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -57,7 +56,6 @@ const statusOptions = ["COMPLIANT", "PENDING", "NON_COMPLIANT"];
 export default function StatutoryCompliance() {
   const theme = useTheme();
   const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
-  const [loading, setLoading] = useState(true);
   const [complianceData, setComplianceData] = useState<any[]>([]);
   const [overview, setOverview] = useState<any>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -81,7 +79,7 @@ export default function StatutoryCompliance() {
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+    // setLoading(true);
     showSpinner();
     try {
       const [overviewRes, filingsRes]: any = await Promise.all([
@@ -102,7 +100,7 @@ export default function StatutoryCompliance() {
       showSnackbar("Failed to load compliance data", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
+      // setLoading(false);
     }
   };
 

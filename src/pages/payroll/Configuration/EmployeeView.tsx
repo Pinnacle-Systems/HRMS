@@ -440,7 +440,7 @@ export default function EmployeeSalaryView() {
                   {payrollHistory.monthlyPayslips?.length > 0 ? (
                     payrollHistory.monthlyPayslips.map((p: any, index: number) => {
                       // Create a unique key using multiple properties
-                      const uniqueKey = p.runItemId || p.periodLabel || `payslip-${index}`;
+                      // const uniqueKey = p.runItemId || p.periodLabel || `payslip-${index}`;
                       // Or use combination for guaranteed uniqueness
                       const safeKey = `${p.periodLabel || 'payslip'}-${p.generatedOn || index}-${index}`;
 

@@ -7,7 +7,7 @@ import {
 } from "@mui/material";
 import { attendanceService } from "../../../services/modules/attendance";
 import type { LeaveUtilizationRow } from "../../../services/modules/attendanceTypes";
-import { GlobalPagination } from "../../../components/GlobalPagination";
+// import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import { MONTHS, getCurrentMonthYear } from "../const";
@@ -44,7 +44,7 @@ export function LeaveUtilizationReport({ onBack }: Props) {
   const [rows, setRows] = useState<LeaveUtilizationRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, _setLimit] = useState(20);
   const [generating, setGenerating] = useState(false);
 
   const params = {

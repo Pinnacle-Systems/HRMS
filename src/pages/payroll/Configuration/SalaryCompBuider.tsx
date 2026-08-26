@@ -59,7 +59,7 @@ export default function SalaryComponentBuilder() {
   const [editingComponent, setEditingComponent] = useState<SalaryComponent | null>(null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("all");
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({
     earningComponents: 0,
     deductionComponents: 0,
@@ -94,7 +94,7 @@ export default function SalaryComponentBuilder() {
   }, []);
 
   const loadData = async () => {
-    setLoading(true);
+    // setLoading(true);
     showSpinner();
     try {
       const [componentsResponse, summaryResponse]: any = await Promise.all([
@@ -132,7 +132,7 @@ export default function SalaryComponentBuilder() {
       showSnackbar("Failed to load salary components", "error");
     } finally {
       hideSpinner();
-      setLoading(false);
+      // setLoading(false);
     }
   };
 

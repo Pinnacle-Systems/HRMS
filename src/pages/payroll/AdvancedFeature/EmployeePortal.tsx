@@ -35,7 +35,6 @@ import {
   Person as PersonIcon,
   Receipt as ReceiptIcon,
   AccountBalance as BankIcon,
-  AccessTime as TimeIcon,
   Refresh as RefreshIcon,
   Download as DownloadIcon,
   Visibility as ViewIcon,
@@ -44,7 +43,7 @@ import {
   FileDownload as FileDownloadIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../../auth/authContext";
-import { employeePortalService, type Feature, type PortalEmployee } from "../../../services/modules/payrollServices/employeePortal";
+import { employeePortalService, type PortalEmployee } from "../../../services/modules/payrollServices/employeePortal";
 import { useUI } from "../../../context/Snackbar";
 import { formatCurrency, type EmployeePayslipsData } from "../const";
 import { departmentService } from "../../../services/modules/department";
@@ -84,7 +83,7 @@ export default function EmployeePortal() {
   const [dialogType, setDialogType] = useState<"payslip" | "bank" | "profile" | "loan">("bank");
 
   // Portal data
-  const [portalData, setPortalData] = useState<any>(null);
+  // const [portalData, setPortalData] = useState<any>(null);
   const [employees, setEmployees] = useState<PortalEmployee[]>([]);
   const [features, setFeatures] = useState<any[]>([]);
   const [payslipData, setPayslipData] = useState<EmployeePayslipsData | null>(null);
@@ -187,7 +186,7 @@ export default function EmployeePortal() {
         }
         
         // Set portal data
-        setPortalData(data);
+        // setPortalData(data);
       }
     } catch (error) {
       showSnackbar("Failed to load portal data", "error");
@@ -204,7 +203,7 @@ export default function EmployeePortal() {
       const fullData = await employeePortalService.getEmployeeFullPortalData(employeeId);
       setTaxSummary(fullData.taxSummary);
       setPayslipData(fullData.payslips);
-      setPortalData(fullData.portalData);
+      // setPortalData(fullData.portalData);
     } catch (error) {
       showSnackbar("Failed to load employee data", "error");
     } finally {

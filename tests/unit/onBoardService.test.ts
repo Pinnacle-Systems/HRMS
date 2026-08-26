@@ -34,6 +34,7 @@ describe("onBoardService Swagger payload adapters", () => {
       checklistId: "checklist-1",
       startDate: "2026-05-19",
       notes: "Bring ID",
+      employeeIds: [],
     });
 
     expect(apiPost).toHaveBeenCalledWith("/onboarding/assign", {
