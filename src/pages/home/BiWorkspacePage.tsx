@@ -772,10 +772,14 @@ export default function BiWorkspacePage() {
   // ============ Exports ============
 
   const handleCreateExport = async () => {
+    console.log(selectedDataset, 'kkkkkkkk');
+
     if (!selectedDataset) {
       setError("Select a dataset before creating an export.");
       return;
     }
+    console.log(selectedDataset);
+
 
     setExportLoading(true);
     setError(null);
@@ -785,6 +789,8 @@ export default function BiWorkspacePage() {
         format: exportFormat,
         query,
       };
+      console.log(selectedDataset);
+
 
       const response: any = await dashboardService.createBIExport(selectedDataset, exportRequest);
       const data = response?.data;
@@ -1091,11 +1097,11 @@ export default function BiWorkspacePage() {
         setTopN(
           preset.query.topN
             ? {
-                dimension: preset.query.topN.dimension || "",
-                metric: preset.query.topN.metric || "",
-                limit: preset.query.topN.limit || 10,
-                includeOthers: preset.query.topN.includeOthers !== undefined ? preset.query.topN.includeOthers : true,
-              }
+              dimension: preset.query.topN.dimension || "",
+              metric: preset.query.topN.metric || "",
+              limit: preset.query.topN.limit || 10,
+              includeOthers: preset.query.topN.includeOthers !== undefined ? preset.query.topN.includeOthers : true,
+            }
             : null
         );
         setSort(
@@ -1113,10 +1119,10 @@ export default function BiWorkspacePage() {
   };
 
   const renderBuilderAdmin = () => (
-    <Card>
-      <CardHeader title="Dashboard Builder" />
+    <Card className="bg-white">
+      <CardHeader title="Dashboard Builder" className="text-gray-800" />
       <CardContent className="space-y-4">
-        <Box className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Box className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <TextField
             label="Page key"
             value={builderPageForm.pageKey}
@@ -1152,20 +1158,20 @@ export default function BiWorkspacePage() {
         </Box>
         <Box className="flex gap-2">
           <Button
-            variant="contained"
+            variant="contained" className="!bg-primary"
             onClick={() => void (editingBuilderPageId ? handleUpdateBuilderPage() : createBuilderPage())}
           >
             {editingBuilderPageId ? "Update Dashboard Page" : "Create Dashboard Page"}
           </Button>
           {editingBuilderPageId && (
-            <Button variant="outlined" onClick={resetBuilderPageForm}>
+            <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={resetBuilderPageForm}>
               Cancel
             </Button>
           )}
         </Box>
 
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer className="bg-white">
+          <Table className="border border-gray-200">
             <TableHead>
               <TableRow>
                 <TableCell>Page Key</TableCell>
@@ -1175,8 +1181,8 @@ export default function BiWorkspacePage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {builderPages.map((page) => (
-                <TableRow key={page.id}>
+              {builderPages.map((page, i) => (
+                <TableRow key={page.id} sx={getRowColor(i)}>
                   <TableCell>{page.pageKey}</TableCell>
                   <TableCell>{page.title}</TableCell>
                   <TableCell>{page.description}</TableCell>
@@ -1200,10 +1206,10 @@ export default function BiWorkspacePage() {
   );
 
   const renderQuerySetAdmin = () => (
-    <Card>
-      <CardHeader title="Query Sets" />
+    <Card className="bg-white">
+      <CardHeader title="Query Sets" className="text-gray-800" />
       <CardContent className="space-y-4">
-        <Box className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Box className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <TextField
             label="Title"
             value={querySetForm.title}
@@ -1245,20 +1251,20 @@ export default function BiWorkspacePage() {
         </Box>
         <Box className="flex gap-2">
           <Button
-            variant="contained"
+            variant="contained" className="!bg-primary"
             onClick={() => void (editingQuerySetId ? handleUpdateQuerySet() : createQuerySet())}
           >
             {editingQuerySetId ? "Update Query Set" : "Create Query Set"}
           </Button>
           {editingQuerySetId && (
-            <Button variant="outlined" onClick={resetQuerySetForm}>
+            <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={resetQuerySetForm}>
               Cancel
             </Button>
           )}
         </Box>
 
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer className="bg-white">
+          <Table className="border border-gray-200 rounded-sm">
             <TableHead>
               <TableRow>
                 <TableCell>Title</TableCell>
@@ -1302,7 +1308,7 @@ export default function BiWorkspacePage() {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }} className="h-[calc(100vh-425px)] overflow-auto">
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
-          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
+          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600 }}>
             Query Preset Loader
           </Typography>
           <Box className="flex gap-3 items-center">
@@ -1310,7 +1316,6 @@ export default function BiWorkspacePage() {
               label="Preset id"
               value={presetId}
               onChange={(e) => setPresetId(e.target.value)}
-              size="small"
             />
             <Button variant="outlined" onClick={() => void handleLoadPreset()}>
               Load Preset
@@ -1808,7 +1813,7 @@ export default function BiWorkspacePage() {
               </option>
             ))}
           </TextField> */}
-           <FormControl sx={{ width: 250 }}>
+          <FormControl sx={{ width: 250 }}>
             <InputLabel>Dataset</InputLabel>
             <Select
               value={selectedDataset}
@@ -2170,7 +2175,7 @@ export default function BiWorkspacePage() {
           <div>{isEditingReport ? "Edit Report" : "Create New Report"}</div>
           <div className="text-[12px] text-gray-500">{isEditingReport ? "Update your saved report" : "Save a query as a report for later use"}</div>
         </div>
-        <IconButton onClick={() => setReportFormOpen(false)}><CloseIcon className="text-gray-800"/></IconButton>
+        <IconButton onClick={() => setReportFormOpen(false)}><CloseIcon className="text-gray-800" /></IconButton>
       </div>
       <DialogContent sx={{ p: 3 }}>
         <div className="grid gap-5">
@@ -2323,7 +2328,7 @@ export default function BiWorkspacePage() {
                 </Box>
               </div>
             ) : (
-               <div className="border-b border-gray-200 p-4 flex items-center justify-center">No Dimensions available</div>
+              <div className="border-b border-gray-200 p-4 flex items-center justify-center">No Dimensions available</div>
             )}
             {datasetSchema.metrics && datasetSchema.metrics.length > 0 ? (
               <Box sx={{ p: 2 }}>
@@ -2333,7 +2338,7 @@ export default function BiWorkspacePage() {
                 </Box>
               </Box>
             ) : (
-               <div className="border-b border-gray-200 p-4 flex items-center justify-center">No Metrics available</div>
+              <div className="border-b border-gray-200 p-4 flex items-center justify-center">No Metrics available</div>
             )}
           </Box>
         ) : (
@@ -2360,7 +2365,7 @@ export default function BiWorkspacePage() {
           {/* <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => { if (selectedReport) { handleEditReport(selectedReport); setReportDetailOpen(false); } }} disabled={!selectedReport?.editable}>Edit</Button>
             <Button size="small" variant="contained" startIcon={<PlayArrow />} onClick={() => { if (selectedReport) { handleRunReport(selectedReport.id); setReportDetailOpen(false); } }}>Run</Button>
             <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => { if (selectedReport) { handleExportReport(selectedReport.id, "csv"); setReportDetailOpen(false); } }}>Export</Button> */}
-          <IconButton onClick={() => setReportDetailOpen(false)}><CloseIcon className="text-gray-800"/></IconButton>
+          <IconButton onClick={() => setReportDetailOpen(false)}><CloseIcon className="text-gray-800" /></IconButton>
         </Box>
       </div>
       {/* </DialogTitle> */}
@@ -2389,16 +2394,17 @@ export default function BiWorkspacePage() {
               </>
             )}
 
-            <div className="flex items-center justify-end gap-2 mt-2">
-              <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => { if (selectedReport) { handleExportReport(selectedReport.id, "csv"); setReportDetailOpen(false); } }}>Export as CSV</Button>
-              <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => { if (selectedReport) { handleExportReport(selectedReport.id, "xlsx"); setReportDetailOpen(false); } }}>Export as Excel</Button>
-              <Button variant="contained" color="success" startIcon={<PlayArrow />} onClick={() => { if (selectedReport) { handleRunReport(selectedReport.id); setReportDetailOpen(false); } }}>Run</Button>
-            </div>
+
           </Box>
         ) : (
           <CircularProgress />
         )}
       </DialogContent>
+      <div className="flex items-center justify-end gap-2 p-4 border-t border-gray-200">
+        <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => { if (selectedReport) { handleExportReport(selectedReport.id, "csv"); setReportDetailOpen(false); } }}>Export as CSV</Button>
+        <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => { if (selectedReport) { handleExportReport(selectedReport.id, "xlsx"); setReportDetailOpen(false); } }}>Export as Excel</Button>
+        <Button variant="contained" color="success" startIcon={<PlayArrow />} onClick={() => { if (selectedReport) { handleRunReport(selectedReport.id); setReportDetailOpen(false); } }}>Run</Button>
+      </div>
     </Dialog>
   );
 

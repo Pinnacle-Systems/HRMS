@@ -9,7 +9,7 @@ import {
 import { KeyboardArrowDownOutlined, KeyboardArrowRightOutlined } from "@mui/icons-material";
 import { attendanceService } from "../../../services/modules/attendance";
 import type { AbsenteeismRow } from "../../../services/modules/attendanceTypes";
-import { GlobalPagination } from "../../../components/GlobalPagination";
+// import { GlobalPagination } from "../../../components/GlobalPagination";
 import { ReportLayout, FilterField } from "./ReportLayout";
 import { useUI } from "../../../context/Snackbar";
 import { MONTHS, getCurrentMonthYear } from "../const";
@@ -40,7 +40,7 @@ export function AbsenteeismReport({ onBack }: Props) {
   const [rows, setRows] = useState<AbsenteeismRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, _setLimit] = useState(20);
   const [generating, setGenerating] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 

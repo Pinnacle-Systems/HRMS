@@ -35,7 +35,6 @@ import {
     Security as SecurityIcon,
     Settings as SettingsIcon,
     WhatsApp as WhatsAppIcon,
-    Sms as SmsIcon,
     EmailOutlined,
     CloseOutlined,
     SmsOutlined,
@@ -67,7 +66,7 @@ export default function UserManagement() {
     const [selectedTab, setSelectedTab] = useState(0);
 
     // Configuration States
-    const [emailConfig, setEmailConfig] = useState<EmailConfig>({
+    const [emailConfig, _setEmailConfig] = useState<EmailConfig>({
         host: '',
         port: 587,
         username: '',
@@ -77,7 +76,7 @@ export default function UserManagement() {
         encryption: 'tls',
         isActive: false
     });
-    const [smsConfig, setSmsConfig] = useState<SMSConfig>({
+    const [smsConfig, _setSmsConfig] = useState<SMSConfig>({
         provider: 'twilio',
         apiKey: '',
         apiSecret: '',
@@ -86,7 +85,7 @@ export default function UserManagement() {
         authToken: '',
         isActive: false
     });
-    const [whatsappConfig, setWhatsappConfig] = useState<WhatsAppConfig>({
+    const [whatsappConfig, _setWhatsappConfig] = useState<WhatsAppConfig>({
         phoneNumberId: '',
         accessToken: '',
         businessAccountId: '',
@@ -203,7 +202,7 @@ export default function UserManagement() {
     }, [selectedUser]);
 
     // User CRUD operations
-    const handleAddUser = async (userData: Partial<User>) => {
+    const handleAddUser = async (_userData: Partial<User>) => {
         // try {
         //     const response = await userService.createUser(userData);
         //     showSnackbar("User created successfully", "success");
@@ -214,7 +213,7 @@ export default function UserManagement() {
         // }
     };
 
-    const handleUpdateUser = async (userId: string, userData: Partial<User>) => {
+    const handleUpdateUser = async (_userId: string, _userData: Partial<User>) => {
         // try {
         //     await userService.updateUser(userId, userData);
         //     showSnackbar("User updated successfully", "success");
@@ -225,27 +224,27 @@ export default function UserManagement() {
         // }
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        showConfirmDialog({
-            title: "Delete User",
-            message: "Are you sure you want to delete this user? This action cannot be undone.",
-            confirmText: "Delete",
-            cancelText: "Cancel",
-            onConfirm: async () => {
-                // try {
-                //     await userService.deleteUser(userId);
-                //     showSnackbar("User deleted successfully", "success");
-                //     loadUsers();
-                //     if (selectedUser?.id === userId) {
-                //         setSelectedUser(null);
-                //         setGrants([]);
-                //     }
-                // } catch (error: any) {
-                //     showSnackbar(error?.message || "Failed to delete user", "error");
-                // }
-            },
-        });
-    };
+    // const handleDeleteUser = async (userId: string) => {
+    //     showConfirmDialog({
+    //         title: "Delete User",
+    //         message: "Are you sure you want to delete this user? This action cannot be undone.",
+    //         confirmText: "Delete",
+    //         cancelText: "Cancel",
+    //         onConfirm: async () => {
+    //             // try {
+    //             //     await userService.deleteUser(userId);
+    //             //     showSnackbar("User deleted successfully", "success");
+    //             //     loadUsers();
+    //             //     if (selectedUser?.id === userId) {
+    //             //         setSelectedUser(null);
+    //             //         setGrants([]);
+    //             //     }
+    //             // } catch (error: any) {
+    //             //     showSnackbar(error?.message || "Failed to delete user", "error");
+    //             // }
+    //         },
+    //     });
+    // };
 
     // Role assignment
     const onAssign = async () => {

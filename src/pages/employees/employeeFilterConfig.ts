@@ -12,21 +12,21 @@ export const EMPLOYEE_FIELD_GROUPS = {
 };
 
 // Helper to create field with group
-const createField = (
-  id: string,
-  label: string,
-  type: FilterField['type'],
-  options?: FilterField['options'],
-  group: string = EMPLOYEE_FIELD_GROUPS.BASIC_INFO,
-  extra?: Partial<FilterField>
-): FilterField => ({
-  id,
-  label,
-  type,
-  group,
-  options: options || [],
-  ...extra,
-});
+// const createField = (
+//   id: string,
+//   label: string,
+//   type: FilterField['type'],
+//   options?: FilterField['options'],
+//   group: string = EMPLOYEE_FIELD_GROUPS.BASIC_INFO,
+//   extra?: Partial<FilterField>
+// ): FilterField => ({
+//   id,
+//   label,
+//   type,
+//   group,
+//   options: options || [],
+//   ...extra,
+// });
 
 // Get all filter fields from your const.ts
 export const getEmployeeFilterFields = (
@@ -35,7 +35,7 @@ export const getEmployeeFilterFields = (
   branches: Branches[],
   empStatus: Category[]
 ): FilterField[] => {
-  const allFields: FilterField[] = [];
+  // const allFields: FilterField[] = [];
 
   // ===== BASIC INFORMATION FIELDS =====
   const basicInfoFields: FilterField[] = [

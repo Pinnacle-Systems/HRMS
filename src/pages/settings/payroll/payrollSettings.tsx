@@ -138,12 +138,12 @@ interface PayrollSettings {
   deductionRules: DeductionRule[];
 }
 
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  timestamp: string;
-}
+// interface ApiResponse<T> {
+//   success: boolean;
+//   message: string;
+//   data: T;
+//   timestamp: string;
+// }
 
 // ==================== NAVIGATION ====================
 

@@ -51,12 +51,7 @@ import {
   AddCircle,
   TrendingUp,
   TrendingDown,
-  CalendarToday,
-  Receipt,
-  PersonAdd,
-  FileCopy,
   PieChart as PieChartIcon,
-  BarChart,
 } from "@mui/icons-material";
 import { formatCurrency } from "../const";
 import { assignmentService } from "../../../services/modules/payrollServices/salaryAssignments";
@@ -581,18 +576,18 @@ export default function AssignSalaryStructure() {
     // ];
 
     // Prepare data for bar chart
-    const barData = [
-      ...breakdown.earnings.map((e: any) => ({
-        name: e.componentName,
-        Earnings: isMonthly ? e.monthlyValue : e.annualValue,
-        type: 'earning'
-      })),
-      ...breakdown.deductions.map((d: any) => ({
-        name: d.componentName,
-        Deductions: isMonthly ? d.monthlyValue : d.annualValue,
-        type: 'deduction'
-      }))
-    ];
+    // const barData = [
+    //   ...breakdown.earnings.map((e: any) => ({
+    //     name: e.componentName,
+    //     Earnings: isMonthly ? e.monthlyValue : e.annualValue,
+    //     type: 'earning'
+    //   })),
+    //   ...breakdown.deductions.map((d: any) => ({
+    //     name: d.componentName,
+    //     Deductions: isMonthly ? d.monthlyValue : d.annualValue,
+    //     type: 'deduction'
+    //   }))
+    // ];
 
     // const formatCurrencyForChart = (value: any) => {
     //   if (typeof value === 'number') {

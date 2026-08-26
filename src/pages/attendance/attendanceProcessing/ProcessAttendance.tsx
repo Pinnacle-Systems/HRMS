@@ -408,25 +408,25 @@ export function ProcessAttendance() {
   }
 
   // Helper to get skipped count from either validation or result
-  const getSkippedCount = () => {
-    if (result && result.skippedEmployees) {
-      return result.skippedEmployees.length;
-    }
-    if (validationResult && validationResult.skippedEmployees) {
-      return validationResult.skippedEmployees.length;
-    }
-    return 0;
-  };
+  // const getSkippedCount = () => {
+  //   if (result && result.skippedEmployees) {
+  //     return result.skippedEmployees.length;
+  //   }
+  //   if (validationResult && validationResult.skippedEmployees) {
+  //     return validationResult.skippedEmployees.length;
+  //   }
+  //   return 0;
+  // };
 
-  const getSkippedEmployees = () => {
-    if (result && result.skippedEmployees) {
-      return result.skippedEmployees;
-    }
-    if (validationResult && validationResult.skippedEmployees) {
-      return validationResult.skippedEmployees;
-    }
-    return [];
-  };
+  // const getSkippedEmployees = () => {
+  //   if (result && result.skippedEmployees) {
+  //     return result.skippedEmployees;
+  //   }
+  //   if (validationResult && validationResult.skippedEmployees) {
+  //     return validationResult.skippedEmployees;
+  //   }
+  //   return [];
+  // };
 
   return (
     <div className="p-4 space-y-4">

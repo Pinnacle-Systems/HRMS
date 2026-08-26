@@ -32,7 +32,7 @@ import { useAuth } from "../../../auth/authContext";
 import { resolveEmployeeIdFromSession } from "../../../auth/sessionIdentity";
 import { leaveService } from "../../../services/modules/leave";
 import type {
-  LeaveBalance,
+  // LeaveBalance,
   LeaveCalculationResult,
   LeaveRequest,
   LeaveRequestStatus,

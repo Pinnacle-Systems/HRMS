@@ -41,7 +41,7 @@ import { bankAdviceService, type BankAdvice } from "../../../services/modules/pa
 import { useUI } from "../../../context/Snackbar";
 import { bankService } from "../../../services/modules/bank";
 import { periodsService, type Period } from "../../../services/modules/payrollServices/period";
-import type { Bank, BankDetail } from "../../settings/general/type";
+import type { BankDetail } from "../../settings/general/type";
 import { formatDate } from "../../leave/leaveFormatters";
 import { apiService } from "../../../services";
 import { getRowColor } from "../../const";

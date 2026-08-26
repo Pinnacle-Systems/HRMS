@@ -58,8 +58,6 @@ import {
   SettingsOutlined,
   EditOutlined,
   Add,
-  CheckCircleOutlined,
-  WarningAmberOutlined,
   Delete as DeleteIcon,
   Save as SaveIcon,
 } from "@mui/icons-material";
@@ -425,17 +423,17 @@ export const DeviceManagement: React.FC = () => {
     setSyncErrors({});
   };
 
-  const handleOpenMapDialog = (device: BiometricDevice) => {
-    setMappingFormData({
-      deviceId: device.id,
-      deviceEmployeeCode: "",
-      hrmsEmployeeId: "",
-      isActive: true,
-    });
-    setSelectedMappingEmployee(null);
-    setMappingErrors({});
-    setOpenMapDialog(true);
-  };
+  // const handleOpenMapDialog = (device: BiometricDevice) => {
+  //   setMappingFormData({
+  //     deviceId: device.id,
+  //     deviceEmployeeCode: "",
+  //     hrmsEmployeeId: "",
+  //     isActive: true,
+  //   });
+  //   setSelectedMappingEmployee(null);
+  //   setMappingErrors({});
+  //   setOpenMapDialog(true);
+  // };
 
   const handleCloseMapDialog = () => {
     setOpenMapDialog(false);
@@ -443,17 +441,17 @@ export const DeviceManagement: React.FC = () => {
     setSelectedMappingEmployee(null);
   };
 
-  const handleOpenWebhookDialog = (device: BiometricDevice) => {
-    setWebhookFormData({
-      deviceSerial: device.deviceSerial || "",
-      employeeCode: "",
-      punchTime: dayjs().toISOString(),
-      punchType: "check_in",
-      verificationMode: "fingerprint",
-    });
-    setWebhookErrors({});
-    setOpenWebhookDialog(true);
-  };
+  // const handleOpenWebhookDialog = (device: BiometricDevice) => {
+  //   setWebhookFormData({
+  //     deviceSerial: device.deviceSerial || "",
+  //     employeeCode: "",
+  //     punchTime: dayjs().toISOString(),
+  //     punchType: "check_in",
+  //     verificationMode: "fingerprint",
+  //   });
+  //   setWebhookErrors({});
+  //   setOpenWebhookDialog(true);
+  // };
 
   const handleCloseWebhookDialog = () => {
     setOpenWebhookDialog(false);

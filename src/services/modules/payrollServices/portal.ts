@@ -14,7 +14,7 @@ export const employeePortalService = {
   // },
 
   async getSelfView() {
-    return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.SELF_VIEW);
+    return apiService.get(API_ENDPOINTS.PAYROLL.PORTAL.SELF);
   },
 
   // async getEmployeePortalData(employeeId: string) {

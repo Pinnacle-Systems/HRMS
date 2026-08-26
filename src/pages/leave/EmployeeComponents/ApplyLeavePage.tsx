@@ -83,7 +83,7 @@ export default function ApplyLeavePage() {
   const leaveTypeId = (location.state as string) || "";
   const [calculateError, setCalculateError] = useState("");
   const [localAttachments, setLocalAttachments] = useState<LocalAttachment[]>([]);
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  // const [requests, setRequests] = useState<LeaveRequest[]>([]);
   
   // State for existing leave data
   const [existingLeaveDates, setExistingLeaveDates] = useState<string[]>([]);
@@ -153,7 +153,7 @@ export default function ApplyLeavePage() {
         });
         if (isMounted) {
           const data = response.data?.content ?? [];
-          setRequests(data);
+          // setRequests(data);
           
           // Prepare existing leave data
           const { dates, details } = prepareExistingLeaveData(data);
