@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 const AUTH_STORAGE_KEY = "hrms.auth.session";
 
-export type E2ERole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
+export type E2ERole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS";
 
 type MockSessionOptions = {
   roles?: E2ERole[];
@@ -56,15 +56,15 @@ export function createMockAdminSession() {
   return createMockSession();
 }
 
-// export async function mockLogoutApi(page: Page) {
-//   await page.route("**/api/auth/logout", async (route) => {
-//     await route.fulfill({
-//       status: 200,
-//       contentType: "application/json",
-//       body: JSON.stringify({ success: true }),
-//     });
-//   });
-// }
+export async function mockLogoutApi(page: Page) {
+  await page.route("**/api/auth/logout", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true }),
+    });
+  });
+}
 
 export async function mockAllApis(page: Page) {
   // 1. Generic catch-all for all API requests
