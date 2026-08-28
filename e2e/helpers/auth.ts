@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 
 const AUTH_STORAGE_KEY = "hrms.auth.session";
 
-export type E2ERole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
+export type E2ERole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS";
 
 type MockSessionOptions = {
   roles?: E2ERole[];

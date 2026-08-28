@@ -11,6 +11,35 @@ test.describe("mocked onboarding contract flow", () => {
     let assignPayload: unknown;
     let welcomePayload: unknown;
 
+    // Mock authorization/permissions endpoint if it exists
+    await page.route("**/api/auth/me**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            id: "admin-1",
+            email: "admin@example.com",
+            roles: ["ADMIN"],
+            permissions: ["onboarding:read", "onboarding:write", "employee:read"],
+          },
+        }),
+      });
+    });
+
+    // Mock user permissions
+    await page.route("**/api/permissions**", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            permissions: ["onboarding:read", "onboarding:write", "employee:read"],
+          },
+        }),
+      });
+    });
+
     await page.route("**/api/onboarding/checklist**", async (route) => {
       if (route.request().method() !== "GET") {
         await route.fallback();
@@ -96,8 +125,15 @@ test.describe("mocked onboarding contract flow", () => {
       });
     });
 
+    // Navigate and wait for network to settle
     await page.goto("/settings/employee/onboarding-process?tab=assign");
-    await expect(page.getByText("Assign Onboarding").first()).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    // Check that we're not on the error page
+    await expect(page.locator('h1:has-text("Unable to determine access")')).not.toBeVisible();
+
+    // Now verify the expected content
+    await expect(page.getByText("Assign Onboarding").first()).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: "Assign New Onboarding" }).click();
     await page.getByRole("combobox", { name: "Select Employee" }).click();
