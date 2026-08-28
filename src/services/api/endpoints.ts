@@ -873,38 +873,20 @@ export const API_ENDPOINTS = {
     EXECUTE_WIDGET_DRILLDOWN: (page: string, widgetId: string) =>
       `/dashboard/${page}/widgets/${widgetId}/drilldown`,
 
-    GET_PAGES: () => `/dashboard/pages`,
-    GET_DASHBOARD: (page: string) => `/dashboard/${page}`,
-    GET_CONTEXT: (page: string) => `/dashboard/${page}/context`,
-    GET_WIDGETS: (page: string) => `/dashboard/${page}/widgets`,
-    GET_PREFERENCES: (page: string) => `/dashboard/${page}/preferences`,
-    UPDATE_PREFERENCES: (page: string) => `/dashboard/${page}/preferences`,
-    RESET_PREFERENCES: (page: string) => `/dashboard/${page}/preferences/reset`,
-    POST_DRILLDOWN: (page: string, widgetId: string) =>
-      `/dashboard/${page}/widgets/${widgetId}/drilldown`,
-
     BUILDER: {
       LIST_PAGES: () => `/admin/dashboard/pages`,
       GET_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
       CREATE_PAGE: () => `/admin/dashboard/pages`,
       UPDATE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
       DELETE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
-      LIST_WIDGETS: (pageId: string) =>
-        `/admin/dashboard/pages/${pageId}/widgets`,
-      ADD_WIDGET: (pageId: string) =>
-        `/admin/dashboard/pages/${pageId}/widgets`,
-      UPDATE_WIDGET: (pageId: string, widgetId: string) =>
-        `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
-      DELETE_WIDGET: (pageId: string, widgetId: string) =>
-        `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
-      LIST_FILTERS: (pageId: string) =>
-        `/admin/dashboard/pages/${pageId}/filters`,
-      ADD_FILTER: (pageId: string) =>
-        `/admin/dashboard/pages/${pageId}/filters`,
-      UPDATE_FILTER: (pageId: string, filterId: string) =>
-        `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
-      DELETE_FILTER: (pageId: string, filterId: string) =>
-        `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
+      LIST_WIDGETS: (pageId: string) => `/admin/dashboard/pages/${pageId}/widgets`,
+      ADD_WIDGET: (pageId: string) =>  `/admin/dashboard/pages/${pageId}/widgets`,
+      UPDATE_WIDGET: (pageId: string, widgetId: string) => `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
+      DELETE_WIDGET: (pageId: string, widgetId: string) => `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
+      LIST_FILTERS: (pageId: string) => `/admin/dashboard/pages/${pageId}/filters`,
+      ADD_FILTER: (pageId: string) => `/admin/dashboard/pages/${pageId}/filters`,
+      UPDATE_FILTER: (pageId: string, filterId: string) => `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
+      DELETE_FILTER: (pageId: string, filterId: string) => `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
       GET_BUILDER_META: () => `/admin/dashboard/meta`,
     },
 
@@ -922,15 +904,6 @@ export const API_ENDPOINTS = {
       DELETE_REPORT: (id: string) => `/bi/reports/${id}`,
       RUN_REPORT: (id: string) => `/bi/reports/${id}/run`,
       EXPORT_REPORT: (id: string) => `/bi/reports/${id}/exports`,
-
-      // Backward-compatible aliases used by the existing BI workspace service.
-      GET: () => `/bi/reports`,
-      GET_BY_ID: (id: string) => `/bi/reports/${id}`,
-      CREATE: () => `/bi/reports`,
-      UPDATE: (id: string) => `/bi/reports/${id}`,
-      DELETE: (id: string) => `/bi/reports/${id}`,
-      RUN: (id: string) => `/bi/reports/${id}/run`,
-      EXPORTS: (id: string) => `/bi/reports/${id}/exports`,
     },
 
     BI_QUERY_ENGINE: {

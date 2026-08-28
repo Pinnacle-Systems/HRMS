@@ -40,3 +40,102 @@ export const getWidgetColor = (type: string) => {
   }
   return { bg: "#F5F5F5", color: "#616161" };
 };
+
+export type WidgetSize = "small" | "medium" | "large" | "full";
+export type WidgetType = "kpi" | "bar" | "line" | "pie" | "area" | "table" | "list" | "metrics" | "donut" | "treemap" | "sunburst" | "sankey";
+export type DataSourceType = "bi" | "sql" | "op";
+export interface DashboardBuilderWidget {
+  id: string;
+  widgetId: string;
+  title: string;
+  type: string;
+  size: WidgetSize;
+  position: number;
+  locked: boolean;
+  dataSource: string;
+  dataConfig: {
+    query?: any;
+    visualization?: {
+      type: string;
+      xAxis?: string;
+      yAxis?: string[];
+      hierarchy?: string[];
+      source?: string;
+      target?: string;
+      value?: string;
+      colorScheme?: string;
+      showLegend?: boolean;
+    };
+    filterBindings?: Record<string, string>;
+  };
+  actions: Record<string, any>;
+  active: boolean;
+  roles: string[];
+}
+
+export interface DashboardBuilderFilter {
+  id: string;
+  filterId: string;
+  label: string;
+  type: string;
+  lookupSource: string;
+  required: boolean;
+  defaultExpression: string;
+  displayOrder: number;
+}
+
+export interface QuerySet {
+  id: string;
+  presetId: string;
+  title: string;
+  description?: string;
+  queryType: "SQL" | "DSL";
+  sqlText?: string;
+  queryJson?: any;
+  paramBindings?: Record<string, any>;
+  visualization?: any;
+  active: boolean;
+  datasetId?: string;
+}
+
+export interface DashboardBuilderPage {
+  id: string;
+  pageKey: string;
+  title: string;
+  description: string;
+  displayOrder: number;
+  active: boolean;
+  roles: string[];
+  filters: DashboardBuilderFilter[];
+  widgets: DashboardBuilderWidget[];
+}
+
+export interface BuilderMeta {
+  chartTypes: { value: string; requiredConfig: string[] }[];
+  filterTypes: { value: string; requiresLookupSource: boolean }[];
+  widgetSizes: string[];
+}
+
+export interface BIDimension {
+  id: string;
+  type: string;
+  label?: string;
+}
+
+export interface BIMetric {
+  id: string;
+  type: string;
+  aggregation: string;
+  label?: string;
+}
+
+export interface QueryJson {
+  dimensions: string[];
+  metrics: string[];
+  limit: number;
+  includeTotals: boolean;
+  sort: { field: string; direction: "asc" | "desc" }[];
+  filters?: any;
+  dateRange?: any;
+  topN?: any;
+}

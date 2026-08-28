@@ -129,6 +129,7 @@ export interface DashboardWidget {
   actions: WidgetAction[];
   error?: string;
   visible?: boolean;
+  dataConfig?: Record<string, any>;
 }
 
 export interface DashboardData {

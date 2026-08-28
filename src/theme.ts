@@ -51,7 +51,7 @@ const theme = createTheme({
         },
 
         ".MuiFormHelperText-root": {
-          color: "var(--text-primary)",
+          color: "var(--text-primary) !important",
         },
 
         ".MuiFormHelperText-root.Mui-error": {

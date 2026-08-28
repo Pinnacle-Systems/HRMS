@@ -57,8 +57,9 @@ import {
   Schema as SchemaIcon,
   CheckCircle as CheckCircleIcon,
   FilterList as FilterListIcon,
-  EditOutlined,
-  DeleteOutlineOutlined,
+  Add,
+  Info,
+  Edit,
 } from "@mui/icons-material";
 import { dashboardService } from "../../services/modules/dashboard";
 import { useUI } from "../../context/Snackbar";
@@ -75,8 +76,6 @@ import type {
   UpdateBIReportRequest,
   BIReportExportRequest,
   BIReportRunRequest,
-  DashboardBuilderPage,
-  DashboardQuerySet,
 } from "../../services/modules/dashboard";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -84,6 +83,9 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import type { TabPanelProps } from "../employees/type";
 import { getRowColor } from "../const";
+import { formatDate } from "../leave/leaveFormatters";
+import { DashboardBuilderFull } from "./dashboardBuiler";
+import type { QueryJson, QuerySet } from "./const";
 
 // ============ Utility Functions ============
 
@@ -125,7 +127,7 @@ const getStatusIcon = (status: string) => {
 
 export default function BiWorkspacePage() {
   const theme = useTheme();
-  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
 
   // Tabs
   const [activeTab, setActiveTab] = useState(0);
@@ -160,25 +162,32 @@ export default function BiWorkspacePage() {
   const [schemaDialogOpen, setSchemaDialogOpen] = useState(false);
 
   // Dashboard Builder / Query Set Administration
-  const [builderPages, setBuilderPages] = useState<DashboardBuilderPage[]>([]);
-  const [querySets, setQuerySets] = useState<DashboardQuerySet[]>([]);
-  const [editingBuilderPageId, setEditingBuilderPageId] = useState<string | null>(null);
+  // const [builderPages, setBuilderPages] = useState<DashboardBuilderPage[]>([]);
+  const [presetId, setPresetId] = useState("");
+  const [querySets, setQuerySets] = useState<QuerySet[]>([]);
+  const [querySetFormOpen, setQuerySetFormOpen] = useState(false);
   const [editingQuerySetId, setEditingQuerySetId] = useState<string | null>(null);
-  const [builderPageForm, setBuilderPageForm] = useState({
-    pageKey: "",
-    title: "",
-    description: "",
-    displayOrder: 1,
-  });
   const [querySetForm, setQuerySetForm] = useState({
+    presetId: "",
     title: "",
     description: "",
     datasetId: "",
-    queryType: "sql",
-    sqlText: "SELECT 1",
+    queryType: "SQL" as "SQL" | "DSL",
+    sqlText: "",
+    queryJson: {
+      dimensions: [] as string[],
+      metrics: [] as string[],
+      limit: 50,
+      includeTotals: true,
+      sort: [] as { field: string; direction: "asc" | "desc" }[],
+      filters: undefined as any,
+      dateRange: undefined as any,
+      topN: undefined as any,
+    } as QueryJson,
+    visualization: {} as any,
+    paramBindings: {} as Record<string, any>,
     active: true,
   });
-  const [presetId, setPresetId] = useState("");
 
   // ====== Dynamic Query State ======
   // The full query payload according to the BI API
@@ -249,6 +258,9 @@ export default function BiWorkspacePage() {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
   const [jsonError, setJsonError] = useState(false);
 
+  // const [presetDetailOpen, setPresetDetailOpen] = useState(false);
+  // const [presetDetail, setPresetDetail] = useState<any>(null);
+
   // Tabs
   const tabs = useMemo(
     () => [
@@ -283,29 +295,31 @@ export default function BiWorkspacePage() {
         await loadSchemaForDataset(datasetItems[0].datasetId);
       }
 
-      const adminResults = await Promise.allSettled([
-        dashboardService.listDashboardBuilderPages(),
-        dashboardService.listBIQuerySets(),
-      ]);
+      const res: any = await dashboardService.listBIQuerySets();
+      setQuerySets(res.data)
 
-      if (adminResults[0].status === "fulfilled") {
-        setBuilderPages(
-          Array.isArray(adminResults[0].value?.data)
-            ? adminResults[0].value.data
-            : []
-        );
-      }
 
-      if (adminResults[1].status === "fulfilled") {
-        setQuerySets(
-          Array.isArray(adminResults[1].value?.data)
-            ? adminResults[1].value.data
-            : []
-        );
-      }
+      // const adminResults = await Promise.allSettled([
+      //   // dashboardService.listDashboardBuilderPages(),
+      // ]);      
+
+      // if (adminResults[0].status === "fulfilled") {
+      //   setBuilderPages(
+      //     Array.isArray(adminResults[0].value?.data)
+      //       ? adminResults[0].value.data
+      //       : []
+      //   );
+      // }
+
+      // if (adminResults[1].status === "fulfilled") {
+      //   setQuerySets(
+      //     Array.isArray(adminResults[1].value?.data)
+      //       ? adminResults[1].value.data
+      //       : []
+      //   );
+      // }
     } catch (err) {
       setError("Unable to load BI workspace data right now.");
-      console.error("Load workspace error:", err);
     } finally {
       setLoading(false);
     }
@@ -363,14 +377,14 @@ export default function BiWorkspacePage() {
 
   // ============ Reports CRUD ============
 
-  const handleViewReport = async (reportId: string) => {
+  const handleViewReport = async (reportId: string, type: string) => {
     showSpinner();
     try {
       const response: any = await dashboardService.getBIReport(reportId);
       const data = response?.data;
       if (data) {
         setSelectedReport(data);
-        setReportDetailOpen(true);
+        type == 'view' ? setReportDetailOpen(true) : handleEditReport(data)
       }
     } catch (err) {
       showSnackbar("Failed to load report details", "error");
@@ -490,7 +504,7 @@ export default function BiWorkspacePage() {
       datasetId: report.datasetId,
       query: q,
       visualization: report.visualization || { type: "table", config: {} },
-      visibility: report.visibility || "PRIVATE",
+      visibility: report.visibility || "private",
     });
     // Synchronize visual builder state with report's query
     setQueryPayload(q);
@@ -557,18 +571,23 @@ export default function BiWorkspacePage() {
   }, [selectedDataset]);
 
   const handleDeleteReport = async (reportId: string) => {
-    if (!window.confirm("Are you sure you want to delete this report?")) return;
-
-    showSpinner();
-    try {
-      await dashboardService.deleteBIReport(reportId);
-      setReports(reports.filter((r) => r.id !== reportId));
-      showSnackbar("Report deleted successfully", "success");
-    } catch (err) {
-      showSnackbar("Failed to delete report", "error");
-    } finally {
-      hideSpinner();
-    }
+    showConfirmDialog({
+      title: "Delete Report",
+      message: `Are you sure you want to delete this report?`,
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await dashboardService.deleteBIReport(reportId);
+          setReports(reports.filter((r) => r.id !== reportId));
+          showSnackbar("Report deleted successfully", "success");
+        } catch (err) {
+          showSnackbar("Failed to delete report", "error");
+        } finally {
+          hideSpinner();
+        }
+      }
+    })
   };
 
   const handleRunReport = async (reportId: string, overrides?: BIReportRunRequest) => {
@@ -843,156 +862,115 @@ export default function BiWorkspacePage() {
     exportPollingIntervalRef.current = interval;
   };
 
-  const handleDownloadExport = async (jobRef: string) => {
-    try {
-      const blob = await dashboardService.downloadBIExport(jobRef);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `export-${jobRef}.${exportJob?.format || "csv"}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      showSnackbar("Download started", "success");
-    } catch (err) {
-      showSnackbar("Failed to download export", "error");
-    }
-  };
-
   const handleDownloadFromUrl = (url: string) => {
     window.open(url, "_blank");
   };
 
   // ============ Render Query Builder ============
-
-  const resetBuilderPageForm = () => {
-    setEditingBuilderPageId(null);
-    setBuilderPageForm({
-      pageKey: "",
-      title: "",
-      description: "",
-      displayOrder: 1,
-    });
-  };
-
-  const createBuilderPage = async () => {
-    try {
-      const response = await dashboardService.createDashboardBuilderPage({
-        pageKey: builderPageForm.pageKey,
-        title: builderPageForm.title,
-        description: builderPageForm.description,
-        displayOrder: builderPageForm.displayOrder,
-        active: true,
-        roles: [],
-        filters: [],
-        widgets: [],
-      });
-
-      if (response?.success) {
-        showSnackbar("Builder page created", "success");
-        resetBuilderPageForm();
-        await loadWorkspace();
-      } else {
-        showSnackbar(response?.message || "Unable to create builder page", "error");
-      }
-    } catch (error: any) {
-      showSnackbar(error?.message || "Unable to create builder page", "error");
-    }
-  };
-
-  const handleEditBuilderPage = async (pageId: string) => {
-    try {
-      const api = dashboardService as any;
-      const response: any = await api.getDashboardBuilderPage(pageId);
-      const page = response?.data;
-      if (!page) {
-        showSnackbar("Unable to load builder page", "error");
-        return;
-      }
-
-      setEditingBuilderPageId(pageId);
-      setBuilderPageForm({
-        pageKey: page.pageKey || "",
-        title: page.title || "",
-        description: page.description || "",
-        displayOrder: page.displayOrder || 1,
-      });
-      showSnackbar("Builder page loaded for editing", "success");
-    } catch (error: any) {
-      showSnackbar(error?.message || "Failed to load builder page", "error");
-    }
-  };
-
-  const handleUpdateBuilderPage = async () => {
-    if (!editingBuilderPageId) return;
-
-    try {
-      const api = dashboardService as any;
-      const response: any = await api.updateDashboardBuilderPage(editingBuilderPageId, {
-        pageKey: builderPageForm.pageKey,
-        title: builderPageForm.title,
-        description: builderPageForm.description,
-        displayOrder: builderPageForm.displayOrder,
-      });
-
-      if (response?.success) {
-        showSnackbar("Builder page updated", "success");
-        resetBuilderPageForm();
-        await loadWorkspace();
-      } else {
-        showSnackbar(response?.message || "Unable to update builder page", "error");
-      }
-    } catch (error: any) {
-      showSnackbar(error?.message || "Unable to update builder page", "error");
-    }
-  };
-
-  const handleDeleteBuilderPage = async (pageId: string) => {
-    if (!window.confirm("Delete this dashboard builder page?")) return;
-
-    try {
-      const api = dashboardService as any;
-      const response: any = await api.deleteDashboardBuilderPage(pageId);
-      if (response?.success) {
-        showSnackbar("Builder page deleted", "success");
-        await loadWorkspace();
-      } else {
-        showSnackbar(response?.message || "Unable to delete builder page", "error");
-      }
-    } catch (error: any) {
-      showSnackbar(error?.message || "Unable to delete builder page", "error");
-    }
-  };
-
   const resetQuerySetForm = () => {
     setEditingQuerySetId(null);
     setQuerySetForm({
+      presetId: "",
       title: "",
       description: "",
+      queryType: "SQL",
       datasetId: "",
-      queryType: "sql",
-      sqlText: "SELECT 1",
+      sqlText: "",
+      queryJson: {
+        dimensions: [],
+        metrics: [],
+        limit: 50,
+        includeTotals: true,
+        sort: [],
+      },
+      visualization: {},
+      paramBindings: {},
       active: true,
     });
   };
 
   const createQuerySet = async () => {
+    if (!querySetForm.presetId.trim() || !querySetForm.title.trim()) {
+      showSnackbar("Preset ID and Title are required", "error");
+      return;
+    }
+
+    if (querySetForm.queryType === "SQL") {
+      if (!querySetForm.sqlText.trim()) {
+        showSnackbar("SQL text is required for SQL query sets", "error");
+        return;
+      }
+      if (!/^(SELECT|WITH)/i.test(querySetForm.sqlText.trim())) {
+        showSnackbar("SQL must start with SELECT or WITH (read-only)", "error");
+        return;
+      }
+    }
+
+    if (querySetForm.queryType === "DSL") {
+      if (!querySetForm.datasetId.trim()) {
+        showSnackbar("Dataset ID is required for DSL query sets", "error");
+        return;
+      }
+      const hasDimensions = querySetForm.queryJson?.dimensions?.length > 0;
+      const hasMetrics = querySetForm.queryJson?.metrics?.length > 0;
+      if (!hasDimensions && !hasMetrics) {
+        showSnackbar("Query JSON with at least one dimension or metric is required for DSL query sets", "error");
+        return;
+      }
+    }
+
+    showSpinner();
     try {
-      const response = await dashboardService.createBIQuerySet({
+      const payload: any = {
+        presetId: querySetForm.presetId,
         title: querySetForm.title,
         description: querySetForm.description,
-        datasetId: querySetForm.datasetId || selectedDataset,
         queryType: querySetForm.queryType,
-        sqlText: querySetForm.sqlText,
-        queryJson: {},
-        paramBindings: {},
-        visualization: {},
         active: querySetForm.active,
-      });
+      };
+
+      if (querySetForm.queryType === "SQL") {
+        payload.sqlText = querySetForm.sqlText;
+        if (querySetForm.paramBindings && Object.keys(querySetForm.paramBindings).length > 0) {
+          payload.paramBindings = querySetForm.paramBindings;
+        }
+      } else {
+        // For DSL, datasetId and queryJson are required
+        payload.datasetId = querySetForm.datasetId;
+
+        const queryJson: any = {
+          dimensions: querySetForm.queryJson?.dimensions || [],
+          metrics: querySetForm.queryJson?.metrics || [],
+          limit: querySetForm.queryJson?.limit || 50,
+          includeTotals: querySetForm.queryJson?.includeTotals !== undefined ? querySetForm.queryJson.includeTotals : true,
+        };
+
+        // Only add optional fields if they have values
+        if (querySetForm.queryJson?.sort?.length > 0) {
+          queryJson.sort = querySetForm.queryJson.sort;
+        }
+        if (querySetForm.queryJson?.filters) {
+          queryJson.filters = querySetForm.queryJson.filters;
+        }
+        if (querySetForm.queryJson?.dateRange) {
+          queryJson.dateRange = querySetForm.queryJson.dateRange;
+        }
+        if (querySetForm.queryJson?.topN) {
+          queryJson.topN = querySetForm.queryJson.topN;
+        }
+
+        payload.queryJson = queryJson;
+
+        if (querySetForm.visualization && Object.keys(querySetForm.visualization).length > 0) {
+          payload.visualization = querySetForm.visualization;
+        }
+      }
+
+      const response = await dashboardService.createBIQuerySet(payload);
 
       if (response?.success) {
-        showSnackbar("Query set created", "success");
+        showSnackbar("Query set created successfully", "success");
+        setQuerySetFormOpen(false);
         resetQuerySetForm();
         await loadWorkspace();
       } else {
@@ -1000,6 +978,8 @@ export default function BiWorkspacePage() {
       }
     } catch (error: any) {
       showSnackbar(error?.message || "Unable to create query set", "error");
+    } finally {
+      hideSpinner();
     }
   };
 
@@ -1015,14 +995,23 @@ export default function BiWorkspacePage() {
 
       setEditingQuerySetId(querySetId);
       setQuerySetForm({
+        presetId: querySet.presetId || "",
         title: querySet.title || "",
         description: querySet.description || "",
         datasetId: querySet.datasetId || "",
-        queryType: querySet.queryType || "sql",
-        sqlText: querySet.sqlText || "SELECT 1",
+        queryType: querySet.queryType || "SQL",
+        sqlText: querySet.sqlText || "",
+        queryJson: querySet.queryJson || {
+          dimensions: [],
+          metrics: [],
+          limit: 50,
+          includeTotals: true,
+        },
+        visualization: querySet.visualization || {},
+        paramBindings: querySet.paramBindings || {},
         active: querySet.active ?? true,
       });
-      showSnackbar("Query set loaded for editing", "success");
+      setQuerySetFormOpen(true);
     } catch (error: any) {
       showSnackbar(error?.message || "Failed to load query set", "error");
     }
@@ -1031,19 +1020,83 @@ export default function BiWorkspacePage() {
   const handleUpdateQuerySet = async () => {
     if (!editingQuerySetId) return;
 
+    if (querySetForm.queryType === "SQL") {
+      if (!querySetForm.sqlText.trim()) {
+        showSnackbar("SQL text is required for SQL query sets", "error");
+        return;
+      }
+      if (!/^(SELECT|WITH)/i.test(querySetForm.sqlText.trim())) {
+        showSnackbar("SQL must start with SELECT or WITH (read-only)", "error");
+        return;
+      }
+    }
+
+    if (querySetForm.queryType === "DSL") {
+      if (!querySetForm.datasetId.trim()) {
+        showSnackbar("Dataset ID is required for DSL query sets", "error");
+        return;
+      }
+      const hasDimensions = querySetForm.queryJson?.dimensions?.length > 0;
+      const hasMetrics = querySetForm.queryJson?.metrics?.length > 0;
+      if (!hasDimensions && !hasMetrics) {
+        showSnackbar("Query JSON with at least one dimension or metric is required for DSL query sets", "error");
+        return;
+      }
+    }
+
+    showSpinner();
     try {
       const api = dashboardService as any;
-      const response: any = await api.updateBIQuerySet(editingQuerySetId, {
+      const payload: any = {
+        presetId: querySetForm.presetId,
         title: querySetForm.title,
         description: querySetForm.description,
-        datasetId: querySetForm.datasetId || selectedDataset,
         queryType: querySetForm.queryType,
-        sqlText: querySetForm.sqlText,
         active: querySetForm.active,
-      });
+      };
+
+      if (querySetForm.queryType === "SQL") {
+        payload.sqlText = querySetForm.sqlText;
+        if (querySetForm.paramBindings && Object.keys(querySetForm.paramBindings).length > 0) {
+          payload.paramBindings = querySetForm.paramBindings;
+        }
+      } else {
+        // For DSL, datasetId and queryJson are required
+        payload.datasetId = querySetForm.datasetId;
+
+        const queryJson: any = {
+          dimensions: querySetForm.queryJson?.dimensions || [],
+          metrics: querySetForm.queryJson?.metrics || [],
+          limit: querySetForm.queryJson?.limit || 50,
+          includeTotals: querySetForm.queryJson?.includeTotals !== undefined ? querySetForm.queryJson.includeTotals : true,
+        };
+
+        // Only add optional fields if they have values
+        if (querySetForm.queryJson?.sort?.length > 0) {
+          queryJson.sort = querySetForm.queryJson.sort;
+        }
+        if (querySetForm.queryJson?.filters) {
+          queryJson.filters = querySetForm.queryJson.filters;
+        }
+        if (querySetForm.queryJson?.dateRange) {
+          queryJson.dateRange = querySetForm.queryJson.dateRange;
+        }
+        if (querySetForm.queryJson?.topN) {
+          queryJson.topN = querySetForm.queryJson.topN;
+        }
+
+        payload.queryJson = queryJson;
+
+        if (querySetForm.visualization && Object.keys(querySetForm.visualization).length > 0) {
+          payload.visualization = querySetForm.visualization;
+        }
+      }
+
+      const response: any = await api.updateBIQuerySet(editingQuerySetId, payload);
 
       if (response?.success) {
-        showSnackbar("Query set updated", "success");
+        showSnackbar("Query set updated successfully", "success");
+        setQuerySetFormOpen(false);
         resetQuerySetForm();
         await loadWorkspace();
       } else {
@@ -1051,252 +1104,394 @@ export default function BiWorkspacePage() {
       }
     } catch (error: any) {
       showSnackbar(error?.message || "Unable to update query set", "error");
+    } finally {
+      hideSpinner();
     }
   };
 
-  const handleDeleteQuerySet = async (querySetId: string) => {
-    if (!window.confirm("Delete this query set?")) return;
 
-    try {
-      const api = dashboardService as any;
-      const response: any = await api.deleteBIQuerySet(querySetId);
-      if (response?.success) {
-        showSnackbar("Query set deleted", "success");
-        await loadWorkspace();
-      } else {
-        showSnackbar(response?.message || "Unable to delete query set", "error");
-      }
-    } catch (error: any) {
-      showSnackbar(error?.message || "Unable to delete query set", "error");
-    }
+  const handleDeleteQuerySet = async (querySetId: string) => {
+    showConfirmDialog({
+      title: "Delete Query Set",
+      message: "Are you sure you want to delete this query set? This may affect widgets using it.",
+      confirmText: "Delete",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const api = dashboardService as any;
+          const response: any = await api.deleteBIQuerySet(querySetId);
+          if (response?.success) {
+            showSnackbar("Query set deleted successfully", "success");
+            await loadWorkspace();
+          } else {
+            showSnackbar(response?.message || "Unable to delete query set", "error");
+          }
+        } catch (error: any) {
+          showSnackbar(error?.message || "Unable to delete query set", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   const handleLoadPreset = async () => {
-    if (!selectedDataset || !presetId.trim()) {
-      showSnackbar("Select a dataset and enter a preset id", "error");
+    if (!selectedDataset) {
+      showSnackbar("Please select a dataset first", "error");
+      return;
+    }
+    if (!presetId.trim()) {
+      showSnackbar("Please enter a preset ID", "error");
       return;
     }
 
+    showSpinner();
     try {
-      const api = dashboardService as any;
-      const response: any = await api.getBIQueryPreset(selectedDataset, presetId.trim());
+      const response: any = await dashboardService.getBIQueryPreset(
+        selectedDataset,
+        presetId.trim()
+      );
+
       const preset = response?.data;
+
       if (preset?.query) {
-        setQueryPayload({ ...queryPayload, ...preset.query });
-        setFilterConditions((preset.query.filters?.conditions || []).map((condition: any) => ({
-          field: condition.field || "",
-          operator: condition.operator || "eq",
-          value: String(condition.value ?? ""),
-        })));
-        setDateRange({
-          field: preset.query.dateRange?.field || "",
-          from: preset.query.dateRange?.from || null,
-          to: preset.query.dateRange?.to || null,
-          granularity: preset.query.dateRange?.granularity || "month",
+        // Load the query into the builder
+        const query = preset.query;
+
+        // Set dimensions and metrics
+        setQueryPayload({
+          dimensions: query.dimensions || [],
+          metrics: query.metrics || [],
+          limit: query.limit || 50,
+          includeTotals: query.includeTotals !== undefined ? query.includeTotals : true,
         });
-        setTopN(
-          preset.query.topN
-            ? {
-              dimension: preset.query.topN.dimension || "",
-              metric: preset.query.topN.metric || "",
-              limit: preset.query.topN.limit || 10,
-              includeOthers: preset.query.topN.includeOthers !== undefined ? preset.query.topN.includeOthers : true,
-            }
-            : null
-        );
-        setSort(
-          Array.isArray(preset.query.sort)
-            ? preset.query.sort.map((item: any) => ({ field: item.field, direction: item.direction }))
-            : []
-        );
-        showSnackbar("Preset loaded into the query builder", "success");
+
+        // Set filter conditions
+        if (query.filters?.conditions) {
+          setFilterConditions(query.filters.conditions.map((condition: any) => ({
+            field: condition.field || "",
+            operator: condition.operator || "eq",
+            value: String(condition.value ?? ""),
+          })));
+        } else {
+          setFilterConditions([]);
+        }
+
+        // Set date range
+        if (query.dateRange) {
+          setDateRange({
+            field: query.dateRange.field || "",
+            from: query.dateRange.from || null,
+            to: query.dateRange.to || null,
+            granularity: query.dateRange.granularity || "month",
+          });
+        } else {
+          setDateRange({ field: "", from: null, to: null, granularity: "month" });
+        }
+
+        // Set Top N
+        if (query.topN) {
+          setTopN({
+            dimension: query.topN.dimension || "",
+            metric: query.topN.metric || "",
+            limit: query.topN.limit || 10,
+            includeOthers: query.topN.includeOthers !== undefined ? query.topN.includeOthers : true,
+          });
+        } else {
+          setTopN(null);
+        }
+
+        // Set Sort
+        if (Array.isArray(query.sort)) {
+          setSort(query.sort.map((item: any) => ({
+            field: item.field,
+            direction: item.direction
+          })));
+        } else {
+          setSort([]);
+        }
+
+        // Show preset info
+        const title = preset.title || presetId;
+        const description = preset.description ? ` - ${preset.description}` : '';
+        showSnackbar(`✅ Preset "${title}" loaded successfully${description}`, "success");
+
+        // Clear any errors
+        setError(null);
       } else {
         showSnackbar("Preset response did not include a query payload", "error");
       }
     } catch (error: any) {
-      showSnackbar(error?.message || "Failed to load query preset", "error");
+      const message = error?.response?.data?.message || error?.message || "Failed to load query preset";
+      showSnackbar(message, "error");
+      setError(message);
+    } finally {
+      hideSpinner();
     }
   };
 
-  const renderBuilderAdmin = () => (
-    <Card className="bg-white">
-      <CardHeader title="Dashboard Builder" className="text-gray-800" />
-      <CardContent className="space-y-4">
-        <Box className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <TextField
-            label="Page key"
-            value={builderPageForm.pageKey}
-            onChange={(e) =>
-              setBuilderPageForm((prev) => ({ ...prev, pageKey: e.target.value }))
-            }
-          />
-          <TextField
-            label="Title"
-            value={builderPageForm.title}
-            onChange={(e) =>
-              setBuilderPageForm((prev) => ({ ...prev, title: e.target.value }))
-            }
-          />
-          <TextField
-            label="Description"
-            value={builderPageForm.description}
-            onChange={(e) =>
-              setBuilderPageForm((prev) => ({ ...prev, description: e.target.value }))
-            }
-          />
-          <TextField
-            label="Display order"
-            type="number"
-            value={builderPageForm.displayOrder}
-            onChange={(e) =>
-              setBuilderPageForm((prev) => ({
-                ...prev,
-                displayOrder: Number(e.target.value || 1),
-              }))
-            }
-          />
-        </Box>
-        <Box className="flex gap-2">
-          <Button
-            variant="contained" className="!bg-primary"
-            onClick={() => void (editingBuilderPageId ? handleUpdateBuilderPage() : createBuilderPage())}
-          >
-            {editingBuilderPageId ? "Update Dashboard Page" : "Create Dashboard Page"}
-          </Button>
-          {editingBuilderPageId && (
-            <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={resetBuilderPageForm}>
-              Cancel
+  // const renderBuilderAdmin = () => (
+  //   <Card className="bg-white">
+  //     <CardHeader title="Dashboard Builder" className="text-gray-800" />
+  //     <CardContent className="space-y-4">
+  //       <Box className="grid grid-cols-1 md:grid-cols-2 gap-5">
+  //         <TextField
+  //           label="Page key"
+  //           value={builderPageForm.pageKey}
+  //           onChange={(e) =>
+  //             setBuilderPageForm((prev) => ({ ...prev, pageKey: e.target.value }))
+  //           }
+  //         />
+  //         <TextField
+  //           label="Title"
+  //           value={builderPageForm.title}
+  //           onChange={(e) =>
+  //             setBuilderPageForm((prev) => ({ ...prev, title: e.target.value }))
+  //           }
+  //         />
+  //         <TextField
+  //           label="Description"
+  //           value={builderPageForm.description}
+  //           onChange={(e) =>
+  //             setBuilderPageForm((prev) => ({ ...prev, description: e.target.value }))
+  //           }
+  //         />
+  //         <TextField
+  //           label="Display order"
+  //           type="number"
+  //           value={builderPageForm.displayOrder}
+  //           onChange={(e) =>
+  //             setBuilderPageForm((prev) => ({
+  //               ...prev,
+  //               displayOrder: Number(e.target.value || 1),
+  //             }))
+  //           }
+  //         />
+  //       </Box>
+  //       <Box className="flex gap-2">
+  //         <Button
+  //           variant="contained" className="!bg-primary"
+  //           onClick={() => void (editingBuilderPageId ? handleUpdateBuilderPage() : createBuilderPage())}
+  //         >
+  //           {editingBuilderPageId ? "Update Dashboard Page" : "Create Dashboard Page"}
+  //         </Button>
+  //         {editingBuilderPageId && (
+  //           <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={resetBuilderPageForm}>
+  //             Cancel
+  //           </Button>
+  //         )}
+  //       </Box>
+
+  //       <TableContainer className="bg-white">
+  //         <Table className="border border-gray-200">
+  //           <TableHead>
+  //             <TableRow>
+  //               <TableCell>S No</TableCell>
+  //               <TableCell>Page Key</TableCell>
+  //               <TableCell>Title</TableCell>
+  //               <TableCell>Description</TableCell>
+  //               <TableCell align="right">Actions</TableCell>
+  //             </TableRow>
+  //           </TableHead>
+  //           <TableBody>
+  //             {builderPages.map((page, i) => (
+  //               <TableRow key={page.id} sx={getRowColor(i)}>
+  //                 <TableCell>{i + 1}</TableCell>
+  //                 <TableCell>{page.pageKey}</TableCell>
+  //                 <TableCell>{page.title}</TableCell>
+  //                 <TableCell>{page.description}</TableCell>
+  //                 <TableCell align="right">
+  //                   <Box className="flex justify-end gap-1">
+  //                     <IconButton size="small" color="primary" onClick={() => void handleEditBuilderPage(page.id)}>
+  //                       <Edit fontSize="small" className="!w-4" />
+  //                     </IconButton>
+  //                     <IconButton size="small" color="error" onClick={() => void handleDeleteBuilderPage(page.id)}>
+  //                       <DeleteIcon fontSize="small" className="!w-4" />
+  //                     </IconButton>
+  //                   </Box>
+  //                 </TableCell>
+  //               </TableRow>
+  //             ))}
+  //           </TableBody>
+  //         </Table>
+  //       </TableContainer>
+  //     </CardContent>
+  //   </Card>
+  // );
+
+  const renderBuilderAdmin = () => <DashboardBuilderFull />;
+
+  const renderQuerySetAdmin = () => {
+    // Calculate total query sets
+    const totalQuerySets = querySets.length;
+
+    return (
+      <Card className="bg-white">
+        <CardHeader
+          title="SQL Query Sets"
+          className="text-gray-800"
+          action={
+            <Button
+              variant="contained"
+              className="!bg-primary"
+              startIcon={<Add />}
+              onClick={() => {
+                resetQuerySetForm();
+                setQuerySetFormOpen(true);
+              }}
+            >
+              New Query Set
             </Button>
-          )}
-        </Box>
+          }
+        />
+        <CardContent className="space-y-4">
+          {/* Quick Reference Guide */}
+          <Paper className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <Typography variant="subtitle2" className="text-blue-800 flex items-center gap-2">
+              <Info className="!w-4 !h-4" />
+              SQL Query Set Guide
+            </Typography>
+            <Box className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+              <Box>
+                <Typography variant="caption" className="text-blue-700 block">
+                  • <strong>Read-only:</strong> Must start with SELECT or WITH
+                </Typography>
+                <Typography variant="caption" className="text-blue-700 block">
+                  • <strong>Timeouts:</strong> 5s statement timeout
+                </Typography>
+                <Typography variant="caption" className="text-blue-700 block">
+                  • <strong>Row limit:</strong> 5000-row cap
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" className="text-blue-700 block">
+                  • <strong>Auto-bound params:</strong>
+                </Typography>
+                <Typography variant="caption" className="text-blue-700 block font-mono text-xs">
+                  :__branchId — current branch UUID (null = all)
+                </Typography>
+                <Typography variant="caption" className="text-blue-700 block font-mono text-xs">
+                  :__scopeUserId — caller's user ID
+                </Typography>
+                <Typography variant="caption" className="text-blue-700 block font-mono text-xs">
+                  :__roles — caller's roles (list)
+                </Typography>
+                <Typography variant="caption" className="text-blue-700 block text-xs mt-1">
+                  <strong>Tip:</strong> Use <span className="font-mono bg-blue-100 px-1 rounded">:__branchId::uuid IS NULL OR ...</span> for branch-scope
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
 
-        <TableContainer className="bg-white">
-          <Table className="border border-gray-200">
-            <TableHead>
-              <TableRow>
-                <TableCell>Page Key</TableCell>
-                <TableCell>Title</TableCell>
-                <TableCell>Description</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {builderPages.map((page, i) => (
-                <TableRow key={page.id} sx={getRowColor(i)}>
-                  <TableCell>{page.pageKey}</TableCell>
-                  <TableCell>{page.title}</TableCell>
-                  <TableCell>{page.description}</TableCell>
-                  <TableCell align="right">
-                    <Box className="flex justify-end gap-1">
-                      <IconButton size="small" color="primary" onClick={() => void handleEditBuilderPage(page.id)}>
-                        <EditOutlined fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => void handleDeleteBuilderPage(page.id)}>
-                        <DeleteOutlineOutlined fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
+          {/* Query Sets Table */}
+          <TableContainer className="bg-white border border-gray-200 rounded-lg">
+            <Table>
+              <TableHead className="bg-gray-50">
+                <TableRow>
+                  <TableCell className="!font-bold">#</TableCell>
+                  <TableCell className="!font-bold">Preset ID</TableCell>
+                  <TableCell className="!font-bold">Title</TableCell>
+                  <TableCell className="!font-bold">Type</TableCell>
+                  <TableCell className="!font-bold">Status</TableCell>
+                  <TableCell className="!font-bold" align="right">Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </CardContent>
-    </Card>
-  );
+              </TableHead>
+              <TableBody>
+                {totalQuerySets === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-gray-500 py-8">
+                      <FilterListIcon className="text-gray-300 text-4xl block mx-auto mb-2" />
+                      No SQL query sets created yet.
+                      <br />
+                      <Typography variant="caption" className="text-gray-400">
+                        Create reusable SQL queries that can be used by widgets with <span className="font-mono bg-gray-100 px-1 rounded">sql:&lt;presetId&gt;</span>
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  querySets.map((querySet, index) => (
+                    <TableRow key={querySet.id} sx={getRowColor(index)}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" className="font-mono text-xs">
+                          {querySet.presetId || querySet.id}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" className="font-medium">
+                          {querySet.title}
+                        </Typography>
+                        {querySet.description && (
+                          <Typography variant="caption" className="text-gray-500 block">
+                            {querySet.description}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={querySet.queryType || "SQL"}
+                          size="small"
+                          color={querySet.queryType === "SQL" ? "primary" : "secondary"}
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={querySet.active ? "Active" : "Inactive"}
+                          size="small"
+                          color={querySet.active ? "success" : "default"}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Box className="flex justify-end gap-1">
+                          <Tooltip title="Edit">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={() => void handleEditQuerySet(querySet.id)}
+                            >
+                              <Edit fontSize="small" className="!w-4"/>
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => void handleDeleteQuerySet(querySet.id)}
+                            >
+                              <DeleteIcon fontSize="small" className="!w-4"/>
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-  const renderQuerySetAdmin = () => (
-    <Card className="bg-white">
-      <CardHeader title="Query Sets" className="text-gray-800" />
-      <CardContent className="space-y-4">
-        <Box className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <TextField
-            label="Title"
-            value={querySetForm.title}
-            onChange={(e) =>
-              setQuerySetForm((prev) => ({ ...prev, title: e.target.value }))
-            }
-          />
-          <TextField
-            label="Description"
-            value={querySetForm.description}
-            onChange={(e) =>
-              setQuerySetForm((prev) => ({ ...prev, description: e.target.value }))
-            }
-          />
-          <TextField
-            label="Dataset id"
-            value={querySetForm.datasetId || selectedDataset}
-            onChange={(e) =>
-              setQuerySetForm((prev) => ({ ...prev, datasetId: e.target.value }))
-            }
-          />
-          <TextField
-            label="Query type"
-            value={querySetForm.queryType}
-            onChange={(e) =>
-              setQuerySetForm((prev) => ({ ...prev, queryType: e.target.value }))
-            }
-          />
-          <TextField
-            label="SQL text"
-            multiline
-            minRows={3}
-            value={querySetForm.sqlText}
-            onChange={(e) =>
-              setQuerySetForm((prev) => ({ ...prev, sqlText: e.target.value }))
-            }
-            className="md:col-span-2"
-          />
-        </Box>
-        <Box className="flex gap-2">
-          <Button
-            variant="contained" className="!bg-primary"
-            onClick={() => void (editingQuerySetId ? handleUpdateQuerySet() : createQuerySet())}
-          >
-            {editingQuerySetId ? "Update Query Set" : "Create Query Set"}
-          </Button>
-          {editingQuerySetId && (
-            <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={resetQuerySetForm}>
-              Cancel
-            </Button>
+          {/* Usage Example */}
+          {totalQuerySets > 0 && (
+            <Paper className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <Typography variant="subtitle2" className="text-gray-700 flex items-center gap-2">
+                <Info className="!w-4 !h-4 text-gray-500" />
+                How to use in Widgets
+              </Typography>
+              <Typography variant="caption" className="text-gray-600 block mt-1">
+                In the Dashboard Builder, select <strong>SQL Query Set</strong> as data source type
+                and choose a query set. The widget will use: <span className="font-mono bg-gray-200 px-1 rounded">sql:&lt;presetId&gt;</span>
+              </Typography>
+              <Typography variant="caption" className="text-gray-500 block mt-1">
+                Example: <span className="font-mono bg-gray-200 px-1 rounded">sql:headcountByDept</span>
+              </Typography>
+            </Paper>
           )}
-        </Box>
+        </CardContent>
+      </Card>
+    );
+  };
 
-        <TableContainer className="bg-white">
-          <Table className="border border-gray-200 rounded-sm">
-            <TableHead>
-              <TableRow>
-                <TableCell>Title</TableCell>
-                <TableCell>Dataset</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {querySets.map((querySet) => (
-                <TableRow key={querySet.id}>
-                  <TableCell>{querySet.title}</TableCell>
-                  <TableCell>{querySet.datasetId}</TableCell>
-                  <TableCell>{querySet.queryType}</TableCell>
-                  <TableCell align="right">
-                    <Box className="flex justify-end gap-1">
-                      <IconButton size="small" color="primary" onClick={() => void handleEditQuerySet(querySet.id)}>
-                        <EditOutlined fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => void handleDeleteQuerySet(querySet.id)}>
-                        <DeleteOutlineOutlined fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </CardContent>
-    </Card>
-  );
 
   const renderQueryBuilder = () => {
     if (!datasetSchema) {
@@ -1307,7 +1502,7 @@ export default function BiWorkspacePage() {
 
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }} className="h-[calc(100vh-425px)] overflow-auto">
-        <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
+        {/* <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600 }}>
             Query Preset Loader
           </Typography>
@@ -1321,6 +1516,83 @@ export default function BiWorkspacePage() {
               Load Preset
             </Button>
           </Box>
+        </Paper> */}
+
+        <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
+          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
+            Query Preset Loader
+            <Button
+              variant="contained"
+              className="!bg-primary !ml-7"
+              onClick={() => void handleLoadPreset()}
+              disabled={!presetId.trim()}
+              startIcon={<PlayArrow />}
+            >
+              Load
+            </Button>
+          </Typography>
+          <Box className="flex gap-3 items-cente">
+            <FormControl fullWidth>
+              <InputLabel>Select Preset</InputLabel>
+              <Select
+                value={presetId}
+                onChange={(e) => setPresetId(e.target.value)}
+                label="Select Preset"
+              >
+                <MenuItem value="">
+                  <em>Select a preset</em>
+                </MenuItem>
+                {querySets.map((qs) => (
+                  <MenuItem key={qs.id} value={qs.presetId || qs.id}>
+                    <Box>
+                      <Typography variant="body2">{qs.title}</Typography>
+                      <Typography variant="caption" className="text-gray-500">
+                        {qs.presetId || qs.id} • {qs.queryType} • {qs.datasetId || 'No dataset'}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                {querySets.length === 0 ? (
+                  <Typography variant="caption" className="text-yellow-600">
+                    No query sets available. Create one in the Query Sets tab.
+                  </Typography>
+                ) : (
+                  `Select from ${querySets.length} available query sets`
+                )}
+              </FormHelperText>
+            </FormControl>
+          </Box>
+
+          {/* Show selected preset info */}
+          {presetId && (
+            <Box className="mt-3">
+              {(() => {
+                const selectedQs = querySets.find(qs => (qs.presetId || qs.id) === presetId);
+                if (selectedQs) {
+                  return (
+                    <Paper variant="outlined" className="p-2 bg-blue-50 border border-blue-200">
+                      <Typography variant="caption" className="text-blue-800">
+                        <strong>Selected:</strong> {selectedQs.title}
+                        {selectedQs.description && ` — ${selectedQs.description}`}
+                      </Typography>
+                      <Typography variant="caption" className="text-blue-600 block">
+                        Preset ID: {selectedQs.presetId || selectedQs.id} • Type: {selectedQs.queryType}
+                        {selectedQs.datasetId && ` • Dataset: ${selectedQs.datasetId}`}
+                      </Typography>
+                      {selectedQs.queryType === 'SQL' && selectedQs.sqlText && (
+                        <Typography variant="caption" className="text-gray-600 block mt-1 font-mono text-xs">
+                          SQL: {selectedQs.sqlText.substring(0, 100)}...
+                        </Typography>
+                      )}
+                    </Paper>
+                  );
+                }
+                return null;
+              })()}
+            </Box>
+          )}
         </Paper>
 
         {/* Date Range */}
@@ -1364,8 +1636,8 @@ export default function BiWorkspacePage() {
                 onChange={(e) => setDateRange({ ...dateRange, granularity: e.target.value })}
                 label="Granularity"
               >
-                <MenuItem value="day">Day</MenuItem>
-                <MenuItem value="week">Week</MenuItem>
+                {/* <MenuItem value="day">Day</MenuItem>
+                <MenuItem value="week">Week</MenuItem> */}
                 <MenuItem value="month">Month</MenuItem>
                 <MenuItem value="quarter">Quarter</MenuItem>
                 <MenuItem value="year">Year</MenuItem>
@@ -1757,14 +2029,15 @@ export default function BiWorkspacePage() {
                         <Box>
                           {report.editable && (
                             <Tooltip title="Edit">
-                              <IconButton size="small" onClick={() => { handleViewReport(report.id); setTimeout(() => { if (selectedReport) handleEditReport(selectedReport); }, 500); }}>
-                                <EditOutlined fontSize="small" color="primary" className="!w-4" />
+                              <IconButton size="small" onClick={() => { handleViewReport(report.id, 'edit') }}>
+                                {/* <IconButton size="small" onClick={() => {  if (selectedReport) handleEditReport(selectedReport)}}> */}
+                                <Edit fontSize="small" color="primary" className="!w-4" />
                               </IconButton>
                             </Tooltip>
                           )}
                           <Tooltip title="Delete">
                             <IconButton size="small" color="error" onClick={() => handleDeleteReport(report.id)}>
-                              <DeleteOutlineOutlined fontSize="small" className="!w-4" />
+                              <DeleteIcon fontSize="small" className="!w-4" />
                             </IconButton>
                           </Tooltip>
                         </Box>
@@ -1774,7 +2047,7 @@ export default function BiWorkspacePage() {
                       <Chip label={`Updated: ${new Date(report.updatedAt).toLocaleDateString()}`} size="small" variant="outlined" className="!text-gray-800" />
                     </div>
                     <div className="flex items-center justify-end gap-2 p-4 pt-0">
-                      <Button size="small" variant="outlined" className="!text-primary !border-primary" startIcon={<VisibilityIcon />} onClick={() => handleViewReport(report.id)}>View</Button>
+                      <Button size="small" variant="outlined" className="!text-primary !border-primary" startIcon={<VisibilityIcon />} onClick={() => handleViewReport(report.id, 'view')}>View</Button>
                       <Button size="small" variant="contained" color="success" startIcon={<PlayArrow />} onClick={() => handleRunReport(report.id)}>Run</Button>
                       {/* <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => handleExportReport(report.id, "csv")} disabled={reportExportLoading}>Export</Button> */}
                     </div>
@@ -1830,14 +2103,14 @@ export default function BiWorkspacePage() {
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadWorkspace} disabled={loading}>Refresh</Button>
-          <Button
+          {/* <Button
             variant="outlined"
             startIcon={<Download />}
             onClick={(e) => setExportMenuAnchor(e.currentTarget)}
             disabled={exportLoading || !selectedDataset}
           >
             {exportLoading ? <CircularProgress size={24} /> : "Export"}
-          </Button>
+          </Button> */}
         </div>
         <Menu
           anchorEl={exportMenuAnchor}
@@ -1910,7 +2183,7 @@ export default function BiWorkspacePage() {
         </Button>
       </div>
 
-      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+      {/* {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>} */}
 
       {queryResult && (
         <Fade in={!!queryResult}>
@@ -2081,7 +2354,7 @@ export default function BiWorkspacePage() {
             {exportJob.status === "completed" && exportJob.downloadUrl && (
               <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
                 <Button variant="contained" color="success" startIcon={<FileDownloadIcon />} onClick={() => handleDownloadFromUrl(exportJob.downloadUrl!)}>Download File</Button>
-                <Button variant="outlined" onClick={() => handleDownloadExport(exportJob.jobRef)}>Download via Proxy</Button>
+                {/* <Button variant="outlined" onClick={() => handleDownloadExport(exportJob.jobRef)}>Download via Proxy</Button> */}
               </Box>
             )}
             {exportJob.status === "failed" && exportJob.errorMessage && <Alert severity="error">{exportJob.errorMessage}</Alert>}
@@ -2116,7 +2389,7 @@ export default function BiWorkspacePage() {
                         <Typography variant="caption">{job.progressPercent || 0}%</Typography>
                       </Box>
                     </TableCell>
-                    <TableCell><Typography variant="caption">{new Date(job.createdAt).toLocaleDateString()}</Typography></TableCell>
+                    <TableCell><Typography variant="caption">{formatDate(job.createdAt)}</Typography></TableCell>
                     <TableCell>
                       {job.status === "completed" && job.downloadUrl && (
                         <Tooltip title="Download">
@@ -2155,8 +2428,8 @@ export default function BiWorkspacePage() {
               />
               <CardContent>
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                  <Button size="small" variant="outlined" startIcon={<SchemaIcon />} onClick={() => { setSelectedDataset(dataset.datasetId); handleLoadDatasetSchema(); }} disabled={!dataset.available}>View Schema</Button>
-                  <Button size="small" variant="contained" startIcon={<PlayArrow />} onClick={() => { setSelectedDataset(dataset.datasetId); setActiveTab(1); }} disabled={!dataset.available}>Query</Button>
+                  <Button size="small" variant="outlined" className="!text-primary !border-primary" startIcon={<SchemaIcon />} onClick={() => { setSelectedDataset(dataset.datasetId); handleLoadDatasetSchema(); }} disabled={!dataset.available}>View Schema</Button>
+                  <Button size="small" variant="outlined" color="success" startIcon={<PlayArrow />} onClick={() => { setSelectedDataset(dataset.datasetId); setActiveTab(1); }} disabled={!dataset.available}>Query</Button>
                 </Box>
               </CardContent>
             </Card>
@@ -2195,9 +2468,9 @@ export default function BiWorkspacePage() {
             <FormControl fullWidth>
               <InputLabel>Visibility</InputLabel>
               <Select value={reportForm.visibility} onChange={(e) => setReportForm({ ...reportForm, visibility: e.target.value as "PRIVATE" | "ROLE" | "TENANT" })} label="Visibility">
-                <MenuItem value="PRIVATE">Private (Only you)</MenuItem>
-                <MenuItem value="ROLE">Role Based</MenuItem>
-                <MenuItem value="TENANT">Tenant (All users)</MenuItem>
+                <MenuItem value="private">Private (Only you)</MenuItem>
+                <MenuItem value="role">Role Based</MenuItem>
+                <MenuItem value="tenant">Tenant (All users)</MenuItem>
               </Select>
             </FormControl>
             {reportForm.visibility === "ROLE" && (
@@ -2408,6 +2681,417 @@ export default function BiWorkspacePage() {
     </Dialog>
   );
 
+
+  const renderQuerySetFormDialog = () => (
+    <Dialog open={querySetFormOpen} onClose={() => setQuerySetFormOpen(false)} maxWidth="md" fullWidth>
+      <div className="!p-2 flex justify-between items-center border-b border-gray-200">
+        <Typography variant="h6" className="text-gray-800 !ml-4">
+          {editingQuerySetId ? "Edit Query Set" : "Create Query Set"}
+        </Typography>
+        <IconButton onClick={() => setQuerySetFormOpen(false)}>
+          <CloseIcon className="text-gray-800"/>
+        </IconButton>
+      </div>
+      <DialogContent className="!p-4">
+        <Box className="grid grid-cols-1 gap-6">
+          {/* Guide */}
+          <Box className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <Typography variant="subtitle2" className="text-blue-800 flex items-center gap-2">
+              <Info className="!w-4 !h-4" />
+              Query Set Guide
+            </Typography>
+            <Typography variant="caption" className="text-blue-700 block mt-1">
+              • <strong>SQL:</strong> Runs on tenant App DB with read-only enforcement (SELECT/WITH only)
+            </Typography>
+            <Typography variant="caption" className="text-blue-700 block">
+              • <strong>DSL:</strong> Uses BI DSL engine over catalogued datasets
+            </Typography>
+            <Typography variant="caption" className="text-blue-700 block">
+              • <strong>SQL Params:</strong> <span className="font-mono bg-blue-100 px-1 rounded">:__branchId</span>, <span className="font-mono bg-blue-100 px-1 rounded">:__scopeUserId</span>, <span className="font-mono bg-blue-100 px-1 rounded">:__roles</span>
+            </Typography>
+            <Typography variant="caption" className="text-blue-700 block">
+              • <strong>SQL Cast:</strong> <span className="font-mono bg-blue-100 px-1 rounded">:__branchId::uuid</span>, <span className="font-mono bg-blue-100 px-1 rounded">:someDate::date</span>
+            </Typography>
+          </Box>
+
+          <TextField
+            label="Preset ID"
+            value={querySetForm.presetId}
+            onChange={(e) => setQuerySetForm({ ...querySetForm, presetId: e.target.value })}
+            fullWidth
+            required
+            placeholder="e.g., headcountByDept"
+            helperText="Unique identifier used in widget dataSource: sql:<presetId>"
+          />
+
+          <TextField
+            label="Title"
+            value={querySetForm.title}
+            onChange={(e) => setQuerySetForm({ ...querySetForm, title: e.target.value })}
+            fullWidth
+            required
+            placeholder="e.g., Headcount by Department"
+          />
+
+          <TextField
+            label="Description"
+            value={querySetForm.description}
+            onChange={(e) => setQuerySetForm({ ...querySetForm, description: e.target.value })}
+            fullWidth
+            multiline
+            minRows={2}
+            placeholder="Brief description of what this query does"
+          />
+
+          <FormControl fullWidth>
+            <InputLabel>Query Type</InputLabel>
+            <Select
+              value={querySetForm.queryType}
+              onChange={(e) => {
+                const type = e.target.value as "SQL" | "DSL";
+                setQuerySetForm({
+                  ...querySetForm,
+                  queryType: type,
+                });
+              }}
+              label="Query Type"
+            >
+              <MenuItem value="SQL">SQL</MenuItem>
+              <MenuItem value="DSL">DSL</MenuItem>
+            </Select>
+          </FormControl>
+
+          {/* Dataset ID - Required for DSL */}
+          {querySetForm.queryType === "DSL" && (
+            <TextField
+              label="Dataset ID"
+              value={querySetForm.datasetId}
+              onChange={(e) => setQuerySetForm({ ...querySetForm, datasetId: e.target.value })}
+              fullWidth
+              required
+              placeholder="e.g., employees, leave, payroll"
+              helperText="Required for DSL query sets. Select the dataset to query."
+            />
+          )}
+
+          {/* SQL Text - Only show for SQL type */}
+          {querySetForm.queryType === "SQL" && (
+            <TextField
+              label="SQL Text"
+              value={querySetForm.sqlText}
+              onChange={(e) => setQuerySetForm({ ...querySetForm, sqlText: e.target.value })}
+              fullWidth
+              multiline
+              minRows={5}
+              maxRows={12}
+              placeholder={`SELECT d.name AS department, COUNT(*) AS headcount 
+FROM employees e 
+JOIN departments d ON d.id = e.department_id 
+WHERE (:__branchId::uuid IS NULL OR e.branch_id = :__branchId::uuid) 
+GROUP BY d.name 
+ORDER BY headcount DESC`}
+              helperText={
+                <Box className="flex flex-col gap-1">
+                  <Typography variant="caption" className="text-gray-600">
+                    Must start with SELECT or WITH (read-only)
+                  </Typography>
+                  <Typography variant="caption" className="text-gray-500">
+                    Use <span className="font-mono bg-gray-100 px-1 rounded">:__branchId::uuid IS NULL OR ...</span> for branch-scope awareness
+                  </Typography>
+                </Box>
+              }
+              error={querySetForm.sqlText.length > 0 && !/^(SELECT|WITH)/i.test(querySetForm.sqlText.trim())}
+            />
+          )}
+
+          {/* Query JSON - Only show for DSL type */}
+          {querySetForm.queryType === "DSL" && (
+            <Box>
+              <Typography variant="subtitle2" className="text-gray-700 mb-2">
+                Query Configuration (JSON)
+              </Typography>
+              <TextField
+                label="Query JSON"
+                value={JSON.stringify(querySetForm.queryJson || {
+                  dimensions: [],
+                  metrics: [],
+                  limit: 50,
+                  includeTotals: true,
+                  sort: [],
+                }, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value);
+                    setQuerySetForm({ ...querySetForm, queryJson: parsed });
+                  } catch {
+                    // Invalid JSON - don't update
+                  }
+                }}
+                fullWidth
+                multiline
+                minRows={5}
+                maxRows={10}
+                placeholder={`{
+  "dimensions": ["department"],
+  "metrics": ["headcount"],
+  "limit": 50,
+  "includeTotals": true,
+  "sort": [{"field": "headcount", "direction": "desc"}]
+}`}
+                helperText={
+                  <Box className="flex flex-col gap-1">
+                    <Typography variant="caption" className="text-gray-600">
+                      Required for DSL query sets. Define dimensions, metrics, and optional settings.
+                    </Typography>
+                    {(() => {
+                      try {
+                        JSON.stringify(querySetForm.queryJson);
+                        return <Typography variant="caption" className="text-green-600">✅ Valid JSON</Typography>;
+                      } catch {
+                        return querySetForm.queryJson ? <Typography variant="caption" className="text-red-600">⚠️ Invalid JSON</Typography> : null;
+                      }
+                    })()}
+                  </Box>
+                }
+                error={(() => {
+                  try {
+                    JSON.stringify(querySetForm.queryJson);
+                    return false;
+                  } catch {
+                    return querySetForm.queryJson !== undefined;
+                  }
+                })()}
+              />
+            </Box>
+          )}
+
+          {/* Visualization - Only show for DSL type */}
+          {querySetForm.queryType === "DSL" && (
+            <Box>
+              <Typography variant="subtitle2" className="text-gray-700 mb-2">
+                Visualization (Optional)
+              </Typography>
+              <TextField
+                label="Visualization (JSON)"
+                value={JSON.stringify(querySetForm.visualization || {}, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value);
+                    setQuerySetForm({ ...querySetForm, visualization: parsed });
+                  } catch {
+                    // Invalid JSON - don't update
+                  }
+                }}
+                fullWidth
+                multiline
+                minRows={3}
+                maxRows={8}
+                placeholder={`{
+  "type": "bar",
+  "xAxis": "department",
+  "yAxis": ["headcount"]
+}`}
+                helperText="Optional visualization configuration for the query set"
+              />
+            </Box>
+          )}
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={querySetForm.active}
+                onChange={(e) => setQuerySetForm({ ...querySetForm, active: e.target.checked })}
+              />
+            }
+            label="Active"
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions className="border-t border-gray-200 p-4">
+        <Button
+          variant="outlined"
+          className="!text-gray-800 !border-gray-200"
+          onClick={() => setQuerySetFormOpen(false)}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          className="!bg-primary"
+          onClick={editingQuerySetId ? handleUpdateQuerySet : createQuerySet}
+          disabled={
+            !querySetForm.presetId.trim() ||
+            !querySetForm.title.trim() ||
+            (querySetForm.queryType === "SQL" && !querySetForm.sqlText.trim()) ||
+            (querySetForm.queryType === "SQL" && !/^(SELECT|WITH)/i.test(querySetForm.sqlText.trim())) ||
+            (querySetForm.queryType === "DSL" && !querySetForm.datasetId.trim()) ||
+            (querySetForm.queryType === "DSL" && (!querySetForm.queryJson || !querySetForm.queryJson.dimensions?.length && !querySetForm.queryJson.metrics?.length))
+          }
+        >
+          {editingQuerySetId ? "Update Query Set" : "Create Query Set"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  // const renderQueryPresetLoader = () => {
+  //   // Get preset info from available query sets
+  //   const presetInfo = querySets.find(qs => qs.presetId === presetId);
+
+  //   return (
+  //     <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
+  //       <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
+  //         Query Preset Loader
+  //       </Typography>
+
+  //       <Box className="flex gap-3 items-start">
+  //         <Box className="flex-1">
+  //           <Autocomplete
+  //             freeSolo
+  //             fullWidth
+  //             options={querySets.map(qs => qs.presetId || qs.id)}
+  //             value={presetId}
+  //             onInputChange={(_, newValue) => {
+  //               setPresetId(newValue || "");
+  //             }}
+  //             onChange={(_, newValue) => {
+  //               setPresetId(newValue || "");
+  //             }}
+  //             renderInput={(params) => (
+  //               <TextField
+  //                 {...params}
+  //                 label="Preset ID"
+  //                 placeholder="Enter preset ID or select from list..."
+  //                 helperText={
+  //                   presetInfo ? (
+  //                     <Box className="flex items-center gap-2">
+  //                       <Chip
+  //                         label={presetInfo.title}
+  //                         size="small"
+  //                         color="info"
+  //                         variant="outlined"
+  //                       />
+  //                       {presetInfo.description && (
+  //                         <Typography variant="caption" className="text-gray-500">
+  //                           {presetInfo.description}
+  //                         </Typography>
+  //                       )}
+  //                     </Box>
+  //                   ) : (
+  //                     "Type to search or select from available presets"
+  //                   )
+  //                 }
+  //               // InputProps={{
+  //               //   ...params.InputProps,
+  //               // }}
+  //               />
+  //             )}
+  //             renderOption={(props, option) => {
+  //               const qs = querySets.find(q => q.presetId === option);
+  //               return (
+  //                 <li {...props}>
+  //                   <Box>
+  //                     <Typography variant="body2" className="font-medium">
+  //                       {qs?.title || option}
+  //                     </Typography>
+  //                     {qs?.description && (
+  //                       <Typography variant="caption" className="text-gray-500 block">
+  //                         {qs.description}
+  //                       </Typography>
+  //                     )}
+  //                     <Typography variant="caption" className="text-gray-400 font-mono text-xs">
+  //                       ID: {option}
+  //                     </Typography>
+  //                   </Box>
+  //                 </li>
+  //               );
+  //             }}
+  //             noOptionsText="No presets found. Create one in the Query Sets tab."
+  //             loadingText="Loading presets..."
+  //             sx={{ flex: 1 }}
+  //           />
+  //         </Box>
+
+  //         <Box className="flex gap-2">
+  //           <Button
+  //             variant="contained"
+  //             className="!bg-primary"
+  //             onClick={() => void handleLoadPreset()}
+  //             disabled={!presetId.trim() || !selectedDataset}
+  //             startIcon={<PlayArrow />}
+  //           >
+  //             Load
+  //           </Button>
+  //           {presetInfo && (
+  //             <Tooltip title="View preset details">
+  //               <Button
+  //                 variant="outlined"
+  //                 className="!text-gray-800 !border-gray-200"
+  //                 onClick={() => {
+  //                   // Show preset details in a dialog or expand the info
+  //                   showSnackbar(
+  //                     `📋 ${presetInfo.title}: ${presetInfo.description || 'No description'}`,
+  //                     "info"
+  //                   );
+  //                 }}
+  //               >
+  //                 <Info fontSize="small" />
+  //               </Button>
+  //             </Tooltip>
+  //           )}
+  //         </Box>
+  //       </Box>
+
+  //       {/* Quick access chips for available presets */}
+  //       {querySets.length > 0 && (
+  //         <Box className="mt-3">
+  //           <Typography variant="caption" className="text-gray-500">
+  //             Quick load:
+  //           </Typography>
+  //           <Box className="flex flex-wrap gap-1 mt-1">
+  //             {querySets.slice(0, 6).map((qs) => (
+  //               <Chip
+  //                 key={qs.id}
+  //                 label={qs.presetId || qs.id}
+  //                 size="small"
+  //                 variant={presetId === (qs.presetId || qs.id) ? "filled" : "outlined"}
+  //                 color={presetId === (qs.presetId || qs.id) ? "primary" : "default"}
+  //                 className="cursor-pointer hover:bg-blue-50"
+  //                 onClick={() => {
+  //                   setPresetId(qs.presetId || qs.id);
+  //                   setTimeout(() => handleLoadPreset(), 100);
+  //                 }}
+  //                 title={qs.title}
+  //               />
+  //             ))}
+  //             {querySets.length > 6 && (
+  //               <Chip
+  //                 label={`+${querySets.length - 6} more`}
+  //                 size="small"
+  //                 variant="outlined"
+  //                 className="text-gray-500"
+  //                 onClick={() => {
+  //                   setActiveTab(5); // Switch to Query Sets tab
+  //                 }}
+  //               />
+  //             )}
+  //           </Box>
+  //         </Box>
+  //       )}
+
+  //       {/* Preset loaded indicator */}
+  //       {presetId && !presetInfo && (
+  //         <Box className="mt-2">
+  //           <Alert severity="info" className="text-sm">
+  //             Preset "{presetId}" is not in your query sets. You can still load it if it exists in the dataset.
+  //           </Alert>
+  //         </Box>
+  //       )}
+  //     </Paper>
+  //   );
+  // };
+
+
   // ============ Main Render ============
 
   return (
@@ -2452,6 +3136,8 @@ export default function BiWorkspacePage() {
       {renderReportDetailDialog()}
       {renderReportFormDialog()}
       {renderReportExportDialog()}
+      {renderQuerySetFormDialog()}
+      {/* {renderQueryPresetLoader()} */}
     </Box>
   );
 }
