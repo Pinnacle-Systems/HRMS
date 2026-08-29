@@ -202,7 +202,13 @@ test.describe("public auth flow", () => {
           data: {
             accessToken: createJwt({
               roles: ["ADMIN"],
-              permissions: ["EMPLOYEE_READ"],
+              permissions: [
+                "EMPLOYEE_READ",
+                "PAYROLL_READ",
+                "PAYROLL_WRITE",
+                "REPORT_READ",
+                "SETTINGS_READ",
+              ],
             }),
             refreshToken: "refresh-token",
             expiresIn: 900,
@@ -219,7 +225,13 @@ test.describe("public auth flow", () => {
               firstName: "Admin",
               email: "admin@company.com",
               roles: ["ADMIN"],
-              permissions: ["EMPLOYEE_READ"],
+              permissions: [
+                "EMPLOYEE_READ",
+                "PAYROLL_READ",
+                "PAYROLL_WRITE",
+                "REPORT_READ",
+                "SETTINGS_READ",
+              ],
             },
           },
         }),
@@ -236,7 +248,13 @@ test.describe("public auth flow", () => {
             user: {
               userId: "user-1",
               roles: ["ADMIN"],
-              permissions: ["EMPLOYEE_READ"],
+              permissions: [
+                "EMPLOYEE_READ",
+                "PAYROLL_READ",
+                "PAYROLL_WRITE",
+                "REPORT_READ",
+                "SETTINGS_READ",
+              ],
               email: "admin@company.com",
               tenantId: "tenant-2",
               branchId: "branch-1",
@@ -259,6 +277,37 @@ test.describe("public auth flow", () => {
             branches: [{ id: "branch-1", name: "Main Branch" }],
             fiscalYears: [{ id: "fy-2025", label: "2025", active: true }],
             activeFiscalYearId: "fy-2025",
+          },
+        }),
+      });
+    });
+
+    await page.route("**/api/auth/profile", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            id: "user-1",
+            userId: "user-1",
+            employeeId: "emp-100",
+            email: "admin@company.com",
+            firstName: "Admin",
+            roles: ["ADMIN"],
+            permissions: [
+              "EMPLOYEE_READ",
+              "PAYROLL_READ",
+              "PAYROLL_WRITE",
+              "REPORT_READ",
+              "SETTINGS_READ",
+            ],
+            tenantId: "tenant-2",
+            employee: {
+              id: "emp-100",
+              employeeId: "emp-100",
+              userId: "user-1",
+            },
           },
         }),
       });

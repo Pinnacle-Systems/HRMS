@@ -1,155 +1,372 @@
 import { expect, test } from "@playwright/test";
-import { loginAsAdmin, mockLogoutApi } from "./helpers/auth";
+
+import {
+  createMockSession,
+  seedAuthSession,
+} from "./helpers/auth";
 
 test.describe("mocked onboarding contract flow", () => {
   test.beforeEach(async ({ page }) => {
-    await loginAsAdmin(page);
-    await mockLogoutApi(page);
-  });
+    // --------------------------------------------------
+    // Mock authenticated ADMIN session
+    // --------------------------------------------------
+    const session = createMockSession({
+      roles: ["ADMIN"],
+      permissions: [
+        "EMPLOYEE_READ",
+        "EMPLOYEE_WRITE",
 
-  test("assign and welcome use Swagger payload shapes", async ({ page }) => {
-    let assignPayload: unknown;
-    let welcomePayload: unknown;
-
-    // Mock authorization/permissions endpoint if it exists
-    await page.route("**/api/auth/me**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            id: "admin-1",
-            email: "admin@example.com",
-            roles: ["ADMIN"],
-            permissions: ["onboarding:read", "onboarding:write", "employee:read"],
-          },
-        }),
-      });
+        // Keep any other permissions required by your app
+        "PAYROLL_READ",
+        "ATTENDANCE_READ",
+        "LEAVE_READ",
+      ],
     });
 
-    // Mock user permissions
-    await page.route("**/api/permissions**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            permissions: ["onboarding:read", "onboarding:write", "employee:read"],
-          },
-        }),
-      });
-    });
+    await seedAuthSession(page, session);
 
-    await page.route("**/api/onboarding/checklist**", async (route) => {
-      if (route.request().method() !== "GET") {
-        await route.fallback();
+    // --------------------------------------------------
+    // Mock employees API
+    // --------------------------------------------------
+    await page.route("**/api/employees**", async (route) => {
+      const request = route.request();
+
+      if (request.method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [
+              {
+                id: "employee-1",
+                employeeId: "E-001",
+                firstName: "Ava",
+                lastName: "Patel",
+                email: "ava@company.com",
+              },
+            ],
+          }),
+        });
+
         return;
       }
 
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            content: [
-              {
-                id: "checklist-1",
-                name: "Engineering onboarding",
-                active: true,
-                tasks: [],
-              },
-            ],
-          },
-        }),
-      });
+      await route.continue();
     });
 
-    await page.route("**/api/employees**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            content: [
-              {
-                id: "employee-1",
-                name: "Ava Patel",
-                employeeId: "E-001",
-                designation: "Engineer",
-              },
-            ],
-          },
-        }),
-      });
-    });
+    // --------------------------------------------------
+    // Mock onboarding APIs
+    // --------------------------------------------------
+    let assignPayload: unknown = undefined;
+    let welcomePayload: unknown = undefined;
 
-    await page.route("**/api/onboarding/assignments**", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: {
-            content: [
+    await page.route("**/api/onboarding/**", async (route) => {
+      const request = route.request();
+      const method = request.method();
+      const url = request.url();
+
+      // ------------------------------------------------
+      // GET onboarding assignments
+      // ------------------------------------------------
+      if (method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [
               {
                 id: "assignment-1",
                 employeeId: "employee-1",
-                employeeName: "Ava Patel",
                 checklistId: "checklist-1",
-                checklistName: "Engineering onboarding",
-                status: "In Progress",
+                status: "IN_PROGRESS",
                 progress: 0,
-                startDate: "2026-05-19",
-                expectedEndDate: "2026-05-30",
+                assignedAt: "2026-05-19T10:00:00.000Z",
+                welcomeEmailSent: false,
               },
             ],
-          },
-        }),
-      });
+          }),
+        });
+
+        return;
+      }
+
+      // ------------------------------------------------
+      // POST assign onboarding
+      // ------------------------------------------------
+      if (
+        method === "POST" &&
+        /\/assign/i.test(url)
+      ) {
+        assignPayload = request.postDataJSON();
+
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: true,
+            data: {
+              id: "assignment-1",
+              employeeId: "employee-1",
+              checklistId: "checklist-1",
+              status: "IN_PROGRESS",
+            },
+          }),
+        });
+
+        return;
+      }
+
+      // ------------------------------------------------
+      // POST welcome email
+      // ------------------------------------------------
+      if (
+        method === "POST" &&
+        /welcome/i.test(url)
+      ) {
+        welcomePayload = request.postDataJSON();
+
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            success: true,
+          }),
+        });
+
+        return;
+      }
+
+      await route.continue();
     });
 
-    await page.route("**/api/onboarding/assign", async (route) => {
-      assignPayload = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: { id: "assignment-1" } }),
-      });
+    // --------------------------------------------------
+    // Mock checklist API
+    // --------------------------------------------------
+    await page.route("**/api/checklists**", async (route) => {
+      const request = route.request();
+
+      if (request.method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [
+              {
+                id: "checklist-1",
+                name: "HR Documentation",
+                tasks: [],
+              },
+            ],
+          }),
+        });
+
+        return;
+      }
+
+      await route.continue();
     });
 
-    await page.route("**/api/onboarding/send-welcome", async (route) => {
-      welcomePayload = route.request().postDataJSON();
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: {} }),
-      });
+    // --------------------------------------------------
+    // Navigate
+    // --------------------------------------------------
+    await page.goto(
+      "/settings/employee/onboarding-process?tab=assign"
+    );
+
+    // --------------------------------------------------
+    // Verify we were NOT redirected
+    // --------------------------------------------------
+    await expect(page).toHaveURL(
+      /\/settings\/employee\/onboarding-process\?tab=assign$/
+    );
+
+    // --------------------------------------------------
+    // Wait for page
+    // --------------------------------------------------
+    await expect(
+      page.getByText("Assign Onboarding", {
+        exact: true,
+      }).first()
+    ).toBeVisible({
+      timeout: 15000,
     });
 
-    // Navigate and wait for network to settle
-    await page.goto("/settings/employee/onboarding-process?tab=assign");
-    await page.waitForLoadState("networkidle");
+    // --------------------------------------------------
+    // Authorization error should not exist
+    // --------------------------------------------------
+    await expect(
+      page.getByRole("heading", {
+        name: "Unable to determine access",
+      })
+    ).toHaveCount(0);
 
-    // Check that we're not on the error page
-    await expect(page.locator('h1:has-text("Unable to determine access")')).not.toBeVisible();
+    // --------------------------------------------------
+    // Verify onboarding page
+    // --------------------------------------------------
+    await expect(
+      page.getByText(
+        "Manage employee onboarding assignments",
+        {
+          exact: true,
+        }
+      )
+    ).toBeVisible();
 
-    // Now verify the expected content
-    await expect(page.getByText("Assign Onboarding").first()).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole("button", {
+        name: "Assign New Onboarding",
+      })
+    ).toBeVisible();
 
-    await page.getByRole("button", { name: "Assign New Onboarding" }).click();
-    await page.getByRole("combobox", { name: "Select Employee" }).click();
-    await page.getByRole("option", { name: /Ava Patel/ }).click();
-    await page.getByRole("combobox", { name: "Select Checklist" }).click();
-    await page.getByRole("option", { name: /Engineering onboarding/ }).click();
-    await page.getByRole("button", { name: "Assign" }).click();
+    // --------------------------------------------------
+    // Open Assign dialog
+    // --------------------------------------------------
+    await page
+      .getByRole("button", {
+        name: "Assign New Onboarding",
+      })
+      .click();
 
+    const dialog = page.getByRole("dialog");
+
+    await expect(dialog).toBeVisible();
+
+    await expect(
+      dialog.getByRole("heading", {
+        name: "Assign New Onboarding",
+      })
+    ).toBeVisible();
+
+    // --------------------------------------------------
+    // Select employee
+    // --------------------------------------------------
+    const employeeInput = dialog.locator(
+      'input[placeholder="Search multiple employees..."]'
+    );
+
+    await expect(employeeInput).toBeVisible();
+
+    await employeeInput.fill("Ava");
+
+    const employeeOption = page.getByRole("option", {
+      name: /Ava Patel/i,
+    });
+
+    await expect(employeeOption).toBeVisible();
+
+    await employeeOption.click();
+
+    // Verify employee selected
+    await expect(
+      dialog.getByText("Ava Patel", {
+        exact: true,
+      }).first()
+    ).toBeVisible();
+
+    // --------------------------------------------------
+    // Select checklist
+    // --------------------------------------------------
+    const checklistSelect = dialog.getByLabel(
+      "Select Checklists"
+    );
+
+    await expect(checklistSelect).toBeVisible();
+
+    await checklistSelect.click();
+
+    const checklistOption = page.getByRole("option", {
+      name: /HR Documentation/i,
+    });
+
+    await expect(checklistOption).toBeVisible();
+
+    await checklistOption.click();
+
+    // --------------------------------------------------
+    // IMPORTANT:
+    // Verify checklist is selected
+    // --------------------------------------------------
+    await expect(
+      checklistSelect.getByText("HR Documentation", {
+        exact: false,
+      })
+    ).toBeVisible();
+
+    // Close any remaining dropdown/listbox
+    await page.keyboard.press("Escape");
+
+    // --------------------------------------------------
+    // Assign button
+    // --------------------------------------------------
+    const assignButton = dialog.getByRole("button", {
+      name: /Assign to 1 Employee with 1 Checklist/i,
+    });
+
+    await expect(assignButton).toBeVisible({
+      timeout: 10000,
+    });
+
+    await expect(assignButton).toBeEnabled();
+
+    await assignButton.click();
+
+    // --------------------------------------------------
+    // Validate Assign API payload
+    // --------------------------------------------------
     await expect
-      .poll(() => assignPayload)
-      .toEqual({ employeeId: "employee-1", checklistIds: ["checklist-1"] });
+      .poll(
+        () => assignPayload,
+        {
+          timeout: 10000,
+        }
+      )
+      .toEqual({
+        employeeIds: ["employee-1"],
+        checklistIds: ["checklist-1"],
+        startDate: expect.any(String),
+      });
 
-    await page.getByLabel("Send welcome to Ava Patel").first().click();
+    // --------------------------------------------------
+    // Wait for table
+    // --------------------------------------------------
+    const employeeRow = page
+      .getByRole("row")
+      .filter({
+        hasText: "Ava Patel",
+      });
 
+    await expect(employeeRow).toBeVisible({
+      timeout: 10000,
+    });
+
+    // --------------------------------------------------
+    // Send Welcome Email
+    // --------------------------------------------------
+    const sendWelcomeButton = employeeRow.getByRole(
+      "button",
+      {
+        name: "Send Welcome Email",
+      }
+    );
+
+    await expect(sendWelcomeButton).toBeVisible();
+
+    await expect(sendWelcomeButton).toBeEnabled();
+
+    await sendWelcomeButton.click();
+
+    // --------------------------------------------------
+    // Validate Welcome API
+    // --------------------------------------------------
     await expect
-      .poll(() => welcomePayload)
-      .toEqual({ employeeIds: ["employee-1"] });
+      .poll(
+        () => welcomePayload,
+        {
+          timeout: 10000,
+        }
+      )
+      .toEqual({
+        employeeIds: ["employee-1"],
+      });
   });
 });

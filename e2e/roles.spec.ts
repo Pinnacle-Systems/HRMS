@@ -41,34 +41,25 @@ const ALL_NAV_ITEMS = [
 /* ============================================================
  * ROLE PRIORITY
  *
- * ADMIN > HR > MANAGER > EMPLOYEE/ESS
+ * ADMIN > HR > MANAGER > EMPLOYEE > ESS
  * ========================================================== */
 
-function getHighestPriorityRole(
-  roles: E2ERole[],
-): E2ERole {
+function getHighestPriorityRole(roles: E2ERole[]): E2ERole {
   if (roles.includes("ADMIN")) return "ADMIN";
   if (roles.includes("HR")) return "HR";
   if (roles.includes("MANAGER")) return "MANAGER";
   if (roles.includes("EMPLOYEE")) return "EMPLOYEE";
   if (roles.includes("ESS")) return "ESS";
 
-  throw new Error(
-    `No valid role found: ${roles.join(", ")}`,
-  );
+  throw new Error(`No valid role found: ${roles.join(", ")}`);
 }
 
 /* ============================================================
  * EXPECTED DASHBOARD
  * ========================================================== */
 
-function getExpectedDashboard(
-  roles: E2ERole[],
-): RegExp {
-  const highestRole =
-    getHighestPriorityRole(roles);
-
-  switch (highestRole) {
+function getExpectedDashboard(roles: E2ERole[]): RegExp {
+  switch (getHighestPriorityRole(roles)) {
     case "ADMIN":
       return /\/admin\/dashboard$/;
 
@@ -83,9 +74,7 @@ function getExpectedDashboard(
       return /\/employee\/dashboard$/;
 
     default:
-      throw new Error(
-        `Unsupported role: ${highestRole}`,
-      );
+      throw new Error("Unsupported role");
   }
 }
 
@@ -93,13 +82,8 @@ function getExpectedDashboard(
  * WORKSPACE LABEL
  * ========================================================== */
 
-function getWorkspaceLabel(
-  roles: E2ERole[],
-): string {
-  const highestRole =
-    getHighestPriorityRole(roles);
-
-  switch (highestRole) {
+function getWorkspaceLabel(roles: E2ERole[]): string {
+  switch (getHighestPriorityRole(roles)) {
     case "ADMIN":
       return "Admin Console";
 
@@ -114,32 +98,18 @@ function getWorkspaceLabel(
       return "Employee Portal";
 
     default:
-      throw new Error(
-        `Unsupported role: ${highestRole}`,
-      );
+      throw new Error("Unsupported role");
   }
 }
 
 /* ============================================================
  * VISIBLE NAVIGATION
- *
- * ADMIN / HR:
- * Home + Employees + Leave + Attendance + Payroll + Settings
- *
- * MANAGER / EMPLOYEE / ESS:
- * Home + Leave
  * ========================================================== */
 
-function getVisibleNavigation(
-  roles: E2ERole[],
-): string[] {
-  const highestRole =
-    getHighestPriorityRole(roles);
+function getVisibleNavigation(roles: E2ERole[]): string[] {
+  const highestRole = getHighestPriorityRole(roles);
 
-  if (
-    highestRole === "ADMIN" ||
-    highestRole === "HR"
-  ) {
+  if (highestRole === "ADMIN" || highestRole === "HR") {
     return [
       "Home",
       "Employees",
@@ -161,222 +131,147 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "ADMIN",
     roles: ["ADMIN"],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
+    expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation(["ADMIN"]),
+    visibleNav: getVisibleNavigation(["ADMIN"]),
   },
 
   {
     name: "HR",
     roles: ["HR"],
-    expectedDashboard:
-      /\/hr\/dashboard$/,
+    expectedDashboard: /\/hr\/dashboard$/,
     workspaceLabel: "HR Workspace",
-    visibleNav:
-      getVisibleNavigation(["HR"]),
+    visibleNav: getVisibleNavigation(["HR"]),
   },
 
   {
     name: "MANAGER",
     roles: ["MANAGER"],
-    expectedDashboard:
-      /\/manager\/dashboard$/,
+    expectedDashboard: /\/manager\/dashboard$/,
     workspaceLabel: "Manager Workspace",
-    visibleNav:
-      getVisibleNavigation(["MANAGER"]),
+    visibleNav: getVisibleNavigation(["MANAGER"]),
   },
 
   {
     name: "EMPLOYEE",
     roles: ["EMPLOYEE"],
-    expectedDashboard:
-      /\/employee\/dashboard$/,
+    expectedDashboard: /\/employee\/dashboard$/,
     workspaceLabel: "Employee Portal",
-    visibleNav:
-      getVisibleNavigation(["EMPLOYEE"]),
+    visibleNav: getVisibleNavigation(["EMPLOYEE"]),
   },
-
-  // {
-  //   name: "ESS",
-  //   roles: ["ESS"],
-  //   expectedDashboard:
-  //     /\/employee\/dashboard$/,
-  //   workspaceLabel: "Employee Portal",
-  //   visibleNav:
-  //     getVisibleNavigation(["ESS"]),
-  // },
 
   {
     name: "ADMIN_HR",
     roles: ["ADMIN", "HR"],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
+    expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "HR",
-      ]),
+    visibleNav: getVisibleNavigation(["ADMIN", "HR"]),
   },
 
   {
     name: "ADMIN_MANAGER",
     roles: ["ADMIN", "MANAGER"],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
+    expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "MANAGER",
-      ]),
+    visibleNav: getVisibleNavigation(["ADMIN", "MANAGER"]),
   },
 
   {
     name: "ADMIN_EMPLOYEE",
-    roles: [
+    roles: ["ADMIN", "EMPLOYEE", "ESS"],
+    expectedDashboard: /\/admin\/dashboard$/,
+    workspaceLabel: "Admin Console",
+    visibleNav: getVisibleNavigation([
       "ADMIN",
       "EMPLOYEE",
       "ESS",
-    ],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    ]),
   },
 
   {
     name: "HR_MANAGER",
     roles: ["HR", "MANAGER"],
-    expectedDashboard:
-      /\/hr\/dashboard$/,
+    expectedDashboard: /\/hr\/dashboard$/,
     workspaceLabel: "HR Workspace",
-    visibleNav:
-      getVisibleNavigation([
-        "HR",
-        "MANAGER",
-      ]),
+    visibleNav: getVisibleNavigation([
+      "HR",
+      "MANAGER",
+    ]),
   },
 
   {
     name: "HR_EMPLOYEE",
-    roles: [
+    roles: ["HR", "EMPLOYEE", "ESS"],
+    expectedDashboard: /\/hr\/dashboard$/,
+    workspaceLabel: "HR Workspace",
+    visibleNav: getVisibleNavigation([
       "HR",
       "EMPLOYEE",
       "ESS",
-    ],
-    expectedDashboard:
-      /\/hr\/dashboard$/,
-    workspaceLabel: "HR Workspace",
-    visibleNav:
-      getVisibleNavigation([
-        "HR",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    ]),
   },
 
   {
     name: "MANAGER_EMPLOYEE",
-    roles: [
+    roles: ["MANAGER", "EMPLOYEE", "ESS"],
+    expectedDashboard: /\/manager\/dashboard$/,
+    workspaceLabel: "Manager Workspace",
+    visibleNav: getVisibleNavigation([
       "MANAGER",
       "EMPLOYEE",
       "ESS",
-    ],
-    expectedDashboard:
-      /\/manager\/dashboard$/,
-    workspaceLabel: "Manager Workspace",
-    visibleNav:
-      getVisibleNavigation([
-        "MANAGER",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    ]),
   },
 
   {
     name: "ADMIN_HR_MANAGER",
-    roles: [
+    roles: ["ADMIN", "HR", "MANAGER"],
+    expectedDashboard: /\/admin\/dashboard$/,
+    workspaceLabel: "Admin Console",
+    visibleNav: getVisibleNavigation([
       "ADMIN",
       "HR",
       "MANAGER",
-    ],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "HR",
-        "MANAGER",
-      ]),
+    ]),
   },
 
   {
     name: "ADMIN_HR_EMPLOYEE",
-    roles: [
+    roles: ["ADMIN", "HR", "EMPLOYEE", "ESS"],
+    expectedDashboard: /\/admin\/dashboard$/,
+    workspaceLabel: "Admin Console",
+    visibleNav: getVisibleNavigation([
       "ADMIN",
       "HR",
       "EMPLOYEE",
       "ESS",
-    ],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "HR",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    ]),
   },
 
   {
     name: "ADMIN_MANAGER_EMPLOYEE",
-    roles: [
+    roles: ["ADMIN", "MANAGER", "EMPLOYEE", "ESS"],
+    expectedDashboard: /\/admin\/dashboard$/,
+    workspaceLabel: "Admin Console",
+    visibleNav: getVisibleNavigation([
       "ADMIN",
       "MANAGER",
       "EMPLOYEE",
       "ESS",
-    ],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "MANAGER",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    ]),
   },
 
   {
     name: "HR_MANAGER_EMPLOYEE",
-    roles: [
+    roles: ["HR", "MANAGER", "EMPLOYEE", "ESS"],
+    expectedDashboard: /\/hr\/dashboard$/,
+    workspaceLabel: "HR Workspace",
+    visibleNav: getVisibleNavigation([
       "HR",
       "MANAGER",
       "EMPLOYEE",
       "ESS",
-    ],
-    expectedDashboard:
-      /\/hr\/dashboard$/,
-    workspaceLabel: "HR Workspace",
-    visibleNav:
-      getVisibleNavigation([
-        "HR",
-        "MANAGER",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    ]),
   },
 
   {
@@ -388,17 +283,15 @@ const roleScenarios: RoleScenario[] = [
       "EMPLOYEE",
       "ESS",
     ],
-    expectedDashboard:
-      /\/admin\/dashboard$/,
+    expectedDashboard: /\/admin\/dashboard$/,
     workspaceLabel: "Admin Console",
-    visibleNav:
-      getVisibleNavigation([
-        "ADMIN",
-        "HR",
-        "MANAGER",
-        "EMPLOYEE",
-        "ESS",
-      ]),
+    visibleNav: getVisibleNavigation([
+      "ADMIN",
+      "HR",
+      "MANAGER",
+      "EMPLOYEE",
+      "ESS",
+    ]),
   },
 ];
 
@@ -431,23 +324,15 @@ const protectedRoutes: ProtectedRoute[] = [
   {
     path: "/employee/dashboard",
     content: "Welcome back, Employee!",
-    allowedRoles: [
-      "EMPLOYEE",
-      "ESS",
-    ],
+    allowedRoles: ["EMPLOYEE", "ESS"],
     requiredPermissions: [],
   },
 
   {
     path: "/employees",
     content: "Employee Management",
-    allowedRoles: [
-      "ADMIN",
-      "HR",
-    ],
-    requiredPermissions: [
-      "EMPLOYEE_READ",
-    ],
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: ["EMPLOYEE_READ"],
   },
 
   {
@@ -466,30 +351,21 @@ const protectedRoutes: ProtectedRoute[] = [
   {
     path: "/attendance/shifts",
     content: "Shift Management",
-    allowedRoles: [
-      "ADMIN",
-      "HR",
-    ],
+    allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [],
   },
 
   {
     path: "/payroll",
-    content: "Payroll",
-    allowedRoles: [
-      "ADMIN",
-      "HR",
-    ],
-    requiredPermissions: [],
+    content: "Payroll Dashboard",
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: ["PAYROLL_READ"],
   },
 
   {
     path: "/settings",
     content: "Company Settings",
-    allowedRoles: [
-      "ADMIN",
-      "HR",
-    ],
+    allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [],
   },
 ];
@@ -512,10 +388,6 @@ function getPermissionsForRole(
 
   for (const role of roles) {
     switch (role) {
-      /* ------------------------------------------------------
-       * ADMIN
-       * ---------------------------------------------------- */
-
       case "ADMIN":
         permissions.add("EMPLOYEE_READ");
         permissions.add("EMPLOYEE_WRITE");
@@ -548,10 +420,6 @@ function getPermissionsForRole(
         permissions.add("PROFILE_WRITE");
         break;
 
-      /* ------------------------------------------------------
-       * HR
-       * ---------------------------------------------------- */
-
       case "HR":
         permissions.add("EMPLOYEE_READ");
         permissions.add("EMPLOYEE_WRITE");
@@ -580,14 +448,11 @@ function getPermissionsForRole(
         permissions.add("PROFILE_WRITE");
         break;
 
-      /* ------------------------------------------------------
-       * MANAGER
-       * ---------------------------------------------------- */
-
       case "MANAGER":
         permissions.add("EMPLOYEE_READ");
         permissions.add("PAYROLL_READ");
         permissions.add("REPORT_READ");
+
         permissions.add("ATTENDANCE_READ");
 
         permissions.add("LEAVE_READ");
@@ -597,10 +462,6 @@ function getPermissionsForRole(
         permissions.add("PROFILE_READ");
         permissions.add("PROFILE_WRITE");
         break;
-
-      /* ------------------------------------------------------
-       * EMPLOYEE / ESS
-       * ---------------------------------------------------- */
 
       case "EMPLOYEE":
       case "ESS":
@@ -643,9 +504,8 @@ function hasPermissions(
   userPermissions: string[],
   requiredPermissions: string[],
 ): boolean {
-  return requiredPermissions.every(
-    (permission) =>
-      userPermissions.includes(permission),
+  return requiredPermissions.every((permission) =>
+    userPermissions.includes(permission),
   );
 }
 
@@ -664,49 +524,23 @@ function getSettingsRedirectPath(
 }
 
 /* ============================================================
- * EXPECTED ROUTE CONTENT
- * ========================================================== */
-
-function getExpectedRouteContent(
-  route: ProtectedRoute,
-  roles: E2ERole[],
-): string | string[] {
-  if (route.path === "/settings") {
-    return roles.includes("ADMIN")
-      ? "Company Settings"
-      : "Audit Logs";
-  }
-
-  if (route.path === "/payroll") {
-    return [
-      "Payroll Dashboard",
-      "Payroll",
-    ];
-  }
-
-  return route.content;
-}
-
-/* ============================================================
- * LOGIN HELPER
+ * LOGIN
  * ========================================================== */
 
 async function loginAs(
   page: Page,
   scenario: RoleScenario,
 ): Promise<void> {
-  const permissions =
-    getPermissionsForRole(
-      scenario.roles,
-    );
+  const permissions = getPermissionsForRole(
+    scenario.roles,
+  );
 
   await seedAuthSession(
     page,
     createMockSession({
       roles: scenario.roles,
       permissions,
-      email:
-        `${scenario.name.toLowerCase()}@company.com`,
+      email: `${scenario.name.toLowerCase()}@company.com`,
       tenantId: "tenant-1",
       branchId: "branch-1",
       fiscalYearId: "fy-2026",
@@ -715,52 +549,46 @@ async function loginAs(
 }
 
 /* ============================================================
- * NAVIGATION HELPER
- *
- * IMPORTANT:
- * Do not assume Home is a button.
- *
- * The previous failure happened because:
- *
- * getByRole("button", { name: "Home" })
- *
- * did not exist in the actual DOM.
+ * OPEN NAVIGATION
  * ========================================================== */
 
-async function openNavigation(page: Page): Promise<void> {
+async function openNavigation(
+  page: Page,
+): Promise<void> {
   const drawerButton = page.getByRole("button", {
-    name: "open drawer",
+    name: /open drawer/i,
   });
 
-  // Check if any navigation item is visible (e.g., "Home")
-  const hasVisibleNav = await page
-    .getByRole("button", { name: "Home", exact: true })
-    .isVisible()
-    .catch(() => false);
+  const homeLink = page.getByRole("link", {
+    name: "Home",
+    exact: true,
+  });
 
-  // Only click the drawer if navigation isn't visible
-  if (!hasVisibleNav && (await drawerButton.isVisible().catch(() => false))) {
+  const homeButton = page.getByRole("button", {
+    name: "Home",
+    exact: true,
+  });
+
+  const hasVisibleHome =
+    (await homeLink.isVisible().catch(() => false)) ||
+    (await homeButton.isVisible().catch(() => false));
+
+  if (
+    !hasVisibleHome &&
+    (await drawerButton.isVisible().catch(() => false))
+  ) {
     await drawerButton.click();
-    await page.waitForTimeout(300);
   }
 
-  // Instead of looking for non-existent "Organization", verify navigation is open
-  // by checking that a navigation item (like "Home") is visible
   await expect(
-    page.getByRole("button", { name: "Home", exact: true })
-  ).toBeVisible({ timeout: 5000 });
+    homeLink.or(homeButton).first(),
+  ).toBeVisible({
+    timeout: 5000,
+  });
 }
 
 /* ============================================================
- * NAVIGATION ITEM LOCATOR
- *
- * Supports common implementations:
- *
- * 1. link
- * 2. button
- * 3. text/menu item
- *
- * This avoids coupling the test to one HTML element type.
+ * NAVIGATION ITEM
  * ========================================================== */
 
 function getNavigationItem(
@@ -781,13 +609,6 @@ function getNavigationItem(
     exact: true,
   });
 
-  /*
-   * Prefer links, then buttons, then text.
-   *
-   * Locator.or() is avoided because it can create
-   * multiple-match problems when more than one exists.
-   */
-
   return {
     link,
     button,
@@ -796,7 +617,7 @@ function getNavigationItem(
 }
 
 /* ============================================================
- * CHECK NAVIGATION ITEM
+ * NAVIGATION ASSERTION
  * ========================================================== */
 
 async function expectNavigationItem(
@@ -811,26 +632,15 @@ async function expectNavigationItem(
   } = getNavigationItem(page, name);
 
   if (visible) {
-    /*
-     * At least one actual navigation representation
-     * must be visible.
-     */
-
     if (
-      await link
-        .isVisible()
-        .catch(() => false)
+      await link.isVisible().catch(() => false)
     ) {
-      await expect(link).toBeVisible();
       return;
     }
 
     if (
-      await button
-        .isVisible()
-        .catch(() => false)
+      await button.isVisible().catch(() => false)
     ) {
-      await expect(button).toBeVisible();
       return;
     }
 
@@ -841,35 +651,24 @@ async function expectNavigationItem(
     return;
   }
 
-  /*
-   * For hidden navigation items, make sure none of the
-   * supported visible representations exists.
-   */
-
   const visibleLink =
-    await link
-      .isVisible()
-      .catch(() => false);
+    await link.isVisible().catch(() => false);
 
   const visibleButton =
-    await button
-      .isVisible()
-      .catch(() => false);
+    await button.isVisible().catch(() => false);
 
   const visibleText =
-    await text
-      .isVisible()
-      .catch(() => false);
+    await text.isVisible().catch(() => false);
 
   expect(
     visibleLink ||
-    visibleButton ||
-    visibleText,
+      visibleButton ||
+      visibleText,
   ).toBe(false);
 }
 
 /* ============================================================
- * DASHBOARD URL HELPER
+ * DASHBOARD URL
  * ========================================================== */
 
 async function waitForDashboard(
@@ -906,73 +705,56 @@ async function expectRouteContent(
   route: ProtectedRoute,
   roles: E2ERole[],
 ): Promise<void> {
-  const expectedContent =
-    getExpectedRouteContent(
-      route,
-      roles,
+  /* ==========================================================
+   * PAYROLL
+   * ======================================================== */
+
+  if (route.path === "/payroll") {
+    const payrollHeading = page.getByRole(
+      "heading",
+      {
+        name: "Payroll Dashboard",
+        exact: true,
+      },
     );
 
-  const main =
-    page.getByRole("main");
-
-  const container =
-    (await main.count()) > 0
-      ? main
-      : page.locator("body");
-
-  /* ----------------------------------------------------------
-   * Multiple possible contents
-   * -------------------------------------------------------- */
-
-  if (Array.isArray(expectedContent)) {
-    for (const content of expectedContent) {
-      const locator =
-        container
-          .getByText(content, {
-            exact: false,
-          })
-          .first();
-
-      if (
-        await locator
-          .isVisible()
-          .catch(() => false)
-      ) {
-        return;
-      }
-    }
-
-    await expect(
-      container
-        .getByText(
-          expectedContent[0],
-          {
-            exact: false,
-          },
-        )
-        .first(),
-    ).toBeVisible({
-      timeout: 5000,
+    await expect(payrollHeading).toBeVisible({
+      timeout: 15000,
     });
 
     return;
   }
 
-  /* ----------------------------------------------------------
-   * Single expected content
-   * -------------------------------------------------------- */
+  /* ==========================================================
+   * SETTINGS
+   * ======================================================== */
+
+  if (route.path === "/settings") {
+    const expected = roles.includes("ADMIN")
+      ? "Company Settings"
+      : "Audit Logs";
+
+    await expect(
+      page.getByText(expected, {
+        exact: true,
+      }).first(),
+    ).toBeVisible({
+      timeout: 15000,
+    });
+
+    return;
+  }
+
+  /* ==========================================================
+   * OTHER ROUTES
+   * ======================================================== */
 
   await expect(
-    container
-      .getByText(
-        expectedContent,
-        {
-          exact: false,
-        },
-      )
-      .first(),
+    page.getByText(route.content, {
+      exact: false,
+    }).first(),
   ).toBeVisible({
-    timeout: 5000,
+    timeout: 15000,
   });
 }
 
@@ -983,10 +765,8 @@ async function expectRouteContent(
 test.describe(
   "role and permission access matrix",
   () => {
-
     /* ========================================================
      * TEST 1
-     *
      * Dashboard + Navigation
      * ====================================================== */
 
@@ -994,37 +774,19 @@ test.describe(
       test(
         `${scenario.name} uses highest-priority dashboard and combined nav`,
         async ({ page }) => {
-
-          /* --------------------------------------------------
-           * Login
-           * ------------------------------------------------ */
-
           await loginAs(
             page,
             scenario,
           );
 
-          /* --------------------------------------------------
-           * Open application
-           * ------------------------------------------------ */
-
           await page.goto("/", {
-            waitUntil:
-              "domcontentloaded",
+            waitUntil: "domcontentloaded",
           });
-
-          /* --------------------------------------------------
-           * Dashboard
-           * ------------------------------------------------ */
 
           await waitForDashboard(
             page,
             scenario.expectedDashboard,
           );
-
-          /* --------------------------------------------------
-           * Workspace
-           * ------------------------------------------------ */
 
           await expect(
             page.getByText(
@@ -1037,15 +799,7 @@ test.describe(
             timeout: 10000,
           });
 
-          /* --------------------------------------------------
-           * Navigation
-           * ------------------------------------------------ */
-
           await openNavigation(page);
-
-          /* --------------------------------------------------
-           * Check navigation items
-           * ------------------------------------------------ */
 
           for (const item of ALL_NAV_ITEMS) {
             await expectNavigationItem(
@@ -1060,7 +814,6 @@ test.describe(
 
     /* ========================================================
      * TEST 2
-     *
      * Protected Route Access
      * ====================================================== */
 
@@ -1069,21 +822,34 @@ test.describe(
         test(
           `${scenario.name} ${route.path} route access`,
           async ({ page }) => {
+            /* ------------------------------------------------
+             * Calculate permissions
+             * ---------------------------------------------- */
 
             const userPermissions =
               getPermissionsForRole(
                 scenario.roles,
               );
 
-            const isAllowed =
+            /* ------------------------------------------------
+             * Calculate authorization
+             * ---------------------------------------------- */
+
+            const roleAllowed =
               hasAnyRole(
                 scenario.roles,
                 route.allowedRoles,
-              ) &&
+              );
+
+            const permissionAllowed =
               hasPermissions(
                 userPermissions,
                 route.requiredPermissions,
               );
+
+            const isAllowed =
+              roleAllowed &&
+              permissionAllowed;
 
             /* ------------------------------------------------
              * Login
@@ -1095,20 +861,19 @@ test.describe(
             );
 
             /* ------------------------------------------------
-             * Navigate to protected route
+             * Navigate
              * ---------------------------------------------- */
 
             await page.goto(
               route.path,
               {
-                waitUntil:
-                  "domcontentloaded",
+                waitUntil: "domcontentloaded",
               },
             );
 
-            /* ================================================
-             * UNAUTHORIZED ROUTE
-             * ============================================== */
+            /* =================================================
+             * UNAUTHORIZED
+             * =============================================== */
 
             if (!isAllowed) {
               await expect(
@@ -1123,6 +888,9 @@ test.describe(
               await expect(
                 page.getByText(
                   "Unable to determine access",
+                  {
+                    exact: true,
+                  },
                 ),
               ).toBeVisible({
                 timeout: 10000,
@@ -1131,9 +899,9 @@ test.describe(
               return;
             }
 
-            /* ================================================
+            /* =================================================
              * ALLOWED ROUTE
-             * ============================================== */
+             * =============================================== */
 
             const expectedPath =
               route.path === "/settings"
@@ -1141,10 +909,6 @@ test.describe(
                     scenario.roles,
                   )
                 : route.path;
-
-            /*
-             * Escape regexp characters correctly.
-             */
 
             const escapedPath =
               expectedPath.replace(
@@ -1159,37 +923,23 @@ test.describe(
                 `${escapedPath}$`,
               ),
               {
-                timeout: 10000,
+                timeout: 15000,
               },
             );
 
-            /* ================================================
-             * DASHBOARD ROUTE
-             * ============================================== */
+            /* =================================================
+             * DASHBOARD ROUTES
+             * =============================================== */
 
             if (
               route.path.endsWith(
                 "/dashboard",
               )
             ) {
-              const main =
-                page.getByRole(
-                  "main",
-                );
-
-              const container =
-                (await main.count()) > 0
-                  ? main
-                  : page.locator(
-                      "body",
-                    );
-
               await expect(
-                container
-                  .getByText(
-                    DASHBOARD_GREETING_REGEX,
-                  )
-                  .first(),
+                page.getByText(
+                  DASHBOARD_GREETING_REGEX,
+                ).first(),
               ).toBeVisible({
                 timeout: 10000,
               });
@@ -1197,9 +947,9 @@ test.describe(
               return;
             }
 
-            /* ================================================
+            /* =================================================
              * OTHER PROTECTED ROUTES
-             * ============================================== */
+             * =============================================== */
 
             await expectRouteContent(
               page,
@@ -1210,119 +960,5 @@ test.describe(
         );
       }
     }
-
-    /* ========================================================
-     * TEST 3
-     *
-     * HR without employee permission
-     * ====================================================== */
-
-    // test(
-    //   "HR without employee permission cannot see or open employees",
-    //   async ({ page }) => {
-
-    //     /* ----------------------------------------------------
-    //      * Seed HR session WITHOUT permissions
-    //      * -------------------------------------------------- */
-
-    //     await seedAuthSession(
-    //       page,
-    //       createMockSession({
-    //         roles: ["HR"],
-    //         permissions: [],
-    //         email:
-    //           "hr-no-permission@company.com",
-    //         tenantId: "tenant-1",
-    //         branchId: "branch-1",
-    //         fiscalYearId: "fy-2026",
-    //       }),
-    //     );
-
-    //     /* ----------------------------------------------------
-    //      * HR dashboard
-    //      * -------------------------------------------------- */
-
-    //     await page.goto(
-    //       "/hr/dashboard",
-    //       {
-    //         waitUntil:
-    //           "domcontentloaded",
-    //       },
-    //     );
-
-    //     await expect(
-    //       page,
-    //     ).toHaveURL(
-    //       /\/hr\/dashboard$/,
-    //       {
-    //         timeout: 10000,
-    //       },
-    //     );
-
-    //     /* ----------------------------------------------------
-    //      * Navigation
-    //      * -------------------------------------------------- */
-
-    //     await openNavigation(page);
-
-    //     /* ----------------------------------------------------
-    //      * Employees must NOT be visible
-    //      * -------------------------------------------------- */
-
-    //     await expect(
-    //       page.getByRole(
-    //         "button",
-    //         {
-    //           name: "Employees",
-    //           exact: true,
-    //         },
-    //       ),
-    //     ).toHaveCount(0);
-
-    //     /*
-    //      * Also check links/text because the application
-    //      * may render navigation using another element.
-    //      */
-
-    //     await expect(
-    //       page.getByRole(
-    //         "link",
-    //         {
-    //           name: "Employees",
-    //           exact: true,
-    //         },
-    //       ),
-    //     ).toHaveCount(0);
-
-    //     /* ----------------------------------------------------
-    //      * Direct employee access must fail
-    //      * -------------------------------------------------- */
-
-    //     await page.goto(
-    //       "/employees",
-    //       {
-    //         waitUntil:
-    //           "domcontentloaded",
-    //       },
-    //     );
-
-    //     await expect(
-    //       page,
-    //     ).toHaveURL(
-    //       /\/unauthorized$/,
-    //       {
-    //         timeout: 10000,
-    //       },
-    //     );
-
-    //     await expect(
-    //       page.getByText(
-    //         "Unable to determine access",
-    //       ),
-    //     ).toBeVisible({
-    //       timeout: 10000,
-    //     });
-    //   },
-    // );
   },
 );

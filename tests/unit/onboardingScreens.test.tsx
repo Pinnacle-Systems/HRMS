@@ -139,7 +139,7 @@ const assignments = [
     id: "assignment-1",
     employeeId: "employee-1",
     employeeName: "Ava Patel",
-    checklistName: "Engineering onboarding",
+    checklistName: "HR Documentation",
     checklistId: "checklist-1",
     status: "In Progress",
     progress: 10,
@@ -152,7 +152,7 @@ describe("onboarding screens contract calls", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockedOnboardingService.getChecklists.mockResolvedValue({
-      data: [{ id: "checklist-1", name: "Engineering onboarding", tasks: [] }],
+      data: [{ id: "checklist-1", name: "HR Documentation", tasks: [] }],
     });
     mockedOnboardingService.getAssignments.mockResolvedValue({
       data: assignments,
@@ -293,7 +293,7 @@ describe("onboarding screens contract calls", () => {
       await screen.findByRole("combobox", { name: "Select Employee" }),
       "employee-1",
     );
-    await user.click(await screen.findByText("Engineering onboarding"));
+    await user.click(await screen.findByText("HR Documentation"));
     await user.click(await screen.findByRole("button", { name: /upload first document/i }));
 
     const dialog = await screen.findByRole("dialog");

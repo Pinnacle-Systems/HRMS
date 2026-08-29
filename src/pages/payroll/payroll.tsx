@@ -35,7 +35,7 @@ import { useNavigate } from "react-router-dom";
 const CHART_COLORS = ["#ea580c", "#3b82f6", "#10b981", "#8b5cf6", "#f59e0b"];
 
 // Status color mapping as OBJECT (not array)
-const processingStatusColor:any = {
+const processingStatusColor: any = {
   "Submitted": "#3b82f6",
   "Processing": "#f59e0b",
   "Approved": "#10b981",
@@ -175,9 +175,12 @@ export default function Dashboard() {
       {/* Page Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <div className="text-gray-800 font-bold">
+          <Typography
+            component="h1"
+            className="text-gray-800 font-bold"
+          >
             Payroll Dashboard
-          </div>
+          </Typography>
           <div className="text-[12px] text-gray-500 mt-0.5">
             Overview of your payroll operations
           </div>
@@ -482,7 +485,7 @@ export default function Dashboard() {
                   );
                 })}
 
-                <Divider sx={{ my: 1 }} className="border border-gray-200"/>
+                <Divider sx={{ my: 1 }} className="border border-gray-200" />
 
                 <Box>
                   <div className="text-[12px] text-gray-800">

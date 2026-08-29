@@ -39,9 +39,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { onBoardService } from "../../../../services/modules/onBoard";
-import { useUI } from "../../../../context/Snackbar";
-import dayjs from "dayjs";
 import {
   CloseOutlined,
   MarkEmailUnreadOutlined,
@@ -49,57 +46,107 @@ import {
   SendOutlined,
   VisibilityOutlined,
 } from "@mui/icons-material";
+import dayjs from "dayjs";
+
+import { onBoardService } from "../../../../services/modules/onBoard";
+import { useUI } from "../../../../context/Snackbar";
 import { getRowColor } from "../../../const";
 import { GlobalPagination } from "../../../../components/GlobalPagination";
-import type { OnboardingAssignment, OnboardingDetail } from "./type";
 import { EmployeeSelector } from "../../../../components/PolicyManagement/Common/EmployeeSelector";
+import type { OnboardingAssignment, OnboardingDetail } from "./type";
+
+// Constants
+const STATUS_MAP = {
+  COMPLETED: "success",
+  IN_PROGRESS: "info",
+  OVERDUE: "error",
+  PENDING: "warning",
+  SCHEDULED: "info",
+} as const;
+
+const STATUS_DISPLAY = {
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  OVERDUE: "Overdue",
+  PENDING: "Pending",
+  SCHEDULED: "Scheduled",
+} as const;
+
+const TASK_STATUS_MAP = {
+  COMPLETED: "success",
+  IN_PROGRESS: "info",
+  OVERDUE: "error",
+  PENDING: "warning",
+} as const;
+
+const TASK_STATUS_DISPLAY = {
+  IN_PROGRESS: "In Progress",
+  COMPLETED: "Completed",
+  OVERDUE: "Overdue",
+  PENDING: "Pending",
+} as const;
+
+type StatusKey = keyof typeof STATUS_MAP;
 
 export const AssignOnboarding = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+
+  // State
   const [checklists, setChecklists] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<OnboardingAssignment[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedAssignment, setSelectedAssignment] =
-    useState<OnboardingAssignment | null>(null);
-  const [selectedEmployees, setSelectedEmployees] = useState<any[]>([]);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isBulkSending, setIsBulkSending] = useState(false);
+
+  const [selectedAssignment, setSelectedAssignment] =
+    useState<OnboardingAssignment | null>(null);
+  const [selectedEmployees, setSelectedEmployees] = useState<any[]>([]);
+  const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(
+    new Set()
+  );
+  const [onboardingDetail, setOnboardingDetail] =
+    useState<OnboardingDetail | null>(null);
+
   const [formData, setFormData] = useState({
     employeeId: "",
-    employeeIds: [] as any[],
+    employeeIds: [] as string[],
     checklistIds: [] as string[],
     startDate: dayjs().format("YYYY-MM-DD"),
     dueDate: "",
     notes: "",
   });
 
-  const [selectedAssignments, setSelectedAssignments] = useState<Set<string>>(
-    new Set(),
-  );
-  const [isBulkSending, setIsBulkSending] = useState(false);
-  const [onboardingDetail, setOnboardingDetail] = useState<OnboardingDetail | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-
-  // State for bulk assign dialog
-  const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
-
+  // Derived data
   const totalAssignments = assignments.length;
   const inProgressAssignments = assignments.filter(
-    (a) => a.overallStatus === "IN_PROGRESS",
+    (a) => a.overallStatus === "IN_PROGRESS"
   ).length;
   const completedAssignments = assignments.filter(
-    (a) => a.overallStatus === "COMPLETED",
+    (a) => a.overallStatus === "COMPLETED"
   ).length;
   const pendingAssignments = assignments.filter(
-    (a) => a.overallStatus === "PENDING",
+    (a) => a.overallStatus === "PENDING"
   ).length;
   const overdueAssignments = assignments.filter(
-    (a) => a.overallStatus === "OVERDUE",
+    (a) => a.overallStatus === "OVERDUE"
   ).length;
 
+  const unsentAssignments = assignments.filter((a) => !a.welcomeEmailSentAt);
+  const isAllSelected =
+    unsentAssignments.length > 0 &&
+    unsentAssignments.every((a) => selectedAssignments.has(a.onboardingId));
+  const isIndeterminate =
+    selectedAssignments.size > 0 &&
+    selectedAssignments.size < unsentAssignments.length;
+
+  // API calls
   const fetchData = async () => {
     try {
       showSpinner();
@@ -111,19 +158,22 @@ export const AssignOnboarding = () => {
       if (statusFilter !== "ALL") {
         params.status = statusFilter;
       }
+
       const [checklistsResult, assignmentsResult] = await Promise.allSettled([
         onBoardService.getChecklists(),
         onBoardService.getAssignments(params),
       ]);
+
       if (checklistsResult.status === "fulfilled") {
         const checklistsRes: any = checklistsResult.value;
         setChecklists(checklistsRes.data?.content || checklistsRes.data || []);
       }
+
       if (assignmentsResult.status === "fulfilled") {
         const responseData: any = assignmentsResult.value;
         const content = responseData.data?.content || responseData.data || [];
         setAssignments(content);
-        setTotal(responseData.data.totalElements || 0);
+        setTotal(responseData.data?.totalElements || 0);
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -132,10 +182,12 @@ export const AssignOnboarding = () => {
     }
   };
 
+  // Effects
   useEffect(() => {
     fetchData();
   }, [page, limit, statusFilter]);
 
+  // Handlers
   const handleSelectAssignment = (onboardingId: string) => {
     setSelectedAssignments((prev) => {
       const newSet = new Set(prev);
@@ -149,15 +201,108 @@ export const AssignOnboarding = () => {
   };
 
   const handleSelectAll = () => {
-    const unsentAssignments = assignments.filter((a) => !a.welcomeEmailSentAt);
     const allUnsentSelected = unsentAssignments.every((a) =>
-      selectedAssignments.has(a.onboardingId),
+      selectedAssignments.has(a.onboardingId)
     );
     if (allUnsentSelected) {
       setSelectedAssignments(new Set());
     } else {
       const unsentIds = unsentAssignments.map((a) => a.onboardingId);
       setSelectedAssignments(new Set(unsentIds));
+    }
+  };
+
+  const handleStatusFilterClick = (status: string) => {
+    setStatusFilter(status);
+    setPage(0);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage - 1);
+  };
+
+  const handleLimitChange = (newLimit: number) => {
+    setLimit(newLimit);
+    setPage(0);
+  };
+
+  const handleOpenBulkAssign = () => {
+    const selectedEmployeeIds = Array.from(selectedAssignments)
+      .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
+      .filter((id): id is string => !!id);
+
+    if (selectedEmployeeIds.length === 0) {
+      showSnackbar("No employees selected", "error");
+      return;
+    }
+
+    const selectedEmployeesList = assignments
+      .filter((a) => selectedAssignments.has(a.onboardingId))
+      .map((a) => ({
+        id: a.employeeId,
+        name: a.employeeName,
+        email: a.employeeEmail,
+        code: a.employeeCode,
+      }))
+      .filter((emp): emp is any => !!emp.id);
+
+    setSelectedEmployees(selectedEmployeesList);
+    setFormData({
+      ...formData,
+      employeeIds: selectedEmployeeIds,
+    });
+    setIsBulkAssignDialogOpen(true);
+  };
+
+  const handleAssign = async () => {
+    const employeeIds =
+      formData.employeeIds.length > 0
+        ? formData.employeeIds
+        : formData.employeeId
+        ? [formData.employeeId]
+        : [];
+
+    if (employeeIds.length === 0 || formData.checklistIds.length === 0) {
+      showSnackbar(
+        "Please select employee(s) and at least one checklist",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      showSpinner();
+      const payload = {
+        employeeIds,
+        checklistIds: formData.checklistIds,
+        startDate: formData.startDate,
+        ...(formData.dueDate && { dueDate: formData.dueDate }),
+        ...(formData.notes && { notes: formData.notes }),
+      };
+
+      await onBoardService.bulkAssignOnboarding(payload);
+
+      setIsDialogOpen(false);
+      setIsBulkAssignDialogOpen(false);
+      setFormData({
+        employeeId: "",
+        employeeIds: [],
+        checklistIds: [],
+        startDate: dayjs().format("YYYY-MM-DD"),
+        dueDate: "",
+        notes: "",
+      });
+      setSelectedEmployees([]);
+      setSelectedAssignments(new Set());
+      fetchData();
+      showSnackbar(
+        `Onboarding assigned to ${employeeIds.length} employee(s) successfully!`,
+        "success"
+      );
+    } catch (error: any) {
+      showSnackbar(error.message, "error");
+    } finally {
+      hideSpinner();
     }
   };
 
@@ -184,13 +329,12 @@ export const AssignOnboarding = () => {
         try {
           setIsBulkSending(true);
           showSpinner();
-          const payload = {
+          await onBoardService.sendWelcomeMessage({
             employeeIds: selectedEmployeeIds,
-          };
-          await onBoardService.sendWelcomeMessage(payload);
+          });
           showSnackbar(
             `Welcome emails sent to ${selectedEmployeeIds.length} employee(s) successfully!`,
-            "success",
+            "success"
           );
           setSelectedAssignments(new Set());
           fetchData();
@@ -204,74 +348,22 @@ export const AssignOnboarding = () => {
     });
   };
 
-  // Open bulk assign dialog with selected employees
-  const handleOpenBulkAssign = () => {
-    const selectedEmployeeIds = Array.from(selectedAssignments)
-      .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
-      .filter((id): id is string => !!id);
-
-    if (selectedEmployeeIds.length === 0) {
-      showSnackbar("No employees selected", "error");
-      return;
-    }
-
-    // Get the selected employee objects
-    const selectedEmployeesList = assignments
-      .filter((a) => selectedAssignments.has(a.onboardingId))
-      .map((a) => ({
-        id: a.employeeId,
-        name: a.employeeName,
-        email: a.employeeEmail,
-        code: a.employeeCode,
-        // Add other fields as needed
-      }))
-      .filter((emp): emp is any => !!emp.id);
-
-    setSelectedEmployees(selectedEmployeesList as any);
-    setFormData({
-      ...formData,
-      employeeIds: selectedEmployeeIds,
-    });
-    setIsBulkAssignDialogOpen(true);
-  };
-
-  const handleAssign = async () => {
-    // Use employeeIds for multiple selection
-    const employeeIds = formData.employeeIds.length > 0
-      ? formData.employeeIds
-      : (formData.employeeId ? [formData.employeeId] : []);
-
-    if (employeeIds.length === 0 || formData.checklistIds.length === 0) {
-      showSnackbar("Please select employee(s) and at least one checklist", "error");
+  const handleSendWelcome = async (assignment: OnboardingAssignment) => {
+    if (!assignment.employeeId) {
+      showSnackbar(
+        "Cannot send welcome message: employee id is missing.",
+        "error"
+      );
       return;
     }
 
     try {
       showSpinner();
-      const payload = {
-        employeeIds: employeeIds, // Send array of employee IDs
-        checklistIds: formData.checklistIds,
-        startDate: formData.startDate,
-        ...(formData.dueDate ? { dueDate: formData.dueDate } : {}),
-        ...(formData.notes ? { notes: formData.notes } : {}),
-      };
-
-      await onBoardService.bulkAssignOnboarding(payload);
-
-      setIsDialogOpen(false);
-      setIsBulkAssignDialogOpen(false);
-      setFormData({
-        employeeId: "",
-        employeeIds: [],
-        checklistIds: [],
-        startDate: dayjs().format("YYYY-MM-DD"),
-        dueDate: "",
-        notes: "",
+      await onBoardService.sendWelcomeMessage({
+        employeeIds: [assignment.employeeId],
       });
-      setSelectedEmployees([]);
-      setSelectedAssignments(new Set());
+      showSnackbar("Welcome message sent successfully!", "success");
       fetchData();
-      showSnackbar(`Onboarding assigned to ${employeeIds.length} employee(s) successfully!`, "success");
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
@@ -282,8 +374,7 @@ export const AssignOnboarding = () => {
   const handleDeleteAssignment = async (id: string) => {
     showConfirmDialog({
       title: "Deactivate Onboarding Assignment",
-      message:
-        "Are you sure you want to deactivate this onboarding assignment?",
+      message: "Are you sure you want to deactivate this onboarding assignment?",
       confirmText: "Deactivate",
       onConfirm: async () => {
         try {
@@ -292,7 +383,7 @@ export const AssignOnboarding = () => {
           fetchData();
           showSnackbar(
             "Onboarding assignment deactivated successfully!",
-            "success",
+            "success"
           );
         } catch (error: any) {
           showSnackbar(error.message, "error");
@@ -316,7 +407,7 @@ export const AssignOnboarding = () => {
           fetchData();
           showSnackbar(
             "Onboarding assignment reactivated successfully!",
-            "success",
+            "success"
           );
         } catch (error: any) {
           showSnackbar(error.message, "error");
@@ -325,27 +416,6 @@ export const AssignOnboarding = () => {
         }
       },
     });
-  };
-
-  const handleSendWelcome = async (assignment: OnboardingAssignment) => {
-    if (!assignment.employeeId) {
-      showSnackbar(
-        "Cannot send welcome message: employee id is missing.",
-        "error",
-      );
-      return;
-    }
-    try {
-      showSpinner();
-      const payload = { employeeIds: [assignment.employeeId] };
-      await onBoardService.sendWelcomeMessage(payload);
-      showSnackbar("Welcome message sent successfully!", "success");
-      fetchData();
-    } catch (error: any) {
-      showSnackbar(error.message, "error");
-    } finally {
-      hideSpinner();
-    }
   };
 
   const handleViewDetails = async (assignment: OnboardingAssignment) => {
@@ -362,7 +432,7 @@ export const AssignOnboarding = () => {
     try {
       showSpinner();
       const progressRes: any = await onBoardService.getProgress(
-        assignment.employeeId,
+        assignment.employeeId
       );
       setOnboardingDetail(progressRes.data);
       setSelectedAssignment({ ...assignment, progress: progressRes.data });
@@ -374,88 +444,42 @@ export const AssignOnboarding = () => {
     }
   };
 
-  // const handleBulkAssign = async () => {
-  //   const selectedEmployeeIds = Array.from(selectedAssignments)
-  //     .map((id) => assignments.find((a) => a.onboardingId === id)?.employeeId)
-  //     .filter((id): id is string => !!id);
-
-  //   if (selectedEmployeeIds.length === 0) {
-  //     showSnackbar("No employees selected", "error");
-  //     return;
-  //   }
-
-  //   if (formData.checklistIds.length === 0) {
-  //     showSnackbar("Please select at least one checklist", "error");
-  //     return;
-  //   }
-
-  //   showConfirmDialog({
-  //     title: "Bulk Assign Onboarding",
-  //     message: `Assign onboarding to ${selectedEmployeeIds.length} selected employees with ${formData.checklistIds.length} checklist(s)?`,
-  //     confirmText: "Assign",
-  //     onConfirm: async () => {
-  //       try {
-  //         showSpinner();
-  //         await onBoardService.bulkAssignOnboarding({
-  //           employeeIds: selectedEmployeeIds,
-  //           checklistIds: formData.checklistIds,
-  //           ...(formData.dueDate ? { dueDate: formData.dueDate } : {}),
-  //           ...(formData.notes ? { notes: formData.notes } : {}),
-  //         });
-  //         showSnackbar(`Bulk assignment completed for ${selectedEmployeeIds.length} employees!`, "success");
-  //         setSelectedAssignments(new Set());
-  //         setFormData({
-  //           employeeId: "",
-  //           employeeIds: [],
-  //           checklistIds: [],
-  //           startDate: dayjs().format("YYYY-MM-DD"),
-  //           dueDate: "",
-  //           notes: "",
-  //         });
-  //         fetchData();
-  //       } catch (error: any) {
-  //         showSnackbar(error.message, "error");
-  //       } finally {
-  //         hideSpinner();
-  //       }
-  //     },
-  //   });
-  // };
-
-  const handleStatusFilterClick = (status: string) => {
-    setStatusFilter(status);
-    setPage(0);
-  };
-
-  const getStatusColor = (
-    status: string,
-  ): "success" | "info" | "error" | "warning" | "default" => {
-    const statusMap: Record<
-      string,
-      "success" | "info" | "error" | "warning" | "default"
-    > = {
-      COMPLETED: "success",
-      IN_PROGRESS: "info",
-      OVERDUE: "error",
-      PENDING: "warning",
-      SCHEDULED: "info",
-    };
-    return statusMap[status] || "default";
+  // Helper functions
+  const getStatusColor = (status: string) => {
+    return STATUS_MAP[status as StatusKey] || "default";
   };
 
   const getStatusDisplay = (status: string): string => {
-    const statusMap: Record<string, string> = {
-      IN_PROGRESS: "In Progress",
-      COMPLETED: "Completed",
-      OVERDUE: "Overdue",
-      PENDING: "Pending",
-      SCHEDULED: "Scheduled",
-    };
-    return statusMap[status] || status || "—";
+    return STATUS_DISPLAY[status as keyof typeof STATUS_DISPLAY] || status || "—";
   };
 
   const calculateProgress = (assignment: OnboardingAssignment): number => {
     return assignment.overallProgressPercent || 0;
+  };
+
+  const getTaskStatusIcon = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case "COMPLETED":
+        return <CheckCircleIcon className="!text-green-700 text-sm" />;
+      case "IN_PROGRESS":
+        return <PendingIcon className="text-blue-500 text-sm" />;
+      case "OVERDUE":
+        return <PendingIcon className="text-red-500 text-sm" />;
+      default:
+        return <PendingIcon className="!text-gray-400 text-sm" />;
+    }
+  };
+
+  const getTaskStatusColor = (status: string) => {
+    return TASK_STATUS_MAP[status as keyof typeof TASK_STATUS_MAP] || "default";
+  };
+
+  const getTaskStatusDisplay = (status: string) => {
+    return (
+      TASK_STATUS_DISPLAY[status as keyof typeof TASK_STATUS_DISPLAY] ||
+      status ||
+      "—"
+    );
   };
 
   const getStatusBadge = (status: string, count: number, label: string) => {
@@ -476,69 +500,17 @@ export const AssignOnboarding = () => {
         color={colors[status as keyof typeof colors] as any}
         variant={isActive ? "filled" : "outlined"}
         onClick={() => handleStatusFilterClick(status)}
-        className={`cursor-pointer hover:shadow-md transition-all ${status === "ALL" ? "text-gray-800 bg-gray-100" : ""} ${isActive ? "!font-bold" : ""}`}
+        className={`cursor-pointer hover:shadow-md transition-all ${
+          status === "ALL" ? "text-gray-800 bg-gray-100" : ""
+        } ${isActive ? "!font-bold" : ""}`}
       />
     );
   };
 
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage - 1);
-  };
-
-  const handleLimitChange = (newLimit: number) => {
-    setLimit(newLimit);
-    setPage(0);
-  };
-
-  const unsentAssignments = assignments.filter((a) => !a.welcomeEmailSentAt);
-  const isAllSelected =
-    unsentAssignments.length > 0 &&
-    unsentAssignments.every((a) => selectedAssignments.has(a.onboardingId));
-  const isIndeterminate =
-    selectedAssignments.size > 0 &&
-    selectedAssignments.size < unsentAssignments.length;
-
-  // Helper functions for details
-  const getTaskStatusIcon = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case "COMPLETED":
-        return <CheckCircleIcon className="!text-green-700 text-sm" />;
-      case "IN_PROGRESS":
-        return <PendingIcon className="text-blue-500 text-sm" />;
-      case "OVERDUE":
-        return <PendingIcon className="text-red-500 text-sm" />;
-      default:
-        return <PendingIcon className="!text-gray-400 text-sm" />;
-    }
-  };
-
-  const getTaskStatusColor = (status: string) => {
-    switch (status?.toUpperCase()) {
-      case "COMPLETED":
-        return "success";
-      case "IN_PROGRESS":
-        return "info";
-      case "OVERDUE":
-        return "error";
-      case "PENDING":
-        return "warning";
-      default:
-        return "default";
-    }
-  };
-
-  const getTaskStatusDisplay = (status: string) => {
-    const map: Record<string, string> = {
-      IN_PROGRESS: "In Progress",
-      COMPLETED: "Completed",
-      OVERDUE: "Overdue",
-      PENDING: "Pending",
-    };
-    return map[status?.toUpperCase()] || status || "—";
-  };
-
+  // Render
   return (
     <div className="py-4 pb-0">
+      {/* Header */}
       <div className="mb-4 flex justify-between items-center">
         <div>
           <div className="text-[12px] text-gray-800">Assign Onboarding</div>
@@ -548,29 +520,29 @@ export const AssignOnboarding = () => {
         </div>
         <div className="flex gap-2">
           {selectedAssignments.size > 0 && (
-            <Button
-              variant="contained"
-              startIcon={<MarkEmailUnreadOutlined />}
-              onClick={handleOpenBulkAssign}
-              className="!bg-primary"
-            >
-              Bulk Assign ({selectedAssignments.size})
-            </Button>
-          )}
-          {selectedAssignments.size > 0 && (
-            <Button
-              variant="contained"
-              startIcon={<MarkEmailUnreadOutlined />}
-              onClick={handleBulkSendWelcome}
-              disabled={isBulkSending}
-              className="!bg-primary"
-            >
-              {isBulkSending ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : (
-                `Send Welcome (${selectedAssignments.size})`
-              )}
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                startIcon={<MarkEmailUnreadOutlined />}
+                onClick={handleOpenBulkAssign}
+                className="!bg-primary"
+              >
+                Bulk Assign ({selectedAssignments.size})
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<MarkEmailUnreadOutlined />}
+                onClick={handleBulkSendWelcome}
+                disabled={isBulkSending}
+                className="!bg-primary"
+              >
+                {isBulkSending ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  `Send Welcome (${selectedAssignments.size})`
+                )}
+              </Button>
+            </>
           )}
           <Button
             variant="contained"
@@ -582,6 +554,7 @@ export const AssignOnboarding = () => {
         </div>
       </div>
 
+      {/* Status Filters */}
       <Box sx={{ mb: 2, display: "flex", gap: 1, flexWrap: "wrap" }}>
         {getStatusBadge("ALL", totalAssignments, "All")}
         {getStatusBadge("IN_PROGRESS", inProgressAssignments, "In Progress")}
@@ -590,6 +563,7 @@ export const AssignOnboarding = () => {
         {getStatusBadge("OVERDUE", overdueAssignments, "Overdue")}
       </Box>
 
+      {/* Table */}
       <TableContainer className="h-[calc(100vh-370px)] overflow-auto">
         <Table stickyHeader className="border border-gray-200 rounded-md">
           <TableHead>
@@ -605,14 +579,19 @@ export const AssignOnboarding = () => {
                 />
                 #
               </TableCell>
-              <TableCell className="!font-bold !sticky left-[75px] !z-30">Employee</TableCell>
+              <TableCell className="!font-bold !sticky left-[75px] !z-30">
+                Employee
+              </TableCell>
               <TableCell className="!font-bold">Department</TableCell>
               <TableCell className="!font-bold">Branch</TableCell>
               <TableCell className="!font-bold">Status</TableCell>
               <TableCell className="!font-bold">Progress</TableCell>
               <TableCell className="!font-bold">Assigned At</TableCell>
               <TableCell className="!font-bold">Welcome Email</TableCell>
-              <TableCell className="!font-bold !sticky right-0 !z-30" align="center">
+              <TableCell
+                className="!font-bold !sticky right-0 !z-30"
+                align="center"
+              >
                 Actions
               </TableCell>
             </TableRow>
@@ -627,19 +606,16 @@ export const AssignOnboarding = () => {
             ) : (
               assignments.map((assignment, index) => {
                 const progress = calculateProgress(assignment);
-                const statusDisplay = getStatusDisplay(
-                  assignment.overallStatus,
-                );
+                const statusDisplay = getStatusDisplay(assignment.overallStatus);
                 const statusColor = getStatusColor(assignment.overallStatus);
                 const isSelected = selectedAssignments.has(
-                  assignment.onboardingId,
+                  assignment.onboardingId
                 );
                 const hasWelcomeSent = !!assignment.welcomeEmailSentAt;
+
                 return (
                   <TableRow
-                    key={
-                      assignment.onboardingId || assignment.employeeId || index
-                    }
+                    key={assignment.onboardingId || assignment.employeeId || index}
                     sx={getRowColor(index)}
                     className={isSelected ? "bg-primary/5" : ""}
                   >
@@ -675,7 +651,7 @@ export const AssignOnboarding = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={assignment.departmentName || "—"}
+                        label={assignment.departmentName || "N/A"}
                         size="small"
                         variant="outlined"
                         className="text-gray-800"
@@ -683,7 +659,7 @@ export const AssignOnboarding = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={assignment.branchName || "—"}
+                        label={assignment.branchName || "N/A"}
                         size="small"
                         variant="outlined"
                         className="text-gray-800"
@@ -702,9 +678,7 @@ export const AssignOnboarding = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Box
                           sx={{
                             width: "80px",
@@ -720,10 +694,10 @@ export const AssignOnboarding = () => {
                                 progress === 100
                                   ? "success.main"
                                   : progress >= 70
-                                    ? "primary.main"
-                                    : progress >= 40
-                                      ? "warning.main"
-                                      : "error.main",
+                                  ? "primary.main"
+                                  : progress >= 40
+                                  ? "warning.main"
+                                  : "error.main",
                               borderRadius: 1,
                               height: 8,
                               transition: "width 0.3s ease",
@@ -742,7 +716,6 @@ export const AssignOnboarding = () => {
                         variant="caption"
                         color="text.secondary"
                         sx={{ display: "block", fontSize: "10px" }}
-                        className="hover:"
                       >
                         {assignment.completedChecklists || 0}/
                         {assignment.totalChecklists || 0} checklists
@@ -763,23 +736,17 @@ export const AssignOnboarding = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      {assignment.welcomeEmailSentAt ? (
-                        <Chip
-                          label="Sent"
-                          size="small"
-                          color="success"
-                          variant="outlined"
-                          sx={{ fontSize: "10px" }}
-                        />
-                      ) : (
-                        <Chip
-                          label="Not Sent"
-                          size="small"
-                          color="warning"
-                          variant="outlined"
-                          sx={{ fontSize: "10px" }}
-                        />
-                      )}
+                      <Chip
+                        label={
+                          assignment.welcomeEmailSentAt ? "Sent" : "Not Sent"
+                        }
+                        size="small"
+                        color={
+                          assignment.welcomeEmailSentAt ? "success" : "warning"
+                        }
+                        variant="outlined"
+                        sx={{ fontSize: "10px" }}
+                      />
                       {assignment.welcomeEmailSentAt && (
                         <Typography
                           variant="caption"
@@ -787,12 +754,15 @@ export const AssignOnboarding = () => {
                           sx={{ display: "block", fontSize: "10px" }}
                         >
                           {dayjs(assignment.welcomeEmailSentAt).format(
-                            "DD MMM YYYY",
+                            "DD MMM YYYY"
                           )}
                         </Typography>
                       )}
                     </TableCell>
-                    <TableCell align="center" className="!sticky right-0 !z-20 bg-inherit">
+                    <TableCell
+                      align="center"
+                      className="!sticky right-0 !z-20 bg-inherit"
+                    >
                       <div className="flex gap-1 justify-center">
                         <Tooltip title="View Progress">
                           <IconButton
@@ -812,7 +782,6 @@ export const AssignOnboarding = () => {
                             onClick={() => handleSendWelcome(assignment)}
                             color="success"
                             disabled={!!assignment.welcomeEmailSentAt}
-                            aria-label={`Send welcome to ${assignment.employeeName}`}
                           >
                             <SendOutlined fontSize="small" className="!w-4" />
                           </IconButton>
@@ -828,25 +797,16 @@ export const AssignOnboarding = () => {
                             size="small"
                             onClick={() =>
                               assignment.isActive
-                                ? handleDeleteAssignment(
-                                  assignment.onboardingId,
-                                )
-                                : handleReactivateAssignment(
-                                  assignment.onboardingId,
-                                )
+                                ? handleDeleteAssignment(assignment.onboardingId)
+                                : handleReactivateAssignment(assignment.onboardingId)
                             }
                             color={assignment.isActive ? "error" : "success"}
                           >
                             {assignment.isActive ? (
-                              <DeleteIcon
-                                fontSize="small"
-                                color="error"
-                                className="!w-4"
-                              />
+                              <DeleteIcon fontSize="small" className="!w-4" />
                             ) : (
                               <RestoreOutlined
                                 fontSize="small"
-                                color="info"
                                 className="!w-4"
                               />
                             )}
@@ -861,6 +821,8 @@ export const AssignOnboarding = () => {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Pagination */}
       {total > 0 && (
         <GlobalPagination
           total={total}
@@ -869,11 +831,11 @@ export const AssignOnboarding = () => {
           onPageChange={handlePageChange}
           onLimitChange={handleLimitChange}
           pageSizeOptions={[10, 20, 50, 100]}
-          showTotal={true}
+          showTotal
         />
       )}
 
-      {/* Assign New Onboarding Dialog with Multiple Employee Selection */}
+      {/* Assign New Onboarding Dialog */}
       <Dialog
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
@@ -888,41 +850,27 @@ export const AssignOnboarding = () => {
         </DialogTitle>
         <DialogContent>
           <div className="space-y-6 pt-6">
-            {/* Multiple Employee Selector */}
             <EmployeeSelector
               value={selectedEmployees}
               onChange={(value) => {
                 const employees = value as any[];
                 setSelectedEmployees(employees);
-                const employeeIds = employees.map(emp => emp.id || emp.employeeId).filter(id => id);
+                const employeeIds = employees
+                  .map((emp) => emp.id || emp.employeeId)
+                  .filter((id) => id);
                 setFormData({
                   ...formData,
-                  employeeIds: employeeIds,
-                  employeeId: employeeIds.length === 1 ? employeeIds[0] : ""
+                  employeeIds,
+                  employeeId: employeeIds.length === 1 ? employeeIds[0] : "",
                 });
               }}
-              multiple={true}
+              multiple
               label="Select Employees"
               placeholder="Search multiple employees..."
             />
-            {/* <EmployeeSelector
-              value={selectedEmployees || null}
-              onChange={(value) => {
-                setSelectedEmployees(value as EmployeeSummaryResponse[]);
-                const employeeIds = (value as EmployeeSummaryResponse[]).map(emp => emp.id);
-                setFormData({ 
-                  ...formData, 
-                  employeeIds: employeeIds,
-                  employeeId: employeeIds.length === 1 ? employeeIds[0] : null
-                });
-              }}
-              multiple={true}
-              label="Select Employees"
-              placeholder="Search multiple employees..."
-            /> */}
 
             {selectedEmployees.length > 0 && (
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                 {selectedEmployees.map((emp) => (
                   <Chip
                     key={emp.id}
@@ -930,11 +878,13 @@ export const AssignOnboarding = () => {
                     size="small"
                     className="!bg-primary-50 !text-primary"
                     onDelete={() => {
-                      const newEmployees = selectedEmployees.filter(e => e.id !== emp.id);
+                      const newEmployees = selectedEmployees.filter(
+                        (e) => e.id !== emp.id
+                      );
                       setSelectedEmployees(newEmployees);
                       setFormData({
                         ...formData,
-                        employeeIds: newEmployees.map(e => e.id)
+                        employeeIds: newEmployees.map((e) => e.id),
                       });
                     }}
                   />
@@ -948,21 +898,21 @@ export const AssignOnboarding = () => {
               </InputLabel>
               <Select
                 labelId="assign-onboarding-checklist-label"
-                id="assign-onboarding-checklist"
                 multiple
                 value={formData.checklistIds}
                 onChange={(e) => {
                   const value = e.target.value;
                   setFormData({
                     ...formData,
-                    checklistIds: typeof value === 'string' ? value.split(',') : value
+                    checklistIds:
+                      typeof value === "string" ? value.split(",") : value,
                   });
                 }}
                 input={<OutlinedInput label="Select Checklists" />}
                 renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                     {selected.map((value) => {
-                      const checklist = checklists.find(c => c.id === value);
+                      const checklist = checklists.find((c) => c.id === value);
                       return (
                         <Chip
                           key={value}
@@ -977,7 +927,10 @@ export const AssignOnboarding = () => {
               >
                 {checklists.map((checklist) => (
                   <MenuItem key={checklist.id} value={checklist.id}>
-                    <Checkbox checked={formData.checklistIds.indexOf(checklist.id) > -1} className="text-gray-800"/>
+                    <Checkbox
+                      checked={formData.checklistIds.indexOf(checklist.id) > -1}
+                      className="text-gray-800"
+                    />
                     <span className="text-gray-800">
                       {checklist.name} ({checklist.taskCount || 0} tasks)
                     </span>
@@ -1004,7 +957,9 @@ export const AssignOnboarding = () => {
               <DatePicker
                 label="Due Date (Optional)"
                 value={formData.dueDate ? dayjs(formData.dueDate) : null}
-                minDate={formData.startDate ? dayjs(formData.startDate) : undefined}
+                minDate={
+                  formData.startDate ? dayjs(formData.startDate) : undefined
+                }
                 onChange={(date) =>
                   setFormData({
                     ...formData,
@@ -1028,10 +983,14 @@ export const AssignOnboarding = () => {
             onClick={handleAssign}
             variant="contained"
             className="!bg-primary"
-            disabled={selectedEmployees.length === 0 || formData.checklistIds.length === 0}
+            disabled={
+              selectedEmployees.length === 0 || formData.checklistIds.length === 0
+            }
           >
-            Assign to {selectedEmployees.length} Employee{selectedEmployees.length > 1 ? 's' : ''}
-            {formData.checklistIds.length > 0 && ` with ${formData.checklistIds.length} Checklist${formData.checklistIds.length > 1 ? 's' : ''}`}
+            Assign to {selectedEmployees.length} Employee
+            {selectedEmployees.length > 1 ? "s" : ""}
+            {formData.checklistIds.length > 0 &&
+              ` with ${formData.checklistIds.length} Checklist${formData.checklistIds.length > 1 ? "s" : ""}`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1053,12 +1012,11 @@ export const AssignOnboarding = () => {
         </DialogTitle>
         <DialogContent>
           <div className="space-y-6 pt-6">
-            {/* Display selected employees */}
             <div>
               <Typography variant="subtitle2" className="text-gray-700 !mb-2">
                 Selected Employees ({selectedEmployees.length})
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                 {selectedEmployees.map((emp) => (
                   <Chip
                     key={emp.id}
@@ -1076,21 +1034,21 @@ export const AssignOnboarding = () => {
               </InputLabel>
               <Select
                 labelId="bulk-assign-checklist-label"
-                id="bulk-assign-checklist"
                 multiple
                 value={formData.checklistIds}
                 onChange={(e) => {
                   const value = e.target.value;
                   setFormData({
                     ...formData,
-                    checklistIds: typeof value === 'string' ? value.split(',') : value
+                    checklistIds:
+                      typeof value === "string" ? value.split(",") : value,
                   });
                 }}
                 input={<OutlinedInput label="Select Checklists" />}
                 renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                     {selected.map((value) => {
-                      const checklist = checklists.find(c => c.id === value);
+                      const checklist = checklists.find((c) => c.id === value);
                       return (
                         <Chip
                           key={value}
@@ -1105,7 +1063,10 @@ export const AssignOnboarding = () => {
               >
                 {checklists.map((checklist) => (
                   <MenuItem key={checklist.id} value={checklist.id}>
-                    <Checkbox checked={formData.checklistIds.indexOf(checklist.id) > -1} className="text-gray-800"/>
+                    <Checkbox
+                      checked={formData.checklistIds.indexOf(checklist.id) > -1}
+                      className="text-gray-800"
+                    />
                     <span className="text-gray-800">
                       {checklist.name} ({checklist.taskCount || 0} tasks)
                     </span>
@@ -1132,7 +1093,9 @@ export const AssignOnboarding = () => {
               <DatePicker
                 label="Due Date (Optional)"
                 value={formData.dueDate ? dayjs(formData.dueDate) : null}
-                minDate={formData.startDate ? dayjs(formData.startDate) : undefined}
+                minDate={
+                  formData.startDate ? dayjs(formData.startDate) : undefined
+                }
                 onChange={(date) =>
                   setFormData({
                     ...formData,
@@ -1156,21 +1119,23 @@ export const AssignOnboarding = () => {
             onClick={handleAssign}
             variant="contained"
             className="!bg-primary"
-            disabled={selectedEmployees.length === 0 || formData.checklistIds.length === 0}
+            disabled={
+              selectedEmployees.length === 0 || formData.checklistIds.length === 0
+            }
           >
-            Assign to {selectedEmployees.length} Employee{selectedEmployees.length > 1 ? 's' : ''}
+            Assign to {selectedEmployees.length} Employee
+            {selectedEmployees.length > 1 ? "s" : ""}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Details Dialog - same as before */}
+      {/* Details Dialog */}
       <Dialog
         open={isDetailsOpen}
         onClose={() => setIsDetailsOpen(false)}
         maxWidth="lg"
         fullWidth
       >
-        {/* ... same details dialog content ... */}
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-3">
           <div className="flex items-center gap-2">
             <Avatar className="!w-10 !h-10 !bg-primary">
@@ -1181,7 +1146,8 @@ export const AssignOnboarding = () => {
                 {selectedAssignment?.employeeName || "—"}
               </Typography>
               <Typography variant="caption" className="text-gray-500">
-                {selectedAssignment?.employeeCode || "—"} • {selectedAssignment?.employeeEmail || "—"}
+                {selectedAssignment?.employeeCode || "—"} •{" "}
+                {selectedAssignment?.employeeEmail || "—"}
               </Typography>
             </div>
           </div>
@@ -1217,7 +1183,10 @@ export const AssignOnboarding = () => {
                       <Typography variant="caption" color="textSecondary">
                         Overall Progress
                       </Typography>
-                      <Typography variant="h6" className="font-bold text-blue-600">
+                      <Typography
+                        variant="h6"
+                        className="font-bold text-blue-600"
+                      >
                         {onboardingDetail.overallProgressPercent || 0}%
                       </Typography>
                     </CardContent>
@@ -1229,8 +1198,12 @@ export const AssignOnboarding = () => {
                       <Typography variant="caption" color="textSecondary">
                         Checklists Completed
                       </Typography>
-                      <Typography variant="h6" className="font-bold text-green-600">
-                        {onboardingDetail.completedChecklists || 0}/{onboardingDetail.totalChecklists || 0}
+                      <Typography
+                        variant="h6"
+                        className="font-bold text-green-600"
+                      >
+                        {onboardingDetail.completedChecklists || 0}/
+                        {onboardingDetail.totalChecklists || 0}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -1242,7 +1215,9 @@ export const AssignOnboarding = () => {
                         Assigned At
                       </Typography>
                       <Typography variant="body2" className="font-medium">
-                        {dayjs(onboardingDetail.assignedAt).format("DD MMM YYYY")}
+                        {dayjs(onboardingDetail.assignedAt).format(
+                          "DD MMM YYYY"
+                        )}
                       </Typography>
                     </CardContent>
                   </Card>
@@ -1255,7 +1230,9 @@ export const AssignOnboarding = () => {
                       </Typography>
                       <Typography variant="body2">
                         {onboardingDetail.dueDate
-                          ? dayjs(onboardingDetail.dueDate).format("DD MMM YYYY")
+                          ? dayjs(onboardingDetail.dueDate).format(
+                              "DD MMM YYYY"
+                            )
                           : "Not set"}
                       </Typography>
                     </CardContent>
@@ -1269,7 +1246,9 @@ export const AssignOnboarding = () => {
                       </Typography>
                       <Typography variant="body2" className="font-medium">
                         {onboardingDetail.completedAt
-                          ? dayjs(onboardingDetail.completedAt).format("DD MMM YYYY HH:mm")
+                          ? dayjs(onboardingDetail.completedAt).format(
+                              "DD MMM YYYY HH:mm"
+                            )
                           : "Not completed yet"}
                       </Typography>
                     </CardContent>
@@ -1281,10 +1260,16 @@ export const AssignOnboarding = () => {
               <Card className="bg-gray-50 border border-gray-200">
                 <CardContent>
                   <div className="flex justify-between items-center mb-1">
-                    <Typography variant="body2" className="font-medium text-gray-800">
+                    <Typography
+                      variant="body2"
+                      className="font-medium text-gray-800"
+                    >
                       Overall Progress
                     </Typography>
-                    <Typography variant="body2" className="font-bold text-gray-800">
+                    <Typography
+                      variant="body2"
+                      className="font-bold text-gray-800"
+                    >
                       {onboardingDetail.overallProgressPercent || 0}%
                     </Typography>
                   </div>
@@ -1316,7 +1301,9 @@ export const AssignOnboarding = () => {
                   className="border border-gray-200 !bg-white-50 rounded-lg shadow-sm"
                   defaultExpanded={false}
                 >
-                  <AccordionSummary expandIcon={<ExpandMoreIcon className="text-gray-800" />}>
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon className="text-gray-800" />}
+                  >
                     <div className="flex items-center gap-3 w-full">
                       {getTaskStatusIcon(checklist.status)}
                       <div className="flex-1">
@@ -1324,9 +1311,12 @@ export const AssignOnboarding = () => {
                           {checklist.checklistName}
                         </Typography>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span>Progress: {checklist.progressPercent || 0}%</span>
                           <span>
-                            Tasks: {checklist.completedTasks || 0}/{checklist.totalTasks || 0}
+                            Progress: {checklist.progressPercent || 0}%
+                          </span>
+                          <span>
+                            Tasks: {checklist.completedTasks || 0}/
+                            {checklist.totalTasks || 0}
                           </span>
                           <Chip
                             label={getTaskStatusDisplay(checklist.status)}
@@ -1351,25 +1341,49 @@ export const AssignOnboarding = () => {
                       <Table size="small">
                         <TableHead className="bg-gray-50">
                           <TableRow>
-                            <TableCell className="font-semibold text-xs">#</TableCell>
-                            <TableCell className="font-semibold text-xs">Task</TableCell>
-                            <TableCell className="font-semibold text-xs">Type</TableCell>
-                            <TableCell className="font-semibold text-xs">Document</TableCell>
-                            <TableCell className="font-semibold text-xs">Status</TableCell>
-                            <TableCell className="font-semibold text-xs">Completed At</TableCell>
+                            <TableCell className="font-semibold text-xs">
+                              #
+                            </TableCell>
+                            <TableCell className="font-semibold text-xs">
+                              Task
+                            </TableCell>
+                            <TableCell className="font-semibold text-xs">
+                              Type
+                            </TableCell>
+                            <TableCell className="font-semibold text-xs">
+                              Document
+                            </TableCell>
+                            <TableCell className="font-semibold text-xs">
+                              Status
+                            </TableCell>
+                            <TableCell className="font-semibold text-xs">
+                              Completed At
+                            </TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {checklist.tasks?.map((task, taskIndex) => (
-                            <TableRow key={task.id || task.taskId || taskIndex} sx={getRowColor(taskIndex)}>
+                            <TableRow
+                              key={task.id || task.taskId || taskIndex}
+                              sx={getRowColor(taskIndex)}
+                            >
                               <TableCell>{taskIndex + 1}</TableCell>
                               <TableCell>
                                 <div>
-                                  <Typography variant="body2" className="font-medium">
-                                    {task.title} {task.required && (<span className="text-red-500">*</span>)}
+                                  <Typography
+                                    variant="body2"
+                                    className="font-medium"
+                                  >
+                                    {task.title}{" "}
+                                    {task.required && (
+                                      <span className="text-red-500">*</span>
+                                    )}
                                   </Typography>
                                   {task.description && (
-                                    <Typography variant="caption" className="text-gray-500 block">
+                                    <Typography
+                                      variant="caption"
+                                      className="text-gray-500 block"
+                                    >
                                       {task.description}
                                     </Typography>
                                   )}
@@ -1386,33 +1400,43 @@ export const AssignOnboarding = () => {
                               <TableCell>
                                 {task.documentName ? (
                                   <Chip
-                                    label={` ${task.documentName}`}
+                                    label={task.documentName}
                                     size="small"
                                     variant="outlined"
                                     className="!h-5 !text-[10px] text-gray-800"
                                   />
                                 ) : (
-                                  <div>-</div>
+                                  "-"
                                 )}
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-1">
-                                  <Chip
-                                    label={getTaskStatusDisplay(task.status)}
-                                    size="small"
-                                    color={getTaskStatusColor(task.status)}
-                                    variant={task.status === "COMPLETED" ? "filled" : "outlined"}
-                                    className="!h-5 !text-[10px]"
-                                  />
-                                </div>
+                                <Chip
+                                  label={getTaskStatusDisplay(task.status)}
+                                  size="small"
+                                  color={getTaskStatusColor(task.status)}
+                                  variant={
+                                    task.status === "COMPLETED"
+                                      ? "filled"
+                                      : "outlined"
+                                  }
+                                  className="!h-5 !text-[10px]"
+                                />
                               </TableCell>
                               <TableCell>
                                 {task.completedAt ? (
-                                  <Typography variant="caption" className="text-gray-800">
-                                    {dayjs(task.completedAt).format("DD MMM YYYY HH:mm")}
+                                  <Typography
+                                    variant="caption"
+                                    className="text-gray-800"
+                                  >
+                                    {dayjs(task.completedAt).format(
+                                      "DD MMM YYYY HH:mm"
+                                    )}
                                   </Typography>
                                 ) : (
-                                  <Typography variant="caption" className="text-gray-400">
+                                  <Typography
+                                    variant="caption"
+                                    className="text-gray-400"
+                                  >
                                     -
                                   </Typography>
                                 )}
@@ -1421,7 +1445,11 @@ export const AssignOnboarding = () => {
                           ))}
                           {(!checklist.tasks || checklist.tasks.length === 0) && (
                             <TableRow>
-                              <TableCell colSpan={5} align="center" className="py-4 text-gray-400">
+                              <TableCell
+                                colSpan={5}
+                                align="center"
+                                className="py-4 text-gray-400"
+                              >
                                 No tasks in this checklist
                               </TableCell>
                             </TableRow>
@@ -1433,7 +1461,8 @@ export const AssignOnboarding = () => {
                 </Accordion>
               ))}
 
-              {(!onboardingDetail.checklists || onboardingDetail.checklists.length === 0) && (
+              {(!onboardingDetail.checklists ||
+                onboardingDetail.checklists.length === 0) && (
                 <Card className="bg-gray-50 border border-gray-200 border-dashed">
                   <CardContent className="text-center py-8">
                     <Typography variant="body2" color="textSecondary">
