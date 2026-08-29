@@ -37,3 +37,6 @@ test-results/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+
+/github/workflows/playwright.yml/
