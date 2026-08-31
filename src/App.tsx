@@ -14,8 +14,8 @@ function App() {
           <AuthProvider>
             {/* Token expiry warning components */}
             <TokenExpiryWarning 
-              warningThreshold={150} // Show warning when 2 minutes remaining
-              checkInterval={5} // Check every 5 seconds
+              warningThreshold={120} // Show warning when 2 minutes remaining
+              checkInterval={10} // Check every 5 seconds
             />
             {/* <TokenExpiryModal /> Optional: modal for critical expiry */}
             

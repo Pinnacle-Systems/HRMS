@@ -86,6 +86,7 @@ import { getRowColor } from "../const";
 import { formatDate } from "../leave/leaveFormatters";
 import { DashboardBuilderFull } from "./dashboardBuiler";
 import type { QueryJson, QuerySet } from "./const";
+import { apiService } from "../../services";
 
 // ============ Utility Functions ============
 
@@ -791,15 +792,10 @@ export default function BiWorkspacePage() {
   // ============ Exports ============
 
   const handleCreateExport = async () => {
-    console.log(selectedDataset, 'kkkkkkkk');
-
     if (!selectedDataset) {
       setError("Select a dataset before creating an export.");
       return;
     }
-    console.log(selectedDataset);
-
-
     setExportLoading(true);
     setError(null);
     try {
@@ -808,9 +804,6 @@ export default function BiWorkspacePage() {
         format: exportFormat,
         query,
       };
-      console.log(selectedDataset);
-
-
       const response: any = await dashboardService.createBIExport(selectedDataset, exportRequest);
       const data = response?.data;
       if (data) {
@@ -862,8 +855,9 @@ export default function BiWorkspacePage() {
     exportPollingIntervalRef.current = interval;
   };
 
-  const handleDownloadFromUrl = (url: string) => {
-    window.open(url, "_blank");
+  const handleDownloadFromUrl = async (url: string, format?: string) => {   
+    console.log(url,format);
+    await apiService.downloadFromPath(url,`exportJob.${format}`)
   };
 
   // ============ Render Query Builder ============
@@ -1501,7 +1495,7 @@ export default function BiWorkspacePage() {
     const { dateFields = [], dimensions = [], metrics = [] } = datasetSchema;
 
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }} className="h-[calc(100vh-425px)] overflow-auto">
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }} className="h-[calc(100vh-355px)] overflow-auto">
         {/* <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600 }}>
             Query Preset Loader
@@ -2068,7 +2062,7 @@ export default function BiWorkspacePage() {
   // ============ Render Query Engine Tab ============
 
   const renderQueryEngineTab = () => (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {/* <TextField
@@ -2268,7 +2262,7 @@ export default function BiWorkspacePage() {
   // ============ Render Exports Tab ============
 
   const renderExportsTab = () => (
-    <div className="!bg-white border border-gray-200 grid gap-3">
+    <div className="!bg-white-50 border border-gray-200 grid gap-3">
       <Paper variant="outlined" className="!bg-white" sx={{ p: 3 }}>
         <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>Create New Export</Typography>
         <div className="flex items-center gap-4">
@@ -2337,20 +2331,20 @@ export default function BiWorkspacePage() {
       </Paper>
 
       {exportJob && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+        <Paper variant="outlined" className="bg-white mx-3" sx={{ p: 2, borderRadius: 3 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Export Job Status</Typography>
+            <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>Export Job Status</Typography>
             <Chip label={exportJob.status} color={getStatusColor(exportJob.status) as any} icon={<span>{getStatusIcon(exportJob.status)}</span>} />
           </Box>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-              <Chip label={`Job: ${exportJob.jobRef}`} size="small" variant="outlined" />
-              <Chip label={`Format: ${exportJob.format}`} size="small" variant="outlined" />
-              {exportJob.rowCount > 0 && <Chip label={`Rows: ${exportJob.rowCount}`} size="small" variant="outlined" />}
-              {exportJob.fileBytes > 0 && <Chip label={`Size: ${(exportJob.fileBytes / 1024).toFixed(1)} KB`} size="small" variant="outlined" />}
+              <Chip label={`Job: ${exportJob.jobRef}`} size="small" className="text-gray-800" variant="outlined" />
+              <Chip label={`Format: ${exportJob.format}`} size="small" variant="outlined" className="text-gray-800"/>
+              {exportJob.rowCount > 0 && <Chip label={`Rows: ${exportJob.rowCount}`} size="small" variant="outlined" className="text-gray-800"/>}
+              {exportJob.fileBytes > 0 && <Chip label={`Size: ${(exportJob.fileBytes / 1024).toFixed(1)} KB`} size="small" className="text-gray-800" variant="outlined" />}
             </Box>
             <LinearProgress variant="determinate" value={exportJob.progressPercent || 0} sx={{ height: 8, borderRadius: 4 }} color={exportJob.status === "failed" ? "error" : "primary"} />
-            <Typography variant="caption" color="textSecondary">{exportJob.progressPercent || 0}% complete</Typography>
+            <Typography variant="caption" className="text-gray-800">{exportJob.progressPercent || 0}% complete</Typography>
             {exportJob.status === "completed" && exportJob.downloadUrl && (
               <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
                 <Button variant="contained" color="success" startIcon={<FileDownloadIcon />} onClick={() => handleDownloadFromUrl(exportJob.downloadUrl!)}>Download File</Button>
@@ -2363,12 +2357,12 @@ export default function BiWorkspacePage() {
       )}
 
       {exportJobs.length > 0 && (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>Export History</Typography>
+        <Paper variant="outlined" className="bg-white m-3 mt-0" sx={{ p: 3, borderRadius: 3 }}>
+          <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>Export History</Typography>
           <TableContainer>
-            <Table size="small">
+            <Table size="small" className="bg-white-50 border border-gray-200 rounded-md">
               <TableHead>
-                <TableRow sx={{ bgcolor: theme.palette.grey[50] }}>
+                <TableRow>
                   <TableCell>Job Reference</TableCell>
                   <TableCell>Format</TableCell>
                   <TableCell>Status</TableCell>
@@ -2393,7 +2387,7 @@ export default function BiWorkspacePage() {
                     <TableCell>
                       {job.status === "completed" && job.downloadUrl && (
                         <Tooltip title="Download">
-                          <IconButton size="small" color="success" onClick={() => handleDownloadFromUrl(job.downloadUrl!)}>
+                          <IconButton size="small" color="success" onClick={() => handleDownloadFromUrl(job.downloadUrl!,job.format)}>
                             <FileDownloadIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -3096,7 +3090,7 @@ ORDER BY headcount DESC`}
 
   return (
     <Box className="bg-white-50">
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }} className="bg-white-50 text-gray-800 border border-gray-200">
+      <Paper sx={{ p: 2, mb: 2, borderRadius: 3 }} className="bg-white-50 text-gray-800 border border-gray-200">
         <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, justifyContent: "space-between", gap: 2 }}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 700 }}>BI Workspace</Typography>
@@ -3122,7 +3116,7 @@ ORDER BY headcount DESC`}
           {tabs.map((tab) => <Tab key={tab.label} className="!text-gray-800" iconPosition="start" label={tab.label} />)}
         </Tabs>
 
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ pt: 3, px: 2, pb: 1 }}>
           <TabPanel index={0} value={activeTab}>{renderReportsTab()}</TabPanel>
           <TabPanel index={1} value={activeTab}>{renderQueryEngineTab()}</TabPanel>
           <TabPanel index={2} value={activeTab}>{renderExportsTab()}</TabPanel>

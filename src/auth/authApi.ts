@@ -70,7 +70,7 @@ export async function login(request: LoginRequest): Promise<LoginOutcome> {
     API_ENDPOINTS.AUTH.LOGIN,
     request,
   )) as LoginApiResponse;
-  const outcome:any = mapLoginResponseToOutcome(response, request.loginId);
+  const outcome: any = mapLoginResponseToOutcome(response, request.loginId);
 
   if (outcome.type === "authenticated") {
     saveSession(outcome.session);
@@ -82,34 +82,6 @@ export async function login(request: LoginRequest): Promise<LoginOutcome> {
 
   return outcome;
 }
-
-// export async function selectTenant(
-//   request: SelectTenantRequest,
-// ): Promise<LoginOutcome> {
-//   const response = (await apiService.post(
-//     API_ENDPOINTS.AUTH.SELECT_TENANT,
-//     {
-//       email: request.email,
-//       tenantId: request.tenantId,
-//     },
-//     {
-//       headers: {
-//         Authorization: `Bearer ${request.sessionToken}`,
-//       },
-//     },
-//   )) as LoginApiResponse;
-//   const outcome = mapLoginResponseToOutcome(response);
-
-//   if (outcome.type === "authenticated") {
-//     saveSession(outcome.session);
-//   }
-
-//   if (outcome.type === "mustChangePassword" && outcome.session) {
-//     saveSession(outcome.session);
-//   }
-
-//   return outcome;
-// }
 
 export async function selectTenant(
   request: SelectTenantRequest,
@@ -128,70 +100,16 @@ export async function selectTenant(
     { headers }
   )) as LoginApiResponse;
 
-  const outcome:any = mapLoginResponseToOutcome(response, request.email);
+  const outcome: any = mapLoginResponseToOutcome(response, request.email);
 
-  // Persist session for successful authentication flows
   if (outcome.type === "authenticated" || 
       (outcome.type === "mustChangePassword" && outcome.session)) {
     saveSession(outcome.session);
   }
 
   return outcome;
-  // if (response.success && response.data) {
-  //   return {
-  //     type: 'tenantSelection',
-  //     tenants: response.data.tenants || [],
-  //     email: response.data.email || request.email,
-  //     sessionToken: request.sessionToken,
-  //     message: 'Tenant selected. Please login with your credentials.'
-  //   };
-  // }
-
-  // return {
-  //   type: 'failed',
-  //   message: response.message || 'Failed to select tenant'
-  // };
 }
 
-
-// export async function refreshSession(): Promise<AuthSession | null> {
-//   const refreshToken = getRefreshToken();
-
-//   if (!refreshToken) {
-//     return null;
-//   }
-
-//   const response = (await apiService.post(API_ENDPOINTS.AUTH.REFRESH, {
-//     refreshToken,
-//   })) as ApiResponse<AuthResponse>;
-
-//   if (!response.success || !response.data?.accessToken) {
-//     return null;
-//   }
-
-//   const currentSession = loadSession();
-//   const session =
-//     response.data.userId || response.data.roles?.length
-//       ? mapAuthResponseToSession({
-//           ...response.data,
-//           refreshToken: response.data.refreshToken || refreshToken,
-//         })
-//       : updateAccessToken(response.data.accessToken, response.data.expiresIn);
-
-//   if (!session && currentSession) {
-//     return updateAccessToken(response.data.accessToken, response.data.expiresIn);
-//   }
-
-//   if (!session) {
-//     return null;
-//   }
-
-//   saveSession(session);
-
-//   return session;
-// }
-
-// authApi.ts - Add this at the top
 let refreshPromise: Promise<AuthSession | null> | null = null;
 
 export async function refreshSession(): Promise<AuthSession | null> {
@@ -216,24 +134,67 @@ export async function refreshSession(): Promise<AuthSession | null> {
       })) as ApiResponse<AuthResponse>;
 
       if (!response.success || !response.data?.accessToken) {
-        logger.warn("Refresh response invalid", { 
+        logger.warn("Refresh response invalid", {
           success: response.success,
           hasAccessToken: Boolean(response.data?.accessToken)
         });
         return null;
       }
 
+      // Load current session to preserve context
       const currentSession = loadSession();
-      const session = response.data.userId || response.data.roles?.length
-        ? mapAuthResponseToSession({
-            ...response.data,
-            refreshToken: response.data.refreshToken || refreshToken,
-          })
-        : updateAccessToken(response.data.accessToken, response.data.expiresIn);
+      
+      // FIX: Always preserve branch and fiscal year context from current session
+      // Create session data with preserved context
+      const sessionData = {
+        ...response.data,
+        refreshToken: response.data.refreshToken || refreshToken,
+        // Preserve branch and fiscal year context
+        branchId: response.data.branchId ?? currentSession?.branchId ?? null,
+        branchName: response.data.branchName ?? currentSession?.branchName ?? null,
+        branchScoped: response.data.branchScoped ?? currentSession?.branchScoped,
+        fiscalYearId: response.data.fiscalYearId ?? currentSession?.fiscalYearId,
+        fiscalYearLabel: response.data.fiscalYearLabel ?? currentSession?.fiscalYearLabel,
+      };
 
+      // Create the session using the preserved data
+      let session: AuthSession | null = null;
+
+      // If we have user data, map full session
+      if (response.data.userId || response.data.roles?.length) {
+        session = mapAuthResponseToSession(sessionData);
+      } else {
+        // Otherwise just update the access token
+        session = updateAccessToken(
+          response.data.accessToken,
+          response.data.expiresIn,
+          {
+            // Preserve context when updating access token
+            branchId: currentSession?.branchId,
+            branchName: currentSession?.branchName,
+            branchScoped: currentSession?.branchScoped,
+            fiscalYearId: currentSession?.fiscalYearId,
+            fiscalYearLabel: currentSession?.fiscalYearLabel,
+            user: currentSession?.user,
+            company: currentSession?.company,
+          }
+        );
+      }
+
+      // Fallback: if session creation failed but we have current session, update token
       if (!session && currentSession) {
         logger.info("Using existing session with new access token");
-        return updateAccessToken(response.data.accessToken, response.data.expiresIn);
+        session = updateAccessToken(
+          response.data.accessToken,
+          response.data.expiresIn,
+          {
+            branchId: currentSession.branchId,
+            branchName: currentSession.branchName,
+            branchScoped: currentSession.branchScoped,
+            fiscalYearId: currentSession.fiscalYearId,
+            fiscalYearLabel: currentSession.fiscalYearLabel,
+          }
+        );
       }
 
       if (!session) {
@@ -242,9 +203,13 @@ export async function refreshSession(): Promise<AuthSession | null> {
       }
 
       logger.info("Session refreshed successfully", {
-        userId: session.user.userId,
-        expiresIn: session.expiresIn
+        userId: session.user?.userId,
+        expiresIn: session.expiresIn,
+        branchId: session.branchId,
+        fiscalYearId: session.fiscalYearId,
+        hasWorkspaceContext: !!(session.branchId || session.fiscalYearId),
       });
+
       saveSession(session);
       return session;
     } catch (error) {
@@ -274,7 +239,7 @@ export async function forgotPassword(loginId: string): Promise<ApiResponse<void>
 }
 
 export async function resendSignupOTP(
-  request: {email: string},
+  request: { email: string },
 ): Promise<ApiResponse<void>> {
   return (await apiService.post(API_ENDPOINTS.AUTH.RESEND_OTP, request)) as ApiResponse<void>;
 }
@@ -354,22 +319,13 @@ export async function updateProfile(payload: Record<string, unknown>): Promise<A
   return (await apiService.put(API_ENDPOINTS.AUTH.PROFILE, payload)) as ApiResponse<UserProfile>;
 }
 
-// export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome> {
-//   const response = (await apiService.post(
-//     API_ENDPOINTS.AUTH.LOGIN,
-//     { mobileNumber }
-//   )) as LoginApiResponse;
-  
-//   return mapLoginResponseToOutcome(response);
-// }
-
 export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome> {
   try {
     const response = (await apiService.post(
       API_ENDPOINTS.AUTH.LOGIN,
       { mobileNumber }
     )) as LoginApiResponse;
-    
+
     return mapLoginResponseToOutcome(response);
   } catch (error) {
     return {
@@ -379,13 +335,13 @@ export async function sendMobileOtp(mobileNumber: string): Promise<LoginOutcome>
   }
 }
 
-export async function verifyMobileOtp(mobileNumber: string,otp: string): Promise<LoginOutcome> {
+export async function verifyMobileOtp(mobileNumber: string, otp: string): Promise<LoginOutcome> {
   const response = (await apiService.post(
     API_ENDPOINTS.AUTH.LOGIN,
     { mobileNumber, mobileOtp: otp }
   )) as LoginApiResponse;
-  
-  const outcome:any = mapLoginResponseToOutcome(response);
+
+  const outcome: any = mapLoginResponseToOutcome(response);
 
   if (outcome.type === "authenticated") {
     saveSession(outcome.session);
@@ -407,14 +363,74 @@ export async function selectSessionContext(payload: SessionContextSelection): Pr
   return response as SelectSessionContextResponse;
 }
 
-// export async function verifyMobileOtp(
-//   mobileNumber: string,
-//   otp: string
-// ): Promise<LoginOutcome> {
-//   const response = (await apiService.post(
-//     API_ENDPOINTS.AUTH.LOGIN,
-//     { mobileNumber, mobileOtp: otp }
-//   )) as LoginApiResponse;
-  
-//   return mapLoginResponseToOutcome(response);
-// }
+export async function silentRefresh(): Promise<AuthSession | null> {
+  try {
+    const refreshToken = getRefreshToken();
+
+    if (!refreshToken) {
+      logger.debug("No refresh token available for silent refresh");
+      return null;
+    }
+
+    logger.debug("Performing silent token refresh");
+    const response = (await apiService.post(API_ENDPOINTS.AUTH.REFRESH, {
+      refreshToken,
+    })) as ApiResponse<AuthResponse>;
+
+    if (!response.success || !response.data?.accessToken) {
+      logger.debug("Silent refresh failed - invalid response");
+      return null;
+    }
+
+    const currentSession = loadSession();
+    
+    // Preserve context for silent refresh too
+    const sessionData = {
+      ...response.data,
+      refreshToken: response.data.refreshToken || refreshToken,
+      branchId: response.data.branchId ?? currentSession?.branchId ?? null,
+      branchName: response.data.branchName ?? currentSession?.branchName ?? null,
+      branchScoped: response.data.branchScoped ?? currentSession?.branchScoped,
+      fiscalYearId: response.data.fiscalYearId ?? currentSession?.fiscalYearId,
+      fiscalYearLabel: response.data.fiscalYearLabel ?? currentSession?.fiscalYearLabel,
+    };
+
+    let session = response.data.userId || response.data.roles?.length
+      ? mapAuthResponseToSession(sessionData)
+      : updateAccessToken(
+          response.data.accessToken,
+          response.data.expiresIn,
+          {
+            branchId: currentSession?.branchId,
+            branchName: currentSession?.branchName,
+            branchScoped: currentSession?.branchScoped,
+            fiscalYearId: currentSession?.fiscalYearId,
+            fiscalYearLabel: currentSession?.fiscalYearLabel,
+          }
+        );
+
+    if (!session && currentSession) {
+      session = updateAccessToken(
+        response.data.accessToken,
+        response.data.expiresIn,
+        {
+          branchId: currentSession.branchId,
+          branchName: currentSession.branchName,
+          branchScoped: currentSession.branchScoped,
+          fiscalYearId: currentSession.fiscalYearId,
+          fiscalYearLabel: currentSession.fiscalYearLabel,
+        }
+      );
+    }
+
+    if (!session) {
+      return null;
+    }
+
+    saveSession(session);
+    return session;
+  } catch (error) {
+    logger.debug("Silent refresh failed", { error });
+    return null;
+  }
+}

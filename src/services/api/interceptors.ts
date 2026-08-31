@@ -147,37 +147,27 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
       const isRefreshRequest = requestUrl.includes(API_ENDPOINTS.AUTH.REFRESH);
       const isPublicRoute = typeof window !== "undefined" && PUBLIC_ROUTE_PATHS.has(window.location.pathname);
       const isPublicRequestUrl = isPublicRequest(requestUrl);
-      const metadata = originalRequest?.metadata;
+      // const metadata = originalRequest?.metadata;
 
-      logger.warn("API request failed", {
-        method: originalRequest?.method?.toUpperCase(),
-        url: requestUrl,
-        status: error.response?.status,
-        durationMs: metadata?.startTime ? Date.now() - metadata.startTime : undefined,
-      });
+      // Don't attempt refresh for public routes/requests
+      if (isPublicRoute || isPublicRequestUrl) {
+        return Promise.reject(error);
+      }
 
-      if (
-        error.response?.status === 401 &&
-        !originalRequest._retry &&
-        !isRefreshRequest 
-      ) {
-        // If it's a public route/request, just reject
-        if (isPublicRoute || isPublicRequestUrl) {
-          logger.debug("Skipping refresh for public route/request", {
-            url: requestUrl,
-            pathname: typeof window !== "undefined" ? window.location.pathname : undefined,
-          });
-          return Promise.reject(error);
-        }
+      // Don't attempt refresh if it's the refresh request itself
+      if (isRefreshRequest) {
+        // Clear session if refresh fails
+        clearSession();
+        return Promise.reject(error);
+      }
 
-        // Check if refresh token exists before attempting refresh
+      // Handle 401 Unauthorized
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        // Check if refresh token exists
         const refreshToken = getRefreshToken();
         if (!refreshToken) {
-          logger.warn("No refresh token available, redirecting to login");
+          logger.warn("No refresh token available for 401");
           clearSession();
-          if (typeof window !== "undefined") {
-            window.location.href = "/login";
-          }
           return Promise.reject(error);
         }
 
@@ -191,10 +181,9 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
             failedQueue.push({ resolve, reject });
           })
             .then((token) => {
-              originalRequest.headers = {
-                ...originalRequest.headers,
-                Authorization: `Bearer ${token}`,
-              };
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${token}`;
+              }
               return axiosInstance(originalRequest);
             })
             .catch((err) => Promise.reject(err));
@@ -204,20 +193,17 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         originalRequest._retry = true;
         isRefreshing = true;
 
-        logger.info("Refreshing access token after unauthorized response", {
-          url: requestUrl,
-        });
+        logger.info("Attempting token refresh after 401", { url: requestUrl });
 
         try {
-          // Use centralized refreshSession function
           const newSession = await refreshSession();
 
-          if (!newSession) {
-            throw new Error("Refresh failed - no session returned");
+          if (!newSession || !newSession.accessToken) {
+            throw new Error("Refresh failed - no access token");
           }
 
           const accessToken = newSession.accessToken;
-          logger.info("Access token refreshed successfully", {
+          logger.info("Token refresh successful", {
             userId: newSession.user?.userId,
             expiresIn: newSession.expiresIn,
           });
@@ -226,51 +212,41 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
           processQueue(null, accessToken);
 
           // Retry original request with new token
-          originalRequest.headers = {
-            ...originalRequest.headers,
-            Authorization: `Bearer ${accessToken}`,
-          };
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          }
           return axiosInstance(originalRequest);
         } catch (refreshError) {
-          // Refresh failed - clear session and redirect to login
-          logger.error("Access token refresh failed; clearing session", {
+          logger.error("Token refresh failed", {
             error: refreshError instanceof Error ? refreshError.message : String(refreshError),
           });
 
+          // Process queue with error
           processQueue(refreshError, null);
+
+          // Clear session
           clearSession();
 
-          // Only redirect if not already on login page
-          if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-            window.location.href = "/login";
-          }
-
-          return Promise.reject(refreshError);
+          // Return the original error - don't redirect here
+          return Promise.reject(error);
         } finally {
           isRefreshing = false;
         }
       }
 
-      // Handle 403 Forbidden - user doesn't have permission
+      // Handle 403 Forbidden
       if (error.response?.status === 403) {
         logger.warn("Access forbidden", {
           url: requestUrl,
           method: originalRequest?.method?.toUpperCase(),
         });
-        // You might want to redirect to unauthorized page
-        if (typeof window !== "undefined" && !window.location.pathname.includes("/unauthorized")) {
-          // window.location.href = "/unauthorized";
-        }
       }
 
       // Format error for consistent handling
       const errorData = error.response?.data as ErrorResponseData | undefined;
       const apiError: ApiError = {
         status: error.response?.status || 0,
-        message:
-          errorData?.message ||
-          error.message ||
-          "An error occurred",
+        message: errorData?.message || error.message || "An error occurred",
         errors: errorData?.errors,
       };
 

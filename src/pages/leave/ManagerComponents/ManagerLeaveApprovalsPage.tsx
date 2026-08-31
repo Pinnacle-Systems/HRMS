@@ -457,8 +457,8 @@ export default function ManagerLeaveApprovalsPage() {
         </LeaveFilterBar>
       </LocalizationProvider>
 
-      <TableContainer className="max-w-full overflow-auto h-[calc(100vh-430px)]">
-        <Table className={leaveTableClassName} size="small" sx={leaveTableSx}>
+      <TableContainer className="max-w-full overflow-auto h-[calc(100vh-435px)]">
+        <Table stickyHeader className={leaveTableClassName} size="small" sx={leaveTableSx}>
           <TableHead>
             <TableRow sx={leaveTableHeaderRowSx}>
               <TableCell className={leaveTableHeaderCellClassName}>

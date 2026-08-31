@@ -95,3 +95,17 @@ export function updateAccessToken(
   saveSession(updatedSession);
   return updatedSession;
 }
+
+export function isTokenExpiringSoon(session: AuthSession | null, bufferSeconds: number = 120): boolean {
+  if (!session) return false;
+  
+  const timeUntilExpiry = session.expiresAt - Date.now();
+  const bufferMs = bufferSeconds * 1000;
+  
+  return timeUntilExpiry < bufferMs;
+}
+
+export function getTimeUntilExpiry(session: AuthSession | null): number {
+  if (!session) return 0;
+  return Math.max(0, session.expiresAt - Date.now());
+}
