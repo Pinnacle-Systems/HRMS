@@ -163,6 +163,8 @@ export default function StatutoryCompliance() {
   const handleDownload = async (item: any) => {
     try {
       const res: any = await complianceService.downloadCompliance(item.id);
+      console.log(res.data.fileUrl);
+      
       await apiService.downloadFromPath(res.data.fileUrl, `statutory_${item.type}_${item.periodLabel}.pdf`);
       showSnackbar("Compliance exported successfully", "success");
     } catch (error) {

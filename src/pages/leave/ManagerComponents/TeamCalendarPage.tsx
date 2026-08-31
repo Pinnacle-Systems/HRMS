@@ -155,49 +155,49 @@ export default function TeamCalendarPage() {
       {/* Statistics Cards */}
       {!loading && entries.length > 0 && (
         <div className="grid grid-cols-7 gap-3 mb-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
+          <Card className="bg-white-50 border border-blue-200">
             <CardContent className="p-3 !pb-0">
               <div className="text-blue-600 text-[12px] font-medium">Total Requests</div>
               <div className="text-blue-700 text-xl font-bold">{statistics.totalRequests}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200">
+          <Card className="bg-white-50 border border-purple-200">
             <CardContent className="p-3 !pb-3">
               <div className="text-purple-600 text-[12px] font-medium">Employees</div>
               <div className="text-purple-700 text-xl font-bold">{statistics.totalEmployees}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
+          <Card className="bg-white-50 border border-green-200">
             <CardContent className="p-3 !pb-3">
               <div className="text-green-600 text-[12px] font-medium">Total Leave Days</div>
               <div className="text-green-700 text-xl font-bold">{statistics.totalDays}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200">
+          <Card className="bg-white-50 border border-amber-200">
             <CardContent className="p-3 !pb-3">
               <div className="text-amber-600 text-[12px] font-medium">Pending</div>
               <div className="text-amber-700 text-xl font-bold">{statistics.pending}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200">
+          <Card className="bg-white-50 border border-emerald-200">
             <CardContent className="p-3 !pb-3">
               <div className="text-emerald-600 text-[12px] font-medium">Approved</div>
               <div className="text-emerald-700 text-xl font-bold">{statistics.approved}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
+          <Card className="bg-white-50 border border-red-200">
             <CardContent className="p-3 !pb-3">
               <div className="text-red-600 text-[12px] font-medium">Rejected</div>
               <div className="text-red-700 text-xl font-bold">{statistics.rejected}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200">
+          <Card className="bg-white-50 border border-orange-200">
             <CardContent className="p-3 !pb-3">
               <div className="text-orange-600 text-[12px] font-medium">LOP Days</div>
               <div className="text-orange-700 text-xl font-bold">{statistics.lopDays}</div>

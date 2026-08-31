@@ -31,61 +31,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [session]);
 
-  //  const login = useCallback(
-  //   async (request: LoginRequest): Promise<LoginOutcome> => {
-  //       logger.info("Login started", {
-  //       loginId: request.loginId,
-  //       hasMobileNumber: Boolean(request.mobileNumber),
-  //       tenantId: request.tenantId,
-  //     });
-  //     const outcome:any = await authApi.login(request);
-  //      logger.info("Login completed", {
-  //       outcome: outcome.type,
-  //       userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
-  //       roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
-  //     });
-
-  //     if (outcome.type === "authenticated" || 
-  //         (outcome.type === "mustChangePassword" && outcome.session)) {
-  //       setSession(outcome.session);
-  //       apiService.setAuthToken(outcome.session.accessToken);
-  //     }
-
-  //     return outcome;
-  //   },
-  //   [],
-  // );
-
-  // const login = useCallback(
-  //   async (request: LoginRequest): Promise<LoginOutcome> => {
-  //     logger.info("Login started", {
-  //       loginId: request.loginId,
-  //       hasMobileNumber: Boolean(request.mobileNumber),
-  //       tenantId: request.tenantId,
-  //     });
-
-  //     const outcome = await authApi.login(request);
-  //     logger.info("Login completed", {
-  //       outcome: outcome.type,
-  //       userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
-  //       roles: outcome.type === "authenticated" ? outcome.session.user.roles : undefined,
-  //     });
-
-  //     if (outcome.type === "authenticated") {
-  //       setSession(outcome.session);
-  //       apiService.setAuthToken(outcome.session.accessToken);
-  //     }
-
-  //     if (outcome.type === "mustChangePassword" && outcome.session) {
-  //       setSession(outcome.session);
-  //       apiService.setAuthToken(outcome.session.accessToken);
-  //     }
-
-  //     return outcome;
-  //   },
-  //   [],
-  // );
-
   const login = useCallback(
     async (request: LoginRequest): Promise<LoginOutcome> => {
       logger.info("Login started", {
@@ -132,31 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // const selectTenant = useCallback(
-  //   async (request: SelectTenantRequest): Promise<LoginOutcome> => {
-  //     logger.info("Tenant selection started", { tenantId: request.tenantId });
-  //     const outcome = await authApi.selectTenant(request);
-  //     logger.info("Tenant selection completed", {
-  //       tenantId: request.tenantId,
-  //       outcome: outcome.type,
-  //       userId: outcome.type === "authenticated" ? outcome.session.user.userId : undefined,
-  //     });
-
-  //     if (outcome.type === "authenticated") {
-  //       setSession(outcome.session);
-  //       apiService.setAuthToken(outcome.session.accessToken);
-  //     }
-
-  //     if (outcome.type === "mustChangePassword" && outcome.session) {
-  //       setSession(outcome.session);
-  //       apiService.setAuthToken(outcome.session.accessToken);
-  //     }
-
-  //     return outcome;
-  //   },
-  //   [],
-  // );
-
   const logout = useCallback(async () => {
     logger.info("Logout started", { userId: session?.user.userId });
     await authApi.logout();
@@ -179,10 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return refreshedSession;
     }
 
-    clearSession();
-    setSession(null);
-    apiService.setAuthToken(null);
-    logger.warn("Session refresh returned no session; cleared auth state");
+    logger.warn("Session refresh returned no session");
     return null;
   }, []);
 
@@ -264,31 +181,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasAnyRole,
       setSessionCall
     }),
-    [isLoading, login, logout, refreshSession, selectTenant, session, hasPermission, hasAnyPermission, hasAllPermissions, hasRole, hasAnyRole, setSessionCall],);
+    [isLoading, login, logout, refreshSession, selectTenant, session, hasPermission, hasAnyPermission, hasAllPermissions, hasRole, hasAnyRole, setSessionCall],
+  );
 
-  // useEffect(() => {
-  //   if (session) {
-  //     saveSession(session);
-  //   }
-  // }, [session]);
-
-  useEffect(() => {
-    apiService.setAuthToken(session?.accessToken ?? null);
-  }, [session]);
-
+  // Auto-refresh timer - refresh 2 minutes before expiry
   useEffect(() => {
     let refreshTimer: any | null = null;
     let isMounted = true;
 
     const scheduleRefresh = (expiresInSeconds: number) => {
-      // Clear any existing timer
       if (refreshTimer) {
         clearTimeout(refreshTimer);
         refreshTimer = null;
       }
 
-      // Refresh ~60 seconds before expiry
-      const refreshMs = Math.max((expiresInSeconds - 60) * 1000, 5000);
+      // Refresh 2 minutes (120 seconds) before expiry
+      const refreshBuffer = 120;
+      const refreshMs = Math.max((expiresInSeconds - refreshBuffer) * 1000, 5000);
 
       logger.debug(`Scheduling auto-refresh in ${Math.round(refreshMs / 1000)}s`);
 
@@ -300,17 +209,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const newSession = await refreshSession();
 
           if (newSession && isMounted) {
+            setSession(newSession);
+            apiService.setAuthToken(newSession.accessToken);
             // Re-schedule for next cycle
             scheduleRefresh(newSession.expiresIn);
           } else if (isMounted) {
-            logger.warn("Auto-refresh failed, logging out");
-            await logout();
+            logger.warn("Auto-refresh failed - session is null");
+            // Don't logout, let the interceptor handle it
           }
         } catch (error) {
           logger.error("Auto-refresh error", { error });
-          if (isMounted) {
-            await logout();
-          }
+          // Don't logout, let the interceptor handle it
         }
       }, refreshMs);
     };
@@ -318,16 +227,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (session) {
       const timeUntilExpiry = session.expiresAt - Date.now();
       if (timeUntilExpiry > 0) {
-        scheduleRefresh(session.expiresIn);
+        const expiresInSeconds = Math.floor(timeUntilExpiry / 1000);
+        scheduleRefresh(expiresInSeconds);
       } else {
-        // Already expired - refresh now
+        // Already expired - refresh immediately
         logger.warn("Session already expired, attempting immediate refresh");
         refreshSession().then(newSession => {
           if (newSession && isMounted) {
             setSession(newSession);
             apiService.setAuthToken(newSession.accessToken);
-          } else if (isMounted) {
-            logout();
           }
         });
       }
@@ -340,76 +248,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshTimer = null;
       }
     };
-  }, [session, refreshSession, logout]);
+  }, [session, refreshSession]);
 
-  // useEffect(() => {
-  //   const bootstrap = async () => {
-  //     const storedSession = loadSession();
-  //     if (storedSession) {
-  //       // Check if token is close to expiry
-  //       const timeUntilExpiry = storedSession.expiresAt - Date.now();
-  //       const fiveMinutes = 5 * 60 * 1000;
-
-  //       if (timeUntilExpiry < fiveMinutes) {
-  //         // Refresh early
-  //         await refreshSession();
-  //       } else {
-  //         setSession(storedSession);
-  //       }
-  //     }
-  //   };
-
-  //   bootstrap();
-  // }, []);
-
+  // Dispatch token expiry events
   useEffect(() => {
-    let isMounted = true;
-
-    const bootstrap = async () => {
-      try {
-        const storedSession = loadSession();
-        if (storedSession && isMounted) {
-          // Check if token is close to expiry
-          const timeUntilExpiry = storedSession.expiresAt - Date.now();
-          const fiveMinutes = 5 * 60 * 1000;
-
-          if (timeUntilExpiry < fiveMinutes) {
-            // Refresh early
-            logger.info("Token close to expiry on bootstrap, refreshing");
-            const newSession = await refreshSession();
-            if (newSession && isMounted) {
-              setSession(newSession);
-              apiService.setAuthToken(newSession.accessToken);
-            } else if (isMounted) {
-              // Refresh failed, clear session
-              clearSession();
-              setSession(null);
-              apiService.setAuthToken(null);
-            }
-          } else if (isMounted) {
-            // Token is still valid
-            setSession(storedSession);
-            apiService.setAuthToken(storedSession.accessToken);
-          }
-        }
-      } catch (error) {
-        logger.error("Bootstrap auth failed", { error });
-        if (isMounted) {
-          clearSession();
-          setSession(null);
-          apiService.setAuthToken(null);
-        }
-      }
-    };
-
-    bootstrap();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-   useEffect(() => {
     let checkInterval: any | null = null;
     
     if (session) {
@@ -418,10 +260,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const secondsUntilExpiry = Math.floor(timeUntilExpiry / 1000);
         
         // Emit event at specific thresholds
-        const thresholds = [300, 180, 120, 60, 30, 15, 10, 5];
+        const thresholds = [300, 240, 180, 120, 60, 30, 15, 10, 5];
         thresholds.forEach(threshold => {
           if (secondsUntilExpiry <= threshold && secondsUntilExpiry > threshold - 2) {
-            // Dispatch custom event
             const event = new CustomEvent(TOKEN_EXPIRY_EVENT, {
               detail: {
                 timeRemaining: secondsUntilExpiry,
@@ -431,12 +272,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             window.dispatchEvent(event);
             
-            logger.info(`Token expiry warning: ${secondsUntilExpiry}s remaining`);
+            logger.debug(`Token expiry event: ${secondsUntilExpiry}s remaining`);
           }
         });
       };
 
-      // Check every second
       checkInterval = setInterval(checkTokenExpiry, 1000);
     }
 
@@ -446,6 +286,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
   }, [session]);
+
+  // Bootstrap - load session on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    const bootstrap = async () => {
+      try {
+        const storedSession = loadSession();
+        if (storedSession && isMounted) {
+          const timeUntilExpiry = storedSession.expiresAt - Date.now();
+          const fiveMinutes = 5 * 60 * 1000;
+
+          if (timeUntilExpiry < fiveMinutes) {
+            logger.info("Token close to expiry on bootstrap, refreshing");
+            const newSession = await refreshSession();
+            if (newSession && isMounted) {
+              setSession(newSession);
+              apiService.setAuthToken(newSession.accessToken);
+            } else if (isMounted) {
+              // Don't clear session, let it expire naturally
+              setSession(storedSession);
+              apiService.setAuthToken(storedSession.accessToken);
+            }
+          } else if (isMounted) {
+            setSession(storedSession);
+            apiService.setAuthToken(storedSession.accessToken);
+          }
+        }
+      } catch (error) {
+        logger.error("Bootstrap auth failed", { error });
+      }
+    };
+
+    bootstrap();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshSession]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
