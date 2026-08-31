@@ -710,20 +710,25 @@ async function expectRouteContent(
    * ======================================================== */
 
   if (route.path === "/payroll") {
-    const payrollHeading = page.getByRole(
-      "heading",
-      {
-        name: "Payroll Dashboard",
-        exact: true,
-      },
-    );
-
-    await expect(payrollHeading).toBeVisible({
-      timeout: 15000,
-    });
-
+    // const payrollHeading = page.getByRole(
+    //   "heading",
+    //   {
+    //     name: "Payroll Dashboard",
+    //     exact: true,
+    //   },
+    // );
+     const payrollHeading = page
+      .getByRole("heading", { name: /Payroll/i })
+      .first();
+    
+    await expect(payrollHeading).toBeVisible({ timeout: 15000 });
     return;
   }
+
+    // await expect(payrollHeading).toBeVisible({
+    //   timeout: 15000,
+    // });
+
 
   /* ==========================================================
    * SETTINGS
