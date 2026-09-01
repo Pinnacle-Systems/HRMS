@@ -104,7 +104,7 @@ export const complianceService = {
   },
 
   async updateComplianceStatus(id: string, status: string) {
-    return apiService.put(API_ENDPOINTS.PAYROLL.COMPLIANCE.UPDATE_STATUS(id), null, {
+    return apiService.patch(API_ENDPOINTS.PAYROLL.COMPLIANCE.UPDATE_STATUS(id), null, {
       params: { status }
     });
   },
@@ -114,7 +114,7 @@ export const complianceService = {
   },
 
   async generateComplianceReport(params?: { type?: string; year?: number; month?: number }) {
-    return apiService.get(API_ENDPOINTS.PAYROLL.COMPLIANCE.GENERATE_REPORT, { params });
+    return apiService.post(API_ENDPOINTS.PAYROLL.COMPLIANCE.GENERATE_REPORT, { params });
   },
 
   async updateCompliance(id: string, payload: ComplianceUpdatePayload) {
