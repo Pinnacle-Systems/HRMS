@@ -244,9 +244,6 @@ export default function EmployeeManagement() {
   // };
 
   const handleApplyFilters = (filters: FilterConfig) => {
-    console.log('Applying filters:', filters);
-    console.log('Filters rules:', filters.rules);
-    console.log('First rule value:', filters.rules[0]?.value);
     setActiveFilters(filters);
     setPage(0);
   };
@@ -301,7 +298,6 @@ export default function EmployeeManagement() {
 
   // Fetch employees
   const getEmployees = async () => {
-    console.log(activeFilters)
     showSpinner();
     try {
       const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
@@ -314,7 +310,6 @@ export default function EmployeeManagement() {
       };
       if (searchTerm) params.search = searchTerm;
       if (includeInactive) params.includeInactive = true;
-      console.log(params);
 
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);

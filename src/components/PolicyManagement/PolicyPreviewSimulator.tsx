@@ -83,7 +83,6 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
       setActiveStep(2);
     } catch (error: any) {
       showSnackbar(error?.message || 'Simulation failed', 'error');
-      console.error('Simulation failed:', error);
     } finally {
       setLoading(false);
       hideSpinner();

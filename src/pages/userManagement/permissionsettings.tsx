@@ -88,7 +88,6 @@ export default function PermissionSettings() {
             setInitialPermissions(permissionsMap);
             showSnackbar("Permissions loaded successfully", "success");
         } catch (error) {
-            console.error("Failed to load permissions:", error);
             setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
             setInitialPermissions(DEFAULT_ROLE_PERMISSIONS);
             showSnackbar("Failed to load permissions from server, using default values", "warning");
@@ -184,7 +183,6 @@ export default function PermissionSettings() {
                 showSnackbar("Permissions updated successfully!", "success");
             }
         } catch (error) {
-            console.error("Failed to save permissions:", error);
             showSnackbar("Failed to save permissions. Please try again.", "error");
             // Revert to initial state
             setRolePermissions(initialPermissions);
@@ -244,7 +242,6 @@ export default function PermissionSettings() {
                 showSnackbar(`Failed to delete role "${role}"`, "error");
             }
         } catch (error) {
-            console.error("Failed to delete role:", error);
             showSnackbar("Failed to delete role", "error");
         }
     };

@@ -122,7 +122,6 @@ export default function Dashboard() {
         showSnackbar(res.message || 'Failed to load dashboard', 'error');
       }
     } catch (error: any) {
-      console.error('Dashboard error:', error);
       showSnackbar('Error loading dashboard data', 'error');
     } finally {
       hideSpinner();

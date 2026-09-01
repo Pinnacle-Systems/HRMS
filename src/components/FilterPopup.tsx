@@ -543,7 +543,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                           sx={selectSx}
                           onChange={(e) => {
                             const newFieldId = e.target.value;
-                            console.log('Field selected:', newFieldId);
 
                             const newField = getField(newFieldId);
                             const defaultOperators = getOperatorsForFieldType(
@@ -557,7 +556,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                               value2: '',
                             });
 
-                            console.log('Updated rule:', rule);
                           }}
                           displayEmpty
                         >

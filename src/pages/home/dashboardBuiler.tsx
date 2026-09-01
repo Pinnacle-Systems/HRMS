@@ -237,7 +237,6 @@ export function DashboardBuilderFull() {
                 });
             }
         } catch (error) {
-            console.error("Failed to load dataset schema:", error);
             showSnackbar("Failed to load dataset schema", "error");
         }
     };

@@ -1,9 +1,7 @@
-// pages/BranchFiscalYearSelectPage.tsx
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/authContext";
-import { getDefaultRoute, redirectAfterSelect } from "../../auth/authMapper";
+import { getDefaultRoute } from "../../auth/authMapper";
 import { getSessionContext, selectSessionContext } from "../../auth/authApi";
 import type { AuthSession, Branch } from "../../auth/authTypes";
 
@@ -20,7 +18,7 @@ export default function BranchFiscalYearSelectPage() {
   const [assignedBranchId, setAssignedBranchId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [fiscalYears, setFiscalYears] = useState<{ id: string; label: string; active: boolean }[]>([]);
-  // const [activeFiscalYearId, setActiveFiscalYearId] = useState<string | null>(null);
+  const [_activeFiscalYearId, setActiveFiscalYearId] = useState<string | null>(null);
 
   // Selected values
   const [selectedBranchId, setSelectedBranchId] = useState<string | "">("");
@@ -33,26 +31,26 @@ export default function BranchFiscalYearSelectPage() {
         const response = await getSessionContext();
         if (!response.success) {
           setError(response.message || "Failed to load branch and fiscal year options.");
+          setLoading(false);
           return;
         }
         const data = response.data;
-        setBranchAssociated(data.branchAssociated);
+        setBranchAssociated(data.branchAssociated || false);
         setAssignedBranchId(data.assignedBranchId || null);
-        setBranches(data.branches);
-        setFiscalYears(data.fiscalYears);
-        // setActiveFiscalYearId(data.activeFiscalYearId || null);
+        setBranches(data.branches || []);
+        setFiscalYears(data.fiscalYears || []);
+        setActiveFiscalYearId(data.activeFiscalYearId || null);
 
-        // Pre-select values
+        // Pre-select values only if they exist
         if (data.branchAssociated && data.assignedBranchId) {
           setSelectedBranchId(data.assignedBranchId);
-        } else if (data.branches.length > 0) {
-          // Default to first branch (or "All" if not associated)
+        } else if (data.branches && data.branches.length > 0) {
           setSelectedBranchId(data.branches[0].id);
         }
 
         if (data.activeFiscalYearId) {
           setSelectedFiscalYearId(data.activeFiscalYearId);
-        } else if (data.fiscalYears.length > 0) {
+        } else if (data.fiscalYears && data.fiscalYears.length > 0) {
           setSelectedFiscalYearId(data.fiscalYears[0].id);
         }
       } catch (err) {
@@ -139,9 +137,13 @@ export default function BranchFiscalYearSelectPage() {
     );
   }
 
-  if (branches.length === 0 || fiscalYears.length === 0) {
-    const isAdmin = session?.user?.roles?.includes("ADMIN") || session?.user?.roles?.includes("HR");
+  // Check if branches or fiscal years exist
+  const hasBranches = branches && branches.length > 0;
+  const hasFiscalYears = fiscalYears && fiscalYears.length > 0;
+  const isAdmin = session?.user?.roles?.includes("ADMIN") || session?.user?.roles?.includes("HR");
 
+  // If no branches OR no fiscal years exist, show setup required message
+  if (!hasBranches || !hasFiscalYears) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
         <div className="bg-white rounded-sm shadow-xl p-8 max-w-md w-full text-center">
@@ -152,18 +154,22 @@ export default function BranchFiscalYearSelectPage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900">Company Setup Required</h2>
               <p className="text-gray-500 mt-2 text-sm">
-                <span className="font-bold text-lg"> Welcome to <span className="text-primary">Dot</span>HR!</span> <br></br> To access the dashboard, you need to configure your <span className="font-bold text-red-500">company details,
-                branches, and financial year</span>  first.
+                <span className="font-bold text-lg"> Welcome to <span className="text-primary">Dot</span>HR!</span> <br></br> 
+                To access the dashboard, you need to configure your <span className="font-bold text-red-500">company details,
+                branches, and financial year</span> first.
               </p>
               <div className="mt-6 space-y-3">
                 <button
-                  onClick={() => navigate(redirectAfterSelect())}
+                  onClick={() => {
+                    // Navigate to company settings
+                    navigate("/settings/general/company-settings", { replace: true });
+                  }}
                   className="w-full bg-primary text-white text-sm py-3 rounded-sm font-semibold hover:bg-primary-dark transition"
                 >
                   Start Company Setup
                 </button>
                 <button
-                  onClick={() => navigate("/login")}
+                  onClick={() => navigate("/logout")}
                   className="w-full text-gray-500 text-sm py-2 hover:text-primary transition underline"
                 >
                   Back to Login
@@ -195,6 +201,7 @@ export default function BranchFiscalYearSelectPage() {
     );
   }
 
+  // If we have both branches and fiscal years, show the selection form
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-sm shadow-xl p-8">

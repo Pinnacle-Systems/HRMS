@@ -523,7 +523,6 @@ export default function AssignSalaryStructure() {
 
       loadAssignments();
     } catch (error: any) {
-      console.error("Failed to assign", error);
       showSnackbar(error?.message || "Failed to assign salary structure", "error");
     } finally {
       hideSpinner();
@@ -989,7 +988,7 @@ export default function AssignSalaryStructure() {
                 Select & Configure
               </Typography>
             </Box>
-            <Box sx={{ flex: 1, height: 2, bgcolor: activeStep === 1 ? 'success.main' : 'divider' }} />
+            <Box className="border border-gray-200" sx={{ flex: 1, height: 2, bgcolor: activeStep === 1 ? 'success.main' : 'divider' }} />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{
                 width: 32,
@@ -1391,8 +1390,8 @@ export default function AssignSalaryStructure() {
               <TableBody>
                 {assignments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                      <div className="text-gray-500">No assignments found</div>
+                    <TableCell colSpan={8} align="center">
+                      <div className="text-gray-500 py-6">No assignments found</div>
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -83,7 +83,6 @@ export const ShiftRotation = () => {
       setEmployees(employeesRes.data?.content || []);
 
     } catch (error: any) {
-      console.error('Fetch error:', error);
       showSnackbar(error.message || 'Failed to fetch data', 'error');
     } finally {
       hideSpinner();

@@ -128,7 +128,6 @@ export default function SalaryComponentBuilder() {
         totalComponents: 0,
       });
     } catch (error) {
-      console.error("Failed to load salary components", error);
       showSnackbar("Failed to load salary components", "error");
     } finally {
       hideSpinner();

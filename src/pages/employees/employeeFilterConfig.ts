@@ -206,17 +206,14 @@ export const getEmployeeFilterFields = (
 export const buildEmployeeServerFilterParams = (
   filters: FilterConfig | null
 ): Record<string, any> => {
-  console.log('buildEmployeeServerFilterParams called with:', filters);
   
   if (!filters?.rules?.length) {
-    console.log('No filters or rules, returning empty');
     return {};
   }
 
   const params: Record<string, any> = {};
 
-  filters.rules.forEach((rule, index) => {
-    console.log(`Processing rule ${index}:`, rule);
+  filters.rules.forEach((rule, _index) => {
     
     const operator = rule.operator;
     const field = rule.field;
@@ -225,11 +222,8 @@ export const buildEmployeeServerFilterParams = (
 
     // Skip empty values
     if (value === undefined || value === null || value === '') {
-      console.log(`Skipping rule ${index} - empty value`);
       return;
     }
-
-    console.log(`Adding param for field: ${field}, operator: ${operator}, value: ${value}`);
 
     switch (operator) {
       // ===== TEXT OPERATORS =====
@@ -399,7 +393,6 @@ export const buildEmployeeServerFilterParams = (
     }
   });
 
-  console.log('Final params:', params);
   return params;
 };
 

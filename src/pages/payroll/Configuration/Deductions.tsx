@@ -967,8 +967,8 @@ export default function DeductionConfiguration() {
 
             {/* Tabs */}
             <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+              <CardContent>
+                <Box className="border-b border-gray-200 mb-3">
                   <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} sx={{
                     "& .MuiTabs-indicator": {
                       backgroundColor: "var(--color-primary)",
@@ -987,7 +987,7 @@ export default function DeductionConfiguration() {
                       {selectedEmployeeId ? "Active Deductions" : "Select an employee to view deductions"}
                     </Typography>
                     
-                      <TableContainer className="border border-gray-200 rounded-md">
+                      <TableContainer className="border bg-white-50 border-gray-200 rounded-md">
                         <Table>
                           <TableHead>
                             <TableRow>
@@ -1037,7 +1037,7 @@ export default function DeductionConfiguration() {
 
                 {tabValue === 1 && (
                   <>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600 }}>
                         All Deductions
                       </Typography>
@@ -1063,7 +1063,7 @@ export default function DeductionConfiguration() {
                         <CircularProgress />
                       </Box>
                     ) : (
-                      <TableContainer className="border border-gray-200 rounded-md">
+                      <TableContainer className="border bg-white-50 border-gray-200 rounded-md">
                         <Table>
                           <TableHead>
                             <TableRow>

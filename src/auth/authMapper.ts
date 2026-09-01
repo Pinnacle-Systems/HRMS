@@ -316,9 +316,10 @@ export function redirectAfterAuth(
 
 export function hasWorkspaceContext(session: AuthSession | null): boolean {
   if (!session) return false;
-  if (!session.fiscalYearId) return false;
+  // if (!session.fiscalYearId) return false;
   if (session.branchId) return true;
-  if (session.branchScoped === false) return true;
+  // if (session.branchScoped === false) return true;
+  if (session.branchScoped === false && session.fiscalYearId) return true;
   return false;
   // return !!(session.branchId && session.fiscalYearId);
 }

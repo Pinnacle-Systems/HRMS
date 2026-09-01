@@ -880,7 +880,7 @@ export const API_ENDPOINTS = {
       UPDATE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
       DELETE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
       LIST_WIDGETS: (pageId: string) => `/admin/dashboard/pages/${pageId}/widgets`,
-      ADD_WIDGET: (pageId: string) =>  `/admin/dashboard/pages/${pageId}/widgets`,
+      ADD_WIDGET: (pageId: string) => `/admin/dashboard/pages/${pageId}/widgets`,
       UPDATE_WIDGET: (pageId: string, widgetId: string) => `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
       DELETE_WIDGET: (pageId: string, widgetId: string) => `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
       LIST_FILTERS: (pageId: string) => `/admin/dashboard/pages/${pageId}/filters`,
@@ -954,7 +954,6 @@ export const API_ENDPOINTS = {
   },
 
   WHATSAPP: {
-    BASE: "/messaging/whatsapp-configs",
     GET_ALL: "/messaging/whatsapp-configs",
     GET_BY_ID: (id: string) => `/messaging/whatsapp-configs/${id}`,
     CREATE: "/messaging/whatsapp-configs",
@@ -964,7 +963,6 @@ export const API_ENDPOINTS = {
   },
 
   SMS: {
-    BASE: "/messaging/sms-configs",
     GET_ALL: "/messaging/sms-configs",
     GET_BY_ID: (id: string) => `/messaging/sms-configs/${id}`,
     CREATE: "/messaging/sms-configs",
@@ -984,6 +982,27 @@ export const API_ENDPOINTS = {
     SET_DEFAULT: (id: string) => `/messaging/email-configs/${id}/default`,
     TEST: (id: string) => `/messaging/email-configs/${id}/test`,
   },
+
+  TEMPLATES: {
+    BASE: "/messaging/templates",
+    GET_BY_ID: (id: string) => `/messaging/templates/${id}`,
+    CREATE: "/messaging/templates",
+    UPDATE: (id: string) => `/messaging/templates/${id}`,
+    DELETE: (id: string) => `/messaging/templates/${id}`,
+    PREVIEW: (id: string) => `/messaging/templates/${id}/preview`,
+  },
+
+  WHATSAPP_CHAT: {
+    BASE: "/messaging/whatsapp/conversations",
+    GET_BY_ID: (id: string) => `/messaging/whatsapp/conversations/${id}`,
+    MESSAGES: (id: string) => `/messaging/whatsapp/conversations/${id}/messages`,
+    STATUS: (id: string) => `/messaging/whatsapp/conversations/${id}/status`,
+    READ: (id: string) => `/messaging/whatsapp/conversations/${id}/read`,
+    SEND: "/messaging/whatsapp/conversations/send",
+    SEND_BY_ID: (id: string) => `/messaging/whatsapp/conversations/${id}/send`,
+  },
+
+  WHATSAPP_WEBHOOK: (tenantId: string) => `/integration/whatsapp/webhook/${tenantId}`,
 
   PAYROLL: {
     DASHBOARD: "/payroll/dashboard",

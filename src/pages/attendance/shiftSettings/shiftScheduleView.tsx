@@ -165,7 +165,6 @@ export const ShiftScheduleView = () => {
       ]);
       await checkNotificationStatus(selectedDate.format('YYYY-MM-DD'));
     } catch (error) {
-      console.error('Error fetching data:', error);
       showSnackbar('Failed to load schedule data', 'error');
     } finally {
       hideSpinner();
@@ -343,7 +342,6 @@ export const ShiftScheduleView = () => {
       setSwapDialogOpen(false);
       await fetchSwapRequests();
     } catch (error) {
-      console.error('Error updating swap request:', error);
       showSnackbar('Failed to update swap request', 'error');
     } finally {
       setSwapActionLoading(false);
@@ -691,6 +689,7 @@ export const ShiftScheduleView = () => {
                         checked={autoNotifyOnPublish}
                         onChange={(e) => setAutoNotifyOnPublish(e.target.checked)}
                         size="small"
+                        className="text-gray-800"
                       />
                     }
                     label="Auto-notify when schedule published"

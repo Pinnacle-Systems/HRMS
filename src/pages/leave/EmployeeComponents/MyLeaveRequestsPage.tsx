@@ -279,7 +279,6 @@ export default function MyLeaveRequestsPage() {
         throw new Error("No attachment ID returned from server");
       }
     } catch (error: any) {
-      console.error("Upload error:", error);
       showSnackbar(error.message || "Failed to upload attachment", "error");
     } finally {
       hideSpinner();
@@ -303,7 +302,6 @@ export default function MyLeaveRequestsPage() {
         throw new Error(response.message || "Failed to delete attachment");
       }
     } catch (error: any) {
-      console.error("Delete error:", error);
       showSnackbar(error.message || "Failed to delete attachment", "error");
     } finally {
       hideSpinner();

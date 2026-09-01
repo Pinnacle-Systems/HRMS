@@ -143,7 +143,6 @@ export default function PayrollDetails() {
       setPage(0);
       setFilterStatus(null);
     } catch (error) {
-      console.error("Failed to load payroll details", error);
       showSnackbar("Failed to load payroll details", "error");
     } finally {
       hideSpinner();

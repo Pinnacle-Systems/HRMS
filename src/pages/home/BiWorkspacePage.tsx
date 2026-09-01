@@ -856,7 +856,6 @@ export default function BiWorkspacePage() {
   };
 
   const handleDownloadFromUrl = async (url: string, format?: string) => {   
-    console.log(url,format);
     await apiService.downloadFromPath(url,`exportJob.${format}`)
   };
 

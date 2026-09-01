@@ -92,11 +92,11 @@ export const validationRules: Record<string, ValidationRule> = {
     message: 'Invalid license number format',
     formatExample: 'TRD/MH/123/2024'
   },
-  registrationCertificateNo: {
-    pattern: /^[A-Z]{3}-\d{10}$/,
-    message: 'Invalid registration number format',
-    formatExample: 'ROC-1234567890'
-  },
+  // registrationCertificateNo: {
+  //   pattern: /^[A-Z]{3}-\d{10}$/,
+  //   message: 'Invalid registration number format',
+  //   formatExample: 'ROC-1234567890'
+  // },
   
   // Banking
   // bank: {
@@ -131,10 +131,10 @@ const normalizeKey = (key: string): string => {
     tan: "tanNo",
     pf: "pfNo",
     esi: "esiNo",
-    registration: "registrationCertificateNo",
-    registration_no: "registrationCertificateNo",
-    registrationNo: "registrationCertificateNo",
-    registration_certificate_no: "registrationCertificateNo",
+    // registration: "registrationCertificateNo",
+    // registration_no: "registrationCertificateNo",
+    // registrationNo: "registrationCertificateNo",
+    // registration_certificate_no: "registrationCertificateNo",
   };
 
   if (aliases[key]) {

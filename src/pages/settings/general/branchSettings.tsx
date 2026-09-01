@@ -300,7 +300,6 @@ export default function BranchSettings() {
             );
             showSnackbar("Location fetched successfully!", "success");
           } catch (error) {
-            console.error(error);
             showSnackbar("Failed to fetch address", "error");
           }
         },
@@ -1078,7 +1077,7 @@ export default function BranchSettings() {
             </TableBody>
           </Table>
           {branches.length === 0 && (
-            <div className="bg-white border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500">
+            <div className="border border-gray-200 border-t-0 text-gray-900 text-center py-8 text-gray-500">
               No branches found
             </div>
           )}

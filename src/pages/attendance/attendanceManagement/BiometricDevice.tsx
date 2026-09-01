@@ -2010,7 +2010,8 @@ export const DeviceManagement: React.FC = () => {
                   checked={selectAll}
                   indeterminate={selectedDevices.length > 0 && selectedDevices.length < devices.length}
                   onChange={handleSelectAll}
-                />S No</TableCell>
+                  className="text-gray-800"
+                />#</TableCell>
               <TableCell className="!font-bold sticky left-[58px] z-30">Device Name</TableCell>
               <TableCell className="!font-bold">Serial Number</TableCell>
               <TableCell className="!font-bold">Model</TableCell>
@@ -2028,13 +2029,13 @@ export const DeviceManagement: React.FC = () => {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={11} align="center">
                   <CircularProgress sx={{ my: 2 }} />
                 </TableCell>
               </TableRow>
             ) : devices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={11} align="center">
                   <Typography variant="body1" sx={{ py: 3 }}>
                     No devices found. Click "Add Device" to register a new
                     device.

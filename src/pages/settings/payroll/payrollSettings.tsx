@@ -1315,7 +1315,6 @@ export default function PayrollSettings() {
       if (response.success) {
         setSettings(response.data);
         setSuccessMessage('Settings saved successfully!');
-        console.log('Settings saved successfully!');
       } else {
         setError(response.message || 'Failed to save settings');
       }

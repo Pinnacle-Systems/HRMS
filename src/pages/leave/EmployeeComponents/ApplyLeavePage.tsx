@@ -240,7 +240,6 @@ export default function ApplyLeavePage() {
         };
         const response: any = await leaveService.calculateLeaveDays(payload);
         setCalculation(response.data ?? null);
-        console.log(response.data);
 
         setCalculateError("");
       } catch (err: any) {

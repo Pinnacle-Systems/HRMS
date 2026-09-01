@@ -70,5 +70,9 @@ class CompanyService {
     return apiService.get(API_ENDPOINTS.COMPANY.GST_LOOKUP, { params });
   }
 
+  async searchGSTByCompany(params: {companyName: string, state?: string}) {
+    return apiService.get(API_ENDPOINTS.COMPANY.GET_GST_BY_COMPANY, { params });
+  }
+
 }
 export const companyService = new CompanyService();

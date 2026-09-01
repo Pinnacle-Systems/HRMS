@@ -73,7 +73,6 @@ export default function EmployeePayslip() {
       const res: any = await payslipsService.viewPayslip(employeeId);
       setPayslip(res.data);
     } catch (error: any) {
-      console.error("Failed to fetch payslip:", error);
       showSnackbar(error.message || "Failed to fetch the payslip", 'error');
     } finally {
       hideSpinner();

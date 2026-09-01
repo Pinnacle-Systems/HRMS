@@ -287,7 +287,6 @@ export const ShiftList = () => {
       resetForm();
       await fetchData();
     } catch (error: any) {
-      console.error('API Error:', error);
       showSnackbar(error.message || 'Failed to save shift', 'error');
     } finally {
       hideSpinner();

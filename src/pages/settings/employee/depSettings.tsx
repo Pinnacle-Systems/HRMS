@@ -112,7 +112,6 @@ export default function DepartmentSettings() {
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
-      console.error("Failed to load departments:", error.message);
     } finally {
       hideSpinner();
     }
@@ -481,7 +480,7 @@ export default function DepartmentSettings() {
             </TableBody>
           </Table>
           {departments.length === 0 && (
-            <div className="bg-white text-gray-800 text-center py-8 text-gray-500">
+            <div className="bg-white-50 border border-gray-200 text-gray-800 text-center py-8 text-gray-500">
               No departments found
             </div>
           )}

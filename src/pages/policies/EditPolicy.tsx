@@ -86,7 +86,6 @@ export default function EditPolicy() {
         });
       }
     } catch (error: any) {
-      console.error('Failed to load policy:', error);
       showSnackbar(error?.message || 'Failed to load policy', 'error');
     } finally {
       hideSpinner();

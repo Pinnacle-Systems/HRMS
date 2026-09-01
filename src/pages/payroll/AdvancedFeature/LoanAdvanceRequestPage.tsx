@@ -90,7 +90,6 @@ export default function LoanAdvanceRequest() {
       setRequests(requestsRes.data?.content || []);
       setSummary(summaryRes.data);
     } catch (error) {
-      console.error("Failed to load loan requests", error);
       showSnackbar("Failed to load loan requests", "error");
     } finally {
       hideSpinner();

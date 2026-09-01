@@ -223,7 +223,7 @@ export default function PayrollReports() {
 
       {/* Reports Table */}
       <TableContainer className="h-[calc(100vh-295px)] overflow-auto">
-        <Table className="bg-white border border-gray-200 rounded-sm ">
+        <Table className="bg-white-50 border border-gray-200 rounded-sm ">
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>S No</TableCell>
@@ -245,8 +245,8 @@ export default function PayrollReports() {
               </TableRow>
             ) : reports.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                  No reports found
+                <TableCell colSpan={8} align="center" sx={{color: "text.secondary" }}>
+                  <div className="py-6"> No reports found</div>
                 </TableCell>
               </TableRow>
             ) : (

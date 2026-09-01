@@ -13,6 +13,13 @@ import {
   DialogTitle,
   IconButton,
   CircularProgress,
+  MenuItem,
+  Select,
+  FormControl,
+  Paper,
+  Collapse,
+  Card,
+  CardContent,
 } from "@mui/material";
 import {
   companyFieldsWithSections,
@@ -34,15 +41,41 @@ import LocationMap from "../../../components/Map";
 import dayjs from "dayjs";
 import { fiscalYearService } from "../../../services/modules/fiscalYear";
 import { formatDate } from "../../leave/leaveFormatters";
-import { CloseOutlined } from "@mui/icons-material";
+import { CloseOutlined, BusinessCenter, ExpandMore, ExpandLess } from "@mui/icons-material";
 import { handleEnterAsTab } from "../../const";
 import { branchService } from "../../../services/modules/branch";
 import useUnsavedChanges from "../../../hooks/useUnsavedChanges";
+import { selectSx } from "../../../const";
 
 // Helper to check if two objects are equal
 const isEqual = (obj1: any, obj2: any): boolean => {
   return JSON.stringify(obj1) === JSON.stringify(obj2);
 };
+
+// GST Search Type
+type GSTSearchType = 'by_gst' | 'by_company';
+
+interface GSTSearchResult {
+  gstin: string;
+  legalName: string;
+  tradeName: string;
+  status: string;
+  taxpayerType: string;
+  constitution: string;
+  registrationDate: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  centreJurisdiction: string;
+  stateJurisdiction: string;
+  stateCode: string;
+  pan: string;
+  entityType: string;
+  source: string;
+  provider: string;
+  fetchedAt: string;
+}
 
 const CompanySettings = () => {
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({
@@ -73,7 +106,17 @@ const CompanySettings = () => {
   });
   const [fiscalYearLoading, setFiscalYearLoading] = useState(false);
   const [fiscalYearDialogOpen, setFiscalYearDialogOpen] = useState(false);
+
+  // GST Search States
+  const [gstSearchType, setGstSearchType] = useState<GSTSearchType>('by_gst');
   const [gstSearch, setGstSearch] = useState("");
+  const [companyNameSearch, setCompanyNameSearch] = useState("");
+  const [selectedStateForSearch, setSelectedStateForSearch] = useState("");
+  const [gstSearchResults, setGstSearchResults] = useState<GSTSearchResult[]>([]);
+  const [showGstResults, setShowGstResults] = useState(false);
+  const [isSearchingGst, setIsSearchingGst] = useState(false);
+  const [expandedGstResult, setExpandedGstResult] = useState<string | null>(null);
+
   const [isSaving, setIsSaving] = useState(false);
 
   // Check if there are unsaved changes
@@ -619,50 +662,173 @@ const CompanySettings = () => {
     groupedSections.push(currentSection);
   }
 
-  const getCompanyDetailsGST = async (gstNo: any) => {
-    if (!gstNo || gstNo.length < 15) {
-      showSnackbar("Please enter a valid 15-digit GSTIN", "warning");
-      return;
+  // GST Search Functions
+  const handleGSTSearch = async () => {
+    if (gstSearchType === 'by_gst') {
+      // Search by GST Number
+      if (!gstSearch || gstSearch.length < 15) {
+        showSnackbar("Please enter a valid 15-digit GSTIN", "warning");
+        return;
+      }
+      await searchByGSTNumber(gstSearch);
+    } else {
+      // Search by Company Name and State
+      if (!companyNameSearch.trim()) {
+        showSnackbar("Please enter a company name", "warning");
+        return;
+      }
+      await searchByCompanyName(companyNameSearch, selectedStateForSearch);
     }
-    showSpinner();
+  };
+
+  const searchByGSTNumber = async (gstNo: string) => {
+    setIsSearchingGst(true);
+    setShowGstResults(false);
     try {
       const response: any = await companyService.getCompanyDetailsByGSTLookup({
         gstNo: gstNo.trim().toUpperCase(),
         refresh: true
       });
+
       if (response?.success && response?.data) {
         const gstData = response.data;
-        const fullAddress = [
-          gstData.address,
-          gstData.city,
-          gstData.state,
-          gstData.pincode
-        ].filter(Boolean).join(', ');
-        setCompanyInfo((prev: any) => ({
-          ...prev,
-          gstNo: gstData.gstin || gstNo,
-          companyName: gstData.legalName || prev.companyName,
-          aliasName: gstData.tradeName || prev.aliasName,
-          panNo: gstData.pan || prev.panNo,
-          companyAddress: fullAddress || gstData.address || prev.companyAddress,
-          city: gstData.city || prev.city,
-          state: gstData.state || prev.state,
-          pincode: gstData.pincode || prev.pincode,
-          registrationCertificateNo: gstData.gstin || prev.registrationCertificateNo,
-        }));
-
-        if (fullAddress) {
-          generateMapFromAddress(fullAddress);
+        setGstSearchResults([gstData]);
+        setShowGstResults(true);
+        
+        // Show source information
+        let sourceMessage = '';
+        if (gstData.source === 'provider') {
+          sourceMessage = `Fetched live from ${gstData.provider || 'GST registry'}`;
+        } else if (gstData.source === 'cache') {
+          sourceMessage = 'Retrieved from cache (up to date)';
+        } else if (gstData.source === 'cache-stale') {
+          sourceMessage = 'Using cached data (live fetch failed)';
+        } else {
+          sourceMessage = 'Data fetched successfully';
         }
-        showSnackbar("GST details fetched and populated successfully!", "success");
+        
+        showSnackbar(`GST details found! (${sourceMessage})`, "success");
       } else {
-        showSnackbar(response?.message || "No GST details found", "error");
+        // Try fallback to existing company records
+        const fallbackResponse: any = await companyService.getCompanyDetailsByGST({
+          gstNo: gstNo.trim().toUpperCase()
+        });
+        if (fallbackResponse?.success && fallbackResponse?.data?.length > 0) {
+          const companyData = fallbackResponse.data[0];
+          // Convert to GST result format
+          const gstResult: GSTSearchResult = {
+            gstin: companyData.gstNo || gstNo,
+            legalName: companyData.companyName,
+            tradeName: companyData.aliasName || companyData.companyName,
+            status: "Active",
+            taxpayerType: "Regular",
+            constitution: companyData.companyType || "",
+            registrationDate: companyData.incorporationDate || "",
+            address: companyData.companyAddress || "",
+            city: companyData.cityName || "",
+            state: companyData.stateName || "",
+            pincode: companyData.pincode || "",
+            centreJurisdiction: "",
+            stateJurisdiction: "",
+            stateCode: "",
+            pan: companyData.panNo || "",
+            entityType: "",
+            source: "local",
+            provider: "local",
+            fetchedAt: new Date().toISOString()
+          };
+          setGstSearchResults([gstResult]);
+          setShowGstResults(true);
+          showSnackbar("Company details fetched from existing records!", "success");
+        } else {
+          showSnackbar(response?.message || "No GST details found", "error");
+          setGstSearchResults([]);
+        }
       }
     } catch (error: any) {
       showSnackbar(error?.message || "Failed to fetch GST details", "error");
+      setGstSearchResults([]);
     } finally {
-      hideSpinner();
+      setIsSearchingGst(false);
     }
+  };
+
+  const searchByCompanyName = async (companyName: string, state?: string) => {
+    setIsSearchingGst(true);
+    setShowGstResults(false);
+    try {
+      const response: any = await companyService.searchGSTByCompany({
+        companyName: companyName.trim(),
+        state: state || undefined
+      });
+
+      if (response?.success && response?.data && response.data.length > 0) {
+        // Convert company search results to GST result format
+        const results: GSTSearchResult[] = response.data.map((item: any) => ({
+          gstin: item.gstNo || "",
+          legalName: item.companyName || companyName,
+          tradeName: item.companyName || companyName,
+          status: "Active",
+          taxpayerType: "Regular",
+          constitution: "",
+          registrationDate: "",
+          address: "",
+          city: "",
+          state: item.stateName || state || "",
+          pincode: "",
+          centreJurisdiction: "",
+          stateJurisdiction: "",
+          stateCode: "",
+          pan: "",
+          entityType: "",
+          source: "local",
+          provider: "local",
+          fetchedAt: new Date().toISOString()
+        }));
+        setGstSearchResults(results);
+        setShowGstResults(true);
+        showSnackbar(`Found ${results.length} GSTIN(s) for "${companyName}"`, "success");
+      } else {
+        showSnackbar("No GSTIN found for the given company name", "info");
+        setGstSearchResults([]);
+      }
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to search GST by company name", "error");
+      setGstSearchResults([]);
+    } finally {
+      setIsSearchingGst(false);
+    }
+  };
+
+  const applyGSTResultToForm = (result: GSTSearchResult) => {
+    const fullAddress = [
+      result.address,
+      result.city,
+      result.state,
+      result.pincode
+    ].filter(Boolean).join(', ');
+
+    setCompanyInfo((prev: any) => ({
+      ...prev,
+      gstNo: result.gstin || prev.gstNo,
+      companyName: result.legalName || prev.companyName,
+      aliasName: result.tradeName || prev.aliasName,
+      panNo: result.pan || prev.panNo,
+      companyAddress: fullAddress || result.address || prev.companyAddress,
+      city: result.city || prev.city,
+      state: result.state || prev.state,
+      pincode: result.pincode || prev.pincode,
+      registrationCertificateNo: result.gstin || prev.registrationCertificateNo,
+      incorporationDate: result.registrationDate || prev.incorporationDate,
+      companyType: result.constitution || prev.companyType,
+    }));
+
+    if (fullAddress) {
+      generateMapFromAddress(fullAddress);
+    }
+
+    setShowGstResults(false);
+    showSnackbar("GST details applied to form successfully!", "success");
   };
 
   // renderField function
@@ -767,11 +933,17 @@ const CompanySettings = () => {
     );
   };
 
+  // Get available states for search (from master data)
+  const searchStates = states.map((state: any) => ({
+    id: state.id,
+    name: state.name
+  }));
+
   return (
     <>
       <Box onKeyDown={handleEnterAsTab}>
         <div className="flex item-center justify-between mb-3 mt-3">
-          <div className="text-gray-500 text-sm flex items-center gap-1">
+          <div className="text-gray-500 text-[12px] flex items-center gap-1">
             Settings <KeyboardDoubleArrowRightIcon className="!w-4 !h-4" />
             <span className="text-primary font-medium">
               {getCurrentRouteLabel()}
@@ -792,31 +964,80 @@ const CompanySettings = () => {
               />
             )}
           </div>
-          {/* GST Button */}
-          <div className="flex items-center gap-2">
-            <TextField
-              size="small"
-              placeholder="Enter GSTIN"
-              className="!w-[250px]"
-              value={gstSearch}
-              onChange={(e) => setGstSearch(e.target.value.toUpperCase())}
-            />
+
+          {/* GST Search Section */}
+          <div className="flex items-center gap-3">
+            {/* Search Type Toggle */}
+            <FormControl size="small">
+              <Select
+                className="bg-white"
+                value={gstSearchType}
+                onChange={(e) => setGstSearchType(e.target.value as GSTSearchType)}
+                sx={selectSx}
+              >
+                <MenuItem value="by_gst">By GSTIN</MenuItem>
+                <MenuItem value="by_company">By Company</MenuItem>
+              </Select>
+            </FormControl>
+
+            {gstSearchType === 'by_gst' ? (
+              <TextField
+                size="small"
+                placeholder="Enter GSTIN (e.g., 22AAAAA0000A1Z5)"
+                className="!w-[350px]"
+                value={gstSearch}
+                onChange={(e) => setGstSearch(e.target.value.toUpperCase())}
+                onKeyPress={(e) => e.key === 'Enter' && handleGSTSearch()}
+              />
+            ) : (
+              <div className="flex gap-2">
+                <TextField
+                  size="small"
+                  placeholder="Company name"
+                  className="!w-[300px] bg-white"
+                  value={companyNameSearch}
+                  onChange={(e) => setCompanyNameSearch(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleGSTSearch()}
+                />
+                <FormControl size="small">
+                  <Select
+                    value={selectedStateForSearch}
+                    onChange={(e) => setSelectedStateForSearch(e.target.value)}
+                    displayEmpty
+                    className="bg-white"
+                    sx={selectSx}
+                  >
+                    <MenuItem value="">All States</MenuItem>
+                    {searchStates.map((state) => (
+                      <MenuItem key={state.id} value={state.name}>
+                        {state.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
+            )}
 
             <Button
-              variant="outlined"
-              onClick={() => getCompanyDetailsGST(gstSearch)}
+              variant="contained"
+              className="!bg-primary !text-white !px-6"
+              onClick={handleGSTSearch}
+              disabled={isSearchingGst}
+              size="small"
             >
-              GST Search
+              {isSearchingGst ? "Searching..." : "Search"}
             </Button>
           </div>
+
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             {(companyInfo && companyInfo.id) &&
               <Button
                 variant="outlined"
-                className="!text-gray-800 !border-gray-300"
+                className="!text-gray-800 !border-gray-300 !px-6"
                 onClick={handleCancel}
                 disabled={isSaving}
+                size="small"
               >
                 Delete
               </Button>
@@ -828,11 +1049,144 @@ const CompanySettings = () => {
               onClick={() => handleSave()}
               disabled={isSaving}
               startIcon={isSaving ? <CircularProgress size={20} /> : null}
+              size="small"
             >
               {isSaving ? "Saving..." : "Save Changes"}
             </Button>
           </div>
         </div>
+
+        {/* GST Search Results */}
+        <Collapse in={showGstResults && gstSearchResults.length > 0}>
+          <Paper className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+            <div className="flex items-center justify-between mb-3">
+              <Typography variant="subtitle2" className="!font-semibold text-gray-800">
+                <BusinessCenter className="!w-4 !h-4 mr-2 text-primary" />
+                GST Search Results ({gstSearchResults.length})
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => setShowGstResults(false)}
+                className="!text-gray-500"
+              >
+                <CloseOutlined className="!w-4 !h-4" />
+              </Button>
+            </div>
+
+            <div className="space-y-2 max-h-96 overflow-auto">
+              {gstSearchResults.map((result, index) => (
+                <Card key={index} variant="outlined" className="!border-gray-200 bg-white">
+                  <CardContent className="!p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {/* Header with Status and Source */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Typography variant="subtitle2" className="!font-semibold text-gray-800">
+                            {result.legalName}
+                          </Typography>
+                          <Chip
+                            label={result.status || "Active"}
+                            size="small"
+                            color={result.status === "Active" ? "success" : "default"}
+                          />
+                          {result.source && (
+                            <Chip
+                              label={result.source === 'local' ? 'Local DB' : 'GST Registry'}
+                              size="small"
+                              variant="outlined"
+                              color={result.source === 'local' ? 'info' : 'primary'}
+                            />
+                          )}
+                        </div>
+
+                        {/* GSTIN */}
+                        <Typography variant="body2" className="!text-gray-600 !text-[12px] !mt-1">
+                          <span className="font-medium">GSTIN:</span> {result.gstin}
+                        </Typography>
+
+                        {/* Trade Name (if different) */}
+                        {result.tradeName && result.tradeName !== result.legalName && (
+                          <Typography variant="body2" className="!text-gray-500 !text-[12px]">
+                            <span className="font-medium">Trade Name:</span> {result.tradeName}
+                          </Typography>
+                        )}
+
+                        {/* Address */}
+                        {result.address && (
+                          <Typography variant="body2" className="!text-gray-500 !text-[12px]">
+                            <span className="font-medium">Address:</span> {[result.address, result.city, result.state, result.pincode].filter(Boolean).join(', ')}
+                          </Typography>
+                        )}
+
+                        {/* PAN and Registration Date */}
+                        <div className="flex gap-4 mt-1">
+                          {result.pan && (
+                            <Typography variant="body2" className="!text-gray-500 !text-[12px]">
+                              <span className="font-medium">PAN:</span> {result.pan}
+                            </Typography>
+                          )}
+                          {result.registrationDate && (
+                            <Typography variant="body2" className="!text-gray-500 !text-[12px]">
+                              <span className="font-medium">Registration:</span> {formatDate(result.registrationDate)}
+                            </Typography>
+                          )}
+                        </div>
+
+                        {/* Expand for more details */}
+                        <Button
+                          size="small"
+                          onClick={() => setExpandedGstResult(expandedGstResult === result.gstin ? null : result.gstin)}
+                          endIcon={expandedGstResult === result.gstin ? <ExpandLess /> : <ExpandMore />}
+                          className="!text-xs !mt-1 !text-primary"
+                        >
+                          {expandedGstResult === result.gstin ? "Hide Details" : "Show Details"}
+                        </Button>
+
+                        <Collapse in={expandedGstResult === result.gstin}>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[12px] bg-gray-50 p-2 rounded border border-gray-100">
+                            {result.constitution && (
+                              <div className="text-gray-800"><span className="font-medium">Constitution:</span> {result.constitution}</div>
+                            )}
+                            {result.entityType && (
+                              <div className="text-gray-800"><span className="font-medium">Entity Type:</span> {result.entityType}</div>
+                            )}
+                            {result.taxpayerType && (
+                              <div className="text-gray-800"><span className="font-medium">Taxpayer Type:</span> {result.taxpayerType}</div>
+                            )}
+                            {result.stateCode && (
+                              <div className="text-gray-800"><span className="font-medium">State Code:</span> {result.stateCode}</div>
+                            )}
+                            {result.centreJurisdiction && (
+                              <div className="text-gray-800"><span className="font-medium">Centre Jurisdiction:</span> {result.centreJurisdiction}</div>
+                            )}
+                            {result.stateJurisdiction && (
+                              <div className="col-span-2 text-gray-800"><span className="font-medium">State Jurisdiction:</span> {result.stateJurisdiction}</div>
+                            )}
+                            {result.fetchedAt && (
+                              <div className="col-span-2 text-gray-400 !text-[10px] !mt-1">
+                                Fetched at: {new Date(result.fetchedAt).toLocaleString()}
+                              </div>
+                            )}
+                          </div>
+                        </Collapse>
+                      </div>
+                      
+                      {/* Apply Button */}
+                      <Button
+                        variant="contained"
+                        size="small"
+                        className="!bg-primary !text-white !ml-2 whitespace-nowrap"
+                        onClick={() => applyGSTResultToForm(result)}
+                      >
+                        Apply to Form
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </Paper>
+        </Collapse>
 
         {/* Show unsaved changes warning */}
         {hasUnsavedChanges && (

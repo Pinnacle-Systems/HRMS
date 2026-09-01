@@ -96,7 +96,6 @@ export default function StatutoryCompliance() {
       setOverview(overviewRes.data);
       setComplianceData(filingsRes.data?.content || []);
     } catch (error) {
-      console.error("Failed to load compliance data", error);
       showSnackbar("Failed to load compliance data", "error");
     } finally {
       hideSpinner();
@@ -106,9 +105,7 @@ export default function StatutoryCompliance() {
 
   const handleDownload = async (item: any) => {
     try {
-      const res: any = await complianceService.downloadCompliance(item.id);
-      console.log(res.data.fileUrl);
-      
+      const res: any = await complianceService.downloadCompliance(item.id);      
       await apiService.downloadFromPath(res.data.fileUrl, `statutory_${item.type}_${item.periodLabel}.pdf`);
       showSnackbar("Compliance exported successfully", "success");
     } catch (error) {
@@ -338,7 +335,7 @@ export default function StatutoryCompliance() {
           <TableBody>
             {complianceData.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   <div className="py-6 text-gray-500">No compliance records found</div>
                 </TableCell>
               </TableRow>

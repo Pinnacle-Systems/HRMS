@@ -549,7 +549,7 @@ export default function EmployeePortal() {
 
       {/* Tab 0: Employee List */}
       {tabValue === 0 && (
-        <div className="bg-white !p-2 !pb-0">
+        <div className="bg-white !p-2">
           <Box sx={{ display: "flex", gap: 2, alignItems: "center", mb: 1}}>
             <TextField
               placeholder="Search employees..."
@@ -572,7 +572,7 @@ export default function EmployeePortal() {
             </FormControl>
           </Box>
 
-          <TableContainer className="border border-gray-200 mt-1 rounded-md h-[calc(100vh-285px)] overflow-auto">
+          <TableContainer className="border bg-white-50 border-gray-200 mt-1 rounded-md max-h-[calc(100vh-285px)] overflow-auto">
             <Table stickyHeader>
               <TableHead>
                 <TableRow>

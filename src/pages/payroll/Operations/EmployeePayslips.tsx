@@ -181,7 +181,6 @@ export default function EmployeePayslips() {
       // Implement bulk download logic
       showSnackbar("Bulk download started", "success");
     } catch (error) {
-      console.error("Failed to bulk download", error);
       showSnackbar("Failed to bulk download", "error");
     } finally {
       hideSpinner();

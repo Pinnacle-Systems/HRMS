@@ -130,7 +130,6 @@ export default function PayrollRuns() {
             setPayrollRuns(runs);
             setTotal(data.totalElements || data.total || data.totalCount || runs.length);
         } catch (error) {
-            console.error("Failed to load payroll runs", error);
             showSnackbar("Failed to load payroll runs", "error");
         } finally {
             setLoading(false);
@@ -236,7 +235,7 @@ export default function PayrollRuns() {
             </Box>
 
             {/* Table */}
-            <TableContainer className="bg-white border border-gray-200 rounded-sm h-[calc(100vh-331px)] overflow-auto">
+            <TableContainer className="bg-white-50 border border-gray-200 rounded-sm max-h-[calc(100vh-331px)] overflow-auto">
                 <Table stickyHeader>
                     <TableHead>
                         <TableRow>

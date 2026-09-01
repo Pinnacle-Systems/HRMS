@@ -60,7 +60,6 @@ export function LopReport({ onBack }: Props) {
       setRows(Array.isArray(data) ? data : data?.content ?? []);
       setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
     } catch (error) {
-      console.error('Error generating LOP report:', error);
       showSnackbar("Failed to generate LOP report", "error");
     } finally {
       setGenerating(false);

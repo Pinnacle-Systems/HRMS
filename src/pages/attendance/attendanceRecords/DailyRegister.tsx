@@ -805,7 +805,6 @@ export function DailyRegister() {
           // Update format to CSV
           format = 'csv';
         } catch (error) {
-          console.error('Error reading Excel file:', error);
           showSnackbar("Failed to read Excel file. Please ensure it's a valid Excel file.", "error");
           return;
         }
@@ -1490,6 +1489,7 @@ export function DailyRegister() {
                   <Checkbox
                     size="small"
                     color="primary"
+                    className="text-gray-800"
                     indeterminate={
                       selected.size > 0 && selected.size < employees.length
                     }

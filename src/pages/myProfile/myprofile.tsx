@@ -723,12 +723,14 @@ export default function Profile() {
                               />
                             )}
 
-                            {history.status === "MFA_SETUP_REQUIRED" ?  (
+                            {history.status === "MFA_SETUP_REQUIRED" &&  (
                               <ErrorRoundedIcon
                                 className="!w-4"
                                 sx={{ color: "#ffa700" }}
                               />
-                            ) : (
+                            )}
+
+                            {history.status !== "SUCCESS" && history.status !== "MFA_SETUP_REQUIRED" && (
                               <ErrorRoundedIcon
                                 className="!w-4"
                                 sx={{ color: "red" }}

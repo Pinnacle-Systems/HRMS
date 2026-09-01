@@ -91,7 +91,6 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
     initialConfig.carryForward = {};
   }
   const [localConfig, setLocalConfig] = useState<PolicyConfig>(initialConfig);
-  // console.log(localConfig);  
 
   const domainName = getDomainName(template.domainId);
   const { leaveTypes: leaveType } = useLeaveTypesList(domainName === 'Leave');
@@ -156,7 +155,6 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
           }
           setValidationErrors([]);
         } catch (error) {
-          console.error('Validation error:', error);
           setSaveStatus('error');
           setValidating(false);
           return;

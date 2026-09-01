@@ -163,7 +163,6 @@ export default function SalaryStructureTemplate() {
       setStructures(res.data?.content || []);
       setTotalPages(res.data?.totalPages || 1);
     } catch (error) {
-      console.error("Failed to load structures", error);
       showSnackbar("Failed to load structures", "error");
     } finally {
       hideSpinner();
@@ -253,7 +252,6 @@ export default function SalaryStructureTemplate() {
 
       showSnackbar("Structure loaded for editing", "success");
     } catch (error: any) {
-      console.error("Failed to load structure", error);
       showSnackbar(error?.message || "Failed to load structure", "error");
     } finally {
       hideSpinner();
@@ -381,7 +379,6 @@ export default function SalaryStructureTemplate() {
         setValidationErrors([]);
       }
     } catch (error: any) {
-      console.error("Failed to preview structure", error);
       showSnackbar(error?.message || "Failed to preview structure", "error");
     } finally {
       hideSpinner();
@@ -567,7 +564,6 @@ export default function SalaryStructureTemplate() {
       loadStructures();
       setTabValue(0);
     } catch (error: any) {
-      console.error("Failed to save structure", error);
       showSnackbar(error?.message || "Failed to save structure", "error");
     } finally {
       hideSpinner();

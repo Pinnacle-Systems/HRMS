@@ -123,7 +123,6 @@ export default function GeneratePayroll() {
             const res: any = await periodsService.getPeriods();
             setPayrollPeriods(res.data.items || []);
         } catch (error) {
-            console.error("Error fetching periods:", error);
             showSnackbar("Failed to load payroll periods", "error");
         } finally {
             setLoading(false);
@@ -138,7 +137,6 @@ export default function GeneratePayroll() {
             });
             setEmployees(res.data?.content || []);
         } catch (error) {
-            console.error("Error fetching employees:", error);
             showSnackbar("Failed to load employees", "error");
         }
     };
@@ -148,7 +146,6 @@ export default function GeneratePayroll() {
             const res: any = await periodsService.getPeriodById(periodId);
             setPeriodDetails(res.data);
         } catch (error) {
-            console.error("Error fetching period details:", error);
             showSnackbar("Failed to load period details", "error");
         }
     };
@@ -185,7 +182,6 @@ export default function GeneratePayroll() {
                 );
             }
         } catch (error) {
-            console.error("Error fetching payroll preview:", error);
             showSnackbar("Failed to load payroll data", "error");
         } finally {
             hideSpinner();
@@ -331,7 +327,6 @@ export default function GeneratePayroll() {
                 showSnackbar("Payroll processed successfully!", "success");
             }
         } catch (error: any) {
-            console.error("Error processing payroll:", error);
             showSnackbar(error?.message || "Failed to process payroll", "error");
         } finally {
             setProcessing(false);

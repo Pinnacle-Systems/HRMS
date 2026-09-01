@@ -258,7 +258,7 @@ export default function PayrollAudit() {
       </div>
 
       {/* Audit Logs Table */}
-      <TableContainer className="border border-gray-200 rounded-sm h-[calc(100vh-325px)] overflow-auto">
+      <TableContainer className="border border-gray-200 rounded-sm max-h-[calc(100vh-325px)] overflow-auto">
         <Table stickyHeader>
           <TableHead>
             <TableRow>

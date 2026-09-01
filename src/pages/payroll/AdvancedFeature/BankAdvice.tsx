@@ -290,7 +290,7 @@ export default function BankAdvice() {
 
       {/* Bank Advice Table */}
       <Card sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <TableContainer className="border border-gray-200 rounded-sm bg-white-50 h-[calc(100vh-265px)]">
+        <TableContainer className="border border-gray-200 rounded-sm bg-white-50 max-h-[calc(100vh-265px)]">
           <Table stickyHeader>
             <TableHead>
               <TableRow>

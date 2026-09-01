@@ -249,7 +249,7 @@ export function AttendanceDetailed() {
                 ].map((h) => (
                   <TableCell
                     key={h}
-                    className={`!font-bold !text-gray-700 !bg-gray-50 ${h === "S No" ? "!sticky left-0 !z-30" : ""} ${h === "Name" ? "!sticky left-[59px] !z-30" : ""}
+                    className={`!font-bold !text-gray-700 ${h === "S No" ? "!sticky left-0 !z-30" : ""} ${h === "Name" ? "!sticky left-[59px] !z-30" : ""}
                      ${h === "Date" ? "!sticky left-[128px] !z-30" : ""} 
                      ${h === "Status" ? "!sticky right-[76px] !z-30" : ""}
                       ${h === "Actions" ? "!sticky right-0 !z-30" : ""}`}
