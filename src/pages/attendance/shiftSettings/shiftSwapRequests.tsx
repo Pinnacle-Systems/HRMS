@@ -403,7 +403,7 @@ export const ShiftSwapRequests = () => {
           </IconButton>
         </div>
         <DialogContent className="!pt-4">
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 {/* <Autocomplete

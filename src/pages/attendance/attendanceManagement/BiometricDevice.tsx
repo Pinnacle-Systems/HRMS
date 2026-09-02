@@ -1963,7 +1963,7 @@ export const DeviceManagement: React.FC = () => {
         </Grid>
       </Grid>
 
-      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en">
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
         <Grid container spacing={2} sx={{ mb: 2 }} className="items-center">
           <Grid size={{ xs: 6, sm: 3, md: 3 }}>
             <DatePicker

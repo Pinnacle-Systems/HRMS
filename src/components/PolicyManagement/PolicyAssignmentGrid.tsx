@@ -511,7 +511,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
             </Grid>
 
             {/* Effective dates */}
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               {/* Effective dates */}
               <Grid size={{ xs: 12, sm: 6 }}>
                 <DatePicker

@@ -1607,7 +1607,7 @@ export default function BiWorkspacePage() {
                 ))}
               </Select>
             </FormControl>
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="From"
                 value={dateRange.from ? dayjs(dateRange.from) : null}

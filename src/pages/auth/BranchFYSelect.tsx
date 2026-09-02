@@ -154,14 +154,13 @@ export default function BranchFiscalYearSelectPage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900">Company Setup Required</h2>
               <p className="text-gray-500 mt-2 text-sm">
-                <span className="font-bold text-lg"> Welcome to <span className="text-primary">Dot</span>HR!</span> <br></br> 
+                <span className="font-bold text-lg"> Welcome to <span className="text-primary">Dot</span>HR!</span> <br></br>
                 To access the dashboard, you need to configure your <span className="font-bold text-red-500">company details,
-                branches, and financial year</span> first.
+                  branches, and financial year</span> first.
               </p>
               <div className="mt-6 space-y-3">
                 <button
                   onClick={() => {
-                    // Navigate to company settings
                     navigate("/settings/general/company-settings", { replace: true });
                   }}
                   className="w-full bg-primary text-white text-sm py-3 rounded-sm font-semibold hover:bg-primary-dark transition"
@@ -169,7 +168,7 @@ export default function BranchFiscalYearSelectPage() {
                   Start Company Setup
                 </button>
                 <button
-                  onClick={() => navigate("/logout")}
+                  onClick={() => navigate("/login", { replace: true })}
                   className="w-full text-gray-500 text-sm py-2 hover:text-primary transition underline"
                 >
                   Back to Login
@@ -188,7 +187,7 @@ export default function BranchFiscalYearSelectPage() {
               </p>
               <div className="mt-6">
                 <button
-                  onClick={() => navigate("/logout")}
+                  onClick={() => navigate("/login", { replace: true })}
                   className="w-full bg-gray-600 text-white text-sm py-3 rounded-sm font-semibold hover:bg-gray-700 transition"
                 >
                   Sign Out
@@ -283,6 +282,12 @@ export default function BranchFiscalYearSelectPage() {
           ) : (
             "Continue"
           )}
+        </button>
+        <button
+          onClick={() => navigate("/login", { replace: true })}
+          className="w-full text-gray-500 text-sm py-2 hover:text-primary transition underline"
+        >
+          Back to Login
         </button>
       </div>
     </div>

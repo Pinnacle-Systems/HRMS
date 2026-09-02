@@ -268,7 +268,7 @@ export const ProfileCompletionProgress = ({
     if (value >= 60) return 'Good';
     if (value >= 40) return 'In Progress';
     if (value >= 20) return 'Needs Attention';
-    return 'Incomplete';
+    return 'Poor';
   };
 
   return (
@@ -316,7 +316,7 @@ export const ProfileCompletionProgress = ({
               sx={{ 
                 fontSize: size * 0.12, 
                 textAlign: 'center',
-                lineHeight: 1.2,
+                lineHeight: 2,
               }}
             >
               {getProgressText(progress)}
@@ -370,9 +370,9 @@ export const ProfileCompletionBadge = ({ employee }: { employee: EmployeeProfile
   const progress = getProfileCompletionProgress(employee);
 
   const getStatus = () => {
-    if (progress >= 80) return { label: 'Complete', color: 'success', icon: <CheckCircle className="!w-4" /> };
+    if (progress >= 80) return { label: 'Completed', color: 'success', icon: <CheckCircle className="!w-4" /> };
     if (progress >= 50) return { label: 'Partial', color: 'warning', icon: <Warning className="!w-4" /> };
-    return { label: 'Incomplete', color: 'error', icon: <Info className="!w-4" /> };
+    return { label: 'Poor', color: 'error', icon: <Info className="!w-4" /> };
   };
 
   const status = getStatus();

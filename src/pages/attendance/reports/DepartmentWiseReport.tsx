@@ -53,7 +53,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
       filterPanel={
         <>
           <FilterField label="From Date">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={fromDate ? dayjs(fromDate) : null}
                 onChange={(newValue) => { setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); }}
@@ -67,7 +67,7 @@ export function DepartmentWiseReport({ onBack }: Props) {
             </LocalizationProvider>
           </FilterField>
           <FilterField label="To Date">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={toDate ? dayjs(toDate) : null}
                 onChange={(newValue) => { setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); }}

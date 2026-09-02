@@ -553,7 +553,7 @@ export default function PayrollPeriodConfig() {
               </Grid>
             </Grid>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <DatePicker
@@ -597,7 +597,7 @@ export default function PayrollPeriodConfig() {
             </LocalizationProvider>
 
             <Grid container spacing={2}>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <DatePicker
                     label="Payment Date"
@@ -681,7 +681,7 @@ export default function PayrollPeriodConfig() {
                   onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
                   sx={{ flex: 1, minWidth: 150 }}
                 />
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Date"
                     value={newHoliday.date ? dayjs(newHoliday.date) : null}

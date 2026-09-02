@@ -448,7 +448,7 @@ export default function CompOffsPage() {
           ))}
         </Select>
 
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             value={fromDate ? dayjs(fromDate) : null}
             onChange={(newValue) =>
@@ -623,7 +623,7 @@ export default function CompOffsPage() {
           <div className="text-[12px] text-gray-500 mb-4">
             Submit a new comp-off credit request
           </div>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <div className="grid gap-5">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">

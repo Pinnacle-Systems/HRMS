@@ -235,7 +235,7 @@ export default function PayrollAudit() {
             }
           </Select>
         </FormControl>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             label="From Date"
             value={filters.fromDate ? dayjs(filters.fromDate) : null}

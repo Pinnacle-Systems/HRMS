@@ -434,7 +434,7 @@ export default function EditPolicy() {
           </Alert>
 
           {/* Effective dates */}
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             {/* Effective dates */}
             <div className='grid grid-cols-2 gap-5 mb-4'>
               <DatePicker

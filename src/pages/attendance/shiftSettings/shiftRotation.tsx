@@ -516,7 +516,7 @@ export const ShiftRotation = () => {
         </div>
         <DialogContent>
           <div className="space-y-4">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Start Date"
                 className="!text-gray-800"
@@ -538,7 +538,7 @@ export const ShiftRotation = () => {
               />
             </LocalizationProvider>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="End Date"
                 value={applyData.endDate ? dayjs(applyData.endDate) : null}

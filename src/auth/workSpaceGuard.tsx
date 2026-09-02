@@ -4,6 +4,7 @@ import { hasWorkspaceContext } from "./authMapper";
 
 const SETUP_FLOW_PATHS = [
   "/branch-fiscal-year",
+  "/login",
   "/settings/general/company-settings",
   "/settings/general/branch-settings",
 ];

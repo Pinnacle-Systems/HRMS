@@ -481,7 +481,7 @@ export default function GeneratePayroll() {
                                         </FormControl>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6 }}>
-                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                             <DatePicker
                                                 label="Payment Date"
                                                 value={

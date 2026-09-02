@@ -568,7 +568,7 @@ export default function Layout() {
           <div>
             <Box className="flex items-center gap-2">
               <div className="text-[10px]">
-                <div className="text-gray-800">{session?.branchName} <span className="text-primary font-bold">({session?.fiscalYearLabel})</span></div>
+                <div className="text-gray-800">{session?.branchName || 'All'} - Head Office <span className="text-primary font-bold">({session?.fiscalYearLabel})</span></div>
               </div>
               <Tooltip title="Search">
                 <IconButton

@@ -244,7 +244,7 @@ export function AttendanceConsolidated() {
 
             {/* Date Range */}
             <div className="flex items-center gap-2">
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <div className="flex items-center gap-2">
                   <DatePicker
                     label="From"

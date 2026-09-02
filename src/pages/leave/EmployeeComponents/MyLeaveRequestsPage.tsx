@@ -957,7 +957,7 @@ export default function MyLeaveRequestsPage() {
         </Button>
       }
     >
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
         <LeaveFilterBar
           gridClassName="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"
           onReset={resetFilters}

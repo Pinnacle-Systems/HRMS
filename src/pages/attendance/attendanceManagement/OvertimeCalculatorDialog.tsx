@@ -101,7 +101,7 @@ export function OvertimeCalculatorDialog({
               onChange={handleEmployeeChange}
               label="Select Employee"
             />
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Start Date"
                 value={params.startDate ? dayjs(params.startDate) : null}
@@ -116,7 +116,7 @@ export function OvertimeCalculatorDialog({
                 slotProps={{ textField: { size: "small", fullWidth: true } }}
               />
             </LocalizationProvider>
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="End Date"
                 value={params.endDate ? dayjs(params.endDate) : null}

@@ -665,7 +665,7 @@ export default function StatutoryCompliance() {
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-5 space-y-6">
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <Grid container spacing={1}>
               <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField

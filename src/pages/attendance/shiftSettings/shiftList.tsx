@@ -561,7 +561,8 @@ export const ShiftList = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span>{shift.shiftName}</span>
+                    <div>{shift.shiftName}</div>
+                    <div>({shift.description})</div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -600,7 +601,7 @@ export const ShiftList = () => {
                       onClick={(e) => handleMenuOpen(e, shift.id)}
                       aria-label="more options"
                     >
-                      <MoreVertIcon fontSize="small" />
+                      <MoreVertIcon fontSize="small" className="!text-gray-800" />
                     </IconButton>
                     <Tooltip title="Advanced Configuration">
                       <IconButton size="small" onClick={() => handleAdvancedConfig(shift)} disabled={!shift.isActive}>
@@ -755,7 +756,7 @@ export const ShiftList = () => {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>
-                  <FormControl fullWidth>
+                  <FormControl fullWidth required>
                     <InputLabel>Template</InputLabel>
                     <Select
                       value={formData.templateId}

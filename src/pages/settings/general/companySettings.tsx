@@ -876,7 +876,7 @@ const CompanySettings = () => {
         )}
 
         {type === "date" && (
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label={label}
               value={value ? dayjs(value) : null}
@@ -1311,7 +1311,7 @@ const CompanySettings = () => {
                 placeholder="e.g. 2024-25"
                 fullWidth
               />
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <DatePicker
                   label="Start Date"
                   value={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : null}
@@ -1325,7 +1325,7 @@ const CompanySettings = () => {
                   }}
                 />
               </LocalizationProvider>
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <DatePicker
                   label="End Date"
                   value={fiscalYearForm.endDate ? dayjs(fiscalYearForm.endDate) : null}

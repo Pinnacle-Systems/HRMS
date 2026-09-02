@@ -425,7 +425,7 @@ export default function Profile() {
     const value = editFormData?.[name] || "";
     if (type == "date") {
       return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             label={dname}
             value={value ? dayjs(value) : null}

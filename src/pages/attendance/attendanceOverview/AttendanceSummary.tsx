@@ -274,7 +274,7 @@ const loadTrends = useCallback(async () => {
               </div>
               <div className="flex items-center justify-between mt-3 p-2 pt-5 rounded-md">
                 <div className="grid grid-cols-3 items-center gap-3">
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                     <DatePicker
                       label="Effective From"
                       className="!w-[200px]"

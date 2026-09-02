@@ -879,14 +879,22 @@ export const API_ENDPOINTS = {
       CREATE_PAGE: () => `/admin/dashboard/pages`,
       UPDATE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
       DELETE_PAGE: (pageId: string) => `/admin/dashboard/pages/${pageId}`,
-      LIST_WIDGETS: (pageId: string) => `/admin/dashboard/pages/${pageId}/widgets`,
-      ADD_WIDGET: (pageId: string) => `/admin/dashboard/pages/${pageId}/widgets`,
-      UPDATE_WIDGET: (pageId: string, widgetId: string) => `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
-      DELETE_WIDGET: (pageId: string, widgetId: string) => `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
-      LIST_FILTERS: (pageId: string) => `/admin/dashboard/pages/${pageId}/filters`,
-      ADD_FILTER: (pageId: string) => `/admin/dashboard/pages/${pageId}/filters`,
-      UPDATE_FILTER: (pageId: string, filterId: string) => `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
-      DELETE_FILTER: (pageId: string, filterId: string) => `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
+      LIST_WIDGETS: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets`,
+      ADD_WIDGET: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets`,
+      UPDATE_WIDGET: (pageId: string, widgetId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
+      DELETE_WIDGET: (pageId: string, widgetId: string) =>
+        `/admin/dashboard/pages/${pageId}/widgets/${widgetId}`,
+      LIST_FILTERS: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters`,
+      ADD_FILTER: (pageId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters`,
+      UPDATE_FILTER: (pageId: string, filterId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
+      DELETE_FILTER: (pageId: string, filterId: string) =>
+        `/admin/dashboard/pages/${pageId}/filters/${filterId}`,
       GET_BUILDER_META: () => `/admin/dashboard/meta`,
     },
 
@@ -995,14 +1003,16 @@ export const API_ENDPOINTS = {
   WHATSAPP_CHAT: {
     BASE: "/messaging/whatsapp/conversations",
     GET_BY_ID: (id: string) => `/messaging/whatsapp/conversations/${id}`,
-    MESSAGES: (id: string) => `/messaging/whatsapp/conversations/${id}/messages`,
+    MESSAGES: (id: string) =>
+      `/messaging/whatsapp/conversations/${id}/messages`,
     STATUS: (id: string) => `/messaging/whatsapp/conversations/${id}/status`,
     READ: (id: string) => `/messaging/whatsapp/conversations/${id}/read`,
     SEND: "/messaging/whatsapp/conversations/send",
     SEND_BY_ID: (id: string) => `/messaging/whatsapp/conversations/${id}/send`,
   },
 
-  WHATSAPP_WEBHOOK: (tenantId: string) => `/integration/whatsapp/webhook/${tenantId}`,
+  WHATSAPP_WEBHOOK: (tenantId: string) =>
+    `/integration/whatsapp/webhook/${tenantId}`,
 
   PAYROLL: {
     DASHBOARD: "/payroll/dashboard",
@@ -1265,7 +1275,22 @@ export const API_ENDPOINTS = {
 
   PERMISSION: {
     ROLE_PERMISSIONS: (role: string) => `/admin/roles/${role}/permissions`,
-    GET: '/admin/permissions',
-    UPDATE_ROLE_PERMISSIONS: (role: string) => `/admin/roles/${role}/permissions`,
-  }
+    GET: "/admin/permissions",
+    UPDATE_ROLE_PERMISSIONS: (role: string) =>
+      `/admin/roles/${role}/permissions`,
+  },
+
+  MOBILE_ATTENDANCE: {
+    GET_TODAY: "/api/mobile/attendance/today",
+    GET_TIMELINE: "/api/mobile/attendance/timeline",
+    GET_SUMMARY: "/api/mobile/attendance/summary",
+    GET_HISTORY: "/api/mobile/attendance/history",
+    GEOFENCE_VALIDATE: "/api/mobile/attendance/geofence/validate",
+    POST_CHECKIN: "/api/mobile/attendance/check-in",
+    POST_CHECKOUT: "/api/mobile/attendance/check-out",
+    POST_REMOTE_CHECKIN: "/api/mobile/attendance/remote-checkin",
+    POST_CORRECTION: "/api/mobile/attendance/correction",
+    POST_BREAK_START: "/api/mobile/attendance/break/start",
+    POST_BREAK_END: "/api/mobile/attendance/break/end",
+  },
 };

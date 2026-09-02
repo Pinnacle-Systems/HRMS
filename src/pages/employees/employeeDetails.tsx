@@ -91,10 +91,20 @@ import { PolicyDomain, type Employee } from "../../types/policy";
 import { EmployeeSelector } from "../../components/PolicyManagement/Common/EmployeeSelector";
 import { WebcamCapture } from "./webCam";
 import { useAuth } from "../../auth/authContext";
-import { attendanceService } from "../../services/modules/attendance";
 import useUnsavedChanges from "../../hooks/useUnsavedChanges";
-import { ProfileCompletionBadge, ProfileCompletionProgress } from "./useProfileCompletion";
+import { ProfileCompletionProgress } from "./useProfileCompletion";
+import { attendanceService } from "../../services/modules/attendance";
+import { evaluateGeofenceAccess } from "../../utils/geofence";
 
+const withMidNoFallback = (data: any) => {
+  const midNo = typeof data.midNo === "string" ? data.midNo.trim() : data.midNo;
+  return midNo
+    ? data
+    : {
+        ...data,
+        midNo: data.employeeId || data.employeeCode || data.code || data.id || "",
+      };
+};
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -127,9 +137,12 @@ const EditableGroup = ({
   isSaving,
   setIsSaving,
   onUnsavedChange,
+  onDeactivate,
+  onReactivate,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState(data);
+  // const [editData, setEditData] = useState(data);
+  const [editData, setEditData] = useState(() => withMidNoFallback(data));
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [department, setDepartments] = useState<Department[]>([]);
   const [branch, setBranches] = useState<Branches[]>([]);
@@ -138,6 +151,9 @@ const EditableGroup = ({
   const [attachmentData, setAttachmentData] = useState<any>({});
   const [attachments, setAttachments] = useState<any>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [relievingDialogOpen, setRelievingDialogOpen] = useState(false);
+  const [relievingDate, setRelievingDate] = useState("");
+  const [adminRemarks, setAdminRemarks] = useState("");
   const { id } = useParams();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
@@ -151,9 +167,7 @@ const EditableGroup = ({
   }, [hasUnsavedChanges, isEditing, editData, data, title]);
 
   useEffect(() => {
-    if (!isEditing) {
-      setEditData(data);
-    }
+    setEditData(withMidNoFallback(data));
   }, [data, isEditing]);
 
   const handleSave = async () => {
@@ -506,7 +520,7 @@ const EditableGroup = ({
                 {isEditing ? (
                   <div className="mt-2">
                     {field.type === "date" ? (
-                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                         <DatePicker
                           className="!text-gray-800"
                           value={
@@ -539,12 +553,29 @@ const EditableGroup = ({
                         control={
                           <MaterialModule.Switch
                             checked={editData[field.key] || false}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const isDeactivating =
+                                field.key === "isActive" &&
+                                !e.target.checked &&
+                                editData[field.key] !== false;
+
+                              if (isDeactivating) {
+                                setRelievingDate("");
+                                setAdminRemarks("");
+                                setRelievingDialogOpen(true);
+                                return;
+                              }
+
+                              if (field.key === "isActive" && e.target.checked) {
+                                onReactivate?.();
+                                return;
+                              }
+
                               setEditData({
                                 ...editData,
                                 [field.key]: e.target.checked,
-                              })
-                            }
+                              });
+                            }}
                             className="text-gray-800"
                           />
                         }
@@ -647,7 +678,17 @@ const EditableGroup = ({
                         size="small"
                         type={field.type === 'number' ? 'number' : 'text'}
                         value={
-                          field.type === 'number'
+                          field.key === "midNo" &&
+                          typeof editData[field.key] === "string" &&
+                          editData[field.key].trim() === ""
+                            ? String(
+                                editData.employeeId ||
+                                  editData.employeeCode ||
+                                  editData.code ||
+                                  editData.id ||
+                                  "",
+                              )
+                            : field.type === 'number'
                             ? editData[field.key] !== null && editData[field.key] !== undefined
                               ? String(editData[field.key])
                               : ''
@@ -709,6 +750,77 @@ const EditableGroup = ({
           })}
         </div>
       </div>
+      <MaterialModule.Dialog
+        open={relievingDialogOpen}
+        onClose={() => setRelievingDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <div className="flex items-center justify-between border-b border-gray-300 p-2">
+          <div className="text-gray-800 text-[12px] ml-4 font-medium">
+            Deactivate Employee
+          </div>
+          <MaterialModule.IconButton
+            onClick={() => setRelievingDialogOpen(false)}
+          >
+            <MaterialModule.CloseOutlined className="!text-gray-800" />
+          </MaterialModule.IconButton>
+        </div>
+        <MaterialModule.DialogContent>
+          <div className="text-[12px] text-gray-600 mb-5">
+            Deactivate &quot;{data.name}&quot;? The employee will be marked inactive.
+            All history (leave, payroll, onboarding) is retained and the employee
+            can be reactivated later.
+          </div>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <DatePicker
+              label="Relieving Date"
+              value={relievingDate ? dayjs(relievingDate) : null}
+              onChange={(newValue) =>
+                setRelievingDate(
+                  newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                )
+              }
+            />
+          </LocalizationProvider>
+          <MaterialModule.TextField
+            label="Reason for Deactivate"
+            value={adminRemarks}
+            required
+            multiline
+            rows={3}
+            onChange={(e: any) => setAdminRemarks(e.target.value)}
+            className="!mt-5 !text-[12px]"
+          />
+        </MaterialModule.DialogContent>
+        <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
+          <MaterialModule.Button
+            onClick={() => setRelievingDialogOpen(false)}
+            variant="outlined"
+            className="!border-gray-300 !text-gray-800"
+          >
+            Cancel
+          </MaterialModule.Button>
+          <MaterialModule.Button
+            onClick={async () => {
+              await onDeactivate?.({
+                ...editData,
+                isActive: false,
+                relievedDate: relievingDate,
+                adminRemarks,
+              });
+              setRelievingDialogOpen(false);
+              setRelievingDate("");
+              setAdminRemarks("");
+            }}
+            variant="contained"
+            disabled={!relievingDate || !adminRemarks}
+            sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}
+          >
+            Deactivate
+          </MaterialModule.Button>
+        </MaterialModule.DialogActions>
+      </MaterialModule.Dialog>
       <MaterialModule.Dialog
         open={attachmentDialogOpen}
         onClose={() => {
@@ -1504,7 +1616,7 @@ const EditableTableGroup = ({
                                     }}
                                   />
                                 ) : col.type === "date" ? (
-                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                     <DatePicker
                                       value={
                                         row[col.key]
@@ -1739,7 +1851,7 @@ const EditableTableGroup = ({
             {dialogFields.map((field: any) => (
               <div key={field.key} className={field.multiline || field.full ? "md:col-span-2" : "w-[220px]"}>
                 {field.type === "date" ? (
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                     <DatePicker
                       label={field.label}
                       value={
@@ -2107,8 +2219,10 @@ export default function EmployeeDetails() {
     showSpinner();
     try {
       const response: any = await employeeService.getEmployeeById(apiId);
-      setEmployee(response.data);
-      setInitialEmployee(response.data);
+      const employeeData = response.data;
+      const normalizedEmployeeData = withMidNoFallback(employeeData);
+      setEmployee(normalizedEmployeeData);
+      setInitialEmployee(normalizedEmployeeData);
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
       navigate("/employees");
@@ -2211,8 +2325,9 @@ export default function EmployeeDetails() {
         monthly: updatedData.monthly,
         adminRemarks: updatedData.adminRemarks,
         idCardNo: updatedData.idCardNo,
-        midNo: updatedData.midNo,
+        midNo: withMidNoFallback(updatedData).midNo,
         oldIdNo: updatedData.oldIdNo,
+        isActive: updatedData.isActive,
         relievedDate: updatedData.relievedDate,
         pfEligible: updatedData.pfEligible,
         excessEpfEligible: updatedData.excessEpfEligible,
@@ -2566,8 +2681,9 @@ export default function EmployeeDetails() {
         monthly: updatedData.monthly,
         adminRemarks: updatedData.adminRemarks,
         idCardNo: updatedData.idCardNo,
-        midNo: updatedData.midNo,
+        midNo: withMidNoFallback(updatedData).midNo,
         oldIdNo: updatedData.oldIdNo,
+        isActive: updatedData.isActive,
         relievedDate: updatedData.relievedDate,
         template: updatedData.templateId,
       };
@@ -2581,6 +2697,50 @@ export default function EmployeeDetails() {
     } finally {
       hideSpinner();
     }
+  };
+
+  const handleDeactivateEmployee = async (updatedData: any) => {
+    if (!apiId) return;
+    try {
+      await updateAdminInfo(updatedData);
+      await employeeService.deactivateEmployee(apiId);
+      showSnackbar(`"${employee.name}" has been deactivated.`, "success");
+      await fetchEmployeeDetails();
+    } catch (error: any) {
+      showSnackbar(
+        error.message || "Failed to deactivate employee.",
+        "error",
+      );
+    }
+  };
+
+  const handleReactivateEmployee = () => {
+    if (!apiId) return;
+    showConfirmDialog({
+      title: "Reactivate Employee",
+      message: `Reactivate "${employee.name}"? The employee will be restored to active status.`,
+      confirmText: "Reactivate",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const updated: any = await employeeService.reactivateEmployee(apiId);
+          await employeeService.updateAdminInfo(apiId, { relievedDate: "" });
+          showSnackbar(
+            `"${updated?.name ?? employee.name}" has been reactivated.`,
+            "success",
+          );
+          await fetchEmployeeDetails();
+        } catch (error: any) {
+          showSnackbar(
+            error.message || "Failed to reactivate employee.",
+            "error",
+          );
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   //ELIGIBILITY INFO
@@ -3283,16 +3443,56 @@ export default function EmployeeDetails() {
 
   const handleCheckIn = async () => {
     try {
+      const branch: any = employee?.branchId
+        ? await branchService.getBranchById(employee.branchId)
+        : null;
+
+      const branchData = branch?.data || branch || null;
+      const geofenceMode = branchData?.geofenceMode || "STRICT";
+      const radius = Number(branchData?.radius ?? 0);
+      const branchLatitude = Number(branchData?.latitude ?? null);
+      const branchLongitude = Number(branchData?.longitude ?? null);
+
+      if (!navigator.geolocation) {
+        showSnackbar("This browser does not support location access for geofence validation.", "error");
+        return;
+      }
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition((geoPosition) => resolve(geoPosition), reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        });
+      });
+
+      const evaluation = evaluateGeofenceAccess({
+        branchLatitude,
+        branchLongitude,
+        userLatitude: position.coords.latitude,
+        userLongitude: position.coords.longitude,
+        radiusKm: radius,
+        mode: geofenceMode,
+      });
+
+      if (!evaluation.allowed) {
+        showSnackbar(evaluation.message, "error");
+        return;
+      }
+
       const res: any = await attendanceService.checkIn({
         employeeId: apiId || "",
         checkInTime: new Date().toISOString(),
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        withinGeofence: evaluation.withinGeofence,
+        geofenceMode,
         markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
       });
-      showSnackbar(res.message, 'success');
+
+      showSnackbar(res.message || evaluation.message, evaluation.withinGeofence ? "success" : "warning");
       setCheckIn(true);
     } catch (error: any) {
-      setCheckIn(true);
-      showSnackbar(error.message, 'error')
+      showSnackbar(error?.message || "Unable to check in.", "error");
     }
   }
 
@@ -3429,13 +3629,13 @@ export default function EmployeeDetails() {
                   className="!bg-primary"
                 />
                 <MaterialModule.Chip
-                  label={employee.emailAddress}
+                  label={employee.emailAddress || 'N/A'}
                   size="small"
                   variant="outlined"
                   className="text-gray-700"
                 />
                 <MaterialModule.Chip
-                  label={employee.mobileNumber}
+                  label={employee.mobileNumber || 'N/A'}
                   size="small"
                   variant="outlined"
                   className="text-gray-700"
@@ -3450,9 +3650,9 @@ export default function EmployeeDetails() {
                 size={60}
                 showLabel={true}
               />
-              <div className="mt-2">
-                 <ProfileCompletionBadge employee={employee} />
-              </div>
+              {/* <div className="mt-2">
+                <ProfileCompletionBadge employee={employee} />
+              </div> */}
             </div>
             {
               isAdmin ? (
@@ -3603,6 +3803,8 @@ export default function EmployeeDetails() {
               isSaving={isSaving}
               setIsSaving={setIsSaving}
               onUnsavedChange={handleChildUnsavedChange}
+              onDeactivate={handleDeactivateEmployee}
+              onReactivate={handleReactivateEmployee}
             />
             <EditableGroup
               title="Eligibility Information"

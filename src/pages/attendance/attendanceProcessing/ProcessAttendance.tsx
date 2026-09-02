@@ -435,7 +435,7 @@ export function ProcessAttendance() {
         <div className="font-semibold text-gray-700 mb-4">Process Configuration</div>
 
         <div className="flex flex-wrap items-start gap-4">
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="From Date"
               value={fromDate ? dayjs(fromDate) : null}

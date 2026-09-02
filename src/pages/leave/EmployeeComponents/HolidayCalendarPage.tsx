@@ -856,7 +856,7 @@ export default function HolidayCalendarPage() {
         </div>
       }
     >
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
         <LeaveFilterBar className="p-3 pt-5" onReset={resetFilters}>
           <DatePicker
             label="Date"

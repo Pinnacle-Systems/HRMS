@@ -1479,7 +1479,7 @@ const DeductionDialog = ({
             </Grid>
           </Grid>
 
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="Start Date"
               value={formData.startedOn ? dayjs(formData.startedOn) : null}

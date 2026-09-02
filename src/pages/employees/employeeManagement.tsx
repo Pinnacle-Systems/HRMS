@@ -21,6 +21,7 @@ import {
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
+import "dayjs/locale/en-gb";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {
   getRowColor,
@@ -64,7 +65,7 @@ export default function EmployeeManagement() {
   // const [sortBy, setSortBy] = useState("");
   // const [sortOrder, setSortOrder] = useState("");
   const [sortCriteria, setSortCriteria] = useState<Array<{ field: string, order: 'ASC' | 'DESC' }>>([
-    { field: 'createdAt', order: 'DESC' }
+    // { field: 'createdAt', order: 'DESC' }
   ]);
 
   // Filter state
@@ -289,7 +290,8 @@ export default function EmployeeManagement() {
           return prev.filter(s => s.field !== field);
         }
       } else {
-        return [...prev, { field, order: 'ASC' }];
+        // return [...prev, { field, order: 'ASC' }];
+        return [{ field, order: 'ASC' }];
       }
       return prev;
     });
@@ -430,15 +432,15 @@ export default function EmployeeManagement() {
     ) : (
       <ArrowDownward fontSize="small" className="ml-1" />
     );
-    const orderNumber = sortCriteria.findIndex(s => s.field === column) + 1;
+    // const orderNumber = sortCriteria.findIndex(s => s.field === column) + 1;
 
     return (
       <span className="flex items-center">
         {orderIcon}
         <span className="text-[10px] text-gray-400 ml-0.5">({sortCriterion.order})</span>
-        {sortCriteria.length > 1 && (
+        {/* {sortCriteria.length > 1 && (
           <span className="text-[10px] text-gray-400 ml-0.5">{orderNumber}</span>
-        )}
+        )} */}
       </span>
     );
   };
@@ -1178,9 +1180,9 @@ export default function EmployeeManagement() {
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 title="Sort by Created At"
-                onClick={() =>
-                  toggleSort("createdAt")
-                }
+                // onClick={() =>
+                //   toggleSort("createdAt")
+                // }
                 sx={{
                   ...stickyHeaderLeftSx,
                   minWidth: "70px",
@@ -1188,7 +1190,7 @@ export default function EmployeeManagement() {
               >
                 <div className="flex items-center gap-1">
                   S No
-                  {getSortIcon("createdAt")}
+                  {/* {getSortIcon("createdAt")} */}
                 </div>
               </TableCell>
               <TableCell
@@ -1239,34 +1241,6 @@ export default function EmployeeManagement() {
                 className="!font-semibold text-gray-800 cursor-pointer"
               // onClick={() =>
               //   handleSortChange(
-              //     "designation",
-              //     sortOrder === "ASC" ? "DESC" : "ASC",
-              //   )
-              // }
-              >
-                <div className="flex items-center gap-1">
-                  Designation
-                  {/* {getSortIcon("designation")} */}
-                </div>
-              </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-              // onClick={() =>
-              //   handleSortChange(
-              //     "department",
-              //     sortOrder === "ASC" ? "DESC" : "ASC",
-              //   )
-              // }
-              >
-                <div className="flex items-center gap-1">
-                  Department
-                  {/* {getSortIcon("department")} */}
-                </div>
-              </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-              // onClick={() =>
-              //   handleSortChange(
               //     "branch",
               //     sortOrder === "ASC" ? "DESC" : "ASC",
               //   )
@@ -1277,6 +1251,29 @@ export default function EmployeeManagement() {
                   {/* {getSortIcon("branch")} */}
                 </div>
               </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                // onClick={() =>
+                //   toggleSort("department")
+                // }
+              >
+                <div className="flex items-center gap-1">
+                  Department
+                  {/* {getSortIcon("department")} */}
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                // onClick={() =>
+                //   toggleSort("designation")
+                // }
+              >
+                <div className="flex items-center gap-1">
+                  Designation
+                  {/* {getSortIcon("designation")} */}
+                </div>
+              </TableCell>
+              
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
@@ -1348,13 +1345,13 @@ export default function EmployeeManagement() {
                   {employee.mobileNumber || "-"}
                 </TableCell>
                 <TableCell>
-                  {employee.designation || "-"}
+                  {employee.branch || "-"}
                 </TableCell>
                 <TableCell>
                   {employee.department || "-"}
                 </TableCell>
                 <TableCell>
-                  {employee.branch || "-"}
+                  {employee.designation || "-"}
                 </TableCell>
                 <TableCell>
                   {employee.joiningDate
@@ -1540,7 +1537,7 @@ export default function EmployeeManagement() {
               }
               required
             /> */}
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Date of Joining"
                 value={
@@ -1557,6 +1554,7 @@ export default function EmployeeManagement() {
                 slotProps={{
                   textField: {
                     fullWidth: true,
+                    required: true
                   },
                   openPickerButton: {
                     color: "primary",
@@ -1710,6 +1708,7 @@ export default function EmployeeManagement() {
               getOptionLabel={(option) => option.name || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               value={formData.employeeStatus || ""}
+              disabled={!formData.joiningDate}
               onChange={(_, newValue) => {
                 setFormData({
                   ...formData,
@@ -2056,7 +2055,7 @@ export default function EmployeeManagement() {
             Enter the relieving date for{" "}
             <strong>{relievingDialogEmployee?.name}</strong>
           </div>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="Relieving Date"
               value={relievingDate ? dayjs(relievingDate) : null}

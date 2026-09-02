@@ -84,7 +84,7 @@ export function LopReport({ onBack }: Props) {
       filterPanel={
         <>
           <FilterField label="From Date">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={fromDate ? dayjs(fromDate) : null}
                 onChange={(newValue) => { 
@@ -99,7 +99,7 @@ export function LopReport({ onBack }: Props) {
             </LocalizationProvider>
           </FilterField>
           <FilterField label="To Date">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={toDate ? dayjs(toDate) : null}
                 onChange={(newValue) => { 

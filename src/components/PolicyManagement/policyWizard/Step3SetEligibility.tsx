@@ -595,7 +595,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
               />
             </Grid>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <Grid size={{ xs: 12, md: 2 }}>
                 <DatePicker
                   label="Effective From"

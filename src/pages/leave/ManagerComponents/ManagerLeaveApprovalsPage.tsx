@@ -370,7 +370,7 @@ export default function ManagerLeaveApprovalsPage() {
       breadcrumbLabel="Approvals"
       subtitle="Review team leave requests, overlaps, balances, and policy warnings"
     >
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
         <LeaveFilterBar onReset={resetFilters}>
           {isAdmin && (
             <>

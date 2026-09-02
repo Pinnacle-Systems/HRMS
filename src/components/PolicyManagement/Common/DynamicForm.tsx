@@ -129,7 +129,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
 
       case 'date':
         return (
-          <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale="en-gb">
             <DatePicker
               label={field.label}
               value={value ? new Date(value) : null}

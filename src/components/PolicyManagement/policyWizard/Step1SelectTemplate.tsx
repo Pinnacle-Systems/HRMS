@@ -208,7 +208,7 @@ export const Step1SelectTemplate: React.FC<Step1SelectTemplateProps> = ({
                   onChange={(e) => onPolicyDefinitionChange({ ...policyDefinition, description: e.target.value })}
                   placeholder="Enter policy description (optional)"
                 />
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Effective From"
                     value={policyDefinition.effectiveFrom ? dayjs(policyDefinition.effectiveFrom) : null}

@@ -472,7 +472,7 @@ export const ShiftRoster = () => {
             <div className="flex items-center gap-4 justify-between">
 
               <div className="flex gap-4 items-center">
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Week Start Date"
                     value={selectedWeek}

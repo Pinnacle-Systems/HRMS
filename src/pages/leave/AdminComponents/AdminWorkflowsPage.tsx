@@ -71,7 +71,7 @@ export default function AdminWorkflowsPage() {
           ))}
         </TextField>
 
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             label="Run Date"
             value={dayjs(runDate)}

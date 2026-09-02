@@ -19,6 +19,11 @@ import {
   Collapse,
   Box,
   Autocomplete,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
+  type SelectChangeEvent,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -40,7 +45,7 @@ import { bankService, type BankStatus } from "../../../services/modules/bank";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { GlobalSort } from "../../../components/GlobalSort";
-import { sortOptions, type Branch, type BankDetail, type Bank } from "./type";
+import { sortOptions, type Branch, type BankDetail, type Bank, type GeofenceMode } from "./type";
 import {
   getRowColor,
   getStickyLeftSx,
@@ -95,6 +100,7 @@ export default function BranchSettings() {
     latitude: 0,
     longitude: 0,
     radius: 5,
+    geofenceMode: "STRICT",
     branchHeadId: "",
     active: true,
     pfCode: "",
@@ -233,6 +239,7 @@ export default function BranchSettings() {
         latitude: 0,
         longitude: 0,
         radius: 5,
+        geofenceMode: "STRICT",
         branchHeadId: "",
         active: true,
         pfCode: "",
@@ -334,6 +341,7 @@ export default function BranchSettings() {
           latitude: formData.latitude,
           longitude: formData.longitude,
           radius: formData.radius || 5,
+          geofenceMode: formData.geofenceMode || "STRICT",
           branchHeadId: formData.branchHeadId,
           active: formData.active,
           pfCode: formData.pfCode,
@@ -357,6 +365,7 @@ export default function BranchSettings() {
           latitude: formData.latitude,
           longitude: formData.longitude,
           radius: formData.radius,
+          geofenceMode: formData.geofenceMode || "STRICT",
           branchHeadId: formData.branchHeadId,
           branchCode: formData.branchCode,
           active: formData.active,
@@ -614,7 +623,7 @@ export default function BranchSettings() {
                 <button
                   type="button"
                   className="font-semibold underline hover:no-underline"
-                  // onClick={handleUpgrade}
+                // onClick={handleUpgrade}
                 >
                   upgrade
                 </button>{" "}
@@ -819,7 +828,7 @@ export default function BranchSettings() {
                       {branch.esiLocation}
                     </TableCell>
                     <TableCell className="text-gray-800">
-                      {branch.radius} km
+                      {branch.radius} km (Mode: {branch.geofenceMode === "STRICT" ? "Strict" : "Flexible"})
                     </TableCell>
                     <TableCell
                       sx={{
@@ -1293,7 +1302,7 @@ export default function BranchSettings() {
               </div>
             </div>
 
-            <div>
+            <div className="flex items-center justify-between gap-4 flex-wrap">
               <FormControlLabel
                 control={
                   <Switch
@@ -1305,6 +1314,29 @@ export default function BranchSettings() {
                 label="Active"
                 className="text-gray-800"
               />
+
+              <div className="min-w-[220px]">
+                <FormControl fullWidth size="small">
+                  <InputLabel id="geofence-mode-label">Geofence Mode</InputLabel>
+                  <Select
+                    labelId="geofence-mode-label"
+                    id="geofence-mode-select"
+                    value={formData.geofenceMode || "STRICT"}
+                    label="Geofence Mode"
+                    onChange={(e: SelectChangeEvent) => {
+                      const nextMode = e.target.value as GeofenceMode;
+                      setFormData((prev) => ({
+                        ...prev,
+                        geofenceMode: nextMode,
+                      }));
+                    }}
+                  >
+                    <MenuItem value="DISABLED">Disabled</MenuItem>
+                    <MenuItem value="SOFT">Soft (Allow but flag)</MenuItem>
+                    <MenuItem value="STRICT">Strict (Block outside radius)</MenuItem>
+                  </Select>
+                </FormControl>
+              </div>
             </div>
           </div>
         </DialogContent>

@@ -631,7 +631,7 @@ export default function AdminHolidayCalendarsPage() {
               }
               fullWidth
             />
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Year"
                 views={['year']}
@@ -1073,7 +1073,7 @@ export default function AdminHolidayCalendarsPage() {
                 <div key={index} className="border border-gray-200 rounded-lg p-3 relative">
                   <div className="flex items-center justify-between pt-2">
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
-                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                         <DatePicker
                           label="Date"
                           value={holiday.holidayDate ? dayjs(holiday.holidayDate) : null}

@@ -606,7 +606,7 @@ export default function HrPayrollInputsPage() {
             />
           </div>
           <div className="md:col-span-2">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="From Date"
                 value={fromDate}
@@ -618,7 +618,7 @@ export default function HrPayrollInputsPage() {
             </LocalizationProvider>
           </div>
           <div className="md:col-span-2">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="To Date"
                 value={toDate}
@@ -639,7 +639,7 @@ export default function HrPayrollInputsPage() {
             />
           </div> */}
           <div className="md:col-span-2">
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Payroll Month"
                 views={["month", "year"]}
@@ -1332,7 +1332,7 @@ export default function HrPayrollInputsPage() {
                   value={encashmentFormData.payrollMonth}
                   onChange={(e) => setEncashmentFormData({ ...encashmentFormData, payrollMonth: e.target.value })}
                 /> */}
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Payroll Month"
                     views={["month", "year"]}
@@ -1649,7 +1649,7 @@ export default function HrPayrollInputsPage() {
                   value={settlementFormData.payrollMonth}
                   onChange={(e) => setSettlementFormData({ ... , payrollMonth: e.target.value })}
                 /> */}
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Payroll Month"
                     views={["month", "year"]}

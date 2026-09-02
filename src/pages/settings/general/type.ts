@@ -34,6 +34,8 @@ export interface CompanyInfo {
   //   signature: string | File;
 }
 
+export type GeofenceMode = "DISABLED" | "SOFT" | "STRICT";
+
 export interface Branch {
   id: string;
   branchName: string;
@@ -42,6 +44,7 @@ export interface Branch {
   latitude: number;
   longitude: number;
   radius: number;
+  geofenceMode?: GeofenceMode;
   branchHeadId: string;
   branchHeadName: any;
   active: boolean;

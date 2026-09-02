@@ -93,7 +93,7 @@ export default function PolicySimulator() {
                 </MenuItem>
               ))}
             </TextField>
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Effective From"
                 value={context.fromDate ? dayjs(context.fromDate) : null}

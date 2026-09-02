@@ -270,6 +270,10 @@ export interface CorrectionRequestPayload {
 export interface CheckInPayload {
   employeeId: string;
   checkInTime: string;
+  latitude?: number;
+  longitude?: number;
+  withinGeofence?: boolean;
+  geofenceMode?: "DISABLED" | "SOFT" | "STRICT";
   reason?: string;
   markedBy?: string;
   remarks?: string;

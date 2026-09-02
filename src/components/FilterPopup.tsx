@@ -314,7 +314,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
 
       case 'date':
         return (
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label={key === 'value' ? 'From' : 'To'}
               value={value ? dayjs(value) : null}

@@ -105,7 +105,7 @@ export function EmployeeView() {
               label="Select Employee"
             />
           </div>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="From"
               value={fromDate ? dayjs(fromDate) : null}

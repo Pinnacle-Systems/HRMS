@@ -195,7 +195,7 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                   </Box>
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                     <DatePicker
                       label="Effective From"
                       value={effectiveFrom ? dayjs(effectiveFrom) : dayjs()}

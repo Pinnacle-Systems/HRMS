@@ -702,14 +702,14 @@ const renderLogRow = (log: GroupedAuditLog, index: number, isChild: boolean = fa
             ))}
           </Select>
         </FormControl>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             value={filterFromDate ? dayjs(filterFromDate) : null}
             onChange={(d) => setFilterFromDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
             slotProps={{ textField: { label: "From", sx: { width: 135, "& .MuiPickersOutlinedInput-root": { borderRadius: "6px !important" } } } }}
           />
         </LocalizationProvider>
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             value={filterToDate ? dayjs(filterToDate) : null}
             minDate={filterFromDate ? dayjs(filterFromDate) : undefined}

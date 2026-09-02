@@ -570,7 +570,7 @@ export const ShiftScheduleView = () => {
               </ToggleButton>
             </ToggleButtonGroup>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label={view === 'daily' ? 'Today' : view === 'weekly' ? 'Week of' : 'Month'}
                 value={selectedDate}

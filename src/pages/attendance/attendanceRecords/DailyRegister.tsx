@@ -1302,7 +1302,7 @@ export function DailyRegister() {
       <div className="flex items-center gap-3 border border-gray-200 p-2 rounded-md justify-between flex-wrap">
         <div className="flex items-center gap-2">
           <FilterListOutlined className="text-gray-600" fontSize="small" />
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               // className="!w-[150px]"
               value={date ? dayjs(date) : null}
@@ -2337,7 +2337,7 @@ export function DailyRegister() {
           <div className="space-y-4">
             {/* Date Range and Configuration */}
             <div className="grid grid-cols-2 mt-3 gap-3 gap-y-5">
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <DatePicker
                   label="Start Date"
                   value={importStartDate ? dayjs(importStartDate) : null}
@@ -2722,7 +2722,7 @@ export function DailyRegister() {
                   </>
                 ) : (
                   <div className="flex items-center gap-2 mt-5">
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                       <DatePicker
                         label="From Date"
                         value={punchImportFromDate ? dayjs(punchImportFromDate) : null}

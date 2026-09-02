@@ -127,7 +127,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
                 </TextField>
               </Grid>
 
-              <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <Grid size={{ xs: 12, md: 4 }}>
                   <DatePicker
                     label="From Date"
