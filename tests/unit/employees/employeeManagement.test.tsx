@@ -131,7 +131,7 @@ async function setupMocks() {
   vi.mocked(employeeService.createEmployee).mockResolvedValue({
     data: { id: "3", employeeId: "EMP003" },
   } as any);
-  vi.mocked(employeeService.deleteEmployee).mockResolvedValue({} as any);
+  // vi.mocked(employeeService.deleteEmployee).mockResolvedValue({} as any);
 }
 
 // --------------- tests ---------------

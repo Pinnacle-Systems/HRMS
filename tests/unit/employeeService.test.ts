@@ -281,7 +281,7 @@ describe("deactivateEmployee", () => {
     apiDelete.mockResolvedValue({});
     const { employeeService } = await import("../../src/services/modules/employees");
 
-    await employeeService.deactivateEmployee("emp-42");
+    await employeeService.deactivateEmployee("emp-42",{ reason: "Resigned" });
 
     expect(apiDelete).toHaveBeenCalledWith("/employees/emp-42");
   });
