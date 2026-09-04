@@ -134,6 +134,7 @@ export const API_ENDPOINTS = {
     GET_EMERGENCY: (id: string) => `/employees/${id}/emergency-contacts`,
     GET_ADDRESS: (id: string) => `/employees/${id}/addresses`,
     GET_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
+    GET_DEACTIVATED: "/employees/deactivated",
 
     LEAVE_BALANCES: (id: string) => `/employees/${id}/leave-balances`,
     LEAVE_LEDGER: (id: string) => `/employees/${id}/leave-ledger`,
@@ -939,6 +940,14 @@ export const API_ENDPOINTS = {
       UPDATE_QUERY_SET: (id: string) => `/admin/bi/query-sets/${id}`,
       DELETE_QUERY_SET: (id: string) => `/admin/bi/query-sets/${id}`,
     },
+
+    PAYROLL_DASHBOARD: {
+      PF_ESI: "/v1/dashboard/payroll/pf-esi",
+      OVERVIEW: "/v1/dashboard/payroll/overview",
+      EMPLOYEES: "/v1/dashboard/payroll/employees",
+      HEAD_COUNT: "/v1/dashboard/payroll/employee-strength",
+      DRILLDOWN: "/v1/dashboard/payroll/drilldown/company",
+    },
   },
 
   FISCAL_YEARS: {
@@ -1281,16 +1290,16 @@ export const API_ENDPOINTS = {
   },
 
   MOBILE_ATTENDANCE: {
-    GET_TODAY: "/api/mobile/attendance/today",
-    GET_TIMELINE: "/api/mobile/attendance/timeline",
-    GET_SUMMARY: "/api/mobile/attendance/summary",
-    GET_HISTORY: "/api/mobile/attendance/history",
-    GEOFENCE_VALIDATE: "/api/mobile/attendance/geofence/validate",
-    POST_CHECKIN: "/api/mobile/attendance/check-in",
-    POST_CHECKOUT: "/api/mobile/attendance/check-out",
-    POST_REMOTE_CHECKIN: "/api/mobile/attendance/remote-checkin",
-    POST_CORRECTION: "/api/mobile/attendance/correction",
-    POST_BREAK_START: "/api/mobile/attendance/break/start",
-    POST_BREAK_END: "/api/mobile/attendance/break/end",
+    GET_TODAY: "/mobile/attendance/today",
+    GET_TIMELINE: "/mobile/attendance/timeline",
+    GET_SUMMARY: "/mobile/attendance/summary",
+    GET_HISTORY: "/mobile/attendance/history",
+    GEOFENCE_VALIDATE: "/mobile/attendance/geofence/validate",
+    POST_CHECKIN: "/mobile/attendance/check-in",
+    POST_CHECKOUT: "/mobile/attendance/check-out",
+    POST_REMOTE_CHECKIN: "/mobile/attendance/remote-checkin",
+    POST_CORRECTION: "/mobile/attendance/correction",
+    POST_BREAK_START: "/mobile/attendance/break/start",
+    POST_BREAK_END: "/mobile/attendance/break/end",
   },
 };

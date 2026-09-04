@@ -174,7 +174,66 @@ export interface Settings {
   [key: string]: any;
 }
 
+export interface PayrollAnalyticsParams {
+  company?: string;
+  department?: string;
+  year?: number;
+  month?: number;
+  finYear?: number;
+  gender?: string;
+  employeeType?: string;
+  search?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface PayrollAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: Record<string, unknown> | Record<string, unknown>[];
+  timestamp: string;
+}
+
 export const payrollService = {
+  async getPayrollOverview(params?: PayrollAnalyticsParams): Promise<PayrollAnalyticsResponse> {
+    return apiService.get<PayrollAnalyticsResponse>(
+      API_ENDPOINTS.DASHBOARD.PAYROLL_DASHBOARD.OVERVIEW,
+      { params },
+    );
+  },
+
+  async getPayrollCompanyDrilldown(
+    params: PayrollAnalyticsParams,
+  ): Promise<PayrollAnalyticsResponse> {
+    return apiService.get<PayrollAnalyticsResponse>(
+      API_ENDPOINTS.DASHBOARD.PAYROLL_DASHBOARD.DRILLDOWN,
+      { params },
+    );
+  },
+
+  async getPayrollEmployees(
+    params: PayrollAnalyticsParams,
+  ): Promise<PayrollAnalyticsResponse> {
+    return apiService.get<PayrollAnalyticsResponse>(
+      API_ENDPOINTS.DASHBOARD.PAYROLL_DASHBOARD.EMPLOYEES,
+      { params },
+    );
+  },
+
+  async getPayrollPfEsi(params?: PayrollAnalyticsParams): Promise<PayrollAnalyticsResponse> {
+    return apiService.get<PayrollAnalyticsResponse>(
+      API_ENDPOINTS.DASHBOARD.PAYROLL_DASHBOARD.PF_ESI,
+      { params },
+    );
+  },
+
+  async getEmployeeStrength(params?: Pick<PayrollAnalyticsParams, "company">): Promise<PayrollAnalyticsResponse> {
+    return apiService.get<PayrollAnalyticsResponse>(
+      API_ENDPOINTS.DASHBOARD.PAYROLL_DASHBOARD.HEAD_COUNT,
+      { params },
+    );
+  },
+
   async getDashboard() {
     return apiService.get(API_ENDPOINTS.PAYROLL.DASHBOARD);
   },

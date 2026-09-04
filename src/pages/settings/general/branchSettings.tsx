@@ -100,7 +100,7 @@ export default function BranchSettings() {
     latitude: 0,
     longitude: 0,
     radius: 5,
-    geofenceMode: "STRICT",
+    geofenceMode: "strict",
     branchHeadId: "",
     active: true,
     pfCode: "",
@@ -239,7 +239,7 @@ export default function BranchSettings() {
         latitude: 0,
         longitude: 0,
         radius: 5,
-        geofenceMode: "STRICT",
+        geofenceMode: "strict",
         branchHeadId: "",
         active: true,
         pfCode: "",
@@ -828,7 +828,7 @@ export default function BranchSettings() {
                       {branch.esiLocation}
                     </TableCell>
                     <TableCell className="text-gray-800">
-                      {branch.radius} km (Mode: {branch.geofenceMode === "STRICT" ? "Strict" : "Flexible"})
+                      {branch.radius} km (Mode: {branch.geofenceMode || "Flexible"})
                     </TableCell>
                     <TableCell
                       sx={{
@@ -1321,7 +1321,7 @@ export default function BranchSettings() {
                   <Select
                     labelId="geofence-mode-label"
                     id="geofence-mode-select"
-                    value={formData.geofenceMode || "STRICT"}
+                    value={formData.geofenceMode || "disabled"}
                     label="Geofence Mode"
                     onChange={(e: SelectChangeEvent) => {
                       const nextMode = e.target.value as GeofenceMode;
@@ -1331,9 +1331,9 @@ export default function BranchSettings() {
                       }));
                     }}
                   >
-                    <MenuItem value="DISABLED">Disabled</MenuItem>
-                    <MenuItem value="SOFT">Soft (Allow but flag)</MenuItem>
-                    <MenuItem value="STRICT">Strict (Block outside radius)</MenuItem>
+                    <MenuItem value="disabled">Disabled</MenuItem>
+                    <MenuItem value="soft">Soft (Allow but flag)</MenuItem>
+                    <MenuItem value="strict">Strict (Block outside radius)</MenuItem>
                   </Select>
                 </FormControl>
               </div>

@@ -1869,7 +1869,7 @@ export function DashboardBuilderFull() {
                         fullWidth
                         className="col-span-2"
                         helperText={
-                            <Box className="flex flex-col gap-1">
+                            <span className="flex flex-col gap-1">
                                 <Typography variant="caption" className="text-gray-600">
                                     For advanced users. Leave empty to auto-generate from selections above.
                                 </Typography>
@@ -1881,7 +1881,7 @@ export function DashboardBuilderFull() {
                                         return widgetFormJsonString ? <Typography variant="caption" className="text-red-600">⚠️ Invalid JSON</Typography> : null;
                                     }
                                 })()}
-                            </Box>
+                            </span>
                         }
                         error={(() => {
                             try {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import {
   employeeService,
   normalizeEmployeePageResponse,
@@ -45,7 +45,7 @@ import {
 } from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
-import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
+import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, ExpandLessOutlined, ExpandMoreOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
 import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
 import { masterSx } from "./const.ts";
@@ -127,6 +127,13 @@ export default function EmployeeManagement() {
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] =
     useState(false);
   const [adminRemarks, setAdminRemarks] = useState("");
+  const [eligibleForRehire, setEligibleForRehire] = useState(true);
+  const [resignedDialogOpen, setResignedDialogOpen] = useState(false);
+  const [resignedEmployees, setResignedEmployees] = useState<Employee[]>([]);
+  const [resignedSearch, setResignedSearch] = useState("");
+  const [expandedResignedEmployeeId, setExpandedResignedEmployeeId] = useState<string | null>(null);
+  const [resignedEmployeeDetails, setResignedEmployeeDetails] = useState<Record<string, any>>({});
+  const [resignedDetailsLoading, setResignedDetailsLoading] = useState<string | null>(null);
 
   const filterFields = useMemo(
     () =>
@@ -184,7 +191,7 @@ export default function EmployeeManagement() {
       const res: any = await employeeService.previewEmployeeId(payload);
       const response = res?.data ?? res;
       setNextIdPreview(response.previewId);
-    } catch (error: any) {
+    } catch {
       setNextIdPreview("Error generating preview");
     } finally {
       hideSpinner();
@@ -706,8 +713,89 @@ export default function EmployeeManagement() {
     employee.isActive === false ||
     !!employee.deactivatedAt;
 
+  const loadResignedEmployees = async () => {
+    showSpinner();
+    try {
+      const response = await employeeService.getDeactivatedEmployees({
+        page: 0,
+        size: 1000,
+        sort: "deactivatedAt,desc",
+        branch: session?.branchId || undefined,
+      });
+      const employeePage = normalizeEmployeePageResponse(response);
+      const inactiveEmployees = employeePage.content as Employee[];
+      const fullEmployees = await Promise.all(
+        inactiveEmployees.map(async (employee) => {
+          try {
+            const detailResponse: any = await employeeService.getEmployeeById(employee.id);
+            return detailResponse?.data ?? detailResponse;
+          } catch {
+            return employee;
+          }
+        }),
+      );
+      setResignedEmployees(fullEmployees);
+      setResignedEmployeeDetails(
+        Object.fromEntries(fullEmployees.map((employee) => [employee.id, employee])),
+      );
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to load resigned employees", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const getResignedField = (employee: Employee, ...fields: string[]): any => {
+    for (const field of fields) {
+      const value = (employee as unknown as Record<string, unknown>)[field];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return "-";
+  };
+
+  const toggleResignedEmployeeDetails = async (employee: Employee) => {
+    const employeeId = employee.id;
+    if (expandedResignedEmployeeId === employeeId) {
+      setExpandedResignedEmployeeId(null);
+      return;
+    }
+
+    setExpandedResignedEmployeeId(employeeId);
+    if (resignedEmployeeDetails[employeeId]) return;
+
+    setResignedDetailsLoading(employeeId);
+    try {
+      const response: any = await employeeService.getEmployeeById(employeeId);
+      setResignedEmployeeDetails((current) => ({
+        ...current,
+        [employeeId]: response?.data ?? response,
+      }));
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to load employee details", "error");
+    } finally {
+      setResignedDetailsLoading(null);
+    }
+  };
+
+  const filteredResignedEmployees = resignedEmployees.filter((employee) => {
+    const query = resignedSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [
+      getResignedField(employee, "employeeId", "employeeCode", "code"),
+      getResignedField(employee, "panNumber", "panNo", "pan"),
+      getResignedField(employee, "universalAccountNumber", "uanNo", "uanNumber", "uan"),
+      getResignedField(employee, "aadhaarNumber", "aadharNumber", "aadhaarNo", "aadharNo"),
+      getResignedField(employee, "pfNumber"),
+    ].some((value) => String(value).toLowerCase().includes(query));
+  });
+
   // Handle Deactivate Employee
-  const handleDeactivateEmployee = async (id: string, name: string) => {
+  const handleDeactivateEmployee = async (
+    id: string,
+    name: string,
+    remarks: string,
+    eligibleForRehire: boolean,
+  ) => {
     showConfirmDialog({
       title: "Deactivate Employee",
       message: `Deactivate "${name}"? The employee will be marked inactive. All history (leave, payroll, onboarding) is retained and the employee can be reactivated later.`,
@@ -715,8 +803,12 @@ export default function EmployeeManagement() {
       cancelText: "Cancel",
       onConfirm: async () => {
         showSpinner();
+        const payload = {
+          remarks,
+          eligibleForRehire: Boolean(eligibleForRehire),
+        }
         try {
-          await employeeService.deactivateEmployee(id);
+          await employeeService.deactivateEmployee(id,payload);
           showSnackbar(`"${name}" has been deactivated.`, "success");
           getEmployees();
         } catch (error: any) {
@@ -894,7 +986,7 @@ export default function EmployeeManagement() {
       await employeeService.updateAdminInfo(emp.id, {
         relievedDate: value,
         joiningDate: formData.joiningDate,
-        branchId: formData.branchId || selectedEmployee?.branchId,
+        branchId: formData.branchId || selectedEmployee?.branchId || session?.branchId,
         departmentId: formData.departmentId || selectedEmployee?.departmentId,
         designationId:
           formData.designationId || selectedEmployee?.designationId,
@@ -923,7 +1015,12 @@ export default function EmployeeManagement() {
         midNo: selectedEmployee?.midNo,
         oldIdNo: selectedEmployee?.oldIdNo,
       });
-      handleDeactivateEmployee(emp.id, emp.name);
+      handleDeactivateEmployee(
+        emp.id,
+        emp.name,
+        remarks,
+        eligibleForRehire,
+      );
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
@@ -971,6 +1068,17 @@ export default function EmployeeManagement() {
               </span>
             }
           />
+          <Button
+            variant="outlined"
+            startIcon={<VisibilityOutlined />}
+            onClick={() => {
+              setResignedSearch("");
+              setResignedDialogOpen(true);
+              loadResignedEmployees();
+            }}
+          >
+            View Resigned Employees
+          </Button>
           <Button
             variant="outlined"
             startIcon={<FileUploadOutlined />}
@@ -1078,31 +1186,84 @@ export default function EmployeeManagement() {
         </Box>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 text-[12px]">
-        <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-blue-500">
-          <div className="text-gray-500">Total Employees</div>
-          <div className="font-bold">{total}</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-yellow-500">
-          <div className="text-gray-500">Pending Onboarding</div>
-          <div className="font-bold">
-            {employees.filter((e) => e.employeeStatus === "ONBOARDING").length}
+      {/* Workforce Summary */}
+      {(() => {
+        const activeCount = employees.filter((employee) => employee.isActive === true).length;
+        const onboardingCount = employees.filter(
+          (employee) => employee.employeeStatus === "ONBOARDING",
+        ).length;
+        const inactiveCount = employees.filter(
+          (employee) => employee.isActive === false || employee.employeeStatus === "INACTIVE",
+        ).length;
+        const activeRate = total ? Math.round((activeCount / total) * 100) : 0;
+
+        const summaryCards = [
+          {
+            label: "Total Workforce",
+            value: total,
+            detail: `${employees.length} shown on this page`,
+            icon: <CheckCircleOutlined />,
+            tone: "text-blue-700 bg-blue-50",
+            bar: "bg-blue-600",
+          },
+          {
+            label: "Active Employees",
+            value: activeCount,
+            detail: `${activeRate}% of total workforce`,
+            icon: <HowToRegOutlined />,
+            tone: "text-emerald-700 bg-emerald-50",
+            bar: "bg-emerald-500",
+          },
+          {
+            label: "Onboarding Queue",
+            value: onboardingCount,
+            detail: "Need onboarding follow-up",
+            icon: <ArrowUpward />,
+            tone: "text-amber-700 bg-amber-50",
+            bar: "bg-amber-500",
+          },
+          {
+            label: "Inactive Employees",
+            value: inactiveCount,
+            detail: includeInactive ? "Included in this view" : "Enable toggle to view all",
+            icon: <NoAccountsOutlined />,
+            tone: "text-rose-700 bg-rose-50",
+            bar: "bg-rose-500",
+          },
+        ];
+
+        return (
+          <div className="grid grid-cols-4 gap-3 mb-6 text-[12px]">
+            {summaryCards.map((card) => (
+              <div
+                key={card.label}
+                className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-medium text-gray-500">{card.label}</div>
+                    <div className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
+                      {card.value}
+                    </div>
+                  </div>
+                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
+                    {card.icon}
+                  </div>
+                </div>
+                <div className="mt-1 truncate text-gray-500" title={card.detail}>
+                  {card.detail}
+                </div>
+                <div className="absolute bottom-0 left-0 h-1 w-full bg-gray-100">
+                  <div
+                    className={`h-full ${card.bar}`}
+                    style={{ width: `${total ? Math.min((card.value / total) * 100, 100) : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-green-500">
-          <div className="text-gray-500">Active Employees</div>
-          <div className="font-bold">
-            {employees.filter((e) => e.isActive === true).length}
-          </div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm border-l-4 border-purple-500">
-          <div className="text-gray-500">Onboarding</div>
-          <div className="font-bold">
-            {employees.filter((e) => e.employeeStatus === "ONBOARDING").length}
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Search Bar */}
       <div className="mb-4 flex items-center gap-2">
@@ -1172,7 +1333,7 @@ export default function EmployeeManagement() {
       <TableContainer
         component={Paper}
         elevation={0}
-        className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-392px)]" : "h-[calc(100vh-332px)]"} overflow-auto !bg-white-50`}
+        className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-435px)]" : "h-[calc(100vh-375px)]"} overflow-auto !bg-white-50`}
       >
         <Table stickyHeader className="border border-gray-200">
           <TableHead>
@@ -1253,9 +1414,9 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   toggleSort("department")
-                // }
+              // onClick={() =>
+              //   toggleSort("department")
+              // }
               >
                 <div className="flex items-center gap-1">
                   Department
@@ -1264,16 +1425,16 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                // onClick={() =>
-                //   toggleSort("designation")
-                // }
+              // onClick={() =>
+              //   toggleSort("designation")
+              // }
               >
                 <div className="flex items-center gap-1">
                   Designation
                   {/* {getSortIcon("designation")} */}
                 </div>
               </TableCell>
-              
+
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() =>
@@ -1409,6 +1570,8 @@ export default function EmployeeManagement() {
                           onClick={() => {
                             setRelievingDialogEmployee(employee);
                             setRelievingDate("");
+                            setAdminRemarks("");
+                            setEligibleForRehire(true);
                             setRelievingDialogOpen(true);
                           }}
                         >
@@ -2075,6 +2238,15 @@ export default function EmployeeManagement() {
             onChange={(e) => setAdminRemarks(e.target.value)}
             className="!mt-5 !text-[12px]"
           />
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={eligibleForRehire}
+                onChange={(e) => setEligibleForRehire(e.target.checked)}
+              />
+            }
+            label="Eligible for rehire"
+          />
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">
           <Button
@@ -2093,6 +2265,8 @@ export default function EmployeeManagement() {
                 );
                 setRelievingDialogOpen(false);
                 setRelievingDate("");
+                setAdminRemarks("");
+                setEligibleForRehire(true);
               }
             }}
             variant="contained"
@@ -2102,6 +2276,132 @@ export default function EmployeeManagement() {
             Deactivate
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={resignedDialogOpen}
+        onClose={() => setResignedDialogOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <div className="flex items-center justify-between border-b border-gray-300 p-2">
+          <div className="text-gray-800 ml-4 text-[12px] font-medium">
+            Resigned Employees
+          </div>
+          <IconButton onClick={() => setResignedDialogOpen(false)}>
+            <CloseOutlined className="!text-gray-800" />
+          </IconButton>
+        </div>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Search resigned employees"
+            placeholder="Search by PAN, Aadhaar or Employee ID"
+            value={resignedSearch}
+            onChange={(event) => setResignedSearch(event.target.value)}
+            className="!mb-4"
+          />
+          <TableContainer className="border border-gray-200 bg-white-50 rounded-md">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>S No</TableCell>
+                  <TableCell>Employee Name</TableCell>
+                  <TableCell>Deactivate Reason</TableCell>
+                  <TableCell>Admin Remarks</TableCell>
+                  <TableCell>Relieved Date</TableCell>
+                  <TableCell>Eligible to Rehire</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredResignedEmployees.map((employee, index) => (
+                  <Fragment key={employee.id || employee.employeeId}>
+                  <TableRow sx={getRowColor(index)}>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        aria-label={expandedResignedEmployeeId === employee.id ? "Collapse employee details" : "Expand employee details"}
+                        onClick={() => toggleResignedEmployeeDetails(employee)}
+                      >
+                        {expandedResignedEmployeeId === employee.id ? <ExpandLessOutlined className="!text-gray-800" /> : <ExpandMoreOutlined className="!text-gray-800" />}
+                      </IconButton>
+                      {index + 1}
+                    </TableCell>
+                    <TableCell><div className="py-2">{employee.name || "-"}</div></TableCell>
+                    <TableCell>
+                      {getResignedField(employee, "deactivationReason", "deactivatedReason", "reason", "remarks")}
+                    </TableCell>
+                    <TableCell>{getResignedField(employee, "adminRemarks", "remarks")}</TableCell>
+                    <TableCell>
+                      {getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt") !== "-"
+                        ? formatDate(getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt"))
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") === "-"
+                        ? "-"
+                        : getResignedField(employee, "eligibleForRehire", "eligibleToRehire")
+                          ? "Yes"
+                          : "No"}
+                    </TableCell>
+                  </TableRow>
+                  {expandedResignedEmployeeId === employee.id && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="!bg-primary-50 border border-gray-200">
+                        {resignedDetailsLoading === employee.id ? (
+                          <div className="py-4 text-center text-gray-500">Loading employee details...</div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-3 p-3 text-[12px] md:grid-cols-3">
+                            {[
+                              ["Employee ID", "employeeId"],
+                              ["Email", "emailAddress"],
+                              ["Mobile", "mobileNumber"],
+                              ["Branch", "branch"],
+                              ["Department", "department"],
+                              ["Designation", "designation"],
+                              ["Date of Birth", "dateOfBirth"],
+                              ["Joining Date", "joiningDate"],
+                              ["Relieved Date", "relievedDate"],
+                              ["PAN", "panNumber"],
+                              ["Aadhaar", "aadhaarNumber"],
+                              ["UAN", "universalAccountNumber"],
+                              ["PF Number", "pfNumber"],
+                              ["Deactivated At", "deactivatedAt"],
+                              ["Deactivation Remarks", "deactivationRemarks"],
+                              ["Eligible to Rehire", "eligibleForRehire"],
+                            ].map(([label, field]) => {
+                              const value = getResignedField(resignedEmployeeDetails[employee.id] || employee, field);
+                              return (
+                                <div key={field}>
+                                  <div className="font-medium text-gray-500">{label}</div>
+                                  <div className="mt-1 text-gray-800">
+                                    {field.toLowerCase().includes("date") || field === "deactivatedAt"
+                                      ? value === "-" ? "-" : formatDate(value)
+                                      : field === "eligibleForRehire"
+                                        ? value === "-" ? "-" : value ? "Yes" : "No"
+                                        : value}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </Fragment>
+                ))}
+                {filteredResignedEmployees.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center">
+                      <div className="py-6 text-gray-800">No resigned employees found.</div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
       </Dialog>
 
       {/* Bulk Upload Dialog */}

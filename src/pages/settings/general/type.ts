@@ -34,7 +34,7 @@ export interface CompanyInfo {
   //   signature: string | File;
 }
 
-export type GeofenceMode = "DISABLED" | "SOFT" | "STRICT";
+export type GeofenceMode = "disabled" | "soft" | "strict";
 
 export interface Branch {
   id: string;

@@ -191,6 +191,8 @@ export interface HistoryData {
 
 export interface GeofenceValidateData {
   withinGeofence: boolean;
+  allowed?: boolean;
+  geofenceMode?: "DISABLED" | "SOFT" | "STRICT";
   distanceMeters: number;
   allowedRadiusMeters: number;
   branchId: string;

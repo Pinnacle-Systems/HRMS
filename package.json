@@ -33,6 +33,8 @@
     "axios": "^1.15.2",
     "date-fns": "^2.30.0",
     "dayjs": "^1.11.20",
+    "echarts": "^6.1.0",
+    "echarts-gl": "^2.1.0",
     "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
     "lodash": "^4.18.1",

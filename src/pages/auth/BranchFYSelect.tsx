@@ -94,6 +94,7 @@ export default function BranchFiscalYearSelectPage() {
         accessToken,
         branchId,
         branchName,
+        branchCode,
         branchScoped,
         fiscalYearId,
         fiscalYearLabel,
@@ -109,6 +110,7 @@ export default function BranchFiscalYearSelectPage() {
         accessToken,
         branchId,
         branchName,
+        branchCode,
         branchScoped,
         fiscalYearId,
         fiscalYearLabel,
@@ -229,7 +231,7 @@ export default function BranchFiscalYearSelectPage() {
                 className="mt-1 w-full bg-white text-sm px-3 py-2 border border-gray-300 rounded-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                 disabled={submitting}
               >
-                <option value="">All branches</option>
+                {/* <option value="">All branches</option> */}
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name} - {branch.code}

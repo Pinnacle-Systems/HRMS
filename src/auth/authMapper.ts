@@ -104,6 +104,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
     company,
     branchId: data.branchId ?? null,
     branchName: data.branchName ?? null,
+    branchCode: data.branchCode ?? null,
     branchScoped: data.branchScoped,
     fiscalYearId: data.fiscalYearId,
     fiscalYearLabel: data.fiscalYearLabel,

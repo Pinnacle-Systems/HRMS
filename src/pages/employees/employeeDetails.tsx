@@ -94,16 +94,16 @@ import { useAuth } from "../../auth/authContext";
 import useUnsavedChanges from "../../hooks/useUnsavedChanges";
 import { ProfileCompletionProgress } from "./useProfileCompletion";
 import { attendanceService } from "../../services/modules/attendance";
-import { evaluateGeofenceAccess } from "../../utils/geofence";
+import { mobileAttendanceService, type GeofenceValidateData } from "../../services/modules/mobileAttendance";
 
 const withMidNoFallback = (data: any) => {
   const midNo = typeof data.midNo === "string" ? data.midNo.trim() : data.midNo;
   return midNo
     ? data
     : {
-        ...data,
-        midNo: data.employeeId || data.employeeCode || data.code || data.id || "",
-      };
+      ...data,
+      midNo: data.employeeId || data.employeeCode || data.code || data.id || "",
+    };
 };
 
 function TabPanel(props: TabPanelProps) {
@@ -154,6 +154,7 @@ const EditableGroup = ({
   const [relievingDialogOpen, setRelievingDialogOpen] = useState(false);
   const [relievingDate, setRelievingDate] = useState("");
   const [adminRemarks, setAdminRemarks] = useState("");
+  const [eligibleForRehire, setEligibleForRehire] = useState(true);
   const { id } = useParams();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
@@ -441,7 +442,7 @@ const EditableGroup = ({
                 </a>
               ))}
             </div>
-            {title == "Aadhaar Details" && isAdmin && 
+            {title == "Aadhaar Details" && isAdmin &&
               <div className="text-[10px] underline text-sky-500 cursor-pointer" onClick={() => getAadhaar(editData.aadhaarNumber)}>Fetch Aadhaar Details</div>
             }
           </div>
@@ -562,6 +563,7 @@ const EditableGroup = ({
                               if (isDeactivating) {
                                 setRelievingDate("");
                                 setAdminRemarks("");
+                                setEligibleForRehire(true);
                                 setRelievingDialogOpen(true);
                                 return;
                               }
@@ -679,20 +681,20 @@ const EditableGroup = ({
                         type={field.type === 'number' ? 'number' : 'text'}
                         value={
                           field.key === "midNo" &&
-                          typeof editData[field.key] === "string" &&
-                          editData[field.key].trim() === ""
+                            typeof editData[field.key] === "string" &&
+                            editData[field.key].trim() === ""
                             ? String(
-                                editData.employeeId ||
-                                  editData.employeeCode ||
-                                  editData.code ||
-                                  editData.id ||
-                                  "",
-                              )
+                              editData.employeeId ||
+                              editData.employeeCode ||
+                              editData.code ||
+                              editData.id ||
+                              "",
+                            )
                             : field.type === 'number'
-                            ? editData[field.key] !== null && editData[field.key] !== undefined
-                              ? String(editData[field.key])
-                              : ''
-                            : editData[field.key] || ''
+                              ? editData[field.key] !== null && editData[field.key] !== undefined
+                                ? String(editData[field.key])
+                                : ''
+                              : editData[field.key] || ''
                         }
                         multiline={field.multiline || false}
                         rows={field.multiline ? 3 : 1}
@@ -792,6 +794,17 @@ const EditableGroup = ({
             onChange={(e: any) => setAdminRemarks(e.target.value)}
             className="!mt-5 !text-[12px]"
           />
+          <MaterialModule.FormControlLabel
+            control={
+              <MaterialModule.Checkbox
+                checked={eligibleForRehire}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEligibleForRehire(e.target.checked)
+                }
+              />
+            }
+            label="Eligible for rehire"
+          />
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button
@@ -808,10 +821,12 @@ const EditableGroup = ({
                 isActive: false,
                 relievedDate: relievingDate,
                 adminRemarks,
+                eligibleForRehire,
               });
               setRelievingDialogOpen(false);
               setRelievingDate("");
               setAdminRemarks("");
+              setEligibleForRehire(true);
             }}
             variant="contained"
             disabled={!relievingDate || !adminRemarks}
@@ -2701,9 +2716,13 @@ export default function EmployeeDetails() {
 
   const handleDeactivateEmployee = async (updatedData: any) => {
     if (!apiId) return;
+    const payload = {
+      remarks: updatedData.adminRemarks,
+      eligibleForRehire: Boolean(updatedData.eligibleForRehire),
+    }
     try {
       await updateAdminInfo(updatedData);
-      await employeeService.deactivateEmployee(apiId);
+      await employeeService.deactivateEmployee(apiId,payload);
       showSnackbar(`"${employee.name}" has been deactivated.`, "success");
       await fetchEmployeeDetails();
     } catch (error: any) {
@@ -3443,16 +3462,6 @@ export default function EmployeeDetails() {
 
   const handleCheckIn = async () => {
     try {
-      const branch: any = employee?.branchId
-        ? await branchService.getBranchById(employee.branchId)
-        : null;
-
-      const branchData = branch?.data || branch || null;
-      const geofenceMode = branchData?.geofenceMode || "STRICT";
-      const radius = Number(branchData?.radius ?? 0);
-      const branchLatitude = Number(branchData?.latitude ?? null);
-      const branchLongitude = Number(branchData?.longitude ?? null);
-
       if (!navigator.geolocation) {
         showSnackbar("This browser does not support location access for geofence validation.", "error");
         return;
@@ -3465,17 +3474,25 @@ export default function EmployeeDetails() {
         });
       });
 
-      const evaluation = evaluateGeofenceAccess({
-        branchLatitude,
-        branchLongitude,
-        userLatitude: position.coords.latitude,
-        userLongitude: position.coords.longitude,
-        radiusKm: radius,
-        mode: geofenceMode,
+      const validationResponse: any = await mobileAttendanceService.validateGeofence({
+        employeeId: apiId || "",
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
       });
+      const validation = (validationResponse?.data?.data || validationResponse?.data) as GeofenceValidateData;
+      const geofenceMode = validation?.geofenceMode || "STRICT";
+      const withinGeofence = validation?.withinGeofence ?? false;
+      const allowed = validation?.allowed ?? (
+        geofenceMode === "DISABLED" ||
+        geofenceMode === "SOFT" ||
+        withinGeofence
+      );
 
-      if (!evaluation.allowed) {
-        showSnackbar(evaluation.message, "error");
+      if (!allowed) {
+        showSnackbar(
+          validation?.message || "Check-in blocked: you are outside the assigned branch geofence.",
+          "error",
+        );
         return;
       }
 
@@ -3484,12 +3501,15 @@ export default function EmployeeDetails() {
         checkInTime: new Date().toISOString(),
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-        withinGeofence: evaluation.withinGeofence,
+        withinGeofence,
         geofenceMode,
         markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
       });
 
-      showSnackbar(res.message || evaluation.message, evaluation.withinGeofence ? "success" : "warning");
+      showSnackbar(
+        res.message || validation?.message || "Check-in marked successfully.",
+        withinGeofence ? "success" : "warning",
+      );
       setCheckIn(true);
     } catch (error: any) {
       showSnackbar(error?.message || "Unable to check in.", "error");

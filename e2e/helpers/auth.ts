@@ -49,6 +49,7 @@ type MockSessionOptions = {
   email?: string;
   tenantId?: string;
   branchId?: string;
+  branchCode?: string;
   fiscalYearId?: string;
 };
 
@@ -58,6 +59,7 @@ export function createMockSession({
   email = "admin@company.com",
   tenantId = "tenant-1",
   branchId = "branch-1",
+  branchCode = "BR001",
   fiscalYearId = "fy-2026",
 }: MockSessionOptions = {}) {
   return {
@@ -69,6 +71,7 @@ export function createMockSession({
 
     tenantId,
     branchId,
+    branchCode,
     fiscalYearId,
 
     user: {

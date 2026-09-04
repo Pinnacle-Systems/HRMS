@@ -78,6 +78,7 @@ import { policyService } from "../services";
 import { hasPermission, PAYROLL_PERMISSIONS } from "../const";
 import { PERMISSIONS } from "../auth/Permissions";
 import { PasswordExpiryAlert } from "./PasswordExpiryAlert";
+import { formatDate } from "../utils/dateFormatter";
 
 const drawerWidth = 220;
 
@@ -89,6 +90,18 @@ interface Notification {
   notifiedAt: string;
   message: string;
 }
+
+interface PreviousPage {
+  path: string;
+  label: string;
+}
+
+const getFallbackRouteLabel = (path: string) => {
+  const segment = path.split("/").filter(Boolean).pop() || "Home";
+  return segment
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+};
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
@@ -102,6 +115,16 @@ export default function Layout() {
   const { session, logout } = useAuth();
   const user = session?.user;
   const userPermissions = user?.permissions || [];
+  const pageHistoryStorageKey = `hrms-page-history-${user?.userId || "guest"}`;
+  const [pageHistory, setPageHistory] = useState<PreviousPage[]>(() => {
+    try {
+      const storedPages = localStorage.getItem(pageHistoryStorageKey);
+      const parsedPages = storedPages ? JSON.parse(storedPages) : [];
+      return Array.isArray(parsedPages) ? parsedPages : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [attendanceOpen, setAttendanceOpen] = useState(
     location.pathname.startsWith("/attendance")
@@ -209,7 +232,7 @@ export default function Layout() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    return formatDate(date);
   };
 
   useEffect(() => {
@@ -398,7 +421,6 @@ export default function Layout() {
       icon: <TrackChangesOutlined />,
       path: "/attendance",
       roles: ["HR", "ADMIN"],
-      // permissions: [PERMISSIONS.ATTENDANCE_READ],
       children: [
         {
           text: "Shift Management",
@@ -443,7 +465,6 @@ export default function Layout() {
       icon: <AttachMoneyOutlinedIcon />,
       path: "/payroll",
       roles: ["HR", "ADMIN"],
-      // permissions: [PERMISSIONS.PAYROLL_READ],
       isPayroll: true,
     },
     {
@@ -451,7 +472,6 @@ export default function Layout() {
       icon: <PolicyOutlined />,
       path: "/policies",
       roles: ["HR", "ADMIN"],
-      // permissions: [PERMISSIONS.POLICY_READ],
       children: [
         {
           text: "Policy Dashboard",
@@ -475,7 +495,6 @@ export default function Layout() {
       icon: <SettingsOutlinedIcon />,
       path: user?.roles.includes('ADMIN') ? "/settings/general/company-settings" : "/settings/general/audit-logs",
       roles: ["HR", "ADMIN"],
-      // permissions: [PERMISSIONS.SETTINGS_READ],
     },
     {
       text: "Help",
@@ -492,6 +511,51 @@ export default function Layout() {
     ? menuBottomItems.filter((item) => canShowNavItem(user, item))
     : [];
   const avatarInitial = user?.email?.charAt(0).toUpperCase() || "U";
+
+  const routeLabels = [
+    ...visibleMenuItems.flatMap((item) => [
+      { path: item.path, label: item.text },
+      ...(item.children || []).map((child) => ({ path: child.path, label: child.text })),
+    ]),
+    ...visibleBottomMenuItems.map((item) => ({ path: item.path, label: item.text })),
+    ...filteredPayrollOperations.map((item) => ({ path: item.path, label: item.text })),
+    ...filteredPayrollConfiguration.map((item) => ({ path: item.path, label: item.text })),
+    ...filteredPayrollAdvanced.map((item) => ({ path: item.path, label: item.text })),
+  ];
+
+  const getRouteLabel = (path: string) => {
+    const matchingRoute = routeLabels
+      .filter((route) => path === route.path || path.startsWith(`${route.path}/`))
+      .sort((first, second) => second.path.length - first.path.length)[0];
+    return matchingRoute?.label || getFallbackRouteLabel(path);
+  };
+
+  useEffect(() => {
+    const currentPath = `${location.pathname}${location.search}`;
+    setPageHistory((currentHistory) => {
+      const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
+      if (
+        currentHistory[0]?.path === nextPage.path &&
+        currentHistory[0]?.label === nextPage.label
+      ) {
+        return currentHistory;
+      }
+      const nextHistory = [
+        nextPage,
+        ...currentHistory.filter((page) => page.path !== currentPath),
+      ];
+      localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+      return nextHistory;
+    });
+  }, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
+
+  const handleRemovePage = (pathToRemove: string) => {
+    setPageHistory((currentHistory) => {
+      const nextHistory = currentHistory.filter((page) => page.path !== pathToRemove);
+      localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+      return nextHistory;
+    });
+  };
 
   const fetchCompanyData = async () => {
     try {
@@ -523,11 +587,12 @@ export default function Layout() {
         className="text-gray-800 shadow-sm z-[1200]"
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: "white",
+          backgroundColor: 'white',
         }}
       >
         <Toolbar className="bg-white flex justify-between items-center">
-          <Box className="flex text-primary items-center gap-2">
+          {/* Left Section - Logo and Navigation */}
+          <Box className="flex text-primary items-center gap-2 flex-shrink-0">
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -537,105 +602,184 @@ export default function Layout() {
             >
               <MenuIcon />
             </IconButton>
-            <Box className="flex items-center gap-2">
-              {companyInfo.logoUrl ? (
-                <img src={companyInfo.logoUrl} alt="company_logo" width="30px" />
+
+            <Box className="flex items-center gap-2 flex-shrink-0">
+              {/* Company Logo */}
+              {companyInfo?.logoUrl ? (
+                <img
+                  src={companyInfo.logoUrl}
+                  alt={`${companyInfo.companyName || 'Company'} logo`}
+                  width="30px"
+                  height="30px"
+                />
               ) : (
                 <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
                   <span className="text-xs font-bold text-primary">
-                    {companyInfo.companyName?.charAt(0)?.toUpperCase() || "H"}
+                    {companyInfo?.companyName?.charAt(0)?.toUpperCase() || 'H'}
                   </span>
                 </div>
               )}
+
+              {/* Company Info */}
               <div>
                 <div className="flex items-center gap-2">
-                  <div className="font-bold text-gray-700">
-                    Dot<span className="text-primary">{""}HR</span>
+                  <div className="font-bold text-gray-700 whitespace-nowrap">
+                    Dot<span className="text-primary">HR</span>
                   </div>
-                  {user && (
-                    <div className="text-[10px] text-gray-400 leading-3">
+                  {user && getWorkspaceLabel && (
+                    <div className="text-[10px] text-gray-400 leading-3 whitespace-nowrap">
                       {getWorkspaceLabel(user)}
                     </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="text-[12px] text-gray-800">{companyInfo.companyName}</div>
+                  <div className="text-[12px] text-gray-800 whitespace-nowrap">
+                    {companyInfo?.companyName || 'Company Name'}
+                  </div>
                 </div>
               </div>
             </Box>
           </Box>
 
-          <div>
-            <Box className="flex items-center gap-2">
-              <div className="text-[10px]">
-                <div className="text-gray-800">{session?.branchName || 'All'} - Head Office <span className="text-primary font-bold">({session?.fiscalYearLabel})</span></div>
+          {/* Center Section - Scrollable Page History Chips with hidden scrollbar */}
+          <Box
+            className="flex-1 flex items-center gap-2 mx-4 overflow-x-auto"
+            sx={{
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              whiteSpace: 'nowrap',
+              scrollbarWidth: 'none', // Firefox
+              msOverflowStyle: 'none', // IE and Edge
+              '&::-webkit-scrollbar': {
+                display: 'none', // Chrome, Safari, Opera
+                width: 0,
+                height: 0,
+              },
+              '&::-webkit-scrollbar-track': {
+                display: 'none',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                display: 'none',
+              },
+            }}
+          >
+            {pageHistory?.length > 1 && (
+              <Box className="flex items-center gap-2" sx={{ flexShrink: 0 }}>
+                {pageHistory
+                  .filter((page) => page.path !== `${location.pathname}${location.search}`)
+                  .map((page) => (
+                    <Chip
+                      key={page.path}
+                      clickable
+                      label={page.label || 'Page'}
+                      onClick={() => navigate?.(page.path)}
+                      onDelete={() => handleRemovePage?.(page.path)}
+                      deleteIcon={
+                        <CloseOutlined
+                          fontSize="small"
+                          className="!text-error !bg-gray-200 rounded-full !w-3 !h-3"
+                        />
+                      }
+                      variant="outlined"
+                      className="!text-gray-800 !border-gray-300 !bg-gray-300 hover:!bg-primary hover:!text-white flex-shrink-0"
+                      aria-label={`Go to ${page.label || 'page'}`}
+                      size="small"
+                    />
+                  ))}
+              </Box>
+            )}
+          </Box>
+
+          {/* Right Section - Actions */}
+          <Box className="flex items-center gap-2 flex-shrink-0">
+            {/* Branch Info */}
+            {session && (
+              <div className="text-[10px] whitespace-nowrap">
+                <div className="text-gray-800">
+                  {session.branchName} - {session.branchCode}{' '}
+                  <span className="text-primary font-bold">
+                    ({session.fiscalYearLabel})
+                  </span>
+                </div>
               </div>
-              <Tooltip title="Search">
-                <IconButton
-                  size="small"
-                  aria-label="search"
-                  color="inherit"
-                  onClick={() => setSearchOpen(true)}
-                >
-                  <Chip
-                    label="CTRL + P"
-                    icon={<SearchOutlined className="text-gray-500 !w-5" />}
-                    size="small"
-                    variant="outlined"
-                    className="!text-gray-500"
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Notifications">
-                <IconButton
-                  size="small"
-                  aria-label="show notifications"
-                  color="inherit"
-                  onClick={handleNotificationClick}
-                >
-                  <Badge badgeContent={unreadCount} className="text-primary">
-                    <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
-              {/* <Tooltip title="Notifications"><IconButton><Badge badgeContent={3} color="error"><NotificationsIcon /></Badge></IconButton></Tooltip> */}
+            )}
 
-              <Tooltip title="Theme Settings">
-                <IconButton
+            {/* Search Button */}
+            <Tooltip title="Search (CTRL + P)">
+              <IconButton
+                size="small"
+                aria-label="search"
+                color="inherit"
+                onClick={() => setSearchOpen?.(true)}
+              >
+                <Chip
+                  label="CTRL + P"
+                  icon={<SearchOutlined className="text-gray-500 !w-5" />}
                   size="small"
-                  onClick={handleConMenuOpen}
-                  className="text-gray-500"
-                >
-                  <ContrastOutlinedIcon className="!w-5" />
-                </IconButton>
-              </Tooltip>
+                  variant="outlined"
+                  className="!text-gray-500"
+                />
+              </IconButton>
+            </Tooltip>
 
-              <Tooltip title="Account">
-                <IconButton
-                  size="small"
-                  edge="end"
-                  onClick={handleProfileMenuOpen}
-                  color="inherit"
+            {/* Notifications */}
+            <Tooltip title="Notifications">
+              <IconButton
+                size="small"
+                aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : 'No'} notifications`}
+                color="inherit"
+                onClick={handleNotificationClick}
+              >
+                <Badge
+                  badgeContent={unreadCount}
+                  color="error"
+                  max={99}
+                  className="text-primary"
                 >
-                  <div className="flex items-center gap-5">
-                    <div className="relative group">
-                      <Avatar
-                        src={user?.profilePic}
-                        className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
-                      >
-                        {avatarInitial}
-                      </Avatar>
-                    </div>
-                  </div>
-                </IconButton>
-              </Tooltip>
-            </Box>
+                  <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
+                </Badge>
+              </IconButton>
+            </Tooltip>
 
-          </div>
-          <GlobalSearch
-            open={searchOpen}
-            onClose={() => setSearchOpen(false)}
-          />
+            {/* Theme Settings */}
+            <Tooltip title="Theme Settings">
+              <IconButton
+                size="small"
+                onClick={handleConMenuOpen}
+                className="text-gray-500"
+                aria-label="theme settings"
+              >
+                <ContrastOutlinedIcon className="!w-5" />
+              </IconButton>
+            </Tooltip>
+
+            {/* Profile/Avatar */}
+            <Tooltip title={user?.email || 'Account'}>
+              <IconButton
+                size="small"
+                edge="end"
+                onClick={handleProfileMenuOpen}
+                color="inherit"
+                aria-label="account menu"
+              >
+                <Avatar
+                  src={user?.profilePic}
+                  alt={user?.email || 'User avatar'}
+                  className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
+                >
+                  {avatarInitial || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                </Avatar>
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Global Search Modal */}
+          {searchOpen !== undefined && (
+            <GlobalSearch
+              open={searchOpen}
+              onClose={() => setSearchOpen?.(false)}
+            />
+          )}
         </Toolbar>
       </AppBar>
 
@@ -651,7 +795,6 @@ export default function Layout() {
       >
         <MenuItem onClick={handleMyProfile} className="bg-white-50 !py-0">
           <ListItemIcon>
-            {/* <Person4OutlinedIcon className="!w-4 dark:text-primary" /> */}
             <AccountCircleOutlined className="!w-4 !h-4 text-gray-400 dark:text-primary" />
           </ListItemIcon>
           <div>
@@ -732,7 +875,7 @@ export default function Layout() {
                   cursor: 'pointer',
                   '&:hover': { textDecoration: 'underline' }
                 }}
-                className="text-primary"
+                className="text-blue-500"
                 onClick={() => {
                   setUnreadCount(0);
                 }}
@@ -1027,7 +1170,6 @@ export default function Layout() {
                             pl: 1.5,
                             pr: 1,
                             minHeight: '28px',
-                            // mt: 0.5,
                           }}
                           className="hover:!bg-transparent"
                           onClick={() => { setPayrollConfigOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollAdvancedOpen(false) }}

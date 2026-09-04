@@ -64,6 +64,7 @@ export type AuthSession = {
   branchScoped?: boolean;
   fiscalYearId?: string;
   fiscalYearLabel?: string;
+  branchCode?: string | null;
 };
 
 export type ApiResponse<T> = {
@@ -197,6 +198,7 @@ export type AuthResponse = {
   branchScoped?: boolean;
   fiscalYearId?: string;
   fiscalYearLabel?: string;
+  branchCode?: string | null;
 };
 
 export type LoginApiResponse = ApiResponse<AuthResponse>;
@@ -323,6 +325,7 @@ export type SelectSessionContextResponse = {
     tenantId: string;
     branchId: string | null;
     branchName: string | null;
+    branchCode: string | null;
     branchScoped: boolean;
     fiscalYearId: string;
     fiscalYearLabel: string;

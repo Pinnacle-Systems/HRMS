@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Box,
   Grid,
@@ -73,40 +73,9 @@ import type {
   WidgetAction,
 } from "../../services/modules/dashboard";
 
-// Recharts
-import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip as RechartsTooltip,
-  Legend,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  ScatterChart,
-  Scatter,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  Treemap,
-  Sankey,
-} from "recharts";
-
-// Date picker
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-
-// Debounce
+// ===== Apache ECharts Imports =====
+import * as echarts from 'echarts';
+import 'echarts-gl';
 import { formatDate } from "../leave/leaveFormatters";
 
 // ===== DRAG-DROP: Import dnd-kit =====
@@ -131,6 +100,7 @@ import { getWidgetColor, isDateString, isIdColumn } from "./const";
 import { getRowColor } from "../const";
 import { getWorkspaceLabel } from "../../auth/authMapper";
 import { useAuth } from "../../auth/authContext";
+import PayrollAnalyticsDashboard from "../payroll/PayrollAnalyticsDashboard";
 
 // ============ Utility Functions ============
 
@@ -174,431 +144,1439 @@ const CHART_COLORS = [
   "#f97316", "#6366f1", "#84cc16", "#22d3ee"
 ];
 
-// ============ Chart Renderers ============
+// ============ Chart Option Builders ============
 
-interface ChartRendererProps {
+// 1. Bar Chart (with 3D support)
+const getBarChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCols: string[],
+  palette: string[],
+  type: string,
+  is3D: boolean
+): echarts.EChartsOption => {
+  const isStacked = type === 'stacked-bar';
+  const isGrouped = type === 'grouped-bar';
+
+  const baseOption: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+    },
+    legend: {
+      data: yAxisCols,
+      textStyle: { fontSize: 12 },
+      bottom: 0,
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      top: '8%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: data.map(item => item[xAxisCol]),
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+    },
+    series: yAxisCols.map((col, index) => ({
+      name: col,
+      type: 'bar' as const,
+      data: data.map(item => item[col]),
+      itemStyle: {
+        color: palette[index % palette.length],
+        borderRadius: isStacked ? [0, 0, 0, 0] : [4, 4, 0, 0],
+      },
+      stack: isStacked ? 'total' : undefined,
+      barGap: isGrouped ? '20%' : '30%',
+    })),
+  };
+
+  if (is3D) {
+    const categories = data.map(item => item[xAxisCol]);
+    const seriesData = yAxisCols.map((col, index) => ({
+      name: col,
+      type: 'bar3D' as any,
+      data: data.map((item, i) => ({
+        value: [i, item[col], 0],
+      })),
+      barWidth: 20,
+      itemStyle: {
+        color: palette[index % palette.length],
+      },
+      shading: 'realistic' as any,
+      realisticMaterial: {
+        roughness: 0.3,
+        metalness: 0.1,
+      } as any,
+    }));
+
+    return {
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        textStyle: { color: '#1f2937' },
+      },
+      legend: {
+        data: yAxisCols,
+        textStyle: { fontSize: 12 },
+        bottom: 0,
+      },
+      grid3D: {
+        viewControl: {
+          projection: 'perspective',
+          autoRotate: true,
+          autoRotateSpeed: 10,
+          distance: 200,
+          minDistance: 50,
+          maxDistance: 400,
+        },
+        boxWidth: 100,
+        boxHeight: 80,
+        boxDepth: 80,
+      },
+      xAxis3D: {
+        type: 'category',
+        data: categories,
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      yAxis3D: {
+        type: 'value',
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      zAxis3D: {
+        type: 'value',
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      series: seriesData,
+    };
+  }
+
+  return baseOption;
+};
+
+// 2. Line Chart (with 3D support)
+const getLineChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCols: string[],
+  palette: string[],
+  is3D: boolean
+): echarts.EChartsOption => {
+  const baseOption: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+    },
+    legend: {
+      data: yAxisCols,
+      textStyle: { fontSize: 12 },
+      bottom: 0,
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      top: '8%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: data.map(item => item[xAxisCol]),
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+    },
+    series: yAxisCols.map((col, index) => ({
+      name: col,
+      type: 'line' as const,
+      data: data.map(item => item[col]),
+      smooth: true,
+      symbolSize: 6,
+      lineStyle: {
+        width: 2,
+        color: palette[index % palette.length],
+      },
+      itemStyle: {
+        color: palette[index % palette.length],
+      },
+    })),
+  };
+
+  if (is3D) {
+    return {
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        textStyle: { color: '#1f2937' },
+      },
+      legend: {
+        data: yAxisCols,
+        textStyle: { fontSize: 12 },
+        bottom: 0,
+      },
+      grid3D: {
+        viewControl: {
+          projection: 'perspective',
+          autoRotate: true,
+          autoRotateSpeed: 10,
+          distance: 200,
+        },
+        boxWidth: 100,
+        boxHeight: 80,
+        boxDepth: 80,
+      },
+      xAxis3D: {
+        type: 'category',
+        data: data.map(item => item[xAxisCol]),
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      yAxis3D: {
+        type: 'value',
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      zAxis3D: {
+        type: 'value',
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      series: yAxisCols.map((col, index) => ({
+        name: col,
+        type: 'line3D' as any,
+        data: data.map((item, i) => [i, item[col], 0]),
+        lineStyle: {
+          width: 3,
+          color: palette[index % palette.length],
+        },
+        itemStyle: {
+          color: palette[index % palette.length],
+        },
+        shading: 'realistic' as any,
+        realisticMaterial: {
+          roughness: 0.3,
+          metalness: 0.1,
+        } as any,
+      })),
+    };
+  }
+
+  return baseOption;
+};
+
+// 3. Area Chart
+const getAreaChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCols: string[],
+  palette: string[]
+): echarts.EChartsOption => ({
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    textStyle: { color: '#1f2937' },
+  },
+  legend: {
+    data: yAxisCols,
+    textStyle: { fontSize: 12 },
+    bottom: 0,
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '15%',
+    top: '8%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    data: data.map(item => item[xAxisCol]),
+    axisLabel: { fontSize: 11, color: '#6b7280' },
+    axisLine: { lineStyle: { color: '#e5e7eb' } },
+  },
+  yAxis: {
+    type: 'value',
+    axisLabel: { fontSize: 11, color: '#6b7280' },
+    splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+  },
+  series: yAxisCols.map((col, index) => ({
+    name: col,
+    type: 'line' as const,
+    data: data.map(item => item[col]),
+    smooth: true,
+    symbolSize: 4,
+    lineStyle: {
+      width: 2,
+      color: palette[index % palette.length],
+    },
+    itemStyle: {
+      color: palette[index % palette.length],
+    },
+    areaStyle: {
+      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: palette[index % palette.length] + '80' },
+        { offset: 1, color: palette[index % palette.length] + '10' },
+      ]),
+    },
+  })),
+});
+
+// 4. Pie/Donut Chart
+const getPieChartOption = (
+  data: any[],
+  labelDim: string,
+  valueMetric: string,
+  palette: string[],
+  type: string
+): echarts.EChartsOption => {
+  const isDonut = type === 'donut';
+  const groupedData: Record<string, number> = {};
+
+  data.forEach((row: any) => {
+    const label = safeDisplayValue(row[labelDim]);
+    const value = Number(row[valueMetric]) || 0;
+    if (groupedData[label]) {
+      groupedData[label] += value;
+    } else {
+      groupedData[label] = value;
+    }
+  });
+
+  const pieData = Object.entries(groupedData)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        return `${params.name}<br/>Value: ${params.value}<br/>Percentage: ${params.percent}%`;
+      },
+    },
+    legend: {
+      data: pieData.map(item => item.name),
+      textStyle: { fontSize: 12 },
+      bottom: 0,
+      orient: 'horizontal',
+    },
+    series: [{
+      name: 'Data',
+      type: 'pie' as const,
+      radius: isDonut ? ['40%', '70%'] : ['0%', '70%'],
+      center: ['50%', '45%'],
+      data: pieData.map((item, index) => ({
+        ...item,
+        itemStyle: {
+          color: palette[index % palette.length],
+        },
+      })),
+      label: {
+        show: true,
+        formatter: '{b}\n({d}%)',
+        fontSize: 11,
+        color: '#6b7280',
+      },
+      labelLine: {
+        length: 10,
+        length2: 15,
+      },
+      emphasis: {
+        scaleSize: 10,
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.2)',
+        },
+      },
+    }],
+  };
+};
+
+// 5. Scatter Chart (with 3D support)
+const getScatterChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCols: string[],
+  palette: string[],
+  is3D: boolean
+): echarts.EChartsOption => {
+  const baseOption: echarts.EChartsOption = {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '8%',
+      top: '8%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'value',
+      name: xAxisCol,
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+    },
+    series: yAxisCols.map((col, index) => ({
+      name: col,
+      type: 'scatter' as const,
+      data: data.map(item => ({
+        value: [item[xAxisCol], item[col]],
+        name: item[xAxisCol],
+      })),
+      itemStyle: {
+        color: palette[index % palette.length],
+      },
+      symbolSize: 10,
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.2)',
+        },
+      },
+    })),
+  };
+
+  if (is3D) {
+    const scatterData = data.map(item => [
+      item[xAxisCol],
+      yAxisCols[0] ? item[yAxisCols[0]] : 0,
+      0
+    ]);
+
+    return {
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderColor: '#e5e7eb',
+        borderWidth: 1,
+        textStyle: { color: '#1f2937' },
+      },
+      grid3D: {
+        viewControl: {
+          projection: 'perspective',
+          autoRotate: true,
+          autoRotateSpeed: 10,
+          distance: 200,
+        },
+        boxWidth: 100,
+        boxHeight: 80,
+        boxDepth: 80,
+      },
+      xAxis3D: {
+        type: 'value',
+        name: xAxisCol,
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      yAxis3D: {
+        type: 'value',
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      zAxis3D: {
+        type: 'value',
+        axisLabel: { fontSize: 11, color: '#6b7280' },
+      },
+      series: [{
+        type: 'scatter3D' as any,
+        data: scatterData,
+        itemStyle: {
+          color: palette[0],
+        },
+        symbolSize: 12,
+      }],
+    };
+  }
+
+  return baseOption;
+};
+
+// 6. Radar Chart
+const getRadarChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCols: string[],
+  palette: string[]
+): echarts.EChartsOption => ({
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    textStyle: { color: '#1f2937' },
+  },
+  legend: {
+    data: yAxisCols,
+    textStyle: { fontSize: 12 },
+    bottom: 0,
+  },
+  radar: {
+    indicator: data.map(item => ({
+      name: item[xAxisCol],
+      max: Math.max(...data.map(d => Math.max(...yAxisCols.map(col => d[col] || 0)))),
+    })),
+    shape: 'circle',
+    axisName: {
+      color: '#6b7280',
+      fontSize: 11,
+    },
+    splitArea: {
+      areaStyle: {
+        color: ['rgba(37,99,235,0.02)'],
+      },
+    },
+    axisLine: {
+      lineStyle: {
+        color: '#e5e7eb',
+      },
+    },
+  },
+  series: yAxisCols.map((col, index) => ({
+    name: col,
+    type: 'radar' as const,
+    data: [{
+      value: data.map(item => item[col] || 0),
+      name: col,
+    }],
+    itemStyle: {
+      color: palette[index % palette.length],
+    },
+    areaStyle: {
+      color: palette[index % palette.length] + '40',
+    },
+    lineStyle: {
+      width: 2,
+      color: palette[index % palette.length],
+    },
+  })),
+});
+
+// 7. Treemap Chart
+const getTreemapOption = (
+  data: any[],
+  hierarchy: string[],
+  valueKey: string,
+  palette: string[]
+): echarts.EChartsOption => {
+  const buildTree = (items: any[], depth: number = 0): any[] => {
+    if (depth >= hierarchy.length) return [];
+
+    const grouped = items.reduce((acc: any, item: any) => {
+      const key = safeDisplayValue(item[hierarchy[depth]]);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([name, children]: [string, any]) => ({
+      name,
+      value: children.reduce((sum: number, child: any) => sum + (Number(child[valueKey]) || 0), 0),
+      children: buildTree(children, depth + 1),
+    }));
+  };
+
+  const treeData = buildTree(data);
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        return `${params.name}<br/>Value: ${params.value}`;
+      },
+    },
+    series: [{
+      type: 'treemap' as const,
+      data: treeData,
+      leafDepth: hierarchy.length,
+      label: {
+        show: true,
+        fontSize: 11,
+        color: '#1f2937',
+      },
+      itemStyle: {
+        borderColor: '#ffffff',
+        borderWidth: 2,
+        gapWidth: 2,
+      },
+      color: palette,
+      levels: hierarchy.map(() => ({
+        itemStyle: {
+          borderColor: '#ffffff',
+          borderWidth: 1,
+          gapWidth: 1,
+        },
+      })),
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.2)',
+        },
+      },
+    }],
+  };
+};
+
+// 8. Gauge Chart
+const getGaugeOption = (
+  data: any[],
+  valueCol: string,
+  palette: string[]
+): echarts.EChartsOption => {
+  const value = Number(data[0]?.[valueCol]) || 0;
+  const maxValue = Math.max(...data.map(d => Number(d[valueCol]) || 0)) || 100;
+
+  return {
+    series: [{
+      type: 'gauge' as const,
+      startAngle: 220,
+      endAngle: -40,
+      min: 0,
+      max: maxValue,
+      splitNumber: 5,
+      progress: {
+        show: true,
+        width: 18,
+        roundCap: true,
+        itemStyle: {
+          color: palette[0],
+        },
+      },
+      pointer: {
+        show: true,
+        length: '60%',
+        width: 6,
+        itemStyle: {
+          color: '#1f2937',
+        },
+      },
+      axisLine: {
+        lineStyle: {
+          width: 18,
+          color: [
+            [0.3, '#ef4444'],
+            [0.7, '#f59e0b'],
+            [1, '#10b981'],
+          ] as [number, string][],
+        },
+      },
+      axisTick: {
+        distance: -10,
+        length: 8,
+        lineStyle: {
+          color: '#6b7280',
+          width: 1,
+        },
+      },
+      splitLine: {
+        distance: -10,
+        length: 12,
+        lineStyle: {
+          color: '#1f2937',
+          width: 2,
+        },
+      },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 11,
+        distance: 10,
+      },
+      detail: {
+        valueAnimation: true,
+        formatter: '{value}',
+        color: '#1f2937',
+        fontSize: 24,
+        fontWeight: 700,
+        offsetCenter: [0, '40%'],
+      },
+      data: [{ value }],
+    }],
+  };
+};
+
+// 9. Funnel Chart
+const getFunnelChartOption = (
+  data: any[],
+  labelDim: string,
+  valueMetric: string,
+  palette: string[]
+): echarts.EChartsOption => {
+  const funnelData = data.map((item, index) => ({
+    name: safeDisplayValue(item[labelDim]),
+    value: Number(item[valueMetric]) || 0,
+    itemStyle: {
+      color: palette[index % palette.length],
+    },
+  }));
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        return `${params.name}<br/>Value: ${params.value}`;
+      },
+    },
+    legend: {
+      data: funnelData.map(item => item.name),
+      textStyle: { fontSize: 12 },
+      bottom: 0,
+    },
+    series: [{
+      type: 'funnel' as const,
+      left: '10%',
+      right: '10%',
+      top: 20,
+      bottom: 20,
+      min: 0,
+      max: Math.max(...funnelData.map(d => d.value)),
+      sort: 'descending',
+      gap: 2,
+      label: {
+        show: true,
+        position: 'inside',
+        fontSize: 11,
+        color: '#ffffff',
+      },
+      itemStyle: {
+        borderColor: '#ffffff',
+        borderWidth: 1,
+      },
+      emphasis: {
+        label: {
+          fontSize: 13,
+          fontWeight: 'bold',
+        },
+      },
+      data: funnelData,
+    }],
+  };
+};
+
+// 10. Boxplot Chart - FIXED
+const getBoxplotChartOption = (
+  data: any[],
+  yAxisCols: string[],
+  palette: string[]
+): echarts.EChartsOption => {
+  const prepareBoxData = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const median = sorted[Math.floor(sorted.length * 0.5)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    return {
+      min: sorted[0],
+      q1,
+      median,
+      q3,
+      max: sorted[sorted.length - 1],
+    };
+  };
+
+  // Build box data - ensure we have valid arrays
+  const boxData: number[][] = [];
+  yAxisCols.forEach((col) => {
+    const values = data
+      .map(item => Number(item[col]) || 0)
+      .filter(v => v > 0);
+    if (values.length > 0) {
+      const box = prepareBoxData(values);
+      boxData.push([box.min, box.q1, box.median, box.q3, box.max]);
+    }
+  });
+
+  // If no valid data, return empty chart
+  if (boxData.length === 0) {
+    return {
+      title: {
+        text: 'No boxplot data available',
+        left: 'center',
+        top: 'center',
+        textStyle: {
+          color: '#6b7280',
+          fontSize: 14,
+        },
+      },
+    };
+  }
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        if (params.seriesName === 'Boxplot') {
+          const d = params.data;
+          if (Array.isArray(d) && d.length >= 5) {
+            return `Min: ${d[0]}<br/>Q1: ${d[1]}<br/>Median: ${d[2]}<br/>Q3: ${d[3]}<br/>Max: ${d[4]}`;
+          }
+        }
+        return `${params.name}<br/>Value: ${params.value}`;
+      },
+    },
+    legend: {
+      data: ['Boxplot'],
+      textStyle: { fontSize: 12 },
+      bottom: 0,
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      top: '8%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: yAxisCols.slice(0, boxData.length),
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+    },
+    series: [{
+      name: 'Boxplot',
+      type: 'boxplot' as const,
+      data: boxData,
+      itemStyle: {
+        color: palette[0],
+      },
+      boxWidth: ['30%', '50%'],
+    }],
+  };
+};
+
+// 11. Composed Chart
+const getComposedChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCols: string[],
+  palette: string[]
+): echarts.EChartsOption => ({
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderColor: '#e5e7eb',
+    borderWidth: 1,
+    textStyle: { color: '#1f2937' },
+  },
+  legend: {
+    data: yAxisCols,
+    textStyle: { fontSize: 12 },
+    bottom: 0,
+  },
+  grid: {
+    left: '3%',
+    right: '4%',
+    bottom: '15%',
+    top: '8%',
+    containLabel: true,
+  },
+  xAxis: {
+    type: 'category',
+    data: data.map(item => item[xAxisCol]),
+    axisLabel: { fontSize: 11, color: '#6b7280' },
+    axisLine: { lineStyle: { color: '#e5e7eb' } },
+  },
+  yAxis: {
+    type: 'value',
+    axisLabel: { fontSize: 11, color: '#6b7280' },
+    splitLine: { lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+  },
+  series: yAxisCols.map((col, index) => ({
+    name: col,
+    type: index === 0 ? 'bar' as const : 'line' as const,
+    data: data.map(item => item[col]),
+    itemStyle: {
+      color: palette[index % palette.length],
+      borderRadius: [4, 4, 0, 0],
+    },
+    lineStyle: {
+      width: 2,
+      color: palette[index % palette.length],
+    },
+    smooth: true,
+    symbolSize: 6,
+  })),
+});
+
+// 12. Radial Bar Chart
+const getRadialBarChartOption = (
+  data: any[],
+  labelDim: string,
+  valueMetric: string,
+  palette: string[]
+): echarts.EChartsOption => {
+  const radialData = data.map((item, index) => ({
+    name: safeDisplayValue(item[labelDim]),
+    value: Number(item[valueMetric]) || 0,
+    itemStyle: {
+      color: palette[index % palette.length],
+    },
+  }));
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        return `${params.name}<br/>Value: ${params.value}`;
+      },
+    },
+    legend: {
+      data: radialData.map(item => item.name),
+      textStyle: { fontSize: 12 },
+      bottom: 0,
+    },
+    angleAxis: {
+      type: 'category',
+      data: radialData.map(item => item.name),
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+    },
+    radiusAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+    },
+    polar: {
+      center: ['50%', '45%'],
+      radius: ['20%', '70%'],
+    },
+    series: [{
+      type: 'bar' as const,
+      data: radialData,
+      coordinateSystem: 'polar',
+      barGap: 2,
+      barWidth: 20,
+      itemStyle: {
+        borderRadius: [4, 4, 0, 0],
+      },
+      label: {
+        show: true,
+        position: 'outside',
+        fontSize: 11,
+        color: '#6b7280',
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.2)',
+        },
+      },
+    }],
+  };
+};
+
+// 13. Heatmap Chart
+const getHeatmapChartOption = (
+  data: any[],
+  xAxisCol: string,
+  yAxisCol: string,
+  valueCol: string,
+  palette: string[]
+): echarts.EChartsOption => {
+  const xLabels = [...new Set(data.map(item => safeDisplayValue(item[xAxisCol])))];
+  const yLabels = [...new Set(data.map(item => safeDisplayValue(item[yAxisCol])))];
+
+  const heatmapData = data.map(item => [
+    xLabels.indexOf(safeDisplayValue(item[xAxisCol])),
+    yLabels.indexOf(safeDisplayValue(item[yAxisCol])),
+    Number(item[valueCol]) || 0,
+  ]);
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        return `${xLabels[params.data[0]]} → ${yLabels[params.data[1]]}<br/>Value: ${params.data[2]}`;
+      },
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '15%',
+      top: '8%',
+      containLabel: true,
+    },
+    xAxis: {
+      type: 'category',
+      data: xLabels,
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      splitArea: { show: true },
+    },
+    yAxis: {
+      type: 'category',
+      data: yLabels,
+      axisLabel: { fontSize: 11, color: '#6b7280' },
+      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      splitArea: { show: true },
+    },
+    visualMap: {
+      min: Math.min(...heatmapData.map(d => d[2])),
+      max: Math.max(...heatmapData.map(d => d[2])),
+      calculable: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 0,
+      inRange: {
+        color: ['#f3f4f6', ...palette],
+      },
+    },
+    series: [{
+      type: 'heatmap' as const,
+      data: heatmapData,
+      label: {
+        show: true,
+        fontSize: 10,
+        color: '#1f2937',
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.2)',
+        },
+      },
+    }],
+  };
+};
+
+// 14. Sankey Chart
+const getSankeyOption = (
+  data: any[],
+  sourceKey: string,
+  targetKey: string,
+  valueKey: string,
+  // palette: string[]
+): echarts.EChartsOption => {
+  const nodes: any[] = [];
+  const links: any[] = [];
+  const nodeMap = new Map();
+
+  data.forEach((row: any) => {
+    const source = safeDisplayValue(row[sourceKey]);
+    const target = safeDisplayValue(row[targetKey]);
+    const value = Number(row[valueKey]) || 0;
+
+    if (!nodeMap.has(source)) {
+      nodeMap.set(source, { name: source });
+      nodes.push({ name: source });
+    }
+    if (!nodeMap.has(target)) {
+      nodeMap.set(target, { name: target });
+      nodes.push({ name: target });
+    }
+
+    links.push({
+      source,
+      target,
+      value,
+    });
+  });
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        if (params.dataType === 'edge') {
+          return `${params.data.source} → ${params.data.target}<br/>Value: ${params.data.value}`;
+        }
+        return `${params.name}<br/>Value: ${params.value}`;
+      },
+    },
+    series: [{
+      type: 'sankey' as const,
+      emphasis: {
+        focus: 'adjacency',
+      },
+      nodeAlign: 'justify',
+      nodeWidth: 20,
+      nodeGap: 8,
+      draggable: true,
+      data: nodes,
+      links: links,
+      label: {
+        fontSize: 11,
+        color: '#1f2937',
+      },
+      lineStyle: {
+        color: 'gradient',
+        curveness: 0.5,
+        opacity: 0.4,
+      },
+    }],
+  };
+};
+
+// 15. Sunburst Chart
+const getSunburstChartOption = (
+  data: any[],
+  hierarchy: string[],
+  valueKey: string,
+  palette: string[]
+): echarts.EChartsOption => {
+  const buildSunburstTree = (items: any[], depth: number = 0): any[] => {
+    if (depth >= hierarchy.length) return [];
+
+    const grouped = items.reduce((acc: any, item: any) => {
+      const key = safeDisplayValue(item[hierarchy[depth]]);
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(item);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped).map(([name, children]: [string, any]) => ({
+      name,
+      value: children.reduce((sum: number, child: any) => sum + (Number(child[valueKey]) || 0), 0),
+      children: buildSunburstTree(children, depth + 1),
+    }));
+  };
+
+  const treeData = buildSunburstTree(data);
+
+  return {
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderColor: '#e5e7eb',
+      borderWidth: 1,
+      textStyle: { color: '#1f2937' },
+      formatter: (params: any) => {
+        return `${params.name}<br/>Value: ${params.value}`;
+      },
+    },
+    series: [{
+      type: 'sunburst' as const,
+      data: treeData,
+      radius: [0, '95%'],
+      center: ['50%', '50%'],
+      label: {
+        rotate: 'radial',
+        fontSize: 11,
+        color: '#1f2937',
+      },
+      itemStyle: {
+        borderRadius: 4,
+        borderColor: '#ffffff',
+        borderWidth: 2,
+      },
+      levels: hierarchy.map((_, index) => ({
+        r0: `${index * 20}%`,
+        r: `${(index + 1) * 20}%`,
+        itemStyle: {
+          borderWidth: index === 0 ? 2 : 1,
+        },
+        label: {
+          fontSize: index === 0 ? 12 : 10,
+        },
+      })),
+      color: palette,
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0,0,0,0.2)',
+        },
+      },
+    }],
+  };
+};
+
+// ============ ECharts Renderer Component ============
+
+interface EChartsRendererProps {
   data: any;
   type: string;
   config?: any;
+  is3D?: boolean;
 }
 
-const ChartRenderer = ({ data, type, config }: ChartRendererProps) => {
+const EChartsRenderer = ({ data, type, config, is3D = false }: EChartsRendererProps) => {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+  const theme = useTheme();
+  // const [chartKey, setChartKey] = useState(0);
+
+
   const rows = data?.data || [];
   const columns = data?.columns || [];
   const meta = data?.meta || {};
   const palette = meta?.palette || CHART_COLORS;
 
-  if (rows.length === 0) {
-    return <Typography color="textSecondary" className="text-gray-500" sx={{ py: 4, textAlign: 'center' }}>No data available</Typography>;
-  }
+  const improveChartReadability = (option: echarts.EChartsOption): echarts.EChartsOption => {
+    const readableOption = { ...option } as echarts.EChartsOption & {
+      grid?: any;
+      legend?: any;
+      series?: any[];
+    };
 
-  // Find numeric and string columns
-  const numericColumns = columns.filter((col: any) => ['int', 'float', 'double', 'decimal', 'number'].includes(col.type));
-  const stringColumns = columns.filter((col: any) => ['string', 'text', 'varchar'].includes(col.type));
-
-  // Determine X and Y axes
-  const xAxisCol = config?.xAxis || stringColumns[0]?.id || columns[0]?.id;
-  const yAxisCols = config?.yAxis || numericColumns.slice(0, 2).map((c: any) => c.id);
-  const labelDim = config?.labelDim || stringColumns[0]?.id || columns[0]?.id;
-  const valueMetric = config?.valueMetric || numericColumns[0]?.id || columns[1]?.id;
-
-  // Prepare data for charts
-  const chartData = rows.map((row: any) => {
-    const obj: any = { ...row };
-    // Format numeric values
-    yAxisCols.forEach((col: string) => {
-      if (obj[col] !== undefined && obj[col] !== null) {
-        obj[col] = Number(obj[col]);
-      }
-    });
-    return obj;
-  });
-
-  const renderChart = () => {
-    const typeLower = type?.toLowerCase() || "";
-
-    // ===== BAR CHART =====
-    if (typeLower === 'bar' || typeLower === 'column' || typeLower === 'stacked-bar' || typeLower === 'grouped-bar') {
-      const isStacked = typeLower === 'stacked-bar';
-      // const isGrouped = typeLower === 'grouped-bar';
-
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis
-              dataKey={xAxisCol}
-              tick={{ fill: '#6b7280', fontSize: 11 }}
-              tickLine={{ stroke: '#e5e7eb' }}
-            />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            {yAxisCols.map((col: string, index: number) => (
-              <Bar
-                key={col}
-                dataKey={col}
-                fill={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                stackId={isStacked ? "stack" : undefined}
-                radius={isStacked ? [0, 0, 0, 0] : [4, 4, 0, 0]}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    // ===== LINE CHART =====
-    if (typeLower === 'line') {
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey={xAxisCol} tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            {yAxisCols.map((col: string, index: number) => (
-              <Line
-                key={col}
-                type="monotone"
-                dataKey={col}
-                stroke={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                strokeWidth={2}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    // ===== AREA CHART =====
-    if (typeLower === 'area') {
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey={xAxisCol} tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            {yAxisCols.map((col: string, index: number) => (
-              <Area
-                key={col}
-                type="monotone"
-                dataKey={col}
-                fill={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                stroke={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                fillOpacity={0.3}
-                strokeWidth={2}
-              />
-            ))}
-          </AreaChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    // ===== PIE / DONUT CHART =====
-    if (typeLower === 'pie' || typeLower === 'donut') {
-      const isDonut = typeLower === 'donut';
-      const groupedData: Record<string, number> = {};
-      chartData.forEach((row: any) => {
-        const label = safeDisplayValue(row[labelDim]);
-        const value = Number(row[valueMetric]) || 0;
-        if (groupedData[label]) {
-          groupedData[label] += value;
-        } else {
-          groupedData[label] = value;
-        }
-      });
-      // Prepare pie data - group by label dimension
-      const pieData = Object.entries(groupedData).map(([name, value]) => ({
-        name,
-        value,
-      }));
-
-      pieData.sort((a, b) => b.value - a.value);
-
-      if (pieData.length === 0) {
-        return <Typography color="textSecondary" className="text-gray-500" sx={{ py: 4, textAlign: 'center' }}>No data to display</Typography>;
-      }
-
-      const renderCustomLabel = ({ name, percent }: any) => {
-        if (percent === undefined || percent === null) {
-          return name;
-        }
-        return `${name} (${(percent * 100).toFixed(0)}%)`;
+    if (readableOption.grid && !Array.isArray(readableOption.grid)) {
+      readableOption.grid = {
+        ...readableOption.grid,
+        bottom: readableOption.grid.bottom || '22%',
+        containLabel: true,
       };
-
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={pieData}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={isDonut ? 60 : 0}
-              outerRadius={100}
-              paddingAngle={2}
-              label={renderCustomLabel}
-              labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
-            >
-              {pieData.map((_entry: any, index: number) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                />
-              ))}
-            </Pie>
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-              formatter={(value: any) => [`${value}`, 'Count']}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-          </PieChart>
-        </ResponsiveContainer>
-      );
     }
 
-    // ===== COMPOSED CHART =====
-    if (typeLower === 'composed') {
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey={xAxisCol} tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            {yAxisCols.map((col: string, index: number) => (
-              <Bar
-                key={col}
-                dataKey={col}
-                fill={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                radius={[4, 4, 0, 0]}
-              />
-            ))}
-          </ComposedChart>
-        </ResponsiveContainer>
-      );
+    if (readableOption.legend && !Array.isArray(readableOption.legend)) {
+      readableOption.legend = {
+        ...readableOption.legend,
+        type: 'scroll',
+        bottom: 4,
+        width: '92%',
+        pageButtonItemGap: 4,
+        textStyle: {
+          ...readableOption.legend.textStyle,
+          fontSize: 12,
+        },
+      };
     }
 
-    // ===== SCATTER CHART =====
-    if (typeLower === 'scatter') {
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <ScatterChart margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey={xAxisCol} tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-            <Scatter name="Data" data={chartData} fill={palette[0] || CHART_COLORS[0]} />
-          </ScatterChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    // ===== RADAR CHART =====
-    if (typeLower === 'radar') {
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <RadarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-            <PolarGrid stroke="#e5e7eb" />
-            <PolarAngleAxis dataKey={xAxisCol} tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <PolarRadiusAxis tick={{ fill: '#6b7280', fontSize: 11 }} />
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-            {yAxisCols.map((col: string, index: number) => (
-              <Radar
-                key={col}
-                name={col}
-                dataKey={col}
-                stroke={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                fill={palette[index % palette.length] || CHART_COLORS[index % CHART_COLORS.length]}
-                fillOpacity={0.3}
-              />
-            ))}
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-          </RadarChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    // ===== TREEMAP =====
-    if (typeLower === 'treemap') {
-      const hierarchy = config?.hierarchy || [stringColumns[0]?.id];
-      const valueKey = config?.value || numericColumns[0]?.id;
-
-      // Build tree data
-      const treeData = chartData.map((row: any) => ({
-        name: safeDisplayValue(row[hierarchy[0]]),
-        value: Number(row[valueKey]) || 0,
-        children: hierarchy.length > 1 ? [{
-          name: safeDisplayValue(row[hierarchy[1]]),
-          value: Number(row[valueKey]) || 0
-        }] : [],
+    if (Array.isArray(readableOption.series)) {
+      readableOption.series = readableOption.series.map((series) => ({
+        ...series,
+        label: series.label
+          ? { ...series.label, hideOverlap: true }
+          : series.label,
+        labelLayout: { hideOverlap: true },
       }));
-
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <Treemap
-            data={treeData}
-            dataKey="value"
-            nameKey="name"
-            stroke="#fff"
-            fill={palette[0] || CHART_COLORS[0]}
-          />
-        </ResponsiveContainer>
-      );
     }
 
-    // ===== SUNBURST =====
-    if (typeLower === 'sunburst') {
-      // const hierarchy = config?.hierarchy || [stringColumns[0]?.id];
-      // const valueKey = config?.value || numericColumns[0]?.id;
-
-      // const sunburstData = chartData.map((row: any) => ({
-      //   name: safeDisplayValue(row[hierarchy[0]]),
-      //   value: Number(row[valueKey]) || 0,
-      // }));
-
-      // return (
-      // <ResponsiveContainer width="100%" height={300}>
-      //   <Sunburst
-      //     data={sunburstData}
-      //     dataKey="value"
-      //     nameKey="name"
-      //     fill={palette[0] || CHART_COLORS[0]}
-      //   />
-      // </ResponsiveContainer>
-      // );
-    }
-
-    // ===== SANKEY =====
-    if (typeLower === 'sankey') {
-      const sourceKey = config?.source || stringColumns[0]?.id;
-      const targetKey = config?.target || stringColumns[1]?.id;
-      const valueKey = config?.value || numericColumns[0]?.id;
-
-      // Build nodes and links for Sankey
-      const nodes: any[] = [];
-      const links: any[] = [];
-      const nodeMap = new Map();
-
-      chartData.forEach((row: any) => {
-        const source = safeDisplayValue(row[sourceKey]);
-        const target = safeDisplayValue(row[targetKey]);
-        const value = Number(row[valueKey]) || 0;
-
-        if (!nodeMap.has(source)) {
-          nodeMap.set(source, { name: source });
-          nodes.push({ name: source });
-        }
-        if (!nodeMap.has(target)) {
-          nodeMap.set(target, { name: target });
-          nodes.push({ name: target });
-        }
-
-        links.push({
-          source: nodeMap.get(source),
-          target: nodeMap.get(target),
-          value: value,
-        });
-      });
-
-      return (
-        <ResponsiveContainer width="100%" height={300}>
-          <Sankey
-            data={{ nodes, links }}
-            nodePadding={10}
-            nodeWidth={10}
-            linkCurvature={0.5}
-            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <RechartsTooltip
-              contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 8 }}
-              labelStyle={{ color: '#1f2937', fontWeight: 600 }}
-            />
-          </Sankey>
-        </ResponsiveContainer>
-      );
-    }
-
-    // ===== GAUGE =====
-    if (typeLower === 'gauge') {
-      const value = Number(chartData[0]?.[valueMetric]) || 0;
-      const maxValue = Math.max(...chartData.map((d: any) => Number(d[valueMetric]) || 0)) || 100;
-      const percentage = Math.min((value / maxValue) * 100, 100);
-
-      return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 2 }}>
-          <Box sx={{ position: 'relative', width: 200, height: 200 }}>
-            <CircularProgress
-              variant="determinate"
-              value={percentage}
-              size={200}
-              thickness={8}
-              sx={{ color: palette[0] || CHART_COLORS[0] }}
-            />
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                bottom: 0,
-                right: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-              }}
-            >
-              <Typography variant="h4" className="text-gray-800" sx={{ fontWeight: 700 }}>
-                {value}
-              </Typography>
-              <Typography variant="caption" className="text-gray-500">
-                {valueMetric}
-              </Typography>
-              <Typography variant="caption" className="text-gray-400">
-                Max: {maxValue}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      );
-    }
-
-    // ===== DEFAULT: Table fallback =====
-    return <TableWidget data={data} />;
+    return readableOption;
   };
 
-  return (
-    <Box sx={{ width: '100%', height: '100%', minHeight: 200 }}>
-      {renderChart()}
-    </Box>
-  );
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    // Get the device pixel ratio for sharper rendering
+    const dpr = window.devicePixelRatio || 1;
+
+    chartInstance.current = echarts.init(chartRef.current, null, {
+      renderer: 'canvas' as const,
+      width: chartRef.current.clientWidth,
+      height: chartRef.current.clientHeight,
+      devicePixelRatio: dpr,
+    });
+
+    const resizeObserver = new ResizeObserver(() => {
+      if (chartInstance.current) {
+        // Proper resize with debounce
+        chartInstance.current.resize({
+          width: 'auto',
+          height: 'auto',
+        });
+        // setChartKey(prev => prev + 1); // Force re-render on resize
+      }
+    });
+    resizeObserver.observe(chartRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+      chartInstance.current?.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chartInstance.current || rows.length === 0) return;
+
+    const typeLower = type?.toLowerCase() || "";
+
+    const numericColumns = columns.filter((col: any) =>
+      ['int', 'float', 'double', 'decimal', 'number'].includes(col.type)
+    );
+    const stringColumns = columns.filter((col: any) =>
+      ['string', 'text', 'varchar'].includes(col.type)
+    );
+
+    const xAxisCol = config?.xAxis || stringColumns[0]?.id || columns[0]?.id;
+    const yAxisCols = config?.yAxis || numericColumns.slice(0, 2).map((c: any) => c.id);
+    const labelDim = config?.labelDim || config?.dimension || stringColumns[0]?.id || columns[0]?.id;
+    const valueMetric = config?.valueMetric || config?.metric || config?.value || numericColumns[0]?.id || columns[1]?.id;
+    const hierarchy = config?.hierarchy || [stringColumns[0]?.id, stringColumns[1]?.id].filter(Boolean);
+    const sourceKey = config?.source || stringColumns[0]?.id;
+    const targetKey = config?.target || stringColumns[1]?.id;
+    const yAxisCol = config?.yAxis || yAxisCols[0] || stringColumns[1]?.id || columns[1]?.id;
+
+    const chartData = rows.map((row: any) => {
+      const obj: any = { ...row };
+      yAxisCols.forEach((col: string) => {
+        if (obj[col] !== undefined && obj[col] !== null) {
+          obj[col] = Number(obj[col]);
+        }
+      });
+      return obj;
+    });
+
+    let option: echarts.EChartsOption = {};
+
+    const supports3D = ['bar', 'column', 'line', 'scatter'].includes(typeLower);
+    const use3D = is3D && supports3D;
+
+    switch (typeLower) {
+      case 'bar':
+      case 'column':
+      case 'stacked-bar':
+      case 'grouped-bar':
+        option = getBarChartOption(chartData, xAxisCol, yAxisCols, palette, typeLower, use3D);
+        break;
+
+      case 'line':
+        option = getLineChartOption(chartData, xAxisCol, yAxisCols, palette, use3D);
+        break;
+
+      case 'area':
+        option = getAreaChartOption(chartData, xAxisCol, yAxisCols, palette);
+        break;
+
+      case 'pie':
+      case 'donut':
+        option = getPieChartOption(chartData, labelDim, valueMetric, palette, typeLower);
+        break;
+
+      case 'scatter':
+        option = getScatterChartOption(chartData, xAxisCol, yAxisCols, palette, use3D);
+        break;
+
+      case 'radar':
+        option = getRadarChartOption(chartData, xAxisCol, yAxisCols, palette);
+        break;
+
+      case 'treemap':
+        option = getTreemapOption(chartData, hierarchy, valueMetric, palette);
+        break;
+
+      case 'gauge':
+        option = getGaugeOption(chartData, valueMetric, palette);
+        break;
+
+      case 'funnel':
+        option = getFunnelChartOption(chartData, labelDim, valueMetric, palette);
+        break;
+
+      case 'boxplot':
+        option = getBoxplotChartOption(chartData, yAxisCols, palette);
+        break;
+
+      case 'composed':
+        option = getComposedChartOption(chartData, xAxisCol, yAxisCols, palette);
+        break;
+
+      case 'radial-bar':
+        option = getRadialBarChartOption(chartData, labelDim, valueMetric, palette);
+        break;
+
+      case 'heatmap':
+        option = getHeatmapChartOption(chartData, xAxisCol, yAxisCol, valueMetric, palette);
+        break;
+
+      case 'sankey':
+        option = getSankeyOption(chartData, sourceKey, targetKey, valueMetric);
+        break;
+
+      case 'sunburst':
+        option = getSunburstChartOption(chartData, hierarchy, valueMetric, palette);
+        break;
+
+      default:
+        option = {
+          title: {
+            text: 'Unsupported chart type',
+            left: 'center',
+            top: 'center',
+            textStyle: {
+              color: '#6b7280',
+              fontSize: 14,
+            },
+          },
+        };
+        break;
+    }
+
+    option = improveChartReadability({
+      ...option,
+      backgroundColor: 'transparent',
+      textStyle: {
+        color: theme.palette.text.primary,
+      },
+    });
+
+    chartInstance.current.clear();
+    chartInstance.current.setOption(option, true);
+    chartInstance.current.resize();
+
+  }, [data, type, config, is3D, theme, rows, columns]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      chartInstance.current?.resize();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  if (rows.length === 0) {
+    return (
+      <Typography color="textSecondary" sx={{ py: 4, textAlign: 'center' }}>
+        No data available
+      </Typography>
+    );
+  }
+
+  return <div ref={chartRef} style={{ width: '100%', height: 380, minHeight: 380 }} />;
 };
 
 // ============ Table Widget ============
@@ -609,7 +1587,7 @@ const TableWidget = ({ data }: { data: any }) => {
   const [localRowsPerPage, setLocalRowsPerPage] = useState(5);
 
   if (rows.length === 0) {
-    return <Typography color="textSecondary" className="text-gray-500">No data available</Typography>;
+    return <Typography color="textSecondary">No data available</Typography>;
   }
 
   const columns = Object.keys(rows[0]).filter((key) => !key.startsWith("_") && key !== "meta" && !isIdColumn(key));
@@ -697,7 +1675,7 @@ const SummaryBoxWidget = ({ data }: { data: any }) => {
               <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
                 {safeDisplayValue(value)}
               </Typography>
-              <Typography variant="caption" color="textSecondary" className="text-gray-800" sx={{ mt: 0.5, display: "block" }}>
+              <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: "block" }}>
                 {label}
               </Typography>
             </Box>
@@ -720,7 +1698,7 @@ function EmployeeCardList({ data, widgetId, onDrilldown, actions }: EmployeeCard
   const theme = useTheme();
   const rows = data?.data || [];
   if (rows.length === 0) {
-    return <Typography color="textSecondary" className="text-gray-500" sx={{ py: 2, textAlign: 'center' }}>No records found</Typography>;
+    return <Typography color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>No records found</Typography>;
   }
 
   let isAnniversary = false;
@@ -848,7 +1826,6 @@ export default function Home() {
   const user = session?.user;
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
 
-  // State
   const [pages, setPages] = useState<DashboardPage[]>([]);
   const [selectedPage, setSelectedPage] = useState<string>("");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -858,8 +1835,8 @@ export default function Home() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [editingMode, setEditingMode] = useState(false);
+  const [is3DEnabled, setIs3DEnabled] = useState(false);
 
-  // Dialogs
   const [addWidgetDialogOpen, setAddWidgetDialogOpen] = useState(false);
   const [drilldownDialogOpen, setDrilldownDialogOpen] = useState(false);
   const [drilldownData, setDrilldownData] = useState<DrilldownResponse | null>(null);
@@ -867,11 +1844,9 @@ export default function Home() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [widgetToRemove, setWidgetToRemove] = useState<string | null>(null);
 
-  // Pagination for drilldown
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // ===== DRAG-DROP: sensors =====
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -879,30 +1854,37 @@ export default function Home() {
     })
   );
 
-  // Load pages on mount
   useEffect(() => {
     loadPages();
   }, []);
 
-  // Load dashboard when page changes
   useEffect(() => {
     if (selectedPage) {
-      loadDashboard(selectedPage);
-      loadPreferences(selectedPage);
-      loadCatalogWidgets(selectedPage);
-      loadPageContext(selectedPage);
+      if (selectedPage !== "payroll-analytics") {
+        loadDashboard(selectedPage);
+        loadPreferences(selectedPage);
+        loadCatalogWidgets(selectedPage);
+        loadPageContext(selectedPage);
+      }
     }
   }, [selectedPage]);
 
-  // Load functions
   const loadPages = async () => {
     showSpinner();
     try {
       const response = await dashboardService.getPages();
       const data = response?.data || [];
-      setPages(Array.isArray(data) ? data : []);
-      if (data.length > 0) {
-        setSelectedPage(data[0].pageKey);
+      const availablePages = Array.isArray(data) ? data : [];
+      const payrollPage: DashboardPage = {
+        pageKey: "payroll-analytics",
+        title: "Payroll Analytics",
+        description: "Three-tier payroll analytics",
+        displayOrder: -1,
+      };
+      const dashboardPages = [payrollPage, ...availablePages.filter((page) => page.pageKey !== payrollPage.pageKey)];
+      setPages(dashboardPages);
+      if (dashboardPages.length > 0) {
+        setSelectedPage(dashboardPages[0].pageKey);
       }
     } catch (error) {
       showSnackbar("Failed to load dashboard pages", "error");
@@ -1118,7 +2100,6 @@ export default function Home() {
     }
   };
 
-  // ===== DRAG-DROP: Handler for reordering =====
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -1144,15 +2125,13 @@ export default function Home() {
     }
   };
 
-  // ===== Widget Content Renderer =====
-  // ===== Updated Widget Content Renderer with Error Handling =====
+  const isPayrollAnalytics = selectedPage === "payroll-analytics";
 
   const renderWidgetContent = (widget: DashboardWidget) => {
     const widgetData = widget.data || {};
     const type = widget.type?.toLowerCase() || "";
     const id = widget.id || '';
 
-    // Check for error first
     if (widget.error) {
       return (
         <Box sx={{
@@ -1166,61 +2145,62 @@ export default function Home() {
           borderRadius: 1,
           border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
         }}>
-          <Typography variant="body2" color="error" className="text-center">
+          <Typography variant="body2" color="error" sx={{ textAlign: 'center' }}>
             ⚠️ {widget.error}
           </Typography>
-          <Typography variant="caption" color="textSecondary" className="text-center mt-1">
+          <Typography variant="caption" color="textSecondary" sx={{ textAlign: 'center', mt: 1 }}>
             Configure the widget with proper dimensions and metrics
           </Typography>
         </Box>
       );
     }
 
-    // Check if widget has data
     const hasData = widgetData?.data && widgetData.data.length > 0;
 
-    // Chart types
-    const chartTypes = ['bar', 'column', 'line', 'area', 'pie', 'donut', 'composed', 'scatter', 'radar', 'treemap', 'sankey', 'sunburst', 'gauge', 'stacked-bar', 'grouped-bar', 'heatmap', 'funnel', 'boxplot', 'radial-bar'];
-
-    if (chartTypes.includes(type)) {
+    // KPI
+    if (type === "kpi") {
       if (!hasData) {
         return (
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 200,
-            p: 2,
-            bgcolor: alpha(theme.palette.info.main, 0.04),
-            borderRadius: 1,
-            border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-          }}>
-            <AssessmentIcon sx={{ fontSize: 40, color: theme.palette.info.main, mb: 1 }} />
-            <Typography variant="body2" color="info.main" className="text-center">
-              No data available for this chart
-            </Typography>
-            <Typography variant="caption" color="textSecondary" className="text-center mt-1">
-              Configure the widget with proper dimensions and metrics
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100, p: 2 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center' }}>
+              No KPI data available
             </Typography>
           </Box>
         );
       }
-      return <ChartRenderer data={widgetData} type={type} config={widget.dataConfig?.visualization} />;
+      const firstRow = widgetData.data?.[0] || {};
+      const numericKeys = Object.keys(firstRow).filter(key =>
+        !isNaN(parseFloat(firstRow[key])) && typeof firstRow[key] === 'number'
+      );
+      if (numericKeys.length > 0) {
+        const value = firstRow[numericKeys[0]];
+        const label = numericKeys[0].replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 100, p: 2 }}>
+            <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
+              {safeDisplayValue(value)}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {label}
+            </Typography>
+          </Box>
+        );
+      }
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100, p: 2 }}>
+          <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center' }}>
+            No KPI data available
+          </Typography>
+        </Box>
+      );
     }
 
+    // Summary Box
     if (type === "summary-box") {
       if (!hasData) {
         return (
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 100,
-            p: 2,
-          }}>
-            <Typography variant="body2" color="textSecondary" className="text-center">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100, p: 2 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ textAlign: 'center' }}>
               No summary data available
             </Typography>
           </Box>
@@ -1229,18 +2209,12 @@ export default function Home() {
       return <SummaryBoxWidget data={widgetData} />;
     }
 
+    // Table
     if (type === "table") {
       if (!hasData) {
         return (
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 100,
-            p: 2,
-          }}>
-            <Typography variant="body2" className="text-center text-gray-800">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 100, p: 2 }}>
+            <Typography variant="body2" sx={{ textAlign: 'center' }}>
               No table data available
             </Typography>
           </Box>
@@ -1262,8 +2236,12 @@ export default function Home() {
       return <TableWidget data={widgetData} />;
     }
 
-    // KPI / Default
-    if (type === "kpi") {
+    // All chart types
+    const chartTypes = ['line', 'area', 'bar', 'column', 'stacked-bar', 'grouped-bar',
+      'donut', 'pie', 'heatmap', 'gauge', 'funnel', 'boxplot', 'composed',
+      'radar', 'radial-bar', 'scatter', 'treemap', 'sankey', 'sunburst'];
+
+    if (chartTypes.includes(type)) {
       if (!hasData) {
         return (
           <Box sx={{
@@ -1271,54 +2249,33 @@ export default function Home() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: 100,
+            minHeight: 200,
             p: 2,
+            bgcolor: alpha(theme.palette.info.main, 0.04),
+            borderRadius: 1,
+            border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
           }}>
-            <Typography variant="body2" color="textSecondary" className="text-center">
-              No KPI data available
+            <AssessmentIcon sx={{ fontSize: 40, color: theme.palette.info.main, mb: 1 }} />
+            <Typography variant="body2" color="info.main" sx={{ textAlign: 'center' }}>
+              No data available for this chart
+            </Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ textAlign: 'center', mt: 1 }}>
+              Configure the widget with proper dimensions and metrics
             </Typography>
           </Box>
         );
       }
-      // For KPI, show the first numeric value
-      const firstRow = widgetData.data?.[0] || {};
-      const numericKeys = Object.keys(firstRow).filter(key =>
-        !isNaN(parseFloat(firstRow[key])) && typeof firstRow[key] === 'number'
-      );
-      if (numericKeys.length > 0) {
-        const value = firstRow[numericKeys[0]];
-        const label = numericKeys[0].replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
-        return (
-          <Box sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 100,
-            p: 2,
-          }}>
-            <Typography variant="h3" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
-              {safeDisplayValue(value)}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {label}
-            </Typography>
-          </Box>
-        );
-      }
+
+      const supports3D = ['bar', 'column', 'line', 'scatter'].includes(type);
+      const use3D = is3DEnabled && supports3D;
+
       return (
-        <Box sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 100,
-          p: 2,
-        }}>
-          <Typography variant="body2" color="textSecondary" className="text-center">
-            No KPI data available
-          </Typography>
-        </Box>
+        <EChartsRenderer
+          data={widgetData}
+          type={type}
+          config={widget.dataConfig?.visualization || widget.dataConfig}
+          is3D={use3D}
+        />
       );
     }
 
@@ -1345,7 +2302,6 @@ export default function Home() {
     );
   };
 
-  // ===== Sortable Widget Card =====
   interface WidgetCardProps {
     widget: DashboardWidget;
     editingMode: boolean;
@@ -1468,7 +2424,7 @@ export default function Home() {
                   {widget.actions?.length > 0 && !editingMode && !hasError && (
                     <Tooltip title="Drilldown">
                       <IconButton size="small" onClick={() => onDrilldown(widget.id, widget.actions[0].id)}>
-                        <ExpandMoreIcon className="text-gray-800"/>
+                        <ExpandMoreIcon className="text-gray-800" />
                       </IconButton>
                     </Tooltip>
                   )}
@@ -1503,242 +2459,260 @@ export default function Home() {
   // ============ Main Render ============
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box sx={{ pb: 3 }}>
-        {/* Header */}
-        <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2 }} className="!bg-white-50 border border-gray-200">
-          <Stack direction="row" className="items-center flex-wrap gap-2 justify-between">
-            <Stack direction="row" spacing={2} className="items-center">
-              <Avatar sx={{ bgcolor: theme.palette.primary.main, width: 48, height: 48 }} className="!bg-primary">
-                <DashboardIcon />
-              </Avatar>
-              <Box>
-                <div className="text-gray-800 font-bold text-[18px]">Dashboard</div>
-                <Typography variant="body2" color="textSecondary" className="text-gray-800">Welcome back, {user ? getWorkspaceLabel(user).split(' ')[0] : ''}!</Typography>
-              </Box>
-            </Stack>
-            <div className="flex items-center gap-2">
-              <FormControl size="small" className="!w-[200px]">
-                <Select
-                  value={selectedPage}
-                  onChange={(e) => setSelectedPage(e.target.value)}
-                  displayEmpty
-                >
-                  {pages.map((page) => (
-                    <MenuItem key={page.pageKey} value={page.pageKey}>{page.title}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button variant="outlined" className="w-[200px] !text-primary !border-primary" onClick={() => navigate("/bi-workspace")}>BI Workspace</Button>
+    <Box sx={{ pb: 3 }}>
+      {/* Header */}
+      <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: 2 }} className="!bg-white-50 border border-gray-200">
+        <Stack direction="row" className="items-center flex-wrap gap-2 justify-between">
+          <Stack direction="row" spacing={2} className="items-center">
+            <Avatar sx={{ bgcolor: theme.palette.primary.main, width: 48, height: 48 }} className="!bg-primary">
+              <DashboardIcon />
+            </Avatar>
+            <Box>
+              <div className="text-gray-800 font-bold text-[18px]">Dashboard</div>
+              <Typography variant="body2" color="textSecondary" className="text-gray-800">Welcome back, {user ? getWorkspaceLabel(user).split(' ')[0] : ''}!</Typography>
+            </Box>
+          </Stack>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 3D Toggle Button */}
+            <Tooltip title="Toggle 3D visualization">
               <Button
-                variant="contained"
-                className="w-[200px]"
-                onClick={editingMode ? handleSaveLayout : () => setEditingMode(true)}
-                sx={{ bgcolor: editingMode ? theme.palette.success.main : "var(--color-primary)" }}
+                variant={is3DEnabled ? "contained" : "outlined"}
+                color="primary"
+                onClick={() => setIs3DEnabled(!is3DEnabled)}
+                sx={{
+                  minWidth: 'auto',
+                  bgcolor: is3DEnabled ? 'primary.main' : 'transparent',
+                  '&:hover': {
+                    bgcolor: is3DEnabled ? 'primary.dark' : 'primary.light',
+                  }
+                }}
               >
-                {editingMode ? "Save Layout" : "Edit Layout"}
+                {is3DEnabled ? '3D ON' : '3D OFF'}
               </Button>
-            </div>
+            </Tooltip>
+
+            <FormControl size="small" className="!w-[200px]">
+              <Select
+                value={selectedPage}
+                onChange={(e) => setSelectedPage(e.target.value)}
+                displayEmpty
+              >
+                {pages.map((page) => (
+                  <MenuItem key={page.pageKey} value={page.pageKey}>{page.title}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button variant="outlined" className="w-[200px] !text-primary !border-primary" onClick={() => navigate("/bi-workspace")}>BI Workspace</Button>
+            <Button
+              variant="contained"
+              className="w-[200px]"
+              onClick={editingMode ? handleSaveLayout : () => setEditingMode(true)}
+              sx={{ bgcolor: editingMode ? theme.palette.success.main : "var(--color-primary)" }}
+            >
+              {editingMode ? "Save Layout" : "Edit Layout"}
+            </Button>
+          </div>
+        </Stack>
+      </Paper>
+
+      {/* Context */}
+      {!isPayrollAnalytics && dashboardData?.context && Object.keys(dashboardData.context).length > 0 && (
+        <Paper sx={{ p: 2, mb: 3, bgcolor: alpha(theme.palette.info.main, 0.04), border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`, borderRadius: 2 }}>
+          <Stack direction="row" spacing={1} className="items-center flex-wrap">
+            <AssessmentIcon color="info" fontSize="small" />
+            <Typography variant="subtitle2" color="info.main" className="text-gray-800">Dashboard Context</Typography>
+            {preferences?.usingRoleDefault && <Chip label="Default Layout" size="small" color="info" variant="outlined" />}
+            {!preferences?.usingRoleDefault && preferences && <Chip label="Customized" size="small" color="warning" variant="outlined" />}
+            {Object.entries(dashboardData.context).map(([key, value]) => (
+              <Chip key={key} label={`${key}: ${safeDisplayValue(value)}`} size="small" color="info" variant="outlined" />
+            ))}
           </Stack>
         </Paper>
+      )}
 
-        {/* Context */}
-        {dashboardData?.context && Object.keys(dashboardData.context).length > 0 && (
-          <Paper sx={{ p: 2, mb: 3, bgcolor: alpha(theme.palette.info.main, 0.04), border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`, borderRadius: 2 }}>
-            <Stack direction="row" spacing={1} className="items-center flex-wrap">
-              <AssessmentIcon color="info" fontSize="small" />
-              <Typography variant="subtitle2" color="info.main" className="text-gray-800">Dashboard Context</Typography>
-              {preferences?.usingRoleDefault && <Chip label="Default Layout" size="small" color="info" variant="outlined" />}
-              {!preferences?.usingRoleDefault && preferences && <Chip label="Customized" size="small" color="warning" variant="outlined" />}
-              {Object.entries(dashboardData.context).map(([key, value]) => (
-                <Chip key={key} label={`${key}: ${safeDisplayValue(value)}`} size="small" color="info" variant="outlined" />
-              ))}
-            </Stack>
-          </Paper>
-        )}
-
-        {/* Widget Grid with Drag-and-Drop */}
-        {loading ? (
-          <Grid container spacing={3}>
-            {[1, 2, 3, 4].map((i) => (
-              <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Skeleton variant="rounded" height={250} />
-              </Grid>
-            ))}
-          </Grid>
-        ) : dashboardData ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
+      {/* Selected dashboard */}
+      {isPayrollAnalytics ? (
+        <PayrollAnalyticsDashboard />
+      ) : loading ? (
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
+              <Skeleton variant="rounded" height={250} />
+            </Grid>
+          ))}
+        </Grid>
+      ) : dashboardData ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={dashboardData.widgets.map(w => w.id)}
+            strategy={verticalListSortingStrategy}
           >
-            <SortableContext
-              items={dashboardData.widgets.map(w => w.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <Grid container spacing={2}>
-                {dashboardData.widgets.map((widget) => (
-                  <WidgetCard
-                    key={widget.id}
-                    widget={widget}
-                    editingMode={editingMode}
-                    onToggleVisibility={handleToggleVisibility}
-                    onRemove={(id) => {
-                      setWidgetToRemove(id);
-                      setConfirmDialogOpen(true);
-                    }}
-                    onDrilldown={handleDrilldown}
-                  />
-                ))}
-              </Grid>
-            </SortableContext>
-          </DndContext>
-        ) : null}
+            <Grid container spacing={2}>
+              {dashboardData.widgets.map((widget) => (
+                <WidgetCard
+                  key={widget.id}
+                  widget={widget}
+                  editingMode={editingMode}
+                  onToggleVisibility={handleToggleVisibility}
+                  onRemove={(id) => {
+                    setWidgetToRemove(id);
+                    setConfirmDialogOpen(true);
+                  }}
+                  onDrilldown={handleDrilldown}
+                />
+              ))}
+            </Grid>
+          </SortableContext>
+        </DndContext>
+      ) : null}
 
-        {/* Edit Mode Actions */}
-        {editingMode && (
-          <Fade in={editingMode}>
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2 }}>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddWidgetDialogOpen(true)}>Add Widget</Button>
-              <Button variant="outlined" color="info" startIcon={<RestoreIcon />} onClick={handleResetPreferences}>Reset to Default</Button>
-              <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={() => setEditingMode(false)}>Cancel Editing</Button>
+      {/* Edit Mode Actions */}
+      {editingMode && !isPayrollAnalytics && (
+        <Fade in={editingMode}>
+          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddWidgetDialogOpen(true)}>Add Widget</Button>
+            <Button variant="outlined" color="info" startIcon={<RestoreIcon />} onClick={handleResetPreferences}>Reset to Default</Button>
+            <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={() => setEditingMode(false)}>Cancel Editing</Button>
+          </Box>
+        </Fade>
+      )}
+
+      {/* Add Widget Dialog */}
+      <Dialog open={addWidgetDialogOpen} onClose={() => setAddWidgetDialogOpen(false)} maxWidth="md" fullWidth>
+        <div className="flex items-center justify-between p-2 border-b border-gray-200">
+          <div className="text-gray-800 text-[12px] ml-2">Add Widget</div>
+          <IconButton onClick={() => setAddWidgetDialogOpen(false)}>
+            <CloseOutlined className="text-gray-800" />
+          </IconButton>
+        </div>
+        <DialogContent dividers>
+          {catalogWidgets.filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId)).length === 0 ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Typography color="textSecondary" className="text-gray-500">🎉 All available widgets have been added</Typography>
             </Box>
-          </Fade>
-        )}
-
-        {/* Add Widget Dialog */}
-        <Dialog open={addWidgetDialogOpen} onClose={() => setAddWidgetDialogOpen(false)} maxWidth="md" fullWidth>
-          <div className="flex items-center justify-between p-2 border-b border-gray-200">
-            <div className="text-gray-800 text-[12px] ml-2">Add Widget</div>
-            <IconButton onClick={() => setAddWidgetDialogOpen(false)}>
-              <CloseOutlined className="text-gray-800" />
-            </IconButton>
-          </div>
-          <DialogContent dividers>
-            {catalogWidgets.filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId)).length === 0 ? (
-              <Box sx={{ py: 6, textAlign: 'center' }}>
-                <Typography color="textSecondary" className="text-gray-500">🎉 All available widgets have been added</Typography>
-              </Box>
-            ) : (
-              <Grid container spacing={3}>
-                {catalogWidgets
-                  .filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId))
-                  .map((widget) => {
-                    const colors = getWidgetColor(widget.type);
-                    return (
-                      <Grid size={{ xs: 12, sm: 6, md: 4 }} key={widget.widgetId}>
-                        <Card
-                          variant="outlined"
-                          className="bg-white border border-gray-200"
-                          sx={{
-                            height: '100%',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            transition: 'all 0.2s',
-                            '&:hover': {
-                              boxShadow: theme.shadows[4],
-                              transform: 'translateY(-4px)',
-                            },
-                          }}
-                        >
-                          <CardContent sx={{ flex: 1 }}>
-                            <div className="flex gap-2 items-center mb-1">
-                              <Avatar sx={{ bgcolor: colors.bg, color: colors.color, width: 40, height: 40 }}>
-                                {getWidgetIcon(widget.type)}
-                              </Avatar>
-                              <div className="text-[12px] text-gray-800">
-                                {widget.title}
-                              </div>
+          ) : (
+            <Grid container spacing={3}>
+              {catalogWidgets
+                .filter(w => !dashboardData?.widgets?.some(dw => dw.id === w.widgetId))
+                .map((widget) => {
+                  const colors = getWidgetColor(widget.type);
+                  return (
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={widget.widgetId}>
+                      <Card
+                        variant="outlined"
+                        className="bg-white border border-gray-200"
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          transition: 'all 0.2s',
+                          '&:hover': {
+                            boxShadow: theme.shadows[4],
+                            transform: 'translateY(-4px)',
+                          },
+                        }}
+                      >
+                        <CardContent sx={{ flex: 1 }}>
+                          <div className="flex gap-2 items-center mb-1">
+                            <Avatar sx={{ bgcolor: colors.bg, color: colors.color, width: 40, height: 40 }}>
+                              {getWidgetIcon(widget.type)}
+                            </Avatar>
+                            <div className="text-[12px] text-gray-800">
+                              {widget.title}
                             </div>
-                            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                              <Chip label={widget.type} size="small" color="success" />
-                              <Chip label={widget.size} size="small" variant="outlined" color="warning" />
-                              {widget.locked && <Chip label="Locked" size="small" color="warning" />}
-                            </Stack>
-                          </CardContent>
-                          <CardActions sx={{ p: 2, pt: 0 }}>
-                            <Button
-                              fullWidth
-                              variant="contained"
-                              size="small"
-                              className="!bg-primary"
-                              onClick={() => handleAddWidget(widget.widgetId)}
-                              disabled={loading}
-                              startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
-                            >
-                              {loading ? 'Adding...' : 'Add Widget'}
-                            </Button>
-                          </CardActions>
-                        </Card>
-                      </Grid>
-                    );
-                  })}
-              </Grid>
-            )}
-          </DialogContent>
-          <DialogActions className="border-t border-gray-200 !p-2">
-            <Button onClick={() => setAddWidgetDialogOpen(false)} variant="outlined" className="!text-gray-800 !border-gray-200">Close</Button>
-          </DialogActions>
-        </Dialog>
+                          </div>
+                          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                            <Chip label={widget.type} size="small" color="success" />
+                            <Chip label={widget.size} size="small" variant="outlined" color="warning" />
+                            {widget.locked && <Chip label="Locked" size="small" color="warning" />}
+                          </Stack>
+                        </CardContent>
+                        <CardActions sx={{ p: 2, pt: 0 }}>
+                          <Button
+                            fullWidth
+                            variant="contained"
+                            size="small"
+                            className="!bg-primary"
+                            onClick={() => handleAddWidget(widget.widgetId)}
+                            disabled={loading}
+                            startIcon={loading ? <CircularProgress size={16} /> : <AddIcon />}
+                          >
+                            {loading ? 'Adding...' : 'Add Widget'}
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions className="border-t border-gray-200 !p-2">
+          <Button onClick={() => setAddWidgetDialogOpen(false)} variant="outlined" className="!text-gray-800 !border-gray-200">Close</Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Confirm Remove Dialog */}
-        <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
-          <div className="border-b border-gray-200 text-[12px] p-2">Remove Widget</div>
-          <DialogContent className="!p-4"><Typography>Are you sure you want to remove this widget?</Typography></DialogContent>
-          <DialogActions className="border-t border-gray-200">
-            <Button className="!text-gray-800 !border-gray-200" variant="outlined" onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
-            <Button variant="contained" color="error" onClick={() => widgetToRemove && handleRemoveWidget(widgetToRemove)}>Remove</Button>
-          </DialogActions>
-        </Dialog>
+      {/* Confirm Remove Dialog */}
+      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
+        <div className="border-b border-gray-200 text-[12px] p-2">Remove Widget</div>
+        <DialogContent className="!p-4"><Typography>Are you sure you want to remove this widget?</Typography></DialogContent>
+        <DialogActions className="border-t border-gray-200">
+          <Button className="!text-gray-800 !border-gray-200" variant="outlined" onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={() => widgetToRemove && handleRemoveWidget(widgetToRemove)}>Remove</Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Drilldown Dialog */}
-        <Dialog open={drilldownDialogOpen} onClose={() => setDrilldownDialogOpen(false)} fullWidth>
-            <div className="p-2 flex items-center justify-between border-b border-gray-200">
-              <Typography variant="h6" className="!ml-4">{drilldownData?.title || "Drilldown"}</Typography>
-              <Box>
-                <IconButton><CloudDownloadIcon color="info"/></IconButton>
-                <IconButton><PrintIcon color="warning"/></IconButton>
-                <IconButton><ShareIcon color="success"/></IconButton>
-              </Box>
-            </div>
-          <DialogContent sx={{ p: 2 }}>
-            {drilldownLoading ? <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box> : drilldownData ? (
-              <>
-                <TableContainer sx={{ maxHeight: 450 }} className="border border-gray-200">
-                  <Table stickyHeader>
-                    <TableHead><TableRow>{drilldownData.columns?.map((col) => <TableCell key={col.id} sx={{ bgcolor: theme.palette.grey[50], fontWeight: 600 }}>{col.label}</TableCell>)}</TableRow></TableHead>
-                    <TableBody>
-                      {drilldownData.data?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
-                        <TableRow key={idx} sx={getRowColor(idx)}>{drilldownData.columns?.map((col) => <TableCell key={col.id}><div className="py-2">{safeDisplayValue(row[col.id])}</div></TableCell>)}</TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                {drilldownData.totals && Object.keys(drilldownData.totals).length > 0 && (
-                  <Box sx={{ p: 2, bgcolor: theme.palette.grey[50], borderTop: '1px solid #e0e0e0' }}>
-                    <Typography variant="subtitle2">Totals</Typography>
-                    <Stack direction="row" spacing={1} className="flex-wrap">
-                      {Object.entries(drilldownData.totals).map(([key, value]) => <Chip key={key} label={`${key}: ${safeDisplayValue(value)}`} size="small" variant="outlined" />)}
-                    </Stack>
-                  </Box>
-                )}
-                {drilldownData.data && drilldownData.data.length > rowsPerPage && (
-                  <TablePagination
-                    component="div"
-                    count={drilldownData.data.length}
-                    page={page}
-                    onPageChange={(_, newPage) => setPage(newPage)}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                    rowsPerPageOptions={[5, 10, 25, 50]}
-                  />
-                )}
-              </>
-            ) : <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="textSecondary">No data</Typography></Box>}
-          </DialogContent>
-          <DialogActions className="border-t border-gray-200"><Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={() => setDrilldownDialogOpen(false)}>Close</Button></DialogActions>
-        </Dialog>
-      </Box>
-    </LocalizationProvider>
+      {/* Drilldown Dialog */}
+      <Dialog open={drilldownDialogOpen} onClose={() => setDrilldownDialogOpen(false)} fullWidth>
+        <div className="p-2 flex items-center justify-between border-b border-gray-200">
+          <Typography variant="h6" className="!ml-4">{drilldownData?.title || "Drilldown"}</Typography>
+          <Box>
+            <IconButton><CloudDownloadIcon color="info" /></IconButton>
+            <IconButton><PrintIcon color="warning" /></IconButton>
+            <IconButton><ShareIcon color="success" /></IconButton>
+          </Box>
+        </div>
+        <DialogContent sx={{ p: 2 }}>
+          {drilldownLoading ? <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box> : drilldownData ? (
+            <>
+              <TableContainer sx={{ maxHeight: 450 }} className="border border-gray-200">
+                <Table stickyHeader>
+                  <TableHead><TableRow>{drilldownData.columns?.map((col) => <TableCell key={col.id} sx={{ bgcolor: theme.palette.grey[50], fontWeight: 600 }}>{col.label}</TableCell>)}</TableRow></TableHead>
+                  <TableBody>
+                    {drilldownData.data?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
+                      <TableRow key={idx} sx={getRowColor(idx)}>{drilldownData.columns?.map((col) => <TableCell key={col.id}><div className="py-2">{safeDisplayValue(row[col.id])}</div></TableCell>)}</TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              {drilldownData.totals && Object.keys(drilldownData.totals).length > 0 && (
+                <Box sx={{ p: 2, bgcolor: theme.palette.grey[50], borderTop: '1px solid #e0e0e0' }}>
+                  <Typography variant="subtitle2">Totals</Typography>
+                  <Stack direction="row" spacing={1} className="flex-wrap">
+                    {Object.entries(drilldownData.totals).map(([key, value]) => <Chip key={key} label={`${key}: ${safeDisplayValue(value)}`} size="small" variant="outlined" />)}
+                  </Stack>
+                </Box>
+              )}
+              {drilldownData.data && drilldownData.data.length > rowsPerPage && (
+                <TablePagination
+                  component="div"
+                  count={drilldownData.data.length}
+                  page={page}
+                  onPageChange={(_, newPage) => setPage(newPage)}
+                  rowsPerPage={rowsPerPage}
+                  onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                />
+              )}
+            </>
+          ) : <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="textSecondary">No data</Typography></Box>}
+        </DialogContent>
+        <DialogActions className="border-t border-gray-200"><Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={() => setDrilldownDialogOpen(false)}>Close</Button></DialogActions>
+      </Dialog>
+    </Box>
   );
 }

@@ -312,6 +312,13 @@ export const employeeService = {
     );
   },
 
+  async getDeactivatedEmployees(params?: EmployeeListQuery) {
+    return apiService.get<ApiResponsePageEmployeeSummaryResponse>(
+      API_ENDPOINTS.EMPLOYEE.GET_DEACTIVATED,
+      { params: buildEmployeeListParams(params) },
+    );
+  },
+
   async getEmployeeById(id: any) {
     return apiService.get(API_ENDPOINTS.EMPLOYEE.GET_BY_ID(id));
   },
@@ -324,8 +331,8 @@ export const employeeService = {
     return apiService.put(API_ENDPOINTS.EMPLOYEE.UPDATE(id), data);
   },
 
-  async deactivateEmployee(id: string) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id));
+  async deactivateEmployee(id: string, data: any) {
+    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id), { data });
   },
 
   async reactivateEmployee(id: string): Promise<EmployeeSummaryResponse> {
@@ -334,11 +341,6 @@ export const employeeService = {
       {},
     );
     return (response?.data ?? response) as EmployeeSummaryResponse;
-  },
-
-  /** @deprecated Use deactivateEmployee instead */
-  async deleteEmployee(id: string) {
-    return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id));
   },
 
   // ==================== PATCH OPERATIONS (Specific Sections) ====================
