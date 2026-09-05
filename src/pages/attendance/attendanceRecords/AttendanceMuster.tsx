@@ -333,7 +333,7 @@ export function AttendanceMuster() {
           <FormControl className="!w-[180px]">
             <InputLabel>Department</InputLabel>
             <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
-              <MenuItem value="">All Departments</MenuItem>
+              <MenuItem value="All">All Departments</MenuItem>
               {departments.map(d => (
                 <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
               ))}

@@ -202,7 +202,7 @@ export function DailyRegister() {
       const res: any = await attendanceService.getRegister({
         startDate: date,
         endDate: date,
-        departmentId: departmentId || undefined,
+        departmentId: departmentId === "All" ? undefined : departmentId,
         branchId: branchId || undefined,
         status: statusFilter || undefined,
       });
@@ -1324,7 +1324,7 @@ export function DailyRegister() {
               }}
               sx={selectSx}
             >
-              <MenuItem value="">All Departments</MenuItem>
+              <MenuItem value="All">All Departments</MenuItem>
               {departments.map((d) => (
                 <MenuItem key={d.id} value={d.id}>
                   {d.departmentName}

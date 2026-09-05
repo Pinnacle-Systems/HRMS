@@ -64,7 +64,7 @@ export function AttendanceDetailed() {
     try {
       const res: any = await attendanceService.getDetailed({
         fromDate, toDate,
-        departmentId: departmentId || undefined,
+        departmentId: departmentId === "All" ? undefined : departmentId,
         shiftCode: shiftCode || undefined,
         status: (status as any) || undefined,
         search: selectedEmployee?.id || undefined,
@@ -202,7 +202,7 @@ export function AttendanceDetailed() {
               <FormControl>
                 <InputLabel>Department</InputLabel>
                 <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
-                  <MenuItem value="">All Departments</MenuItem>
+                  <MenuItem value="All">All Departments</MenuItem>
                   {departments.map(d => (
                     <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                   ))}

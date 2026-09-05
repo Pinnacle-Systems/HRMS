@@ -39,7 +39,7 @@ export function MonthlySummaryReport({ onBack }: Props) {
   const [limit, _setLimit] = useState(20);
   const [generating, setGenerating] = useState(false);
 
-  const params = { month, year, departmentId: departmentId || undefined };
+  const params = { month, year, departmentId: departmentId === "All" ? undefined : departmentId };
 
   async function generate(p = page, l = limit) {
     setGenerating(true);
@@ -94,7 +94,7 @@ export function MonthlySummaryReport({ onBack }: Props) {
           <FilterField label="Department">
             <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
-                <MenuItem value="">All Departments</MenuItem>
+                <MenuItem value="All">All Departments</MenuItem>
                 {departments.map((d) => (
                   <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                 ))}

@@ -79,6 +79,7 @@ import { hasPermission, PAYROLL_PERMISSIONS } from "../const";
 import { PERMISSIONS } from "../auth/Permissions";
 import { PasswordExpiryAlert } from "./PasswordExpiryAlert";
 import { formatDate } from "../utils/dateFormatter";
+import React from "react";
 
 const drawerWidth = 220;
 
@@ -590,188 +591,208 @@ export default function Layout() {
           backgroundColor: 'white',
         }}
       >
-        <Toolbar className="bg-white flex justify-between items-center">
-          {/* Left Section - Logo and Navigation */}
-          <Box className="flex text-primary items-center gap-2 flex-shrink-0">
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              onClick={handleDrawerToggle}
-              edge="start"
-              className="text-primary"
-            >
-              <MenuIcon />
-            </IconButton>
-
-            <Box className="flex items-center gap-2 flex-shrink-0">
-              {/* Company Logo */}
-              {companyInfo?.logoUrl ? (
-                <img
-                  src={companyInfo.logoUrl}
-                  alt={`${companyInfo.companyName || 'Company'} logo`}
-                  width="30px"
-                  height="30px"
-                />
-              ) : (
-                <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">
-                    {companyInfo?.companyName?.charAt(0)?.toUpperCase() || 'H'}
-                  </span>
-                </div>
-              )}
-
-              {/* Company Info */}
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="font-bold text-gray-700 whitespace-nowrap">
-                    Dot<span className="text-primary">HR</span>
-                  </div>
-                  {user && getWorkspaceLabel && (
-                    <div className="text-[10px] text-gray-400 leading-3 whitespace-nowrap">
-                      {getWorkspaceLabel(user)}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-[12px] text-gray-800 whitespace-nowrap">
-                    {companyInfo?.companyName || 'Company Name'}
-                  </div>
-                </div>
-              </div>
-            </Box>
-          </Box>
-
-          {/* Center Section - Scrollable Page History Chips with hidden scrollbar */}
-          <Box
-            className="flex-1 flex items-center gap-2 mx-4 overflow-x-auto"
-            sx={{
-              overflowX: 'auto',
-              overflowY: 'hidden',
-              whiteSpace: 'nowrap',
-              scrollbarWidth: 'none', // Firefox
-              msOverflowStyle: 'none', // IE and Edge
-              '&::-webkit-scrollbar': {
-                display: 'none', // Chrome, Safari, Opera
-                width: 0,
-                height: 0,
-              },
-              '&::-webkit-scrollbar-track': {
-                display: 'none',
-              },
-              '&::-webkit-scrollbar-thumb': {
-                display: 'none',
-              },
-            }}
-          >
-            {pageHistory?.length > 1 && (
-              <Box className="flex items-center gap-2" sx={{ flexShrink: 0 }}>
-                {pageHistory
-                  .filter((page) => page.path !== `${location.pathname}${location.search}`)
-                  .map((page) => (
-                    <Chip
-                      key={page.path}
-                      clickable
-                      label={page.label || 'Page'}
-                      onClick={() => navigate?.(page.path)}
-                      onDelete={() => handleRemovePage?.(page.path)}
-                      deleteIcon={
-                        <CloseOutlined
-                          fontSize="small"
-                          className="!text-error !bg-gray-200 rounded-full !w-3 !h-3"
-                        />
-                      }
-                      variant="outlined"
-                      className="!text-gray-800 !border-gray-300 !bg-gray-300 hover:!bg-primary hover:!text-white flex-shrink-0"
-                      aria-label={`Go to ${page.label || 'page'}`}
-                      size="small"
-                    />
-                  ))}
-              </Box>
-            )}
-          </Box>
-
-          {/* Right Section - Actions */}
-          <Box className="flex items-center gap-2 flex-shrink-0">
-            {/* Branch Info */}
-            {session && (
-              <div className="text-[10px] whitespace-nowrap">
-                <div className="text-gray-800">
-                  {session.branchName} - {session.branchCode}{' '}
-                  <span className="text-primary font-bold">
-                    ({session.fiscalYearLabel})
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Search Button */}
-            <Tooltip title="Search (CTRL + P)">
-              <IconButton
-                size="small"
-                aria-label="search"
-                color="inherit"
-                onClick={() => setSearchOpen?.(true)}
-              >
-                <Chip
-                  label="CTRL + P"
-                  icon={<SearchOutlined className="text-gray-500 !w-5" />}
-                  size="small"
-                  variant="outlined"
-                  className="!text-gray-500"
-                />
-              </IconButton>
-            </Tooltip>
-
-            {/* Notifications */}
-            <Tooltip title="Notifications">
-              <IconButton
-                size="small"
-                aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : 'No'} notifications`}
-                color="inherit"
-                onClick={handleNotificationClick}
-              >
-                <Badge
-                  badgeContent={unreadCount}
-                  color="error"
-                  max={99}
+        <Toolbar className="bg-white !grid">
+          <div className="bg-white">
+            {/* First Row - Main Toolbar */}
+            <div className="flex justify-between items-center mt-0.5">
+              {/* Left Section - Logo and Navigation */}
+              <Box className="flex text-primary items-center gap-2 flex-shrink-0">
+                <IconButton
+                  color="inherit"
+                  aria-label="open drawer"
+                  onClick={handleDrawerToggle}
+                  edge="start"
                   className="text-primary"
                 >
-                  <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
-                </Badge>
-              </IconButton>
-            </Tooltip>
+                  <MenuIcon />
+                </IconButton>
 
-            {/* Theme Settings */}
-            <Tooltip title="Theme Settings">
-              <IconButton
-                size="small"
-                onClick={handleConMenuOpen}
-                className="text-gray-500"
-                aria-label="theme settings"
-              >
-                <ContrastOutlinedIcon className="!w-5" />
-              </IconButton>
-            </Tooltip>
+                <Box className="flex items-center gap-2 flex-shrink-0">
+                  {/* Company Logo */}
+                  {companyInfo?.logoUrl ? (
+                    <img
+                      src={companyInfo.logoUrl}
+                      alt={`${companyInfo.companyName || 'Company'} logo`}
+                      width="30px"
+                      height="30px"
+                    />
+                  ) : (
+                    <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
+                      <span className="text-xs font-bold text-primary bg-primary-100 rounded-full w-8 h-8 flex items-center justify-center">
+                        {companyInfo?.companyName?.charAt(0)?.toUpperCase() || 'H'}
+                      </span>
+                    </div>
+                  )}
 
-            {/* Profile/Avatar */}
-            <Tooltip title={user?.email || 'Account'}>
-              <IconButton
-                size="small"
-                edge="end"
-                onClick={handleProfileMenuOpen}
-                color="inherit"
-                aria-label="account menu"
-              >
-                <Avatar
-                  src={user?.profilePic}
-                  alt={user?.email || 'User avatar'}
-                  className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
+                  {/* Company Info */}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-bold text-gray-700 whitespace-nowrap">
+                        Dot<span className="text-primary">HR</span>
+                      </div>
+                      {user && getWorkspaceLabel && (
+                        <div className="text-[10px] text-gray-400 leading-3 whitespace-nowrap">
+                          {getWorkspaceLabel(user)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[12px] text-gray-800 whitespace-nowrap">
+                        {companyInfo?.companyName || 'Company Name'}
+                      </div>
+                    </div>
+                  </div>
+                </Box>
+              </Box>
+
+              {/* Right Section - Actions */}
+              <Box className="flex items-center gap-2 flex-shrink-0">
+                {/* Branch Info */}
+                {session && (
+                  <div className="text-[10px] whitespace-nowrap">
+                    <div className="text-gray-800">
+                      {session.branchName} - {session.branchCode}{' '}
+                      <span className="text-primary font-bold">
+                        ({session.fiscalYearLabel})
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Search Button */}
+                <Tooltip title="Search (CTRL + P)">
+                  <IconButton
+                    size="small"
+                    aria-label="search"
+                    color="inherit"
+                    onClick={() => setSearchOpen?.(true)}
+                  >
+                    <Chip
+                      label="CTRL + P"
+                      icon={<SearchOutlined className="text-gray-500 !w-5" />}
+                      size="small"
+                      variant="outlined"
+                      className="!text-gray-500"
+                    />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Notifications */}
+                <Tooltip title="Notifications">
+                  <IconButton
+                    size="small"
+                    aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : 'No'} notifications`}
+                    color="inherit"
+                    onClick={handleNotificationClick}
+                  >
+                    <Badge
+                      badgeContent={unreadCount}
+                      color="error"
+                      max={99}
+                      className="text-primary"
+                    >
+                      <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
+                    </Badge>
+                  </IconButton>
+                </Tooltip>
+
+                {/* Theme Settings */}
+                <Tooltip title="Theme Settings">
+                  <IconButton
+                    size="small"
+                    onClick={handleConMenuOpen}
+                    className="text-gray-500"
+                    aria-label="theme settings"
+                  >
+                    <ContrastOutlinedIcon className="!w-5" />
+                  </IconButton>
+                </Tooltip>
+
+                {/* Profile/Avatar */}
+                <Tooltip title={user?.email || 'Account'}>
+                  <IconButton
+                    size="small"
+                    edge="end"
+                    onClick={handleProfileMenuOpen}
+                    color="inherit"
+                    aria-label="account menu"
+                  >
+                    <Avatar
+                      src={user?.profilePic}
+                      alt={user?.email || 'User avatar'}
+                      className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
+                    >
+                      {avatarInitial || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </Avatar>
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </div>
+
+            {/* Second Row - Page History Chips (Hidden Scrollbar) */}
+            {pageHistory?.length > 1 && (
+              <div className="mb-1 pt-1 border-t !border-gray-200 w-full">
+                <Box
+                  className="overflow-x-auto overflow-y-hidden"
+                  sx={{
+                    overflowX: 'auto',
+                    overflowY: 'hidden',
+                    maxWidth: '100%',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    '&::-webkit-scrollbar': {
+                      display: 'none'
+                    }
+                  }}
                 >
-                  {avatarInitial || user?.email?.charAt(0)?.toUpperCase() || 'U'}
-                </Avatar>
-              </IconButton>
-            </Tooltip>
-          </Box>
+                  <Box
+                    className="flex items-center gap-1"
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'nowrap',
+                      whiteSpace: 'nowrap',
+                      width: 'max-content',
+                      minWidth: '100%',
+                      '& > *': {
+                        flexShrink: 0,
+                      },
+                    }}
+                  >
+                    <span className="text-xs text-gray-400 flex-shrink-0 mr-1 sticky left-0 bg-white z-10 pr-2">
+                      Recent:
+                    </span>
+                    {pageHistory
+                      .filter((page) => page.path !== `${location.pathname}${location.search}`)
+                      .map((page, index, filteredArray) => (
+                        <React.Fragment key={page.path}>
+                          {/* Chip */}
+                          <Chip
+                            clickable
+                            label={page.label || 'Page'}
+                            onClick={() => navigate?.(page.path)}
+                            onDelete={() => handleRemovePage?.(page.path)}
+                            deleteIcon={
+                              <CloseOutlined
+                                fontSize="small"
+                                className="!text-error !bg-red-100 rounded-full !w-3 !h-3"
+                              />
+                            }
+                            variant="outlined"
+                            className="!text-gray-800 !bg-gray-200 !border-none !h-4 hover:!bg-primary hover:!text-white flex-shrink-0"
+                            aria-label={`Go to ${page.label || 'page'}`}
+                          />
+
+                          {/* Divider - show between chips except after the last one */}
+                          {index < filteredArray.length - 1 && (
+                            <span className="text-gray-300 flex-shrink-0">|</span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                  </Box>
+                </Box>
+              </div>
+            )}
+          </div>
 
           {/* Global Search Modal */}
           {searchOpen !== undefined && (

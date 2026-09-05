@@ -44,7 +44,7 @@ export function AbsenteeismReport({ onBack }: Props) {
   const [generating, setGenerating] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  const params = { month, year, departmentId: departmentId || undefined, minAbsentDays };
+  const params = { month, year, departmentId: departmentId === "All" ? undefined : departmentId, minAbsentDays };
 
   async function generate(p = page, l = limit) {
     setGenerating(true);
@@ -94,7 +94,7 @@ export function AbsenteeismReport({ onBack }: Props) {
           <FilterField label="Department">
             <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
-                <MenuItem value="">All Departments</MenuItem>
+                <MenuItem value="All">All Departments</MenuItem>
                 {departments.map((d) => (
                   <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                 ))}

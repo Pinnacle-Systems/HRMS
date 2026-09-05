@@ -46,7 +46,7 @@ export function LopReport({ onBack }: Props) {
   const totalWorkingDays = rows.reduce((s, r) => s + (r.workingDays || 0), 0);
   const employeesWithLop = rows.filter(r => r.lopDays > 0).length;
 
-  const params = { startDate: fromDate, endDate: toDate, departmentId: departmentId || undefined };
+  const params = { startDate: fromDate, endDate: toDate, departmentId: departmentId === "All" ? undefined : departmentId };
 
   async function generate(p = page, l = limit) {
     setGenerating(true);
@@ -121,7 +121,7 @@ export function LopReport({ onBack }: Props) {
                 onChange={e => setDepartmentId(e.target.value)} 
                 sx={selectSx}
               >
-                <MenuItem value="">All Departments</MenuItem>
+                <MenuItem value="All">All Departments</MenuItem>
                 {departments.map((d) => (
                   <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                 ))}

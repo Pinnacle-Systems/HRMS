@@ -45,7 +45,7 @@ export function OvertimeReport({ onBack }: Props) {
   // Running totals
   const totalOtMinutes = rows.reduce((s, r) => s + r.overtimeMinutes, 0);
 
-  const params = { fromDate, toDate, departmentId: departmentId || undefined, minOtMinutes };
+  const params = { fromDate, toDate, departmentId: departmentId === "All" ? undefined : departmentId, minOtMinutes };
 
   async function generate(p = page, l = limit) {
     setGenerating(true);
@@ -105,7 +105,7 @@ export function OvertimeReport({ onBack }: Props) {
           <FilterField label="Department">
             <FormControl>
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
-                <MenuItem value="">All Departments</MenuItem>
+                <MenuItem value="All">All Departments</MenuItem>
                 {departments.map((d) => (
                   <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                 ))}

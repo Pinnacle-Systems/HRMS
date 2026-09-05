@@ -102,7 +102,7 @@ export function LateArrivalReport({ onBack }: Props) {
           <FilterField label="Department">
             <FormControl className="!w-[250px]">
               <Select value={departmentId} onChange={e => setDepartmentId(e.target.value)} sx={selectSx}>
-                <MenuItem value="">All Departments</MenuItem>
+                <MenuItem value="All">All Departments</MenuItem>
                 {departments.map((d) => (
                   <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                 ))}

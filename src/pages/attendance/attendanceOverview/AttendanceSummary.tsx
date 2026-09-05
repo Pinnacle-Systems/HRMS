@@ -88,14 +88,14 @@ export function AttendanceSummary() {
     try {
       const res: any = await attendanceService.getSummary({
         date: selectedDate,
-        departmentId: departmentId || undefined,
-        branchId: branchId || undefined,
+        departmentId: departmentId === 'All' ? undefined : departmentId || undefined,
+        branchId: branchId === 'All' ? undefined : branchId || undefined,
       });
       const data = res?.data?.data ?? res?.data;
       setSummary(data?.summary ?? data ?? null);
     } catch {
       showSnackbar("Failed to load attendance summary", "error");
-       setSummary(null);
+      setSummary(null);
     } finally {
       hideSpinner();
     }
@@ -111,12 +111,12 @@ export function AttendanceSummary() {
       const res: any = await attendanceService.getRegister({
         startDate: params.startDate || selectedDate,
         endDate: params.endDate || selectedDate,
-        departmentId: params.departmentId || departmentId || undefined,
-        branchId: params.branchId || branchId || undefined,
+        departmentId: params.departmentId === 'All' ? undefined : params.departmentId || undefined,
+        branchId: params.branchId === 'All' ? undefined : params.branchId || undefined,
       });
       const data = res?.data?.data ?? res?.data;
-      return (Array.isArray(data) ? data : data?.content ?? []) as { 
-        status: string; 
+      return (Array.isArray(data) ? data : data?.content ?? []) as {
+        status: string;
         department?: string;
         employeeId?: string;
         employeeName?: string;
@@ -129,52 +129,52 @@ export function AttendanceSummary() {
     }
   };
 
-const loadTrends = useCallback(async () => {
-  try {
-    const dates = Array.from({ length: 7 }, (_, i) => 
-      dayjs(selectedDate).subtract(6 - i, "day").format("YYYY-MM-DD")
-    );
-    
-    // Fetch all dates in parallel
-    const trendPromises = dates.map(async (d) => {
-      const params = {
-        startDate: d,
-        endDate: d,
-        departmentId: departmentId || undefined,
-        branchId: branchId || undefined,
-      };
-      
-      try {
-        const res: any = await attendanceService.getRegister(params);
-        const data = res?.data?.data ?? res?.data;
-        const content = Array.isArray(data) ? data : data?.content ?? [];
-        
-        return {
-          date: d,
-          present: content.filter((r: any) => 
-            ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)
-          ).length,
-          absent: content.filter((r: any) => r.status === "absent").length,
-          late: content.filter((r: any) => r.status === "late").length,
-        };
-      } catch (error) {
-        console.error(`Error fetching data for ${d}:`, error);
-        return {
-          date: d,
-          present: 0,
-          absent: 0,
-          late: 0,
-        };
-      }
-    });
+  const loadTrends = useCallback(async () => {
+    try {
+      const dates = Array.from({ length: 7 }, (_, i) =>
+        dayjs(selectedDate).subtract(6 - i, "day").format("YYYY-MM-DD")
+      );
 
-    const trendRows = await Promise.all(trendPromises);
-    setTrends(trendRows);
-  } catch (error) {
-    console.error('Error loading trends:', error);
-    setTrends([]);
-  }
-}, [selectedDate, departmentId, branchId]);
+      // Fetch all dates in parallel
+      const trendPromises = dates.map(async (d) => {
+        const params = {
+          startDate: d,
+          endDate: d,
+          departmentId: departmentId === 'All' ? undefined : departmentId || undefined,
+          branchId: branchId === 'All' ? undefined : branchId || undefined,
+        };
+
+        try {
+          const res: any = await attendanceService.getRegister(params);
+          const data = res?.data?.data ?? res?.data;
+          const content = Array.isArray(data) ? data : data?.content ?? [];
+
+          return {
+            date: d,
+            present: content.filter((r: any) =>
+              ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)
+            ).length,
+            absent: content.filter((r: any) => r.status === "absent").length,
+            late: content.filter((r: any) => r.status === "late").length,
+          };
+        } catch (error) {
+          console.error(`Error fetching data for ${d}:`, error);
+          return {
+            date: d,
+            present: 0,
+            absent: 0,
+            late: 0,
+          };
+        }
+      });
+
+      const trendRows = await Promise.all(trendPromises);
+      setTrends(trendRows);
+    } catch (error) {
+      console.error('Error loading trends:', error);
+      setTrends([]);
+    }
+  }, [selectedDate, departmentId, branchId]);
 
   const loadDepartmentWise = useCallback(async () => {
     if (departments.length === 0) {
@@ -182,19 +182,22 @@ const loadTrends = useCallback(async () => {
       return;
     }
     try {
-      const content = await getRegisterContent({ startDate: selectedDate,endDate: selectedDate, departmentId: departmentId || undefined,
-        branchId: branchId || undefined, });  
-        let filteredContent = content;
-         if (departmentId) {
+      const content = await getRegisterContent({
+        startDate: selectedDate, endDate: selectedDate,
+        departmentId: departmentId === 'All' ? undefined : departmentId || undefined,
+        branchId: branchId === 'All' ? undefined : branchId || undefined,
+      });
+      let filteredContent = content;
+      if (departmentId) {
         const selectedDept = departments.find(d => d.id === departmentId);
         if (selectedDept) {
           filteredContent = content.filter(r => r.department === selectedDept.departmentName);
         }
-      }    
+      }
       const departmentWise: DepartmentWiseSummary[] = departments
         .map((dept) => {
           const deptRecords = filteredContent.filter((r) => r.department === dept.departmentName);
-                    if (deptRecords.length === 0) return null;
+          if (deptRecords.length === 0) return null;
 
           const present = deptRecords.filter((r) => ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)).length;
           return {
@@ -207,13 +210,13 @@ const loadTrends = useCallback(async () => {
         })
         .filter((d): d is DepartmentWiseSummary => d !== null)
         .filter((d) => d.total > 0);
-            departmentWise.sort((a, b) => b.attendancePercentage - a.attendancePercentage);
+      departmentWise.sort((a, b) => b.attendancePercentage - a.attendancePercentage);
 
       setDeptData(departmentWise);
     } catch {
       setDeptData([]);
     }
-  }, [selectedDate, departments,departmentId, branchId,]);
+  }, [selectedDate, departments, departmentId, branchId,]);
 
   const fetchMasterData = useCallback(async () => {
     try {
@@ -226,7 +229,7 @@ const loadTrends = useCallback(async () => {
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }
-  },[]);
+  }, []);
 
   useEffect(() => {
     const loadAllData = async () => {
@@ -239,7 +242,7 @@ const loadTrends = useCallback(async () => {
     loadAllData();
   }, [selectedDate, departmentId, branchId]);
 
-   useEffect(() => {
+  useEffect(() => {
     fetchMasterData();
   }, []);
 
@@ -258,7 +261,7 @@ const loadTrends = useCallback(async () => {
 
   return (
     <div className="p-4 space-y-4">
-      { summary ? (
+      {summary ? (
         <>
           {/* Attendance % Banner */}
           <div className="border-2 border-primary rounded-lg py-3 px-5 pt-0 flex items-center justify-between bg-white-50">
@@ -291,7 +294,7 @@ const loadTrends = useCallback(async () => {
                   <FormControl>
                     <InputLabel>Department</InputLabel>
                     <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
-                      <MenuItem value="">All Departments</MenuItem>
+                      <MenuItem value="All">All Departments</MenuItem>
                       {departments.map(d => (
                         <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
                       ))}
@@ -300,7 +303,7 @@ const loadTrends = useCallback(async () => {
                   <FormControl>
                     <InputLabel>Branch</InputLabel>
                     <Select value={branchId} onChange={(e) => setBranchId(e.target.value)} label="Branch" sx={selectSx}>
-                      <MenuItem value="">All Branches</MenuItem>
+                      <MenuItem value="All">All Branches</MenuItem>
                       {branches.map(b => (
                         <MenuItem key={b.id} value={b.id}>{b.branchName}</MenuItem>
                       ))}
