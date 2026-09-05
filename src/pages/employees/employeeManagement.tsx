@@ -808,7 +808,7 @@ export default function EmployeeManagement() {
           eligibleForRehire: Boolean(eligibleForRehire),
         }
         try {
-          await employeeService.deactivateEmployee(id,payload);
+          await employeeService.deactivateEmployee(id, payload);
           showSnackbar(`"${name}" has been deactivated.`, "success");
           getEmployees();
         } catch (error: any) {
@@ -1192,6 +1192,12 @@ export default function EmployeeManagement() {
         const onboardingCount = employees.filter(
           (employee) => employee.employeeStatus === "ONBOARDING",
         ).length;
+        const onboardingInProgressCount = employees.filter(
+          (employee) => employee.employeeStatus === "ONBOARDING_IN_PROGRESS",
+        ).length;
+        const onboardingCompletedCount = employees.filter(
+          (employee) => employee.employeeStatus === "ONBOARDING_COMPLETED",
+        ).length;
         const inactiveCount = employees.filter(
           (employee) => employee.isActive === false || employee.employeeStatus === "INACTIVE",
         ).length;
@@ -1215,14 +1221,6 @@ export default function EmployeeManagement() {
             bar: "bg-emerald-500",
           },
           {
-            label: "Onboarding Queue",
-            value: onboardingCount,
-            detail: "Need onboarding follow-up",
-            icon: <ArrowUpward />,
-            tone: "text-amber-700 bg-amber-50",
-            bar: "bg-amber-500",
-          },
-          {
             label: "Inactive Employees",
             value: inactiveCount,
             detail: includeInactive ? "Included in this view" : "Enable toggle to view all",
@@ -1230,10 +1228,34 @@ export default function EmployeeManagement() {
             tone: "text-rose-700 bg-rose-50",
             bar: "bg-rose-500",
           },
+          {
+            label: "Onboarding Queue",
+            value: onboardingCount,
+            detail: "Awaiting onboarding start",
+            icon: <ArrowUpward />,
+            tone: "text-amber-700 bg-amber-50",
+            bar: "bg-amber-500",
+          },
+          {
+            label: "Onboarding In Progress",
+            value: onboardingInProgressCount,
+            detail: "Currently in onboarding process",
+            icon: <ArrowUpward />,
+            tone: "text-indigo-700 bg-indigo-50",
+            bar: "bg-indigo-500",
+          },
+          {
+            label: "Onboarding Completed",
+            value: onboardingCompletedCount,
+            detail: "Successfully onboarded",
+            icon: <ArrowUpward />,
+            tone: "text-teal-700 bg-teal-50",
+            bar: "bg-teal-500",
+          },
         ];
 
         return (
-          <div className="grid grid-cols-4 gap-3 mb-6 text-[12px]">
+          <div className="grid grid-cols-6 gap-3 mb-6 text-[12px]">
             {summaryCards.map((card) => (
               <div
                 key={card.label}
@@ -1246,11 +1268,11 @@ export default function EmployeeManagement() {
                       {card.value}
                     </div>
                   </div>
-                  <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
+                  <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
                     {card.icon}
                   </div>
                 </div>
-                <div className="mt-1 truncate text-gray-500" title={card.detail}>
+                <div className="mt-1 text-[10px] truncate text-gray-500" title={card.detail}>
                   {card.detail}
                 </div>
                 <div className="absolute bottom-0 left-0 h-1 w-full bg-gray-100">
@@ -2316,79 +2338,79 @@ export default function EmployeeManagement() {
               <TableBody>
                 {filteredResignedEmployees.map((employee, index) => (
                   <Fragment key={employee.id || employee.employeeId}>
-                  <TableRow sx={getRowColor(index)}>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        aria-label={expandedResignedEmployeeId === employee.id ? "Collapse employee details" : "Expand employee details"}
-                        onClick={() => toggleResignedEmployeeDetails(employee)}
-                      >
-                        {expandedResignedEmployeeId === employee.id ? <ExpandLessOutlined className="!text-gray-800" /> : <ExpandMoreOutlined className="!text-gray-800" />}
-                      </IconButton>
-                      {index + 1}
-                    </TableCell>
-                    <TableCell><div className="py-2">{employee.name || "-"}</div></TableCell>
-                    <TableCell>
-                      {getResignedField(employee, "deactivationReason", "deactivatedReason", "reason", "remarks")}
-                    </TableCell>
-                    <TableCell>{getResignedField(employee, "adminRemarks", "remarks")}</TableCell>
-                    <TableCell>
-                      {getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt") !== "-"
-                        ? formatDate(getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt"))
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") === "-"
-                        ? "-"
-                        : getResignedField(employee, "eligibleForRehire", "eligibleToRehire")
-                          ? "Yes"
-                          : "No"}
-                    </TableCell>
-                  </TableRow>
-                  {expandedResignedEmployeeId === employee.id && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="!bg-primary-50 border border-gray-200">
-                        {resignedDetailsLoading === employee.id ? (
-                          <div className="py-4 text-center text-gray-500">Loading employee details...</div>
-                        ) : (
-                          <div className="grid grid-cols-1 gap-3 p-3 text-[12px] md:grid-cols-3">
-                            {[
-                              ["Employee ID", "employeeId"],
-                              ["Email", "emailAddress"],
-                              ["Mobile", "mobileNumber"],
-                              ["Branch", "branch"],
-                              ["Department", "department"],
-                              ["Designation", "designation"],
-                              ["Date of Birth", "dateOfBirth"],
-                              ["Joining Date", "joiningDate"],
-                              ["Relieved Date", "relievedDate"],
-                              ["PAN", "panNumber"],
-                              ["Aadhaar", "aadhaarNumber"],
-                              ["UAN", "universalAccountNumber"],
-                              ["PF Number", "pfNumber"],
-                              ["Deactivated At", "deactivatedAt"],
-                              ["Deactivation Remarks", "deactivationRemarks"],
-                              ["Eligible to Rehire", "eligibleForRehire"],
-                            ].map(([label, field]) => {
-                              const value = getResignedField(resignedEmployeeDetails[employee.id] || employee, field);
-                              return (
-                                <div key={field}>
-                                  <div className="font-medium text-gray-500">{label}</div>
-                                  <div className="mt-1 text-gray-800">
-                                    {field.toLowerCase().includes("date") || field === "deactivatedAt"
-                                      ? value === "-" ? "-" : formatDate(value)
-                                      : field === "eligibleForRehire"
-                                        ? value === "-" ? "-" : value ? "Yes" : "No"
-                                        : value}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
+                    <TableRow sx={getRowColor(index)}>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          aria-label={expandedResignedEmployeeId === employee.id ? "Collapse employee details" : "Expand employee details"}
+                          onClick={() => toggleResignedEmployeeDetails(employee)}
+                        >
+                          {expandedResignedEmployeeId === employee.id ? <ExpandLessOutlined className="!text-gray-800" /> : <ExpandMoreOutlined className="!text-gray-800" />}
+                        </IconButton>
+                        {index + 1}
+                      </TableCell>
+                      <TableCell><div className="py-2">{employee.name || "-"}</div></TableCell>
+                      <TableCell>
+                        {getResignedField(employee, "deactivationReason", "deactivatedReason", "reason", "remarks")}
+                      </TableCell>
+                      <TableCell>{getResignedField(employee, "adminRemarks", "remarks")}</TableCell>
+                      <TableCell>
+                        {getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt") !== "-"
+                          ? formatDate(getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt"))
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") === "-"
+                          ? "-"
+                          : getResignedField(employee, "eligibleForRehire", "eligibleToRehire")
+                            ? "Yes"
+                            : "No"}
                       </TableCell>
                     </TableRow>
-                  )}
+                    {expandedResignedEmployeeId === employee.id && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="!bg-primary-50 border border-gray-200">
+                          {resignedDetailsLoading === employee.id ? (
+                            <div className="py-4 text-center text-gray-500">Loading employee details...</div>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-3 p-3 text-[12px] md:grid-cols-3">
+                              {[
+                                ["Employee ID", "employeeId"],
+                                ["Email", "emailAddress"],
+                                ["Mobile", "mobileNumber"],
+                                ["Branch", "branch"],
+                                ["Department", "department"],
+                                ["Designation", "designation"],
+                                ["Date of Birth", "dateOfBirth"],
+                                ["Joining Date", "joiningDate"],
+                                ["Relieved Date", "relievedDate"],
+                                ["PAN", "panNumber"],
+                                ["Aadhaar", "aadhaarNumber"],
+                                ["UAN", "universalAccountNumber"],
+                                ["PF Number", "pfNumber"],
+                                ["Deactivated At", "deactivatedAt"],
+                                ["Deactivation Remarks", "deactivationRemarks"],
+                                ["Eligible to Rehire", "eligibleForRehire"],
+                              ].map(([label, field]) => {
+                                const value = getResignedField(resignedEmployeeDetails[employee.id] || employee, field);
+                                return (
+                                  <div key={field}>
+                                    <div className="font-medium text-gray-500">{label}</div>
+                                    <div className="mt-1 text-gray-800">
+                                      {field.toLowerCase().includes("date") || field === "deactivatedAt"
+                                        ? value === "-" ? "-" : formatDate(value)
+                                        : field === "eligibleForRehire"
+                                          ? value === "-" ? "-" : value ? "Yes" : "No"
+                                          : value}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </Fragment>
                 ))}
                 {filteredResignedEmployees.length === 0 && (

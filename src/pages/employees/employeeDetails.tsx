@@ -41,6 +41,7 @@ import {
   getDomainColor,
   masterSx,
   isEqual,
+  extractPolicyValues,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -3283,43 +3284,60 @@ export default function EmployeeDetails() {
     }
   }, [tabValue]);
 
-  useEffect(() => {
-    if (tabValue !== 10 || !apiId) return;
-    setPolicyLoading(true);
-    setPolicyError(null);
-    const keyDomains = [
-      PolicyDomain.LEAVE,
-      PolicyDomain.EXPENSE,
-      PolicyDomain.OVERTIME,
-      PolicyDomain.ATTENDANCE,
-      PolicyDomain.PAYROLL,
-    ];
-    Promise.all([
-      policyService.getEmployeePolicies(apiId),
-      policyService.getEmployeePolicyHistory(apiId),
-      Promise.all(
-        keyDomains.map((domain) =>
-          policyService
-            .getEffectivePolicy(apiId, domain)
-            .then((res: any) => ({ domain, data: res.data ?? null }))
-            .catch(() => ({ domain, data: null })),
-        ),
+useEffect(() => {
+  // if (tabValue !== 10 || !apiId) return;
+  if (tabValue !== 3 || !apiId) return;
+  setPolicyLoading(true);
+  setPolicyError(null);
+  const keyDomains = [
+    PolicyDomain.LEAVE,
+    PolicyDomain.EXPENSE,
+    PolicyDomain.OVERTIME,
+    PolicyDomain.ATTENDANCE,
+    PolicyDomain.PAYROLL,
+  ];
+  Promise.all([
+    policyService.getEmployeePolicies(apiId),
+    policyService.getEmployeePolicyHistory(apiId),
+    Promise.all(
+      keyDomains.map((domain) =>
+        policyService
+          .getEffectivePolicy(apiId, domain)
+          .then((res: any) => ({ domain, data: res.data ?? null }))
+          .catch(() => ({ domain, data: null })),
       ),
-    ])
-      .then(([policiesRes, historyRes, effectiveRes]: any) => {
-        setEmpPolicies(policiesRes.data ?? []);
-        setEmpPolicyHistory(historyRes.data ?? []);
-        const effectiveMap: Record<string, any> = {};
-        (effectiveRes as Array<{ domain: string; data: any }>).forEach(
-          ({ domain, data }) => {
-            if (data) effectiveMap[domain] = data;
-          },
-        );
-        setEffectivePolicies(effectiveMap);
-      })
-      .catch(() => setPolicyError("Failed to load policy data"))
-      .finally(() => setPolicyLoading(false));
-  }, [tabValue, id]);
+    ),
+  ])
+    .then(([policiesRes, historyRes, effectiveRes]: any) => {
+      const policies = policiesRes.data ?? [];
+      setEmpPolicies(policies);
+      setEmpPolicyHistory(historyRes.data ?? []);
+      
+      // Extract policy values and auto-fill employee fields
+      const policyValues = extractPolicyValues(policies, employee?.designation || '');
+      
+      // Auto-fill noticePeriod and probationPeriod
+      if (policyValues.noticePeriod > 0 || policyValues.probationPeriod > 0) {
+        const updatedData = {
+          ...employee,
+          noticePeriod: policyValues.noticePeriod > 0 ? policyValues.noticePeriod : employee?.noticePeriod || 0,
+          probationPeriod: policyValues.probationPeriod > 0 ? policyValues.probationPeriod : employee?.probationPeriod || 0,
+        };
+        setEmployee(updatedData);
+        setInitialEmployee(updatedData);
+      }
+      
+      const effectiveMap: Record<string, any> = {};
+      (effectiveRes as Array<{ domain: string; data: any }>).forEach(
+        ({ domain, data }) => {
+          if (data) effectiveMap[domain] = data;
+        },
+      );
+      setEffectivePolicies(effectiveMap);
+    })
+    .catch(() => setPolicyError("Failed to load policy data"))
+    .finally(() => setPolicyLoading(false));
+}, [tabValue, id, employee?.designation]);
 
   const familyMemberOptions = familyMembers.map((member: any) => ({
     id: member.id,

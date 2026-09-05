@@ -532,3 +532,38 @@ export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => 
 
   return obj1 === obj2;
 };
+
+export const extractPolicyValues = (
+  policies: any[],
+  employeeDesignation: string
+): { noticePeriod: number; probationPeriod: number } => {
+  let noticePeriod = 0;
+  let probationPeriod = 0;
+
+  // Extract probation policy
+  const probationPolicy = policies.find(
+    (p) => p.domainCode === "PROBATION"
+  );
+  if (probationPolicy?.config?.probationDuration) {
+    probationPeriod = Number(probationPolicy.config.probationDuration);
+  }
+
+  // Extract notice period policy
+  const noticePolicy = policies.find(
+    (p) => p.domainCode === "NOTICE_PERIOD"
+  );
+  if (noticePolicy?.config?.noticeDays) {
+    const noticeConfig = noticePolicy.config.noticeDays;
+    
+    // Check if employee is a manager (designation contains "MANAGER" case-insensitive)
+    const isManager = employeeDesignation?.toUpperCase().includes("MANAGER");
+    
+    if (isManager && noticeConfig.MANAGER !== undefined) {
+      noticePeriod = Number(noticeConfig.MANAGER);
+    } else if (noticeConfig.DEFAULT !== undefined) {
+      noticePeriod = Number(noticeConfig.DEFAULT);
+    }
+  }
+
+  return { noticePeriod, probationPeriod };
+};
