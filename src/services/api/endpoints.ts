@@ -135,6 +135,7 @@ export const API_ENDPOINTS = {
     GET_ADDRESS: (id: string) => `/employees/${id}/addresses`,
     GET_ATTACHMENT: (id: string) => `/employees/${id}/attachments`,
     GET_DEACTIVATED: "/employees/deactivated",
+    SUMMARY: "/employees/stats/summary",
 
     LEAVE_BALANCES: (id: string) => `/employees/${id}/leave-balances`,
     LEAVE_LEDGER: (id: string) => `/employees/${id}/leave-ledger`,

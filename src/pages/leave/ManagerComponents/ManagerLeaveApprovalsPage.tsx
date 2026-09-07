@@ -437,6 +437,7 @@ export default function ManagerLeaveApprovalsPage() {
           </TextField>
           <DatePicker
             label="From Date"
+            format="DD/MM/YYYY"
             value={fromDate}
             onChange={(value) => {
               setFromDate(dayjs(value));
@@ -447,6 +448,7 @@ export default function ManagerLeaveApprovalsPage() {
           <DatePicker
             label="To Date"
             value={toDate}
+            format="DD/MM/YYYY"
             minDate={fromDate ?? undefined}
             onChange={(value) => {
               setToDate(dayjs(value));

@@ -198,6 +198,7 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                     <DatePicker
                       label="Effective From"
+                      format="DD/MM/YYYY"
                       value={effectiveFrom ? dayjs(effectiveFrom) : dayjs()}
                       onChange={(newValue) =>
                         onEffectiveFromChange?.(

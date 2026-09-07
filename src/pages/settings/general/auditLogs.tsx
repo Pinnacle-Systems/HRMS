@@ -705,6 +705,7 @@ const renderLogRow = (log: GroupedAuditLog, index: number, isChild: boolean = fa
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             value={filterFromDate ? dayjs(filterFromDate) : null}
+            format="DD/MM/YYYY"
             onChange={(d) => setFilterFromDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
             slotProps={{ textField: { label: "From", sx: { width: 135, "& .MuiPickersOutlinedInput-root": { borderRadius: "6px !important" } } } }}
           />
@@ -712,6 +713,7 @@ const renderLogRow = (log: GroupedAuditLog, index: number, isChild: boolean = fa
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             value={filterToDate ? dayjs(filterToDate) : null}
+            format="DD/MM/YYYY"
             minDate={filterFromDate ? dayjs(filterFromDate) : undefined}
             onChange={(d) => setFilterToDate(d ? dayjs(d).format("YYYY-MM-DD") : "")}
             slotProps={{ textField: { label: "To", sx: { width: 135, "& .MuiOutlinedInput-root": { borderRadius: "6px !important" } } } }}

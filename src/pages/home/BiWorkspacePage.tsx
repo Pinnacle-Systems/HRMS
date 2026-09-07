@@ -1610,12 +1610,14 @@ export default function BiWorkspacePage() {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="From"
+                format="DD/MM/YYYY"
                 value={dateRange.from ? dayjs(dateRange.from) : null}
                 onChange={(newValue) => setDateRange({ ...dateRange, from: newValue ? dayjs(newValue).format("YYYY-MM-DD") : null })}
               // slotProps={{ textField: { size: "small" } }}
               />
               <DatePicker
                 label="To"
+                format="DD/MM/YYYY"
                 value={dateRange.to ? dayjs(dateRange.to) : null}
                 minDate={dateRange.from ? dayjs(dateRange.from) : undefined}
                 onChange={(newValue) => setDateRange({ ...dateRange, to: newValue ? dayjs(newValue).format("YYYY-MM-DD") : null })}

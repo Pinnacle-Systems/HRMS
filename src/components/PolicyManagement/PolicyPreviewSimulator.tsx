@@ -131,6 +131,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
                 <Grid size={{ xs: 12, md: 4 }}>
                   <DatePicker
                     label="From Date"
+                    format="DD/MM/YYYY"
                     value={context.fromDate ? dayjs(context.fromDate) : null}
                     onChange={(newValue) =>
                       setContext({
@@ -151,6 +152,7 @@ export const PolicyPreviewSimulator: React.FC<PolicyPreviewSimulatorProps> = ({
                 <Grid size={{ xs: 12, md: 4 }}>
                   <DatePicker
                     label="To Date"
+                    format="DD/MM/YYYY"
                     value={context.toDate ? dayjs(context.toDate) : null}
                     onChange={(newValue) =>
                       setContext({

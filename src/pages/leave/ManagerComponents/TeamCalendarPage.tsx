@@ -214,6 +214,7 @@ export default function TeamCalendarPage() {
               <div className="flex items-center gap-2">
                 <DatePicker
                   label="From Date"
+                  format="DD/MM/YYYY"
                   value={fromDate ? dayjs(fromDate) : null}
                   onChange={(newValue) => setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
                   maxDate={toDate ? dayjs(toDate) : undefined}
@@ -222,6 +223,7 @@ export default function TeamCalendarPage() {
                 <span className="text-gray-400">→</span>
                 <DatePicker
                   label="To Date"
+                  format="DD/MM/YYYY"
                   value={toDate ? dayjs(toDate) : null}
                   onChange={(newValue) => setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
                   minDate={fromDate ? dayjs(fromDate) : undefined}

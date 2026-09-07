@@ -1120,7 +1120,7 @@ export const DeviceManagement: React.FC = () => {
               helperText={formErrors.ipAddress}
               required
               placeholder="192.168.1.100"
-              disabled={dialogMode === "edit"}
+              // disabled={dialogMode === "edit"}
             />
           </Grid>
           <Grid size={{ xs: 12 }}>
@@ -1968,23 +1968,23 @@ export const DeviceManagement: React.FC = () => {
           <Grid size={{ xs: 6, sm: 3, md: 3 }}>
             <DatePicker
               label="From Date"
+              format="DD/MM/YYYY"
               value={fromDate ? dayjs(fromDate) : null}
               onChange={(newValue) => setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
               slotProps={{
                 textField: { fullWidth: true },
               }}
-              format="YYYY-MM-DD"
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 3, md: 3 }}>
             <DatePicker
               label="To Date"
+              format="DD/MM/YYYY"
               value={toDate ? dayjs(toDate) : null}
               onChange={(newValue) => setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
               slotProps={{
                 textField: { fullWidth: true },
               }}
-              format="YYYY-MM-DD"
             />
           </Grid>
           <Grid size={{ xs: 6, sm: 6, md: 6 }} className="flex items-center whitespace-nowrap justify-end gap-2">

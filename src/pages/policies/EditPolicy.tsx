@@ -439,6 +439,7 @@ export default function EditPolicy() {
             <div className='grid grid-cols-2 gap-5 mb-4'>
               <DatePicker
                 label="Effective From"
+                format="DD/MM/YYYY"
                 value={effectiveFrom ? dayjs(effectiveFrom) : null}
                 onChange={(newValue) => {
                   setEffectiveFrom(
@@ -455,6 +456,7 @@ export default function EditPolicy() {
               />
               <DatePicker
                 label="Effective To"
+                format="DD/MM/YYYY"
                 value={effectiveTo ? dayjs(effectiveTo) : null}
                 onChange={(newValue) => {
                   setEffectiveTo(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")

@@ -58,6 +58,9 @@ export interface Employee {
   idCardNo: string;
   midNo: string;
   oldIdNo: string;
+  employeeGroupId: string;
+  template: string;
+  employeeGroup: string;
 }
 export interface Department {
   id: string;

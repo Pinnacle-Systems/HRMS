@@ -6,6 +6,7 @@ import {
   type EmployeeListQuery,
   type BulkUploadResponse,
   type EmployeeSummaryResponse,
+  type EmployeeStatsSummary,
 } from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
@@ -48,7 +49,7 @@ import type { Category } from "../../services/modules/shifts.ts";
 import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, ExpandLessOutlined, ExpandMoreOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
 import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
-import { masterSx } from "./const.ts";
+import { masterSx, resignationTypes } from "./const.ts";
 import DataState from "../../components/DataState.tsx";
 import { dialogsx } from "../../const.ts";
 
@@ -58,12 +59,11 @@ export default function EmployeeManagement() {
   const { session } = useAuth();
   // State for employees
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeStats, setEmployeeStats] = useState<EmployeeStatsSummary | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
-  // const [sortBy, setSortBy] = useState("");
-  // const [sortOrder, setSortOrder] = useState("");
   const [sortCriteria, setSortCriteria] = useState<Array<{ field: string, order: 'ASC' | 'DESC' }>>([
     { field: 'employeeId', order: 'ASC' }
   ]);
@@ -92,6 +92,8 @@ export default function EmployeeManagement() {
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
   const [empStatus, setEmpStatus] = useState<Category[]>([]);
+  const [employeeGroups, setEmployeeGroups] = useState<Category[]>([]);
+  const [shiftCommonTemplates, setShiftCommonTemplates] = useState<Category[]>([]);
 
   // Code Generation (used by Add Employee dialog)
   const [hasManualEmpId, setHasManualEmpId] = useState(false);
@@ -127,29 +129,16 @@ export default function EmployeeManagement() {
   const [proposedRelievedDate, setProposedRelievedDate] = useState("");
   const [systemGeneratedRelievedDate, setSystemGeneratedRelievedDate] = useState("");
   const [resignationType, setResignationType] = useState("");
-  const [referredDate, setReferredDate] = useState("");
-  const [referredBy, setReferredBy] = useState("");
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] =
     useState(false);
   const [adminRemarks, setAdminRemarks] = useState("");
   const [eligibleForRehire, setEligibleForRehire] = useState(true);
   const [resignedDialogOpen, setResignedDialogOpen] = useState(false);
-  const [resignedEmployees, setResignedEmployees] = useState<Employee[]>([]);
+  const [resignedEmployees, _setResignedEmployees] = useState<Employee[]>([]);
   const [resignedSearch, setResignedSearch] = useState("");
   const [expandedResignedEmployeeId, setExpandedResignedEmployeeId] = useState<string | null>(null);
   const [resignedEmployeeDetails, setResignedEmployeeDetails] = useState<Record<string, any>>({});
   const [resignedDetailsLoading, setResignedDetailsLoading] = useState<string | null>(null);
-
-  const resignationTypes = [
-    "Personal",
-    "Terminated",
-    "Work Pressure",
-    "Salary Dispute",
-    "Better Opportunity",
-    "Health Reasons",
-    "Relocation",
-    "Other",
-  ];
 
   const filterFields = useMemo(
     () =>
@@ -167,13 +156,11 @@ export default function EmployeeManagement() {
         setExcelHasEmployeeIdColumn(true);
         return;
       }
-      // Always restore saved config values into the form fields
       setEmpCodeType(config.formatType.toLowerCase());
       setEmpPrefix(config.prefix || "EMP");
       setZero(config.paddingWidth || 0);
       setEmpStartNumber(String(config.startingNumber || 1));
       setEmpDigitCount(String(config.numberOfDigits || 4));
-      // Auto-select "continue" only when at least one employee has been generated
       setEmpGenerationFlow(config.lastGeneratedId ? "continue" : "new");
     } catch (error: any) {
       console.error("Failed to load employee ID config:", error);
@@ -214,18 +201,12 @@ export default function EmployeeManagement() {
     }
   };
 
-  // Generate preview whenever relevant fields change
   useEffect(() => {
     if (hasManualEmpId || !employeeDialogOpen) return;
     if (empGenerationFlow === "continue") {
-      // "continue" preview is already embedded in employeeIdConfig — no API call needed here
       setNextIdPreview(employeeIdConfig?.nextSequencePreview || "");
       return;
     }
-    // const timer = setTimeout(() => {
-    //   if (empCodeType === "pattern" && (!empPrefix || !empStartNumber)) return;
-    //   generatePreview();
-    // }, 300);
     const timer = setTimeout(() => {
       if (empCodeType === "pattern" && (!empPrefix || !empStartNumber || !zero)) return;
       generatePreview();
@@ -243,36 +224,11 @@ export default function EmployeeManagement() {
     employeeIdConfig,
   ]);
 
-  // const generateRandomAlphaNumeric = (length: number) => {
-  //   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  //   let result = "";
-  //   let seed = length * 31 + 17;
-  //   for (let i = 0; i < length; i++) {
-  //     seed = (seed * 9301 + 49297) % 233280;
-  //     const index = Math.floor((seed / 233280) * chars.length);
-  //     result += chars.charAt(index);
-  //   }
-  //   return result;
-  // };
-
-  // const getNextEmployeeId = () => {
-  //   if (employees.length === 0) {
-  //     return `${empPrefix}${empStartNumber}`;
-  //   }
-  //   const employeeIds = employees.map((emp) => emp.employeeId).filter(Boolean);
-  //   const lastId = employeeIds[0];
-  //   const numericPart = lastId.replace(/\D/g, "");
-  //   const nextNumber = String(Number(numericPart) + 1).padStart(numericPart.length, "0");
-  //   const prefix = lastId.replace(/[0-9]/g, "");
-  //   return `${prefix}${nextNumber}`;
-  // };
-
   const handleApplyFilters = (filters: FilterConfig) => {
     setActiveFilters(filters);
     setPage(0);
   };
 
-  // Remove a specific filter
   const removeFilter = (ruleId: string) => {
     if (activeFilters) {
       const newRules = activeFilters.rules.filter((rule) => rule.id !== ruleId);
@@ -280,25 +236,21 @@ export default function EmployeeManagement() {
         const newFilters = { ...activeFilters, rules: newRules };
         setActiveFilters(newFilters);
       } else {
-        // Clear all filters if no rules left
         clearAllFilters();
       }
       setPage(0);
     }
   };
 
-  // Clear all filters
   const clearAllFilters = () => {
     setActiveFilters(null);
     setPage(0);
   };
 
-  // Get active filter count
   const getActiveFilterCount = (): number => {
     return activeFilters?.rules.length || 0;
   };
 
-  // Toggle sort for a field
   const toggleSort = (field: string) => {
     setSortCriteria(prev => {
       const existingIndex = prev.findIndex(s => s.field === field);
@@ -313,7 +265,6 @@ export default function EmployeeManagement() {
           return prev.filter(s => s.field !== field);
         }
       } else {
-        // return [...prev, { field, order: 'ASC' }];
         return [{ field, order: 'ASC' }];
       }
       return prev;
@@ -321,7 +272,6 @@ export default function EmployeeManagement() {
     setPage(0);
   };
 
-  // Fetch employees
   const getEmployees = async () => {
     showSpinner();
     try {
@@ -349,7 +299,6 @@ export default function EmployeeManagement() {
 
       setTotal(employeePage.totalElements);
 
-      // Operators outside the backend query contract are applied to the current page only.
       if (
         activeFilters &&
         activeFilters.rules.length > 0 &&
@@ -362,6 +311,13 @@ export default function EmployeeManagement() {
         );
       }
       setEmployees(visibleEmployees);
+
+      try {
+        const summaryResponse = await employeeService.getSummary();
+        setEmployeeStats(summaryResponse.data);
+      } catch (error) {
+        console.error("Failed to load employee statistics:", error);
+      }
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employees", "error");
     } finally {
@@ -369,7 +325,6 @@ export default function EmployeeManagement() {
     }
   };
 
-  // Fetch departments and designations
   const getMasterData = async () => {
     try {
       const deptRes: any = await departmentService.getActiveDepartments();
@@ -379,6 +334,8 @@ export default function EmployeeManagement() {
       setBranches(branchRes.data.content || branchRes.data || []);
 
       const category: any = await categoryService.getActiveCategoryItem();
+
+      // Designation
       const designationCategory = category.data.find(
         (element: any) => element.categoryName?.toLowerCase().includes('designation')
       );
@@ -386,6 +343,7 @@ export default function EmployeeManagement() {
         setDesignations(designationCategory.items);
       }
 
+      // Employee Status
       const empStatusCategory = category.data.find(
         (element: any) => {
           const categoryName = element.categoryName?.toLowerCase() || '';
@@ -395,17 +353,23 @@ export default function EmployeeManagement() {
       if (empStatusCategory) {
         setEmpStatus(empStatusCategory.items);
       }
-      // const desigRes: any = await categoryService.getCategoryItems(
-      //   // "00c4fd3c-4fb6-4d33-932e-80a615a90825",
-      //   "fa8c5d40-c0f1-4de2-9543-5069ef0fb8af"
-      // );
-      // // setDesignations(desigRes.data.content || desigRes.data || []);
-      // const stsRes: any = await categoryService.getCategoryItems(
-      //   // "db50d81f-9fcd-4afd-a87c-a5591aa7abbb",
-      //   "bf747a78-26e2-4e8f-97cb-2486a83cef76"
-      // );
-      // setEmpStatus(stsRes.data.content || stsRes.data || []);
-      // "5504ad78-7089-42ec-8219-2a579d99bb0a"
+
+      // Employee Group
+      const employeeGroupCategory = category.data.find(
+        (element: any) => element.categoryName?.toLowerCase().includes('employee group')
+      );
+      if (employeeGroupCategory) {
+        setEmployeeGroups(employeeGroupCategory.items);
+      }
+
+      // Shift Common Template
+      const shiftCommonTemplateCategory = category.data.find(
+        (element: any) => element.categoryName === 'Shift Common Template'
+      );
+      if (shiftCommonTemplateCategory) {
+        setShiftCommonTemplates(shiftCommonTemplateCategory.items);
+      }
+
     } catch (error: any) {
       showSnackbar(error.message, "error");
     }
@@ -417,59 +381,25 @@ export default function EmployeeManagement() {
   }, [
     page,
     limit,
-    // sortBy,
-    // sortOrder,
     searchTerm,
     activeFilters,
     employeeView,
     sortCriteria,
   ]);
 
-  // Update filter fields when master data changes
-  // useEffect(() => {
-  //   // This will update the filter fields options when departments/designations/branches change
-  //   filterFields.map(field => {
-  //     if (field.id === 'designationId') {
-  //       return { ...field, options: designations.map(d => ({ value: d.id, label: d.name })) };
-  //     }
-  //     if (field.id === 'dept') {
-  //       return { ...field, options: departments.map(d => ({ value: d.departmentName, label: d.departmentName })) };
-  //     }
-  //     if (field.id === 'branch') {
-  //       return { ...field, options: branches.map(b => ({ value: b.branchName, label: b.branchName })) };
-  //     }
-  //     return field;
-  //   });
-  //   // Update filterFields state if needed
-  // }, [departments, designations, branches]);
-
-  // const handleSortChange = (
-  //   newSortBy: string,
-  //   newSortOrder?: "ASC" | "DESC",
-  // ) => {
-  //   // setSortBy(newSortBy);
-  //   // setSortOrder(newSortOrder || "ASC");
-  //   setPage(0);
-  //   toggleSort(newSortBy);
-  // };
-
   const getSortIcon = (column: string) => {
     const sortCriterion = sortCriteria.find(s => s.field === column);
     if (!sortCriterion) return null;
     const orderIcon = sortCriterion.order === "ASC" ? (
-      <ArrowUpward fontSize="small" className="ml-1" />
+      <ArrowUpward fontSize="small" className="ml-1 !w-3" />
     ) : (
-      <ArrowDownward fontSize="small" className="ml-1" />
+      <ArrowDownward fontSize="small" className="ml-1 !w-3" />
     );
-    // const orderNumber = sortCriteria.findIndex(s => s.field === column) + 1;
 
     return (
       <span className="flex items-center">
         {orderIcon}
-        <span className="text-[10px] text-gray-400 ml-0.5">({sortCriterion.order})</span>
-        {/* {sortCriteria.length > 1 && (
-          <span className="text-[10px] text-gray-400 ml-0.5">{orderNumber}</span>
-        )} */}
+        {/* <span className="text-[10px] text-gray-400 ml-0.5">({sortCriterion.order})</span> */}
       </span>
     );
   };
@@ -505,12 +435,6 @@ export default function EmployeeManagement() {
     if (empCodeType === "alphanumeric") {
       payload.numberOfDigits = parseInt(empDigitCount);
     }
-    // const updateResponse: any = await employeeService.updateEmployeeId(payload);
-    // const updatedConfig = updateResponse?.data ?? updateResponse;
-    // setEmployeeIdConfig(updatedConfig);
-    // const lastGeneratedId = updatedConfig.lastGeneratedId;
-    // const nextSequencePreview = updatedConfig.nextSequencePreview;
-    // return nextSequencePreview;
 
     await employeeService.updateEmployeeId(payload);
     const previewRes: any = await employeeService.previewEmployeeId(payload);
@@ -520,7 +444,6 @@ export default function EmployeeManagement() {
 
   const validateEmployeeIdConfig = () => {
     if (hasManualEmpId) return true;
-    // "continue" uses the saved server config — no form fields to validate
     if (empGenerationFlow === "continue") return true;
     if (empCodeType === "pattern") {
       if (!empPrefix.trim()) {
@@ -543,7 +466,6 @@ export default function EmployeeManagement() {
     return true;
   };
 
-  // Reset form
   const resetForm = () => {
     setFormData({
       name: "",
@@ -554,6 +476,8 @@ export default function EmployeeManagement() {
       designationId: "",
       mobileNumber: "",
       branchId: session?.branchId || "",
+      employeeGroupId: "",
+      template: "",
     });
 
     setHasManualEmpId(false);
@@ -567,7 +491,6 @@ export default function EmployeeManagement() {
     setEmpGenerationFlow(employeeIdConfig?.configured ? "continue" : "new");
   };
 
-  // Handle Add Employee
   const handleOpenAddDialog = () => {
     setIsEditing(false);
     resetForm();
@@ -575,24 +498,11 @@ export default function EmployeeManagement() {
     loadEmployeeIdConfig();
   };
 
-  // Handle Edit Employee - Open Edit Dialog
   const handleOpenEditDialog = async (employee: Employee) => {
     setIsEditing(true);
     const response: any = await employeeService.getEmployeeById(employee.id);
     setSelectedEmployee(response.data);
 
-    // const resolvedDepartmentId =
-    //   employee.departmentId ||
-    //   departments.find((d) => d.departmentName === employee.department)?.id;
-    // const resolvedDesignationId =
-    //   employee.designationId ||
-    //   designations.find((d) => d.name === employee.designation)?.id;
-    // const resolvedBranchId =
-    //   employee.branchId ||
-    //   branches.find((b) => b.branchName === employee.branch)?.id;
-    // const resolvedEmployeeStatusId =
-    //   employee.employeeStatusId ||
-    //   empStatus.find((s) => s.name === employee.employeeStatus)?.id;
     const resolvedDepartment = departments.find(
       (d) => d.id === employee.departmentId || d.departmentName === employee.department
     );
@@ -613,83 +523,57 @@ export default function EmployeeManagement() {
       branch: employee.branch || "",
       branchId: session?.branchId || resolvedBranchId,
       employeeId: employee.employeeId,
-      // departmentId: resolvedDepartment,
-      // designationId: resolvedDesignation,
-      // department: employee.department,
-      // designation: employee.designation,
       mobileNumber: employee.mobileNumber || "",
-      // employeeStatus: employee.employeeStatus || "",
-      // employeeStatusId: resolvedEmployeeStatus,
       department: resolvedDepartment || null,
       departmentId: resolvedDepartment?.id || employee.departmentId || "",
       designation: resolvedDesignation || null,
       designationId: resolvedDesignation?.id || employee.designationId || "",
       employeeStatus: resolvedEmployeeStatus || null,
       employeeStatusId: resolvedEmployeeStatus?.id || employee.employeeStatusId || "",
+      employeeGroupId: employee.employeeGroupId || "",
+      template: employee.template || "",
     });
     setEmployeeDialogOpen(true);
   };
 
-  // Handle Update Employee
   const handleSaveEmployee = async () => {
-    // if (!formData.name || !formData.emailAddress) {
-    //   showSnackbar("Please fill all required fields", "error");
-    //   return;
-    // }
-    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // if (!emailRegex.test(formData.emailAddress)) {
-    //   showSnackbar("Please enter a valid email address", "error");
-    //   return;
-    // }
     if (!validateEmployeeIdConfig()) return;
-    // setDownloading(true);
     showSpinner();
     try {
       if (isEditing) {
         const empId = selectedEmployee!.id;
-        await Promise.all([
-          // employeeService.updatePersonalInfo(empId, {
-          // firstName: formData.name,
-          // emailAddress: formData.emailAddress,
-          // mobileNumber: formData.mobileNumber,
-          // }),
-          employeeService.updateAdminInfo(empId, {
-            joiningDate: formData.joiningDate,
-            branchId: formData.branchId || selectedEmployee?.branchId,
-            departmentId:
-              formData.departmentId || selectedEmployee?.departmentId,
-            designationId:
-              formData.designationId || selectedEmployee?.designationId,
-            employeeStatusId:
-              formData.employeeStatusId || selectedEmployee?.employeeStatusId,
-            gradeId: selectedEmployee?.gradeId,
-            empTypeId: selectedEmployee?.empTypeId,
-            managerId: selectedEmployee?.managerId,
-            bandId: selectedEmployee?.bandId,
-            confirmationDate: selectedEmployee?.confirmationDate,
-            relievedDate: selectedEmployee?.relievedDate,
-            probationPeriod: selectedEmployee?.probationPeriod,
-            noticePeriod: selectedEmployee?.noticePeriod,
-            // attendanceSchemaId: selectedEmployee?.empTypeId,
-            vehicleTypeId: selectedEmployee?.vehicleTypeId,
-            hostel: selectedEmployee?.hostel,
-            currentCompanyExperience:
-              selectedEmployee?.currentCompanyExperience,
-            referredBy: selectedEmployee?.referredBy,
-            bonusPolicyId: selectedEmployee?.bonusPolicyId,
-            otPolicyId: selectedEmployee?.otPolicyId,
-            otAmount: selectedEmployee?.otAmount,
-            vehicleFacility: selectedEmployee?.vehicleFacility,
-            migrant: selectedEmployee?.migrant,
-            exService: selectedEmployee?.exService,
-            monthly: selectedEmployee?.monthly,
-            adminRemarks: selectedEmployee?.adminRemarks,
-            idCardNo: selectedEmployee?.idCardNo,
-            midNo: selectedEmployee?.midNo,
-            oldIdNo: selectedEmployee?.oldIdNo,
-            // mobileNumber: formData.mobileNumber || selectedEmployee?.mobileNumber,
-          }),
-        ]);
+        await employeeService.updateAdminInfo(empId, {
+          joiningDate: formData.joiningDate,
+          branchId: formData.branchId || selectedEmployee?.branchId,
+          departmentId: formData.departmentId || selectedEmployee?.departmentId,
+          designationId: formData.designationId || selectedEmployee?.designationId,
+          employeeStatusId: formData.employeeStatusId || selectedEmployee?.employeeStatusId,
+          employeeGroupId: formData.employeeGroupId || selectedEmployee?.employeeGroupId,
+          template: formData.template || selectedEmployee?.template,
+          gradeId: selectedEmployee?.gradeId,
+          empTypeId: selectedEmployee?.empTypeId,
+          managerId: selectedEmployee?.managerId,
+          bandId: selectedEmployee?.bandId,
+          confirmationDate: selectedEmployee?.confirmationDate,
+          relievedDate: selectedEmployee?.relievedDate,
+          probationPeriod: selectedEmployee?.probationPeriod,
+          noticePeriod: selectedEmployee?.noticePeriod,
+          vehicleTypeId: selectedEmployee?.vehicleTypeId,
+          hostel: selectedEmployee?.hostel,
+          currentCompanyExperience: selectedEmployee?.currentCompanyExperience,
+          referredBy: selectedEmployee?.referredBy,
+          bonusPolicyId: selectedEmployee?.bonusPolicyId,
+          otPolicyId: selectedEmployee?.otPolicyId,
+          otAmount: selectedEmployee?.otAmount,
+          vehicleFacility: selectedEmployee?.vehicleFacility,
+          migrant: selectedEmployee?.migrant,
+          exService: selectedEmployee?.exService,
+          monthly: selectedEmployee?.monthly,
+          adminRemarks: selectedEmployee?.adminRemarks,
+          idCardNo: selectedEmployee?.idCardNo,
+          midNo: selectedEmployee?.midNo,
+          oldIdNo: selectedEmployee?.oldIdNo,
+        });
         showSnackbar("Employee updated successfully!", "success");
       } else {
         const employeeId = await getEmployeeIdForCreation();
@@ -703,15 +587,9 @@ export default function EmployeeManagement() {
           branchId: formData.branchId,
           mobileNumber: formData.mobileNumber,
           employeeStatusId: formData.employeeStatusId,
+          employeeGroupId: formData.employeeGroupId,
+          template: formData.template,
         };
-        //{
-        //   "middleName": "string",
-        //   "lastName": "string",
-        //   "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-        //   "aadhaarLockedFields": [
-        //     "string"
-        //   ]
-        // }
         await employeeService.createEmployee(payload);
         showSnackbar(
           `Employee Created! ID: ${employeeId}. Welcome email sent to ${formData.emailAddress}`,
@@ -725,7 +603,6 @@ export default function EmployeeManagement() {
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
-      // setDownloading(false);
       hideSpinner();
     }
   };
@@ -734,38 +611,6 @@ export default function EmployeeManagement() {
     employee.employeeStatus === "INACTIVE" ||
     employee.isActive === false ||
     !!employee.deactivatedAt;
-
-  const loadResignedEmployees = async () => {
-    showSpinner();
-    try {
-      const response = await employeeService.getDeactivatedEmployees({
-        page: 0,
-        size: 1000,
-        sort: "deactivatedAt,desc",
-        branch: session?.branchId || undefined,
-      });
-      const employeePage = normalizeEmployeePageResponse(response);
-      const inactiveEmployees = employeePage.content as Employee[];
-      const fullEmployees = await Promise.all(
-        inactiveEmployees.map(async (employee) => {
-          try {
-            const detailResponse: any = await employeeService.getEmployeeById(employee.id);
-            return detailResponse?.data ?? detailResponse;
-          } catch {
-            return employee;
-          }
-        }),
-      );
-      setResignedEmployees(fullEmployees);
-      setResignedEmployeeDetails(
-        Object.fromEntries(fullEmployees.map((employee) => [employee.id, employee])),
-      );
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to load resigned employees", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
 
   const getResignedField = (employee: Employee, ...fields: string[]): any => {
     for (const field of fields) {
@@ -811,7 +656,6 @@ export default function EmployeeManagement() {
     ].some((value) => String(value).toLowerCase().includes(query));
   });
 
-  // Handle Deactivate Employee
   const handleDeactivateEmployee = async (
     id: string,
     name: string,
@@ -829,6 +673,8 @@ export default function EmployeeManagement() {
         const payload = {
           remarks,
           eligibleForRehire: Boolean(eligibleForRehire),
+          rehireRefferedBy: session?.user.userId || "System",
+          rehireRefferedDateTime: new Date().toISOString(),
           ...details,
         }
         try {
@@ -847,7 +693,6 @@ export default function EmployeeManagement() {
     });
   };
 
-  // Handle Reactivate Employee
   const handleReactivateEmployee = async (id: string, name: string) => {
     showConfirmDialog({
       title: "Reactivate Employee",
@@ -887,7 +732,6 @@ export default function EmployeeManagement() {
     setUploadResult(null);
   };
 
-  // Handle Bulk Upload
   const handleBulkUpload = async () => {
     if (!uploadFile) {
       showSnackbar("Please select a file to upload", "error");
@@ -922,18 +766,6 @@ export default function EmployeeManagement() {
       );
       const result = normalizeBulkUploadResponse(response);
       setUploadResult(result);
-      // const errorCount = result.failureCount ?? result.errors?.length ?? 0;
-      // if (errorCount === 0) {
-      //   showSnackbar(
-      //     `Upload successful! ${result.successCount ?? 0} employees imported.`,
-      //     "success",
-      //   );
-      // } else {
-      //   showSnackbar(
-      //     `Upload completed with ${errorCount} row error(s). See details below.`,
-      //     "warning",
-      //   );
-      // }
       if (result.failureCount === 0) {
         showSnackbar(
           `${result.successCount} employees imported successfully`,
@@ -971,27 +803,22 @@ export default function EmployeeManagement() {
       showSpinner();
 
       if (selectedEmployeeForExport) {
-        // Single employee export
         await employeeService.downloadEmployeeByIdExport(
           selectedEmployeeForExport,
           format,
         );
-
         showSnackbar(`Employee exported as ${format.toUpperCase()}`, "success");
       } else {
-        // Export all employees
         const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
 
         const params: any = {
           search: searchTerm || undefined,
-          // sort: `${sortBy},${sortOrder}`,
           sort: sortParams,
           includeInactive: employeeView !== "active" ? true : undefined,
           ...buildEmployeeServerFilterParams(activeFilters),
         };
 
         await employeeService.downloadEmployeeExport(params, format);
-
         showSnackbar(
           `Employees exported as ${format.toUpperCase()}`,
           "success",
@@ -1013,15 +840,14 @@ export default function EmployeeManagement() {
         proposedRelievedDate,
         systemGeneratedRelievedDate,
         resignationType,
-        referredDate,
         eligibleForRehire,
         joiningDate: formData.joiningDate,
         branchId: formData.branchId || selectedEmployee?.branchId || session?.branchId,
         departmentId: formData.departmentId || selectedEmployee?.departmentId,
-        designationId:
-          formData.designationId || selectedEmployee?.designationId,
-        employeeStatusId:
-          formData.employeeStatusId || selectedEmployee?.employeeStatusId,
+        designationId: formData.designationId || selectedEmployee?.designationId,
+        employeeStatusId: formData.employeeStatusId || selectedEmployee?.employeeStatusId,
+        employeeGroupId: formData.employeeGroupId || selectedEmployee?.employeeGroupId,
+        template: formData.template || selectedEmployee?.template,
         gradeId: selectedEmployee?.gradeId,
         empTypeId: selectedEmployee?.empTypeId,
         managerId: selectedEmployee?.managerId,
@@ -1032,7 +858,6 @@ export default function EmployeeManagement() {
         vehicleTypeId: selectedEmployee?.vehicleTypeId,
         hostel: selectedEmployee?.hostel,
         currentCompanyExperience: selectedEmployee?.currentCompanyExperience,
-        referredBy,
         bonusPolicyId: selectedEmployee?.bonusPolicyId,
         otPolicyId: selectedEmployee?.otPolicyId,
         otAmount: selectedEmployee?.otAmount,
@@ -1055,8 +880,6 @@ export default function EmployeeManagement() {
           proposedRelievedDate,
           systemGeneratedRelievedDate,
           relievedDate: value,
-          referredBy,
-          referredDate,
         },
       );
     } catch (error: any) {
@@ -1089,17 +912,6 @@ export default function EmployeeManagement() {
           </div>
         </div>
         <div className="flex gap-3 items-center">
-          {/* <Button
-            variant="outlined"
-            startIcon={<VisibilityOutlined />}
-            onClick={() => {
-              setResignedSearch("");
-              setResignedDialogOpen(true);
-              loadResignedEmployees();
-            }}
-          >
-            View Resigned Employees
-          </Button> */}
           <Button
             variant="outlined"
             startIcon={<FileUploadOutlined />}
@@ -1134,56 +946,28 @@ export default function EmployeeManagement() {
           <Typography variant="caption" color="textSecondary">
             Filters ({activeFilters.condition}):
           </Typography>
-          {/* {activeFilters.rules.map((rule) => {
-            const field = filterFields.find((f) => f.id === rule.field);
-            const displayValue =
-              field?.type === "select" || field?.type === "multiSelect"
-                ? (field.options?.find((o) => o.value === rule.value)?.label ??
-                  rule.value)
-                : rule.value;
-            return (
-              <Chip
-                key={rule.id}
-                label={`${field?.label} ${operatorLabels[rule.operator]} ${displayValue}`}
-                onDelete={() => removeFilter(rule.id)}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            );
-          })} */}
           {activeFilters.rules.map((rule) => {
             const field = filterFields.find((f) => f.id === rule.field);
 
-            // Helper to get display value based on field type
             const getDisplayValue = () => {
               if (!field) return rule.value;
-
-              // For select and multiSelect fields, show label instead of value
               if (field.type === 'select' || field.type === 'multiSelect') {
                 const option = field.options?.find((o) => o.value === rule.value);
                 return option?.label ?? rule.value;
               }
-
-              // For boolean fields
               if (field.type === 'boolean') {
                 if (rule.value === true || rule.value === 'true' || rule.value === 'yes') return 'Yes';
                 if (rule.value === false || rule.value === 'false' || rule.value === 'no') return 'No';
                 return rule.value;
               }
-
-              // For date fields
               if (field.type === 'date' && rule.value) {
                 return dayjs(rule.value).format('DD/MM/YYYY');
               }
-
-              // For between operator
               if (rule.operator === 'between' && rule.value2) {
                 const val1 = field.type === 'date' ? dayjs(rule.value).format('DD/MM/YYYY') : rule.value;
                 const val2 = field.type === 'date' ? dayjs(rule.value2).format('DD/MM/YYYY') : rule.value2;
                 return `${val1} - ${val2}`;
               }
-
               return rule.value;
             };
 
@@ -1209,25 +993,29 @@ export default function EmployeeManagement() {
 
       {/* Workforce Summary */}
       {(() => {
-        const activeCount = employees.filter((employee) => employee.isActive === true).length;
-        const onboardingCount = employees.filter(
-          (employee) => employee.employeeStatus === "ONBOARDING",
-        ).length;
-        const onboardingInProgressCount = employees.filter(
-          (employee) => employee.employeeStatus === "ONBOARDING_IN_PROGRESS",
-        ).length;
-        const onboardingCompletedCount = employees.filter(
-          (employee) => employee.employeeStatus === "ONBOARDING_COMPLETED",
-        ).length;
-        const inactiveCount = employees.filter(
+        const activeCount = employeeStats?.totalActiveEmployees ?? employees.filter((employee) => employee.isActive === true).length;
+        const inactiveCount = employeeStats?.totalInactiveEmployees ?? employees.filter(
           (employee) => employee.isActive === false || employee.employeeStatus === "INACTIVE",
         ).length;
-        const activeRate = total ? Math.round((activeCount / total) * 100) : 0;
+        const activeRate = employeeStats?.totalEmployees
+          ? Math.round((activeCount / employeeStats.totalEmployees) * 100)
+          : total ? Math.round((activeCount / total) * 100) : 0;
+        const totalEmployees = employeeStats?.totalEmployees ?? total;
+        const onboardingAssigned = employeeStats?.onboardingAssigned ?? 0;
+        const onboardingQueue = employeeStats?.onboardingQueue ?? employees.filter(
+          (employee) => employee.employeeStatus === "ONBOARDING",
+        ).length;
+        const onboardingInProgress = employeeStats?.onboardingInProgress ?? employees.filter(
+          (employee) => employee.employeeStatus === "ONBOARDING_IN_PROGRESS",
+        ).length;
+        const onboardingCompleted = employeeStats?.onboardingCompleted ?? employees.filter(
+          (employee) => employee.employeeStatus === "ONBOARDING_COMPLETED",
+        ).length;
 
         const summaryCards = [
           {
             label: "Total Workforce",
-            value: total,
+            value: totalEmployees,
             detail: `${employees.length} shown on this page`,
             icon: <CheckCircleOutlined />,
             tone: "text-blue-700 bg-blue-50",
@@ -1250,8 +1038,16 @@ export default function EmployeeManagement() {
             bar: "bg-rose-500",
           },
           {
+            label: "Onboarding Assigned",
+            value: onboardingAssigned,
+            detail: "Total onboarding assignments",
+            icon: <ArrowUpward />,
+            tone: "text-cyan-700 bg-cyan-50",
+            bar: "bg-cyan-500",
+          },
+          {
             label: "Onboarding Queue",
-            value: onboardingCount,
+            value: onboardingQueue,
             detail: "Awaiting onboarding start",
             icon: <ArrowUpward />,
             tone: "text-amber-700 bg-amber-50",
@@ -1259,7 +1055,7 @@ export default function EmployeeManagement() {
           },
           {
             label: "Onboarding In Progress",
-            value: onboardingInProgressCount,
+            value: onboardingInProgress,
             detail: "Currently in onboarding process",
             icon: <ArrowUpward />,
             tone: "text-indigo-700 bg-indigo-50",
@@ -1267,7 +1063,7 @@ export default function EmployeeManagement() {
           },
           {
             label: "Onboarding Completed",
-            value: onboardingCompletedCount,
+            value: onboardingCompleted,
             detail: "Successfully onboarded",
             icon: <ArrowUpward />,
             tone: "text-teal-700 bg-teal-50",
@@ -1276,7 +1072,7 @@ export default function EmployeeManagement() {
         ];
 
         return (
-          <div className="grid grid-cols-6 gap-3 mb-6 text-[12px]">
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6 text-[12px]">
             {summaryCards.map((card) => (
               <div
                 key={card.label}
@@ -1312,7 +1108,7 @@ export default function EmployeeManagement() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <TextField
           variant="outlined"
-          placeholder="Search by name, email, firstName, lastName, mobileNumber  or employee ID..."
+          placeholder="Search by name, email, firstName, lastName, mobileNumber or employee ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="min-w-[240px] flex-1"
@@ -1342,12 +1138,6 @@ export default function EmployeeManagement() {
         >
           <div>Filters</div>
           {getActiveFilterCount() > 0 && (
-            // <Chip
-            //   label={getActiveFilterCount()}
-            //   size="small"
-            //   color="warning"
-            //   sx={{ ml: 1, p:"5px", }}
-            // />
             <div className="bg-blue-700 text-white font-bold ml-3 rounded-full w-[60px] h-5">
               {getActiveFilterCount()}
             </div>
@@ -1363,9 +1153,6 @@ export default function EmployeeManagement() {
           Export
         </Button>
 
-       
-
-        {/* Shared Export Menu */}
         <Menu
           anchorEl={exportAnchorEl}
           open={Boolean(exportAnchorEl)}
@@ -1403,10 +1190,6 @@ export default function EmployeeManagement() {
             <TableRow>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                title="Sort by Created At"
-                // onClick={() =>
-                //   toggleSort("createdAt")
-                // }
                 sx={{
                   ...stickyHeaderLeftSx,
                   minWidth: "70px",
@@ -1414,14 +1197,11 @@ export default function EmployeeManagement() {
               >
                 <div className="flex items-center gap-1">
                   S No
-                  {/* {getSortIcon("createdAt")} */}
                 </div>
               </TableCell>
               <TableCell
                 className="nth-c !font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  toggleSort("employeeId")
-                }
+                onClick={() => toggleSort("employeeId")}
               >
                 <div className="flex items-center gap-1">
                   Employee ID
@@ -1430,9 +1210,25 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  toggleSort("name")
-                }
+                onClick={() => toggleSort("employeeGroup")}
+              >
+                <div className="flex items-center gap-1">
+                  Employee Group
+                  {getSortIcon("employeeGroup")}
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() => toggleSort("template")}
+              >
+                <div className="flex items-center gap-1">
+                  Common Template
+                  {getSortIcon("template")}
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() => toggleSort("name")}
               >
                 <div className="flex items-center gap-1">
                   Employee Name
@@ -1441,9 +1237,7 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  toggleSort("emailAddress")
-                }
+                onClick={() => toggleSort("emailAddress")}
               >
                 <div className="flex items-center gap-1">
                   Employee Email
@@ -1452,9 +1246,7 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  toggleSort("mobileNumber")
-                }
+                onClick={() => toggleSort("mobileNumber")}
               >
                 <div className="flex items-center gap-1">
                   Mobile Number
@@ -1463,46 +1255,37 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-              // onClick={() =>
-              //   handleSortChange(
-              //     "branch",
-              //     sortOrder === "ASC" ? "DESC" : "ASC",
-              //   )
-              // }
+                onClick={() => toggleSort("branch")}
               >
                 <div className="flex items-center gap-1">
                   Branch
-                  {/* {getSortIcon("branch")} */}
+                  {getSortIcon("branch")}
+
                 </div>
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-              // onClick={() =>
-              //   toggleSort("department")
-              // }
+                onClick={() => toggleSort("department")}
               >
                 <div className="flex items-center gap-1">
                   Department
-                  {/* {getSortIcon("department")} */}
+                  {getSortIcon("department")}
+
                 </div>
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-              // onClick={() =>
-              //   toggleSort("designation")
-              // }
+                onClick={() => toggleSort("designation")}
               >
                 <div className="flex items-center gap-1">
                   Designation
-                  {/* {getSortIcon("designation")} */}
+                  {getSortIcon("designation")}
+
                 </div>
               </TableCell>
-
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() =>
-                  toggleSort("joiningDate")
-                }
+                onClick={() => toggleSort("joiningDate")}
               >
                 <div className="flex items-center gap-1">
                   Joining Date
@@ -1511,16 +1294,11 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-              // onClick={() =>
-              //   handleSortChange(
-              //     "employeeStatus",
-              //     sortOrder === "ASC" ? "DESC" : "ASC",
-              //   )
-              // }
+                onClick={() => toggleSort("employeeStatus")}
               >
                 <div className="flex items-center gap-1">
                   Status
-                  {/* {getSortIcon("employeeStatus")} */}
+                  {getSortIcon("employeeStatus")}
                 </div>
               </TableCell>
               <TableCell
@@ -1558,6 +1336,12 @@ export default function EmployeeManagement() {
                   className="hover:!text-blue-500 hover:!underline"
                   onClick={() => { if (employee) navigate(`/employees/${employee.id}`); }}>
                   {employee.employeeId}
+                </TableCell>
+                <TableCell className="font-medium">
+                  {employee.employeeGroup}
+                </TableCell>
+                <TableCell className="font-medium">
+                  {employee.template}
                 </TableCell>
                 <TableCell className="font-medium">
                   {employee.name}
@@ -1640,8 +1424,6 @@ export default function EmployeeManagement() {
                             setProposedRelievedDate(proposed);
                             setSystemGeneratedRelievedDate(generated);
                             setResignationType("");
-                            setReferredBy("");
-                            setReferredDate("");
                             setAdminRemarks("");
                             setEligibleForRehire(true);
                             setRelievingDialogOpen(true);
@@ -1672,11 +1454,6 @@ export default function EmployeeManagement() {
           </TableBody>
 
         </Table>
-        {/* {employees.length === 0 && (
-          <div className="text-center py-8 text-gray-500 border border-gray-200">
-            No employees found
-          </div>
-        )} */}
       </TableContainer>
 
       {/* Pagination */}
@@ -1723,15 +1500,6 @@ export default function EmployeeManagement() {
           </IconButton>
         </div>
         <DialogContent>
-          {/* {
-            downloading && (
-              <Backdrop
-                sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
-                open={downloading}
-              >
-                <CircularProgress />
-              </Backdrop>
-            )} */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2" onKeyDown={handleEnterAsTab}>
             {isEditing && (
               <TextField
@@ -1762,19 +1530,10 @@ export default function EmployeeManagement() {
               required
               disabled={isEditing}
             />
-            {/* <TextField
-              fullWidth
-              label="Mobile Number"
-              type="email"
-              value={formData.mobileNumber}
-              onChange={(e) =>
-                setFormData({ ...formData, mobileNumber: e.target.value })
-              }
-              required
-            /> */}
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Date of Joining"
+                format="DD/MM/YYYY"
                 value={
                   formData.joiningDate ? dayjs(formData.joiningDate) : null
                 }
@@ -1798,66 +1557,6 @@ export default function EmployeeManagement() {
                 }}
               />
             </LocalizationProvider>
-            {/* <FormControl fullWidth>
-              <InputLabel>Department</InputLabel>
-              <Select
-                value={formData.department || ""}
-                label="Department"
-                className="!text-[12px]"
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    department: e.target.value,
-                    departmentId: departments.find(
-                      (d) => d.departmentName === e.target.value,
-                    )?.id,
-                  })
-                }
-              >
-                <MenuItem value="" className="!text-[12px]">
-                  Select Department
-                </MenuItem>
-                {departments.map((dept) => (
-                  <MenuItem
-                    key={dept.id}
-                    value={dept.departmentName}
-                    className="!text-[12px]"
-                  >
-                    {dept.departmentName}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl> */}
-            {/* <FormControl fullWidth>
-              <InputLabel>Designation</InputLabel>
-              <Select
-                value={formData.designation || ""}
-                label="Designation"
-                className="!text-[12px]"
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    designation: e.target.value,
-                    designationId: designations.find(
-                      (d) => d.name === e.target.value,
-                    )?.id,
-                  })
-                }
-              >
-                <MenuItem value="" className="!text-[12px]">
-                  Select Designation
-                </MenuItem>
-                {designations.map((desig) => (
-                  <MenuItem
-                    key={desig.id}
-                    value={desig.name}
-                    className="!text-[12px]"
-                  >
-                    {desig.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl> */}
             {
               !session?.branchId && <FormControl fullWidth>
                 <InputLabel>Branch</InputLabel>
@@ -1961,47 +1660,62 @@ export default function EmployeeManagement() {
               )}
               sx={masterSx}
             />
-            {/* <FormControl fullWidth>
-              <InputLabel>
-                Employee Status
-              </InputLabel>
-              <Select
-                value={formData.employeeStatus || ""}
-                label="Employee Status"
-                className="!text-[12px]"
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    employeeStatus: e.target.value,
-                    employeeStatusId: empStatus.find(
-                      (d) => d.name === e.target.value,
-                    )?.id,
-                  })
-                }
-              >
-                <MenuItem value="" className="!text-[12px]">
-                  Select Employee Status
-                </MenuItem>
-                {empStatus.map((s) => (
-                  <MenuItem
-                    key={s.id}
-                    value={s.name}
-                    className="!text-[12px]"
-                  >
-                    {s.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl> */}
+
             {!isEditing && (
-              <TextField
-                fullWidth
-                label="Mobile Number"
-                value={formData.mobileNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, mobileNumber: e.target.value })
-                }
-              />
+              <>
+                <TextField
+                  fullWidth
+                  label="Mobile Number"
+                  value={formData.mobileNumber}
+                  onChange={(e) =>
+                    setFormData({ ...formData, mobileNumber: e.target.value })
+                  }
+                />
+                <Autocomplete
+                  fullWidth
+                  options={employeeGroups}
+                  getOptionLabel={(option) => option.name || ""}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  value={employeeGroups.find(g => g.id === formData.employeeGroupId) || null}
+                  onChange={(_, newValue) => {
+                    setFormData({
+                      ...formData,
+                      employeeGroupId: newValue?.id || "",
+                    });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Employee Group"
+                      variant="outlined"
+                      className="!text-[12px]"
+                    />
+                  )}
+                  sx={masterSx}
+                />
+                <Autocomplete
+                  fullWidth
+                  options={shiftCommonTemplates}
+                  getOptionLabel={(option) => option.name || ""}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                  value={shiftCommonTemplates.find(t => t.id === formData.template) || null}
+                  onChange={(_, newValue) => {
+                    setFormData({
+                      ...formData,
+                      template: newValue?.id || "",
+                    });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Shift Common Template"
+                      variant="outlined"
+                      className="!text-[12px]"
+                    />
+                  )}
+                  sx={masterSx}
+                />
+              </>
             )}
           </div>
           {!isEditing && (
@@ -2017,17 +1731,6 @@ export default function EmployeeManagement() {
                 label="Enter Employee ID Manually"
                 className="my-2"
               />
-              {/* <FormControlLabel
-                control={
-                  <Switch
-                    checked={configured}
-                    onChange={(event) => setConfigured(event.target.checked)}
-                    color="primary"
-                    className="!text-gray-800"
-                  />
-                }
-                label="Configured"
-              /> */}
 
               <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="flex items-center justify-between">
@@ -2293,6 +1996,7 @@ export default function EmployeeManagement() {
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="Proposed Relieving Date"
+              format="DD/MM/YYYY"
               value={proposedRelievedDate ? dayjs(proposedRelievedDate) : null}
               onChange={(newValue) =>
                 (() => {
@@ -2320,6 +2024,7 @@ export default function EmployeeManagement() {
             />
             <DatePicker
               label="Relieved Date"
+              format="DD/MM/YYYY"
               value={relievingDate ? dayjs(relievingDate) : null}
               onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
               slotProps={{ textField: { className: "!mt-4" } }}
@@ -2349,21 +2054,6 @@ export default function EmployeeManagement() {
             }
             label="Eligible for rehire"
           />
-          <TextField
-            fullWidth
-            label="Referred By"
-            value={referredBy}
-            onChange={(event) => setReferredBy(event.target.value)}
-            className="!mt-2"
-          />
-          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-            <DatePicker
-              label="Referred Date"
-              value={referredDate ? dayjs(referredDate) : null}
-              onChange={(newValue) => setReferredDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
-              slotProps={{ textField: { fullWidth: true, className: "!mt-4" } }}
-            />
-          </LocalizationProvider>
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">
           <Button
@@ -2385,8 +2075,6 @@ export default function EmployeeManagement() {
                 setProposedRelievedDate("");
                 setSystemGeneratedRelievedDate("");
                 setResignationType("");
-                setReferredBy("");
-                setReferredDate("");
                 setAdminRemarks("");
                 setEligibleForRehire(true);
               }
@@ -2540,15 +2228,6 @@ export default function EmployeeManagement() {
           </IconButton>
         </div>
         <DialogContent>
-          {/* {
-            downloading && (
-              <Backdrop
-                sx={{ color: "#fff", zIndex: (theme) => theme.zIndex.drawer + 1 }}
-                open={downloading}
-              >
-                <CircularProgress />
-              </Backdrop>
-            )} */}
           <Alert severity="info" className="mb-4">
             Download the template, fill in employee details, and upload the
             file. Backend sends invite / welcome emails to newly imported
@@ -2590,28 +2269,6 @@ export default function EmployeeManagement() {
               }
               label="Excel already contains Employee ID column"
             />
-            {/* <FormControl className="flex items-center gap-4 !flex-row !w-max"
-              disabled={!employeeIdConfig?.configured}>
-              <div className="text-[12px] text-gray-800">Does the Excel already contain an Employee ID column?</div>
-              <RadioGroup
-                row
-                value={excelHasEmployeeIdColumn ? "yes" : "no"}
-                onChange={(e) =>
-                  setExcelHasEmployeeIdColumn(e.target.value === "yes")
-                }
-              >
-                <FormControlLabel
-                  value="yes"
-                  control={<Radio />}
-                  label="Yes"
-                />
-                <FormControlLabel
-                  value="no"
-                  control={<Radio />}
-                  label="No"
-                />
-              </RadioGroup>
-            </FormControl> */}
             <div className="text-[12px] text-red-600">
               [ Note :{" "}
               {!employeeIdConfig?.configured
@@ -2674,10 +2331,8 @@ export default function EmployeeManagement() {
             </Box>
           )}
 
-          {/* After Upload Shows: */}
           {uploadResult && (
             <div className="mt-4 space-y-4">
-              {/* Upload Summary */}
               <div
                 className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
                   ? "border-orange-200 bg-orange-50/40"
@@ -2764,7 +2419,6 @@ export default function EmployeeManagement() {
                 )}
               </div>
 
-              {/* Generated Employee IDs */}
               {uploadResult.generatedEmployeeIds &&
                 uploadResult.generatedEmployeeIds?.length > 0 && (
                   <div className="border border-green-200 rounded-lg p-4 bg-green-50">
@@ -2794,7 +2448,6 @@ export default function EmployeeManagement() {
                   </div>
                 )}
 
-              {/* Welcome Email Failures */}
               {uploadResult.welcomeEmailFailures &&
                 uploadResult.welcomeEmailFailures?.length > 0 && (
                   <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
@@ -2817,7 +2470,6 @@ export default function EmployeeManagement() {
                   </div>
                 )}
 
-              {/* Row Errors */}
               {uploadResult.errors && uploadResult.errors?.length > 0 && (
                 <div className="border border-red-200 rounded-lg p-4 bg-red-50">
                   <div className="font-semibold text-red-700 mb-3">
@@ -2863,70 +2515,6 @@ export default function EmployeeManagement() {
               )}
             </div>
           )}
-          {/* {uploadResult?.generatedEmployeeIds && uploadResult.generatedEmployeeIds.length > 0 && (
-            <div className="mt-4 border rounded-lg p-4 bg-gray-50">
-              <div className="">
-                <div className="font-semibold text-green-700 mb-2">
-                  Generated Employee IDs
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {uploadResult.generatedEmployeeIds.map(
-                    (id: string, index: number) => (
-                      <Chip
-                        key={`${id}-${index}`}
-                        label={id}
-                        color="success"
-                        size="small"
-                      />
-                    )
-                  )}
-                </div>
-              </div>
-              {uploadResult?.welcomeEmailFailures && uploadResult.welcomeEmailFailures?.length > 0 && (
-                <div className="mt-4">
-                  <div className="font-semibold text-orange-700 mb-2">
-                    Welcome Email Failures
-                  </div>
-
-                  <div className="max-h-32 mb-4 overflow-auto text-xs">
-                    {uploadResult.welcomeEmailFailures.map(
-                      (failure: string, index: number) => (
-                        <div key={index} className="text-orange-600">
-                          • {failure}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </div>
-              )}
-              <div className="font-semibold text-gray-800 mb-2">Upload Result</div>
-              <div className="grid grid-cols-3 gap-2 text-sm mb-3">
-                <div>Total Records: <strong>{uploadResult?.totalRecords}</strong></div>
-                <div className="text-green-700">Success: <strong>{uploadResult?.successCount}</strong></div>
-                <div className="text-red-700">Failed: <strong>{uploadResult?.failureCount}</strong></div>
-                <div className="text-blue-700">Status: <strong>{uploadResult?.status}</strong></div>
-                <div className="text-indigo-700">Welcome Emails Sent:<strong>{uploadResult?.welcomeEmailsSent}</strong></div>
-                <div className="text-orange-700">Welcome Emails Failed:<strong>{uploadResult?.welcomeEmailsFailed}</strong></div>
-              </div>
-            </div>
-          )}
-          {uploadResult?.errors && uploadResult.errors?.length > 0 && (
-            <div className="mt-4">
-              <div className="font-semibold text-red-700 mb-2">
-                Validation Errors
-              </div>
-              <div className="max-h-48 overflow-auto space-y-1 text-xs">
-                {uploadResult.errors.map((err: any, index: number) => (
-                  <div key={index} className="text-red-600">
-                    Row {err.row}
-                    {err.branchName && ` (${err.branchName})`}
-                    : {err.message}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">
           <Button

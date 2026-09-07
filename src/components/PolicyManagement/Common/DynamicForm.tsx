@@ -135,6 +135,7 @@ export const DynamicForm: React.FC<DynamicFormProps> = ({
               value={value ? new Date(value) : null}
               onChange={(date) => handleChange(field.name, date?.toISOString().split('T')[0])}
               disabled={field.disabled}
+              format="DD/MM/YYYY"
               slotProps={{
                 textField: {
                   fullWidth: true,

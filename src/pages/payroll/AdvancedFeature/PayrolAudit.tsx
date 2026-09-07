@@ -238,11 +238,13 @@ export default function PayrollAudit() {
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             label="From Date"
+            format="DD/MM/YYYY"
             value={filters.fromDate ? dayjs(filters.fromDate) : null}
             onChange={(newValue) => setFilters({ ...filters, fromDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "" })}
           />
           <DatePicker
             label="To Date"
+            format="DD/MM/YYYY"
             value={filters.toDate ? dayjs(filters.toDate) : null}
             onChange={(newValue) => setFilters({ ...filters, toDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "" })}
           />

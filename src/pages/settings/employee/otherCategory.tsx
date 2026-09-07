@@ -23,7 +23,7 @@ import {
   Category as CategoryIcon,
   MoreVert as MoreVertIcon,
   DeleteSweep as DeleteSweepIcon,
-  EditNote as EditNoteIcon,
+  // EditNote as EditNoteIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   KeyboardDoubleArrowRight as KeyboardDoubleArrowRightIcon,
@@ -332,7 +332,7 @@ export default function CategorySettings() {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
             if (selectedCategory) handleOpenDialog(selectedCategory);
             handleMenuClose();
@@ -342,7 +342,7 @@ export default function CategorySettings() {
             <EditNoteIcon fontSize="small" className="text-gray-800" />
           </ListItemIcon>
           <ListItemText>Edit Category</ListItemText>
-        </MenuItem>
+        </MenuItem> */}
         <MenuItem
           onClick={() => {
             if (selectedCategory) handleToggleStatus(selectedCategory);

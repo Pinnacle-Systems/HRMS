@@ -104,6 +104,7 @@ export function OvertimeCalculatorDialog({
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Start Date"
+                format="DD/MM/YYYY"
                 value={params.startDate ? dayjs(params.startDate) : null}
                 onChange={(newValue) =>
                   setParams({
@@ -120,6 +121,7 @@ export function OvertimeCalculatorDialog({
               <DatePicker
                 label="End Date"
                 value={params.endDate ? dayjs(params.endDate) : null}
+                format="DD/MM/YYYY"
                 onChange={(newValue) =>
                   setParams({
                     ...params,

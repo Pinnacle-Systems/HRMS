@@ -108,12 +108,14 @@ export function EmployeeView() {
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="From"
+              format="DD/MM/YYYY"
               value={fromDate ? dayjs(fromDate) : null}
               onChange={v => setFromDate(v ? dayjs(v).format("YYYY-MM-DD") : "")}
               slotProps={{ textField: { size: "small", sx: { width: 150 } } }}
             />
             <DatePicker
               label="To"
+              format="DD/MM/YYYY"
               value={toDate ? dayjs(toDate) : null}
               onChange={v => setToDate(v ? dayjs(v).format("YYYY-MM-DD") : "")}
               maxDate={dayjs()}

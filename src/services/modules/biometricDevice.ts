@@ -1,6 +1,6 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
-import { loadSession } from "../../auth/authSession";
+// import { loadSession } from "../../auth/authSession";
 import axios from "axios";
 
 // const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -192,15 +192,15 @@ export interface FetchLogQuery {
   deviceIps: string[];
 }
 
-function getTenantDatabaseName(): string {
-  const subdomain = loadSession()?.user.subdomain?.trim().toLowerCase();
+// function getTenantDatabaseName(): string {
+//   const subdomain = loadSession()?.user.subdomain?.trim().toLowerCase();
 
-  if (!subdomain || !/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$/.test(subdomain)) {
-    throw new Error("Your tenant subdomain is missing. Please sign in again.");
-  }
+//   if (!subdomain || !/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$/.test(subdomain)) {
+//     throw new Error("Your tenant subdomain is missing. Please sign in again.");
+//   }
 
-  return `payroll_app_${subdomain}`;
-}
+//   return `payroll_app_${subdomain}`;
+// }
 
 // const baseUrl = "http://localhost:3000/api/";
 

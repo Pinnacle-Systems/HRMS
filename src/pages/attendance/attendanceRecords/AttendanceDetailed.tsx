@@ -3,10 +3,10 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   MenuItem, Select, FormControl, InputLabel, IconButton, Tooltip, Chip,
   Dialog, DialogContent, DialogTitle, DialogActions, Button, TextField,
-  
+
 } from "@mui/material";
 import {
-   FilterListOutlined, FileDownloadOutlined,
+  FilterListOutlined, FileDownloadOutlined,
   VisibilityOutlined, EditOutlined, CloseOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
@@ -218,6 +218,7 @@ export function AttendanceDetailed() {
                 <div className="flex items-center gap-2">
                   <DatePicker
                     label="From"
+                    format="DD/MM/YYYY"
                     value={fromDate ? dayjs(fromDate) : null}
                     onChange={(newValue) => setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
                     maxDate={toDate ? dayjs(toDate) : undefined}
@@ -226,6 +227,7 @@ export function AttendanceDetailed() {
                   <span className="text-gray-400">→</span>
                   <DatePicker
                     label="To"
+                    format="DD/MM/YYYY"
                     value={toDate ? dayjs(toDate) : null}
                     onChange={(newValue) => setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
                     minDate={fromDate ? dayjs(fromDate) : undefined}
@@ -245,8 +247,11 @@ export function AttendanceDetailed() {
             <TableHead>
               <TableRow>
                 {[
-                  "S No",  "Name", "Date",
-                  "Shift", "Check In", "Check Out",
+                  "S No", "Name", "Date",
+                  "Shift", "Check In Date",
+                  "Check In Time",
+                  "Check Out Date",
+                  "Check Out Time",
                   "Worked", "Late In", "Early Out", "OT", "Status", "Actions",
                 ].map((h) => (
                   <TableCell
@@ -276,7 +281,7 @@ export function AttendanceDetailed() {
                 </TableRow>
               ) : (
                 records.map((r, index) => (
-                  <TableRow key={r.id || index}  sx={getRowColor(index)}>
+                  <TableRow key={r.id || index} sx={getRowColor(index)}>
                     <TableCell className="sticky left-0 z-20 bg-inherit">{index + 1}</TableCell>
                     {/* <TableCell>{r.employeeCode}</TableCell> */}
                     <TableCell className="whitespace-nowrap sticky left-[59px] z-20 bg-inherit">
@@ -293,9 +298,11 @@ export function AttendanceDetailed() {
                       <div>{r.shiftCode || '-'}</div>
                       {r.shiftStart && <span className="text-primary">{r.shiftStart} - {r.shiftEnd}</span>}
                     </TableCell>
+                    <TableCell>CheckIn Date</TableCell>
                     <TableCell>
                       {r.checkInTime ? formatTime(r.checkInTime) : '-'}
                     </TableCell>
+                    <TableCell>CheckOut Date</TableCell>
                     <TableCell>
                       {r.checkOutTime ? formatTime(r.checkOutTime) : '-'}
                     </TableCell>
@@ -435,7 +442,7 @@ export function AttendanceDetailed() {
                   label="Requested Check-in"
                   value={correctionForm.requestedCheckIn ? dayjs(correctionForm.requestedCheckIn) : null}
                   onChange={(newValue) => {
-                    setCorrectionForm((f) => ({...f, requestedCheckIn:newValue ? dayjs(newValue).toISOString() : ''}));
+                    setCorrectionForm((f) => ({ ...f, requestedCheckIn: newValue ? dayjs(newValue).toISOString() : '' }));
                   }}
                   slotProps={{
                     textField: {
@@ -444,12 +451,12 @@ export function AttendanceDetailed() {
                   }}
                 />
               </LocalizationProvider>
-               <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DateTimePicker
                   label="Requested Check-out"
                   value={correctionForm.requestedCheckOut ? dayjs(correctionForm.requestedCheckOut) : null}
                   onChange={(newValue) => {
-                    setCorrectionForm((f) => ({...f, requestedCheckOut:newValue ? dayjs(newValue).toISOString() : ''}));
+                    setCorrectionForm((f) => ({ ...f, requestedCheckOut: newValue ? dayjs(newValue).toISOString() : '' }));
                   }}
                   slotProps={{
                     textField: {

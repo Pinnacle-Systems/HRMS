@@ -174,12 +174,11 @@ export default function Dashboard() {
       {/* Page Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography
-            component="h1"
-            className="text-gray-800 font-bold"
+          <div
+            className="text-gray-800 !font-bold"
           >
             Payroll Dashboard
-          </Typography>
+          </div>
           <div className="text-[12px] text-gray-500 mt-0.5">
             Overview of your payroll operations
           </div>

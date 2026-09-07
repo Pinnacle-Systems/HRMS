@@ -17,6 +17,7 @@ export interface ShiftFormData {
   description: string;
   isNightShift: boolean;
   templateId: string;
+  commonTemplateId: string;
 }
 
 export interface WeeklyRoster {

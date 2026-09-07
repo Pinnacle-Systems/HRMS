@@ -1482,6 +1482,7 @@ const DeductionDialog = ({
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="Start Date"
+              format="DD/MM/YYYY"
               value={formData.startedOn ? dayjs(formData.startedOn) : null}
               onChange={(newValue) => {
                 onFormChange({
@@ -1489,7 +1490,6 @@ const DeductionDialog = ({
                   startedOn: newValue ? dayjs(newValue).format('YYYY-MM-DD') : '',
                 });
               }}
-              format="DD/MM/YYYY"
               slotProps={{
                 textField: {
                   fullWidth: true,

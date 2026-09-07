@@ -248,6 +248,7 @@ export function AttendanceConsolidated() {
                 <div className="flex items-center gap-2">
                   <DatePicker
                     label="From"
+                    format="DD/MM/YYYY"
                     value={fromDate ? dayjs(fromDate) : null}
                     onChange={(newValue) =>
                       setFromDate(
@@ -260,6 +261,7 @@ export function AttendanceConsolidated() {
                   <span className="text-gray-400">→</span>
                   <DatePicker
                     label="To"
+                    format="DD/MM/YYYY"
                     value={toDate ? dayjs(toDate) : null}
                     onChange={(newValue) =>
                       setToDate(

@@ -880,6 +880,7 @@ const CompanySettings = () => {
             <DatePicker
               label={label}
               value={value ? dayjs(value) : null}
+              format="DD/MM/YYYY"
               onChange={(newValue) =>
                 handleChange(key, dayjs(newValue)?.format("YYYY-MM-DD") || "")
               }
@@ -1314,6 +1315,7 @@ const CompanySettings = () => {
               <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <DatePicker
                   label="Start Date"
+                  format="DD/MM/YYYY"
                   value={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : null}
                   onChange={(newValue) =>
                     handleFiscalYearFieldChange("startDate", dayjs(newValue)?.format("YYYY-MM-DD") || "")
@@ -1328,6 +1330,7 @@ const CompanySettings = () => {
               <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <DatePicker
                   label="End Date"
+                  format="DD/MM/YYYY"
                   value={fiscalYearForm.endDate ? dayjs(fiscalYearForm.endDate) : null}
                   minDate={fiscalYearForm.startDate ? dayjs(fiscalYearForm.startDate) : undefined}
                   onChange={(newValue) =>

@@ -1,6 +1,6 @@
 import "./App.css";
 import { AuthProvider } from "./auth/AuthProvider";
-import { TokenExpiryWarning } from "./components/TokenExpiryWarning";
+// import { TokenExpiryWarning } from "./components/TokenExpiryWarning";
 import { PasswordPolicyProvider } from "./context/PasswordPolicyContext";
 import { UIProvider } from "./context/Snackbar";
 // import "./routes/Approutes";
@@ -13,10 +13,10 @@ function App() {
         <UIProvider>
           <AuthProvider>
             {/* Token expiry warning components */}
-            <TokenExpiryWarning 
+            {/* <TokenExpiryWarning 
               warningThreshold={60} // Show warning when 1 minute remaining
               checkInterval={5} // Check every 5 seconds
-            />
+            /> */}
             {/* <TokenExpiryModal /> Optional: modal for critical expiry */}
             
             <AppRoutes />

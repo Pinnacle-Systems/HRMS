@@ -429,6 +429,7 @@ export default function Profile() {
           <DatePicker
             label={dname}
             value={value ? dayjs(value) : null}
+            format="DD/MM/YYYY"
             onChange={(newValue) =>
               setEditFormData({
                 ...editFormData,

@@ -440,16 +440,18 @@ export function ProcessAttendance() {
               label="From Date"
               value={fromDate ? dayjs(fromDate) : null}
               onChange={handleFromDateChange}
+              format="DD/MM/YYYY"
               maxDate={dayjs()}
-              slotProps={{ textField: { size: "small", sx: { width: 170 } } }}
+              slotProps={{ textField: { sx: { width: 170 } } }}
             />
             <DatePicker
               label="To Date"
               value={toDate ? dayjs(toDate) : null}
               onChange={handleToDateChange}
+              format="DD/MM/YYYY"
               maxDate={dayjs()}
               minDate={fromDate ? dayjs(fromDate) : undefined}
-              slotProps={{ textField: { size: "small", sx: { width: 170 } } }}
+              slotProps={{ textField: { sx: { width: 170 } } }}
             />
           </LocalizationProvider>
 

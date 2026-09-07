@@ -137,6 +137,7 @@ export function LopManagement() {
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               label="Start Date"
+              format="DD/MM/YYYY"
               value={params.startDate ? dayjs(params.startDate) : null}
               onChange={(newValue) =>
                 setParams({
@@ -148,6 +149,7 @@ export function LopManagement() {
             />
             <DatePicker
               label="End Date"
+              format="DD/MM/YYYY"
               value={params.endDate ? dayjs(params.endDate) : null}
               onChange={(newValue) =>
                 setParams({

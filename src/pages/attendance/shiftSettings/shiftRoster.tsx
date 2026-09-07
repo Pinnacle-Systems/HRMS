@@ -475,6 +475,7 @@ export const ShiftRoster = () => {
                 <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Week Start Date"
+                    format="DD/MM/YYYY"
                     value={selectedWeek}
                     onChange={(date) => setSelectedWeek(dayjs(date)?.startOf('isoWeek') || dayjs().startOf('isoWeek'))}
                     slotProps={{ textField: { size: 'small', className: 'w-48' } }}

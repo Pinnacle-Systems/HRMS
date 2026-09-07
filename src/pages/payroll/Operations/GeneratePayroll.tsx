@@ -484,6 +484,7 @@ export default function GeneratePayroll() {
                                         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                             <DatePicker
                                                 label="Payment Date"
+                                                format="DD/MM/YYYY"
                                                 value={
                                                     periodDetails?.paymentDate
                                                         ? dayjs(periodDetails.paymentDate)

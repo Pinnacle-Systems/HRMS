@@ -44,6 +44,7 @@ export interface Shift {
   templateName?: string;
   defaultShift?: boolean;
   templateType?: 'staff' | 'labour';
+  commonTemplateId: string;
 }
 
 // Pagination response for shifts

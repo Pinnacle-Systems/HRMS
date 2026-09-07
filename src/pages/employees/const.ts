@@ -80,6 +80,7 @@ export const qualificationColumns = [
 
 // ==================== EMPLOYEE DETAILS FIELDS ====================
 export const employeeColumns = [
+  { key: "employeeGroup", label: "Employee Group", type: "select" },
   { key: "employeeId", label: "Employee ID" },
   { key: "name", label: "Name" },
   { key: "joiningDate", label: "Joining Date", type: "date" },
@@ -150,11 +151,6 @@ export const employeeColumns = [
   // { key: "employeeIdentity", label: "Employee Identity" },
   // { key: "employeeReferenceNumber", label: "Employee Reference Number" },
   { key: "referredBy", label: "Referred By" },
-  { key: "referredDate", label: "Referred Date", type: "date" },
-  { key: "resignationType", label: "Resignation Type" },
-  { key: "proposedRelievedDate", label: "Proposed Relieving Date", type: "date" },
-  { key: "systemGeneratedRelievedDate", label: "System Generated Relieving Date", type: "date", disabled: true },
-  { key: "eligibleForRehire", label: "Eligible for Rehire", type: "boolean" },
   { key: "employeeStatus", label: "Employee Status", type: "select" },
   { key: "adminRemarks", label: "Remarks" },
   // { key: "idCardNo", label: "ID Card Number" },
@@ -166,7 +162,22 @@ export const employeeColumns = [
   { key: "migrant", label: "Migrant Worker", type: "boolean" },
   // { key: "monthly", label: "Monthly", type: "boolean" },
   { key: "isActive", label: "Active", type: "boolean" },
-  { key: "relievedDate", label: "Relieved Date", type: "date", disabled: true},
+  { key: "relievedDate", label: "Relieved Date", type: "date", disabled: true },
+  {
+    key: "resignationType", label: "Resignation Type", type: "select", options: ["Personal",
+      "Terminated",
+      "Work Pressure",
+      "Salary Dispute",
+      "Better Opportunity",
+      "Health Reasons",
+      "Relocation",
+      "Other",],disabled: true
+  },
+  { key: "proposedRelievedDate", label: "Proposed Relieving Date", type: "date",disabled: true },
+  { key: "systemGeneratedRelievedDate", label: "System Generated Relieving Date", type: "date", disabled: true },
+  { key: "eligibleForRehire", label: "Eligible for Rehire", type: "boolean",disabled: true },
+  { key: "rehireRefferedBy", label: "Rehire Reffered By", type: "text" ,disabled: true},
+  { key: "rehireRefferedDateTime", label: "Rehire Reffered On", type: "date" ,disabled: true},
 ];
 
 // ==================== ELIGIBILITY FIELDS ====================
@@ -456,7 +467,6 @@ export const getPriorityColor = (priority: number) => {
 };
 
 export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => {
-  
   // Handle primitive types
   if (obj1 === obj2) return true;
 
@@ -509,7 +519,7 @@ export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => 
 
     for (const key of keys1) {
       if (!keys2.includes(key)) return false;
-      
+
       // FIXED: Special handling for nomination fields
       // If comparing nomineeName, treat ID and name as different
       if (key === 'nomineeName' || key === 'nomineeId') {
@@ -521,7 +531,7 @@ export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => 
         }
         continue;
       }
-      
+
       // For sharePercentage, compare as numbers
       if (key === 'sharePercentage') {
         if (Number(obj1[key]) !== Number(obj2[key])) {
@@ -529,7 +539,7 @@ export const isEqual = (obj1: any, obj2: any, seen = new WeakMap()): boolean => 
         }
         continue;
       }
-      
+
       if (!isEqual(obj1[key], obj2[key], seen)) return false;
     }
     return true;
@@ -559,10 +569,10 @@ export const extractPolicyValues = (
   );
   if (noticePolicy?.config?.noticeDays) {
     const noticeConfig = noticePolicy.config.noticeDays;
-    
+
     // Check if employee is a manager (designation contains "MANAGER" case-insensitive)
     const isManager = employeeDesignation?.toUpperCase().includes("MANAGER");
-    
+
     if (isManager && noticeConfig.MANAGER !== undefined) {
       noticePeriod = Number(noticeConfig.MANAGER);
     } else if (noticeConfig.DEFAULT !== undefined) {
@@ -572,3 +582,14 @@ export const extractPolicyValues = (
 
   return { noticePeriod, probationPeriod };
 };
+
+export const resignationTypes = [
+  "Personal",
+  "Terminated",
+  "Work Pressure",
+  "Salary Dispute",
+  "Better Opportunity",
+  "Health Reasons",
+  "Relocation",
+  "Other",
+];

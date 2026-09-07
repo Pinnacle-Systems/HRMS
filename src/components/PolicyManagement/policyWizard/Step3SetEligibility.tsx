@@ -599,6 +599,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
               <Grid size={{ xs: 12, md: 2 }}>
                 <DatePicker
                   label="Effective From"
+                  format="DD/MM/YYYY"
                   value={rule.effectiveFrom ? dayjs(rule.effectiveFrom) : null}
                   onChange={(v) =>
                     updateRule(rule.id, { effectiveFrom: v ? dayjs(v).format('YYYY-MM-DD') : '' })
@@ -609,6 +610,7 @@ export const Step3SetEligibility: React.FC<Step3SetEligibilityProps> = ({
               <Grid size={{ xs: 12, md: 2 }}>
                 <DatePicker
                   label="Effective To (optional)"
+                  format="DD/MM/YYYY"
                   value={rule.effectiveTo ? dayjs(rule.effectiveTo) : null}
                   minDate={rule.effectiveFrom ? dayjs(rule.effectiveFrom) : undefined}
                   onChange={(v) =>

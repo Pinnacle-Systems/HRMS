@@ -451,6 +451,7 @@ export default function CompOffsPage() {
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
           <DatePicker
             value={fromDate ? dayjs(fromDate) : null}
+            format="DD/MM/YYYY"
             onChange={(newValue) =>
               setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
             }
@@ -459,6 +460,7 @@ export default function CompOffsPage() {
           <DatePicker
             value={toDate ? dayjs(toDate) : null}
             minDate={dayjs(fromDate) ?? undefined}
+            format="DD/MM/YYYY"
             onChange={(newValue) =>
               setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
             }
@@ -630,6 +632,7 @@ export default function CompOffsPage() {
                   <DatePicker
                     label="Worked Date"
                     value={workedDate}
+                    format="DD/MM/YYYY"
                     onChange={(value) => {
                       setWorkedDate(value ? dayjs(value) : null);
                       setErrors((current) => ({ ...current, workedDate: "" }));

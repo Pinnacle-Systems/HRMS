@@ -516,6 +516,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
               <Grid size={{ xs: 12, sm: 6 }}>
                 <DatePicker
                   label="Effective From"
+                  format="DD/MM/YYYY"
                   value={formData.effectiveFrom ? dayjs(formData.effectiveFrom) : null}
                   onChange={(newValue) => {
                     setFormData({
@@ -537,6 +538,7 @@ export const PolicyAssignmentGrid: React.FC<PolicyAssignmentGridProps> = ({
               <Grid size={{ xs: 12, sm: 6 }}>
                 <DatePicker
                   label="Effective To"
+                  format="DD/MM/YYYY"
                   value={formData.effectiveTo ? dayjs(formData.effectiveTo) : null}
                   onChange={(newValue) => {
                     setFormData({

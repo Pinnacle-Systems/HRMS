@@ -520,6 +520,7 @@ export const ShiftRotation = () => {
               <DatePicker
                 label="Start Date"
                 className="!text-gray-800"
+                format="DD/MM/YYYY"
                 value={applyData.startDate ? dayjs(applyData.startDate) : null}
                 onChange={(e) =>
                   setApplyData({
@@ -541,6 +542,7 @@ export const ShiftRotation = () => {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="End Date"
+                format="DD/MM/YYYY"
                 value={applyData.endDate ? dayjs(applyData.endDate) : null}
                 minDate={applyData.startDate ? dayjs(applyData.startDate) : undefined}
                 onChange={(e) =>

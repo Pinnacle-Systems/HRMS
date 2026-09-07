@@ -96,6 +96,7 @@ export default function PolicySimulator() {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Effective From"
+                format="DD/MM/YYYY"
                 value={context.fromDate ? dayjs(context.fromDate) : null}
                 onChange={(newValue) => {
                   setContext({
@@ -114,6 +115,7 @@ export default function PolicySimulator() {
 
               <DatePicker
                 label="Effective To"
+                format="DD/MM/YYYY"
                 value={context.toDate ? dayjs(context.toDate) : null}
                 onChange={(newValue) => {
                   setContext({

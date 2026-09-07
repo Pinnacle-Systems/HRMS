@@ -87,6 +87,7 @@ export function LopReport({ onBack }: Props) {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={fromDate ? dayjs(fromDate) : null}
+                format="DD/MM/YYYY"
                 onChange={(newValue) => { 
                   setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); 
                 }}
@@ -102,6 +103,7 @@ export function LopReport({ onBack }: Props) {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={toDate ? dayjs(toDate) : null}
+                format="DD/MM/YYYY"
                 onChange={(newValue) => { 
                   setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); 
                 }}

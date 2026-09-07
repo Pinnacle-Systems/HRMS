@@ -574,6 +574,7 @@ export const ShiftScheduleView = () => {
               <DatePicker
                 label={view === 'daily' ? 'Today' : view === 'weekly' ? 'Week of' : 'Month'}
                 value={selectedDate}
+                format="DD/MM/YYYY"
                 onChange={handleDateChange}
                 slotProps={{ textField: { size: 'small', className: '' } }}
               />

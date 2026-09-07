@@ -1024,6 +1024,7 @@ export default function MyLeaveRequestsPage() {
           <DatePicker
             label="From Date"
             value={fromDate}
+            format="DD/MM/YYYY"
             onChange={(value) => {
               setFromDate(dayjs(value));
               setPage(0);
@@ -1045,6 +1046,7 @@ export default function MyLeaveRequestsPage() {
           <DatePicker
             label="To Date"
             value={toDate}
+            format="DD/MM/YYYY"
             minDate={fromDate ?? undefined}
             onChange={(value) => {
               setToDate(dayjs(value));
@@ -1643,7 +1645,7 @@ export default function MyLeaveRequestsPage() {
                   </label>
                   <DatePicker
                     value={editForm.fromDate}
-                    format="DD MMM YYYY"
+                    format="DD/MM/YYYY"
                     onChange={(value) =>
                       handleEditChange("fromDate", dayjs(value))
                     }
@@ -1674,7 +1676,7 @@ export default function MyLeaveRequestsPage() {
                   <DatePicker
                     value={editForm.toDate}
                     minDate={editForm.fromDate ?? undefined}
-                    format="DD MMM YYYY"
+                    format="DD/MM/YYYY"
                     onChange={(value) =>
                       handleEditChange("toDate", dayjs(value))
                     }

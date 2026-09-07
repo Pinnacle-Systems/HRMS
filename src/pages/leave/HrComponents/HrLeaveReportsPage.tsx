@@ -228,6 +228,7 @@ function FilterBar({
                 <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="From Date"
+                    format="DD/MM/YYYY"
                     value={filters.from ? dayjs(filters.from) : null}
                     onChange={(newValue) => {
                       onFilterChange(
@@ -238,6 +239,7 @@ function FilterBar({
                   />
                   <DatePicker
                     label="To Date"
+                    format="DD/MM/YYYY"
                     value={filters.to ? dayjs(filters.to) : null}
                     minDate={dayjs(filters.from) ?? undefined}
                     onChange={(newValue) => {
@@ -4351,6 +4353,7 @@ export default function HrLeaveReportsPage() {
                     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                       <DatePicker
                         value={filters.from ? dayjs(filters.from) : null}
+                        format="DD/MM/YYYY"
                         onChange={(newValue) => {
                           setFilters({
                             ...filters,
@@ -4384,6 +4387,7 @@ export default function HrLeaveReportsPage() {
                     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                       <DatePicker
                         value={filters.to ? dayjs(filters.to) : null}
+                        format="DD/MM/YYYY"
                         minDate={filters.from ? dayjs(filters.from) : undefined}
                         onChange={(newValue) => {
                           setFilters({

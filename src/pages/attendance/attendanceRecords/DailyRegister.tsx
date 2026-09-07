@@ -52,7 +52,7 @@ import type { AttendanceStatus } from "../../../services/modules/attendanceTypes
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
-  formatTime,
+  // formatTime,
   formatTimewithSec,
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
@@ -1311,6 +1311,7 @@ export function DailyRegister() {
                 setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
                 // setPage(0);
               }}
+              format="DD/MM/YYYY"
               maxDate={dayjs()}
             />
           </LocalizationProvider>
@@ -1505,8 +1506,10 @@ export function DailyRegister() {
                   "Department",
                   "Shift",
                   "Shift Time",
-                  "Check In",
-                  "Check Out",
+                  "Check In Date",
+                  "Check In Time",
+                  "Check Out Date",
+                  "Check Out Time",
                   "Status",
                   "Action",
                 ].map((h, i) => (
@@ -1545,7 +1548,7 @@ export function DailyRegister() {
                       <Checkbox
                         size="small"
                         color="primary"
-                        className="!border-red-500"
+                        className="!border-red-500 text-gray-800"
                         checked={selected.has(emp.employeeId)}
                         onChange={() => toggleSelect(emp.employeeId)}
                         disabled={emp.status == 'leave'}
@@ -1560,6 +1563,8 @@ export function DailyRegister() {
                     <TableCell className="text-gray-500">
                       {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
                     </TableCell>
+                    <TableCell>CheckIn Date</TableCell>
+
                     <TableCell>
                       {emp.checkInTime ? (
                         <span className="text-green-700 font-semibold">
@@ -1569,6 +1574,8 @@ export function DailyRegister() {
                         <span className="text-red-400">-</span>
                       )}
                     </TableCell>
+
+                    <TableCell>CheckOut Date</TableCell>
                     <TableCell>
                       {emp.checkOutTime ? (
                         <span className="text-blue-600 font-semibold">
@@ -2346,6 +2353,7 @@ export function DailyRegister() {
                     setImportStartDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
                   }
                   maxDate={dayjs()}
+                  format="DD/MM/YYYY"
                   slotProps={{ textField: { size: "small", fullWidth: true } }}
                 />
                 <DatePicker
@@ -2355,6 +2363,7 @@ export function DailyRegister() {
                     setImportEndDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
                   }
                   maxDate={dayjs()}
+                  format="DD/MM/YYYY"
                   minDate={importStartDate ? dayjs(importStartDate) : undefined}
                   slotProps={{ textField: { size: "small", fullWidth: true } }}
                 />
@@ -2731,6 +2740,7 @@ export function DailyRegister() {
                           setPunchImportFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
                         }
                         maxDate={dayjs()}
+                        format="DD/MM/YYYY"
                         slotProps={{ textField: { style: { width: '140px' } } }}
                       />
                       <DatePicker
@@ -2740,6 +2750,7 @@ export function DailyRegister() {
                           setPunchImportToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
                         }
                         maxDate={dayjs()}
+                        format="DD/MM/YYYY"
                         minDate={punchImportFromDate ? dayjs(punchImportFromDate) : undefined}
                         slotProps={{ textField: { style: { width: '140px' } } }}
                       />

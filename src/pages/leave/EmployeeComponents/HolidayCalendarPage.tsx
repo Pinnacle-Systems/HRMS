@@ -862,7 +862,7 @@ export default function HolidayCalendarPage() {
             label="Date"
             value={dateFilterValue}
             onChange={handleDateFilterChange}
-            format="DD MMM YYYY"
+            format="DD/MM/YYYY"
             slots={{
               openPickerIcon: CalendarMonthOutlinedIcon,
             }}

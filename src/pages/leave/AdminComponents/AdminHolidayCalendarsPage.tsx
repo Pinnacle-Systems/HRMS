@@ -909,6 +909,7 @@ export default function AdminHolidayCalendarsPage() {
                       ? dayjs(holidayForm.holidayDate)
                       : null
                   }
+                  format="DD/MM/YYYY"
                   onChange={(value) =>
                     setHolidayForm((current) => ({
                       ...current,
@@ -1084,6 +1085,7 @@ export default function AdminHolidayCalendarsPage() {
                               value ? dayjs(value).format("YYYY-MM-DD") : ""
                             )
                           }
+                          format="DD/MM/YYYY"
                         />
                       </LocalizationProvider>
 

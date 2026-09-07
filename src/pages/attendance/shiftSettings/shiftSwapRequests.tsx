@@ -427,6 +427,7 @@ export const ShiftSwapRequests = () => {
                 <DatePicker
                   label="Requester Date"
                   value={createForm.requesterDate}
+                  format="DD/MM/YYYY"
                   onChange={(v) => setCreateForm(f => ({ ...f, requesterDate: dayjs(v) }))}
                   slotProps={{ textField: { required: true } }}
                 />
@@ -455,6 +456,7 @@ export const ShiftSwapRequests = () => {
                 <DatePicker
                   label="Target Date"
                   value={createForm.targetDate}
+                  format="DD/MM/YYYY"
                   onChange={(v) => setCreateForm(f => ({ ...f, targetDate: dayjs(v) }))}
                   slotProps={{ textField: { required: true } }}
                 />

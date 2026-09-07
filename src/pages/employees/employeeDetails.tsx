@@ -42,6 +42,7 @@ import {
   masterSx,
   isEqual,
   extractPolicyValues,
+  resignationTypes,
 } from "./const";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -157,20 +158,8 @@ const EditableGroup = ({
   const [proposedRelievedDate, setProposedRelievedDate] = useState("");
   const [systemGeneratedRelievedDate, setSystemGeneratedRelievedDate] = useState("");
   const [resignationType, setResignationType] = useState("");
-  const [referredBy, setReferredBy] = useState("");
-  const [referredDate, setReferredDate] = useState("");
   const [adminRemarks, setAdminRemarks] = useState("");
   const [eligibleForRehire, setEligibleForRehire] = useState(true);
-  const resignationTypes = [
-    "Personal",
-    "Terminated",
-    "Work Pressure",
-    "Salary Dispute",
-    "Better Opportunity",
-    "Health Reasons",
-    "Relocation",
-    "Other",
-  ];
   const { id } = useParams();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
@@ -215,7 +204,18 @@ const EditableGroup = ({
   };
 
 
-  const getFieldOptions = (fieldKey: string, fieldLabel: string) => {
+  const getFieldOptions = (
+    fieldKey: string,
+    fieldLabel: string,
+    fieldOptions: string[] = [],
+  ) => {
+    if (fieldOptions.length > 0) {
+      return fieldOptions.map((option) => ({
+        value: option,
+        label: option,
+      }));
+    }
+
     if (fieldKey == "department") {
       return department.map((opt: any) => ({
         value: opt.id,
@@ -248,7 +248,15 @@ const EditableGroup = ({
     }
   };
 
-  const getSelectOptions = (fieldKey: string, fieldLabel: string) => {
+  const getSelectOptions = (
+    fieldKey: string,
+    fieldLabel: string,
+    fieldOptions: string[] = [],
+  ) => {
+    if (fieldOptions.length > 0) {
+      return fieldOptions;
+    }
+
     if (fieldKey == "department") {
       return department.map((opt: any) => opt.departmentName);
     }
@@ -545,6 +553,7 @@ const EditableGroup = ({
                               ? dayjs(editData[field.key])
                               : null
                           }
+                          format="DD/MM/YYYY"
                           onChange={(e) =>
                             setEditData({
                               ...editData,
@@ -569,6 +578,7 @@ const EditableGroup = ({
                       <MaterialModule.FormControlLabel
                         control={
                           <MaterialModule.Switch
+                            disabled={field.disabled}
                             checked={editData[field.key] || false}
                             onChange={(e) => {
                               const isDeactivating =
@@ -585,8 +595,6 @@ const EditableGroup = ({
                                 setSystemGeneratedRelievedDate(generated);
                                 setRelievingDate(generated);
                                 setResignationType("");
-                                setReferredBy("");
-                                setReferredDate("");
                                 setAdminRemarks("");
                                 setEligibleForRehire(true);
                                 setRelievingDialogOpen(true);
@@ -619,23 +627,30 @@ const EditableGroup = ({
                             lockableFields.includes(field.key))
                         }
                         onChange={(value) => {
-                          const id = getOptionIdFromName(
-                            field.key,
-                            field.label,
-                            value as string,
-                          );
+                          const id = field.options
+                            ? value
+                            : getOptionIdFromName(
+                              field.key,
+                              field.label,
+                              value as string,
+                            );
                           setEditData((prev: any) => ({
                             ...prev,
                             [field.key]: value,
                             [`${field.key}Id`]: id,
                           }));
                         }}
-                        options={getSelectOptions(field.key, field.label)}
+                        options={getSelectOptions(
+                          field.key,
+                          field.label,
+                          field.options,
+                        )}
                         onAddOption={(newOption) =>
                           handleAddOption(field.key, newOption)
                         }
                         showAddButton={
                           (field.key == "branch" ||
+                            field.key == "resignationType" ||
                             field.key == "department" ||
                             field.key == "attendanceSchema" || !isAdmin)
                             ? false
@@ -800,8 +815,10 @@ const EditableGroup = ({
             can be reactivated later.
           </div>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-            <DatePicker
+           <div className="!space-y-6">
+             <DatePicker
               label="Proposed Relieving Date"
+              format="DD/MM/YYYY"
               value={proposedRelievedDate ? dayjs(proposedRelievedDate) : null}
               onChange={(newValue) => {
                 const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
@@ -827,9 +844,11 @@ const EditableGroup = ({
             />
             <DatePicker
               label="Relieved Date"
+              format="DD/MM/YYYY"
               value={relievingDate ? dayjs(relievingDate) : null}
               onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
             />
+           </div>
           </LocalizationProvider>
           <MaterialModule.FormControl fullWidth className="!mt-4">
             <MaterialModule.InputLabel>Resignation Type</MaterialModule.InputLabel>
@@ -857,20 +876,6 @@ const EditableGroup = ({
             }
             label="Eligible for rehire"
           />
-          <MaterialModule.TextField
-            fullWidth
-            label="Referred By"
-            value={referredBy}
-            onChange={(event: any) => setReferredBy(event.target.value)}
-            className="!mt-2"
-          />
-          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-            <DatePicker
-              label="Referred Date"
-              value={referredDate ? dayjs(referredDate) : null}
-              onChange={(newValue) => setReferredDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
-            />
-          </LocalizationProvider>
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button
@@ -891,16 +896,12 @@ const EditableGroup = ({
                 proposedRelievedDate,
                 systemGeneratedRelievedDate,
                 resignationType,
-                referredBy,
-                referredDate,
               });
               setRelievingDialogOpen(false);
               setRelievingDate("");
               setProposedRelievedDate("");
               setSystemGeneratedRelievedDate("");
               setResignationType("");
-              setReferredBy("");
-              setReferredDate("");
               setAdminRemarks("");
               setEligibleForRehire(true);
             }}
@@ -983,11 +984,13 @@ const EditableGroup = ({
                     title={field.label}
                     value={attachmentData[field.key] || ""}
                     onChange={(value) => {
-                      const id = getOptionIdFromName(
-                        field.key,
-                        field.label,
-                        value as string,
-                      );
+                      const id = field.options
+                        ? value
+                        : getOptionIdFromName(
+                          field.key,
+                          field.label,
+                          value as string,
+                        );
 
                       setAttachmentData((prev: any) => ({
                         ...prev,
@@ -995,7 +998,11 @@ const EditableGroup = ({
                         [`${field.key}Id`]: id,
                       }));
                     }}
-                    options={getSelectOptions(field.key, field.label)}
+                    options={getSelectOptions(
+                      field.key,
+                      field.label,
+                      field.options,
+                    )}
                     onAddOption={(newOption) =>
                       handleAddOption(field.key, newOption)
                     }
@@ -1723,6 +1730,7 @@ const EditableTableGroup = ({
                                         )
                                       }
                                       className="bg-white-50"
+                                      format="DD/MM/YYYY"
                                       slotProps={{
                                         textField: {
                                           fullWidth: true, size: "small", sx: {
@@ -1950,6 +1958,7 @@ const EditableTableGroup = ({
                           ? dayjs(newItemData[field.key])
                           : null
                       }
+                      format="DD/MM/YYYY"
                       onChange={(e) =>
                         setNewItemData({
                           ...newItemData,
@@ -2787,6 +2796,7 @@ export default function EmployeeDetails() {
         eligibleForRehire: updatedData.eligibleForRehire,
         referredDate: updatedData.referredDate,
         template: updatedData.templateId,
+        employeeGroupId: updatedData.employeeGroupId,
       };
       if (Object.keys(payload).length) {
         await employeeService.updateAdminInfo(id, payload);
@@ -2809,12 +2819,12 @@ export default function EmployeeDetails() {
       proposedRelievedDate: updatedData.proposedRelievedDate,
       systemGeneratedRelievedDate: updatedData.systemGeneratedRelievedDate,
       relievedDate: updatedData.relievedDate,
-      referredBy: updatedData.referredBy,
-      referredDate: updatedData.referredDate,
+      rehireRefferedBy: session?.user.userId || "System",
+      rehireRefferedDateTime: new Date().toISOString(),
     }
     try {
       await updateAdminInfo(updatedData);
-      await employeeService.deactivateEmployee(apiId,payload);
+      await employeeService.deactivateEmployee(apiId, payload);
       showSnackbar(`"${employee.name}" has been deactivated.`, "success");
       await fetchEmployeeDetails();
     } catch (error: any) {
@@ -3375,60 +3385,60 @@ export default function EmployeeDetails() {
     }
   }, [tabValue]);
 
-useEffect(() => {
-  // if (tabValue !== 10 || !apiId) return;
-  if (tabValue !== 3 || !apiId) return;
-  setPolicyLoading(true);
-  setPolicyError(null);
-  const keyDomains = [
-    PolicyDomain.LEAVE,
-    PolicyDomain.EXPENSE,
-    PolicyDomain.OVERTIME,
-    PolicyDomain.ATTENDANCE,
-    PolicyDomain.PAYROLL,
-  ];
-  Promise.all([
-    policyService.getEmployeePolicies(apiId),
-    policyService.getEmployeePolicyHistory(apiId),
-    Promise.all(
-      keyDomains.map((domain) =>
-        policyService
-          .getEffectivePolicy(apiId, domain)
-          .then((res: any) => ({ domain, data: res.data ?? null }))
-          .catch(() => ({ domain, data: null })),
+  useEffect(() => {
+    // if (tabValue !== 10 || !apiId) return;
+    if (tabValue !== 3 || !apiId) return;
+    setPolicyLoading(true);
+    setPolicyError(null);
+    const keyDomains = [
+      PolicyDomain.LEAVE,
+      PolicyDomain.EXPENSE,
+      PolicyDomain.OVERTIME,
+      PolicyDomain.ATTENDANCE,
+      PolicyDomain.PAYROLL,
+    ];
+    Promise.all([
+      policyService.getEmployeePolicies(apiId),
+      policyService.getEmployeePolicyHistory(apiId),
+      Promise.all(
+        keyDomains.map((domain) =>
+          policyService
+            .getEffectivePolicy(apiId, domain)
+            .then((res: any) => ({ domain, data: res.data ?? null }))
+            .catch(() => ({ domain, data: null })),
+        ),
       ),
-    ),
-  ])
-    .then(([policiesRes, historyRes, effectiveRes]: any) => {
-      const policies = policiesRes.data ?? [];
-      setEmpPolicies(policies);
-      setEmpPolicyHistory(historyRes.data ?? []);
-      
-      // Extract policy values and auto-fill employee fields
-      const policyValues = extractPolicyValues(policies, employee?.designation || '');
-      
-      // Auto-fill noticePeriod and probationPeriod
-      if (policyValues.noticePeriod > 0 || policyValues.probationPeriod > 0) {
-        const updatedData = {
-          ...employee,
-          noticePeriod: policyValues.noticePeriod > 0 ? policyValues.noticePeriod : employee?.noticePeriod || 0,
-          probationPeriod: policyValues.probationPeriod > 0 ? policyValues.probationPeriod : employee?.probationPeriod || 0,
-        };
-        setEmployee(updatedData);
-        setInitialEmployee(updatedData);
-      }
-      
-      const effectiveMap: Record<string, any> = {};
-      (effectiveRes as Array<{ domain: string; data: any }>).forEach(
-        ({ domain, data }) => {
-          if (data) effectiveMap[domain] = data;
-        },
-      );
-      setEffectivePolicies(effectiveMap);
-    })
-    .catch(() => setPolicyError("Failed to load policy data"))
-    .finally(() => setPolicyLoading(false));
-}, [tabValue, id, employee?.designation]);
+    ])
+      .then(([policiesRes, historyRes, effectiveRes]: any) => {
+        const policies = policiesRes.data ?? [];
+        setEmpPolicies(policies);
+        setEmpPolicyHistory(historyRes.data ?? []);
+
+        // Extract policy values and auto-fill employee fields
+        const policyValues = extractPolicyValues(policies, employee?.designation || '');
+
+        // Auto-fill noticePeriod and probationPeriod
+        if (policyValues.noticePeriod > 0 || policyValues.probationPeriod > 0) {
+          const updatedData = {
+            ...employee,
+            noticePeriod: policyValues.noticePeriod > 0 ? policyValues.noticePeriod : employee?.noticePeriod || 0,
+            probationPeriod: policyValues.probationPeriod > 0 ? policyValues.probationPeriod : employee?.probationPeriod || 0,
+          };
+          setEmployee(updatedData);
+          setInitialEmployee(updatedData);
+        }
+
+        const effectiveMap: Record<string, any> = {};
+        (effectiveRes as Array<{ domain: string; data: any }>).forEach(
+          ({ domain, data }) => {
+            if (data) effectiveMap[domain] = data;
+          },
+        );
+        setEffectivePolicies(effectiveMap);
+      })
+      .catch(() => setPolicyError("Failed to load policy data"))
+      .finally(() => setPolicyLoading(false));
+  }, [tabValue, id, employee?.designation]);
 
   const familyMemberOptions = familyMembers.map((member: any) => ({
     id: member.id,

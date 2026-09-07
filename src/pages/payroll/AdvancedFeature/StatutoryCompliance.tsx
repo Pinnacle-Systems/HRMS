@@ -718,6 +718,7 @@ export default function StatutoryCompliance() {
               <Grid size={{ xs: 12, sm: 4 }}>
                 <DatePicker
                   label="Due Date"
+                  format="DD/MM/YYYY"
                   value={formData.dueDate ? dayjs(formData.dueDate) : null}
                   onChange={(newValue) => {
                     setFormData({
@@ -737,6 +738,7 @@ export default function StatutoryCompliance() {
               <Grid size={{ xs: 12, sm: 4 }}>
                 <DatePicker
                   label="Filed Date"
+                  format="DD/MM/YYYY"
                   value={formData.filedDate ? dayjs(formData.filedDate) : null}
                   onChange={(newValue) => {
                     setFormData({

@@ -609,6 +609,7 @@ export default function HrPayrollInputsPage() {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="From Date"
+                format="DD/MM/YYYY"
                 value={fromDate}
                 onChange={(newValue) =>
                   newValue && setFromDate(dayjs(newValue))
@@ -621,6 +622,7 @@ export default function HrPayrollInputsPage() {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="To Date"
+                format="DD/MM/YYYY"
                 value={toDate}
                 minDate={fromDate ?? undefined}
                 onChange={(newValue) => newValue && setToDate(dayjs(newValue))}
@@ -642,6 +644,7 @@ export default function HrPayrollInputsPage() {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Payroll Month"
+                format="DD/MM/YYYY"
                 views={["month", "year"]}
                 value={dayjs(payrollMonth)}
                 className="!text-[12px]"
@@ -1335,6 +1338,7 @@ export default function HrPayrollInputsPage() {
                 <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                   <DatePicker
                     label="Payroll Month"
+                    format="DD/MM/YYYY"
                     views={["month", "year"]}
                     value={dayjs(encashmentFormData.payrollMonth)}
                     className="!text-[12px]"
@@ -1653,6 +1657,7 @@ export default function HrPayrollInputsPage() {
                   <DatePicker
                     label="Payroll Month"
                     views={["month", "year"]}
+                    // format="DD/MM/YYYY"
                     value={dayjs(encashmentFormData.payrollMonth)}
                     className="!text-[12px]"
                     onChange={(newValue) => {

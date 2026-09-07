@@ -323,6 +323,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                   [key]: date ? dayjs(date).format('YYYY-MM-DD') : '',
                 });
               }}
+              format="DD/MM/YYYY"
               slotProps={{
                 textField: {
                   size: 'small',

@@ -942,6 +942,7 @@ export const AssignOnboarding = () => {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Start Date"
+                format="DD/MM/YYYY"
                 value={dayjs(formData.startDate)}
                 onChange={(date) =>
                   setFormData({
@@ -956,6 +957,7 @@ export const AssignOnboarding = () => {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Due Date (Optional)"
+                format="DD/MM/YYYY"
                 value={formData.dueDate ? dayjs(formData.dueDate) : null}
                 minDate={
                   formData.startDate ? dayjs(formData.startDate) : undefined
@@ -1078,6 +1080,7 @@ export const AssignOnboarding = () => {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Start Date"
+                format="DD/MM/YYYY"
                 value={dayjs(formData.startDate)}
                 onChange={(date) =>
                   setFormData({
@@ -1092,6 +1095,7 @@ export const AssignOnboarding = () => {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Due Date (Optional)"
+                format="DD/MM/YYYY"
                 value={formData.dueDate ? dayjs(formData.dueDate) : null}
                 minDate={
                   formData.startDate ? dayjs(formData.startDate) : undefined

@@ -84,6 +84,7 @@ export function IrregularPunchReport({ onBack }: Props) {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={fromDate ? dayjs(fromDate) : null}
+                format="DD/MM/YYYY"
                 onChange={(newValue) => { setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); }}
                 slotProps={{
                   textField: {
@@ -98,6 +99,7 @@ export function IrregularPunchReport({ onBack }: Props) {
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 value={toDate ? dayjs(toDate) : null}
+                format="DD/MM/YYYY"
                 onChange={(newValue) => { setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); }}
                 maxDate={new Date() ? dayjs(new Date()) : undefined}
                 slotProps={{

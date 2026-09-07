@@ -298,6 +298,7 @@ export function AttendanceSummary() {
                     <DatePicker
                       label="Effective From"
                       className="!w-[200px]"
+                      format="DD/MM/YYYY"
                       value={selectedDate ? dayjs(selectedDate) : null}
                       onChange={(newValue) => { setSelectedDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""); }}
                       maxDate={new Date() ? dayjs(new Date()) : undefined}

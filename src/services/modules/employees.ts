@@ -68,6 +68,22 @@ export interface ApiResponsePageEmployeeSummaryResponse {
   data: SpringPage<EmployeeSummaryResponse>;
 }
 
+export interface EmployeeStatsSummary {
+  totalEmployees: number;
+  totalActiveEmployees: number;
+  totalInactiveEmployees: number;
+  onboardingAssigned: number;
+  onboardingQueue: number;
+  onboardingInProgress: number;
+  onboardingCompleted: number;
+}
+
+export interface ApiResponseEmployeeStatsSummary {
+  success?: boolean;
+  message?: string;
+  data: EmployeeStatsSummary;
+}
+
 export interface BulkUploadRowError {
   row?: number;
   field?: string;
@@ -316,6 +332,12 @@ export const employeeService = {
     return apiService.get<ApiResponsePageEmployeeSummaryResponse>(
       API_ENDPOINTS.EMPLOYEE.GET_DEACTIVATED,
       { params: buildEmployeeListParams(params) },
+    );
+  },
+
+  async getSummary(): Promise<ApiResponseEmployeeStatsSummary> {
+    return apiService.get<ApiResponseEmployeeStatsSummary>(
+      API_ENDPOINTS.EMPLOYEE.SUMMARY,
     );
   },
 

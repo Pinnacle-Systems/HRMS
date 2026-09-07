@@ -584,7 +584,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave, preselectedT
 
         // Auto-select based on template type
         if (apiData.advancedConfigs.length > 0) {
-          let selectedType: 'staff' | 'labour' | null = null;
+          // let selectedType: 'staff' | 'labour' | null = null;
           
           // If we have a template type, try to find that config
           if (templateType) {
@@ -592,7 +592,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave, preselectedT
               (c: any) => c.type === templateType
             );
             if (typeConfig) {
-              selectedType = templateType;
+              // selectedType = templateType;
               setSelectedCategories([templateType]);
               setCurrentConfig(typeConfig);
               return;
@@ -603,7 +603,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave, preselectedT
           const firstConfig = apiData.advancedConfigs[0];
           if (firstConfig) {
             // If template type exists but no config for it, use the first available
-            selectedType = firstConfig.type;
+            // selectedType = firstConfig.type;
             setSelectedCategories([firstConfig.type]);
             setCurrentConfig(firstConfig);
           }

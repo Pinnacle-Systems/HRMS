@@ -75,6 +75,7 @@ export default function AdminWorkflowsPage() {
           <DatePicker
             label="Run Date"
             value={dayjs(runDate)}
+            format="DD/MM/YYYY"
             onChange={(newValue) => {
               setRunDate(newValue ? dayjs(newValue).format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD'));
             }}

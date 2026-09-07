@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -117,6 +117,7 @@ export default function Layout() {
   const user = session?.user;
   const userPermissions = user?.permissions || [];
   const pageHistoryStorageKey = `hrms-page-history-${user?.userId || "guest"}`;
+  const closingPagePathRef = useRef<string | null>(null);
   const [pageHistory, setPageHistory] = useState<PreviousPage[]>(() => {
     try {
       const storedPages = localStorage.getItem(pageHistoryStorageKey);
@@ -533,18 +534,34 @@ export default function Layout() {
 
   useEffect(() => {
     const currentPath = `${location.pathname}${location.search}`;
+    const homePath = user ? getDefaultRoute(user) : "/home";
+    if (currentPath === homePath) {
+      setPageHistory((currentHistory) => {
+        if (currentHistory.length === 0) {
+          return currentHistory;
+        }
+        localStorage.setItem(pageHistoryStorageKey, JSON.stringify([]));
+        return [];
+      });
+      return;
+    }
+
+    if (closingPagePathRef.current === currentPath) {
+      closingPagePathRef.current = null;
+      return;
+    }
+
     setPageHistory((currentHistory) => {
       const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
-      if (
-        currentHistory[0]?.path === nextPage.path &&
-        currentHistory[0]?.label === nextPage.label
-      ) {
+      const existingPage = currentHistory.find((page) => page.path === currentPath);
+      if (existingPage?.label === nextPage.label) {
         return currentHistory;
       }
-      const nextHistory = [
-        nextPage,
-        ...currentHistory.filter((page) => page.path !== currentPath),
-      ];
+      const nextHistory = existingPage
+        ? currentHistory.map((page) =>
+            page.path === currentPath ? nextPage : page,
+          )
+        : [...currentHistory, nextPage];
       localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
       return nextHistory;
     });
@@ -552,8 +569,23 @@ export default function Layout() {
 
   const handleRemovePage = (pathToRemove: string) => {
     setPageHistory((currentHistory) => {
+      const removedPageIndex = currentHistory.findIndex(
+        (page) => page.path === pathToRemove,
+      );
       const nextHistory = currentHistory.filter((page) => page.path !== pathToRemove);
       localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+
+      const currentPath = `${location.pathname}${location.search}`;
+      if (pathToRemove === currentPath && removedPageIndex >= 0) {
+        closingPagePathRef.current = pathToRemove;
+        const previousPage =
+          removedPageIndex > 0 ? nextHistory[removedPageIndex - 1] : undefined;
+        const nextPage =
+          removedPageIndex >= 0 ? nextHistory[removedPageIndex] : undefined;
+        const fallbackPath = user ? getDefaultRoute(user) : "/home";
+        navigate(previousPage?.path || nextPage?.path || fallbackPath);
+      }
+
       return nextHistory;
     });
   };
@@ -592,7 +624,7 @@ export default function Layout() {
         }}
       >
         <Toolbar className="bg-white !grid">
-          <div className="bg-white">
+          <div className="bg-white w-full min-w-0">
             {/* First Row - Main Toolbar */}
             <div className="flex justify-between items-center mt-0.5">
               {/* Left Section - Logo and Navigation */}
@@ -730,14 +762,17 @@ export default function Layout() {
             </div>
 
             {/* Second Row - Page History Chips (Hidden Scrollbar) */}
-            {pageHistory?.length > 1 && (
-              <div className="mb-1 pt-1 border-t !border-gray-200 w-full">
+            {pageHistory?.length > 0 && (
+              <div className="mb-1 pt-1 border-t !border-gray-200 w-full min-w-0">
                 <Box
                   className="overflow-x-auto overflow-y-hidden"
                   sx={{
                     overflowX: 'auto',
                     overflowY: 'hidden',
+                    width: '100%',
                     maxWidth: '100%',
+                    minWidth: 0,
+                    WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'none',
                     msOverflowStyle: 'none',
                     '&::-webkit-scrollbar': {
@@ -752,25 +787,23 @@ export default function Layout() {
                       flexWrap: 'nowrap',
                       whiteSpace: 'nowrap',
                       width: 'max-content',
-                      minWidth: '100%',
+                      minWidth: 'max-content',
                       '& > *': {
                         flexShrink: 0,
                       },
                     }}
                   >
-                    <span className="text-xs text-gray-400 flex-shrink-0 mr-1 sticky left-0 bg-white z-10 pr-2">
-                      Recent:
-                    </span>
-                    {pageHistory
-                      .filter((page) => page.path !== `${location.pathname}${location.search}`)
-                      .map((page, index, filteredArray) => (
+                    {pageHistory.map((page, index) => (
                         <React.Fragment key={page.path}>
-                          {/* Chip */}
                           <Chip
                             clickable
                             label={page.label || 'Page'}
                             onClick={() => navigate?.(page.path)}
-                            onDelete={() => handleRemovePage?.(page.path)}
+                            onDelete={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              handleRemovePage(page.path);
+                            }}
                             deleteIcon={
                               <CloseOutlined
                                 fontSize="small"
@@ -778,16 +811,18 @@ export default function Layout() {
                               />
                             }
                             variant="outlined"
-                            className="!text-gray-800 !bg-gray-200 !border-none !h-4 hover:!bg-primary hover:!text-white flex-shrink-0"
+                            className={`${page.path === `${location.pathname}${location.search}`
+                              ? '!bg-primary !text-white'
+                              : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
+                              } !border-none !h-4 flex-shrink-0`}
                             aria-label={`Go to ${page.label || 'page'}`}
                           />
 
-                          {/* Divider - show between chips except after the last one */}
-                          {index < filteredArray.length - 1 && (
+                          {index < pageHistory.length - 1 && (
                             <span className="text-gray-300 flex-shrink-0">|</span>
                           )}
                         </React.Fragment>
-                      ))}
+                    ))}
                   </Box>
                 </Box>
               </div>
@@ -1074,12 +1109,14 @@ export default function Layout() {
                           } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
                         onClick={() => {
                           setOpen(true);
-                          setPayrollOpen((prev) => !prev);
+                          setPayrollOpen(true);
                           setAttendanceOpen(false);
                           setPolicyOpen(false);
                           setLeaveOpen(false);
-                          setPayrollOperationsOpen(false);
+                          setPayrollOperationsOpen(true);
                           setPayrollConfigOpen(false);
+                          setPayrollAdvancedOpen(false);
+                          navigate("/payroll");
                         }}
                       >
                         <ListItemIcon
@@ -1338,22 +1375,25 @@ export default function Layout() {
                           if (item.children) {
                             setOpen(true);
                             if (item.text === "Attendance") {
-                              setAttendanceOpen((prev) => !prev);
+                                setAttendanceOpen(true);
                               setPolicyOpen(false);
                               setLeaveOpen(false);
                               setPayrollOpen(false);
+                                navigate("/attendance/overview");
                             }
                             if (item.text === "Policy Engine") {
-                              setPolicyOpen((prev) => !prev);
+                                setPolicyOpen(true);
                               setAttendanceOpen(false);
                               setLeaveOpen(false);
                               setPayrollOpen(false);
+                                navigate("/policies");
                             }
                             if (item.text === "Leave") {
-                              setLeaveOpen((prev) => !prev);
+                                setLeaveOpen(true);
                               setAttendanceOpen(false);
                               setPolicyOpen(false);
                               setPayrollOpen(false);
+                                navigate("/leaves/approvals");
                             }
                             return;
                           }

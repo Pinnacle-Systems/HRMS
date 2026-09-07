@@ -1,4 +1,4 @@
-import { useState, useEffect, type AnyActionArg } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Button,
   Table,
@@ -50,7 +50,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import { useUI } from '../../../context/Snackbar';
 import type { Category, Shift, ShiftStats } from '../../../services/modules/shifts';
-import { days, getShiftTypeClass, colorClasses, formatTimeTo12Hour, dayMapping } from './const';
+import { days, getShiftTypeClass, colorClasses, dayMapping } from './const';
 import { shiftService } from '../../../services/modules/shifts';
 import { GlobalPagination } from '../../../components/GlobalPagination';
 import { getRowColor, getStickyLeftSx, getStickyRightSx, stickyHeaderLeftSx, stickyHeaderRightSx } from '../../const';
@@ -65,6 +65,7 @@ export const ShiftList = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [shiftTypes, setShiftTypes] = useState<string[]>([]);
   const [template, setTemplate] = useState<Category[]>([]);
+  const [commonTemplate, setCommonTemplate] = useState<Category[]>([]);
   const [stats, setStats] = useState<ShiftStats>({
     totalShifts: 0,
     activeShifts: 0,
@@ -93,9 +94,10 @@ export const ShiftList = () => {
     endTime: dayjs('2000-01-01 18:00'),
     shiftType: 'General',
     templateId: '',
+    commonTemplateId: '',
     isActive: true,
     color: '#3b82f6',
-    weeklyOff: ['MON'],
+    weeklyOff: ['SUN'],
     description: '',
     isNightShift: false
   });
@@ -165,23 +167,23 @@ export const ShiftList = () => {
       showSpinner();
       const category: any = await categoryService.getActiveCategoryItem();
       const templateCategory = category.data.find(
-        (element: any) => element.categoryName?.toLowerCase().includes('template')
+        (element: any) => element.categoryName?.toLowerCase().includes('employee group')
       );
       if (templateCategory) {
         setTemplate(templateCategory.items || []);
+      }
+      const commonTemplate = category.data.find(
+        (element: any) => element.categoryName === 'Shift Common Template'
+      );
+      if (commonTemplate) {
+        setCommonTemplate(commonTemplate.items || []);
       } else {
-        const commonTemplate = category.data.find(
-          (element: any) => element.categoryName === 'Common Template'
-        );
-        if (commonTemplate) {
-          setTemplate(commonTemplate.items || []);
-        } else {
-          setTemplate([]);
-        }
+        setCommonTemplate([]);
       }
     } catch (error: any) {
       showSnackbar(error.message || 'Failed to fetch template data', 'error');
       setTemplate([]);
+      setCommonTemplate([]);
     } finally {
       hideSpinner();
     }
@@ -261,9 +263,9 @@ export const ShiftList = () => {
     try {
       // Get default config based on template type
       const defaultConfig = getDefaultConfigForType(templateType);
-    const { type, ...configWithoutType } = defaultConfig;
+      const { type, ...configWithoutType } = defaultConfig;
 
-      const configData:any = {
+      const configData: any = {
         shiftId: shiftId,
         shiftName: formData.shiftName,
         advancedConfigs: [{
@@ -295,7 +297,7 @@ export const ShiftList = () => {
         if (!existingTypeConfig) {
           // Add new config for this type
           const defaultConfig = getDefaultConfigForType(templateType);
-                  const { type, ...configWithoutType } = defaultConfig;
+          const { type, ...configWithoutType } = defaultConfig;
 
           const updatedConfigs = [
             ...(config.advancedConfigs || []),
@@ -400,6 +402,7 @@ export const ShiftList = () => {
       startTime: dayjsToTimeString(formData.startTime),
       endTime: dayjsToTimeString(formData.endTime),
       templateId: formData.templateId,
+      commonTemplateId: formData.commonTemplateId || null,
       weeklyOff: formData.weeklyOff,
       color: formData.color,
       description: formData.description,
@@ -444,10 +447,11 @@ export const ShiftList = () => {
       shiftType: 'General',
       isActive: true,
       color: '#3b82f6',
-      weeklyOff: ['MON'],
+      weeklyOff: ['SUN'],
       description: '',
       isNightShift: false,
       templateId: '',
+      commonTemplateId: '',
     });
   };
 
@@ -468,18 +472,18 @@ export const ShiftList = () => {
       description: shift.description || '',
       isNightShift: shift.isNightShift,
       templateId: shift.templateId,
+      commonTemplateId: shift.commonTemplateId || '',
     });
     setIsDialogOpen(true);
     handleMenuClose();
   };
 
   const handleAdvancedConfig = (shift: Shift) => {
-    // setSelectedShiftForConfig(shift);
-     const templateType = getTemplateType(shift.templateId);
-  setSelectedShiftForConfig({
-    ...shift,
-    templateType: templateType
-  });
+    const templateType = getTemplateType(shift.templateId);
+    setSelectedShiftForConfig({
+      ...shift,
+      templateType: templateType
+    });
     setIsAdvancedConfigOpen(true);
     handleMenuClose();
   };
@@ -660,12 +664,12 @@ export const ShiftList = () => {
                 ...stickyHeaderLeftSx,
                 minWidth: "70px",
               }}>S No</TableCell>
-              <TableCell className='!font-semibold'>Template</TableCell>
+              <TableCell className='!font-semibold'>Employee Group</TableCell>
+              <TableCell className='!font-semibold'>Common Template</TableCell>
               <TableCell className='nth-c !font-semibold'>Shift Code</TableCell>
               <TableCell className='!font-semibold '>Shift Name</TableCell>
               <TableCell className='!font-semibold'>Timing</TableCell>
               <TableCell className='!font-semibold'>Hours</TableCell>
-              {/* <TableCell className='!font-semibold'>Type</TableCell> */}
               <TableCell className='!font-semibold'>Shift Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
               <TableCell className='!font-semibold !sticky !right-[100px] !z-[100]'>Status</TableCell>
@@ -685,6 +689,8 @@ export const ShiftList = () => {
             )}
             {shifts.map((shift, index) => {
               const isDefault = defaultShiftId === shift.id;
+              // Get common template name from ID
+              const commonTemplateName = commonTemplate.find(t => t.id === shift.commonTemplateId)?.name || '-';
               return (
                 <TableRow
                   key={shift.id}
@@ -703,7 +709,7 @@ export const ShiftList = () => {
                     minWidth: "70px",
                   }}>{page * limit + index + 1}</TableCell>
                   <TableCell>{shift.templateName}</TableCell>
-
+                  <TableCell>{commonTemplateName}</TableCell>
                   <TableCell sx={{
                     ...getStickyLeftSx(index),
                     left: "70px",
@@ -732,12 +738,11 @@ export const ShiftList = () => {
                     <div className="flex items-center gap-1">
                       <TimeIcon fontSize="small" className="text-gray-400" />
                       <span>
-                        {formatTimeTo12Hour(shift.startTime)} - {formatTimeTo12Hour(shift.endTime)}
+                        {(shift.startTime)} - {(shift.endTime)}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>{shift.totalHours}h</TableCell>
-                  {/* <TableCell>{shift?.advancedConfigTypes?.length ? shift?.advancedConfigTypes : '-'}</TableCell> */}
                   <TableCell>
                     <Chip
                       size="small"
@@ -890,7 +895,7 @@ export const ShiftList = () => {
 
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TimePicker
                     label="Start Time"
                     value={formData.startTime}
@@ -904,7 +909,7 @@ export const ShiftList = () => {
                     }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <TimePicker
                     label="End Time"
                     value={formData.endTime}
@@ -918,42 +923,63 @@ export const ShiftList = () => {
                     }}
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Template</InputLabel>
-                    <Select
-                      value={formData.templateId}
-                      label="Template"
-                      sx={selectSx}
-                      onChange={(e) => {
-                        const newTemplateId = e.target.value;
-                        const templateType = getTemplateType(newTemplateId);
-
-                        // Optionally auto-set shift type based on template
-                        let shiftType = formData.shiftType;
-                        if (templateType === 'staff') {
-                          shiftType = 'General';
-                        } else if (templateType === 'labour') {
-                          shiftType = 'Rotational';
-                        }
-
-                        setFormData({
-                          ...formData,
-                          templateId: newTemplateId,
-                          shiftType: shiftType // Auto-set shift type
-                        });
-                      }}
-                    >
-                      {template.map((cat) => (
-                        <MenuItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
               </Grid>
             </LocalizationProvider>
+
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth required>
+                  <InputLabel>Employee Group</InputLabel>
+                  <Select
+                    value={formData.templateId}
+                    label="Employee Group"
+                    sx={selectSx}
+                    onChange={(e) => {
+                      const newTemplateId = e.target.value;
+                      const templateType = getTemplateType(newTemplateId);
+
+                      // Optionally auto-set shift type based on template
+                      let shiftType = formData.shiftType;
+                      if (templateType === 'staff') {
+                        shiftType = 'General';
+                      } else if (templateType === 'labour') {
+                        shiftType = 'Rotational';
+                      }
+
+                      setFormData({
+                        ...formData,
+                        templateId: newTemplateId,
+                        shiftType: shiftType // Auto-set shift type
+                      });
+                    }}
+                  >
+                    {template.map((cat) => (
+                      <MenuItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Shift Common Template</InputLabel>
+                  <Select
+                    value={formData.commonTemplateId}
+                    label="Shift Common Template"
+                    sx={selectSx}
+                    onChange={(e) => setFormData({ ...formData, commonTemplateId: e.target.value })}
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {commonTemplate.map((item) => (
+                      <MenuItem key={item.id} value={item.id}>
+                        {item.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -1050,7 +1076,7 @@ export const ShiftList = () => {
         onClose={() => setIsAdvancedConfigOpen(false)}
         shift={selectedShiftForConfig}
         onSave={fetchData}
-         preselectedType={selectedShiftForConfig?.templateType}
+        preselectedType={selectedShiftForConfig?.templateType}
       />
     </div>
   );
