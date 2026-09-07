@@ -154,8 +154,23 @@ const EditableGroup = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [relievingDialogOpen, setRelievingDialogOpen] = useState(false);
   const [relievingDate, setRelievingDate] = useState("");
+  const [proposedRelievedDate, setProposedRelievedDate] = useState("");
+  const [systemGeneratedRelievedDate, setSystemGeneratedRelievedDate] = useState("");
+  const [resignationType, setResignationType] = useState("");
+  const [referredBy, setReferredBy] = useState("");
+  const [referredDate, setReferredDate] = useState("");
   const [adminRemarks, setAdminRemarks] = useState("");
   const [eligibleForRehire, setEligibleForRehire] = useState(true);
+  const resignationTypes = [
+    "Personal",
+    "Terminated",
+    "Work Pressure",
+    "Salary Dispute",
+    "Better Opportunity",
+    "Health Reasons",
+    "Relocation",
+    "Other",
+  ];
   const { id } = useParams();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
@@ -562,7 +577,16 @@ const EditableGroup = ({
                                 editData[field.key] !== false;
 
                               if (isDeactivating) {
-                                setRelievingDate("");
+                                const proposed = dayjs().format("YYYY-MM-DD");
+                                const generated = dayjs(proposed)
+                                  .add(Number(editData?.noticePeriod || 0), "day")
+                                  .format("YYYY-MM-DD");
+                                setProposedRelievedDate(proposed);
+                                setSystemGeneratedRelievedDate(generated);
+                                setRelievingDate(generated);
+                                setResignationType("");
+                                setReferredBy("");
+                                setReferredDate("");
                                 setAdminRemarks("");
                                 setEligibleForRehire(true);
                                 setRelievingDialogOpen(true);
@@ -777,15 +801,42 @@ const EditableGroup = ({
           </div>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
-              label="Relieving Date"
+              label="Proposed Relieving Date"
+              value={proposedRelievedDate ? dayjs(proposedRelievedDate) : null}
+              onChange={(newValue) => {
+                const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
+                const generated = proposed
+                  ? dayjs(proposed).add(Number(editData?.noticePeriod || 0), "day").format("YYYY-MM-DD")
+                  : "";
+                setProposedRelievedDate(proposed);
+                setSystemGeneratedRelievedDate(generated);
+                setRelievingDate(generated);
+              }}
+            />
+            <MaterialModule.TextField
+              label="Notice Period (days)"
+              value={editData?.noticePeriod ?? 0}
+              disabled
+              className="!mt-4"
+            />
+            <MaterialModule.TextField
+              label="System Generated Relieving Date"
+              value={systemGeneratedRelievedDate}
+              disabled
+              className="!mt-4"
+            />
+            <DatePicker
+              label="Relieved Date"
               value={relievingDate ? dayjs(relievingDate) : null}
-              onChange={(newValue) =>
-                setRelievingDate(
-                  newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
-                )
-              }
+              onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
             />
           </LocalizationProvider>
+          <MaterialModule.FormControl fullWidth className="!mt-4">
+            <MaterialModule.InputLabel>Resignation Type</MaterialModule.InputLabel>
+            <MaterialModule.Select value={resignationType} label="Resignation Type" onChange={(event: any) => setResignationType(event.target.value)}>
+              {resignationTypes.map((type) => <MaterialModule.MenuItem key={type} value={type}>{type}</MaterialModule.MenuItem>)}
+            </MaterialModule.Select>
+          </MaterialModule.FormControl>
           <MaterialModule.TextField
             label="Reason for Deactivate"
             value={adminRemarks}
@@ -806,6 +857,20 @@ const EditableGroup = ({
             }
             label="Eligible for rehire"
           />
+          <MaterialModule.TextField
+            fullWidth
+            label="Referred By"
+            value={referredBy}
+            onChange={(event: any) => setReferredBy(event.target.value)}
+            className="!mt-2"
+          />
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <DatePicker
+              label="Referred Date"
+              value={referredDate ? dayjs(referredDate) : null}
+              onChange={(newValue) => setReferredDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+            />
+          </LocalizationProvider>
         </MaterialModule.DialogContent>
         <MaterialModule.DialogActions className="!p-4 border-t !border-gray-300">
           <MaterialModule.Button
@@ -823,9 +888,19 @@ const EditableGroup = ({
                 relievedDate: relievingDate,
                 adminRemarks,
                 eligibleForRehire,
+                proposedRelievedDate,
+                systemGeneratedRelievedDate,
+                resignationType,
+                referredBy,
+                referredDate,
               });
               setRelievingDialogOpen(false);
               setRelievingDate("");
+              setProposedRelievedDate("");
+              setSystemGeneratedRelievedDate("");
+              setResignationType("");
+              setReferredBy("");
+              setReferredDate("");
               setAdminRemarks("");
               setEligibleForRehire(true);
             }}
@@ -2345,6 +2420,11 @@ export default function EmployeeDetails() {
         oldIdNo: updatedData.oldIdNo,
         isActive: updatedData.isActive,
         relievedDate: updatedData.relievedDate,
+        proposedRelievedDate: updatedData.proposedRelievedDate,
+        systemGeneratedRelievedDate: updatedData.systemGeneratedRelievedDate,
+        resignationType: updatedData.resignationType,
+        eligibleForRehire: updatedData.eligibleForRehire,
+        referredDate: updatedData.referredDate,
         pfEligible: updatedData.pfEligible,
         excessEpfEligible: updatedData.excessEpfEligible,
         excessEpsEligible: updatedData.excessEpsEligible,
@@ -2701,6 +2781,11 @@ export default function EmployeeDetails() {
         oldIdNo: updatedData.oldIdNo,
         isActive: updatedData.isActive,
         relievedDate: updatedData.relievedDate,
+        proposedRelievedDate: updatedData.proposedRelievedDate,
+        systemGeneratedRelievedDate: updatedData.systemGeneratedRelievedDate,
+        resignationType: updatedData.resignationType,
+        eligibleForRehire: updatedData.eligibleForRehire,
+        referredDate: updatedData.referredDate,
         template: updatedData.templateId,
       };
       if (Object.keys(payload).length) {
@@ -2720,6 +2805,12 @@ export default function EmployeeDetails() {
     const payload = {
       remarks: updatedData.adminRemarks,
       eligibleForRehire: Boolean(updatedData.eligibleForRehire),
+      resignationType: updatedData.resignationType,
+      proposedRelievedDate: updatedData.proposedRelievedDate,
+      systemGeneratedRelievedDate: updatedData.systemGeneratedRelievedDate,
+      relievedDate: updatedData.relievedDate,
+      referredBy: updatedData.referredBy,
+      referredDate: updatedData.referredDate,
     }
     try {
       await updateAdminInfo(updatedData);

@@ -46,7 +46,7 @@ import {
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
 import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, ExpandLessOutlined, ExpandMoreOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
-import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
 import { masterSx } from "./const.ts";
 import DataState from "../../components/DataState.tsx";
@@ -65,13 +65,13 @@ export default function EmployeeManagement() {
   // const [sortBy, setSortBy] = useState("");
   // const [sortOrder, setSortOrder] = useState("");
   const [sortCriteria, setSortCriteria] = useState<Array<{ field: string, order: 'ASC' | 'DESC' }>>([
-    // { field: 'createdAt', order: 'DESC' }
+    { field: 'employeeId', order: 'ASC' }
   ]);
 
   // Filter state
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
-  const [includeInactive, setIncludeInactive] = useState(false);
+  const [employeeView, setEmployeeView] = useState<"active" | "inactive" | "all">("active");
 
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -124,6 +124,11 @@ export default function EmployeeManagement() {
   const [relievingDialogEmployee, setRelievingDialogEmployee] =
     useState<Employee | null>(null);
   const [relievingDate, setRelievingDate] = useState("");
+  const [proposedRelievedDate, setProposedRelievedDate] = useState("");
+  const [systemGeneratedRelievedDate, setSystemGeneratedRelievedDate] = useState("");
+  const [resignationType, setResignationType] = useState("");
+  const [referredDate, setReferredDate] = useState("");
+  const [referredBy, setReferredBy] = useState("");
   const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] =
     useState(false);
   const [adminRemarks, setAdminRemarks] = useState("");
@@ -134,6 +139,17 @@ export default function EmployeeManagement() {
   const [expandedResignedEmployeeId, setExpandedResignedEmployeeId] = useState<string | null>(null);
   const [resignedEmployeeDetails, setResignedEmployeeDetails] = useState<Record<string, any>>({});
   const [resignedDetailsLoading, setResignedDetailsLoading] = useState<string | null>(null);
+
+  const resignationTypes = [
+    "Personal",
+    "Terminated",
+    "Work Pressure",
+    "Salary Dispute",
+    "Better Opportunity",
+    "Health Reasons",
+    "Relocation",
+    "Other",
+  ];
 
   const filterFields = useMemo(
     () =>
@@ -318,12 +334,18 @@ export default function EmployeeManagement() {
         ...buildEmployeeServerFilterParams(activeFilters),
       };
       if (searchTerm) params.search = searchTerm;
-      if (includeInactive) params.includeInactive = true;
+      if (employeeView !== "active") params.includeInactive = true;
 
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);
       const employeeData = employeePage.content as Employee[];
       let visibleEmployees = employeeData;
+
+      if (employeeView === "inactive") {
+        visibleEmployees = employeeData.filter((employee) =>
+          employee.isActive === false || employee.employeeStatus === "INACTIVE",
+        );
+      }
 
       setTotal(employeePage.totalElements);
 
@@ -399,7 +421,7 @@ export default function EmployeeManagement() {
     // sortOrder,
     searchTerm,
     activeFilters,
-    includeInactive,
+    employeeView,
     sortCriteria,
   ]);
 
@@ -795,6 +817,7 @@ export default function EmployeeManagement() {
     name: string,
     remarks: string,
     eligibleForRehire: boolean,
+    details: Record<string, string | boolean | undefined> = {},
   ) => {
     showConfirmDialog({
       title: "Deactivate Employee",
@@ -806,6 +829,7 @@ export default function EmployeeManagement() {
         const payload = {
           remarks,
           eligibleForRehire: Boolean(eligibleForRehire),
+          ...details,
         }
         try {
           await employeeService.deactivateEmployee(id, payload);
@@ -962,6 +986,7 @@ export default function EmployeeManagement() {
           search: searchTerm || undefined,
           // sort: `${sortBy},${sortOrder}`,
           sort: sortParams,
+          includeInactive: employeeView !== "active" ? true : undefined,
           ...buildEmployeeServerFilterParams(activeFilters),
         };
 
@@ -985,6 +1010,11 @@ export default function EmployeeManagement() {
     try {
       await employeeService.updateAdminInfo(emp.id, {
         relievedDate: value,
+        proposedRelievedDate,
+        systemGeneratedRelievedDate,
+        resignationType,
+        referredDate,
+        eligibleForRehire,
         joiningDate: formData.joiningDate,
         branchId: formData.branchId || selectedEmployee?.branchId || session?.branchId,
         departmentId: formData.departmentId || selectedEmployee?.departmentId,
@@ -1002,7 +1032,7 @@ export default function EmployeeManagement() {
         vehicleTypeId: selectedEmployee?.vehicleTypeId,
         hostel: selectedEmployee?.hostel,
         currentCompanyExperience: selectedEmployee?.currentCompanyExperience,
-        referredBy: selectedEmployee?.referredBy,
+        referredBy,
         bonusPolicyId: selectedEmployee?.bonusPolicyId,
         otPolicyId: selectedEmployee?.otPolicyId,
         otAmount: selectedEmployee?.otAmount,
@@ -1020,6 +1050,14 @@ export default function EmployeeManagement() {
         emp.name,
         remarks,
         eligibleForRehire,
+        {
+          resignationType,
+          proposedRelievedDate,
+          systemGeneratedRelievedDate,
+          relievedDate: value,
+          referredBy,
+          referredDate,
+        },
       );
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -1051,24 +1089,7 @@ export default function EmployeeManagement() {
           </div>
         </div>
         <div className="flex gap-3 items-center">
-          <FormControlLabel
-            control={
-              <Switch
-                checked={includeInactive}
-                onChange={(e) => {
-                  setIncludeInactive(e.target.checked);
-                  setPage(0);
-                }}
-                size="small"
-              />
-            }
-            label={
-              <span className="text-[12px] text-gray-600">
-                Include inactive
-              </span>
-            }
-          />
-          <Button
+          {/* <Button
             variant="outlined"
             startIcon={<VisibilityOutlined />}
             onClick={() => {
@@ -1078,7 +1099,7 @@ export default function EmployeeManagement() {
             }}
           >
             View Resigned Employees
-          </Button>
+          </Button> */}
           <Button
             variant="outlined"
             startIcon={<FileUploadOutlined />}
@@ -1223,7 +1244,7 @@ export default function EmployeeManagement() {
           {
             label: "Inactive Employees",
             value: inactiveCount,
-            detail: includeInactive ? "Included in this view" : "Enable toggle to view all",
+            detail: employeeView !== "active" ? "Included in this view" : "Select Inactive to view",
             icon: <NoAccountsOutlined />,
             tone: "text-rose-700 bg-rose-50",
             bar: "bg-rose-500",
@@ -1288,19 +1309,36 @@ export default function EmployeeManagement() {
       })()}
 
       {/* Search Bar */}
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <TextField
-          fullWidth
           variant="outlined"
           placeholder="Search by name, email, firstName, lastName, mobileNumber  or employee ID..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          className="min-w-[240px] flex-1"
+          sx={{ minWidth: 240 }}
         />
+        <div className="flex shrink-0 items-center overflow-hidden rounded-md border border-gray-300">
+          {(["active", "inactive", "all"] as const).map((view) => (
+            <Button
+              key={view}
+              variant={employeeView === view ? "contained" : "text"}
+              onClick={() => {
+                setEmployeeView(view);
+                setPage(0);
+              }}
+              className={employeeView === view ? "!bg-primary !text-white" : "!text-gray-600"}
+              sx={{ borderRadius: 0, minWidth: 68, textTransform: "capitalize", whiteSpace: "nowrap" }}
+            >
+              {view}
+            </Button>
+          ))}
+        </div>
         <Button
           variant="outlined"
           startIcon={<FilterAltOutlinedIcon />}
           onClick={() => setFilterOpen(true)}
-          sx={{ position: "relative" }}
+          sx={{ position: "relative", flexShrink: 0 }}
         >
           <div>Filters</div>
           {getActiveFilterCount() > 0 && (
@@ -1320,9 +1358,12 @@ export default function EmployeeManagement() {
           variant="outlined"
           startIcon={<DownloadOutlined />}
           onClick={(e) => openExportMenu(e)}
+          sx={{ flexShrink: 0 }}
         >
           Export
         </Button>
+
+       
 
         {/* Shared Export Menu */}
         <Menu
@@ -1591,7 +1632,16 @@ export default function EmployeeManagement() {
                           size="small"
                           onClick={() => {
                             setRelievingDialogEmployee(employee);
-                            setRelievingDate("");
+                            const proposed = dayjs().format("YYYY-MM-DD");
+                            const generated = dayjs(proposed)
+                              .add(Number(employee.noticePeriod || 0), "day")
+                              .format("YYYY-MM-DD");
+                            setRelievingDate(generated);
+                            setProposedRelievedDate(proposed);
+                            setSystemGeneratedRelievedDate(generated);
+                            setResignationType("");
+                            setReferredBy("");
+                            setReferredDate("");
                             setAdminRemarks("");
                             setEligibleForRehire(true);
                             setRelievingDialogOpen(true);
@@ -2242,15 +2292,45 @@ export default function EmployeeManagement() {
           </div>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
-              label="Relieving Date"
-              value={relievingDate ? dayjs(relievingDate) : null}
+              label="Proposed Relieving Date"
+              value={proposedRelievedDate ? dayjs(proposedRelievedDate) : null}
               onChange={(newValue) =>
-                setRelievingDate(
-                  newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
-                )
+                (() => {
+                  const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
+                  const generated = proposed
+                    ? dayjs(proposed).add(Number(relievingDialogEmployee?.noticePeriod || 0), "day").format("YYYY-MM-DD")
+                    : "";
+                  setProposedRelievedDate(proposed);
+                  setSystemGeneratedRelievedDate(generated);
+                  setRelievingDate(generated);
+                })()
               }
             />
+            <TextField
+              label="Notice Period (days)"
+              value={relievingDialogEmployee?.noticePeriod ?? 0}
+              disabled
+              className="!mt-4"
+            />
+            <TextField
+              label="System Generated Relieving Date"
+              value={systemGeneratedRelievedDate}
+              disabled
+              className="!mt-4"
+            />
+            <DatePicker
+              label="Relieved Date"
+              value={relievingDate ? dayjs(relievingDate) : null}
+              onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+              slotProps={{ textField: { className: "!mt-4" } }}
+            />
           </LocalizationProvider>
+          <FormControl fullWidth className="!mt-4">
+            <InputLabel>Resignation Type</InputLabel>
+            <Select value={resignationType} label="Resignation Type" onChange={(event) => setResignationType(event.target.value)}>
+              {resignationTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+            </Select>
+          </FormControl>
           <TextField
             label="Reason for Deactivate"
             value={adminRemarks}
@@ -2269,6 +2349,21 @@ export default function EmployeeManagement() {
             }
             label="Eligible for rehire"
           />
+          <TextField
+            fullWidth
+            label="Referred By"
+            value={referredBy}
+            onChange={(event) => setReferredBy(event.target.value)}
+            className="!mt-2"
+          />
+          <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <DatePicker
+              label="Referred Date"
+              value={referredDate ? dayjs(referredDate) : null}
+              onChange={(newValue) => setReferredDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+              slotProps={{ textField: { fullWidth: true, className: "!mt-4" } }}
+            />
+          </LocalizationProvider>
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">
           <Button
@@ -2287,6 +2382,11 @@ export default function EmployeeManagement() {
                 );
                 setRelievingDialogOpen(false);
                 setRelievingDate("");
+                setProposedRelievedDate("");
+                setSystemGeneratedRelievedDate("");
+                setResignationType("");
+                setReferredBy("");
+                setReferredDate("");
                 setAdminRemarks("");
                 setEligibleForRehire(true);
               }

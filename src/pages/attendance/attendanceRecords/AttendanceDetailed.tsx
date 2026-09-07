@@ -27,9 +27,11 @@ import { departmentService } from "../../../services/modules/department";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { useSearchParams } from "react-router-dom";
 
 export function AttendanceDetailed() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const [searchParams] = useSearchParams();
 
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -38,11 +40,11 @@ export function AttendanceDetailed() {
   const [loading, setLoading] = useState(false);
 
   // Filters
-  const [fromDate, setFromDate] = useState(dayjs().format("YYYY-MM-DD"));
-  const [toDate, setToDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [fromDate, setFromDate] = useState(searchParams.get("date") || dayjs().format("YYYY-MM-DD"));
+  const [toDate, setToDate] = useState(searchParams.get("date") || dayjs().format("YYYY-MM-DD"));
   const [departmentId, setDepartmentId] = useState("");
   const [shiftCode, _setShiftCode] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(searchParams.get("status") || "");
   // const [search, setSearch] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 

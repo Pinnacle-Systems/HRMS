@@ -43,6 +43,7 @@ export interface Shift {
   advancedConfigTypes: [];
   templateName?: string;
   defaultShift?: boolean;
+  templateType?: 'staff' | 'labour';
 }
 
 // Pagination response for shifts

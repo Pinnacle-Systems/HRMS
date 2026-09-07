@@ -36,6 +36,7 @@ export type TenantInfo = {
 export type AuthUser = {
   userId: string;
   tenantId: string;
+  subdomain?: string;
   email: string;
   roles: AppRole[];
   rawRoles: string[];
@@ -178,6 +179,7 @@ export type AuthResponse = {
   expiresIn?: number;
   userId?: string;
   tenantId?: string;
+  subdomain?: string;
   email?: string;
   roles?: string[];
   mfaRequired?: boolean;

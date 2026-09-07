@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type AnyActionArg } from 'react';
 import {
   Button,
   Table,
@@ -214,7 +214,7 @@ export const ShiftList = () => {
       const params: any = {
         page: page,
         size: limit,
-        sort: 'updatedAt,desc'
+        sort: 'shiftCode,ASC'
       };
       if (searchTerm) {
         params.search = searchTerm;
@@ -256,11 +256,143 @@ export const ShiftList = () => {
     }
   };
 
+  // Helper to create advanced config for a new shift
+  const createAdvancedConfigForShift = async (shiftId: string, templateType: string) => {
+    try {
+      // Get default config based on template type
+      const defaultConfig = getDefaultConfigForType(templateType);
+    const { type, ...configWithoutType } = defaultConfig;
+
+      const configData:any = {
+        shiftId: shiftId,
+        shiftName: formData.shiftName,
+        advancedConfigs: [{
+          type: templateType,
+          ...configWithoutType
+        }]
+      };
+
+      await shiftService.createShiftAdvancedConfig(shiftId, configData);
+      console.log(`Advanced config created for ${templateType}`);
+    } catch (error: any) {
+      console.error('Failed to create advanced config:', error);
+      // Don't block the main flow, just log the error
+    }
+  };
+
+  // Helper to update advanced config for existing shift
+  const updateAdvancedConfigForShift = async (shiftId: string, templateType: string) => {
+    try {
+      // Check if config already exists
+      const existingConfig: any = await shiftService.getShiftAdvancedConfig(shiftId);
+
+      if (existingConfig?.data?.advancedConfigs || existingConfig?.advancedConfigs) {
+        const config = existingConfig.data || existingConfig;
+
+        // Check if config for this type already exists
+        const existingTypeConfig = config.advancedConfigs?.find((c: any) => c.type === templateType);
+
+        if (!existingTypeConfig) {
+          // Add new config for this type
+          const defaultConfig = getDefaultConfigForType(templateType);
+                  const { type, ...configWithoutType } = defaultConfig;
+
+          const updatedConfigs = [
+            ...(config.advancedConfigs || []),
+            {
+              type: templateType,
+              ...configWithoutType
+            }
+          ];
+
+          await shiftService.updateShiftAdvancedConfig(shiftId, {
+            ...config,
+            advancedConfigs: updatedConfigs
+          });
+          console.log(`Advanced config added for ${templateType}`);
+        }
+      } else {
+        // No config exists, create one
+        await createAdvancedConfigForShift(shiftId, templateType);
+      }
+    } catch (error: any) {
+      console.error('Failed to update advanced config:', error);
+      // Don't block the main flow
+    }
+  };
+
+  // Get default config for a type
+  const getDefaultConfigForType = (type: string) => {
+    // These should match the defaults from your ShiftAdvancedConfig component
+    const defaultConfig = {
+      graceBeforeCheckIn: 5,
+      graceAfterCheckIn: 5,
+      graceBeforeCheckOut: 5,
+      graceAfterCheckOut: 5,
+      breakTime: 15,
+      breakAfterHours: 2,
+      allowMultipleBreaks: false,
+      maxBreaksPerShift: 0,
+      minBreakInterval: 60,
+      breakSlots: [],
+      mealDuration: 30,
+      mealAfterHours: 4,
+      enableMealBreakGrace: false,
+      mealGraceBefore: 5,
+      mealGraceAfter: 5,
+      overtimeBeforeShift: 0,
+      overtimeAfterShift: 0,
+      minRestBetweenShifts: 8,
+      maxConsecutiveDays: 6,
+      roundingRule: 'none',
+      roundingInterval: 0,
+      type: type
+    };
+
+    // Customize based on type
+    if (type === 'staff') {
+      return {
+        ...defaultConfig,
+        graceBeforeCheckIn: 10,
+        graceAfterCheckIn: 10,
+        breakTime: 30,
+      };
+    } else if (type === 'labour') {
+      return {
+        ...defaultConfig,
+        graceBeforeCheckIn: 5,
+        graceAfterCheckIn: 5,
+        breakTime: 15,
+        allowMultipleBreaks: true,
+        maxBreaksPerShift: 2,
+        minBreakInterval: 120,
+        breakSlots: [
+          {
+            id: `break_${Date.now()}_1`,
+            startTime: '10:00',
+            endTime: '10:15',
+            duration: 15
+          },
+          {
+            id: `break_${Date.now()}_2`,
+            startTime: '13:00',
+            endTime: '13:15',
+            duration: 15
+          }
+        ]
+      };
+    }
+
+    return defaultConfig;
+  };
+
   const handleSave = async () => {
     if (!formData.shiftName || !formData.shiftCode || !formData.startTime || !formData.endTime || !formData.templateId) {
       showSnackbar('Please fill all required fields', 'error');
       return;
     }
+    const templateType = getTemplateType(formData.templateId);
+
     const apiData = {
       shiftName: formData.shiftName,
       shiftCode: formData.shiftCode,
@@ -272,16 +404,25 @@ export const ShiftList = () => {
       color: formData.color,
       description: formData.description,
       isActive: formData.isActive,
-      isNightShift: formData.shiftType.toLowerCase() === 'night'
+      isNightShift: formData.shiftType.toLowerCase() === 'night',
+      templateType: templateType
     };
     try {
       showSpinner();
+      let createdShift: any;
+
       if (editingShift) {
         await shiftService.updateShift(editingShift.id, apiData);
         showSnackbar('Shift updated successfully!', 'success');
+        if (templateType) {
+          await updateAdvancedConfigForShift(editingShift.id, templateType);
+        }
       } else {
-        await shiftService.createShift(apiData);
+        createdShift = await shiftService.createShift(apiData);
         showSnackbar('Shift created successfully!', 'success');
+        if (createdShift?.id && templateType) {
+          await createAdvancedConfigForShift(createdShift.id, templateType);
+        }
       }
       setIsDialogOpen(false);
       resetForm();
@@ -333,7 +474,12 @@ export const ShiftList = () => {
   };
 
   const handleAdvancedConfig = (shift: Shift) => {
-    setSelectedShiftForConfig(shift);
+    // setSelectedShiftForConfig(shift);
+     const templateType = getTemplateType(shift.templateId);
+  setSelectedShiftForConfig({
+    ...shift,
+    templateType: templateType
+  });
     setIsAdvancedConfigOpen(true);
     handleMenuClose();
   };
@@ -437,6 +583,20 @@ export const ShiftList = () => {
     }
   };
 
+  // Add this helper function in ShiftList.tsx
+  const getTemplateType = (templateId: string): any | null => {
+    const selectedTemplate = template.find(t => t.id === templateId);
+    if (!selectedTemplate) return null;
+
+    // Check if template name contains 'staff' or 'labour'
+    const name = selectedTemplate.name?.toLowerCase() || '';
+    if (name.includes('staff')) return 'staff';
+    if (name.includes('labour')) return 'labour';
+
+    // Default to 'staff' if no match
+    return 'staff';
+  };
+
   return (
     <div className='bg-gray-50 p-4 !pb-0'>
       {/* Stats Cards */}
@@ -500,12 +660,12 @@ export const ShiftList = () => {
                 ...stickyHeaderLeftSx,
                 minWidth: "70px",
               }}>S No</TableCell>
-              <TableCell className='nth-c !font-semibold'>Code</TableCell>
+              <TableCell className='!font-semibold'>Template</TableCell>
+              <TableCell className='nth-c !font-semibold'>Shift Code</TableCell>
               <TableCell className='!font-semibold '>Shift Name</TableCell>
               <TableCell className='!font-semibold'>Timing</TableCell>
               <TableCell className='!font-semibold'>Hours</TableCell>
-              <TableCell className='!font-semibold'>Template</TableCell>
-              <TableCell className='!font-semibold'>Type</TableCell>
+              {/* <TableCell className='!font-semibold'>Type</TableCell> */}
               <TableCell className='!font-semibold'>Shift Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
               <TableCell className='!font-semibold !sticky !right-[100px] !z-[100]'>Status</TableCell>
@@ -542,6 +702,8 @@ export const ShiftList = () => {
                     ...getStickyLeftSx(index),
                     minWidth: "70px",
                   }}>{page * limit + index + 1}</TableCell>
+                  <TableCell>{shift.templateName}</TableCell>
+
                   <TableCell sx={{
                     ...getStickyLeftSx(index),
                     left: "70px",
@@ -561,8 +723,10 @@ export const ShiftList = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div>{shift.shiftName}</div>
-                    <div>({shift.description})</div>
+                    <div className="!font-bold">{shift.shiftName}</div>
+                    {shift.description && (
+                      <div className="text-gray-500">({shift.description})</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -573,8 +737,7 @@ export const ShiftList = () => {
                     </div>
                   </TableCell>
                   <TableCell>{shift.totalHours}h</TableCell>
-                  <TableCell>{shift.templateName}</TableCell>
-                  <TableCell>{shift?.advancedConfigTypes?.length ? shift?.advancedConfigTypes : '-'}</TableCell>
+                  {/* <TableCell>{shift?.advancedConfigTypes?.length ? shift?.advancedConfigTypes : '-'}</TableCell> */}
                   <TableCell>
                     <Chip
                       size="small"
@@ -763,10 +926,21 @@ export const ShiftList = () => {
                       label="Template"
                       sx={selectSx}
                       onChange={(e) => {
-                        const newType = e.target.value;
+                        const newTemplateId = e.target.value;
+                        const templateType = getTemplateType(newTemplateId);
+
+                        // Optionally auto-set shift type based on template
+                        let shiftType = formData.shiftType;
+                        if (templateType === 'staff') {
+                          shiftType = 'General';
+                        } else if (templateType === 'labour') {
+                          shiftType = 'Rotational';
+                        }
+
                         setFormData({
                           ...formData,
-                          templateId: newType,
+                          templateId: newTemplateId,
+                          shiftType: shiftType // Auto-set shift type
                         });
                       }}
                     >
@@ -876,6 +1050,7 @@ export const ShiftList = () => {
         onClose={() => setIsAdvancedConfigOpen(false)}
         shift={selectedShiftForConfig}
         onSave={fetchData}
+         preselectedType={selectedShiftForConfig?.templateType}
       />
     </div>
   );

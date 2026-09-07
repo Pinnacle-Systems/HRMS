@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from sqlalchemy import func
 from database import SessionLocal
+from config import settings
 from models import BiometricDevices, PunchData, Employee
 from zk import ZK
 import socket
@@ -65,9 +66,21 @@ def ensure_naive(dt):
 async def fetch_logs(
     from_date: str = Query(...), 
     to_date: str = Query(...), 
-    device_ips: str = Query(...) #added
+    device_ips: str = Query(...),
+    # db_name: str = Query(..., description="Tenant database name, for example payroll_app_techno")
 ):
     print("🚀 API called with multiple devices")
+    # if not db_name.startswith(settings.DATABASE_NAME_PREFIX):
+    #     raise HTTPException(status_code=400, detail="Invalid tenant database name")
+
+    # try:
+    #     tenant_database_name = settings.database_name_for_subdomain(
+    #         db_name[len(settings.DATABASE_NAME_PREFIX):]
+    #     )
+    # except ValueError as exc:
+    #     raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # db = get_tenant_session_factory(tenant_database_name)()
     db = SessionLocal()
     
     device_strings = [d.strip() for d in device_ips.split(',') if d.strip()]

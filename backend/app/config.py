@@ -42,8 +42,8 @@
 
 # settings = Settings()
 
-# config.py
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -52,8 +52,16 @@ class Settings:
     # Database
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL", 
-        "postgresql+psycopg2://avfaapp:avfaapp%24123@122.166.169.82:4555/payroll_app_pinnaclesystems"
+        "postgresql+psycopg2://avfaapp:avfaapp%24123@122.166.169.82:4555/payroll_app_pinnaclesystem"
     )
+    # DATABASE_NAME_PREFIX: str = "payroll_app_"
+
+    # @classmethod
+    # def database_name_for_subdomain(cls, subdomain: str) -> str:
+    #     normalized = subdomain.strip().lower()
+    #     if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?", normalized):
+    #         raise ValueError("Invalid tenant subdomain")
+    #     return f"{cls.DATABASE_NAME_PREFIX}{normalized}"
     
     # ... other settings
     

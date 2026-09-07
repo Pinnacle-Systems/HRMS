@@ -155,6 +155,7 @@ export async function refreshSession(): Promise<AuthSession | null> {
         branchScoped: response.data.branchScoped ?? currentSession?.branchScoped,
         fiscalYearId: response.data.fiscalYearId ?? currentSession?.fiscalYearId,
         fiscalYearLabel: response.data.fiscalYearLabel ?? currentSession?.fiscalYearLabel,
+        subdomain: response.data.subdomain ?? currentSession?.user.subdomain,
       };
 
       // Create the session using the preserved data

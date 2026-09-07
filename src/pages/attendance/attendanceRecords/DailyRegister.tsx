@@ -53,6 +53,7 @@ import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
   formatTime,
+  formatTimewithSec,
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import { branchService } from "../../../services/modules/branch";
@@ -1562,7 +1563,7 @@ export function DailyRegister() {
                     <TableCell>
                       {emp.checkInTime ? (
                         <span className="text-green-700 font-semibold">
-                          {formatTime(emp.checkInTime)}
+                          {formatTimewithSec(emp.checkInTime)}
                         </span>
                       ) : (
                         <span className="text-red-400">-</span>
@@ -1571,7 +1572,7 @@ export function DailyRegister() {
                     <TableCell>
                       {emp.checkOutTime ? (
                         <span className="text-blue-600 font-semibold">
-                          {formatTime(emp.checkOutTime)}
+                          {formatTimewithSec(emp.checkOutTime)}
                         </span>
                       ) : (
                         <span>-</span>
@@ -2484,7 +2485,7 @@ export function DailyRegister() {
                     ) : (
                       <CheckCircleOutlined className="text-green-500" fontSize="small" />
                     )}
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium text-black">
                       {importResult.failed > 0 && importResult.success === 0
                         ? 'Import Failed'
                         : importResult.failed > 0
@@ -2493,7 +2494,7 @@ export function DailyRegister() {
                     </span>
                   </div>
                   <span className="text-sm">
-                    <span className="text-green-600">{importResult.success}</span> successful
+                    <span className="text-green-600">{importResult.success}</span> <span className="text-black">successful</span>
                     {importResult.failed > 0 && (
                       <span className="text-red-600 ml-2">{importResult.failed} failed</span>
                     )}

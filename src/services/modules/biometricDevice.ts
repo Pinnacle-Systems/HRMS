@@ -1,5 +1,6 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
+import { loadSession } from "../../auth/authSession";
 import axios from "axios";
 
 // const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -191,6 +192,16 @@ export interface FetchLogQuery {
   deviceIps: string[];
 }
 
+function getTenantDatabaseName(): string {
+  const subdomain = loadSession()?.user.subdomain?.trim().toLowerCase();
+
+  if (!subdomain || !/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$/.test(subdomain)) {
+    throw new Error("Your tenant subdomain is missing. Please sign in again.");
+  }
+
+  return `payroll_app_${subdomain}`;
+}
+
 // const baseUrl = "http://localhost:3000/api/";
 
 // BiometricService.ts - Complete service class
@@ -277,6 +288,7 @@ export const biometricService = {
   async fetchLogs(params: FetchLogQuery) {
     try {
       const deviceIpsString = params.deviceIps.join(",");
+      // const dbName = getTenantDatabaseName();
 
       const response = await apiService.get(
         "http://localhost:8000/fetch-logs",
@@ -285,6 +297,7 @@ export const biometricService = {
             from_date: params.from_date,
             to_date: params.to_date,
             device_ips: deviceIpsString,
+            // db_name: dbName,
           },
         },
       );

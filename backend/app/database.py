@@ -47,11 +47,16 @@
 # Base = declarative_base()
 
 
+from functools import lru_cache
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import make_url
+from config import settings
 
-SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://avfaapp:avfaapp%24123@122.166.169.82:4555/payroll_app_pinnaclesystems"
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://avfaapp:avfaapp%24123@122.166.169.82:4555/payroll_app_pinnaclesystem"
+# SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -61,6 +66,26 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+
+# @lru_cache(maxsize=100)
+# def get_tenant_session_factory(database_name: str):
+#     """Create one pooled session factory for each validated tenant database."""
+#     tenant_url = make_url(settings.DATABASE_URL).set(database=database_name)
+#     tenant_engine = create_engine(
+#         tenant_url,
+#         pool_pre_ping=True,
+#         pool_recycle=3600,
+#     )
+#     return sessionmaker(autocommit=False, autoflush=False, bind=tenant_engine)
+
+
+# def get_tenant_db(database_name: str):
+#     session = get_tenant_session_factory(database_name)()
+#     try:
+#         yield session
+#     finally:
+#         session.close()
 
 
 def test_connection():

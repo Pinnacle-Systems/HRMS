@@ -275,7 +275,7 @@ const BreakSlotsEditor = ({
             const intervalError = getBreakIntervalError(index, slot.startTime);
             const duration = slot.duration || breakDuration;
             return (
-              <div key={slot.id}  className='bg-white border border-gray-200 rounded-lg p-4'>
+              <div key={slot.id} className='bg-white border border-gray-200 rounded-lg p-4'>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="subtitle2" color="primary">
                     Break #{index + 1}
@@ -535,7 +535,7 @@ const MealBreakDisplay = ({
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvancedConfigProps) => {
+export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave, preselectedType }: ShiftAdvancedConfigProps & { preselectedType?: 'staff' | 'labour' }) => {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [masterConfig, setMasterConfig] = useState<AdvancedShiftConfig>({
     shiftId: shift?.id || '',
@@ -545,6 +545,20 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
   const [selectedCategories, setSelectedCategories] = useState<EmployeeCategoryType[]>([]);
   const [currentConfig, setCurrentConfig] = useState<ShiftCategoryConfig>(CATEGORY_DEFAULTS.staff);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get the template type from shift or preselectedType
+  const getTemplateType = (): 'staff' | 'labour' | null => {
+    if (shift?.templateType === 'staff' || shift?.templateType === 'labour') {
+      return shift.templateType;
+    }
+    if (preselectedType === 'staff' || preselectedType === 'labour') {
+      return preselectedType;
+    }
+    // Try to determine from shift name or other properties
+    if (shift?.shiftName?.toLowerCase().includes('staff')) return 'staff';
+    if (shift?.shiftName?.toLowerCase().includes('labour')) return 'labour';
+    return null;
+  };
 
   useEffect(() => {
     if (open && shift) {
@@ -558,18 +572,47 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
     try {
       const response: any = await shiftService.getShiftAdvancedConfig(shift.id);
       const apiData = response?.data ?? response;
+
+      const templateType = getTemplateType();
+
       if (apiData && apiData.advancedConfigs) {
         setMasterConfig({
           shiftId: apiData.shiftId || shift.id,
           shiftName: apiData.shiftName || shift.shiftName,
           advancedConfigs: apiData.advancedConfigs || [],
         });
+
+        // Auto-select based on template type
         if (apiData.advancedConfigs.length > 0) {
-          const firstConfigType = apiData.advancedConfigs[0].type as EmployeeCategoryType;
-          setSelectedCategories([firstConfigType]);
-          setCurrentConfig(apiData.advancedConfigs[0]);
+          let selectedType: 'staff' | 'labour' | null = null;
+          
+          // If we have a template type, try to find that config
+          if (templateType) {
+            const typeConfig = apiData.advancedConfigs.find(
+              (c: any) => c.type === templateType
+            );
+            if (typeConfig) {
+              selectedType = templateType;
+              setSelectedCategories([templateType]);
+              setCurrentConfig(typeConfig);
+              return;
+            }
+          }
+          
+          // Fallback: check if configs exist and use the first one
+          const firstConfig = apiData.advancedConfigs[0];
+          if (firstConfig) {
+            // If template type exists but no config for it, use the first available
+            selectedType = firstConfig.type;
+            setSelectedCategories([firstConfig.type]);
+            setCurrentConfig(firstConfig);
+          }
         } else {
-          setSelectedCategories([]);
+          // No configs exist, but we have a template type - preselect it
+          if (templateType) {
+            setSelectedCategories([templateType]);
+            setCurrentConfig(CATEGORY_DEFAULTS[templateType]);
+          }
         }
       } else {
         setMasterConfig({
@@ -577,16 +620,29 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
           shiftName: shift.shiftName,
           advancedConfigs: [],
         });
-        setSelectedCategories([]);
+        // Preselect based on template type
+        if (templateType) {
+          setSelectedCategories([templateType]);
+          setCurrentConfig(CATEGORY_DEFAULTS[templateType]);
+        } else {
+          setSelectedCategories([]);
+        }
       }
     } catch (error: any) {
-      showSnackbar(error?.message, 'error');
+      showSnackbar(error?.message || 'Failed to load configuration', 'error');
       setMasterConfig({
         shiftId: shift.id,
         shiftName: shift.shiftName,
         advancedConfigs: [],
       });
-      setSelectedCategories([]);
+      // Preselect based on template type even on error
+      const templateType = getTemplateType();
+      if (templateType) {
+        setSelectedCategories([templateType]);
+        setCurrentConfig(CATEGORY_DEFAULTS[templateType]);
+      } else {
+        setSelectedCategories([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -620,11 +676,53 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
   const isConfigured = (cat: EmployeeCategoryType) =>
     masterConfig.advancedConfigs.some((c) => c.type === cat);
 
-  const handleSave = async () => {
-    if (selectedCategories.length === 0) {
-      showSnackbar('Please select either Staff or Labour category to configure.', 'warning');
+  // Handle category selection - only allow selecting the pre-selected type
+  const handleCategorySelect = (cat: EmployeeCategoryType) => {
+    const templateType = getTemplateType();
+    
+    // If we have a preselected type, only allow that one
+    if (templateType && cat !== templateType) {
+      showSnackbar(`This shift is configured for ${templateType.charAt(0).toUpperCase() + templateType.slice(1)} template only.`, 'info');
       return;
     }
+    
+    // If the category is already selected, deselect it
+    if (selectedCategories.includes(cat)) {
+      setSelectedCategories([]);
+      return;
+    }
+
+    // Select the new category (mutual exclusivity - only one at a time)
+    setSelectedCategories([cat]);
+    
+    const existing = masterConfig.advancedConfigs.find((c) => c.type === cat);
+    const defaultConfig = CATEGORY_DEFAULTS[cat];
+    
+    if (existing) {
+      if (!existing.breakSlots) {
+        existing.breakSlots = defaultConfig.breakSlots || [];
+      }
+      setCurrentConfig(existing);
+    } else {
+      setCurrentConfig(defaultConfig);
+    }
+  };
+
+  const handleSave = async () => {
+    if (selectedCategories.length === 0) {
+      showSnackbar('Please select a category to configure.', 'warning');
+      return;
+    }
+
+    // Only allow one category to be configured at a time
+    if (selectedCategories.length > 1) {
+      showSnackbar('Please select only one category to configure.', 'warning');
+      return;
+    }
+
+    const selectedCategory = selectedCategories[0];
+
+    // Validate break slots if multiple breaks enabled
     if (currentConfig.allowMultipleBreaks && currentConfig.maxBreaksPerShift > 0) {
       if (!currentConfig.breakSlots || currentConfig.breakSlots.length === 0) {
         showSnackbar('Please configure break time slots when multiple breaks are allowed.', 'warning');
@@ -642,37 +740,48 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
         return;
       }
     }
+
     try {
       showSpinner();
-      let updatedConfigs = [...masterConfig.advancedConfigs];
-      selectedCategories.forEach((cat) => {
-        const idx = updatedConfigs.findIndex((c) => c.type === cat);
-        const entry: ShiftCategoryConfig = {
-          ...currentConfig,
-          type: cat,
-          breakSlots: currentConfig.allowMultipleBreaks ? currentConfig.breakSlots : []
-        };
-        if (idx >= 0) {
-          updatedConfigs[idx] = entry;
-        } else {
-          updatedConfigs.push(entry);
-        }
-      });
+      
+      // For mutual exclusivity, we need to remove other category configs
+      let updatedConfigs = masterConfig.advancedConfigs.filter(
+        (c) => c.type === selectedCategory
+      );
+      
+      // Create the config entry for the selected category
+      const entry: ShiftCategoryConfig = {
+        ...currentConfig,
+        type: selectedCategory,
+        breakSlots: currentConfig.allowMultipleBreaks ? currentConfig.breakSlots : []
+      };
+      
+      // If config exists for this category, update it; otherwise add it
+      const existingIndex = updatedConfigs.findIndex((c) => c.type === selectedCategory);
+      if (existingIndex >= 0) {
+        updatedConfigs[existingIndex] = entry;
+      } else {
+        updatedConfigs.push(entry);
+      }
+      
       const savedConfig: AdvancedShiftConfig = {
         ...masterConfig,
         advancedConfigs: updatedConfigs
       };
+      
       const hasExistingConfig = masterConfig.advancedConfigs.length > 0;
       let response: any;
+      
       if (hasExistingConfig) {
         response = await shiftService.updateShiftAdvancedConfig(savedConfig.shiftId, savedConfig);
       } else {
         response = await shiftService.createShiftAdvancedConfig(savedConfig.shiftId, savedConfig);
       }
+      
       if (response?.success !== false) {
         setMasterConfig(savedConfig);
         showSnackbar(
-          `Configuration saved for ${selectedCategories.map((c) => CATEGORY_LABELS[c]).join(', ')}`,
+          `Configuration saved for ${CATEGORY_LABELS[selectedCategory]}`,
           'success',
         );
         onSave();
@@ -700,7 +809,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
       return updated;
     });
 
-  const helperSx = { '& .MuiFormHelperText-root': { color: 'var(--text-secondary)' } };
+  const templateType = getTemplateType();
 
   // Show loading state
   if (isLoading) {
@@ -735,47 +844,58 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
       </div>
 
       <DialogContent className="!overflow-y-auto" style={{ maxHeight: 'calc(92vh - 130px)' }}>
-        {/* ── Step 1: Category Selector (Single Selection) ── */}
+        {/* ── Step 1: Category Selector ── */}
         <Box sx={{ mb: 3, p: 2, border: '2px solid', borderColor: 'primary.main', borderRadius: 2, bgcolor: 'primary.50' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
             <Typography component="div" variant="subtitle1" sx={{ fontWeight: 700 }} color="primary">
               Step 1 — Select Employee Template to Configure
             </Typography>
+            {templateType && (
+              <Chip
+                label={`Template: ${templateType.charAt(0).toUpperCase() + templateType.slice(1)}`}
+                color="primary"
+                size="small"
+              />
+            )}
           </Box>
           <Typography component="div" variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select either Staff or Labour Template to configure shift rules.
+            {templateType 
+              ? `This shift is configured for ${templateType.charAt(0).toUpperCase() + templateType.slice(1)} template. Only this template can be configured.`
+              : 'Select either Staff or Labour Template to configure shift rules.'}
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
             {ALL_CATEGORIES.map((cat) => {
               const selected = selectedCategories.includes(cat);
               const configured = isConfigured(cat);
+              // If we have a template type, disable the other category
+              const isDisabled = templateType !== null && cat !== templateType;
+              
               return (
                 <Box
                   key={cat}
                   onClick={() => {
-                    setSelectedCategories([cat]);
-                    const existing = masterConfig.advancedConfigs.find((c) => c.type === cat);
-                    const defaultConfig = CATEGORY_DEFAULTS[cat];
-                    if (existing) {
-                      if (!existing.breakSlots) {
-                        existing.breakSlots = defaultConfig.breakSlots || [];
-                      }
-                      setCurrentConfig(existing);
-                    } else {
-                      setCurrentConfig(defaultConfig);
+                    // Prevent clicking on disabled category
+                    if (isDisabled) {
+                      showSnackbar(`This shift is configured for ${templateType} template only.`, 'info');
+                      return;
                     }
+                    handleCategorySelect(cat);
                   }}
-                  className={`bg-${selected ? `${CATEGORY_COLORS[cat]}18` : 'white-50'}`}
                   sx={{
-                    cursor: 'pointer',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
                     border: '2px solid',
-                    borderColor: selected ? CATEGORY_COLORS[cat] : 'grey.300',
+                    borderColor: selected ? CATEGORY_COLORS[cat] : isDisabled ? '#e0e0e0' : '#d0d0d0',
                     borderRadius: 2,
-                    p: 1,
+                    p: 1.5,
                     minWidth: 150,
-                    // bgcolor: selected ? `${CATEGORY_COLORS[cat]}18` : 'background.paper',
+                    opacity: isDisabled ? 0.5 : 1,
                     transition: 'all 0.15s ease',
-                    '&:hover': { borderColor: CATEGORY_COLORS[cat], bgcolor: `${CATEGORY_COLORS[cat]}10` },
+                    bgcolor: selected ? `${CATEGORY_COLORS[cat]}18` : 'background.paper',
+                    '&:hover': {
+                      borderColor: isDisabled ? '#e0e0e0' : CATEGORY_COLORS[cat],
+                      bgcolor: isDisabled ? 'transparent' : `${CATEGORY_COLORS[cat]}10`,
+                    },
+                    pointerEvents: isDisabled ? 'none' : 'auto',
                   }}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
@@ -789,18 +909,48 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                         fontSize: '0.75rem',
                       }}
                     />
-                    {configured && (
-                      <div className="flex ml-5">
-                        <CheckCircleOutlined sx={{ fontSize: 18, color: 'success.main' }} />
-                        <Typography component="div" variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
-                          Configured
-                        </Typography>
-                      </div>
-                    )}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {configured && (
+                        <CheckCircleOutlined sx={{ fontSize: 16, color: 'success.main' }} />
+                      )}
+                      {selected && (
+                        <Box sx={{ 
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          px: 0.75,
+                          py: 0.25,
+                          borderRadius: 0.5,
+                          fontSize: '0.6rem',
+                          fontWeight: 600,
+                          ml: 0.5
+                        }}>
+                          ACTIVE
+                        </Box>
+                      )}
+                      {isDisabled && (
+                        <Box sx={{ 
+                          bgcolor: 'grey.400',
+                          color: 'white',
+                          px: 0.75,
+                          py: 0.25,
+                          borderRadius: 0.5,
+                          fontSize: '0.6rem',
+                          fontWeight: 600,
+                          ml: 0.5
+                        }}>
+                          LOCKED
+                        </Box>
+                      )}
+                    </Box>
                   </Box>
                   <Typography component="div" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                     {CATEGORY_SUBLABELS[cat]}
                   </Typography>
+                  {isDisabled && (
+                    <Typography component="div" variant="caption" color="error" sx={{ display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+                      {templateType} template only
+                    </Typography>
+                  )}
                 </Box>
               );
             })}
@@ -809,7 +959,9 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
 
         {selectedCategories.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Select an employee category above to begin configuring their shift rules.
+            {templateType 
+              ? `Select ${templateType.charAt(0).toUpperCase() + templateType.slice(1)} template to begin configuring.`
+              : 'Select an employee category above to begin configuring their shift rules.'}
           </Alert>
         )}
 
@@ -860,7 +1012,6 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                 title="Break Settings"
                 icon={<FreeBreakfastOutlined fontSize="small" className="text-green-600" />}
               >
-                {/* ... Keep your existing break settings JSX ... */}
                 <Grid container spacing={3} className="mt-6">
                   <Grid size={{ xs: 12, md: 4 }}>
                     <TextField
@@ -1000,10 +1151,10 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
                       type="number"
                       size="small"
                       value={currentConfig.mealAfterHours}
-                      onChange={(e) => set({ mealAfterHours: parseFloat(e.target.value) || 0 })} // Changed from parseInt to parseFloat
+                      onChange={(e) => set({ mealAfterHours: parseFloat(e.target.value) || 0 })}
                       helperText="Trigger meal break after these hours"
                       sx={helperSx}
-                      slotProps={{ htmlInput: { min: 0, step: 0.5 } }} // step 0.5 allows 0.5, 1.0, 1.5, 2.0, etc.
+                      slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -1153,7 +1304,7 @@ export const ShiftAdvancedConfig = ({ open, onClose, shift, onSave }: ShiftAdvan
           className="!bg-primary"
           disabled={selectedCategories.length === 0}
         >
-          {masterConfig.advancedConfigs.length == 0 ? 'Save' : 'Update'} Configuration{selectedCategories.length === 1 ? ` for ${CATEGORY_LABELS[selectedCategories[0]]}` : ''}
+          {masterConfig.advancedConfigs.length === 0 ? 'Save' : 'Update'} Configuration{selectedCategories.length === 1 ? ` for ${CATEGORY_LABELS[selectedCategories[0]]}` : ''}
         </Button>
       </DialogActions>
     </Dialog>

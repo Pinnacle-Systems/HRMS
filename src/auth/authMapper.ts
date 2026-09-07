@@ -79,6 +79,7 @@ export function mapAuthResponseToSession(data: AuthResponse): AuthSession {
   const user: AuthUser = {
     userId: data.userId ?? "",
     tenantId: data.tenantId ?? "",
+    subdomain: data.subdomain,
     email: data.email ?? "",
     roles,
     rawRoles,

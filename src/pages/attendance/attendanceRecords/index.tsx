@@ -11,7 +11,7 @@ import { AttendanceDetailed } from "./AttendanceDetailed";
 import { AttendanceMuster } from "./AttendanceMuster";
 import { DailyRegister } from "./DailyRegister";
 import { EmployeeView } from "./EmployeeView";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 
 
@@ -47,7 +47,8 @@ const TABS = [
 ];
 
 export default function AttendanceRecords() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "detailed" ? 1 : 0);
   const navigate = useNavigate();
 
   return (

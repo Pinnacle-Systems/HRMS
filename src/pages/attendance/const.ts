@@ -129,6 +129,17 @@ export function formatTime(isoString: string | null | undefined): string {
   });
 }
 
+export function formatTimewithSec(isoString: string | null | undefined): string {
+  if (!isoString) return "—";
+  const d = new Date(isoString);
+  return d.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
 export function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }

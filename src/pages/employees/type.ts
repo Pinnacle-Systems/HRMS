@@ -23,6 +23,11 @@ export interface Employee {
   isActive?: boolean;
   deactivatedAt?: string;
   relievedDate: string;
+  proposedRelievedDate?: string;
+  systemGeneratedRelievedDate?: string;
+  resignationType?: string;
+  eligibleForRehire?: boolean;
+  referredDate?: string;
   //   status: "PENDING" | "ACTIVE" | "INACTIVE" | "ONBOARDING";
   //   isWelcomeEmailSent: boolean;
   //   welcomeEmailSentAt?: string;

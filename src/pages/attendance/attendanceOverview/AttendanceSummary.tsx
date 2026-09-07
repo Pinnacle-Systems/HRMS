@@ -25,6 +25,7 @@ import type { Branches, Department } from "../../employees/type";
 import { branchService } from "../../../services/modules/branch";
 import { getRowColor } from "../../const";
 import { selectSx } from "../../../const";
+import { useNavigate } from "react-router-dom";
 
 interface StatCardProps {
   label: string;
@@ -33,12 +34,21 @@ interface StatCardProps {
   color: string;
   bgColor: string;
   percentage?: number;
+  onClick?: () => void;
 }
 
-const StatCard = ({ label, value, icon, color, percentage }: StatCardProps) => {
+const StatCard = ({ label, value, icon, color, percentage, onClick }: StatCardProps) => {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 px-2 py-2.5 hover:shadow-sm transition-shadow duration-200
-     flex-1 min-w-[80px] max-w-[170px]">
+    <div
+      className={`bg-white rounded-lg border border-gray-200 px-2 py-2.5 hover:shadow-sm transition-shadow duration-200
+     flex-1 min-w-[80px] max-w-[170px] ${onClick ? "cursor-pointer" : ""}`}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) onClick();
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="flex items-center justify-between mb-0.5">
         <span className="text-[9px] font-medium text-gray-500 uppercase tracking-wider truncate">
           {label}
@@ -74,6 +84,7 @@ const StatCard = ({ label, value, icon, color, percentage }: StatCardProps) => {
 
 export function AttendanceSummary() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [trends, setTrends] = useState<DailyTrend[]>([]);
   const [deptData, setDeptData] = useState<DepartmentWiseSummary[]>([]);
@@ -82,6 +93,12 @@ export function AttendanceSummary() {
   const [branchId, setBranchId] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
+
+  const openDetailedView = (status?: string) => {
+    const params = new URLSearchParams({ tab: "detailed", date: selectedDate });
+    if (status) params.set("status", status);
+    navigate(`/attendance/records?${params.toString()}`);
+  };
 
   const loadSummary = useCallback(async () => {
     showSpinner();
@@ -352,6 +369,7 @@ export function AttendanceSummary() {
               color="#10d3a2"
               bgColor="bg-green-50"
               percentage={(summary.present / summary.totalEmployees) * 100}
+              onClick={() => openDetailedView("present")}
             />
             <StatCard
               label="Absent"
@@ -360,6 +378,7 @@ export function AttendanceSummary() {
               color="#e66262"
               bgColor="bg-red-50"
               percentage={(summary.absent / summary.totalEmployees) * 100}
+              onClick={() => openDetailedView("absent")}
             />
             <StatCard
               label="Late Arrivals"
@@ -368,6 +387,7 @@ export function AttendanceSummary() {
               color="#f1aa30"
               bgColor="bg-amber-50"
               percentage={(summary.late / summary.totalEmployees) * 100}
+              onClick={() => openDetailedView("late")}
             />
             <StatCard
               label="Early Departures"
@@ -384,6 +404,7 @@ export function AttendanceSummary() {
               color="#44bacf"
               bgColor="bg-cyan-50"
               percentage={(summary.onDuty / summary.totalEmployees) * 100}
+              onClick={() => openDetailedView("on_duty")}
             />
             <StatCard
               label="On Leave"
@@ -392,6 +413,7 @@ export function AttendanceSummary() {
               color="#8b5cf6"
               bgColor="bg-violet-50"
               percentage={(summary.onLeave / summary.totalEmployees) * 100}
+              onClick={() => openDetailedView("leave")}
             />
             <StatCard
               label="Overtime"
