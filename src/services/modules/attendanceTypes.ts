@@ -13,6 +13,7 @@ export type AttendanceStatus =
   | "weekly_off"
   | "missed_punch"
   | "missed_out"
+  | "night_duty"
   | "irregular";
 
 export type AttendanceCategory = "regular" | "irregular" | "on_duty" | "leave";
@@ -56,6 +57,8 @@ export interface AttendanceRecord {
   finalised?: boolean;
   finalisedBy?: string;
   finalisedAt?: string;
+  checkInDate: string;
+  checkOutDate: string;
 }
 
 export interface CorrectionRequest {

@@ -14,7 +14,8 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   weekly_off: "Weekly Off",
   irregular: "Irregular",
   missed_punch: "Missed Punch",
-  missed_out: "Missed Punch"
+  missed_out: "Missed Punch",
+  night_duty: "Night Duty"
 };
 
 export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
@@ -31,7 +32,8 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   weekly_off: "#94a3b8",
   irregular: "#ec4899",
   missed_punch: "#ec4899",
-  missed_out: "#ec4899"
+  missed_out: "#ec4899",
+  night_duty:"#047857"
 };
 
 export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
@@ -48,7 +50,8 @@ export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
   weekly_off: "bg-gray-100 text-gray-500",
   irregular: "bg-pink-100 text-pink-700",
   missed_punch: "bg-pink-100 text-pink-700",
-  missed_out: "bg-pink-100 text-pink-700"
+  missed_out: "bg-pink-100 text-pink-700",
+  night_duty: "bg-emerald-100 text-emerald-700"
 };
 
 export const MUSTER_STATUS_CELL: Record<string, string> = {

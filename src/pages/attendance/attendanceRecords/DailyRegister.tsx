@@ -72,6 +72,7 @@ import { readExcelFile } from "../../../utils/timeStampFormatter";
 import { biometricService, type BiometricDevice } from "../../../services/modules/biometricDevice";
 import { formatDateTime } from "../../../utils/dateFormatter";
 import { employeeService } from "../../../services/modules/employees";
+import { formatDate } from "../../leave/leaveFormatters";
 interface RegisterEmployee {
   employeeId: string;
   employeeName: string;
@@ -86,6 +87,8 @@ interface RegisterEmployee {
   status: AttendanceStatus;
   workedMinutes: number;
   lateMinutes: number;
+  checkInDate: string;
+  checkOutDate: string;
 }
 interface TodaySummary {
   date: string;
@@ -116,6 +119,7 @@ const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
   { value: "leave", label: "On Leave" },
   { value: "holiday", label: "Holiday" },
   { value: "weekly_off", label: "Weekly Off" },
+  { value: "night_duty", label: "Night Duty" },
 ];
 
 export function DailyRegister() {
@@ -1563,7 +1567,7 @@ export function DailyRegister() {
                     <TableCell className="text-gray-500">
                       {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
                     </TableCell>
-                    <TableCell>CheckIn Date</TableCell>
+                    <TableCell>{emp.checkInDate ? formatDate(emp.checkInDate) : "-"}</TableCell>
 
                     <TableCell>
                       {emp.checkInTime ? (
@@ -1575,7 +1579,7 @@ export function DailyRegister() {
                       )}
                     </TableCell>
 
-                    <TableCell>CheckOut Date</TableCell>
+                    <TableCell>{emp.checkOutDate ? formatDate(emp.checkOutDate) : '-'}</TableCell>
                     <TableCell>
                       {emp.checkOutTime ? (
                         <span className="text-blue-600 font-semibold">

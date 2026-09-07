@@ -16,6 +16,7 @@ import { GlobalPagination } from "../../../components/GlobalPagination";
 import {
   ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG,
   STATUS_FILTER_OPTIONS, formatMinutes, formatTime,
+  formatTimewithSec,
 } from "../const";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -28,6 +29,7 @@ import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSearchParams } from "react-router-dom";
+import { formatDate } from "../../leave/leaveFormatters";
 
 export function AttendanceDetailed() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -298,13 +300,13 @@ export function AttendanceDetailed() {
                       <div>{r.shiftCode || '-'}</div>
                       {r.shiftStart && <span className="text-primary">{r.shiftStart} - {r.shiftEnd}</span>}
                     </TableCell>
-                    <TableCell>CheckIn Date</TableCell>
+                    <TableCell>{r.checkInDate  ? formatDate(r.checkInDate ) : '-'}</TableCell>
                     <TableCell>
-                      {r.checkInTime ? formatTime(r.checkInTime) : '-'}
+                      {r.checkInTime ? formatTimewithSec(r.checkInTime) : '-'}
                     </TableCell>
-                    <TableCell>CheckOut Date</TableCell>
+                    <TableCell>{r.checkOutDate ? formatDate(r.checkOutDate) : '-'}</TableCell>
                     <TableCell>
-                      {r.checkOutTime ? formatTime(r.checkOutTime) : '-'}
+                      {r.checkOutTime ? formatTimewithSec(r.checkOutTime) : '-'}
                     </TableCell>
                     <TableCell>
                       {r.workedMinutes ? formatMinutes(r.workedMinutes) : '-'}

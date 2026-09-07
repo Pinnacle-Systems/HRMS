@@ -1671,52 +1671,53 @@ export default function EmployeeManagement() {
                     setFormData({ ...formData, mobileNumber: e.target.value })
                   }
                 />
-                <Autocomplete
-                  fullWidth
-                  options={employeeGroups}
-                  getOptionLabel={(option) => option.name || ""}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  value={employeeGroups.find(g => g.id === formData.employeeGroupId) || null}
-                  onChange={(_, newValue) => {
-                    setFormData({
-                      ...formData,
-                      employeeGroupId: newValue?.id || "",
-                    });
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Employee Group"
-                      variant="outlined"
-                      className="!text-[12px]"
-                    />
-                  )}
-                  sx={masterSx}
-                />
-                <Autocomplete
-                  fullWidth
-                  options={shiftCommonTemplates}
-                  getOptionLabel={(option) => option.name || ""}
-                  isOptionEqualToValue={(option, value) => option.id === value.id}
-                  value={shiftCommonTemplates.find(t => t.id === formData.template) || null}
-                  onChange={(_, newValue) => {
-                    setFormData({
-                      ...formData,
-                      template: newValue?.id || "",
-                    });
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Shift Common Template"
-                      variant="outlined"
-                      className="!text-[12px]"
-                    />
-                  )}
-                  sx={masterSx}
-                />
+
               </>
             )}
+            <Autocomplete
+              fullWidth
+              options={employeeGroups}
+              getOptionLabel={(option) => option.name || ""}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={employeeGroups.find(g => g.id === formData.employeeGroupId) || null}
+              onChange={(_, newValue) => {
+                setFormData({
+                  ...formData,
+                  employeeGroupId: newValue?.id || "",
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Employee Group"
+                  variant="outlined"
+                  className="!text-[12px]"
+                />
+              )}
+              sx={masterSx}
+            />
+            <Autocomplete
+              fullWidth
+              options={shiftCommonTemplates}
+              getOptionLabel={(option) => option.name || ""}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              value={shiftCommonTemplates.find(t => t.id === formData.template) || null}
+              onChange={(_, newValue) => {
+                setFormData({
+                  ...formData,
+                  template: newValue?.id || "",
+                });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Shift Common Template"
+                  variant="outlined"
+                  className="!text-[12px]"
+                />
+              )}
+              sx={masterSx}
+            />
           </div>
           {!isEditing && (
             <>

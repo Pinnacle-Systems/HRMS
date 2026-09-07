@@ -2485,7 +2485,7 @@ export default function EmployeeDetails() {
         esiNumber: updatedData.esiNumber,
         esiJoiningDate: updatedData.esiJoiningDate,
         esiRelievingDate: updatedData.esiRelievingDate,
-        template: updatedData.templateId,
+        templateId: updatedData.templateId,
       };
       if (!payload.aadhaarNumber) {
         payload['dateOfBirth'] = updatedData.dateOfBirth,
@@ -2795,7 +2795,7 @@ export default function EmployeeDetails() {
         resignationType: updatedData.resignationType,
         eligibleForRehire: updatedData.eligibleForRehire,
         referredDate: updatedData.referredDate,
-        template: updatedData.templateId,
+        templateId: updatedData.templateId,
         employeeGroupId: updatedData.employeeGroupId,
       };
       if (Object.keys(payload).length) {
