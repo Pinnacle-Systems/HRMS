@@ -92,6 +92,8 @@ export default function EmployeeManagement() {
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
   const [empStatus, setEmpStatus] = useState<Category[]>([]);
+  const [employeeTypes, setEmployeeTypes] = useState<Category[]>([]);
+  const [filterEmployees, setFilterEmployees] = useState<EmployeeSummaryResponse[]>([]);
   const [employeeGroups, setEmployeeGroups] = useState<Category[]>([]);
   const [shiftCommonTemplates, setShiftCommonTemplates] = useState<Category[]>([]);
 
@@ -142,8 +144,15 @@ export default function EmployeeManagement() {
 
   const filterFields = useMemo(
     () =>
-      getEmployeeFilterFields(departments, designations, branches, empStatus),
-    [departments, designations, branches, empStatus],
+      getEmployeeFilterFields(
+        departments,
+        designations,
+        branches,
+        empStatus,
+        employeeTypes,
+        filterEmployees,
+      ),
+    [departments, designations, branches, empStatus, employeeTypes, filterEmployees],
   );
 
   const loadEmployeeIdConfig = async () => {
@@ -362,6 +371,24 @@ export default function EmployeeManagement() {
         setEmployeeGroups(employeeGroupCategory.items);
       }
 
+      const employeeTypeCategory = category.data.find(
+        (element: any) => {
+          const categoryName = element.categoryName?.toLowerCase() || '';
+          return categoryName.includes('employee type') || categoryName.includes('employment type');
+        }
+      );
+      if (employeeTypeCategory) {
+        setEmployeeTypes(employeeTypeCategory.items);
+      }
+
+      const employeeOptionsResponse = await employeeService.getEmployees({
+        page: 0,
+        size: 1000,
+        sort: 'name,asc',
+        includeInactive: true,
+      });
+      setFilterEmployees(normalizeEmployeePageResponse(employeeOptionsResponse).content);
+
       // Shift Common Template
       const shiftCommonTemplateCategory = category.data.find(
         (element: any) => element.categoryName === 'Shift Common Template'
@@ -377,7 +404,6 @@ export default function EmployeeManagement() {
 
   useEffect(() => {
     getEmployees();
-    getMasterData();
   }, [
     page,
     limit,
@@ -386,6 +412,10 @@ export default function EmployeeManagement() {
     employeeView,
     sortCriteria,
   ]);
+
+  useEffect(() => {
+    getMasterData();
+  }, []);
 
   const getSortIcon = (column: string) => {
     const sortCriterion = sortCriteria.find(s => s.field === column);
@@ -515,6 +545,12 @@ export default function EmployeeManagement() {
     const resolvedEmployeeStatus = empStatus.find(
       (s) => s.id === employee.employeeStatusId || s.name === employee.employeeStatus
     );
+    const resolvedEmployeeGroup = employeeGroups.find(
+      (s) => s.id === employee.employeeGroupId || s.name === employee.employeeGroup
+    );
+    const resolvedTemplate = shiftCommonTemplates.find(
+      (s) => s.id === employee.templateId || s.name === employee.template
+    );
 
     setFormData({
       name: employee.name,
@@ -530,8 +566,10 @@ export default function EmployeeManagement() {
       designationId: resolvedDesignation?.id || employee.designationId || "",
       employeeStatus: resolvedEmployeeStatus || null,
       employeeStatusId: resolvedEmployeeStatus?.id || employee.employeeStatusId || "",
-      employeeGroupId: employee.employeeGroupId || "",
-      template: employee.template || "",
+      employeeGroup: resolvedEmployeeGroup || null,
+      employeeGroupId: resolvedEmployeeGroup?.id || employee.employeeGroupId || "",
+      template: resolvedTemplate || null,
+      templateId: resolvedTemplate?.id || employee.templateId || "",
     });
     setEmployeeDialogOpen(true);
   };
@@ -549,7 +587,7 @@ export default function EmployeeManagement() {
           designationId: formData.designationId || selectedEmployee?.designationId,
           employeeStatusId: formData.employeeStatusId || selectedEmployee?.employeeStatusId,
           employeeGroupId: formData.employeeGroupId || selectedEmployee?.employeeGroupId,
-          template: formData.template || selectedEmployee?.template,
+          templateId: formData.templateId || selectedEmployee?.templateId,
           gradeId: selectedEmployee?.gradeId,
           empTypeId: selectedEmployee?.empTypeId,
           managerId: selectedEmployee?.managerId,
@@ -673,7 +711,7 @@ export default function EmployeeManagement() {
         const payload = {
           remarks,
           eligibleForRehire: Boolean(eligibleForRehire),
-          rehireRefferedBy: session?.user.userId || "System",
+          rehireRefferedBy: session?.user.email || "System",
           rehireRefferedDateTime: new Date().toISOString(),
           ...details,
         }
@@ -933,7 +971,7 @@ export default function EmployeeManagement() {
       {activeFilters && activeFilters.rules.length > 0 && (
         <Box
           sx={{
-            mb: 2,
+            mb: 1,
             display: "flex",
             gap: 1,
             alignItems: "center",
@@ -1001,7 +1039,7 @@ export default function EmployeeManagement() {
           ? Math.round((activeCount / employeeStats.totalEmployees) * 100)
           : total ? Math.round((activeCount / total) * 100) : 0;
         const totalEmployees = employeeStats?.totalEmployees ?? total;
-        const onboardingAssigned = employeeStats?.onboardingAssigned ?? 0;
+        // const onboardingAssigned = employeeStats?.onboardingAssigned ?? 0;
         const onboardingQueue = employeeStats?.onboardingQueue ?? employees.filter(
           (employee) => employee.employeeStatus === "ONBOARDING",
         ).length;
@@ -1037,14 +1075,14 @@ export default function EmployeeManagement() {
             tone: "text-rose-700 bg-rose-50",
             bar: "bg-rose-500",
           },
-          {
-            label: "Onboarding Assigned",
-            value: onboardingAssigned,
-            detail: "Total onboarding assignments",
-            icon: <ArrowUpward />,
-            tone: "text-cyan-700 bg-cyan-50",
-            bar: "bg-cyan-500",
-          },
+          // {
+          //   label: "Onboarding Assigned",
+          //   value: onboardingAssigned,
+          //   detail: "Total onboarding assignments",
+          //   icon: <ArrowUpward />,
+          //   tone: "text-cyan-700 bg-cyan-50",
+          //   bar: "bg-cyan-500",
+          // },
           {
             label: "Onboarding Queue",
             value: onboardingQueue,
@@ -1054,7 +1092,7 @@ export default function EmployeeManagement() {
             bar: "bg-amber-500",
           },
           {
-            label: "Onboarding In Progress",
+            label: "Onboarding InProgress",
             value: onboardingInProgress,
             detail: "Currently in onboarding process",
             icon: <ArrowUpward />,
@@ -1072,16 +1110,16 @@ export default function EmployeeManagement() {
         ];
 
         return (
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-6 text-[12px]">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3 text-[12px]">
             {summaryCards.map((card) => (
               <div
                 key={card.label}
-                className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                className="relative overflow-hidden rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-medium text-gray-500">{card.label}</div>
-                    <div className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
+                    <div className="font-medium text-gray-500 whitespace-nowrap">{card.label}</div>
+                    <div className="text-xl font-semibold tracking-tight text-gray-900">
                       {card.value}
                     </div>
                   </div>
@@ -1089,7 +1127,7 @@ export default function EmployeeManagement() {
                     {card.icon}
                   </div>
                 </div>
-                <div className="mt-1 text-[10px] truncate text-gray-500" title={card.detail}>
+                <div className="text-[10px] truncate text-gray-500" title={card.detail}>
                   {card.detail}
                 </div>
                 <div className="absolute bottom-0 left-0 h-1 w-full bg-gray-100">
@@ -1183,9 +1221,9 @@ export default function EmployeeManagement() {
       <TableContainer
         component={Paper}
         elevation={0}
-        className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-435px)]" : "h-[calc(100vh-375px)]"} overflow-auto !bg-white-50`}
+        className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-385px)]" : "h-[calc(100vh-330px)]"} overflow-auto border border-gray-200 !bg-white-50`}
       >
-        <Table stickyHeader className="border border-gray-200">
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell
@@ -1679,10 +1717,11 @@ export default function EmployeeManagement() {
               options={employeeGroups}
               getOptionLabel={(option) => option.name || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={employeeGroups.find(g => g.id === formData.employeeGroupId) || null}
+              value={formData.employeeGroup || ""}
               onChange={(_, newValue) => {
                 setFormData({
                   ...formData,
+                  employeeGroup: newValue,
                   employeeGroupId: newValue?.id || "",
                 });
               }}
@@ -1692,6 +1731,7 @@ export default function EmployeeManagement() {
                   label="Employee Group"
                   variant="outlined"
                   className="!text-[12px]"
+                  required={true}
                 />
               )}
               sx={masterSx}
@@ -1701,11 +1741,12 @@ export default function EmployeeManagement() {
               options={shiftCommonTemplates}
               getOptionLabel={(option) => option.name || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={shiftCommonTemplates.find(t => t.id === formData.template) || null}
+              value={formData.template || ""}
               onChange={(_, newValue) => {
                 setFormData({
                   ...formData,
-                  template: newValue?.id || "",
+                  template: newValue,
+                  templateId: newValue?.id || "",
                 });
               }}
               renderInput={(params) => (
@@ -1714,6 +1755,7 @@ export default function EmployeeManagement() {
                   label="Shift Common Template"
                   variant="outlined"
                   className="!text-[12px]"
+                  required={true}
                 />
               )}
               sx={masterSx}

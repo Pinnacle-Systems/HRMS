@@ -92,17 +92,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
     return fields.find(f => f.id === fieldId);
   };
 
-  // Get field groups for organization
-  const getFieldGroups = () => {
-    const groups: Record<string, FilterField[]> = {};
-    fields.forEach(field => {
-      const group = field.group || 'General';
-      if (!groups[group]) groups[group] = [];
-      groups[group].push(field);
-    });
-    return groups;
-  };
-
   // Validate rule
   const validateRule = (rule: FilterRule): boolean => {
     const field = getField(rule.field);
@@ -203,13 +192,13 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
     // Between operator
     if (operator === 'between') {
       return (
-        <Stack direction="row">
+        <div>
           {renderSingleValueInput(rule, 'value', field)}
-          <Typography variant="body2" color="text.secondary" sx={{ mx: 1 }}>
+          <Typography variant="body2" className='text-gray-800 text-center' sx={{ m: 1.2 }}>
             and
           </Typography>
           {renderSingleValueInput(rule, 'value2', field)}
-        </Stack>
+        </div>
       );
     }
 
@@ -228,6 +217,17 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           onChange={(_, newValue) => {
             updateRule(rule.id, { value: newValue.map(v => v.value) });
           }}
+          sx={{
+            minWidth: 180,
+            flex: 1,
+            p: '0 !important',
+            '& .MuiOutlinedInput-root': {
+              padding: '6px'
+            },
+            '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': {
+              padding: '4px !important'
+            }
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -236,29 +236,29 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
               sx={{ minWidth: 200 }}
             />
           )}
-          // renderTags={(value: any, getTagProps: any) =>
-          //   value.map((option: any, index: any) => (
-          //     <Chip
-          //       key={index}
-          //       label={option.label}
-          //       size="small"
-          //       {...getTagProps({ index })}
-          //     />
-          //   ))
-          // }
-          // renderTags={(value:any, getTagProps:any) =>
-          //   value.map((option, index) => {
-          //     const { key, ...tagProps } = getTagProps({ index });
-          //     return (
-          //       <Chip
-          //         key={key || index}
-          //         label={option.label}
-          //         size="small"
-          //         {...tagProps}
-          //       />
-          //     );
-          //   })
-          // }
+        // renderTags={(value: any, getTagProps: any) =>
+        //   value.map((option: any, index: any) => (
+        //     <Chip
+        //       key={index}
+        //       label={option.label}
+        //       size="small"
+        //       {...getTagProps({ index })}
+        //     />
+        //   ))
+        // }
+        // renderTags={(value:any, getTagProps:any) =>
+        //   value.map((option, index) => {
+        //     const { key, ...tagProps } = getTagProps({ index });
+        //     return (
+        //       <Chip
+        //         key={key || index}
+        //         label={option.label}
+        //         size="small"
+        //         {...tagProps}
+        //       />
+        //     );
+        //   })
+        // }
         />
       );
     }
@@ -279,21 +279,25 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
       case 'select':
       case 'multiSelect':
         return (
-          <FormControl size="small" sx={{ minWidth: 150, flex: 1 }}>
-            <Select
-              value={value}
-              onChange={(e) => updateRule(rule.id, { [key]: e.target.value })}
-              displayEmpty
-              sx={selectSx}
-            >
-              <MenuItem value="">Select...</MenuItem>
-              {field.options?.map((opt) => (
-                <MenuItem key={String(opt.value)} value={String(opt.value)}>
-                  {opt.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={field.options || []}
+            value={field.options?.find((option) => String(option.value) === String(value)) || null}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, selected) => String(option.value) === String(selected.value)}
+            onChange={(_, option) => updateRule(rule.id, { [key]: option?.value ?? '' })}
+            renderInput={(params) => <TextField {...params} label={field.label} placeholder="Search..." />}
+            sx={{
+              minWidth: 180,
+              flex: 1,
+              p: '0 !important',
+              '& .MuiOutlinedInput-root': {
+                padding: '6px'
+              },
+              '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': {
+                padding: '4px !important'
+              }
+            }}
+          />
         );
 
       case 'boolean':
@@ -326,7 +330,6 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
               format="DD/MM/YYYY"
               slotProps={{
                 textField: {
-                  size: 'small',
                   sx: { minWidth: 150, flex: 1 },
                 },
               }}
@@ -413,7 +416,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
       >
         <DialogTitle className='border-b border-gray-200 flex items-center justify-between'>
           <div className='flex items-center'>
-            <FilterAltOutlined className='bg-primary-50 rounded-sm !w-5 text-primary' />
+            <FilterAltOutlined className='bg-primary-100 rounded-full !w-5 text-primary' />
             <div className='text-gray-800 ml-2'>{title}</div>
             {rules.length > 0 && (
               <Chip
@@ -429,21 +432,25 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{
-          "&.MuiDialogContent-root": {
-            padding: 2,
-            paddingTop: 2
-          },
+        <DialogContent className='bg-white' sx={{
+          // "&.MuiDialogContent-root": {
+          //   padding: 2,
+          //   paddingTop: 2
+          // },
           overflowY: "auto",
           flex: 1,
         }}>
           {/* AND/OR Condition Selector */}
           {rules.length > 1 && (
-            <Box
+            <Box className="!bg-white"
               sx={{
                 display: "flex",
                 justifyContent: "center",
-                mb: 3,
+                // mb: 3,
+                position: 'sticky',
+                top: 0,
+                zIndex: 999,
+                pt: 2
               }}
             >
               <Box
@@ -502,7 +509,7 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
           )}
 
           {/* Filter rules */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {rules.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
                 <Typography variant="body2" className='text-gray-800'>
@@ -513,17 +520,18 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
               rules.map((rule) => {
                 const field = getField(rule.field);
                 const operators = getOperatorsForFieldType(field?.type || 'text');
-                const fieldGroups = getFieldGroups();
 
                 return (
                   <Box
                     key={rule.id}
+                    className="!bg-white-50 border border-gray-200 !p-3 !pt-6"
                     sx={{
-                      p: 2,
+                      // p: { xs: 1.5, sm: 2 },
+                      mt: 2,
                       border: '1px solid',
                       borderColor: errors[rule.id] ? 'error.main' : 'divider',
-                      borderRadius: 2,
-                      bgcolor: 'background.paper',
+                      borderRadius: 1.5,
+                      boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
                       position: 'relative',
                     }}
                   >
@@ -534,51 +542,34 @@ const FilterPopup: React.FC<FilterPopupProps> = ({
                     // sx={{ width: '100%' }}
                     >
                       {/* Field selector */}
-                      <FormControl size="small" sx={{ minWidth: 180 }}>
-                        <InputLabel>Field</InputLabel>
-
-                        <Select
-                          value={rule.field || ''}
-                          label="Field"
-                          size='small'
-                          sx={selectSx}
-                          onChange={(e) => {
-                            const newFieldId = e.target.value;
-
-                            const newField = getField(newFieldId);
-                            const defaultOperators = getOperatorsForFieldType(
-                              newField?.type || 'text'
-                            );
-
-                            updateRule(rule.id, {
-                              field: newFieldId,
-                              operator: defaultOperators[0] || 'equals',
-                              value: '',
-                              value2: '',
-                            });
-
-                          }}
-                          displayEmpty
-                        >
-                          <MenuItem value="" disabled>
-                            Select Field
-                          </MenuItem>
-                          {Object.entries(fieldGroups).map(([group, groupFields]) => [
-                            <MenuItem
-                              key={`${group}-header`}
-                              disabled
-                              sx={{ fontWeight: 'bold', color: 'text.secondary', opacity: 1 }}
-                            >
-                              {group}
-                            </MenuItem>,
-                            ...groupFields.map((f) => (
-                              <MenuItem key={f.id} value={f.id} sx={{ pl: 4 }}>
-                                {f.label}
-                              </MenuItem>
-                            ))
-                          ])}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={fields}
+                        groupBy={(field) => field.group || 'General'}
+                        getOptionLabel={(field) => field.label}
+                        value={field || null}
+                        isOptionEqualToValue={(option, selected) => option.id === selected.id}
+                        onChange={(_, selectedField) => {
+                          const defaultOperators = getOperatorsForFieldType(selectedField?.type || 'text');
+                          updateRule(rule.id, {
+                            field: selectedField?.id || '',
+                            operator: defaultOperators[0] || 'equals',
+                            value: '',
+                            value2: '',
+                          });
+                        }}
+                        renderInput={(params) => <TextField {...params} label="Field" placeholder="Search fields..." />}
+                        sx={{
+                          minWidth: 180,
+                          flex: 1,
+                          p: '0 !important',
+                          '& .MuiOutlinedInput-root': {
+                            padding: '6px'
+                          },
+                          '& .MuiAutocomplete-inputRoot .MuiAutocomplete-input': {
+                            padding: '4px !important'
+                          }
+                        }}
+                      />
 
                       {/* Operator selector */}
                       <FormControl size="small" sx={{ minWidth: 150 }}>

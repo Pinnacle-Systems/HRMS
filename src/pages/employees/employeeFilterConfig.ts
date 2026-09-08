@@ -1,6 +1,7 @@
 import type { Category } from '../../services/modules/shifts';
 import type { FilterConfig, FilterField } from '../../types';
 import type { Branches, Department, Designation } from './type';
+import type { EmployeeSummaryResponse } from '../../services/modules/employees';
 
 export const EMPLOYEE_FIELD_GROUPS = {
   BASIC_INFO: 'Basic Information',
@@ -33,85 +34,22 @@ export const getEmployeeFilterFields = (
   departments: Department[],
   designations: Designation[],
   branches: Branches[],
-  empStatus: Category[]
+  empStatus: Category[],
+  employeeTypes: Category[] = [],
+  employees: EmployeeSummaryResponse[] = [],
 ): FilterField[] => {
-  // const allFields: FilterField[] = [];
+  const employeeOptions = employees
+    .filter((employee) => employee.id || employee.employeeId)
+    .map((employee) => ({
+      value: employee.id || employee.employeeId || '',
+      label: `${employee.name || employee.employeeId || 'Employee'}${employee.employeeId ? ` (${employee.employeeId})` : ''}`,
+    }));
 
-  // ===== BASIC INFORMATION FIELDS =====
-  const basicInfoFields: FilterField[] = [
-    { id: 'firstName', label: 'First Name', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'lastName', label: 'Last Name', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'nickName', label: 'Nick Name', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { 
-      id: 'gender', 
-      label: 'Gender', 
-      type: 'select',
-      group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO,
-      options: [
-        { value: 'Male', label: 'Male' },
-        { value: 'Female', label: 'Female' },
-        { value: 'Other', label: 'Other' },
-      ]
-    },
-    { id: 'dateOfBirth', label: 'Date of Birth', type: 'date', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'age', label: 'Age', type: 'number', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'birthday', label: 'Birthday', type: 'date', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'mobileNumber', label: 'Mobile Number', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'personalEmailAddress', label: 'Personal Email', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'emailAddress', label: 'Official Email', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { 
-      id: 'bloodGroup', 
-      label: 'Blood Group', 
-      type: 'select',
-      group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO,
-      options: [
-        { value: 'A+', label: 'A+' },
-        { value: 'A-', label: 'A-' },
-        { value: 'B+', label: 'B+' },
-        { value: 'B-', label: 'B-' },
-        { value: 'AB+', label: 'AB+' },
-        { value: 'AB-', label: 'AB-' },
-        { value: 'O+', label: 'O+' },
-        { value: 'O-', label: 'O-' },
-      ]
-    },
-    { id: 'nationality', label: 'Nationality', type: 'select', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO, options: [] },
-    { id: 'religion', label: 'Religion', type: 'select', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO, options: [] },
-    { 
-      id: 'maritalStatus', 
-      label: 'Marital Status', 
-      type: 'select',
-      group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO,
-      options: [
-        { value: 'Single', label: 'Single' },
-        { value: 'Married', label: 'Married' },
-        { value: 'Divorced', label: 'Divorced' },
-        { value: 'Widowed', label: 'Widowed' },
-      ]
-    },
-    { id: 'marriageDate', label: 'Date of Marriage', type: 'date', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'spouseName', label: "Spouse's Name", type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'fathersName', label: "Father's Name", type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'height', label: 'Height (cm)', type: 'number', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'weight', label: 'Weight (kg)', type: 'number', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'identificationMark', label: 'Identification Mark', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'hobbies', label: 'Hobbies', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'languagesKnown', label: 'Languages', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'physicallyChallenged', label: 'Physically Challenged', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'internationalEmployee', label: 'International Employee', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
-    { id: 'disabilityType', label: 'Disability Type', type: 'select', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO, options: [] },
-  ];
-
-  // ===== EMPLOYMENT DETAILS =====
   const employmentFields: FilterField[] = [
-    { id: 'employeeId', label: 'Employee ID', type: 'text', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'name', label: 'Name', type: 'text', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
+    { id: 'search', label: 'Employee Search', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
     { id: 'joiningDate', label: 'Joining Date', type: 'date', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'confirmationDate', label: 'Confirmation Date', type: 'date', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'probationPeriod', label: 'Probation Period (months)', type: 'number', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'noticePeriod', label: 'Notice Period (days)', type: 'number', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
     { 
-      id: 'departmentId', 
+      id: 'dept', 
       label: 'Department', 
       type: 'select',
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
@@ -125,7 +63,7 @@ export const getEmployeeFilterFields = (
       options: designations.map(d => ({ value: d.id, label: d.name }))
     },
     { 
-      id: 'branchId', 
+      id: 'branch', 
       label: 'Branch', 
       type: 'select',
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
@@ -136,21 +74,21 @@ export const getEmployeeFilterFields = (
       label: 'Reporting Manager', 
       type: 'select',
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
-      options: []
+      options: employeeOptions
     },
     { 
       id: 'assignedHrId', 
       label: 'Assigned HR', 
       type: 'select',
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
-      options: []
+      options: employeeOptions
     },
     { 
-      id: 'empType', 
+      id: 'empTypeId', 
       label: 'Employee Type', 
       type: 'select',
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
-      options: []
+      options: employeeTypes.map(type => ({ value: type.id, label: type.name }))
     },
     { 
       id: 'employeeStatusId', 
@@ -159,39 +97,9 @@ export const getEmployeeFilterFields = (
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
       options: empStatus.map(s => ({ value: s.id, label: s.name }))
     },
-    { id: 'referredBy', label: 'Referred By', type: 'text', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'adminRemarks', label: 'Remarks', type: 'multiline', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'idCardNo', label: 'ID Card Number', type: 'text', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'midNo', label: 'MID Number', type: 'number', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'oldIdNo', label: 'Old ID Number', type: 'text', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'hostel', label: 'Hostel Facility', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'vehicleFacility', label: 'Vehicle Facility', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'exService', label: 'Ex-Service Personnel', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'migrant', label: 'Migrant Worker', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'monthly', label: 'Monthly', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
-    { id: 'relievedDate', label: 'Relieved Date', type: 'date', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
+    { id: 'includeInactive', label: 'Include Inactive', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.SYSTEM },
   ];
-
-  // ===== ELIGIBILITY/FINANCIAL FIELDS =====
-  const financialFields: FilterField[] = [
-    { id: 'pfEligible', label: 'PF Eligible', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-    { id: 'excessEpfEligible', label: 'Excess EPF Eligible', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-    { id: 'excessEpsEligible', label: 'Excess EPS Eligible', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-    { id: 'existingEpsMember', label: 'Existing EPS Member', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-    { id: 'esiEligible', label: 'ESI Eligible', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-    { id: 'lwfCovered', label: 'LWF Covered', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-    { id: 'otAmount', label: 'OT Amount', type: 'number', group: EMPLOYEE_FIELD_GROUPS.FINANCIAL },
-  ];
-
-  // ===== SYSTEM FIELDS =====
-  const systemFields: FilterField[] = [
-    { id: 'createdAt', label: 'Created Date', type: 'date', group: EMPLOYEE_FIELD_GROUPS.SYSTEM },
-    { id: 'updatedAt', label: 'Last Updated', type: 'date', group: EMPLOYEE_FIELD_GROUPS.SYSTEM },
-    { id: 'isActive', label: 'Is Active', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.SYSTEM },
-    { id: 'deactivatedAt', label: 'Deactivated Date', type: 'date', group: EMPLOYEE_FIELD_GROUPS.SYSTEM },
-  ];
-
-  return [...basicInfoFields, ...employmentFields, ...financialFields, ...systemFields];
+  return employmentFields;
 };
 
 /**
@@ -229,26 +137,17 @@ export const buildEmployeeServerFilterParams = (
       // ===== TEXT OPERATORS =====
       case 'equals':
         // For fields that support exact match
-        if (['departmentId', 'designationId', 'branchId', 'managerId', 'assignedHrId', 'employeeStatusId', 'empType'].includes(field)) {
-          // Map branchId to branch for API compatibility
-          if (field === 'branchId') {
-            params.branch = value;
-          } else {
-            params[field] = value;
-          }
+        if (field === 'joiningDate') {
+          params.joinedFrom = value;
+          params.joinedTo = value;
         } else {
-          // For other fields, use the field name directly
           params[field] = value;
         }
         break;
 
       case 'contains':
         // For search across multiple fields, use the search parameter
-        if (['name', 'employeeId', 'emailAddress', 'firstName', 'lastName', 'mobileNumber'].includes(field)) {
-          params.search = value;
-        } else {
-          params[`${field}Contains`] = value;
-        }
+        params.search = value;
         break;
 
       case 'notContains':
@@ -372,8 +271,8 @@ export const buildEmployeeServerFilterParams = (
       // ===== BOOLEAN OPERATORS =====
       case 'true':
       case 'yes':
-        if (field === 'isActive') {
-          params.isActive = true;
+        if (field === 'includeInactive') {
+          params.includeInactive = true;
         } else {
           params[field] = true;
         }
@@ -381,8 +280,8 @@ export const buildEmployeeServerFilterParams = (
 
       case 'false':
       case 'no':
-        if (field === 'isActive') {
-          params.isActive = false;
+        if (field === 'includeInactive') {
+          params.includeInactive = false;
         } else {
           params[field] = false;
         }
@@ -407,20 +306,20 @@ export const isEmployeeServerSupportedFilter = (
 
 // Map field IDs to API parameter names where they differ
 export const EMPLOYEE_FIELD_MAP: Record<string, string> = {
-  dept: 'department',
-  branchId: 'branch',
+  dept: 'dept',
+  branch: 'branch',
   joinedFrom: 'joiningDate',
 };
 
 // Server supported simple fields for client-side fallback
 export const SERVER_SIMPLE_FIELDS = [
-  'departmentId',
-  'branchId',
+  'dept',
+  'branch',
   'designationId',
   'employeeStatusId',
   'managerId',
   'assignedHrId',
-  'empType',
+  'empTypeId',
   'employeeId',
   'name',
   'emailAddress',

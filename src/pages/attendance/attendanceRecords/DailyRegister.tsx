@@ -35,7 +35,7 @@ import {
   GroupOutlined,
   EventNoteOutlined,
   CloseOutlined,
-  WbSunnyOutlined,
+  // WbSunnyOutlined,
   InfoOutlined,
   CloudUploadOutlined,
   PunchClockOutlined,
@@ -239,6 +239,11 @@ export function DailyRegister() {
   const [punchEntries, setPunchEntries] = useState<any[]>([]);
   const [punchImporting, setPunchImporting] = useState(false);
   const [punchImportResult, setPunchImportResult] = useState<any>(null);
+  const [deviceFetchSummary, setDeviceFetchSummary] = useState({
+    total: 0,
+    matched: 0,
+    unknown: 0,
+  });
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [employeesData, setEmployeesData] = useState<Employee[]>([]);
 
@@ -1010,6 +1015,7 @@ export function DailyRegister() {
   function clearPunchEntries() {
     setPunchEntries([]);
     setPunchImportResult(null);
+    setDeviceFetchSummary({ total: 0, matched: 0, unknown: 0 });
   }
 
   async function handleBatchPunchImport() {
@@ -1220,10 +1226,17 @@ export function DailyRegister() {
       });
       const newPunchEntries = newPunchEntriesFilter.filter((item: any) => item.employeeId !== "Unknown")
 
+      const unknownCount = newPunchEntriesFilter.length - newPunchEntries.length;
+      setDeviceFetchSummary((previous) => ({
+        total: previous.total + punchesData.length,
+        matched: previous.matched + newPunchEntries.length,
+        unknown: previous.unknown + unknownCount,
+      }));
+
       // Add to existing punch entries
       setPunchEntries(prev => [...prev, ...newPunchEntries]);
       showSnackbar(
-        `Successfully fetched ${newPunchEntries.length} punch logs from ${selectedDeviceIds.length} device(s)`,
+        `Fetched ${punchesData.length} logs: ${newPunchEntries.length} matched, ${unknownCount} unknown`,
         "success"
       );
     } catch (err: any) {
@@ -1292,12 +1305,12 @@ export function DailyRegister() {
           {statCards.map(({ label, value, color, border }) => (
             <div
               key={label}
-              className={`border ${border} rounded-lg p-3 text-center`}
+              className={`border ${border} rounded-lg p-1 text-center`}
             >
-              <div className={`text-xl font-bold ${color}`}>
+              <div className={`text-[16px] font-bold ${color}`}>
                 {value ? value : 0}
               </div>
-              <div className="text-[12px] text-gray-500 mt-0.5">{label}</div>
+              <div className="text-[12px] text-gray-500">{label}</div>
             </div>
           ))}
         </div>
@@ -1358,6 +1371,23 @@ export function DailyRegister() {
               ))}
             </Select>
           </FormControl>
+
+          {todayHoliday && (
+            <div className="bg-primary-100 !whitespace-nowrap !px-2 !py-2 rounded-md"
+            // severity="info"
+            // icon={<WbSunnyOutlined className="!w-4" />}
+            // sx={{ py: 0.5 }}
+            >
+              <span className="text-[12px] text-black mr-2">
+                Holiday: {todayHoliday?.name}
+              </span>
+              {todayHoliday?.type && (
+                <span className="text-[12px] text-primary font-bold">
+                  ({todayHoliday?.type})
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -1410,7 +1440,7 @@ export function DailyRegister() {
       </div>
 
       {/* Holiday banner */}
-      {todayHoliday && (
+      {/* {todayHoliday && (
         <Alert
           severity="info"
           icon={<WbSunnyOutlined className="!w-4" />}
@@ -1425,7 +1455,7 @@ export function DailyRegister() {
             </span>
           )}
         </Alert>
-      )}
+      )} */}
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
@@ -1484,8 +1514,8 @@ export function DailyRegister() {
           className={`${todayHoliday && selected.size > 0
             ? "max-h-[calc(100vh-565px)]"
             : selected.size > 0 || todayHoliday
-              ? "max-h-[calc(100vh-520px)]"
-              : "max-h-[calc(100vh-440px)]"
+              ? "max-h-[calc(100vh-200px)]"
+              : "max-h-[calc(100vh-200px)]"
             }`}
         >
           <Table size="small" stickyHeader>
@@ -1694,6 +1724,7 @@ export function DailyRegister() {
               <DateTimePicker
                 label={punchType === "checkIn" ? "Check-in Time" : "Check-out Time"}
                 value={punchTime ? dayjs(punchTime) : null}
+                format="DD/MM/YYYY hh:mm:ss"
                 onChange={(newValue) => {
                   setPunchTime(newValue ? dayjs(newValue).toISOString() : "");
                 }}
@@ -2913,12 +2944,15 @@ export function DailyRegister() {
             )}
 
             {/* Show fetched entries from devices */}
-            {punchSource === "biometric" && punchEntries.length > 0 && (
+            {punchSource === "biometric" && deviceFetchSummary.total > 0 && (
               <div className="border border-green-200 rounded overflow-hidden">
                 <div className="bg-green-50 px-3 py-2 border-b border-green-200 flex items-center justify-between">
-                  <span className="text-[12px] font-medium text-green-700">
-                    Fetched from Devices ({punchEntries.length} entries)
-                  </span>
+                  <div className="text-[12px] font-medium text-green-700">
+                    <div>Fetched from Devices ({deviceFetchSummary.total} total logs)</div>
+                    <div className="mt-0.5 text-[11px] font-normal text-gray-600">
+                      Matched: {deviceFetchSummary.matched} | Unknown: {deviceFetchSummary.unknown} | Showing: {punchEntries.length}
+                    </div>
+                  </div>
                   <Button
                     size="small"
                     color="error"

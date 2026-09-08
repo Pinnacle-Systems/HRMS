@@ -494,7 +494,7 @@ export function AttendanceMuster() {
                       <th className="sticky left-0 top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
                         Code
                       </th>
-                      <th className="sticky left-[90px] top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
+                      <th className="sticky left-[53px] top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
                         Employee
                       </th>
                       {dayNumbers.map((d) => (
@@ -509,12 +509,12 @@ export function AttendanceMuster() {
                           <div className="text-[9px] font-normal text-gray-400">{getDayLabel(d)}</div>
                         </th>
                       ))}
-                      <th className="sticky top-0 right-[244px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
-                      <th className="sticky top-0 right-[207px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
-                      <th className="sticky top-0 right-[171px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
-                      <th className="sticky top-0 right-[135px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">LV</th>
-                      <th className="sticky top-0 right-[95px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">IR</th>
-                      <th className="sticky top-0 right-[47px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
+                      <th className="sticky top-0 right-[236px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
+                      <th className="sticky top-0 right-[200px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
+                      <th className="sticky top-0 right-[166px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
+                      <th className="sticky top-0 right-[130px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">LV</th>
+                      <th className="sticky top-0 right-[90px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">IR</th>
+                      <th className="sticky top-0 right-[43px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
                       <th className="sticky top-0 right-0 z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">Att%</th>
                     </tr>
                   </thead>
@@ -524,7 +524,7 @@ export function AttendanceMuster() {
                         <td className="sticky left-0 z-10 bg-inherit whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono">
                           {emp.employeeCode}
                         </td>
-                        <td className="sticky left-[90px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">
+                        <td className="sticky left-[53px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">
                           {emp.employeeName}
                         </td>
                         {/* {dayNumbers.map((d) => {
@@ -673,14 +673,14 @@ export function AttendanceMuster() {
                             </Tooltip>
                           );
                         })} */}
-                        <td className="sticky right-[244px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
+                        <td className="sticky right-[236px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
                           {emp.totalPresent}
                         </td>
-                        <td className="sticky right-[207px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
-                        <td className="sticky right-[171px] z-10 bg-inherit px-2 py-1.5 text-center text-amber-600 font-semibold">{emp.totalLate}</td>
-                        <td className="sticky right-[135px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
-                        <td className="sticky right-[95px] z-10 bg-inherit px-2 py-1.5 text-center text-pink-600 font-semibold">{emp.totalMissedOut}</td>
-                        <td className="sticky right-[47px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
+                        <td className="sticky right-[200px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
+                        <td className="sticky right-[166px] z-10 bg-inherit px-2 py-1.5 text-center text-amber-600 font-semibold">{emp.totalLate}</td>
+                        <td className="sticky right-[130px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
+                        <td className="sticky right-[90px] z-10 bg-inherit px-2 py-1.5 text-center text-pink-600 font-semibold">{emp.totalMissedOut}</td>
+                        <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
                           {/* {(emp.totalOT / 60).toFixed(1)} */}
                           {emp.totalOT}
                         </td>

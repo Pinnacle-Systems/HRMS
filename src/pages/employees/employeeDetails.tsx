@@ -2819,7 +2819,7 @@ export default function EmployeeDetails() {
       proposedRelievedDate: updatedData.proposedRelievedDate,
       systemGeneratedRelievedDate: updatedData.systemGeneratedRelievedDate,
       relievedDate: updatedData.relievedDate,
-      rehireRefferedBy: session?.user.userId || "System",
+      rehireRefferedBy: session?.user.email || "System",
       rehireRefferedDateTime: new Date().toISOString(),
     }
     try {

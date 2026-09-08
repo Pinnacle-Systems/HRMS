@@ -934,6 +934,7 @@ export const ShiftList = () => {
                     value={formData.templateId}
                     label="Employee Group"
                     sx={selectSx}
+                    required={true}
                     onChange={(e) => {
                       const newTemplateId = e.target.value;
                       const templateType = getTemplateType(newTemplateId);
@@ -962,7 +963,7 @@ export const ShiftList = () => {
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
-                <FormControl fullWidth>
+                <FormControl fullWidth required>
                   <InputLabel>Shift Common Template</InputLabel>
                   <Select
                     value={formData.commonTemplateId}

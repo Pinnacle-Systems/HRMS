@@ -15,7 +15,7 @@ import {
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
 import type { ProcessResult, AttendanceStatus, WorkerType } from "../../../services/modules/attendanceTypes";
-import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG, formatTime, WORKER_TYPE_OPTIONS } from "../const";
+import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG, WORKER_TYPE_OPTIONS, formatTimewithSec } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import type { Department } from "../../employees/type";
 import dayjs from "dayjs";
@@ -719,10 +719,10 @@ export function ProcessAttendance() {
                         </span>
                       </TableCell>
                       <TableCell align="center">
-                        {emp.checkInTime ? formatTime(emp.checkInTime) : '-'}
+                        {emp.checkInTime ? formatTimewithSec(emp.checkInTime) : '-'}
                       </TableCell>
                       <TableCell align="center">
-                        {emp.checkOutTime ? formatTime(emp.checkOutTime) : '-'}
+                        {emp.checkOutTime ? formatTimewithSec(emp.checkOutTime) : '-'}
                       </TableCell>
                       <TableCell align="center">{emp.shiftCode || '-'}</TableCell>
                     </TableRow>

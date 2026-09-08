@@ -763,7 +763,17 @@ export default function Layout() {
 
             {/* Second Row - Page History Chips (Hidden Scrollbar) */}
             {pageHistory?.length > 0 && (
-              <div className="mb-1 pt-1 border-t !border-gray-200 w-full min-w-0">
+              <Box
+                className="mb-1 min-w-0"
+                sx={{
+                  marginLeft: open ? '200px' : '40px',
+                  width: open ? `calc(100% - ${drawerWidth}px)` : 'calc(100% - 60px)',
+                  transition: (theme) => theme.transitions.create(['margin-left', 'width'], {
+                    easing: theme.transitions.easing.sharp,
+                    duration: theme.transitions.duration.enteringScreen,
+                  }),
+                }}
+              >
                 <Box
                   className="overflow-x-auto overflow-y-hidden"
                   sx={{
@@ -814,7 +824,7 @@ export default function Layout() {
                             className={`${page.path === `${location.pathname}${location.search}`
                               ? '!bg-primary !text-white'
                               : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
-                              } !border-none !h-4 flex-shrink-0`}
+                              } !border-none !h-5 flex-shrink-0`}
                             aria-label={`Go to ${page.label || 'page'}`}
                           />
 
@@ -825,7 +835,7 @@ export default function Layout() {
                     ))}
                   </Box>
                 </Box>
-              </div>
+              </Box>
             )}
           </div>
 

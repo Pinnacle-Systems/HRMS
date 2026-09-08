@@ -59,8 +59,9 @@ export interface Employee {
   midNo: string;
   oldIdNo: string;
   employeeGroupId: string;
-  template: string;
-  employeeGroup: string;
+  template: any;
+  employeeGroup: any;
+  templateId: string;
 }
 export interface Department {
   id: string;
