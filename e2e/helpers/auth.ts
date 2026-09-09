@@ -138,6 +138,31 @@ export async function mockAllApis(page: Page) {
     },
   );
 
+  await page.route(
+    "https://pnc-hr.auvitapps.com:7091/api/payroll/dashboard",
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            totalEmployees: 0,
+            netPayroll: 0,
+            pendingApprovals: 0,
+            totalCost: 0,
+            processingStatus: [],
+            upcomingPayrolls: [],
+            recentActivities: [],
+            departmentWiseData: [],
+            deductionComposition: [],
+            monthlyTrend: [],
+          },
+        }),
+      });
+    },
+  );
+
   // --------------------------------------------------
   // AUTH SESSION
   // --------------------------------------------------

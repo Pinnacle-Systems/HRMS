@@ -17,6 +17,7 @@ import { PERMISSIONS } from '../auth/Permissions.ts';
 import BranchFiscalYearSelectPage from "../pages/auth/BranchFYSelect.tsx";
 import WorkspaceGuard from "../auth/workSpaceGuard.tsx";
 import type { AppRole, Permission } from "../auth/authTypes.ts";
+import PayrollDashboard from "../pages/payroll/payroll.tsx";
 
 // Lazy imports (keeping your existing imports)
 const Employees = lazy(() => import("../pages/employees/employeeManagement"));
@@ -79,7 +80,6 @@ const AttendanceManagement = lazy(() => import("../pages/attendance/attendanceMa
 const AttendanceProcessing = lazy(() => import("../pages/attendance/attendanceProcessing"));
 const AttendanceRecords = lazy(() => import("../pages/attendance/attendanceRecords"));
 const MfaSetupPage = lazy(() => import("../pages/auth/MfaSetupPage.tsx"));
-const PayrollDashboard = lazy(() => import("../pages/payroll/payroll.tsx"));
 const PayrollRuns = lazy(() => import("../pages/payroll/Operations/PayrollRuns.tsx"));
 const GeneratePayroll = lazy(() => import("../pages/payroll/Operations/GeneratePayroll"));
 const PayrollDetails = lazy(() => import("../pages/payroll/Operations/PayrollDetails.tsx"));

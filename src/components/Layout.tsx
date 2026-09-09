@@ -1195,7 +1195,7 @@ export default function Layout() {
                           />
                         </ListItemButton>
 
-                        <Collapse in={payrollOperationsOpen} timeout="auto" unmountOnExit>
+                        <Collapse in={payrollOperationsOpen} timeout={0} unmountOnExit>
                           {filteredPayrollOperations.map((child) => (
                             <ListItemButton
                               key={child.path}

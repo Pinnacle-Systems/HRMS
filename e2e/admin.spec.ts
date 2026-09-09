@@ -185,8 +185,6 @@ test.describe("mocked admin flow", () => {
 
     await expect(payrollOperations).toBeVisible();
 
-    await payrollOperations.click();
-
     const dashboardButton =
       page.getByRole("button", {
         name: "Dashboard",
