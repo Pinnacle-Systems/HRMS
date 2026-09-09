@@ -54,6 +54,7 @@ import { getRowColor } from "../../../const";
 import { GlobalPagination } from "../../../../components/GlobalPagination";
 import { EmployeeSelector } from "../../../../components/PolicyManagement/Common/EmployeeSelector";
 import type { OnboardingAssignment, OnboardingDetail } from "./type";
+import { useSearchParams } from "react-router-dom";
 
 // Constants
 const STATUS_MAP = {
@@ -122,6 +123,17 @@ export const AssignOnboarding = () => {
     dueDate: "",
     notes: "",
   });
+
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
+
+  useEffect(() => {
+    if (statusParam === 'inprogress') {
+      setStatusFilter('IN_PROGRESS');
+    } else if (statusParam === 'completed') {
+      setStatusFilter('COMPLETED');
+    }
+  }, [statusParam]);
 
   // Derived data
   const totalAssignments = assignments.length;
@@ -259,8 +271,8 @@ export const AssignOnboarding = () => {
       formData.employeeIds.length > 0
         ? formData.employeeIds
         : formData.employeeId
-        ? [formData.employeeId]
-        : [];
+          ? [formData.employeeId]
+          : [];
 
     if (employeeIds.length === 0 || formData.checklistIds.length === 0) {
       showSnackbar(
@@ -500,9 +512,8 @@ export const AssignOnboarding = () => {
         color={colors[status as keyof typeof colors] as any}
         variant={isActive ? "filled" : "outlined"}
         onClick={() => handleStatusFilterClick(status)}
-        className={`cursor-pointer hover:shadow-md transition-all ${
-          status === "ALL" ? "text-gray-800 bg-gray-100" : ""
-        } ${isActive ? "!font-bold" : ""}`}
+        className={`cursor-pointer hover:shadow-md transition-all ${status === "ALL" ? "text-gray-800 bg-gray-100" : ""
+          } ${isActive ? "!font-bold" : ""}`}
       />
     );
   };
@@ -694,10 +705,10 @@ export const AssignOnboarding = () => {
                                 progress === 100
                                   ? "success.main"
                                   : progress >= 70
-                                  ? "primary.main"
-                                  : progress >= 40
-                                  ? "warning.main"
-                                  : "error.main",
+                                    ? "primary.main"
+                                    : progress >= 40
+                                      ? "warning.main"
+                                      : "error.main",
                               borderRadius: 1,
                               height: 8,
                               transition: "width 0.3s ease",
@@ -1235,8 +1246,8 @@ export const AssignOnboarding = () => {
                       <Typography variant="body2">
                         {onboardingDetail.dueDate
                           ? dayjs(onboardingDetail.dueDate).format(
-                              "DD MMM YYYY"
-                            )
+                            "DD MMM YYYY"
+                          )
                           : "Not set"}
                       </Typography>
                     </CardContent>
@@ -1251,8 +1262,8 @@ export const AssignOnboarding = () => {
                       <Typography variant="body2" className="font-medium">
                         {onboardingDetail.completedAt
                           ? dayjs(onboardingDetail.completedAt).format(
-                              "DD MMM YYYY HH:mm"
-                            )
+                            "DD MMM YYYY HH:mm"
+                          )
                           : "Not completed yet"}
                       </Typography>
                     </CardContent>
@@ -1467,14 +1478,14 @@ export const AssignOnboarding = () => {
 
               {(!onboardingDetail.checklists ||
                 onboardingDetail.checklists.length === 0) && (
-                <Card className="bg-gray-50 border border-gray-200 border-dashed">
-                  <CardContent className="text-center py-8">
-                    <Typography variant="body2" color="textSecondary">
-                      No checklists assigned yet
-                    </Typography>
-                  </CardContent>
-                </Card>
-              )}
+                  <Card className="bg-gray-50 border border-gray-200 border-dashed">
+                    <CardContent className="text-center py-8">
+                      <Typography variant="body2" color="textSecondary">
+                        No checklists assigned yet
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                )}
             </div>
           ) : (
             <Box className="text-center py-12">

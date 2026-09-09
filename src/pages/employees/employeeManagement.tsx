@@ -46,12 +46,66 @@ import {
 } from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
-import { ArrowDownward, ArrowUpward, CheckCircleOutlined, CloseOutlined, CloudUploadOutlined, DownloadOutlined, EditOutlined, ExpandLessOutlined, ExpandMoreOutlined, FileDownloadOutlined, FileUploadOutlined, HowToRegOutlined, MoreVertOutlined, NoAccountsOutlined, VisibilityOutlined } from "@mui/icons-material";
-import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Dialog, DialogActions, DialogContent, FormControl, FormControlLabel, IconButton, InputLabel, LinearProgress, Menu, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Tooltip, Typography } from "@mui/material";
+import {
+  ArrowDownward,
+  ArrowUpward,
+  CheckCircleOutlined,
+  CloseOutlined,
+  CloudUploadOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  ExpandLessOutlined,
+  ExpandMoreOutlined,
+  FileDownloadOutlined,
+  FileUploadOutlined,
+  HowToRegOutlined,
+  MoreVertOutlined,
+  NoAccountsOutlined,
+  VisibilityOutlined
+} from "@mui/icons-material";
+import {
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  FormControl,
+  FormControlLabel,
+  IconButton,
+  InputLabel,
+  LinearProgress,
+  Menu,
+  MenuItem,
+  Paper,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography
+} from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
 import { masterSx, resignationTypes } from "./const.ts";
 import DataState from "../../components/DataState.tsx";
 import { dialogsx } from "../../const.ts";
+
+// Helper function to check if an employee is inactive
+const isEmployeeInactive = (employee: Employee): boolean => {
+  return employee.isActive === false ||
+    employee.employeeStatus === "INACTIVE" ||
+    employee.employeeStatus === "RESIGNED" ||
+    employee.employeeStatus === "TERMINATED" ||
+    employee.employeeStatus === "INACTIVE" ||
+    !!employee.deactivatedAt;
+};
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -292,33 +346,48 @@ export default function EmployeeManagement() {
         sort: sortParams,
         ...buildEmployeeServerFilterParams(activeFilters),
       };
+
       if (searchTerm) params.search = searchTerm;
-      if (employeeView !== "active") params.includeInactive = true;
+      if (employeeView === "active") {
+        params.includeInactive = false;
+      } else if (employeeView === "inactive") {
+        params.includeInactive = true;
+        params.size = 100
+      } else {
+        params.includeInactive = true;
+      }
 
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);
       const employeeData = employeePage.content as Employee[];
+
       let visibleEmployees = employeeData;
 
       if (employeeView === "inactive") {
         visibleEmployees = employeeData.filter((employee) =>
-          employee.isActive === false || employee.employeeStatus === "INACTIVE",
+          isEmployeeInactive(employee)
+        );
+      } else if (employeeView === "active") {
+        visibleEmployees = employeeData.filter((employee) =>
+          !isEmployeeInactive(employee)
         );
       }
 
       setTotal(employeePage.totalElements);
 
+      // Apply client-side filters for unsupported filters
       if (
         activeFilters &&
         activeFilters.rules.length > 0 &&
         !isEmployeeServerSupportedFilter(activeFilters)
       ) {
         visibleEmployees = applyFiltersToData(
-          employeeData,
+          visibleEmployees,
           activeFilters,
           EMPLOYEE_FIELD_MAP,
         );
       }
+
       setEmployees(visibleEmployees);
 
       try {
@@ -644,11 +713,6 @@ export default function EmployeeManagement() {
       hideSpinner();
     }
   };
-
-  const isInactiveEmployee = (employee: Employee): boolean =>
-    employee.employeeStatus === "INACTIVE" ||
-    employee.isActive === false ||
-    !!employee.deactivatedAt;
 
   const getResignedField = (employee: Employee, ...fields: string[]): any => {
     for (const field of fields) {
@@ -1031,18 +1095,15 @@ export default function EmployeeManagement() {
 
       {/* Workforce Summary */}
       {(() => {
-        const activeCount = employeeStats?.totalActiveEmployees ?? employees.filter((employee) => employee.isActive === true).length;
-        const inactiveCount = employeeStats?.totalInactiveEmployees ?? employees.filter(
-          (employee) => employee.isActive === false || employee.employeeStatus === "INACTIVE",
-        ).length;
+        const activeCount = employeeStats?.totalActiveEmployees ?? employees.filter((employee) => !isEmployeeInactive(employee)).length;
+        const inactiveCount = employeeStats?.totalInactiveEmployees ?? employees.filter(isEmployeeInactive).length;
         const activeRate = employeeStats?.totalEmployees
           ? Math.round((activeCount / employeeStats.totalEmployees) * 100)
           : total ? Math.round((activeCount / total) * 100) : 0;
         const totalEmployees = employeeStats?.totalEmployees ?? total;
-        // const onboardingAssigned = employeeStats?.onboardingAssigned ?? 0;
-        const onboardingQueue = employeeStats?.onboardingQueue ?? employees.filter(
-          (employee) => employee.employeeStatus === "ONBOARDING",
-        ).length;
+        // const onboardingQueue = employeeStats?.onboardingQueue ?? employees.filter(
+        //   (employee) => employee.employeeStatus === "ONBOARDING",
+        // ).length;
         const onboardingInProgress = employeeStats?.onboardingInProgress ?? employees.filter(
           (employee) => employee.employeeStatus === "ONBOARDING_IN_PROGRESS",
         ).length;
@@ -1076,21 +1137,13 @@ export default function EmployeeManagement() {
             bar: "bg-rose-500",
           },
           // {
-          //   label: "Onboarding Assigned",
-          //   value: onboardingAssigned,
-          //   detail: "Total onboarding assignments",
+          //   label: "Onboarding Queue",
+          //   value: onboardingQueue,
+          //   detail: "Awaiting onboarding start",
           //   icon: <ArrowUpward />,
-          //   tone: "text-cyan-700 bg-cyan-50",
-          //   bar: "bg-cyan-500",
+          //   tone: "text-amber-700 bg-amber-50",
+          //   bar: "bg-amber-500",
           // },
-          {
-            label: "Onboarding Queue",
-            value: onboardingQueue,
-            detail: "Awaiting onboarding start",
-            icon: <ArrowUpward />,
-            tone: "text-amber-700 bg-amber-50",
-            bar: "bg-amber-500",
-          },
           {
             label: "Onboarding InProgress",
             value: onboardingInProgress,
@@ -1098,6 +1151,7 @@ export default function EmployeeManagement() {
             icon: <ArrowUpward />,
             tone: "text-indigo-700 bg-indigo-50",
             bar: "bg-indigo-500",
+            redirectTo: "/settings/employee/onboarding-process?tab=assign&status=inprogress",
           },
           {
             label: "Onboarding Completed",
@@ -1106,15 +1160,21 @@ export default function EmployeeManagement() {
             icon: <ArrowUpward />,
             tone: "text-teal-700 bg-teal-50",
             bar: "bg-teal-500",
+            redirectTo: "/settings/employee/onboarding-process?tab=assign&status=completed",
           },
         ];
 
         return (
-          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3 text-[12px]">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mb-3 text-[12px]">
             {summaryCards.map((card) => (
               <div
                 key={card.label}
-                className="relative overflow-hidden rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm"
+                className="relative overflow-hidden rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => {
+                  if (card.redirectTo) {
+                    navigate(card.redirectTo);
+                  }
+                }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -1164,7 +1224,7 @@ export default function EmployeeManagement() {
               className={employeeView === view ? "!bg-primary !text-white" : "!text-gray-600"}
               sx={{ borderRadius: 0, minWidth: 68, textTransform: "capitalize", whiteSpace: "nowrap" }}
             >
-              {view}
+              {view === "active" ? "Active" : view === "inactive" ? "Inactive" : "All"}
             </Button>
           ))}
         </div>
@@ -1434,7 +1494,7 @@ export default function EmployeeManagement() {
                         />
                       </IconButton>
                     </Tooltip>
-                    {isInactiveEmployee(employee) ? (
+                    {isEmployeeInactive(employee) ? (
                       <Tooltip title="Reactivate">
                         <IconButton
                           size="small"
@@ -1480,7 +1540,7 @@ export default function EmployeeManagement() {
             ))}
             {employees.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8 text-gray-500">
+                <TableCell colSpan={13} className="text-center py-8 text-gray-500">
                   <DataState
                     compact
                     type="empty"
