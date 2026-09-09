@@ -2898,7 +2898,7 @@ export function DailyRegister() {
             {/* Device Selection Table (only shown when "From Devices" is selected) */}
             {punchSource === "biometric" && devices.length > 0 && (
               <div className="border border-gray-200 rounded overflow-hidden">
-                <div className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-2 bg-gray-50 border-b items-center border-gray-200">
+                <div className="grid grid-cols-[30px_1fr_2fr_1fr_1fr_1fr] gap-2 bg-gray-50 border-b items-center border-gray-200">
                   <div className="flex items-center">
                     <Checkbox
                       size="small"
@@ -2910,6 +2910,7 @@ export function DailyRegister() {
                   <div className="text-[12px] font-medium text-gray-600">Device Name</div>
                   <div className="text-[12px] font-medium text-gray-600">IP Address</div>
                   <div className="text-[12px] font-medium text-gray-600">Location</div>
+                  <div className="text-[12px] font-medium text-gray-600">Machine Type</div>
                   <div className="text-[12px] font-medium text-gray-600">Status</div>
                 </div>
 
@@ -2917,7 +2918,7 @@ export function DailyRegister() {
                   {devices.map((device) => (
                     <div
                       key={device.id}
-                      className="grid grid-cols-[30px_1fr_1fr_1fr_1fr] gap-2 items-center border-b border-gray-200"
+                      className="grid grid-cols-[30px_1fr_2fr_1fr_1fr_1fr] gap-2 items-center border-b border-gray-200"
                     >
                       <div className="flex items-center">
                         <Checkbox
@@ -2929,6 +2930,7 @@ export function DailyRegister() {
                       <div className="text-[12px] text-gray-800">{device.deviceName}</div>
                       <div className="text-[12px] text-gray-600">{device.ipAddress}:{device.port || 4370}</div>
                       <div className="text-[12px] text-gray-600">{device.location || 'N/A'}</div>
+                      <div className="text-[12px] text-gray-600">{device.machineType || 'N/A'}({device.machineSetUp || 'N/A'})</div>
                       <div className="flex items-center gap-1">
                         <span className={`w-2 h-2 rounded-full ${device.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
                         <span className="text-[10px] text-gray-500">{device.isActive ? 'Active' : 'Inactive'}</span>

@@ -1119,6 +1119,10 @@ export default function EmployeeManagement() {
             icon: <CheckCircleOutlined />,
             tone: "text-blue-700 bg-blue-50",
             bar: "bg-blue-600",
+            onClick: () => {
+              setEmployeeView("all");
+              setPage(0);
+            },
           },
           {
             label: "Active Employees",
@@ -1127,6 +1131,10 @@ export default function EmployeeManagement() {
             icon: <HowToRegOutlined />,
             tone: "text-emerald-700 bg-emerald-50",
             bar: "bg-emerald-500",
+            onClick: () => {
+              setEmployeeView("active");
+              setPage(0);
+            },
           },
           {
             label: "Inactive Employees",
@@ -1135,6 +1143,10 @@ export default function EmployeeManagement() {
             icon: <NoAccountsOutlined />,
             tone: "text-rose-700 bg-rose-50",
             bar: "bg-rose-500",
+            onClick: () => {
+              setEmployeeView("inactive");
+              setPage(0);
+            },
           },
           // {
           //   label: "Onboarding Queue",
@@ -1151,7 +1163,9 @@ export default function EmployeeManagement() {
             icon: <ArrowUpward />,
             tone: "text-indigo-700 bg-indigo-50",
             bar: "bg-indigo-500",
-            redirectTo: "/settings/employee/onboarding-process?tab=assign&status=inprogress",
+            onClick: () => {
+              navigate("/settings/employee/onboarding-process?tab=assign&status=inprogress");
+            },
           },
           {
             label: "Onboarding Completed",
@@ -1160,7 +1174,9 @@ export default function EmployeeManagement() {
             icon: <ArrowUpward />,
             tone: "text-teal-700 bg-teal-50",
             bar: "bg-teal-500",
-            redirectTo: "/settings/employee/onboarding-process?tab=assign&status=completed",
+            onClick: () => {
+              navigate("/settings/employee/onboarding-process?tab=assign&status=completed");
+            },
           },
         ];
 
@@ -1169,12 +1185,8 @@ export default function EmployeeManagement() {
             {summaryCards.map((card) => (
               <div
                 key={card.label}
-                className="relative overflow-hidden rounded-xl border border-gray-200 bg-white px-4 py-2 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => {
-                  if (card.redirectTo) {
-                    navigate(card.redirectTo);
-                  }
-                }}
+                className="relative overflow-hidden rounded-xl border px-4 py-2 shadow-sm transition-shadow cursor-pointer"
+                onClick={card.onClick}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>

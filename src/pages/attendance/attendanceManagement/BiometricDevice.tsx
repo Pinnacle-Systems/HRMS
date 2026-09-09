@@ -2017,6 +2017,8 @@ export const DeviceManagement: React.FC = () => {
               <TableCell className="!font-bold">Model</TableCell>
               <TableCell className="!font-bold">IP Address</TableCell>
               <TableCell className="!font-bold">Port</TableCell>
+              <TableCell className="!font-bold">Machine Type</TableCell>
+              <TableCell className="!font-bold">Machine Setup</TableCell>
               <TableCell className="!font-bold">Location</TableCell>
               <TableCell className="!font-bold">Health</TableCell>
               <TableCell className="!font-bold">Status</TableCell>
@@ -2068,6 +2070,8 @@ export const DeviceManagement: React.FC = () => {
                     </Box>
                   </TableCell>
                   <TableCell>{device.port}</TableCell>
+                  <TableCell>{device.machineType}</TableCell>
+                  <TableCell>{device.machineSetUp}</TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center" }}>
                       <LocationOnOutlined sx={{ mr: 1, fontSize: 16 }} />
