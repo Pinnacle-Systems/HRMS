@@ -2,6 +2,8 @@ import { apiService } from "../services/api/api.config";
 import { API_ENDPOINTS } from "../services/api/endpoints";
 import { logger } from "../utils/logger";
 import { mapAuthResponseToSession, mapLoginResponseToOutcome } from "./authMapper";
+import { companyService } from "../services/modules/company";
+import { saveCompanyDetails } from "../utils/companyDetails";
 import {
   clearSession,
   getRefreshToken,
@@ -32,6 +34,25 @@ import type {
   UserProfile,
   VerifyOtpRequest,
 } from "./authTypes";
+
+async function loadAndSaveCompanyDetails(session: AuthSession): Promise<void> {
+  try {
+    if (!session.company.companyId) {
+      saveCompanyDetails({ stateId: "", cityId: "" });
+      return;
+    }
+
+    const response: any = await companyService.getCompanyById(session.company.companyId);
+    const company = response?.data ?? response;
+
+    saveCompanyDetails({
+      stateId: company?.stateId ?? "",
+      cityId: company?.cityId ?? "",
+    });
+  } catch (error) {
+    saveCompanyDetails({ stateId: "", cityId: "" });
+  }
+}
 
 export function buildLoginRequest(params: {
   loginId?: string;
@@ -74,10 +95,12 @@ export async function login(request: LoginRequest): Promise<LoginOutcome> {
 
   if (outcome.type === "authenticated") {
     saveSession(outcome.session);
+    await loadAndSaveCompanyDetails(outcome.session);
   }
 
   if (outcome.type === "mustChangePassword" && outcome.session) {
     saveSession(outcome.session);
+    await loadAndSaveCompanyDetails(outcome.session);
   }
 
   return outcome;
@@ -105,6 +128,7 @@ export async function selectTenant(
   if (outcome.type === "authenticated" || 
       (outcome.type === "mustChangePassword" && outcome.session)) {
     saveSession(outcome.session);
+    await loadAndSaveCompanyDetails(outcome.session);
   }
 
   return outcome;

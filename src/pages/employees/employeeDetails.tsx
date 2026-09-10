@@ -97,6 +97,7 @@ import useUnsavedChanges from "../../hooks/useUnsavedChanges";
 import { ProfileCompletionProgress } from "./useProfileCompletion";
 import { attendanceService } from "../../services/modules/attendance";
 import { mobileAttendanceService, type GeofenceValidateData } from "../../services/modules/mobileAttendance";
+import { loadCompanyDetails } from "../../utils/companyDetails";
 
 const withMidNoFallback = (data: any) => {
   const midNo = typeof data.midNo === "string" ? data.midNo.trim() : data.midNo;
@@ -106,6 +107,18 @@ const withMidNoFallback = (data: any) => {
       ...data,
       midNo: data.employeeId || data.employeeCode || data.code || data.id || "",
     };
+};
+
+const getMigrantStatus = (employeeData: any): boolean | null => {
+  const companyDetails = loadCompanyDetails();
+  const permanentAddress = employeeData?.addresses?.find(
+    (address: any) => address.addressType?.toUpperCase() === "PERMANENT ADDRESS",
+  );
+  const companyStateId = companyDetails?.stateId?.trim().toLowerCase();
+  const permanentStateId = permanentAddress?.state?.trim().toLowerCase();
+
+  if (!companyStateId || !permanentStateId) return null;
+  return companyStateId !== permanentStateId;
 };
 
 function TabPanel(props: TabPanelProps) {
@@ -2320,9 +2333,16 @@ export default function EmployeeDetails() {
     try {
       const response: any = await employeeService.getEmployeeById(apiId);
       const employeeData = response.data;
-      const normalizedEmployeeData = withMidNoFallback(employeeData);
+      const migrant = getMigrantStatus(employeeData);
+      const normalizedEmployeeData = withMidNoFallback(
+        migrant === null ? employeeData : { ...employeeData, migrant },
+      );
       setEmployee(normalizedEmployeeData);
       setInitialEmployee(normalizedEmployeeData);
+
+      if (migrant !== null && employeeData.migrant !== migrant) {
+        await employeeService.updateAdminInfo(apiId, { migrant });
+      }
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
       navigate("/employees");

@@ -483,7 +483,7 @@ export function PeriodFinalisation() {
           </Button>
           <Button
             variant="contained"
-            className={`!bg-${dialogMode === 'unlock' ? 'warning' : 'primary'}`}
+            className="!bg-primary"
             onClick={handleSubmit}
             disabled={isSubmitting || !reason.trim()}
           >

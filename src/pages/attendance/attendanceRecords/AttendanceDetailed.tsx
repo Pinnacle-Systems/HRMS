@@ -42,8 +42,19 @@ export function AttendanceDetailed() {
   const [loading, setLoading] = useState(false);
 
   // Filters
-  const [fromDate, setFromDate] = useState(searchParams.get("date") || dayjs().format("YYYY-MM-DD"));
-  const [toDate, setToDate] = useState(searchParams.get("date") || dayjs().format("YYYY-MM-DD"));
+  const getInitialFilterDate = () =>
+    sessionStorage.getItem("attendanceDetailedFromDate") ??
+    dayjs().format("YYYY-MM-DD");
+
+  const getInitialFilterToDate = () =>
+    sessionStorage.getItem("attendanceDetailedToDate") ??
+    dayjs().format("YYYY-MM-DD");
+  const [fromDate, setFromDate] = useState(
+    searchParams.get("date") || getInitialFilterDate()
+  );
+  const [toDate, setToDate] = useState(
+    searchParams.get("date") || getInitialFilterToDate()
+  );
   const [departmentId, setDepartmentId] = useState("");
   const [shiftCode, _setShiftCode] = useState("");
   const [status, setStatus] = useState(searchParams.get("status") || "");
@@ -60,7 +71,14 @@ export function AttendanceDetailed() {
   const [submitting, setSubmitting] = useState(false);
 
   const [departments, setDepartments] = useState<Department[]>([]);
+  
+  useEffect(() => {
+    if (fromDate) sessionStorage.setItem("attendanceDetailedFromDate", fromDate);
+  }, [fromDate]);
 
+  useEffect(() => {
+    if (toDate) sessionStorage.setItem("attendanceDetailedToDate", toDate);
+  }, [toDate]);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
@@ -245,132 +263,127 @@ export function AttendanceDetailed() {
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <TableContainer className='max-h-[calc(100vh-400px)]'>
-  <Table size="small" stickyHeader>
-    <TableHead>
-      <TableRow>
-        {[
-          "S No", "Employee Name", "Date",
-          "Shift", "Check In Date",
-          "Check In Time",
-          "Check Out Date",
-          "Check Out Time",
-          "Worked", "Late In", "Early Out", "OT", "Status", "Actions",
-        ].map((h) => (
-          <TableCell
-            key={h}
-            className={`!font-bold !text-gray-700 ${
-              h === "S No" ? "!sticky left-0 !z-30" : ""
-            } ${
-              h === "Employee Name" ? "!sticky left-[60px] !z-30" : ""
-            } ${
-              h === "Date" ? "!sticky left-[180px] !z-30" : ""
-            } ${
-              h === "Status" ? "!sticky right-[76px] !z-30" : ""
-            } ${
-              h === "Actions" ? "!sticky right-0 !z-30" : ""
-            }`}
-          >
-            {h}
-          </TableCell>
-        ))}
-      </TableRow>
-    </TableHead>
-    <TableBody>
-      {loading ? (
-        <TableRow>
-          <TableCell colSpan={14} align="center" className="py-8 text-gray-400 text-sm">
-            Loading...
-          </TableCell>
-        </TableRow>
-      ) : records.length === 0 ? (
-        <TableRow>
-          <TableCell colSpan={14} align="center">
-            <div className="!py-8 text-gray-400">No records found</div>
-          </TableCell>
-        </TableRow>
-      ) : (
-        records.map((r, index) => (
-          <TableRow key={r.id || index} sx={getRowColor(index)}>
-            <TableCell className="sticky left-0 z-20 bg-inherit">
-              {index + 1}
-            </TableCell>
-            
-            <TableCell className="whitespace-nowrap sticky left-[60px] z-20 bg-inherit">
-              <div className="grid">
-                <div>{r.employeeName}  <span className="text-[10px] text-gray-500">({r.employeeCode})</span></div>
-                <div className="text-blue-500"> {r.department ?? "-"}</div>
-              </div>
-            </TableCell>
-            
-            <TableCell className="whitespace-nowrap sticky left-[180px] z-20 bg-inherit">
-              {dayjs(r.attendanceDate).format("DD MMM YYYY")}
-            </TableCell>
-            
-            <TableCell>
-              <div>{r.shiftCode || '-'}</div>
-              {r.shiftStart && <span className="text-primary">{r.shiftStart} - {r.shiftEnd}</span>}
-            </TableCell>
-            
-            <TableCell>{r.checkInDate ? formatDate(r.checkInDate) : '-'}</TableCell>
-            
-            <TableCell>
-              {r.checkInTime ? formatTimewithSec(r.checkInTime) : '-'}
-            </TableCell>
-            
-            <TableCell>{r.checkOutDate ? formatDate(r.checkOutDate) : '-'}</TableCell>
-            
-            <TableCell>
-              {r.checkOutTime ? formatTimewithSec(r.checkOutTime) : '-'}
-            </TableCell>
-            
-            <TableCell>
-              {r.workedMinutes ? formatMinutes(r.workedMinutes) : '-'}
-            </TableCell>
-            
-            <TableCell>
-              {r.lateMinutes > 0 ? (
-                <span className="text-amber-600">{formatMinutes(r.lateMinutes)}</span>
-              ) : "-"}
-            </TableCell>
-            
-            <TableCell>
-              {r.earlyOutMinutes > 0 ? (
-                <span className="text-pink-600">{formatMinutes(r.earlyOutMinutes)}</span>
-              ) : "-"}
-            </TableCell>
-            
-            <TableCell>
-              {r.overtimeMinutes > 0 ? (
-                <span className="text-orange-600">{formatMinutes(r.overtimeMinutes)}</span>
-              ) : "-"}
-            </TableCell>
-            
-            <TableCell className="whitespace-nowrap sticky right-[76px] z-20 bg-inherit">
-              <span className={`whitespace-nowrap px-2 py-1 rounded-2xl ${ATTENDANCE_STATUS_BG[r.status] ?? "bg-gray-100 text-gray-600"}`}>
-                {ATTENDANCE_STATUS_LABELS[r.status] ?? r.status}
-              </span>
-            </TableCell>
-            
-            <TableCell className="whitespace-nowrap sticky right-0 z-20 bg-inherit">
-              <div className="flex items-center gap-1">
-                <Tooltip title="View Details">
-                  <IconButton size="small" onClick={() => openDetail(r)}>
-                    <VisibilityOutlined fontSize="small" className="text-primary !w-4" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Request Correction">
-                  <IconButton size="small" onClick={() => openCorrection(r)}>
-                    <EditOutlined fontSize="small" className="text-blue-500 !w-4" />
-                  </IconButton>
-                </Tooltip>
-              </div>
-            </TableCell>
-          </TableRow>
-        ))
-      )}
-    </TableBody>
-  </Table>
-</TableContainer>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                {[
+                  "S No", "Employee Name", "Date",
+                  "Shift", "Check In Date",
+                  "Check In Time",
+                  "Check Out Date",
+                  "Check Out Time",
+                  "Worked", "Late In", "Early Out", "OT", "Status", "Actions",
+                ].map((h) => (
+                  <TableCell
+                    key={h}
+                    className={`!font-bold !text-gray-700 ${h === "S No" ? "!sticky left-0 !z-30" : ""
+                      } ${h === "Employee Name" ? "!sticky left-[60px] !z-30" : ""
+                      } ${h === "Date" ? "!sticky left-[180px] !z-30" : ""
+                      } ${h === "Status" ? "!sticky right-[76px] !z-30" : ""
+                      } ${h === "Actions" ? "!sticky right-0 !z-30" : ""
+                      }`}
+                  >
+                    {h}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={14} align="center" className="py-8 text-gray-400 text-sm">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : records.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={14} align="center">
+                    <div className="!py-8 text-gray-400">No records found</div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                records.map((r, index) => (
+                  <TableRow key={r.id || index} sx={getRowColor(index)}>
+                    <TableCell className="sticky left-0 z-20 bg-inherit">
+                      {index + 1}
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap sticky left-[60px] z-20 bg-inherit">
+                      <div className="grid">
+                        <div>{r.employeeName}  <span className="text-[10px] text-gray-500">({r.employeeCode})</span></div>
+                        <div className="text-blue-500"> {r.department ?? "-"}</div>
+                      </div>
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap sticky left-[180px] z-20 bg-inherit">
+                      {dayjs(r.attendanceDate).format("DD MMM YYYY")}
+                    </TableCell>
+
+                    <TableCell>
+                      <div>{r.shiftCode || '-'}</div>
+                      {r.shiftStart && <span className="text-primary">{r.shiftStart} - {r.shiftEnd}</span>}
+                    </TableCell>
+
+                    <TableCell>{r.checkInDate ? formatDate(r.checkInDate) : '-'}</TableCell>
+
+                    <TableCell>
+                      {r.checkInTime ? formatTimewithSec(r.checkInTime) : '-'}
+                    </TableCell>
+
+                    <TableCell>{r.checkOutDate ? formatDate(r.checkOutDate) : '-'}</TableCell>
+
+                    <TableCell>
+                      {r.checkOutTime ? formatTimewithSec(r.checkOutTime) : '-'}
+                    </TableCell>
+
+                    <TableCell>
+                      {r.workedMinutes ? formatMinutes(r.workedMinutes) : '-'}
+                    </TableCell>
+
+                    <TableCell>
+                      {r.lateMinutes > 0 ? (
+                        <span className="text-amber-600">{formatMinutes(r.lateMinutes)}</span>
+                      ) : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      {r.earlyOutMinutes > 0 ? (
+                        <span className="text-pink-600">{formatMinutes(r.earlyOutMinutes)}</span>
+                      ) : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      {r.overtimeMinutes > 0 ? (
+                        <span className="text-orange-600">{formatMinutes(r.overtimeMinutes)}</span>
+                      ) : "-"}
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap sticky right-[76px] z-20 bg-inherit">
+                      <span className={`whitespace-nowrap px-2 py-1 rounded-2xl ${ATTENDANCE_STATUS_BG[r.status] ?? "bg-gray-100 text-gray-600"}`}>
+                        {ATTENDANCE_STATUS_LABELS[r.status] ?? r.status}
+                      </span>
+                    </TableCell>
+
+                    <TableCell className="whitespace-nowrap sticky right-0 z-20 bg-inherit">
+                      <div className="flex items-center gap-1">
+                        <Tooltip title="View Details">
+                          <IconButton size="small" onClick={() => openDetail(r)}>
+                            <VisibilityOutlined fontSize="small" className="text-primary !w-4" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Request Correction">
+                          <IconButton size="small" onClick={() => openCorrection(r)}>
+                            <EditOutlined fontSize="small" className="text-blue-500 !w-4" />
+                          </IconButton>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
         {total > 0 && (
           <GlobalPagination
             total={total}
@@ -462,6 +475,8 @@ export function AttendanceDetailed() {
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DateTimePicker
                   label="Requested Check-in"
+                  format="DD/MM/YYYY HH:mm:ss"
+                  ampm={false}
                   value={correctionForm.requestedCheckIn ? dayjs(correctionForm.requestedCheckIn) : null}
                   onChange={(newValue) => {
                     setCorrectionForm((f) => ({ ...f, requestedCheckIn: newValue ? dayjs(newValue).toISOString() : '' }));
@@ -476,6 +491,8 @@ export function AttendanceDetailed() {
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DateTimePicker
                   label="Requested Check-out"
+                  format="DD/MM/YYYY HH:mm:ss"
+                  ampm={false}
                   value={correctionForm.requestedCheckOut ? dayjs(correctionForm.requestedCheckOut) : null}
                   onChange={(newValue) => {
                     setCorrectionForm((f) => ({ ...f, requestedCheckOut: newValue ? dayjs(newValue).toISOString() : '' }));

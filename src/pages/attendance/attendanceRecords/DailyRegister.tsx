@@ -124,8 +124,9 @@ const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
 
 export function DailyRegister() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
-
-  const [date, setDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const getInitialRegisterDate = () =>
+    sessionStorage.getItem("dailyRegisterDate") ?? dayjs().format("YYYY-MM-DD");
+  const [date, setDate] = useState(getInitialRegisterDate);
   const [departmentId, setDepartmentId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -199,6 +200,10 @@ export function DailyRegister() {
   const [punchImportFromDate, setPunchImportFromDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [punchImportToDate, setPunchImportToDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [deviceImportLoading, setDeviceImportLoading] = useState(false);
+
+  useEffect(() => {
+    if (date) sessionStorage.setItem("dailyRegisterDate", date);
+  }, [date]);
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
@@ -320,13 +325,18 @@ export function DailyRegister() {
   function openPunch(emp: RegisterEmployee, type: "checkIn" | "checkOut") {
     setPunchEmployee(emp);
     setPunchType(type);
-    setPunchTime(dayjs(`${date}T${dayjs().format('HH:mm:ss')}`).toISOString());
+    setPunchTime(dayjs(`${date}T00:00:00`).toISOString());
     setPunchRemarks("");
     setPunchDialogOpen(true);
   }
 
   async function submitPunch() {
     if (!punchEmployee || !punchTime) return;
+    if (!isValidPunchTime(punchTime)) {
+      showSnackbar("Please select a valid time before confirming", "warning");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (punchType === "checkIn") {
@@ -1261,6 +1271,14 @@ export function DailyRegister() {
     }
   };
 
+  const isValidPunchTime = (timeStr: string): boolean => {
+    if (!timeStr) return false;
+    const d = dayjs(timeStr);
+    if (!d.isValid()) return false;
+    // invalid only if time is exactly 00:00:00
+    return d.hour() !== 0 || d.minute() !== 0 || d.second() !== 0;
+  };
+
   return (
     <div className="p-4 space-y-3">
       {/* Summary cards */}
@@ -1724,7 +1742,8 @@ export function DailyRegister() {
               <DateTimePicker
                 label={punchType === "checkIn" ? "Check-in Time" : "Check-out Time"}
                 value={punchTime ? dayjs(punchTime) : null}
-                format="DD/MM/YYYY hh:mm:ss"
+                format="DD/MM/YYYY HH:mm:ss"
+                ampm={false}
                 onChange={(newValue) => {
                   setPunchTime(newValue ? dayjs(newValue).toISOString() : "");
                 }}
@@ -1732,6 +1751,7 @@ export function DailyRegister() {
                   textField: {
                     size: "small",
                     fullWidth: true,
+                    error: !isValidPunchTime(punchTime),
                   },
                 }}
               />
@@ -1759,7 +1779,7 @@ export function DailyRegister() {
             variant="contained"
             className="!bg-primary"
             onClick={submitPunch}
-            disabled={submitting || !punchTime}
+            disabled={submitting || !isValidPunchTime(punchTime)}
             startIcon={punchType === "checkIn" ? <LoginOutlined /> : <LogoutOutlined />}
           >
             {submitting
@@ -2384,9 +2404,11 @@ export function DailyRegister() {
                 <DatePicker
                   label="Start Date"
                   value={importStartDate ? dayjs(importStartDate) : null}
-                  onChange={(newValue) =>
-                    setImportStartDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
-                  }
+                  onChange={(newValue) => {
+                    const formatted = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
+                    setImportStartDate(formatted);
+                    setImportEndDate(formatted);
+                  }}
                   maxDate={dayjs()}
                   format="DD/MM/YYYY"
                   slotProps={{ textField: { size: "small", fullWidth: true } }}

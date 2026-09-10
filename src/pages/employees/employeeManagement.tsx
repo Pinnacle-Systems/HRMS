@@ -1345,24 +1345,7 @@ export default function EmployeeManagement() {
                   {getSortIcon("name")}
                 </div>
               </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("emailAddress")}
-              >
-                <div className="flex items-center gap-1">
-                  Employee Email
-                  {getSortIcon("emailAddress")}
-                </div>
-              </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("mobileNumber")}
-              >
-                <div className="flex items-center gap-1">
-                  Mobile Number
-                  {getSortIcon("mobileNumber")}
-                </div>
-              </TableCell>
+              
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("branch")}
@@ -1391,6 +1374,24 @@ export default function EmployeeManagement() {
                   Designation
                   {getSortIcon("designation")}
 
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() => toggleSort("emailAddress")}
+              >
+                <div className="flex items-center gap-1">
+                  Email Address
+                  {getSortIcon("emailAddress")}
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() => toggleSort("mobileNumber")}
+              >
+                <div className="flex items-center gap-1">
+                  Mobile Number
+                  {getSortIcon("mobileNumber")}
                 </div>
               </TableCell>
               <TableCell
@@ -1456,12 +1457,7 @@ export default function EmployeeManagement() {
                 <TableCell className="font-medium">
                   {employee.name}
                 </TableCell>
-                <TableCell>
-                  {employee.emailAddress}
-                </TableCell>
-                <TableCell>
-                  {employee.mobileNumber || "-"}
-                </TableCell>
+               
                 <TableCell>
                   {employee.branch || "-"}
                 </TableCell>
@@ -1470,6 +1466,12 @@ export default function EmployeeManagement() {
                 </TableCell>
                 <TableCell>
                   {employee.designation || "-"}
+                </TableCell>
+                 <TableCell>
+                  {employee.emailAddress}
+                </TableCell>
+                <TableCell>
+                  {employee.mobileNumber || "-"}
                 </TableCell>
                 <TableCell>
                   {employee.joiningDate
