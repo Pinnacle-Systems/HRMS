@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  FormControlLabel, Switch, LinearProgress, Alert,
+  LinearProgress, Alert,
   InputLabel,
   FormControl,
   Select,
@@ -25,13 +25,23 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { useAuth } from "../../../auth/authContext";
+import { useSearchParams } from "react-router-dom";
 
 export function ProcessAttendance() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const [searchParams] = useSearchParams();
+  const initialFromDate = searchParams.get("fromDate") ||
+    sessionStorage.getItem("attendanceDetailedFromDate") ||
+    sessionStorage.getItem("dailyRegisterDate") ||
+    dayjs().format("YYYY-MM-DD");
+  const initialToDate = searchParams.get("toDate") ||
+    sessionStorage.getItem("attendanceDetailedToDate") ||
+    sessionStorage.getItem("dailyRegisterDate") ||
+    initialFromDate;
 
   // State
-  const [fromDate, setFromDate] = useState(dayjs().format("YYYY-MM-DD"));
-  const [toDate, setToDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [fromDate, setFromDate] = useState(initialFromDate);
+  const [toDate, setToDate] = useState(initialToDate);
   const [departmentId, setDepartmentId] = useState("");
   const [workerType, setWorkerType] = useState<WorkerType>("Both");
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -41,6 +51,13 @@ export function ProcessAttendance() {
   const [error, setError] = useState<string | null>(null);
   const [showCloseOption, setShowCloseOption] = useState(false);
   const [isClosed, setIsClosed] = useState(false);
+  const [processStatus, setProcessStatus] = useState<{
+    processed: boolean;
+    locked: boolean;
+    recordCount: number;
+    recommendedAction?: string;
+  } | null>(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
   const { session } = useAuth();
 
   const [validationResult, setValidationResult] = useState<ProcessResult | null>(null);
@@ -53,6 +70,38 @@ export function ProcessAttendance() {
       setDepartments(Array.isArray(data) ? data : []);
     }).catch(() => { });
   }, []);
+
+  useEffect(() => {
+    if (!fromDate || !toDate || fromDate !== toDate) {
+      setProcessStatus(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchProcessStatus = async () => {
+      setIsLoadingStatus(true);
+      try {
+        const res: any = await attendanceService.getProcessAttendanceStatus({
+          date: fromDate,
+          departmentId: departmentId || undefined,
+          workerType:  workerType ? workerType.toUpperCase() : undefined,
+        });
+        const data = res?.data?.data ?? res?.data;
+        if (!cancelled) {
+          setProcessStatus(data ?? null);
+          setIsClosed(Boolean(data?.locked));
+          setShowCloseOption(Boolean(data?.processed && !data?.locked));
+        }
+      } catch {
+        if (!cancelled) setProcessStatus(null);
+      } finally {
+        if (!cancelled) setIsLoadingStatus(false);
+      }
+    };
+
+    fetchProcessStatus();
+    return () => { cancelled = true; };
+  }, [fromDate, toDate, departmentId, workerType]);
 
   // Clear validation when filters change
   const clearValidation = () => {
@@ -81,12 +130,11 @@ export function ProcessAttendance() {
     clearValidation();
   };
 
-  const handleReprocessChange = (checked: boolean) => {
-    setReprocess(checked);
-    clearValidation();
-  };
-
   async function handleValidate() {
+    if (processStatus?.locked) {
+      showSnackbar("This attendance date is closed and finalized", "warning");
+      return;
+    }
     if (!fromDate || !toDate) {
       showSnackbar("Please select date range", "warning");
       return;
@@ -152,6 +200,10 @@ export function ProcessAttendance() {
   }
 
   async function handleProcess() {
+    if (processStatus?.locked) {
+      showSnackbar("This attendance date is closed and finalized", "warning");
+      return;
+    }
     if (!fromDate || !toDate) {
       showSnackbar("Please select date range", "warning");
       return;
@@ -231,8 +283,26 @@ export function ProcessAttendance() {
     });
   }
 
+  function handleReprocess() {
+    if (processStatus?.locked) {
+      showSnackbar("This attendance date is closed and finalized", "warning");
+      return;
+    }
+    clearValidation();
+    showConfirmDialog({
+      title: "Re-process Attendance",
+      message: `Re-process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} on ${fromDate}? This will overwrite existing processed records.`,
+      confirmText: "Re-process",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        setReprocess(true);
+        await executeProcess(true);
+      },
+    });
+  }
+
   // Execute process function
-  async function executeProcess() {
+  async function executeProcess(reprocessOverride = reprocess) {
     setProcessing(true);
     setResult(null);
     setError(null);
@@ -247,23 +317,21 @@ export function ProcessAttendance() {
         departmentId: departmentId || undefined,
         employeeIds: undefined,
         workerType: workerType,
-        reprocess: reprocess,
+        reprocess: reprocessOverride,
       });
 
       const data = res?.data?.data ?? res?.data;
       setResult(data);
       setIsClosed(data?.locked || false);
+      await refreshProcessStatus();
 
       // Check if there were skipped employees during processing
       const skippedInProcess = data.skippedEmployees?.length || 0;
       const processedCount = data.processed || 0;
 
-      // Show close option only for today's date and if processed > 0
-      const isToday = fromDate === dayjs().format("YYYY-MM-DD") &&
-        toDate === dayjs().format("YYYY-MM-DD");
       const canClose = !data?.locked && processedCount > 0;
 
-      if (isToday && canClose) {
+      if (canClose) {
         setShowCloseOption(true);
         showSnackbar(
           `${processedCount} ${workerType === 'Both' ? 'both Staff and Labour' : workerType} records processed successfully! ` +
@@ -292,20 +360,39 @@ export function ProcessAttendance() {
     }
   }
 
+  async function refreshProcessStatus() {
+    if (!fromDate || !toDate || fromDate !== toDate) return;
+
+    try {
+      const res: any = await attendanceService.getProcessAttendanceStatus({
+        date: fromDate,
+        departmentId: departmentId || undefined,
+        workerType:  workerType ? workerType.toUpperCase() : undefined,
+      });
+      const data = res?.data?.data ?? res?.data;
+      setProcessStatus(data ?? null);
+      setIsClosed(Boolean(data?.locked));
+      setShowCloseOption(Boolean(data?.processed && !data?.locked));
+    } catch {
+      // The process result remains usable when a status refresh fails.
+    }
+  }
+
   // Close and Finalize function
   async function handleCloseAndFinalize() {
-    if (!result || result.processed === 0) {
+    if ((!result || result.processed === 0) && (!processStatus || processStatus.recordCount === 0)) {
       showSnackbar("No processed records to close", "warning");
       return;
     }
     
-    const hasSkipped = result.skippedEmployees && result.skippedEmployees.length > 0;
+    const skippedCount = result?.skippedEmployees?.length ?? 0;
+    const hasSkipped = skippedCount > 0;
     
     showConfirmDialog({
       title: "Close & Finalize Attendance",
       message: `Are you sure you want to close attendance for ${fromDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}? \n\n` +
         `This will lock all records and prevent further modifications. ` +
-        (hasSkipped ? `${result.skippedEmployees.length} employee(s) were skipped and will remain unprocessed. ` : '') +
+        (hasSkipped ? `${skippedCount} employee(s) were skipped and will remain unprocessed. ` : '') +
         `This action cannot be undone!`,
       confirmText: "Close & Finalize",
       cancelText: "Cancel",
@@ -331,6 +418,8 @@ export function ProcessAttendance() {
           }));
           setIsClosed(true);
           setShowCloseOption(false);
+          await refreshProcessStatus();
+          await generateFinalizedReports();
           showSnackbar(
             `Attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} closed and finalized successfully!`,
             "success"
@@ -344,6 +433,24 @@ export function ProcessAttendance() {
         }
       },
     });
+  }
+
+  async function generateFinalizedReports() {
+    try {
+      const params = {
+        fromDate,
+        toDate,
+        departmentId: departmentId || undefined,
+        workerType,
+      };
+      await Promise.all([
+        attendanceService.exportReport("daily-summary", "pdf", params),
+        attendanceService.exportReport("daily-summary", "excel", params),
+      ]);
+      showSnackbar("PDF and Excel attendance reports generated successfully", "success");
+    } catch {
+      showSnackbar("Attendance was finalized, but report generation failed", "warning");
+    }
   }
 
   // Manual Close function
@@ -391,6 +498,8 @@ export function ProcessAttendance() {
           }));
           setIsClosed(true);
           setShowCloseOption(false);
+          await refreshProcessStatus();
+          await generateFinalizedReports();
 
           showSnackbar(
             `Attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} closed successfully!`,
@@ -486,22 +595,14 @@ export function ProcessAttendance() {
             </Select>
           </FormControl>
 
-          <FormControlLabel
-            sx={{ mt: 0.5 }}
-            control={
-              <Switch
-                checked={reprocess}
-                onChange={(e) => handleReprocessChange(e.target.checked)}
-                size="small"
-                color="warning"
-              />
-            }
-            label={
-              <span className="text-[12px] text-gray-700">
-                Re-process already processed records
-              </span>
-            }
-          />
+          {processStatus && (
+            <Chip
+              label={processStatus.locked ? "Closed & Finalized" : processStatus.processed ? "Processed" : "Not Processed"}
+              size="small"
+              color={processStatus.locked ? "success" : processStatus.processed ? "warning" : "default"}
+              icon={processStatus.locked ? <LockOutlined className="!w-4" /> : undefined}
+            />
+          )}
         </div>
 
         {/* Info chips */}
@@ -565,26 +666,50 @@ export function ProcessAttendance() {
           )}
 
           <div className="ml-auto flex gap-2">
-            <button
-              onClick={handleValidate}
-              disabled={isValidating || processing || !workerType}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded text-[12px] font-medium hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <InfoOutlined fontSize="small" />
-              {isValidating ? "Validating..." : "Validate"}
-            </button>
-            <button
-              onClick={handleProcess}
-              disabled={processing || isValidating || !workerType}
-              className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-white rounded text-[12px] font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <PlayArrowOutlined fontSize="small" />
-              {processing ? "Processing..." : "Process Attendance"}
-            </button>
+            {!processStatus?.locked && (
+              <button
+                onClick={handleValidate}
+                disabled={isValidating || processing || isLoadingStatus || !workerType}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded text-[12px] font-medium hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <InfoOutlined fontSize="small" />
+                {isValidating ? "Validating..." : "Validate"}
+              </button>
+            )}
+            {!processStatus?.processed && !processStatus?.locked && (
+              <button
+                onClick={handleProcess}
+                disabled={processing || isValidating || isLoadingStatus || !workerType}
+                className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-white rounded text-[12px] font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <PlayArrowOutlined fontSize="small" />
+                {processing || isLoadingStatus ? "Processing..." : "Process Attendance"}
+              </button>
+            )}
+            {processStatus?.processed && !processStatus.locked && (
+              <button
+                onClick={handleReprocess}
+                disabled={processing || isValidating || isLoadingStatus || !workerType}
+                className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-white rounded text-[12px] font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <PlayArrowOutlined fontSize="small" />
+                Re-process Attendance
+              </button>
+            )}
+            {processStatus?.processed && !processStatus.locked && (
+              <button
+                onClick={handleCloseAndFinalize}
+                disabled={processing || isLoadingStatus}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded text-[12px] font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <LockOutlined fontSize="small" />
+                Close & Finalize
+              </button>
+            )}
           </div>
         </div>
 
-        {reprocess && (
+        {reprocess && !processStatus?.locked && (
           <Alert severity="warning" icon={<WarningAmberOutlined fontSize="small" />} sx={{ py: 0.5, mt: 2 }}>
             <span className="text-xs">
               Re-processing will overwrite existing attendance statuses for the selected period and worker type.
@@ -610,7 +735,7 @@ export function ProcessAttendance() {
       )}
 
       {/* Close Option Banner */}
-      {showCloseOption && !isClosed && result && result.processed > 0 && (
+      {showCloseOption && !isClosed && !processStatus?.locked && result && result.processed > 0 && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
           <div className="flex items-center gap-2">
             <InfoOutlined className="text-amber-600" />
@@ -680,7 +805,7 @@ export function ProcessAttendance() {
           )}
 
           {/* Manual Close Button (for non-today dates) */}
-          {!result.locked && result.processed > 0 && !showCloseOption && (
+          {!result.locked && !processStatus?.locked && result.processed > 0 && !showCloseOption && (
             <div className="flex justify-end">
               <button
                 onClick={handleManualClose}

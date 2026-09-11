@@ -834,3 +834,20 @@ export interface LopSummaryRow {
   lopDays: number;
   lopDates: string[];
 }
+
+export interface ProcessStatusParams {
+  date: string;
+  departmentId?: string;
+  workerType?: string;
+}
+
+export interface ProcessStatusData {
+  date: string;
+  processed: boolean;
+  locked: boolean;
+  totalEmployees: number;
+  recordCount: number;
+  recommendedAction: string;
+  reprocess: boolean;
+  closeAction: string | null;
+}

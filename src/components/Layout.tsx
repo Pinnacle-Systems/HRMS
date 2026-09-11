@@ -78,10 +78,13 @@ import { policyService } from "../services";
 import { hasPermission, PAYROLL_PERMISSIONS } from "../const";
 import { PERMISSIONS } from "../auth/Permissions";
 import { PasswordExpiryAlert } from "./PasswordExpiryAlert";
+import GuidedTour from "./GuidedTour";
 import { formatDate } from "../utils/dateFormatter";
 import React from "react";
+import type { EventData } from "react-joyride";
 
 const drawerWidth = 220;
+const guidedTourStorageKey = "hrms-guided-tour-completed";
 
 interface Notification {
   id: string;
@@ -106,6 +109,10 @@ const getFallbackRouteLabel = (path: string) => {
 
 export default function Layout() {
   const [open, setOpen] = useState(false);
+  const [tourKey, setTourKey] = useState(0);
+  const [tourRun, setTourRun] = useState(
+    () => localStorage.getItem(guidedTourStorageKey) !== "true",
+  );
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [settingsAnchorEl, setSettingsAnchorEl] = useState<null | HTMLElement>(
     null,
@@ -154,6 +161,18 @@ export default function Layout() {
 
   const handleDrawerToggle = () => {
     setOpen(!open);
+  };
+
+  const handleTourComplete = (data: EventData) => {
+    if (data.status === "finished" || data.status === "skipped") {
+      localStorage.setItem(guidedTourStorageKey, "true");
+      setTourRun(false);
+    }
+  };
+
+  const startGuidedTour = () => {
+    setTourKey((currentKey) => currentKey + 1);
+    setTourRun(true);
   };
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -533,39 +552,40 @@ export default function Layout() {
   };
 
   useEffect(() => {
-    const currentPath = `${location.pathname}${location.search}`;
-    const homePath = user ? getDefaultRoute(user) : "/home";
-    if (currentPath === homePath) {
-      setPageHistory((currentHistory) => {
-        if (currentHistory.length === 0) {
-          return currentHistory;
-        }
-        localStorage.setItem(pageHistoryStorageKey, JSON.stringify([]));
-        return [];
-      });
-      return;
-    }
+  const currentPath = `${location.pathname}${location.search}`;
+  const homePath = user ? getDefaultRoute(user) : "/home";
 
-    if (closingPagePathRef.current === currentPath) {
-      closingPagePathRef.current = null;
-      return;
-    }
-
+  if (currentPath === homePath) {
     setPageHistory((currentHistory) => {
-      const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
-      const existingPage = currentHistory.find((page) => page.path === currentPath);
-      if (existingPage?.label === nextPage.label) {
+      if (currentHistory.length === 0) {
         return currentHistory;
       }
-      const nextHistory = existingPage
-        ? currentHistory.map((page) =>
-            page.path === currentPath ? nextPage : page,
-          )
-        : [...currentHistory, nextPage];
-      localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
-      return nextHistory;
+      localStorage.setItem(pageHistoryStorageKey, JSON.stringify([]));
+      return [];
     });
-  }, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
+    return;
+  }
+
+  if (closingPagePathRef.current === currentPath) {
+    closingPagePathRef.current = null;
+    return;
+  }
+
+  setPageHistory((currentHistory) => {
+    const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
+    const existingPage = currentHistory.find((page) => page.path === currentPath);
+    if (existingPage?.label === nextPage.label) {
+      return currentHistory;
+    }
+    const nextHistory = existingPage
+      ? currentHistory.map((page) =>
+          page.path === currentPath ? nextPage : page,
+        )
+      : [...currentHistory, nextPage];
+    localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+    return nextHistory;
+  });
+}, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
 
   const handleRemovePage = (pathToRemove: string) => {
     setPageHistory((currentHistory) => {
@@ -615,6 +635,11 @@ export default function Layout() {
   return (
     <Box className="flex">
       <CssBaseline />
+      <GuidedTour
+        key={tourKey}
+        run={tourRun}
+        onComplete={handleTourComplete}
+      />
       <AppBar
         position="fixed"
         className="text-gray-800 shadow-sm z-[1200]"
@@ -635,6 +660,7 @@ export default function Layout() {
                   onClick={handleDrawerToggle}
                   edge="start"
                   className="text-primary"
+                  data-tour="menu-toggle"
                 >
                   <MenuIcon />
                 </IconButton>
@@ -698,6 +724,7 @@ export default function Layout() {
                     aria-label="search"
                     color="inherit"
                     onClick={() => setSearchOpen?.(true)}
+                    data-tour="global-search"
                   >
                     <Chip
                       label="CTRL + P"
@@ -716,6 +743,7 @@ export default function Layout() {
                     aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : 'No'} notifications`}
                     color="inherit"
                     onClick={handleNotificationClick}
+                    data-tour="notifications"
                   >
                     <Badge
                       badgeContent={unreadCount}
@@ -740,6 +768,17 @@ export default function Layout() {
                   </IconButton>
                 </Tooltip>
 
+                <Tooltip title="Start guided tour">
+                  <IconButton
+                    size="small"
+                    onClick={startGuidedTour}
+                    className="text-gray-500"
+                    aria-label="start guided tour"
+                  >
+                    <HelpOutlineTwoTone className="!w-5" />
+                  </IconButton>
+                </Tooltip>
+
                 {/* Profile/Avatar */}
                 <Tooltip title={user?.email || 'Account'}>
                   <IconButton
@@ -748,6 +787,7 @@ export default function Layout() {
                     onClick={handleProfileMenuOpen}
                     color="inherit"
                     aria-label="account menu"
+                    data-tour="account-menu"
                   >
                     <Avatar
                       src={user?.profilePic}
@@ -804,34 +844,34 @@ export default function Layout() {
                     }}
                   >
                     {pageHistory.map((page, index) => (
-                        <React.Fragment key={page.path}>
-                          <Chip
-                            clickable
-                            label={page.label || 'Page'}
-                            onClick={() => navigate?.(page.path)}
-                            onDelete={(event) => {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              handleRemovePage(page.path);
-                            }}
-                            deleteIcon={
-                              <CloseOutlined
-                                fontSize="small"
-                                className="!text-error !bg-red-100 rounded-full !w-3 !h-3"
-                              />
-                            }
-                            variant="outlined"
-                            className={`${page.path === `${location.pathname}${location.search}`
-                              ? '!bg-primary !text-white'
-                              : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
-                              } !border-none !h-5 flex-shrink-0`}
-                            aria-label={`Go to ${page.label || 'page'}`}
-                          />
+                      <React.Fragment key={page.path}>
+                        <Chip
+                          clickable
+                          label={page.label || 'Page'}
+                          onClick={() => navigate?.(page.path)}
+                          onDelete={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleRemovePage(page.path);
+                          }}
+                          deleteIcon={
+                            <CloseOutlined
+                              fontSize="small"
+                              className="!text-error !bg-red-100 rounded-full !w-3 !h-3"
+                            />
+                          }
+                          variant="outlined"
+                          className={`${page.path === `${location.pathname}${location.search}`
+                            ? '!bg-primary !text-white'
+                            : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
+                            } !border-none !h-5 flex-shrink-0`}
+                          aria-label={`Go to ${page.label || 'page'}`}
+                        />
 
-                          {index < pageHistory.length - 1 && (
-                            <span className="text-gray-300 flex-shrink-0">|</span>
-                          )}
-                        </React.Fragment>
+                        {index < pageHistory.length - 1 && (
+                          <span className="text-gray-300 flex-shrink-0">|</span>
+                        )}
+                      </React.Fragment>
                     ))}
                   </Box>
                 </Box>
@@ -1070,6 +1110,11 @@ export default function Layout() {
       {/* Mini Variant Drawer */}
       <Drawer
         variant="permanent"
+        slotProps={{
+          paper: {
+            "data-tour": "sidebar",
+          } as any,
+        }}
         sx={{
           flexShrink: 0,
           [`& .MuiDrawer-paper`]: {
@@ -1385,25 +1430,25 @@ export default function Layout() {
                           if (item.children) {
                             setOpen(true);
                             if (item.text === "Attendance") {
-                                setAttendanceOpen(true);
+                              setAttendanceOpen(true);
                               setPolicyOpen(false);
                               setLeaveOpen(false);
                               setPayrollOpen(false);
-                                navigate("/attendance/overview");
+                              navigate("/attendance/overview");
                             }
                             if (item.text === "Policy Engine") {
-                                setPolicyOpen(true);
+                              setPolicyOpen(true);
                               setAttendanceOpen(false);
                               setLeaveOpen(false);
                               setPayrollOpen(false);
-                                navigate("/policies");
+                              navigate("/policies");
                             }
                             if (item.text === "Leave") {
-                                setLeaveOpen(true);
+                              setLeaveOpen(true);
                               setAttendanceOpen(false);
                               setPolicyOpen(false);
                               setPayrollOpen(false);
-                                navigate("/leaves/approvals");
+                              navigate("/leaves/approvals");
                             }
                             return;
                           }

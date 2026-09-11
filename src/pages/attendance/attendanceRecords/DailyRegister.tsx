@@ -89,6 +89,8 @@ interface RegisterEmployee {
   lateMinutes: number;
   checkInDate: string;
   checkOutDate: string;
+  earlyOutMinutes: number;
+  overtimeMinutes: number;
 }
 interface TodaySummary {
   date: string;
@@ -202,8 +204,32 @@ export function DailyRegister() {
   const [deviceImportLoading, setDeviceImportLoading] = useState(false);
 
   useEffect(() => {
-    if (date) sessionStorage.setItem("dailyRegisterDate", date);
+    if (date) {
+      sessionStorage.setItem("dailyRegisterDate", date);
+      window.dispatchEvent(new Event("attendance-date-changed"));
+    }
   }, [date]);
+
+  useEffect(() => {
+    if (!date) return;
+
+    let cancelled = false;
+    const fetchProcessStatus = async () => {
+      try {
+        await attendanceService.getProcessAttendanceStatus({
+          date,
+          departmentId: departmentId === "All" ? undefined : departmentId || undefined,
+        });
+      } catch {
+        if (!cancelled) {
+          // Status is advisory here; register loading handles the visible data state.
+        }
+      }
+    };
+
+    fetchProcessStatus();
+    return () => { cancelled = true; };
+  }, [date, departmentId]);
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
@@ -1555,13 +1581,16 @@ export function DailyRegister() {
                 </TableCell>
                 {[
                   "Emp Name",
-                  "Department",
+                  // "Department",
                   "Shift",
-                  "Shift Time",
                   "Check In Date",
                   "Check In Time",
                   "Check Out Date",
                   "Check Out Time",
+                  "Early Out (min)",
+                  "Late (min)",
+                  "Overtime (min)",
+                  "Worked (min)",
                   "Status",
                   "Action",
                 ].map((h, i) => (
@@ -1604,16 +1633,17 @@ export function DailyRegister() {
                         checked={selected.has(emp.employeeId)}
                         onChange={() => toggleSelect(emp.employeeId)}
                         disabled={emp.status == 'leave'}
-                      /> <span className="ml-2">{i + 1}</span>
+                      /> <span>{i + 1}</span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap !sticky left-[68px] !z-20 bg-inherit">
-                      <span>{emp.employeeName}</span>
-                      <span className="text-gray-500"> - {emp.employeeCode}</span>
+                      <div>{emp.employeeName} ({emp.employeeCode})</div>
+                      <div className="text-blue-500">{emp.department || '-'}</div>
                     </TableCell>
-                    <TableCell>{emp.department || '-'}</TableCell>
-                    <TableCell>{emp.shiftCode || '-'}</TableCell>
+                    {/* <TableCell>{emp.department || '-'}</TableCell> */}
+                    {/* <TableCell>{emp.shiftCode || '-'}</TableCell> */}
                     <TableCell className="text-gray-500">
-                      {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
+                      <div>{emp.shiftCode || '-'}</div>
+                      <div className="text-primary font-bold">{emp.shiftStart || "-"} - {emp.shiftEnd || "-"}</div>
                     </TableCell>
                     <TableCell>{emp.checkInDate ? formatDate(emp.checkInDate) : "-"}</TableCell>
 
@@ -1637,6 +1667,10 @@ export function DailyRegister() {
                         <span>-</span>
                       )}
                     </TableCell>
+                    <TableCell>{emp.earlyOutMinutes || 0}</TableCell>
+                    <TableCell>{emp.lateMinutes || 0}</TableCell>
+                    <TableCell>{emp.overtimeMinutes || 0}</TableCell>
+                    <TableCell>{emp.workedMinutes || 0}</TableCell>
                     <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
                       <span
                         className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap

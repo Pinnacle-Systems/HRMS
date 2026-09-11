@@ -63,7 +63,7 @@ export default function SalaryComponentBuilder() {
   const [summary, setSummary] = useState({
     earningComponents: 0,
     deductionComponents: 0,
-    benefitComponents: 0,
+    // benefitComponents: 0,
     totalComponents: 0,
   });
 
@@ -124,7 +124,7 @@ export default function SalaryComponentBuilder() {
       setSummary(summaryResponse.data || {
         earningComponents: 0,
         deductionComponents: 0,
-        benefitComponents: 0,
+        // benefitComponents: 0,
         totalComponents: 0,
       });
     } catch (error) {
@@ -319,7 +319,7 @@ export default function SalaryComponentBuilder() {
         {[
           { label: "Earning Components", value: summary.earningComponents, icon: <TrendingUpIcon />, color: "#10b981" },
           { label: "Deduction Components", value: summary.deductionComponents, icon: <MinusCircleIcon />, color: "#ef4444" },
-          { label: "Benefit Components", value: summary.benefitComponents, icon: <GiftIcon />, color: "#3b82f6" },
+          // { label: "Benefit Components", value: summary.benefitComponents, icon: <GiftIcon />, color: "#3b82f6" },
           { label: "Total Components", value: summary.totalComponents, icon: <CalculateIcon />, color: "#8b5cf6" },
         ].map((stat) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={stat.label}>
@@ -352,7 +352,7 @@ export default function SalaryComponentBuilder() {
           sx={{ flex: 1, minWidth: 200, maxWidth: 350 }}
         />
         <Box className="border-gray-200" sx={{ display: "flex", gap: 0.5, border: `1px solid ${theme.palette.divider}`, borderRadius: 1, p: 0.5 }}>
-          {["all", "EARNING", "DEDUCTION", "BENEFIT"].map((t) => (
+          {["all", "EARNING", "DEDUCTION"].map((t) => (
             <Button
               key={t}
               variant={filterType === t ? "contained" : "text"}
@@ -532,9 +532,9 @@ export default function SalaryComponentBuilder() {
                 value={formData.componentType}
                 onChange={(e) => setFormData({ ...formData, componentType: e.target.value })}
               >
-                <FormControlLabel value="earning" checked={formData.componentType == 'EARNING' ? true : false} control={<Radio className="text-gray-800" />} label="Earning" />
-                <FormControlLabel value="deduction" checked={formData.componentType == 'DEDUCTION' ? true : false} control={<Radio className="text-gray-800" />} label="Deduction" />
-                <FormControlLabel value="benefit" checked={formData.componentType == 'BENEFIT' ? true : false} control={<Radio className="text-gray-800" />} label="Benefit" />
+                <FormControlLabel value="earning" checked={formData.componentType == 'earning' ? true : false} control={<Radio className="text-gray-800" />} label="Earning" />
+                <FormControlLabel value="deduction" checked={formData.componentType == 'deduction' ? true : false} control={<Radio className="text-gray-800" />} label="Deduction" />
+                {/* <FormControlLabel value="benefit" checked={formData.componentType == 'BENEFIT' ? true : false} control={<Radio className="text-gray-800" />} label="Benefit" /> */}
               </RadioGroup>
             </FormControl>
 
@@ -618,7 +618,7 @@ export default function SalaryComponentBuilder() {
                         </Typography>
                       </Box>
                     )}
-                    {formulaValidation.unknownCodes.length > 0 && (
+                    {formulaValidation.unknownCodes && formulaValidation.unknownCodes.length > 0 && (
                       <Box sx={{ mt: 1 }}>
                         <Typography color="error">
                           <strong>Unknown Components:</strong> {formulaValidation.unknownCodes.join(", ")}

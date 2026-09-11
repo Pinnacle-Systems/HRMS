@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Button } from "@mui/material";
 import {
-   FormatListBulletedOutlined, TableChartOutlined,
+  FormatListBulletedOutlined, TableChartOutlined,
 
   HowToRegOutlined, PersonSearchOutlined,
 
@@ -12,6 +12,8 @@ import { AttendanceMuster } from "./AttendanceMuster";
 import { DailyRegister } from "./DailyRegister";
 import { EmployeeView } from "./EmployeeView";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { attendanceService } from "../../../services/modules/attendance";
+import type { ProcessStatusData } from "../../../services/modules/attendanceTypes";
 
 
 
@@ -49,7 +51,46 @@ const TABS = [
 export default function AttendanceRecords() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "detailed" ? 1 : 0);
+  const [, setDateVersion] = useState(0);
   const navigate = useNavigate();
+
+  const [date] = useState(() => sessionStorage.getItem("dailyRegisterDate") ?? new Date().toISOString().slice(0, 10));
+  const [processStatus, setProcessStatus] = useState<ProcessStatusData | null>(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const processFromDate = activeTab === 1
+    ? sessionStorage.getItem("attendanceDetailedFromDate") ?? date
+    : sessionStorage.getItem("dailyRegisterDate") ?? date;
+  const processToDate = activeTab === 1
+    ? sessionStorage.getItem("attendanceDetailedToDate") ?? processFromDate
+    : processFromDate;
+
+  const navigateToProcess = () => {
+    navigate(`/attendance/process?fromDate=${encodeURIComponent(processFromDate)}&toDate=${encodeURIComponent(processToDate)}`);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchStatus = async () => {
+      setIsLoadingStatus(true);
+      try {
+        const res = await attendanceService.getProcessAttendanceStatus({ date: processFromDate });
+        const data = res.data;
+        if (!cancelled) setProcessStatus(data);
+      } catch (err) {
+        if (!cancelled) setProcessStatus(null);
+      } finally {
+        if (!cancelled) setIsLoadingStatus(false);
+      }
+    };
+
+    fetchStatus();
+  }, [processFromDate, activeTab]);
+
+  useEffect(() => {
+    const handleDateChange = () => setDateVersion((version) => version + 1);
+    window.addEventListener("attendance-date-changed", handleDateChange);
+    return () => window.removeEventListener("attendance-date-changed", handleDateChange);
+  }, []);
 
   return (
     <div className="w-full">
@@ -83,7 +124,20 @@ export default function AttendanceRecords() {
               );
             })}
           </div>
-          <Button variant="contained" className="!bg-primary" onClick={()=>navigate('/attendance/process')}>Process Attendance</Button>
+          <div className="flex gap-2">
+            {!isLoadingStatus && !processStatus?.processed && !processStatus?.locked && (
+              <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Process Attendance</Button>
+            )}
+            {!isLoadingStatus && processStatus?.processed && !processStatus.locked && (
+              <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Re-Process</Button>
+            )}
+            {!isLoadingStatus && processStatus?.processed && !processStatus.locked && (
+              <Button variant="contained" className="!bg-amber-600 !text-white" onClick={navigateToProcess}>Close & Finalise</Button>
+            )}
+            {!isLoadingStatus && processStatus?.locked && (
+              <Button variant="contained" disabled className="!bg-green-100 !text-green-800">Closed & Finalized</Button>
+            )}
+          </div>
         </div>
 
         {/* Tab Content */}

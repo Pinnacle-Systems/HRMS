@@ -32,6 +32,9 @@ import type {
   ImportFileParams,
   BulkCheckinPayload,
   LopQuery,
+  ProcessStatusParams,
+  ApiResponse,
+  ProcessStatusData,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -179,12 +182,16 @@ export const attendanceService = {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_PROCESS, payload);
   },
 
-   async validateAttendance(payload: ProcessAttendancePayload) {
+  async validateAttendance(payload: ProcessAttendancePayload) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.VALIDATE, payload);
   },
 
   async processAndCloseAttendance(payload: ProcessAttendancePayload) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.PROCESS_AND_CLOSE, payload);
+  },
+
+  async getProcessAttendanceStatus(params: ProcessStatusParams) {
+    return apiService.get<ApiResponse<ProcessStatusData>>(API_ENDPOINTS.ATTENDANCE.PROCESS_STATUS, {params});
   },
 
   async bulkProcess(payload: BulkProcessPayload) {

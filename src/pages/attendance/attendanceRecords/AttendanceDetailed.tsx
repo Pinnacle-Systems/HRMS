@@ -78,7 +78,30 @@ export function AttendanceDetailed() {
 
   useEffect(() => {
     if (toDate) sessionStorage.setItem("attendanceDetailedToDate", toDate);
+    window.dispatchEvent(new Event("attendance-date-changed"));
   }, [toDate]);
+
+  useEffect(() => {
+    const statusDate = toDate || fromDate;
+    if (!statusDate) return;
+
+    let cancelled = false;
+    const fetchProcessStatus = async () => {
+      try {
+        await attendanceService.getProcessAttendanceStatus({
+          date: statusDate,
+          departmentId: departmentId === "All" ? undefined : departmentId || undefined,
+        });
+      } catch {
+        if (!cancelled) {
+          // Status is advisory here; detailed loading handles the visible data state.
+        }
+      }
+    };
+
+    fetchProcessStatus();
+    return () => { cancelled = true; };
+  }, [fromDate, toDate, departmentId]);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);

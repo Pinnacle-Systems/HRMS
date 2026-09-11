@@ -800,6 +800,7 @@ export const API_ENDPOINTS = {
     POST_PROCESS: "/attendance/process",
     VALIDATE: "/attendance/process/validate",
     PROCESS_AND_CLOSE: "/attendance/process-and-close",
+    PROCESS_STATUS: "/attendance/process/status",
 
     GET_LOCKS: "/attendance/locks",
     POST_LOCK: "/attendance/lock",
