@@ -41,7 +41,7 @@ import {
   Calculate as CalculateIcon,
   TrendingUp as TrendingUpIcon,
   RemoveCircle as MinusCircleIcon,
-  CardGiftcard as GiftIcon,
+  // CardGiftcard as GiftIcon,
   Close as CloseIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
