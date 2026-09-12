@@ -19,7 +19,6 @@ import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import type { MusterRow } from "../../../services/modules/attendanceTypes";
 import { apiService } from "../../../services";
-import { shiftService, type Shift } from "../../../services/modules/shifts";
 
 const LEGEND = [
   { abbr: "P", label: "Present", color: "bg-green-500" },
@@ -150,7 +149,7 @@ export function AttendanceMuster() {
   const [month, setMonth] = useState(curMonth);
   const [year, setYear] = useState(curYear);
   const [departmentId, setDepartmentId] = useState("");
-  const [shiftId, setShifttId] = useState("");
+  // const [shiftId, setShifttId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [employees, setEmployees] = useState<MusterRow[]>([]);
   const [holidays, setHolidays] = useState<string[]>([]);
@@ -159,7 +158,7 @@ export function AttendanceMuster() {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  // const [shifts, setShifts] = useState<Shift[]>([]);
   const [viewMode, setViewMode] = useState<"muster" | "register">("muster");
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -216,9 +215,9 @@ export function AttendanceMuster() {
       const branRes: any = await branchService.getActiveBranches();
       const branData = branRes.data?.content || branRes.data || [];
       setBranches(branData);
-      const shiftRes: any = await shiftService.getActiveShifts();
-      const shiftData = shiftRes.data?.content || shiftRes.data || [];
-      setShifts(shiftData);
+      // const shiftRes: any = await shiftService.getActiveShifts();
+      // const shiftData = shiftRes.data?.content || shiftRes.data || [];
+      // setShifts(shiftData);
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }

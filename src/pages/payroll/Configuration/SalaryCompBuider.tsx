@@ -48,7 +48,7 @@ import {
 } from "@mui/icons-material";
 import { salaryComponentsService, type SalaryComponent } from "../../../services/modules/payrollServices/components";
 import { useUI } from "../../../context/Snackbar";
-import { getRowColor } from "../../const";
+import { getRowColor, handleEnterAsTab } from "../../const";
 import { calcLabel, typeConfig } from "../const";
 
 export default function SalaryComponentBuilder() {
@@ -498,7 +498,7 @@ export default function SalaryComponentBuilder() {
             <CloseIcon className="!w-4 text-gray-800" />
           </IconButton>
         </div>
-        <DialogContent>
+        <DialogContent onKeyDown={handleEnterAsTab}>
           <Stack spacing={3} sx={{ pt: 1 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -630,7 +630,7 @@ export default function SalaryComponentBuilder() {
               </Box>
             )}
 
-            <Grid container spacing={2}>
+            {/* <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   label="Min Amount (Optional)"
@@ -649,7 +649,7 @@ export default function SalaryComponentBuilder() {
                   fullWidth
                 />
               </Grid>
-            </Grid>
+            </Grid> */}
 
             <div className="flex items-center justify-between p-4 rounded-sm border border-gray-200">
               <Box>

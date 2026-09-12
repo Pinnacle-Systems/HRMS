@@ -122,6 +122,7 @@ export default function AssignSalaryStructure() {
   // Form states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
+  const [selectedDesignation,setSelectedDesignation] = useState("all");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [ctcAmount, setCtcAmount] = useState<number>(0);
@@ -213,6 +214,8 @@ export default function AssignSalaryStructure() {
   };
 
   const departments = ["all", ...Array.from(new Set(employees.map((e) => e.department)))];
+  const designation = ["all", ...Array.from(new Set(employees.map((e) => e.designation)))];
+
 
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
@@ -220,7 +223,8 @@ export default function AssignSalaryStructure() {
       emp.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.id?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = selectedDept === "all" || emp.department === selectedDept;
-    return matchesSearch && matchesDept;
+    const matchesDesg = selectedDesignation === "all" || emp.designation === selectedDesignation;
+    return matchesSearch && matchesDept && matchesDesg;
   });
 
   const toggleEmployeeSelection = (empId: string) => {
@@ -626,6 +630,7 @@ export default function AssignSalaryStructure() {
               <Box sx={{ display: "flex", gap: 0.5 }}>
                 <Button
                   size="small"
+                  className={`${viewMode === "monthly" ? "!bg-primary" : "!text-primary !border-primary"}`}
                   variant={viewMode === "monthly" ? "contained" : "outlined"}
                   onClick={() => setViewMode("monthly")}
                   sx={{ textTransform: "none", fontSize: "0.7rem", borderRadius: 2 }}
@@ -634,6 +639,7 @@ export default function AssignSalaryStructure() {
                 </Button>
                 <Button
                   size="small"
+                  className={`${viewMode === "annual" ? "!bg-primary" : "!text-primary !border-primary"}`}
                   variant={viewMode === "annual" ? "contained" : "outlined"}
                   onClick={() => setViewMode("annual")}
                   sx={{ textTransform: "none", fontSize: "0.7rem", borderRadius: 2 }}
@@ -643,6 +649,7 @@ export default function AssignSalaryStructure() {
                 <Button
                   size="small"
                   variant="outlined"
+                  className="!text-primary !border-primary"
                   onClick={() => {
                     setShowBreakdown(false);
                     setActiveStep(0);
@@ -770,7 +777,7 @@ export default function AssignSalaryStructure() {
                               return (
                                 <TableRow key={i} sx={getRowColor(i)}>
                                   <TableCell sx={{ py: 1 }}>
-                                    <Typography  className="text-gray-800" sx={{ fontWeight: 500, fontSize: "0.8rem" }}>
+                                    <Typography className="text-gray-800" sx={{ fontWeight: 500, fontSize: "0.8rem" }}>
                                       {item.componentName}
                                       {isSpecial && (
                                         <Chip
@@ -789,7 +796,7 @@ export default function AssignSalaryStructure() {
                                     </Typography>
                                   </TableCell>
                                   <TableCell align="right" sx={{ py: 1 }}>
-                                    <Typography  sx={{ fontWeight: 600, color: isSpecial ? 'primary.main' : 'success.main', fontSize: "0.8rem" }}>
+                                    <Typography sx={{ fontWeight: 600, color: isSpecial ? 'primary.main' : 'success.main', fontSize: "0.8rem" }}>
                                       {formatCurrency(isMonthly ? item.monthlyValue : item.annualValue)}
                                     </Typography>
                                   </TableCell>
@@ -831,7 +838,7 @@ export default function AssignSalaryStructure() {
                                   </Typography>
                                 </TableCell>
                                 <TableCell align="right" sx={{ py: 1 }}>
-                                  <Typography  sx={{ fontWeight: 600, color: 'error.main', fontSize: "0.8rem" }}>
+                                  <Typography sx={{ fontWeight: 600, color: 'error.main', fontSize: "0.8rem" }}>
                                     -{formatCurrency(isMonthly ? item.monthlyValue : item.annualValue)}
                                   </Typography>
                                 </TableCell>
@@ -852,7 +859,7 @@ export default function AssignSalaryStructure() {
                       <Typography variant="caption" className="text-gray-800">
                         Total Components
                       </Typography>
-                      <Typography  className="text-gray-500">
+                      <Typography className="text-gray-500">
                         {breakdown.earnings.filter(e => !e.isSpecialAllowance).length}
                         {breakdown.earnings.some(e => e.isSpecialAllowance) && ` (+ 1 Balancing)`}
                       </Typography>
@@ -861,7 +868,7 @@ export default function AssignSalaryStructure() {
                       <Typography variant="caption" className="text-gray-800">
                         Used Percentage
                       </Typography>
-                      <Typography  className="text-gray-500">
+                      <Typography className="text-gray-500">
                         {breakdown.totalPercentageUsed.toFixed(2)}%
                       </Typography>
                     </Grid>
@@ -869,7 +876,7 @@ export default function AssignSalaryStructure() {
                       <Typography variant="caption" className="text-gray-800">
                         Special Allowance
                       </Typography>
-                      <Typography  sx={{ fontWeight: 700, color: "primary.main" }}>
+                      <Typography sx={{ fontWeight: 700, color: "primary.main" }}>
                         {breakdown.specialAllowance.percentage.toFixed(2)}%
                         <Typography variant="caption" className="text-gray-500" sx={{ display: 'block', fontSize: "0.65rem" }}>
                           {formatCurrency(breakdown.specialAllowance.amount)}/{isMonthly ? 'mo' : 'yr'}
@@ -888,7 +895,7 @@ export default function AssignSalaryStructure() {
                       <Typography variant="caption" className="text-gray-800">
                         Basic Amount
                       </Typography>
-                      <Typography  className="text-gray-500">
+                      <Typography className="text-gray-500">
                         {formatCurrency(breakdown.basicAmount)}/{isMonthly ? 'mo' : 'yr'}
                       </Typography>
                     </Grid>
@@ -904,7 +911,7 @@ export default function AssignSalaryStructure() {
                       <Typography variant="caption" className="text-gray-800">
                         Net Pay
                       </Typography>
-                      <Typography  sx={{ fontWeight: 700, color: "success.main" }}>
+                      <Typography sx={{ fontWeight: 700, color: "success.main" }}>
                         {formatCurrency(netPay)}/{isMonthly ? 'mo' : 'yr'}
                       </Typography>
                     </Grid>
@@ -977,14 +984,14 @@ export default function AssignSalaryStructure() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: activeStep === 0 ? 'primary.main' : 'success.main',
+                bgcolor: activeStep === 0 ? 'var(--color-primary)' : 'success.main',
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '0.85rem'
               }}>
                 {activeStep === 0 ? '1' : '✓'}
               </Box>
-              <Typography  sx={{ fontWeight: activeStep === 0 ? 600 : 400 }}>
+              <Typography sx={{ fontWeight: activeStep === 0 ? 600 : 400 }}>
                 Select & Configure
               </Typography>
             </Box>
@@ -997,7 +1004,7 @@ export default function AssignSalaryStructure() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                bgcolor: activeStep === 1 ? 'primary.main' : 'grey.300',
+                bgcolor: activeStep === 1 ? 'var(--color-primary)' : 'grey.300',
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '0.85rem'
@@ -1053,6 +1060,19 @@ export default function AssignSalaryStructure() {
                             ))}
                           </Select>
                         </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 180 }}>
+                          <Select
+                            value={selectedDesignation}
+                            onChange={(e) => setSelectedDesignation(e.target.value)}
+                            displayEmpty
+                            sx={selectSx}
+                          >
+                            <MenuItem value="all">All Designations</MenuItem>
+                            {designation.filter((d) => d !== "all").map((desg) => (
+                              <MenuItem key={desg} value={desg}>{desg}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
                       </Box>
 
                       <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-350px)] overflow-auto">
@@ -1077,7 +1097,7 @@ export default function AssignSalaryStructure() {
                             {filteredEmployees.length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                  <Typography  className="text-gray-500">
+                                  <Typography className="text-gray-500">
                                     No employees found matching your criteria
                                   </Typography>
                                 </TableCell>
@@ -1113,7 +1133,7 @@ export default function AssignSalaryStructure() {
                                         {employee.name?.charAt(0) || "?"}
                                       </Avatar>
                                       <Box>
-                                        <Typography  sx={{ fontWeight: 500 }}>
+                                        <Typography sx={{ fontWeight: 500 }}>
                                           {employee.name || "Unknown"}
                                         </Typography>
                                         <div className="text-primary text-[10px]">
@@ -1153,10 +1173,10 @@ export default function AssignSalaryStructure() {
 
                     <Stack spacing={2} className="p-4">
                       <div className="p-3 rounded-sm bg-head flex items-center justify-between">
-                        <Typography  className="text-gray-800">
+                        <Typography className="text-gray-800">
                           Selected Employees
                         </Typography>
-                        <Typography  sx={{ fontWeight: 600 }} className="text-gray-800">
+                        <Typography sx={{ fontWeight: 600 }} className="text-gray-800">
                           {selectedEmployees.length}
                         </Typography>
                       </div>
@@ -1181,7 +1201,7 @@ export default function AssignSalaryStructure() {
                       </FormControl>
 
                       <Box>
-                        <Typography  sx={{ fontWeight: 500, mb: 0.5 }} className="text-gray-800">
+                        <Typography sx={{ fontWeight: 500, mb: 0.5, ml: 0.5 }} className="text-gray-800">
                           CTC Amount <span className="text-error">*</span>
                         </Typography>
                         <Box sx={{ display: "flex", gap: 1 }}>
@@ -1215,7 +1235,7 @@ export default function AssignSalaryStructure() {
                         }}
                       >
                         <AccordionSummary expandIcon={<ExpandMoreIcon className="text-gray-800" />}>
-                          <Typography  sx={{ fontWeight: 500 }} className="text-gray-800">
+                          <Typography sx={{ fontWeight: 500 }} className="text-gray-800">
                             Bank Details
                           </Typography>
                         </AccordionSummary>
@@ -1226,14 +1246,12 @@ export default function AssignSalaryStructure() {
                               value={bankDetails.accountNumber}
                               onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
                               fullWidth
-                              size="small"
                             />
                             <TextField
                               label="Bank Name"
                               value={bankDetails.bankName}
                               onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
                               fullWidth
-                              size="small"
                             />
                             <Grid container spacing={1}>
                               <Grid size={{ xs: 6 }}>
@@ -1242,7 +1260,6 @@ export default function AssignSalaryStructure() {
                                   value={bankDetails.ifscCode}
                                   onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value.toUpperCase() })}
                                   fullWidth
-                                  size="small"
                                 />
                               </Grid>
                               <Grid size={{ xs: 6 }}>
@@ -1251,7 +1268,6 @@ export default function AssignSalaryStructure() {
                                   value={bankDetails.branch}
                                   onChange={(e) => setBankDetails({ ...bankDetails, branch: e.target.value })}
                                   fullWidth
-                                  size="small"
                                 />
                               </Grid>
                             </Grid>
@@ -1324,24 +1340,24 @@ export default function AssignSalaryStructure() {
                 View and manage all salary assignments
               </div>
             </Box>
-           <div className="flex items-center gap-3">
-             <Button
-              variant="contained"
-              onClick={() => navigate("/payroll/generate")}
-              sx={{ textTransform: "none" }}
-            >
-              Generate Payroll
-            </Button>
-            <Button
-              variant="contained"
-              className="!bg-primary"
-              onClick={() => setTabValue(0)}
-              startIcon={<AssessmentOutlined />}
-              sx={{ textTransform: "none" }}
-            >
-              New Assignment
-            </Button>
-           </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="contained"
+                onClick={() => navigate("/payroll/generate")}
+                sx={{ textTransform: "none" }}
+              >
+                Generate Payroll
+              </Button>
+              <Button
+                variant="contained"
+                className="!bg-primary"
+                onClick={() => setTabValue(0)}
+                startIcon={<AssessmentOutlined />}
+                sx={{ textTransform: "none" }}
+              >
+                New Assignment
+              </Button>
+            </div>
           </Box>
 
           {/* Filters */}
@@ -1406,7 +1422,7 @@ export default function AssignSalaryStructure() {
                               {assignment.employeeName?.charAt(0) || "?"}
                             </Avatar>
                             <Box>
-                              <Typography  sx={{ fontWeight: 500 }}>
+                              <Typography sx={{ fontWeight: 500 }}>
                                 {assignment.employeeName || "Unknown"}
                               </Typography>
                               <Typography variant="caption" className="text-primary !text-[10px]">
@@ -1424,7 +1440,7 @@ export default function AssignSalaryStructure() {
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
-                          <Typography  sx={{ fontWeight: 600 }}>
+                          <Typography sx={{ fontWeight: 600 }}>
                             {formatCurrency(assignment.annualCtc || assignment.ctcAmount || 0)}
                           </Typography>
                         </TableCell>
@@ -1501,25 +1517,25 @@ export default function AssignSalaryStructure() {
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" className="text-gray-500 !font-bold">Employee</Typography>
-                <Typography  sx={{ fontWeight: 500 }}>
+                <Typography sx={{ fontWeight: 500 }}>
                   {selectedAssignment.employeeName} ({selectedAssignment.employeeCode})
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" className="text-gray-500 !font-bold">Structure</Typography>
-                <Typography  sx={{ fontWeight: 500 }}>
+                <Typography sx={{ fontWeight: 500 }}>
                   {selectedAssignment.structureName} ({selectedAssignment.structureCode})
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" className="text-gray-500 !font-bold">Annual CTC</Typography>
-                <Typography  sx={{ fontWeight: 600, color: "success.main" }}>
+                <Typography sx={{ fontWeight: 600, color: "success.main" }}>
                   {formatCurrency(selectedAssignment.annualCtc || selectedAssignment.ctcAmount)}
                 </Typography>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" className="text-gray-500 !font-bold">Monthly CTC</Typography>
-                <Typography  sx={{ fontWeight: 600 }}>
+                <Typography sx={{ fontWeight: 600 }}>
                   {formatCurrency(selectedAssignment.monthlyCtc || (selectedAssignment.ctcAmount / 12))}
                 </Typography>
               </Grid>
@@ -1604,7 +1620,7 @@ export default function AssignSalaryStructure() {
                   {assignmentHistory.map((history, i) => (
                     <TableRow key={i}>
                       <TableCell>
-                        <Typography  sx={{ fontWeight: 500 }}>
+                        <Typography sx={{ fontWeight: 500 }}>
                           {history.structureName}
                         </Typography>
                         <Typography variant="caption" className="text-primary !text-[10px]">
@@ -1612,7 +1628,7 @@ export default function AssignSalaryStructure() {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography  sx={{ fontWeight: 600 }}>
+                        <Typography sx={{ fontWeight: 600 }}>
                           {formatCurrency(history.ctcAmount)}
                         </Typography>
                       </TableCell>

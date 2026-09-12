@@ -623,6 +623,7 @@ export default function GeneratePayroll() {
                                                         <Checkbox
                                                             checked={selectedEmployees.includes(emp.id)}
                                                             onChange={() => toggleEmployee(emp.id)}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             className="!p-1"
                                                         />
                                                     </TableCell>

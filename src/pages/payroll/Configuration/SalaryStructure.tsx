@@ -717,9 +717,9 @@ export default function SalaryStructureTemplate() {
                   <TableCell className="!font-bold">Name</TableCell>
                   <TableCell className="!font-bold">Code</TableCell>
                   <TableCell className="!font-bold">Status</TableCell>
-                  <TableCell className="!font-bold" align="right">Earnings</TableCell>
-                  <TableCell className="!font-bold" align="right">Deductions</TableCell>
-                  <TableCell className="!font-bold" align="right">Annual CTC</TableCell>
+                  <TableCell className="!font-bold">Earnings</TableCell>
+                  <TableCell className="!font-bold">Deductions</TableCell>
+                  {/* <TableCell className="!font-bold" align="right">Annual CTC</TableCell> */}
                   <TableCell className="!font-bold">Updated</TableCell>
                   <TableCell className="!font-bold" align="center">Actions</TableCell>
                 </TableRow>
@@ -758,17 +758,17 @@ export default function SalaryStructureTemplate() {
                             sx={{ bgcolor: status.bgColor, color: status.color, fontWeight: 500 }}
                           />
                         </TableCell>
-                        <TableCell align="right">
+                        <TableCell>
                           <Typography variant="body2">{structure.earningCount || 0}</Typography>
                         </TableCell>
-                        <TableCell align="right">
+                        <TableCell>
                           <Typography variant="body2">{structure.deductionCount || 0}</Typography>
                         </TableCell>
-                        <TableCell align="right">
+                        {/* <TableCell align="right">
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
                             {formatCurrency(structure.annualCtc || 0)}
                           </Typography>
-                        </TableCell>
+                        </TableCell> */}
                         <TableCell>
                           <Typography variant="body2">
                             {formatDate(structure.updatedAt)}

@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin, mockLogoutApi } from "./helpers/auth";
+import { disableJoyride } from "./helpers/joyride";
 
 test.describe("mocked admin flow", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
     await mockLogoutApi(page);
+    await disableJoyride(page);
 
     await page.route("**/api/payroll/dashboard", async (route) => {
       await route.fulfill({
