@@ -26,6 +26,7 @@ import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { useAuth } from "../../../auth/authContext";
 import { useSearchParams } from "react-router-dom";
+import { apiService } from "../../../services";
 
 export function ProcessAttendance() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -84,7 +85,7 @@ export function ProcessAttendance() {
         const res: any = await attendanceService.getProcessAttendanceStatus({
           date: fromDate,
           departmentId: departmentId || undefined,
-          workerType:  workerType ? workerType.toUpperCase() : undefined,
+          workerType: workerType ? workerType.toUpperCase() : undefined,
         });
         const data = res?.data?.data ?? res?.data;
         if (!cancelled) {
@@ -234,7 +235,7 @@ export function ProcessAttendance() {
 
       showConfirmDialog({
         title: "⚠️ Warning: Employees Will Be Skipped",
-        message: 
+        message:
           `${validationResult.skippedEmployees.length} employee(s) will be skipped because they have no shift assigned.\n\n` +
           `Skipped employees:\n${skippedNames}\n\n` +
           `These employees will be marked as absent. Do you want to continue?`,
@@ -274,7 +275,7 @@ export function ProcessAttendance() {
       message: reprocess
         ? `Re-process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} from ${fromDate} to ${toDate}? \n\nThis will overwrite existing processed records.`
         : `Process attendance for ${workerType === 'Both' ? 'both Staff and Labour' : workerType} from ${fromDate} to ${toDate}?\n\n` +
-          `${validationResult.summary.employeesProcessed} employees will be processed.`,
+        `${validationResult.summary.employeesProcessed} employees will be processed.`,
       confirmText: "Process",
       cancelText: "Cancel",
       onConfirm: async () => {
@@ -343,11 +344,11 @@ export function ProcessAttendance() {
       } else {
         let message = `Processed ${processedCount} ${workerType === 'Both' ? 'both Staff and Labour' : workerType} records successfully. ` +
           `${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent.`;
-        
+
         if (skippedInProcess > 0) {
           message += ` ${skippedInProcess} employee(s) were skipped.`;
         }
-        
+
         showSnackbar(message, "success");
       }
     } catch (err: any) {
@@ -367,7 +368,7 @@ export function ProcessAttendance() {
       const res: any = await attendanceService.getProcessAttendanceStatus({
         date: fromDate,
         departmentId: departmentId || undefined,
-        workerType:  workerType ? workerType.toUpperCase() : undefined,
+        workerType: workerType ? workerType.toUpperCase() : undefined,
       });
       const data = res?.data?.data ?? res?.data;
       setProcessStatus(data ?? null);
@@ -384,10 +385,10 @@ export function ProcessAttendance() {
       showSnackbar("No processed records to close", "warning");
       return;
     }
-    
+
     const skippedCount = result?.skippedEmployees?.length ?? 0;
     const hasSkipped = skippedCount > 0;
-    
+
     showConfirmDialog({
       title: "Close & Finalize Attendance",
       message: `Are you sure you want to close attendance for ${fromDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}? \n\n` +
@@ -409,7 +410,7 @@ export function ProcessAttendance() {
             lockReason: `End of day processing - ${workerType === 'Both' ? 'both Staff and Labour' : workerType}`,
             lockedBy: session?.user.userId || "System",
           });
-          
+
           const updatedData = res?.data?.data ?? res?.data;
           setResult(prev => ({
             ...prev!,
@@ -442,12 +443,14 @@ export function ProcessAttendance() {
         toDate,
         departmentId: departmentId || undefined,
         workerType,
+        format: "pdf"
       };
-      await Promise.all([
-        attendanceService.exportReport("daily-summary", "pdf", params),
-        attendanceService.exportReport("daily-summary", "excel", params),
-      ]);
-      showSnackbar("PDF and Excel attendance reports generated successfully", "success");
+      // await Promise.all([
+      const res = await attendanceService.exportDaily(params);
+      await apiService.downloadFromPath(res.data.fileUrl, "Daily Attendance Report.pdf")
+      // attendanceService.exportReport("daily-summary", "excel", params),
+      // ]);
+      showSnackbar("Attendance reports generated successfully", "success");
     } catch {
       showSnackbar("Attendance was finalized, but report generation failed", "warning");
     }
@@ -459,7 +462,7 @@ export function ProcessAttendance() {
       showSnackbar("No processed records to close", "warning");
       return;
     }
-    
+
     const lockReason = prompt("Please provide a reason for closing this attendance:", "Manual closure");
     if (lockReason === null) return;
 
@@ -598,7 +601,6 @@ export function ProcessAttendance() {
           {processStatus && (
             <Chip
               label={processStatus.locked ? "Closed & Finalized" : processStatus.processed ? "Processed" : "Not Processed"}
-              size="small"
               color={processStatus.locked ? "success" : processStatus.processed ? "warning" : "default"}
               icon={processStatus.locked ? <LockOutlined className="!w-4" /> : undefined}
             />
@@ -696,7 +698,7 @@ export function ProcessAttendance() {
                 Re-process Attendance
               </button>
             )}
-            {processStatus?.processed && !processStatus.locked && (
+            {/* {processStatus?.processed && !processStatus.locked && (
               <button
                 onClick={handleCloseAndFinalize}
                 disabled={processing || isLoadingStatus}
@@ -705,7 +707,7 @@ export function ProcessAttendance() {
                 <LockOutlined fontSize="small" />
                 Close & Finalize
               </button>
-            )}
+            )} */}
           </div>
         </div>
 
@@ -740,7 +742,7 @@ export function ProcessAttendance() {
           <div className="flex items-center gap-2">
             <InfoOutlined className="text-amber-600" />
             <span className="text-[12px] text-amber-800">
-              Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}. 
+              Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}.
               {result.skippedEmployees?.length > 0 && ` ${result.skippedEmployees.length} employee(s) were skipped.`}
               Click below to close and finalize.
             </span>
@@ -797,6 +799,85 @@ export function ProcessAttendance() {
             ))}
           </div>
 
+          {/* Attendance Summary Card */}
+          {result?.summary && (
+            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-[13px] font-semibold text-gray-700">📊 Attendance Summary</h4>
+                <span className="text-[10px] text-gray-400">
+                  {result.processed} employees processed
+                  {(result.skippedEmployees?.length || 0) > 0 && ` (${result.skippedEmployees.length} skipped)`}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                {/* Present */}
+                <div className="bg-emerald-50 rounded-lg p-2 text-center border border-emerald-100">
+                  <div className="text-lg font-bold text-emerald-700">
+                    {result.summary?.present || 0}
+                  </div>
+                  <div className="text-[10px] text-emerald-600 font-medium">Present</div>
+                </div>
+
+                {/* Absent */}
+                <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
+                  <div className="text-lg font-bold text-red-700">
+                    {result.summary?.absent || 0}
+                  </div>
+                  <div className="text-[10px] text-red-600 font-medium">Absent</div>
+                </div>
+
+                {/* Late */}
+                <div className="bg-amber-50 rounded-lg p-2 text-center border border-amber-100">
+                  <div className="text-lg font-bold text-amber-700">
+                    {result.summary?.late || 0}
+                  </div>
+                  <div className="text-[10px] text-amber-600 font-medium">Late</div>
+                </div>
+
+                {/* Leave & Weekly Off */}
+                <div className="bg-purple-50 rounded-lg p-2 text-center border border-purple-100">
+                  <div className="text-lg font-bold text-purple-700">
+                    {(result.summary?.leave || 0) + (result.summary?.weeklyOff || 0)}
+                  </div>
+                  <div className="text-[10px] text-purple-600 font-medium">Leave/Off</div>
+                </div>
+
+                {/* Holidays */}
+                <div className="bg-indigo-50 rounded-lg p-2 text-center border border-indigo-100">
+                  <div className="text-lg font-bold text-indigo-700">
+                    {result.summary?.holidays || 0}
+                  </div>
+                  <div className="text-[10px] text-indigo-600 font-medium">Holidays</div>
+                </div>
+
+                {/* Early Out */}
+                <div className="bg-pink-50 rounded-lg p-2 text-center border border-pink-100">
+                  <div className="text-lg font-bold text-pink-700">
+                    {result.summary?.earlyOut || 0}
+                  </div>
+                  <div className="text-[10px] text-pink-600 font-medium">Early Out</div>
+                </div>
+
+                {/* Missed Punches */}
+                <div className="bg-rose-50 rounded-lg p-2 text-center border border-rose-100">
+                  <div className="text-lg font-bold text-rose-400">
+                    {result.summary?.missedPunches || 0}
+                  </div>
+                  <div className="text-[10px] text-rose-400 font-medium">Missed Punches</div>
+                </div>
+
+                {/* Overtime */}
+                <div className="bg-orange-50 rounded-lg p-2 text-center border border-orange-100">
+                  <div className="text-lg font-bold text-orange-700">
+                    {result.summary?.overtimeHours || 0}h
+                  </div>
+                  <div className="text-[10px] text-orange-600 font-medium">Overtime</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Status message */}
           {result.message && (
             <Alert severity={result.locked ? "success" : "info"} sx={{ py: 0.5 }}>
@@ -819,7 +900,7 @@ export function ProcessAttendance() {
 
           {/* Employee Results Table */}
           {result.employees && result.employees.length > 0 && (
-            <TableContainer className="max-h-[calc(100vh-500px)]">
+            <TableContainer className="max-h-[calc(100vh-300px)]">
               <Table size="small" stickyHeader className="text-[12px] border border-gray-200">
                 <TableHead>
                   <TableRow className="bg-head">
@@ -966,85 +1047,6 @@ export function ProcessAttendance() {
               </TableContainer>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Attendance Summary Card */}
-      {result?.summary && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-[13px] font-semibold text-gray-700">📊 Attendance Summary</h4>
-            <span className="text-[10px] text-gray-400">
-              {result.processed} employees processed
-              {(result.skippedEmployees?.length || 0) > 0 && ` (${result.skippedEmployees.length} skipped)`}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-            {/* Present */}
-            <div className="bg-emerald-50 rounded-lg p-2 text-center border border-emerald-100">
-              <div className="text-lg font-bold text-emerald-700">
-                {result.summary?.present || 0}
-              </div>
-              <div className="text-[10px] text-emerald-600 font-medium">Present</div>
-            </div>
-
-            {/* Absent */}
-            <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
-              <div className="text-lg font-bold text-red-700">
-                {result.summary?.absent || 0}
-              </div>
-              <div className="text-[10px] text-red-600 font-medium">Absent</div>
-            </div>
-
-            {/* Late */}
-            <div className="bg-amber-50 rounded-lg p-2 text-center border border-amber-100">
-              <div className="text-lg font-bold text-amber-700">
-                {result.summary?.late || 0}
-              </div>
-              <div className="text-[10px] text-amber-600 font-medium">Late</div>
-            </div>
-
-            {/* Leave & Weekly Off */}
-            <div className="bg-purple-50 rounded-lg p-2 text-center border border-purple-100">
-              <div className="text-lg font-bold text-purple-700">
-                {(result.summary?.leave || 0) + (result.summary?.weeklyOff || 0)}
-              </div>
-              <div className="text-[10px] text-purple-600 font-medium">Leave/Off</div>
-            </div>
-
-            {/* Holidays */}
-            <div className="bg-indigo-50 rounded-lg p-2 text-center border border-indigo-100">
-              <div className="text-lg font-bold text-indigo-700">
-                {result.summary?.holidays || 0}
-              </div>
-              <div className="text-[10px] text-indigo-600 font-medium">Holidays</div>
-            </div>
-
-            {/* Early Out */}
-            <div className="bg-pink-50 rounded-lg p-2 text-center border border-pink-100">
-              <div className="text-lg font-bold text-pink-700">
-                {result.summary?.earlyOut || 0}
-              </div>
-              <div className="text-[10px] text-pink-600 font-medium">Early Out</div>
-            </div>
-
-            {/* Missed Punches */}
-            <div className="bg-rose-50 rounded-lg p-2 text-center border border-rose-100">
-              <div className="text-lg font-bold text-rose-400">
-                {result.summary?.missedPunches || 0}
-              </div>
-              <div className="text-[10px] text-rose-400 font-medium">Missed Punches</div>
-            </div>
-
-            {/* Overtime */}
-            <div className="bg-orange-50 rounded-lg p-2 text-center border border-orange-100">
-              <div className="text-lg font-bold text-orange-700">
-                {result.summary?.overtimeHours || 0}h
-              </div>
-              <div className="text-[10px] text-orange-600 font-medium">Overtime</div>
-            </div>
-          </div>
         </div>
       )}
 

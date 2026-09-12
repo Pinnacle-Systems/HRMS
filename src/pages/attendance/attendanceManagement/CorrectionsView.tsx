@@ -127,7 +127,7 @@ export function CorrectionsView() {
   };
 
   return (
-    <div className="p-4 space-y-3">
+    <div className="p-4 pt-1 space-y-3">
       {/* Filters */}
       <div className="bg-white flex flex-wrap items-center gap-2 my-2">
         <FilterListOutlined className="text-gray-500" />
@@ -188,7 +188,7 @@ export function CorrectionsView() {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer className="max-h-[calc(100vh-335px)]">
+        <TableContainer className="max-h-[calc(100vh-325px)]">
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>

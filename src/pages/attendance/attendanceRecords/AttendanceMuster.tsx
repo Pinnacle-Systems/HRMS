@@ -321,15 +321,14 @@ export function AttendanceMuster() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <FormControl className="!w-[180px]">
+          {/* <FormControl className="!w-[180px]">
             <InputLabel>Shift</InputLabel>
             <Select value={shiftId} onChange={(e) => setShifttId(e.target.value)} label="Shift" sx={selectSx}>
-              {/* <MenuItem value="">All Shift</MenuItem> */}
               {shifts.map(d => (
                 <MenuItem key={d.id} value={d.id}>{d.shiftName} ({d.shiftCode})</MenuItem>
               ))}
             </Select>
-          </FormControl>
+          </FormControl> */}
           <FormControl className="!w-[180px]">
             <InputLabel>Department</InputLabel>
             <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
@@ -486,7 +485,7 @@ export function AttendanceMuster() {
             <div className="flex justify-center py-16 text-gray-400 text-sm">No data for selected period</div>
           ) : (
             <>
-              <div className="overflow-x-auto max-h-[calc(100vh-370px)]">
+              <div className="overflow-x-auto max-h-[calc(100vh-270px)]">
                 <table className="text-xs border-collapse min-w-full">
                   <thead>
                     {/* Day numbers row */}

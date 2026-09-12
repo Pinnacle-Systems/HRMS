@@ -77,7 +77,7 @@ export function HolidayCalendar() {
       ) : holidays.length === 0 ? (
         <div className="text-center py-4 text-gray-400 text-[12px]">No holidays for selected year</div>
       ) : (
-        <TableContainer className="max-h-[400px] border border-gray-200">
+        <TableContainer className="max-h-[330px] border border-gray-200">
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>

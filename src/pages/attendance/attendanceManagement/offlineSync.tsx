@@ -1078,7 +1078,7 @@ export const OfflineSyncManagement: React.FC = () => {
                 </TableRow>
               ) : conflicts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
+                  <TableCell colSpan={8} align="center">
                     <Typography variant="body1" sx={{ py: 3 }}>
                       No conflicts found
                     </Typography>

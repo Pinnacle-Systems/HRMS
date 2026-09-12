@@ -135,7 +135,7 @@ export default function AttendanceRecords() {
               <Button variant="contained" className="!bg-amber-600 !text-white" onClick={navigateToProcess}>Close & Finalise</Button>
             )}
             {!isLoadingStatus && processStatus?.locked && (
-              <Button variant="contained" disabled className="!bg-green-100 !text-green-800">Closed & Finalized</Button>
+              <Button variant="contained" disabled className="!bg-green-800 !text-white">Closed & Finalized</Button>
             )}
           </div>
         </div>

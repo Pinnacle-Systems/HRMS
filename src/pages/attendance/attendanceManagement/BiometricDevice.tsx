@@ -837,7 +837,7 @@ export const DeviceManagement: React.FC = () => {
           Link multiple device employee codes (MID) to HRMS employees before syncing punches.
           Add all mappings and save them in bulk.
         </Typography>
-       
+
         {/* Toolbar */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <FormControl sx={{ minWidth: 200 }}>
@@ -992,12 +992,12 @@ export const DeviceManagement: React.FC = () => {
           </div>
         )}
 
-         {/* Results Summary */}
+        {/* Results Summary */}
         {bulkMappingResults && (
           <div
             // severity={bulkMappingResults.failed > 0 ? "warning" : "success"}
             className="mt-4 bg-green-100 p-2 px-4 text-green-800 rounded-md"
-            // icon={bulkMappingResults.failed > 0 ? <WarningAmberOutlined /> : <CheckCircleOutlined />}
+          // icon={bulkMappingResults.failed > 0 ? <WarningAmberOutlined /> : <CheckCircleOutlined />}
           >
             <div className="flex items-center justify-between text-[12px]">
               <span>
@@ -1120,7 +1120,7 @@ export const DeviceManagement: React.FC = () => {
               helperText={formErrors.ipAddress}
               required
               placeholder="192.168.1.100"
-              // disabled={dialogMode === "edit"}
+            // disabled={dialogMode === "edit"}
             />
           </Grid>
           <Grid size={{ xs: 12 }}>
@@ -2049,6 +2049,7 @@ export const DeviceManagement: React.FC = () => {
                 <TableRow key={device.id} sx={getRowColor(i)}>
                   <TableCell className="sticky left-0 z-30 bg-inherit" >
                     <Checkbox
+                      className="text-gray-800"
                       checked={selectedDevices.includes(device.id)}
                       onChange={() => handleSelectDevice(device.id)}
                     />

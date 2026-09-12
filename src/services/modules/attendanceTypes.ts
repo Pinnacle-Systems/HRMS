@@ -664,6 +664,15 @@ export interface ExportMonthlyParams {
   exportFormat?: string;
 }
 
+export interface ExportDailyParams {
+  fromDate: string;
+  toDate: string;
+  departmentId?: string;
+  status?: string;
+  exportFormat?: string;
+  workerType: WorkerType;
+}
+
 export interface ExportData {
   fileUrl: string;
 }

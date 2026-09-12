@@ -826,6 +826,7 @@ export const API_ENDPOINTS = {
     OT_APPROVAL_REQ: "/attendance/overtime/approval/required",
     LOP_CALCULATE: "/attendance/lop/calculate",
     EXPORT_MONTHLY: "/attendance/export/monthly",
+    EXPORT_DAILY: "/attendance/export/daily",
     LEAVE_TODAY: "/attendance/employees/on-leave/today",
     // DASHBOARD: "/attendance/dashboard/summary",
     CALENDAR_HOLIDAYS: "/attendance/calendar/holidays",
@@ -842,6 +843,8 @@ export const API_ENDPOINTS = {
     DOWNLOAD_TEMP: "/attendance/import/template",
     AUTO_ASSIGN_SHIFT: "/attendance/policy/auto-assign-shift",
     OT_APPROVAL_REQUIRED: "/attendance/policy/ot-approval-required",
+
+    REGENERATE: (eId: string) => `/attendance/monthly-summary/${eId}/regenerate`,
 
     BIOMETRIC: {
       GET_DEVICES: "/integration/biometric/devices",

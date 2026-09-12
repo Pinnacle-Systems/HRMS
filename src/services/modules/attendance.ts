@@ -35,6 +35,7 @@ import type {
   ProcessStatusParams,
   ApiResponse,
   ProcessStatusData,
+  ExportDailyParams,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -351,6 +352,14 @@ export const attendanceService = {
       message: string;
       data: { fileUrl: string };
     }>(API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY, { params });
+  },
+
+   async exportDaily(params: ExportDailyParams) {
+    return apiService.get<{
+      success: boolean;
+      message: string;
+      data: { fileUrl: string };
+    }>(API_ENDPOINTS.ATTENDANCE.EXPORT_DAILY, { params });
   },
 
   async getEmployeesOnLeaveToday(params?: {

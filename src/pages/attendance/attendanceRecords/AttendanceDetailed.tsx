@@ -30,6 +30,7 @@ import { getRowColor } from "../../const";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { useSearchParams } from "react-router-dom";
 import { formatDate } from "../../leave/leaveFormatters";
+import { apiService } from "../../../services";
 
 export function AttendanceDetailed() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -71,7 +72,7 @@ export function AttendanceDetailed() {
   const [submitting, setSubmitting] = useState(false);
 
   const [departments, setDepartments] = useState<Department[]>([]);
-  
+
   useEffect(() => {
     if (fromDate) sessionStorage.setItem("attendanceDetailedFromDate", fromDate);
   }, [fromDate]);
@@ -189,6 +190,22 @@ export function AttendanceDetailed() {
     setPage(0);
   };
 
+  async function exportEmployeeData() {
+    try {
+      const params: any = {
+        fromDate,
+        toDate,
+        departmentId: departmentId || undefined,
+        format: "excel"
+      };
+      const res = await attendanceService.exportDaily(params);
+      await apiService.downloadFromPath(res.data.fileUrl, "Daily Attendance Report.xlsx")
+      showSnackbar("Attendance reports generated successfully", "success");
+    } catch {
+      showSnackbar("Attendance was finalized, but report generation failed", "warning");
+    }
+  }
+
   return (
     <div className="p-4 space-y-3">
       {/* Filters */}
@@ -212,8 +229,8 @@ export function AttendanceDetailed() {
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Tooltip title="Export Data">
-              <IconButton size="small" className="text-gray-500 hover:text-gray-700">
+            <Tooltip title="Export All Data">
+              <IconButton size="small" className="text-gray-500 hover:text-gray-700" onClick={() => exportEmployeeData()}>
                 <FileDownloadOutlined fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -285,7 +302,7 @@ export function AttendanceDetailed() {
 
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer className='max-h-[calc(100vh-400px)]'>
+        <TableContainer className='max-h-[calc(100vh-300px)]'>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
