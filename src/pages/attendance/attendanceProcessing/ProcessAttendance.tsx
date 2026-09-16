@@ -27,6 +27,7 @@ import { getRowColor } from "../../const";
 import { useAuth } from "../../../auth/authContext";
 import { useSearchParams } from "react-router-dom";
 import { apiService } from "../../../services";
+import { formatDate } from "../../leave/leaveFormatters";
 
 export function ProcessAttendance() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -447,7 +448,7 @@ export function ProcessAttendance() {
       };
       // await Promise.all([
       const res = await attendanceService.exportDaily(params);
-      await apiService.downloadFromPath(res.data.fileUrl, "Daily Attendance Report.pdf")
+      await apiService.downloadFromPath(res.data.fileUrl, `Attendance Report ${formatDate(fromDate)} - ${formatDate(toDate)}.pdf`)
       // attendanceService.exportReport("daily-summary", "excel", params),
       // ]);
       showSnackbar("Attendance reports generated successfully", "success");
@@ -915,7 +916,7 @@ export function ProcessAttendance() {
                 </TableHead>
                 <TableBody>
                   {result.employees.map((emp, i) => (
-                    <TableRow key={emp.employeeId} hover sx={getRowColor(i)}>
+                    <TableRow key={emp.employeeId} sx={getRowColor(i)}>
                       <TableCell className="text-gray-600 font-mono">{i + 1}</TableCell>
                       <TableCell className="text-gray-600 font-mono">{emp.employeeCode}</TableCell>
                       <TableCell className="font-medium text-gray-800">{emp.employeeName}</TableCell>

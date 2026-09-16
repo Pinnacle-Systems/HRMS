@@ -1109,14 +1109,14 @@ export default function AssignSalaryStructure() {
                                   sx={{
                                     ...getRowColor(i),
                                     cursor: "pointer",
-                                    bgcolor: selectedEmployees.includes(employee.id)
-                                      ? alpha(theme.palette.primary.main, 0.04)
-                                      : "transparent",
-                                    "&:hover": {
-                                      bgcolor: selectedEmployees.includes(employee.id)
-                                        ? alpha(theme.palette.primary.main, 0.08)
-                                        : alpha(theme.palette.primary.main, 0.02),
-                                    },
+                                    // bgcolor: selectedEmployees.includes(employee.id)
+                                    //   ? alpha(theme.palette.primary.main, 0.04)
+                                    //   : "transparent",
+                                    // "&:hover": {
+                                    //   bgcolor: selectedEmployees.includes(employee.id)
+                                    //     ? alpha(theme.palette.primary.main, 0.08)
+                                    //     : alpha(theme.palette.primary.main, 0.02),
+                                    // },
                                   }}
                                   onClick={() => toggleEmployeeSelection(employee.id)}
                                 >

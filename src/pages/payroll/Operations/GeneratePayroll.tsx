@@ -160,8 +160,8 @@ export default function GeneratePayroll() {
             );
 
             const response: any = await payrollRunsService.previewPayrollRun({
-                periodYear: new Date().getFullYear(),
-                periodMonth: new Date().getMonth() + 1,
+                periodYear: periodDetails?.year || new Date().getFullYear(),
+                periodMonth: periodDetails?.month || new Date().getMonth() + 1,
                 workingDays: period?.workingDays || 0,
                 employeeIds: selectedEmployees,
             });
@@ -225,6 +225,7 @@ export default function GeneratePayroll() {
                 otPay: emp.attendance?.otPay || 0,
                 leaveDeduction: emp.attendance?.leaveDeduction || 0,
                 absentDeduction: emp.attendance?.absentDeduction || 0,
+                irregular: emp.attendance?.irregular || 0,
                 // Earnings
                 basic: emp.earnings?.basic || 0,
                 hra: emp.earnings?.hra || 0,
@@ -234,7 +235,7 @@ export default function GeneratePayroll() {
                 bonusAmount: emp.earnings?.bonus || 0,
                 arrearsAmount: emp.earnings?.arrears || 0,
                 gross: emp.earnings?.gross || 0,
-                // Deductions
+                // Deductions 
                 pf: emp.deductions?.pf || 0,
                 esi: emp.deductions?.esi || 0,
                 profTax: emp.deductions?.profTax || 0,
@@ -258,7 +259,7 @@ export default function GeneratePayroll() {
 
     // Calculate totals for display (use backend totals when available)
     const totalGross = review.totalGross || totals.gross || 0;
-    const totalDeductions = review.totalDeductions || totals.totalDeductions || 0;
+    const totalDeductions = (review.totalDeductions + totals.absentDeduction) || totals.totalDeductions || 0;
     const totalNet = review.netPayable || totals.netPay || 0;
     const totalOT = totals.otPay || 0;
     // const totalBonus = review.earningsBreakdown?.bonuses || 0;
@@ -306,8 +307,8 @@ export default function GeneratePayroll() {
             );
 
             const payload = {
-                periodYear: new Date().getFullYear(),
-                periodMonth: new Date().getMonth() + 1,
+                periodYear: period?.year || new Date().getFullYear(),
+                periodMonth: period?.month || new Date().getMonth() + 1,
                 paymentDate: periodDetails?.paymentDate || new Date().toISOString().split("T")[0],
                 workingDays: period?.workingDays || 0,
                 employeeIds: selectedEmployees,
@@ -362,7 +363,7 @@ export default function GeneratePayroll() {
     return (
         <div className="bg-white-50">
             {/* Header */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1 }}>
                 <IconButton
                     onClick={() => navigate("/payroll/runs")}
                     sx={{
@@ -585,7 +586,7 @@ export default function GeneratePayroll() {
                                     </Box>
                                 </Box>
 
-                                <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-435px)] overflow-auto">
+                                <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-300px)] overflow-auto">
                                     <Table stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -605,7 +606,7 @@ export default function GeneratePayroll() {
                                                         className="!p-1"
                                                     />
                                                 </TableCell>
-                                                <TableCell className="!font-bold">#</TableCell>
+                                                {/* <TableCell className="!font-bold">#</TableCell> */}
                                                 <TableCell className="!font-bold">Employee</TableCell>
                                                 <TableCell className="!font-bold">Department</TableCell>
                                                 <TableCell className="!font-bold">Designation</TableCell>
@@ -625,9 +626,8 @@ export default function GeneratePayroll() {
                                                             onChange={() => toggleEmployee(emp.id)}
                                                             onClick={(e) => e.stopPropagation()}
                                                             className="!p-1"
-                                                        />
+                                                        />{i + 1}
                                                     </TableCell>
-                                                    <TableCell>{i + 1}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-full bg-primary-100 text-primary flex items-center justify-center text-[10px] font-bold">
@@ -686,7 +686,7 @@ export default function GeneratePayroll() {
                                         className="!bg-primary">Assign Salary</Button>
                                 </div>
 
-                                <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-435px)] overflow-auto">
+                                <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-300px)] overflow-auto">
                                     <Table stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -860,7 +860,7 @@ export default function GeneratePayroll() {
                                     </div>
                                 </Box>
 
-                                <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-435px)] overflow-auto">
+                                <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-300px)] overflow-auto">
                                     <Table stickyHeader>
                                         <TableHead>
                                             <TableRow>
@@ -998,13 +998,13 @@ export default function GeneratePayroll() {
                                     </Typography>
                                 </Box>
 
-                                <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-435px)] overflow-auto">
+                                <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-300px)] overflow-auto">
                                     <Table stickyHeader>
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell className="!font-bold">#</TableCell>
                                                 <TableCell className="!font-bold">Employee</TableCell>
-                                                <TableCell align="right" className="!font-bold">PF (12%)</TableCell>
+                                                <TableCell align="right" className="!font-bold">PF</TableCell>
                                                 <TableCell align="right" className="!font-bold">ESI</TableCell>
                                                 <TableCell align="right" className="!font-bold">Prof. Tax</TableCell>
                                                 <TableCell align="right" className="!font-bold">TDS</TableCell>
@@ -1089,7 +1089,7 @@ export default function GeneratePayroll() {
                                                                 color: "error.main"
                                                             }}
                                                         >
-                                                            {e.status === "Failed" ? "—" : formatCurrency(e.totalDeductions || 0)}
+                                                            {e.status === "Failed" ? "—" : formatCurrency(e.totalDeductions + e.dabsentDeduction || 0)}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell align="right">
@@ -1380,7 +1380,7 @@ export default function GeneratePayroll() {
                                                     <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                                         <Typography className="text-gray-500" sx={{ fontWeight: 600 }}>Total Deductions</Typography>
                                                         <Typography className="text-error !font-bold">
-                                                            {formatCurrency(review.deductionsBreakdown?.totalDeductions || 0)}
+                                                            {formatCurrency(review.deductionsBreakdown?.totalDeductions + totals.absentDeduction || 0)}
                                                         </Typography>
                                                     </Box>
                                                     <Divider className="!border !border-gray-200 !my-4" />
@@ -1605,7 +1605,7 @@ export default function GeneratePayroll() {
                         <Alert severity="warning" icon={<ErrorIcon />} className="!p-0 !px-4">
                             <Typography className="text-black">
                                 <strong>{failedSelected.length}</strong> employees will be skipped.
-                                Please check employee data to include them.
+                                Please assign a salary to include them.
                             </Typography>
                         </Alert>
                     )}

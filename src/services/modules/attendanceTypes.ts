@@ -142,6 +142,7 @@ export interface MusterRow {
   totalLate: number;
   attendancePercentage: number;
   totalMissedOut: number;
+  totalIrregular: number;
 }
 
 export interface MusterData {

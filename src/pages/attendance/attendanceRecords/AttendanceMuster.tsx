@@ -677,7 +677,7 @@ export function AttendanceMuster() {
                         <td className="sticky right-[200px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
                         <td className="sticky right-[166px] z-10 bg-inherit px-2 py-1.5 text-center text-amber-600 font-semibold">{emp.totalLate}</td>
                         <td className="sticky right-[130px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
-                        <td className="sticky right-[90px] z-10 bg-inherit px-2 py-1.5 text-center text-pink-600 font-semibold">{emp.totalMissedOut}</td>
+                        <td className="sticky right-[90px] z-10 bg-inherit px-2 py-1.5 text-center text-pink-600 font-semibold">{emp.totalIrregular}</td>
                         <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
                           {/* {(emp.totalOT / 60).toFixed(1)} */}
                           {emp.totalOT}

@@ -444,6 +444,18 @@ export const OvertimeRulesBlock: React.FC<OvertimeRulesBlockProps> = ({
         />
       </Grid>
 
+      <Grid size={{ xs: 12, md: 3 }}>
+        <FormControlLabel 
+          control={
+            <Switch 
+              checked={!!localConfig.overtimeRules?.includeBreakTime} 
+              onChange={(e) => set('overtimeRules.includeBreakTime', e.target.checked)} 
+            />
+          } 
+          label="Include Break Time" 
+        />
+      </Grid>
+
       {/* ============================================================ */}
       {/* SECTION 2: OT RATE CONFIGURATION TABLE */}
       {/* ============================================================ */}

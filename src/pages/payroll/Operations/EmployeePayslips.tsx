@@ -5,7 +5,7 @@ import {
   Card,
   CardContent,
   Typography,
-  Button,
+  // Button,
   TextField,
   Select,
   MenuItem,
@@ -175,17 +175,17 @@ export default function EmployeePayslips() {
   };
 
   // Bulk download
-  const handleBulkDownload = async () => {
-    try {
-      showSpinner();
-      // Implement bulk download logic
-      showSnackbar("Bulk download started", "success");
-    } catch (error) {
-      showSnackbar("Failed to bulk download", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
+  // const handleBulkDownload = async () => {
+  //   try {
+  //     showSpinner();
+  //     // Implement bulk download logic
+  //     showSnackbar("Bulk download started", "success");
+  //   } catch (error) {
+  //     showSnackbar("Failed to bulk download", "error");
+  //   } finally {
+  //     hideSpinner();
+  //   }
+  // };
 
   const handleRefresh = () => {
     loadPayslips();
@@ -221,7 +221,7 @@ export default function EmployeePayslips() {
             View and download payslips for all employees
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
+        {/* <Box sx={{ display: "flex", gap: 1 }}>
           <Button
             variant="outlined"
             startIcon={<DownloadIcon fontSize="small" />}
@@ -237,7 +237,7 @@ export default function EmployeePayslips() {
           >
             Refresh
           </Button>
-        </Box>
+        </Box> */}
       </Box>
 
       {/* Summary Cards */}
@@ -276,7 +276,7 @@ export default function EmployeePayslips() {
                     <Typography variant="caption" className="text-gray-800" sx={{ fontWeight: 500 }}>
                       {s.label}
                     </Typography>
-                    <Typography variant="h5" className="text-gray-500" sx={{ fontWeight: 700, mt: 0.5 }}>
+                    <Typography variant="h5" className="text-gray-800" sx={{ fontWeight: 600, mt: 0.5 }}>
                       {s.value}
                     </Typography>
                     <Typography variant="caption" className="text-gray-800" sx={{ display: "block", mt: 0.5 }}>
@@ -371,7 +371,7 @@ export default function EmployeePayslips() {
                 <TableCell align="right" className="!font-bold">
                   Net Salary
                 </TableCell>
-                <TableCell align="center" className="!font-bold sticky right-0 !z-30">
+                <TableCell className="!font-bold sticky right-0 !z-30">
                   Actions
                 </TableCell>
               </TableRow>
@@ -451,7 +451,7 @@ export default function EmployeePayslips() {
                         </Typography>
                       </TableCell>
                       <TableCell className="sticky right-0 !z-20 bg-inherit">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center">
                           <Tooltip title="View Payslip">
                             <IconButton
                               onClick={() => {
@@ -459,7 +459,7 @@ export default function EmployeePayslips() {
                               }}
                               size="small"
                             >
-                              <EyeIcon className="!w-4 text-blue-500" />
+                              <EyeIcon className="!w-4 text-primary" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Download Payslip">

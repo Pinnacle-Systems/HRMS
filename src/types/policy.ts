@@ -214,6 +214,7 @@ export interface PolicyConfig {
     compOffValidityDays?: number;
     requiresManagerApproval?: boolean;
     configs: OTConfigs[];
+    includeBreakTime?: boolean;
   };
 
   // Shift/Attendance domain

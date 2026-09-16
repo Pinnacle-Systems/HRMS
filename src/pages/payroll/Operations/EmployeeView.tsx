@@ -177,7 +177,7 @@ export default function EmployeeSalaryView() {
               variant="contained"
               startIcon={<DownloadIcon fontSize="small" />}
               onClick={() => handleDownloadPayslip(getCurrentMonthYear())}
-              sx={{ textTransform: "none", bgcolor: "primary.main" }}
+              className="!bg-primary"
             >
               Download Payslip
             </Button>
@@ -214,7 +214,7 @@ export default function EmployeeSalaryView() {
           <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", mb: 2 }}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "wrap" }}>
-                <Avatar sx={{ width: 64, height: 64, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main", fontSize: "1.5rem", fontWeight: 700 }}>
+                <Avatar sx={{ width: 64, height: 64, bgcolor: "var(--color-primary)", color: "white", fontSize: "1.5rem", fontWeight: 700 }}>
                   {header.employeeName?.charAt(0) || "E"}
                 </Avatar>
                 <Box sx={{ flex: 1 }}>
@@ -236,7 +236,7 @@ export default function EmployeeSalaryView() {
                       Annual CTC
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 700 }} className="text-gray-800">
-                      {formatCurrency(header.annualCtc)}
+                      {header.annualCtc ? formatCurrency(header.annualCtc) : "N/A"}
                     </Typography>
                   </Box>
                   <Box>
@@ -252,7 +252,7 @@ export default function EmployeeSalaryView() {
                       Monthly Net
                     </Typography>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: "primary.main" }}>
-                      {formatCurrency(header.monthlyNet || header.netTakeHome)}
+                      {header.monthlyNet || header.netTakeHome ? formatCurrency(header.monthlyNet || header.netTakeHome) : "N/A"}
                     </Typography>
                   </Box>
                 </Box>
@@ -363,12 +363,12 @@ export default function EmployeeSalaryView() {
                     <Typography variant="body2" className="text-gray-500">
                       Net Take-Home Salary
                     </Typography>
-                    <Typography variant="caption" className="text-gray-500">
+                    {/* <Typography variant="caption" className="text-gray-500">
                       After all deductions · Credited on 5th every month
-                    </Typography>
+                    </Typography> */}
                   </Box>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: "primary.main" }}>
-                    {formatCurrency(structure.netTakeHome)}
+                    {structure.netTakeHome ? formatCurrency(structure.netTakeHome) : "N/A"}
                   </Typography>
                 </Box>
               </CardContent>

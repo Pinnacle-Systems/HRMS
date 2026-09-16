@@ -367,13 +367,15 @@ export function AttendanceDetailed() {
                     <TableCell>{r.checkInDate ? formatDate(r.checkInDate) : '-'}</TableCell>
 
                     <TableCell>
-                      {r.checkInTime ? formatTimewithSec(r.checkInTime) : '-'}
+                      <div className="!text-green-700 !font-bold"> {r.checkInTime ? formatTimewithSec(r.checkInTime) : '-'} </div>
+                     
                     </TableCell>
 
                     <TableCell>{r.checkOutDate ? formatDate(r.checkOutDate) : '-'}</TableCell>
 
                     <TableCell>
-                      {r.checkOutTime ? formatTimewithSec(r.checkOutTime) : '-'}
+                      <div className="!text-blue-600 !font-bold">{r.checkOutTime ? formatTimewithSec(r.checkOutTime) : '-'}</div>
+                      
                     </TableCell>
 
                     <TableCell>

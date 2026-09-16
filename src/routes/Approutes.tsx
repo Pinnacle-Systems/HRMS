@@ -85,7 +85,7 @@ const GeneratePayroll = lazy(() => import("../pages/payroll/Operations/GenerateP
 const PayrollDetails = lazy(() => import("../pages/payroll/Operations/PayrollDetails.tsx"));
 const EmployeePayslips = lazy(() => import("../pages/payroll/Operations/EmployeePayslips.tsx"));
 const EmployeePayslip = lazy(() => import("../pages/payroll/Operations/EmployeePayslip.tsx"));
-const EmployeeSalaryView = lazy(() => import("../pages/payroll/Configuration/EmployeeView.tsx"));
+const EmployeeSalaryView = lazy(() => import("../pages/payroll/Operations/EmployeeView.tsx"));
 const SalaryComponentBuilder = lazy(() => import("../pages/payroll/Configuration/SalaryCompBuider.tsx"));
 const SalaryStructureTemplate = lazy(() => import("../pages/payroll/Configuration/SalaryStructure.tsx"));
 const AssignSalaryStructure = lazy(() => import("../pages/payroll/Configuration/AssignSalary.tsx"));

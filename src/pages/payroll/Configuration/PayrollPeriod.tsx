@@ -118,7 +118,13 @@ export default function PayrollPeriodConfig() {
     };
     try {
       const response: any = await periodsService.getSummaryPeriods(params);
-      setSummaryData(response.data);
+      setSummaryData(response.data); 
+      if (response.data?.workingDays != null) {
+      setFormData((prev) => ({
+        ...prev,
+        workingDays: response.data.workingDays,
+      }));
+    }     
     } catch (error) {
       showSnackbar("Failed to load period summary", "error");
       setSummaryData(null);
@@ -623,7 +629,7 @@ export default function PayrollPeriodConfig() {
                 <TextField
                   label="Working Days"
                   type="number"
-                  value={formData.workingDays}
+                  value={formData.workingDays ?? ""}
                   onChange={(e) => setFormData({ ...formData, workingDays: Number(e.target.value) })}
                   fullWidth
                 />

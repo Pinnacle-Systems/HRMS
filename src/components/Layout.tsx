@@ -58,7 +58,7 @@ import {
   PercentOutlined,
   CalendarTodayOutlined,
   AssignmentIndOutlined,
-  RequestPageOutlined,
+  // RequestPageOutlined,
   Verified,
   AssessmentOutlined,
   ViewQuiltOutlined,
@@ -339,12 +339,12 @@ export default function Layout() {
   ];
 
   const payrollAdvanced = [
-    {
-      text: "Loan/Advance Request",
-      path: "/payroll/loan-advance-request",
-      icon: <RequestPageOutlined className="!w-4" />,
-      permissions: PAYROLL_PERMISSIONS.LOAN_ADVANCE,
-    },
+    // {
+    //   text: "Loan/Advance Request",
+    //   path: "/payroll/loan-advance-request",
+    //   icon: <RequestPageOutlined className="!w-4" />,
+    //   permissions: PAYROLL_PERMISSIONS.LOAN_ADVANCE,
+    // },
     {
       text: "Statutory Compliance",
       path: "/payroll/compliance",
@@ -552,40 +552,33 @@ export default function Layout() {
   };
 
   useEffect(() => {
-  const currentPath = `${location.pathname}${location.search}`;
-  const homePath = user ? getDefaultRoute(user) : "/home";
+    const currentPath = `${location.pathname}${location.search}`;
+    const homePath = user ? getDefaultRoute(user) : "/home";
 
-  if (currentPath === homePath) {
+    if (currentPath === homePath) {
+      return;
+    }
+
+    if (closingPagePathRef.current === currentPath) {
+      closingPagePathRef.current = null;
+      return;
+    }
+
     setPageHistory((currentHistory) => {
-      if (currentHistory.length === 0) {
+      const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
+      const existingPage = currentHistory.find((page) => page.path === currentPath);
+      if (existingPage?.label === nextPage.label) {
         return currentHistory;
       }
-      localStorage.setItem(pageHistoryStorageKey, JSON.stringify([]));
-      return [];
+      const nextHistory = existingPage
+        ? currentHistory.map((page) =>
+            page.path === currentPath ? nextPage : page,
+          )
+        : [...currentHistory, nextPage];
+      localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+      return nextHistory;
     });
-    return;
-  }
-
-  if (closingPagePathRef.current === currentPath) {
-    closingPagePathRef.current = null;
-    return;
-  }
-
-  setPageHistory((currentHistory) => {
-    const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
-    const existingPage = currentHistory.find((page) => page.path === currentPath);
-    if (existingPage?.label === nextPage.label) {
-      return currentHistory;
-    }
-    const nextHistory = existingPage
-      ? currentHistory.map((page) =>
-          page.path === currentPath ? nextPage : page,
-        )
-      : [...currentHistory, nextPage];
-    localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
-    return nextHistory;
-  });
-}, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
+  }, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
 
   const handleRemovePage = (pathToRemove: string) => {
     setPageHistory((currentHistory) => {
@@ -631,6 +624,9 @@ export default function Layout() {
     }
     fetchNotifications();
   }, []);
+
+  const homePath = user ? getDefaultRoute(user) : "/home";
+  const isHomeActive = location.pathname === homePath;
 
   return (
     <Box className="flex">
@@ -843,6 +839,21 @@ export default function Layout() {
                       },
                     }}
                   >
+                    {/* Home chip — only when there is at least one other tab */}
+                    <Chip
+                      clickable
+                      label="Home"
+                      onClick={() => navigate(homePath)}
+                      variant="outlined"
+                      className={`${
+                        isHomeActive
+                          ? '!bg-primary !text-white'
+                          : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
+                      } !border-none !h-5 flex-shrink-0`}
+                      aria-label="Go to Home"
+                    />
+                    <span className="text-gray-300 flex-shrink-0">|</span>
+
                     {pageHistory.map((page, index) => (
                       <React.Fragment key={page.path}>
                         <Chip

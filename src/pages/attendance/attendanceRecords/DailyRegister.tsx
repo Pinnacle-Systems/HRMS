@@ -116,12 +116,13 @@ const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
   { value: "present", label: "Present" },
   { value: "absent", label: "Absent" },
   { value: "late", label: "Late" },
+  { value: "irregular", label: "Irregular" },
   { value: "checked_in", label: "Checked In" },
-  { value: "on_duty", label: "On Duty" },
-  { value: "leave", label: "On Leave" },
-  { value: "holiday", label: "Holiday" },
-  { value: "weekly_off", label: "Weekly Off" },
   { value: "night_duty", label: "Night Duty" },
+  // { value: "on_duty", label: "On Duty" },
+  { value: "leave", label: "On Leave" },
+  // { value: "holiday", label: "Holiday" },
+  // { value: "weekly_off", label: "Weekly Off" },
 ];
 
 export function DailyRegister() {
@@ -1088,6 +1089,7 @@ export function DailyRegister() {
       loadRegister();
       loadTodaySummary();
       setPunchImportOpen(false);
+      setPunchEntries([])
     } catch (err: any) {
       showSnackbar(
         err?.response?.data?.message ?? "Failed to import punches",
@@ -1437,7 +1439,7 @@ export function DailyRegister() {
         <div className="flex items-center gap-2 flex-wrap">
           {/* Status quick chips */}
           <div className="flex items-center gap-1 flex-wrap">
-            {STATUS_CHIP_OPTIONS.slice(0, 5).map((o) => (
+            {STATUS_CHIP_OPTIONS.map((o) => (
               <Chip
                 key={o.value}
                 label={o.label}
@@ -1778,8 +1780,32 @@ export function DailyRegister() {
                 value={punchTime ? dayjs(punchTime) : null}
                 format="DD/MM/YYYY HH:mm:ss"
                 ampm={false}
+                maxDateTime={dayjs()}
+                // onChange={(newValue) => {
+                //   setPunchTime(newValue ? dayjs(newValue).toISOString() : "");
+                // }}
+                minDateTime={
+                  punchType === "checkOut" && punchEmployee?.checkInTime
+                    ? dayjs(punchEmployee?.checkInTime)
+                    : undefined
+                }
                 onChange={(newValue) => {
-                  setPunchTime(newValue ? dayjs(newValue).toISOString() : "");
+                  if (!newValue) {
+                    setPunchTime("");
+                    return;
+                  }
+                  const selected = dayjs(newValue);
+                  if (selected.isAfter(dayjs())) {
+                    return;
+                  }
+                  if (
+                    punchType === "checkOut" &&
+                    punchEmployee?.checkInTime &&
+                    selected.isBefore(dayjs(punchEmployee.checkInTime))
+                  ) {
+                    return;
+                  }
+                  setPunchTime(selected.toISOString());
                 }}
                 slotProps={{
                   textField: {
@@ -2893,17 +2919,35 @@ export function DailyRegister() {
                         <DateTimePicker
                           value={entry.timestamp ? dayjs(entry.timestamp) : null}
                           format="DD/MM/YYYY HH:mm:ss"
-                          onChange={(newValue) =>
-                            updatePunchEntry(
-                              index,
-                              "timestamp",
-                              newValue ? dayjs(newValue).toISOString() : ""
-                            )
-                          }
+                          ampm={false}
+                          maxDateTime={dayjs()}
+                          onChange={(newValue) => {
+                            if (!newValue) {
+                              updatePunchEntry(index, "timestamp", "");
+                              return;
+                            }
+                            const selected = dayjs(newValue);
+                            if (!selected.isValid() || selected.isAfter(dayjs())) {
+                              return;
+                            }
+                            updatePunchEntry(index, "timestamp", selected.toISOString());
+                          }}
                           slotProps={{
                             textField: {
                               size: "small",
                               fullWidth: true,
+                              error: entry.timestamp
+                                ? !dayjs(entry.timestamp).isValid() ||
+                                dayjs(entry.timestamp).isAfter(dayjs())
+                                : false,
+                              helperText:
+                                entry.timestamp &&
+                                  dayjs(entry.timestamp).isAfter(dayjs())
+                                  ? "Punch time cannot be in the future"
+                                  : "",
+                            },
+                            popper: {
+                              sx: { zIndex: (theme) => theme.zIndex.modal + 10 },
                             },
                           }}
                         />

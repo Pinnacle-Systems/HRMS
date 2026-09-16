@@ -25,7 +25,7 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Divider,
+  // Divider,
   CircularProgress,
   Alert,
   AlertTitle,
@@ -460,12 +460,12 @@ export default function SalaryStructureTemplate() {
     }
   };
 
-  const calculateTotalCTC = () => {
-    if (previewData) {
-      return previewData.annualCtc || 0;
-    }
-    return earnings.reduce((s, e) => s + (e.value || 0), 0) * 12;
-  };
+  // const calculateTotalCTC = () => {
+  //   if (previewData) {
+  //     return previewData.annualCtc || 0;
+  //   }
+  //   return earnings.reduce((s, e) => s + (e.value || 0), 0) * 12;
+  // };
 
   const validateStep = () => {
     switch (currentStep) {
@@ -1411,7 +1411,7 @@ export default function SalaryStructureTemplate() {
                                 </Box>
                               );
                             })}
-                            {earnings.length > 0 && (
+                            {/* {earnings.length > 0 && (
                               <>
                                 <Divider className="border border-gray-200" />
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1423,7 +1423,7 @@ export default function SalaryStructureTemplate() {
                                   </Typography>
                                 </Box>
                               </>
-                            )}
+                            )} */}
                           </Stack>
                         </CardContent>
                       </Card>
@@ -1452,7 +1452,7 @@ export default function SalaryStructureTemplate() {
                                 </Typography>
                               </Box>
                             ))}
-                            {deductions.length > 0 && (
+                            {/* {deductions.length > 0 && (
                               <>
                                 <Divider className="border border-gray-200" />
                                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1464,14 +1464,14 @@ export default function SalaryStructureTemplate() {
                                   </Typography>
                                 </Box>
                               </>
-                            )}
+                            )} */}
                           </Stack>
                         </CardContent>
                       </Card>
                     </Grid>
                   </Grid>
 
-                  <Card sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                  {/* <Card sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
                     <CardContent className="!pb-3 !bg-white-50">
                       <Grid container spacing={2}>
                         <Grid size={{ xs: 12, sm: 3 }}>
@@ -1513,7 +1513,7 @@ export default function SalaryStructureTemplate() {
                         </Grid>
                       </Grid>
                     </CardContent>
-                  </Card>
+                  </Card> */}
                 </Stack>
               )}
             </CardContent>

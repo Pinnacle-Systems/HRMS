@@ -111,7 +111,7 @@ export const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "permission", label: "Permission" },
   { value: "holiday", label: "Holiday" },
   { value: "weekly_off", label: "Weekly Off" },
-  // { value: "irregular", label: "Irregular" },
+  { value: "irregular", label: "Irregular" },
   { value: "missed_punch", label: "Missed Punch" },
 ];
 

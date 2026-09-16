@@ -276,6 +276,7 @@ export default function PayrollRuns() {
                                     <TableRow
                                         key={run.id}
                                         sx={getRowColor(i)}
+                                        className="cursor-pointer"
                                         onClick={() => navigate(`/payroll/runs/${run.id}`)}
                                     >
                                         <TableCell className="sticky left-0 z-20 bg-inherit">
