@@ -5,9 +5,9 @@ import { disableJoyride } from "./helpers/joyride";
 
 test.describe("mocked admin flow", () => {
   test.beforeEach(async ({ page }) => {
+    await disableJoyride(page);
     await loginAsAdmin(page);
     await mockLogoutApi(page);
-    await disableJoyride(page);
 
     await page.route("**/api/payroll/dashboard", async (route) => {
       await route.fulfill({
@@ -105,25 +105,27 @@ test.describe("mocked admin flow", () => {
     // --------------------------------------------------
     await page.getByLabel("open drawer").click();
 
-    await page.getByText("Employees", {
-      exact: true,
-    }).click();
+    await page
+      .getByText("Employees", {
+        exact: true,
+      })
+      .click();
 
     await expect(page).toHaveURL(/\/employees$/);
 
     await expect(
-      page.getByText("Employee Management", {
-        exact: true,
-      }).first(),
+      page
+        .getByText("Employee Management", {
+          exact: true,
+        })
+        .first(),
     ).toBeVisible();
 
     // --------------------------------------------------
     // Get roles
     // --------------------------------------------------
     const roles = await page.evaluate(() => {
-      const session = localStorage.getItem(
-        "hrms.auth.session",
-      );
+      const session = localStorage.getItem("hrms.auth.session");
 
       if (!session) {
         return [];
@@ -139,58 +141,64 @@ test.describe("mocked admin flow", () => {
     // --------------------------------------------------
     // Leave
     // --------------------------------------------------
-    await page.getByText("Leave", {
-      exact: true,
-    }).click();
+    await page
+      .getByText("Leave", {
+        exact: true,
+      })
+      .click();
 
     if (roles.includes("ADMIN")) {
-      await page.getByText("Manager Approvals", {
-        exact: true,
-      }).click();
+      await page
+        .getByText("Manager Approvals", {
+          exact: true,
+        })
+        .click();
 
-      await expect(page).toHaveURL(
-        /\/leaves\/approvals$/,
-      );
+      await expect(page).toHaveURL(/\/leaves\/approvals$/);
 
       await expect(
-        page.getByText("Leave Approval Inbox", {
-          exact: true,
-        }).first(),
+        page
+          .getByText("Leave Approval Inbox", {
+            exact: true,
+          })
+          .first(),
       ).toBeVisible();
     } else {
-      await page.getByText("My Dashboard", {
-        exact: true,
-      }).click();
+      await page
+        .getByText("My Dashboard", {
+          exact: true,
+        })
+        .click();
 
-      await expect(page).toHaveURL(
-        /\/leaves\/my-dashboard$/,
-      );
+      await expect(page).toHaveURL(/\/leaves\/my-dashboard$/);
 
       await expect(
-        page.getByText("My Leave", {
-          exact: true,
-        }).first(),
+        page
+          .getByText("My Leave", {
+            exact: true,
+          })
+          .first(),
       ).toBeVisible();
     }
 
     // --------------------------------------------------
     // Payroll
     // --------------------------------------------------
-    await page.getByRole("button", {
-      name: "Payroll",
-    }).click();
+    await page
+      .getByRole("button", {
+        name: "Payroll",
+      })
+      .click();
 
-    const payrollOperations =
-      page.getByRole("button", {
-        name: "PAYROLL OPERATIONS",
-      });
+    const payrollOperations = page.getByRole("button", {
+      name: "PAYROLL OPERATIONS",
+    });
 
     await expect(payrollOperations).toBeVisible();
 
-    const dashboardButton =
-      page.getByRole("button", {
-        name: "Dashboard",
-      });
+    const dashboardButton = page.getByRole("button", {
+      name: "Dashboard",
+    });
 
     await expect(dashboardButton).toBeVisible();
 
@@ -202,23 +210,25 @@ test.describe("mocked admin flow", () => {
     await expect(page).toHaveURL(/\/payroll$/);
 
     await expect(
-      page.getByText("Payroll Dashboard", {
-        exact: true,
-      }).first(),
+      page
+        .getByText("Payroll Dashboard", {
+          exact: true,
+        })
+        .first(),
     ).toBeVisible({
       timeout: 15000,
     });
 
-    await expect(
-      page.locator("body"),
-    ).toContainText(/Payroll|Dashboard/i);
+    await expect(page.locator("body")).toContainText(/Payroll|Dashboard/i);
 
     // --------------------------------------------------
     // Settings
     // --------------------------------------------------
-    await page.getByText("Settings", {
-      exact: true,
-    }).click();
+    await page
+      .getByText("Settings", {
+        exact: true,
+      })
+      .click();
 
     await expect(page).toHaveURL(/\/settings/);
 
@@ -235,24 +245,26 @@ test.describe("mocked admin flow", () => {
     // Company Settings
     // --------------------------------------------------
     await expect(
-      page.getByText("Company Settings", {
-        exact: true,
-      }).first(),
+      page
+        .getByText("Company Settings", {
+          exact: true,
+        })
+        .first(),
     ).toBeVisible({
       timeout: 10000,
     });
   });
 
-  test("logout clears the session and returns to login", async ({
-    page,
-  }) => {
+  test("logout clears the session and returns to login", async ({ page }) => {
     await page.goto("/admin/dashboard");
 
     await page.getByLabel("Account").click();
 
-    await page.getByRole("menuitem", {
-      name: "Logout",
-    }).click();
+    await page
+      .getByRole("menuitem", {
+        name: "Logout",
+      })
+      .click();
 
     await expect(page).toHaveURL(/\/login$/);
 
@@ -263,11 +275,7 @@ test.describe("mocked admin flow", () => {
     ).toBeVisible();
 
     await expect(
-      page.evaluate(() =>
-        window.localStorage.getItem(
-          "hrms.auth.session",
-        ),
-      ),
+      page.evaluate(() => window.localStorage.getItem("hrms.auth.session")),
     ).resolves.toBeNull();
   });
 });
