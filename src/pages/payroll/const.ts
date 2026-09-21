@@ -191,3 +191,11 @@ export const PROFESSIONAL_PALETTE = [
   "#EAB308", // yellow-500
   "#6366F1", // indigo-500
 ];
+
+export const statusColor: Record<string, "default" | "warning" | "info" | "success" | "error"> = {
+  DRAFT: "default",
+  PENDING_APPROVAL: "warning",
+  APPROVED: "info",
+  APPLIED: "success",
+  REJECTED: "error",
+};

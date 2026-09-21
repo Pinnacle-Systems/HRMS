@@ -49,6 +49,7 @@ import { useUI } from "../../../context/Snackbar";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { formatDate } from "../../leave/leaveFormatters";
 import { apiService } from "../../../services";
+import SalaryHistory from "../AdvancedFeature/SalaryHistory";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -273,6 +274,7 @@ export default function EmployeeSalaryView() {
               <Tab label="Payroll History" className="!text-gray-800" />
               <Tab label="Loans & Advances" className="!text-gray-800" />
               <Tab label="Tax Summary" className="!text-gray-800" />
+              <Tab label="View Salary History" className="!text-gray-800" />
             </Tabs>
           </Box>
 
@@ -673,6 +675,11 @@ export default function EmployeeSalaryView() {
                 </Card>
               </Grid>
             </Grid>
+          </TabPanel>
+
+          {/* Tab 5: Tax Summary */}
+          <TabPanel value={tabValue} index={4}>
+            <SalaryHistory selectedEmployee={selectedEmployee.id}></SalaryHistory>
           </TabPanel>
         </>
       )}

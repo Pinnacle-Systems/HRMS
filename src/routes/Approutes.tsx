@@ -100,6 +100,12 @@ const PayrollAudit = lazy(() => import("../pages/payroll/AdvancedFeature/PayrolA
 const EmployeePortal = lazy(() => import("../pages/payroll/AdvancedFeature/EmployeePortal"));
 const UserManagement = lazy(() => import("../pages/userManagement/userMangement"));
 const MusterSettings = lazy(() => import("../pages/settings/attendance/musterSettings.tsx"));
+const SalaryRevisionList = lazy(() => import("../pages/payroll/Operations/SalaryRevisionList"));
+const CreateRevision = lazy(() => import("../pages/payroll/Operations/CreateRevision"));
+const RevisionDetails = lazy(() => import("../pages/payroll/Operations/RevisionDetails"));
+const IncrementLetter = lazy(() => import("../pages/payroll/Operations/IncrementLetter"));
+const RevisionTemplates = lazy(() => import("../pages/payroll/Configuration/RevisionTemplates"));
+const SalaryHistory = lazy(() => import("../pages/payroll/AdvancedFeature/SalaryHistory"));
 
 // ============================================================================
 // ROUTE CONFIGURATION - Single Source of Truth
@@ -410,6 +416,50 @@ const routeConfigs: RouteConfig[] = [
     element: <EmployeePortal />,
     allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
+    requiresWorkspace: true,
+  },
+
+  // ===================== SALARY REVISION =====================
+  {
+    path: "payroll/revision",
+    element: <SalaryRevisionList />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_READ],
+    requiresWorkspace: true,
+  },
+  {
+    path: "payroll/revision/create",
+    element: <CreateRevision />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
+    requiresWorkspace: true,
+  },
+  {
+    path: "payroll/revision/templates",
+    element: <RevisionTemplates />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
+    requiresWorkspace: true,
+  },
+  {
+    path: "payroll/revision/:id",
+    element: <RevisionDetails />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_READ],
+    requiresWorkspace: true,
+  },
+  {
+    path: "payroll/revision/:id/letter/:employeeId",
+    element: <IncrementLetter />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_READ],
+    requiresWorkspace: true,
+  },
+  {
+    path: "payroll/employee-salary-history/:id",
+    element: <SalaryHistory />,
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_READ],
     requiresWorkspace: true,
   },
 
@@ -769,7 +819,7 @@ function AppRoutesContent() {
                       <Route path="payroll/payroll-settings/:tab" element={<PayrollSettings />} />
                     </Route>
 
-                     {/* Attendance Settings - Admin & HR with ATTENDANCE_WRITE */}
+                    {/* Attendance Settings - Admin & HR with ATTENDANCE_WRITE */}
                     <Route
                       element={
                         <ProtectedRoute

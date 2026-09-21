@@ -1314,4 +1314,31 @@ export const API_ENDPOINTS = {
     DETAIL: (id: string) => `/muster-settings/${id}`,
     UPDATE: (id: string) => `/muster-settings/${id}`,
   },
+
+  SALARY_REVISION: {
+    BASE: "/payroll/salary-revisions",
+    GET_BY_ID: (id: string) => `/payroll/salary-revisions/${id}`,
+    UPDATE: (id: string) => `/payroll/salary-revisions/${id}`,
+    DELETE: (id: string) => `/payroll/salary-revisions/${id}`,
+    SUBMIT: (id: string) => `/payroll/salary-revisions/${id}/submit`,
+    APPROVE: (id: string) => `/payroll/salary-revisions/${id}/approve`,
+    REJECT: (id: string) => `/payroll/salary-revisions/${id}/reject`,
+    APPLY: (id: string) => `/payroll/salary-revisions/${id}/apply`,
+    PREVIEW: "/payroll/salary-revisions/preview",
+    LETTER: (revisionId: string, employeeId: string) =>
+      `/payroll/salary-revisions/${revisionId}/employees/${employeeId}/letter`,
+  },
+
+  REVISION_TEMPLATE: {
+    BASE: "/payroll/revision-templates",
+    GET_BY_ID: (id: string) => `/payroll/revision-templates/${id}`,
+    UPDATE: (id: string) => `/payroll/revision-templates/${id}`,
+    DELETE: (id: string) => `/payroll/revision-templates/${id}`,
+    DROPDOWN: "/payroll/revision-templates/dropdown",
+  },
+  
+  SALARY_HISTORY: {
+    BY_EMPLOYEE: (employeeId: string) => `/employees/${employeeId}/salary-history`,
+    GET_BY_ID: (id: string) => `/salary-history/${id}`,
+  },
 };

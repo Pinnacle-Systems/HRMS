@@ -67,6 +67,7 @@ import {
   HowToRegOutlined,
   GroupOutlined,
   RequestQuoteOutlined,
+  RuleOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
 import ExpandLess from "@mui/icons-material/ExpandLess";
@@ -330,6 +331,12 @@ export default function Layout() {
       icon: <Person4OutlinedIcon className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.EMPLOYEE_VIEW,
     },
+    {
+      text: "Salary Revision",
+      path: "/payroll/revision",
+      icon: <TrackChangesOutlined className="!w-4" />,
+      permissions: PAYROLL_PERMISSIONS.RUNS,
+    },
   ];
 
   const payrollConfiguration = [
@@ -362,6 +369,12 @@ export default function Layout() {
       path: "/payroll/periods",
       icon: <CalendarTodayOutlined className="!w-4" />,
       permissions: PAYROLL_PERMISSIONS.PERIODS,
+    },
+    {
+      text: "Revision Templates",
+      path: "/payroll/revision/templates",
+      icon: <RuleOutlined className="!w-4" />,
+      permissions: PAYROLL_PERMISSIONS.STRUCTURES,
     },
   ];
 
