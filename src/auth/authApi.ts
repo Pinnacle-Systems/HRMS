@@ -37,7 +37,10 @@ import type {
 
 async function loadAndSaveCompanyDetails(session: AuthSession): Promise<void> {
   try {
-    if (!session.company.companyId) {
+    if (!session.company.companyId || (
+      (session.user.roles.includes("EMPLOYEE")) && !(session.user.roles.includes("ADMIN")) &&
+      !(session.user.roles.includes("MANAGER")) && !(session.user.roles.includes("HR"))
+    )) {
       saveCompanyDetails({ stateId: "", cityId: "" });
       return;
     }

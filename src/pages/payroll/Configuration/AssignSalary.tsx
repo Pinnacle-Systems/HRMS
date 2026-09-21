@@ -22,9 +22,6 @@ import {
   alpha,
   Grid,
   Checkbox,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Avatar,
   Dialog,
   DialogTitle,
@@ -42,7 +39,7 @@ import {
 import {
   AttachMoney as DollarSignIcon,
   CheckCircle as CheckCircleIcon,
-  ExpandMore as ExpandMoreIcon,
+  // ExpandMore as ExpandMoreIcon,
   AssessmentOutlined,
   Refresh as RefreshIcon,
   History as HistoryIcon,
@@ -52,8 +49,9 @@ import {
   TrendingUp,
   TrendingDown,
   PieChart as PieChartIcon,
+  PieChartOutlined,
 } from "@mui/icons-material";
-import { formatCurrency } from "../const";
+import { formatCurrency, PROFESSIONAL_PALETTE } from "../const";
 import { assignmentService } from "../../../services/modules/payrollServices/salaryAssignments";
 import { salaryStructureService } from "../../../services/modules/payrollServices/salarystructure";
 import { employeeService } from "../../../services/modules/employees";
@@ -63,6 +61,8 @@ import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { useNavigate } from "react-router-dom";
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { Tooltip as ReTooltip } from "recharts";
 // import { Cell, Pie, PieChart, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, Legend } from "recharts";
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
@@ -92,7 +92,14 @@ const getValueDisplay = (calculationType: string, value: number) => {
   }
 };
 
-// const PIE_COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444", "#ec4899"];
+const generateColorPalette = (count: number): string[] => {
+  const offset = Math.floor(Math.random() * PROFESSIONAL_PALETTE.length);
+  const rotated = [
+    ...PROFESSIONAL_PALETTE.slice(offset),
+    ...PROFESSIONAL_PALETTE.slice(0, offset),
+  ];
+  return Array.from({ length: count }, (_, i) => rotated[i % rotated.length]);
+};
 
 export default function AssignSalaryStructure() {
   const theme = useTheme();
@@ -122,11 +129,11 @@ export default function AssignSalaryStructure() {
   // Form states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
-  const [selectedDesignation,setSelectedDesignation] = useState("all");
+  const [selectedDesignation, setSelectedDesignation] = useState("all");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [ctcAmount, setCtcAmount] = useState<number>(0);
-  const [ctcMode, setCtcMode] = useState<"annual" | "monthly">("annual");
+  const [ctcMode, setCtcMode] = useState<"annual" | "monthly" | "perday">("monthly");
   const [employees, setEmployees] = useState<any[]>([]);
   const [structures, setStructures] = useState<any[]>([]);
   const [bankDetails, setBankDetails] = useState({
@@ -152,6 +159,24 @@ export default function AssignSalaryStructure() {
   //     setActiveStep(1);
   //   }
   // }, [selectedEmployees, selectedTemplate, ctcAmount, selectedTemplateDetails]);
+
+  // Auto-set CTC mode based on selected employee's employee group
+  useEffect(() => {
+    if (selectedEmployees.length === 0) return;
+
+    // Get the first selected employee's group (assumes single selection for mode determination)
+    const firstEmployeeId = selectedEmployees[0];
+    const employee = employees.find((e) => e.id === firstEmployeeId);
+    if (!employee) return;
+
+    const group = (employee.employeeGroup || "").toLowerCase();
+
+    if (group.includes("staff")) {
+      setCtcMode("monthly");
+    } else if (group.includes("labour") || group.includes("labor")) {
+      setCtcMode("perday");
+    }
+  }, [selectedEmployees, employees]);
 
   const loadData = async () => {
     showSpinner();
@@ -227,10 +252,45 @@ export default function AssignSalaryStructure() {
     return matchesSearch && matchesDept && matchesDesg;
   });
 
+  const fetchEmployeeBankDetails = async (employeeId: string) => {
+    try {
+      const res: any = await employeeService.getEmployeeById(employeeId);
+      const emp = res.data;
+      if (emp) {
+        setBankDetails({
+          accountNumber: emp.bankAccountNumber || emp.accountNumber || "",
+          bankName: emp.bankName || "",
+          ifscCode: emp.bankIfsc || emp.ifscCode || "",
+          branch: emp.bankBranch || "",
+        });
+      }
+    } catch (error) {
+      console.warn("Failed to fetch employee bank details", error);
+    }
+  };
+
   const toggleEmployeeSelection = (empId: string) => {
-    setSelectedEmployees((prev) =>
-      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
-    );
+    setSelectedEmployees((prev) => {
+      const isRemoving = prev.includes(empId);
+      const next = isRemoving ? prev.filter((id) => id !== empId) : [...prev, empId];
+
+      // Auto-fetch bank details when first employee is selected
+      if (!isRemoving && next.length === 1) {
+        fetchEmployeeBankDetails(empId);
+      }
+
+      // Clear bank details when no employees are selected
+      if (next.length === 0) {
+        setBankDetails({
+          accountNumber: "",
+          bankName: "",
+          ifscCode: "",
+          branch: "",
+        });
+      }
+
+      return next;
+    });
   };
 
   const toggleAllEmployees = () => {
@@ -276,7 +336,16 @@ export default function AssignSalaryStructure() {
   const calculateBreakdown = () => {
     if (!selectedTemplateDetails || !selectedTemplate || ctcAmount === 0) return null;
 
-    const userMonthlyCtc = ctcMode === "monthly" ? ctcAmount : ctcAmount / 12;
+    // const userMonthlyCtc = ctcMode === "monthly" ? ctcAmount : ctcAmount / 12;
+    let userMonthlyCtc = ctcAmount;
+    if (ctcMode === "annual") {
+      userMonthlyCtc = ctcAmount / 12;
+    } else if (ctcMode === "monthly") {
+      userMonthlyCtc = ctcAmount;
+    } else if (ctcMode === "perday") {
+      // per day → monthly (26 working days)
+      userMonthlyCtc = ctcAmount * 26;
+    }
     const templateEarnings = selectedTemplateDetails.earnings || [];
     const templateDeductions = selectedTemplateDetails.deductions || [];
 
@@ -474,6 +543,11 @@ export default function AssignSalaryStructure() {
   };
 
   const breakdown = calculateBreakdown();
+  const hasBankDetails =
+    Boolean(bankDetails.accountNumber) ||
+    Boolean(bankDetails.bankName) ||
+    Boolean(bankDetails.ifscCode) ||
+    Boolean(bankDetails.branch);
 
   const handleAssign = async () => {
     if (selectedEmployees.length === 0) {
@@ -491,7 +565,12 @@ export default function AssignSalaryStructure() {
 
     showSpinner();
     try {
-      const annualCtc = ctcMode === "monthly" ? ctcAmount * 12 : ctcAmount;
+      let annualCtc = ctcAmount;
+      if (ctcMode === "monthly") {
+        annualCtc = ctcAmount * 12;
+      } else if (ctcMode === "perday") {
+        annualCtc = ctcAmount * 26 * 12;
+      }
 
       const payload = {
         employeeIds: selectedEmployees,
@@ -546,14 +625,6 @@ export default function AssignSalaryStructure() {
     setPage(0);
   };
 
-  // Custom tooltip formatter for Recharts
-  // const tooltipFormatter = (value: any) => {
-  //   if (typeof value === 'number') {
-  //     return [formatCurrency(value), "Amount"];
-  //   }
-  //   return [String(value || 0), "Amount"];
-  // };
-
   // Render Salary Breakdown with Charts
   const renderSalaryBreakdownWithCharts = () => {
     if (!breakdown) return null;
@@ -562,21 +633,24 @@ export default function AssignSalaryStructure() {
     const totalEarnings = isMonthly ? breakdown.totalEarningsMonthly : breakdown.totalEarningsMonthly * 12;
     const totalDeductions = isMonthly ? breakdown.totalDeductionsMonthly : breakdown.totalDeductionsMonthly * 12;
     const netPay = isMonthly ? breakdown.netMonthly : breakdown.netMonthly * 12;
-    const ctcDisplay = isMonthly ? breakdown.userMonthlyCtc : breakdown.annualCtc;
+    // const ctcDisplay = isMonthly ? breakdown.userMonthlyCtc : breakdown.annualCtc;
 
     // Prepare data for pie chart
-    // const pieData = [
-    //   ...breakdown.earnings.map((e: any) => ({
-    //     name: e.componentName,
-    //     value: isMonthly ? e.monthlyValue : e.annualValue,
-    //     type: 'earning'
-    //   })),
-    //   ...breakdown.deductions.map((d: any) => ({
-    //     name: d.componentName,
-    //     value: isMonthly ? d.monthlyValue : d.annualValue,
-    //     type: 'deduction'
-    //   }))
-    // ];
+    const pieData = [
+      ...breakdown.earnings.map((e: any) => ({
+        name: e.componentName,
+        value: isMonthly ? e.monthlyValue : e.annualValue,
+        type: 'earning'
+      })),
+      ...breakdown.deductions.map((d: any) => ({
+        name: d.componentName,
+        value: isMonthly ? d.monthlyValue : d.annualValue,
+        type: 'deduction'
+      }))
+    ];
+
+    const dynamicColors = generateColorPalette(pieData.length);
+
 
     // Prepare data for bar chart
     // const barData = [
@@ -598,6 +672,14 @@ export default function AssignSalaryStructure() {
     //   }
     //   return String(value || 0);
     // };
+
+    const tooltipFormatter = (value: any, _name: any, props: any) => {
+      const componentName = props?.payload?.name || "Amount";
+      if (typeof value === "number") {
+        return [formatCurrency(value), componentName];
+      }
+      return [String(value || 0), componentName];
+    };
 
     return (
       <Slide direction="up" in={true} mountOnEnter unmountOnExit>
@@ -678,18 +760,6 @@ export default function AssignSalaryStructure() {
                     </Grow>
                   </Grid>
                   <Grid size={{ xs: 6, sm: 3 }}>
-                    <Grow in timeout={700}>
-                      <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.error.main, 0.08), border: `1px solid ${alpha(theme.palette.error.main, 0.2)}` }}>
-                        <Typography variant="caption" sx={{ color: "error.main", fontWeight: 600 }}>
-                          Total Deductions
-                        </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: "error.main" }}>
-                          {formatCurrency(totalDeductions)}
-                        </Typography>
-                      </Box>
-                    </Grow>
-                  </Grid>
-                  <Grid size={{ xs: 6, sm: 3 }}>
                     <Grow in timeout={800}>
                       <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.08), border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}` }}>
                         <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 600 }}>
@@ -702,6 +772,18 @@ export default function AssignSalaryStructure() {
                     </Grow>
                   </Grid>
                   <Grid size={{ xs: 6, sm: 3 }}>
+                    <Grow in timeout={700}>
+                      <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.error.main, 0.08), border: `1px solid ${alpha(theme.palette.error.main, 0.2)}` }}>
+                        <Typography variant="caption" sx={{ color: "error.main", fontWeight: 600 }}>
+                          Total Deductions
+                        </Typography>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: "error.main" }}>
+                          {formatCurrency(totalDeductions)}
+                        </Typography>
+                      </Box>
+                    </Grow>
+                  </Grid>
+                  {/* <Grid size={{ xs: 6, sm: 3 }}>
                     <Grow in timeout={900}>
                       <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.warning.main, 0.08), border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}` }}>
                         <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 600 }}>
@@ -712,48 +794,12 @@ export default function AssignSalaryStructure() {
                         </Typography>
                       </Box>
                     </Grow>
-                  </Grid>
+                  </Grid> */}
                 </Grid>
               </Fade>
 
               {/* Grid: Chart + Earnings + Deductions */}
               <Grid container spacing={3}>
-                {/* Chart Column */}
-                {/* <Grid size={{ xs: 12, md: 4 }}>
-                  <Fade in timeout={1000}>
-                    <Paper sx={{ p: 2, borderRadius: 2, border: `1px solid ${theme.palette.divider}`, height: '100%' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, color: "text.primary" }}>
-                        <PieChartIcon fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
-                        Distribution
-                      </Typography>
-                      <ResponsiveContainer width="100%" height={280}>
-                        <PieChart>
-                          <Pie
-                            data={pieData}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={90}
-                            paddingAngle={2}
-                            dataKey="value"
-                            animationBegin={0}
-                            animationDuration={1500}
-                          >
-                            {pieData.map((entry, index) => (
-                              <Cell
-                                key={`cell-${index}`}
-                                fill={entry.type === 'earning' ? PIE_COLORS[index % PIE_COLORS.length] : '#ef4444'}
-                              />
-                            ))}
-                          </Pie>
-                          <ReTooltip formatter={tooltipFormatter} />
-                          <Legend verticalAlign="bottom" height={36} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </Paper>
-                  </Fade>
-                </Grid> */}
-
                 {/* Earnings Table */}
                 <Grid size={{ xs: 12, md: 4 }}>
                   <Fade in timeout={1100}>
@@ -850,12 +896,52 @@ export default function AssignSalaryStructure() {
                     </Paper>
                   </Fade>
                 </Grid>
+
+                {/* Chart Column */}
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Fade in timeout={1000}>
+                    <Paper className="bg-white-50 border border-blue-200" sx={{ borderRadius: 2, height: '100%' }}>
+
+                      <Box sx={{ p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.06), display: 'flex', alignItems: 'center', gap: 1, borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.2)}` }}>
+                        <PieChartOutlined sx={{ fontSize: 18, color: 'primary.main' }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "primary.main" }}>
+                          CTC Distribution
+                        </Typography>
+
+                      </Box>
+                      <ResponsiveContainer width="100%" height={260}>
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={55}
+                            outerRadius={85}
+                            paddingAngle={2}
+                            dataKey="value"
+                            animationBegin={0}
+                            animationDuration={1200}
+                          >
+                            {pieData.map((_entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={dynamicColors[index]}
+                              />
+                            ))}
+                          </Pie>
+                          <ReTooltip formatter={tooltipFormatter} />
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.7rem' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </Paper>
+                  </Fade>
+                </Grid>
               </Grid>
 
               {breakdown && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: alpha(theme.palette.info.main, 0.06), borderRadius: 2, border: `1px solid ${alpha(theme.palette.info.main, 0.2)}` }}>
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 4 }}>
+                    <Grid size={{ xs: 3 }}>
                       <Typography variant="caption" className="text-gray-800">
                         Total Components
                       </Typography>
@@ -864,7 +950,7 @@ export default function AssignSalaryStructure() {
                         {breakdown.earnings.some(e => e.isSpecialAllowance) && ` (+ 1 Balancing)`}
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 4 }}>
+                    <Grid size={{ xs: 3 }}>
                       <Typography variant="caption" className="text-gray-800">
                         Used Percentage
                       </Typography>
@@ -872,7 +958,7 @@ export default function AssignSalaryStructure() {
                         {breakdown.totalPercentageUsed.toFixed(2)}%
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 4 }}>
+                    <Grid size={{ xs: 3 }}>
                       <Typography variant="caption" className="text-gray-800">
                         Special Allowance
                       </Typography>
@@ -883,12 +969,20 @@ export default function AssignSalaryStructure() {
                         </Typography>
                       </Typography>
                     </Grid>
+                    <Grid size={{ xs: 3 }}>
+                      <Typography variant="caption" className="text-gray-800">
+                        Net Pay
+                      </Typography>
+                      <Typography sx={{ fontWeight: 700, color: "success.main" }}>
+                        {formatCurrency(netPay)}/{isMonthly ? 'mo' : 'yr'}
+                      </Typography>
+                    </Grid>
                   </Grid>
                 </Box>
               )}
 
               {/* Footer Summary */}
-              <Fade in timeout={1400}>
+              {/* <Fade in timeout={1400}>
                 <Box sx={{ mt: 3, pt: 2, borderTop: `2px solid ${theme.palette.divider}` }}>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 4 }}>
@@ -922,7 +1016,7 @@ export default function AssignSalaryStructure() {
                     </Typography>
                   )}
                 </Box>
-              </Fade>
+              </Fade> */}
             </Box>
           </CardContent>
         </Card>
@@ -957,7 +1051,7 @@ export default function AssignSalaryStructure() {
       {tabValue === 0 && (
         <>
           {/* Header */}
-          <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-center gap-4 mb-4">
             <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.1), display: "flex", alignItems: "center", justifyContent: "center" }}>
               <AssessmentOutlined sx={{ color: "primary.main" }} />
             </Box>
@@ -1075,7 +1169,7 @@ export default function AssignSalaryStructure() {
                         </FormControl>
                       </Box>
 
-                      <TableContainer className="border border-gray-200 rounded-md h-[calc(100vh-350px)] overflow-auto">
+                      <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-250px)] overflow-auto">
                         <Table stickyHeader>
                           <TableHead>
                             <TableRow>
@@ -1090,14 +1184,15 @@ export default function AssignSalaryStructure() {
                               <TableCell className="!font-bold">Employee</TableCell>
                               <TableCell className="!font-bold">Department</TableCell>
                               <TableCell className="!font-bold">Designation</TableCell>
+                              <TableCell className="!font-bold">Employee Group</TableCell>
                               <TableCell className="!font-bold">Grade</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
                             {filteredEmployees.length === 0 ? (
                               <TableRow>
-                                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                  <Typography className="text-gray-500">
+                                <TableCell colSpan={6} align="center">
+                                  <Typography className="text-gray-500 p-6">
                                     No employees found matching your criteria
                                   </Typography>
                                 </TableCell>
@@ -1149,6 +1244,9 @@ export default function AssignSalaryStructure() {
                                     <Typography >{employee.designation || '-'}</Typography>
                                   </TableCell>
                                   <TableCell>
+                                    <Typography >{employee.employeeGroup || '-'}</Typography>
+                                  </TableCell>
+                                  <TableCell>
                                     <Chip label={employee.grade || "N/A"} size="small" variant="outlined" className="text-gray-800" />
                                   </TableCell>
                                 </TableRow>
@@ -1172,14 +1270,14 @@ export default function AssignSalaryStructure() {
                     </Typography>
 
                     <Stack spacing={2} className="p-4">
-                      <div className="p-3 rounded-sm bg-head flex items-center justify-between">
+                      {/* <div className="p-3 rounded-sm bg-head flex items-center justify-between">
                         <Typography className="text-gray-800">
                           Selected Employees
                         </Typography>
                         <Typography sx={{ fontWeight: 600 }} className="text-gray-800">
                           {selectedEmployees.length}
                         </Typography>
-                      </div>
+                      </div> */}
 
                       <FormControl fullWidth>
                         <InputLabel>Salary Template <span className="text-error">*</span></InputLabel>
@@ -1209,71 +1307,124 @@ export default function AssignSalaryStructure() {
                             type="number"
                             value={ctcAmount || ""}
                             onChange={(e) => setCtcAmount(Number(e.target.value))}
-                            placeholder="Enter amount"
+                            placeholder={
+                              ctcMode === "annual"
+                                ? "Enter annual amount"
+                                : ctcMode === "monthly"
+                                  ? "Enter monthly amount"
+                                  : "Enter per day amount"
+                            }
                             fullWidth
                             size="small"
                           />
                           <FormControl size="small" sx={{ minWidth: 100 }}>
                             <Select
                               value={ctcMode}
-                              onChange={(e) => setCtcMode(e.target.value as "annual" | "monthly")}
+                              onChange={(e) => setCtcMode(e.target.value as "annual" | "monthly" | "perday")}
                               sx={selectSx}
                             >
                               <MenuItem value="annual">Annual</MenuItem>
                               <MenuItem value="monthly">Monthly</MenuItem>
+                              <MenuItem value="perday">Per Day</MenuItem>
                             </Select>
                           </FormControl>
                         </Box>
                       </Box>
-
-                      <Accordion
-                        className="bg-white-50"
+                      {/* Bank Details Card */}
+                      <Box
                         sx={{
                           border: `1px solid ${theme.palette.divider}`,
-                          borderRadius: 1,
-                          "&:before": { display: "none" },
+                          borderRadius: 2,
+                          overflow: "hidden",
+                          bgcolor: "#fff",
                         }}
                       >
-                        <AccordionSummary expandIcon={<ExpandMoreIcon className="text-gray-800" />}>
-                          <Typography sx={{ fontWeight: 500 }} className="text-gray-800">
+                        {/* Header */}
+                        <div className="p-3 border-b border-gray-200"
+                        >
+                          <Typography
+                            sx={{ fontWeight: 600 }}
+                            className="text-gray-800"
+                          >
                             Bank Details
                           </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Stack spacing={1.5}>
-                            <TextField
-                              label="Account Number"
-                              value={bankDetails.accountNumber}
-                              onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
-                              fullWidth
-                            />
-                            <TextField
-                              label="Bank Name"
-                              value={bankDetails.bankName}
-                              onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
-                              fullWidth
-                            />
-                            <Grid container spacing={1}>
+                        </div>
+
+                        <Box sx={{ p: 2 }}>
+                          {hasBankDetails ? (
+                            <Grid container spacing={1.5}>
                               <Grid size={{ xs: 6 }}>
-                                <TextField
-                                  label="IFSC Code"
-                                  value={bankDetails.ifscCode}
-                                  onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value.toUpperCase() })}
-                                  fullWidth
-                                />
+                                <Typography
+                                  variant="caption"
+                                  className="text-gray-500"
+
+                                >
+                                  Account Number
+                                </Typography>
+                                <Typography
+                                  className="text-gray-800"
+                                >
+                                  {bankDetails.accountNumber || "-"}
+                                </Typography>
                               </Grid>
+
                               <Grid size={{ xs: 6 }}>
-                                <TextField
-                                  label="Branch"
-                                  value={bankDetails.branch}
-                                  onChange={(e) => setBankDetails({ ...bankDetails, branch: e.target.value })}
-                                  fullWidth
-                                />
+                                <Typography
+                                  variant="caption"
+                                  className="text-gray-500"
+                                >
+                                  Bank Name
+                                </Typography>
+                                <Typography
+                                  className="text-gray-800"
+                                >
+                                  {bankDetails.bankName || "-"}
+                                </Typography>
+                              </Grid>
+
+                              <Grid size={{ xs: 6 }}>
+                                <Typography
+                                  variant="caption"
+                                  className="text-gray-500"
+                                >
+                                  IFSC Code
+                                </Typography>
+                                <Typography
+                                  className="text-gray-800"
+                                >
+                                  {bankDetails.ifscCode || "-"}
+                                </Typography>
+                              </Grid>
+
+                              <Grid size={{ xs: 6 }}>
+                                <Typography
+                                  variant="caption"
+                                  className="text-gray-500"
+                                >
+                                  Branch
+                                </Typography>
+                                <Typography
+                                  className="text-gray-800"
+                                >
+                                  {bankDetails.branch || "-"}
+                                </Typography>
                               </Grid>
                             </Grid>
-                          </Stack>
-                        </AccordionDetails>
-                      </Accordion>
+                          ) : (
+                            <div
+                              className="flex items-center justify-center flex-col py-3 gap-1"
+                            >
+                              <Typography
+                                className="text-gray-500"
+
+                              >
+                                No Bank Details Available
+                              </Typography>
+
+                            </div>
+                          )}
+                        </Box>
+                      </Box>
 
                       <Button
                         variant="contained"

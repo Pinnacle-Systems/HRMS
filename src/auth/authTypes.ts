@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 export type ApiRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS" | string;
 
-export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS";
+export type AppRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS" | string;
 
 export type Permission =
   | "EMPLOYEE_READ"

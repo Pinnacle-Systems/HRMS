@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE";
+export type UserRole = "ADMIN" | "HR" | "MANAGER" | "EMPLOYEE" | "ESS";
 
 export const companyFieldsWithSections = [
   // Section 1: Basic Information
@@ -563,6 +563,19 @@ export const tabs = [
         label: "Approval Workflow",
         path: "/settings/payroll/payroll-settings/approval",
         roles: ["ADMIN"] as UserRole[],
+      },
+    ],
+  },
+  {
+    id: "attendance",
+    label: "Attendance Settings",
+    roles: ["ADMIN"] as UserRole[],
+    options: [
+      {
+        id: "muster-settings",
+        label: "Muster Settings",
+        path: "/settings/attendance/muster-settings",
+        roles: ["ADMIN","HR"] as UserRole[],
       },
     ],
   },

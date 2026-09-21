@@ -738,13 +738,13 @@ export function ProcessAttendance() {
       )}
 
       {/* Close Option Banner */}
-      {showCloseOption && !isClosed && !processStatus?.locked && result && result.processed > 0 && (
+      {showCloseOption && !isClosed && !processStatus?.locked && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
           <div className="flex items-center gap-2">
             <InfoOutlined className="text-amber-600" />
             <span className="text-[12px] text-amber-800">
               Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}.
-              {result.skippedEmployees?.length > 0 && ` ${result.skippedEmployees.length} employee(s) were skipped.`}
+              {/* {result.skippedEmployees?.length > 0 && ` ${result.skippedEmployees.length} employee(s) were skipped.`} */}
               Click below to close and finalize.
             </span>
           </div>

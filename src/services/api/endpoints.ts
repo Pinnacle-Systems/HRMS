@@ -1307,4 +1307,11 @@ export const API_ENDPOINTS = {
     POST_BREAK_START: "/mobile/attendance/break/start",
     POST_BREAK_END: "/mobile/attendance/break/end",
   },
+
+  MUSTER_SETTINGS: {
+    LIST: "/muster-settings",
+    CREATE: "/muster-settings",
+    DETAIL: (id: string) => `/muster-settings/${id}`,
+    UPDATE: (id: string) => `/muster-settings/${id}`,
+  },
 };

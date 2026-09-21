@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -85,6 +85,7 @@ import type { EventData } from "react-joyride";
 
 const drawerWidth = 220;
 const guidedTourStorageKey = "hrms-guided-tour-completed";
+const pageHistoryKeyPrefix = "hrms-page-history-";
 
 interface Notification {
   id: string;
@@ -107,6 +108,16 @@ const getFallbackRouteLabel = (path: string) => {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 };
 
+const clearAllPageHistories = () => {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(pageHistoryKeyPrefix))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    /* noop */
+  }
+};
+
 export default function Layout() {
   const [open, setOpen] = useState(false);
   const [tourKey, setTourKey] = useState(0);
@@ -123,8 +134,12 @@ export default function Layout() {
   const { session, logout } = useAuth();
   const user = session?.user;
   const userPermissions = user?.permissions || [];
-  const pageHistoryStorageKey = `hrms-page-history-${user?.userId || "guest"}`;
+  const pageHistoryStorageKey = `${pageHistoryKeyPrefix}${user?.userId || "guest"}`;
+
+  // Refs used to coordinate logout vs. history persistence
   const closingPagePathRef = useRef<string | null>(null);
+  const loggingOutRef = useRef(false);
+
   const [pageHistory, setPageHistory] = useState<PreviousPage[]>(() => {
     try {
       const storedPages = localStorage.getItem(pageHistoryStorageKey);
@@ -147,12 +162,12 @@ export default function Layout() {
   const [payrollOpen, setPayrollOpen] = useState(
     location.pathname.startsWith("/payroll")
   );
-  // New states for payroll sections
   const [payrollOperationsOpen, setPayrollOperationsOpen] = useState(false);
   const [payrollConfigOpen, setPayrollConfigOpen] = useState(false);
   const [payrollAdvancedOpen, setPayrollAdvancedOpen] = useState(false);
 
-  const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationAnchorEl, setNotificationAnchorEl] =
+    useState<null | HTMLElement>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
@@ -185,11 +200,23 @@ export default function Layout() {
 
   const handleLogout = async () => {
     handleProfileMenuClose();
+    loggingOutRef.current = true;
+    setPageHistory([]);
+    closingPagePathRef.current = null;
     try {
       await logout();
-      navigate("/login");
     } catch {
-      // intentional
+    } finally {
+      clearAllPageHistories();
+      try {
+        localStorage.removeItem(guidedTourStorageKey);
+      } catch {
+        /* noop */
+      }
+      navigate("/login", { replace: true });
+      setTimeout(() => {
+        loggingOutRef.current = false;
+      }, 0);
     }
   };
 
@@ -223,14 +250,14 @@ export default function Layout() {
       setNotifications(notificationData);
       setUnreadCount(notificationData.length);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error("Error fetching notifications:", error);
     } finally {
       setIsLoadingNotifications(false);
     }
   };
 
   const markNotificationAsRead = async (_notificationId: string) => {
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleNotificationItemClick = (notification: Notification) => {
@@ -249,7 +276,7 @@ export default function Layout() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
@@ -377,18 +404,17 @@ export default function Layout() {
     },
   ];
 
-  const filteredPayrollOperations = payrollOperations.filter(item =>
+  const filteredPayrollOperations = payrollOperations.filter((item) =>
     hasPermission(userPermissions, item.permissions)
   );
 
-  const filteredPayrollConfiguration = payrollConfiguration.filter(item =>
+  const filteredPayrollConfiguration = payrollConfiguration.filter((item) =>
     hasPermission(userPermissions, item.permissions)
   );
 
-  const filteredPayrollAdvanced = payrollAdvanced.filter(item =>
+  const filteredPayrollAdvanced = payrollAdvanced.filter((item) =>
     hasPermission(userPermissions, item.permissions)
   );
-
 
   const menuItems: NavItem[] = [
     {
@@ -409,7 +435,6 @@ export default function Layout() {
       path: "/my-info",
       roles: ["EMPLOYEE", "MANAGER", "HR"],
     },
-
     {
       text: "Employees",
       icon: <PeopleAltOutlinedIcon />,
@@ -420,7 +445,9 @@ export default function Layout() {
     {
       text: "Leave",
       icon: <AssignmentOutlinedIcon />,
-      path: user?.roles.includes('ADMIN') ? "/leaves/approvals" : "/leaves/my-dashboard",
+      path: user?.roles.includes("ADMIN")
+        ? "/leaves/approvals"
+        : "/leaves/my-dashboard",
       roles: ["EMPLOYEE", "MANAGER", "HR", "ADMIN"],
       children: [
         ...(user?.roles.some((role) => role !== "ADMIN")
@@ -443,30 +470,12 @@ export default function Layout() {
       path: "/attendance",
       roles: ["HR", "ADMIN"],
       children: [
-        {
-          text: "Shift Management",
-          path: "/attendance/shifts",
-        },
-        {
-          text: "Attendance Overview",
-          path: "/attendance/overview",
-        },
-        {
-          text: "Attendance Records",
-          path: "/attendance/records",
-        },
-        {
-          text: "Attendance Management",
-          path: "/attendance/management",
-        },
-        {
-          text: "Attendance Processing",
-          path: "/attendance/process",
-        },
-        {
-          text: "Reports",
-          path: "/attendance/reports",
-        },
+        { text: "Shift Management", path: "/attendance/shifts" },
+        { text: "Attendance Overview", path: "/attendance/overview" },
+        { text: "Attendance Records", path: "/attendance/records" },
+        { text: "Attendance Management", path: "/attendance/management" },
+        { text: "Attendance Processing", path: "/attendance/process" },
+        { text: "Reports", path: "/attendance/reports" },
       ],
     },
     {
@@ -494,18 +503,9 @@ export default function Layout() {
       path: "/policies",
       roles: ["HR", "ADMIN"],
       children: [
-        {
-          text: "Policy Dashboard",
-          path: "/policies",
-        },
-        {
-          text: "Policy Simulator",
-          path: "/policies/simulator",
-        },
-        {
-          text: "Reports",
-          path: "/policies/reports",
-        },
+        { text: "Policy Dashboard", path: "/policies" },
+        { text: "Policy Simulator", path: "/policies/simulator" },
+        { text: "Reports", path: "/policies/reports" },
       ],
     },
   ];
@@ -514,7 +514,9 @@ export default function Layout() {
     {
       text: "Settings",
       icon: <SettingsOutlinedIcon />,
-      path: user?.roles.includes('ADMIN') ? "/settings/general/company-settings" : "/settings/general/audit-logs",
+      path: user?.roles.includes("ADMIN")
+        ? "/settings/general/company-settings"
+        : "/settings/general/audit-logs",
       roles: ["HR", "ADMIN"],
     },
     {
@@ -533,25 +535,54 @@ export default function Layout() {
     : [];
   const avatarInitial = user?.email?.charAt(0).toUpperCase() || "U";
 
-  const routeLabels = [
-    ...visibleMenuItems.flatMap((item) => [
-      { path: item.path, label: item.text },
-      ...(item.children || []).map((child) => ({ path: child.path, label: child.text })),
-    ]),
-    ...visibleBottomMenuItems.map((item) => ({ path: item.path, label: item.text })),
-    ...filteredPayrollOperations.map((item) => ({ path: item.path, label: item.text })),
-    ...filteredPayrollConfiguration.map((item) => ({ path: item.path, label: item.text })),
-    ...filteredPayrollAdvanced.map((item) => ({ path: item.path, label: item.text })),
-  ];
+  // Memoized so the history-persistence effect doesn't re-run on every render
+  const routeLabels = useMemo(
+    () => [
+      ...visibleMenuItems.flatMap((item) => [
+        { path: item.path, label: item.text },
+        ...(item.children || []).map((child) => ({
+          path: child.path,
+          label: child.text,
+        })),
+      ]),
+      ...visibleBottomMenuItems.map((item) => ({
+        path: item.path,
+        label: item.text,
+      })),
+      ...filteredPayrollOperations.map((item) => ({
+        path: item.path,
+        label: item.text,
+      })),
+      ...filteredPayrollConfiguration.map((item) => ({
+        path: item.path,
+        label: item.text,
+      })),
+      ...filteredPayrollAdvanced.map((item) => ({
+        path: item.path,
+        label: item.text,
+      })),
+    ],
+    [
+      visibleMenuItems,
+      visibleBottomMenuItems,
+      filteredPayrollOperations,
+      filteredPayrollConfiguration,
+      filteredPayrollAdvanced,
+    ],
+  );
 
   const getRouteLabel = (path: string) => {
     const matchingRoute = routeLabels
-      .filter((route) => path === route.path || path.startsWith(`${route.path}/`))
+      .filter(
+        (route) => path === route.path || path.startsWith(`${route.path}/`)
+      )
       .sort((first, second) => second.path.length - first.path.length)[0];
     return matchingRoute?.label || getFallbackRouteLabel(path);
   };
 
   useEffect(() => {
+    if (loggingOutRef.current) return;
+
     const currentPath = `${location.pathname}${location.search}`;
     const homePath = user ? getDefaultRoute(user) : "/home";
 
@@ -566,27 +597,60 @@ export default function Layout() {
 
     setPageHistory((currentHistory) => {
       const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
-      const existingPage = currentHistory.find((page) => page.path === currentPath);
+      const existingPage = currentHistory.find(
+        (page) => page.path === currentPath
+      );
       if (existingPage?.label === nextPage.label) {
         return currentHistory;
       }
       const nextHistory = existingPage
         ? currentHistory.map((page) =>
-            page.path === currentPath ? nextPage : page,
-          )
+          page.path === currentPath ? nextPage : page
+        )
         : [...currentHistory, nextPage];
-      localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+
+      try {
+        localStorage.setItem(
+          pageHistoryStorageKey,
+          JSON.stringify(nextHistory)
+        );
+      } catch {
+        /* noop */
+      }
       return nextHistory;
     });
   }, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
 
+
+  useEffect(() => {
+    if (loggingOutRef.current) return;
+
+    try {
+      const storedPages = localStorage.getItem(pageHistoryStorageKey);
+      const parsedPages = storedPages ? JSON.parse(storedPages) : [];
+      setPageHistory(Array.isArray(parsedPages) ? parsedPages : []);
+    } catch {
+      setPageHistory([]);
+    }
+    closingPagePathRef.current = null;
+  }, [pageHistoryStorageKey]);
+
   const handleRemovePage = (pathToRemove: string) => {
     setPageHistory((currentHistory) => {
       const removedPageIndex = currentHistory.findIndex(
-        (page) => page.path === pathToRemove,
+        (page) => page.path === pathToRemove
       );
-      const nextHistory = currentHistory.filter((page) => page.path !== pathToRemove);
-      localStorage.setItem(pageHistoryStorageKey, JSON.stringify(nextHistory));
+      const nextHistory = currentHistory.filter(
+        (page) => page.path !== pathToRemove
+      );
+      try {
+        localStorage.setItem(
+          pageHistoryStorageKey,
+          JSON.stringify(nextHistory)
+        );
+      } catch {
+        /* noop */
+      }
 
       const currentPath = `${location.pathname}${location.search}`;
       if (pathToRemove === currentPath && removedPageIndex >= 0) {
@@ -603,21 +667,33 @@ export default function Layout() {
     });
   };
 
+  const handleClearAllHistory = () => {
+    const currentPath = `${location.pathname}${location.search}`;
+    closingPagePathRef.current = currentPath;
+    setPageHistory([]);
+    try {
+      localStorage.removeItem(pageHistoryStorageKey);
+    } catch {
+    }
+    const fallbackPath = user ? getDefaultRoute(user) : "/home";
+    navigate(fallbackPath);
+  };
+
   const fetchCompanyData = async () => {
     try {
       const companyData: any = await companyService.getCompany();
-      const companyId = companyData.data.length ? companyData.data?.[0].id : '';
+      const companyId = companyData.data.length ? companyData.data?.[0].id : "";
       if (companyId) {
         const response: any = await companyService.getCompanyById(companyId);
         setCompanyInfo(response.data || []);
       }
     } catch (error) {
-      console.error('Error fetching company data:', error);
+      console.error("Error fetching company data:", error);
     }
   };
 
   useEffect(() => {
-    if (user?.roles.includes('ADMIN')) {
+    if (user?.roles.includes("ADMIN")) {
       fetchCompanyData();
     } else {
       setCompanyInfo(session?.company || {});
@@ -641,7 +717,7 @@ export default function Layout() {
         className="text-gray-800 shadow-sm z-[1200]"
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          backgroundColor: 'white',
+          backgroundColor: "white",
         }}
       >
         <Toolbar className="bg-white !grid">
@@ -666,14 +742,16 @@ export default function Layout() {
                   {companyInfo?.logoUrl ? (
                     <img
                       src={companyInfo.logoUrl}
-                      alt={`${companyInfo.companyName || 'Company'} logo`}
+                      alt={`${companyInfo.companyName || "Company"} logo`}
                       width="30px"
                       height="30px"
                     />
                   ) : (
                     <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
                       <span className="text-xs font-bold text-primary bg-primary-100 rounded-full w-8 h-8 flex items-center justify-center">
-                        {companyInfo?.companyName?.charAt(0)?.toUpperCase() || 'H'}
+                        {companyInfo?.companyName
+                          ?.charAt(0)
+                          ?.toUpperCase() || "H"}
                       </span>
                     </div>
                   )}
@@ -692,7 +770,7 @@ export default function Layout() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="text-[12px] text-gray-800 whitespace-nowrap">
-                        {companyInfo?.companyName || 'Company Name'}
+                        {companyInfo?.companyName || "Company Name"}
                       </div>
                     </div>
                   </div>
@@ -705,7 +783,7 @@ export default function Layout() {
                 {session && (
                   <div className="text-[10px] whitespace-nowrap">
                     <div className="text-gray-800">
-                      {session.branchName} - {session.branchCode}{' '}
+                      {session.branchName} - {session.branchCode}{" "}
                       <span className="text-primary font-bold">
                         ({session.fiscalYearLabel})
                       </span>
@@ -736,7 +814,8 @@ export default function Layout() {
                 <Tooltip title="Notifications">
                   <IconButton
                     size="small"
-                    aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : 'No'} notifications`}
+                    aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : "No"
+                      } notifications`}
                     color="inherit"
                     onClick={handleNotificationClick}
                     data-tour="notifications"
@@ -776,7 +855,7 @@ export default function Layout() {
                 </Tooltip>
 
                 {/* Profile/Avatar */}
-                <Tooltip title={user?.email || 'Account'}>
+                <Tooltip title={user?.email || "Account"}>
                   <IconButton
                     size="small"
                     edge="end"
@@ -787,10 +866,12 @@ export default function Layout() {
                   >
                     <Avatar
                       src={user?.profilePic}
-                      alt={user?.email || 'User avatar'}
+                      alt={user?.email || "User avatar"}
                       className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
                     >
-                      {avatarInitial || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                      {avatarInitial ||
+                        user?.email?.charAt(0)?.toUpperCase() ||
+                        "U"}
                     </Avatar>
                   </IconButton>
                 </Tooltip>
@@ -802,39 +883,42 @@ export default function Layout() {
               <Box
                 className="mb-1 min-w-0"
                 sx={{
-                  marginLeft: open ? '200px' : '40px',
-                  width: open ? `calc(100% - ${drawerWidth}px)` : 'calc(100% - 60px)',
-                  transition: (theme) => theme.transitions.create(['margin-left', 'width'], {
-                    easing: theme.transitions.easing.sharp,
-                    duration: theme.transitions.duration.enteringScreen,
-                  }),
+                  marginLeft: open ? "200px" : "40px",
+                  width: open
+                    ? `calc(100% - ${drawerWidth}px)`
+                    : "calc(100% - 60px)",
+                  transition: (theme) =>
+                    theme.transitions.create(["margin-left", "width"], {
+                      easing: theme.transitions.easing.sharp,
+                      duration: theme.transitions.duration.enteringScreen,
+                    }),
                 }}
               >
                 <Box
                   className="overflow-x-auto overflow-y-hidden"
                   sx={{
-                    overflowX: 'auto',
-                    overflowY: 'hidden',
-                    width: '100%',
-                    maxWidth: '100%',
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    width: "100%",
+                    maxWidth: "100%",
                     minWidth: 0,
-                    WebkitOverflowScrolling: 'touch',
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    '&::-webkit-scrollbar': {
-                      display: 'none'
-                    }
+                    WebkitOverflowScrolling: "touch",
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                    "&::-webkit-scrollbar": {
+                      display: "none",
+                    },
                   }}
                 >
                   <Box
                     className="flex items-center gap-1"
                     sx={{
-                      display: 'flex',
-                      flexWrap: 'nowrap',
-                      whiteSpace: 'nowrap',
-                      width: 'max-content',
-                      minWidth: 'max-content',
-                      '& > *': {
+                      display: "flex",
+                      flexWrap: "nowrap",
+                      whiteSpace: "nowrap",
+                      width: "max-content",
+                      minWidth: "max-content",
+                      "& > *": {
                         flexShrink: 0,
                       },
                     }}
@@ -845,11 +929,10 @@ export default function Layout() {
                       label="Home"
                       onClick={() => navigate(homePath)}
                       variant="outlined"
-                      className={`${
-                        isHomeActive
-                          ? '!bg-primary !text-white'
-                          : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
-                      } !border-none !h-5 flex-shrink-0`}
+                      className={`${isHomeActive
+                        ? "!bg-primary !text-white"
+                        : "!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white"
+                        } !border-none !h-5 flex-shrink-0`}
                       aria-label="Go to Home"
                     />
                     <span className="text-gray-300 flex-shrink-0">|</span>
@@ -858,7 +941,7 @@ export default function Layout() {
                       <React.Fragment key={page.path}>
                         <Chip
                           clickable
-                          label={page.label || 'Page'}
+                          label={page.label || "Page"}
                           onClick={() => navigate?.(page.path)}
                           onDelete={(event) => {
                             event.preventDefault();
@@ -872,11 +955,12 @@ export default function Layout() {
                             />
                           }
                           variant="outlined"
-                          className={`${page.path === `${location.pathname}${location.search}`
-                            ? '!bg-primary !text-white'
-                            : '!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white'
+                          className={`${page.path ===
+                            `${location.pathname}${location.search}`
+                            ? "!bg-primary !text-white"
+                            : "!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white"
                             } !border-none !h-5 flex-shrink-0`}
-                          aria-label={`Go to ${page.label || 'page'}`}
+                          aria-label={`Go to ${page.label || "page"}`}
                         />
 
                         {index < pageHistory.length - 1 && (
@@ -884,6 +968,15 @@ export default function Layout() {
                         )}
                       </React.Fragment>
                     ))}
+                    <div className="sticky right-0 bg-white">
+                      <Chip
+                        clickable
+                        label="Clear All"
+                        onClick={handleClearAllHistory}
+                        variant="outlined"
+                        className="!h-5 !text-gray-800"
+                      />
+                    </div>
                   </Box>
                 </Box>
               </Box>
@@ -916,19 +1009,33 @@ export default function Layout() {
           </ListItemIcon>
           <div>
             <div className="text-gray-800">My Profile</div>
-            <div className="text-gray-400 !text-[10px]">{session?.user.email}</div>
+            <div className="text-gray-400 !text-[10px]">
+              {session?.user.email}
+            </div>
           </div>
         </MenuItem>
         <Divider />
         {user?.roles.includes("ADMIN") && (
           <>
-            <MenuItem onClick={() => { navigate("/settings/general/company-settings"); handleProfileMenuClose(); }} className="bg-white-50">
+            <MenuItem
+              onClick={() => {
+                navigate("/settings/general/company-settings");
+                handleProfileMenuClose();
+              }}
+              className="bg-white-50"
+            >
               <ListItemIcon>
                 <SettingsOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
               </ListItemIcon>
               <div className="text-gray-800">Company Settings</div>
             </MenuItem>
-            <MenuItem onClick={() => { navigate("/user-management"); handleProfileMenuClose(); }} className="bg-white-50">
+            <MenuItem
+              onClick={() => {
+                navigate("/user-management");
+                handleProfileMenuClose();
+              }}
+              className="bg-white-50"
+            >
               <ListItemIcon>
                 <GroupOutlined className="!w-4 text-gray-400 dark:text-primary" />
               </ListItemIcon>
@@ -936,13 +1043,25 @@ export default function Layout() {
             </MenuItem>
           </>
         )}
-        <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/branch-fiscal-year"); }} className="bg-white-50">
+        <MenuItem
+          onClick={() => {
+            handleProfileMenuClose();
+            navigate("/branch-fiscal-year");
+          }}
+          className="bg-white-50"
+        >
           <ListItemIcon>
             <HubOutlined className="!w-3 text-gray-400 dark:text-primary" />
           </ListItemIcon>
           <div className="text-gray-800">Select Workspace</div>
         </MenuItem>
-        <MenuItem onClick={() => { handleProfileMenuClose(); navigate("/settings/general/audit-logs"); }} className="bg-white-50">
+        <MenuItem
+          onClick={() => {
+            handleProfileMenuClose();
+            navigate("/settings/general/audit-logs");
+          }}
+          className="bg-white-50"
+        >
           <ListItemIcon>
             <HistoryOutlinedIcon className="!w-4 text-gray-400 dark:text-primary" />
           </ListItemIcon>
@@ -966,31 +1085,38 @@ export default function Layout() {
         open={Boolean(notificationAnchorEl)}
         onClose={handleNotificationClose}
         sx={{
-          '& .MuiPaper-root': {
+          "& .MuiPaper-root": {
             maxHeight: "450px !important",
             width: "500px !important",
             p: 0,
-            overflow: 'hidden',
+            overflow: "hidden",
             borderRadius: 2,
-          }
+          },
         }}
       >
-        <Box sx={{
-          p: 1,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }} className="border-b border-gray-200">
-          <Typography variant="subtitle1" className="!ml-2" sx={{ fontWeight: 'bold' }}>
+        <Box
+          sx={{
+            p: 1,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+          className="border-b border-gray-200"
+        >
+          <Typography
+            variant="subtitle1"
+            className="!ml-2"
+            sx={{ fontWeight: "bold" }}
+          >
             Notifications
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {notifications.length > 0 && (
               <Typography
                 variant="caption"
                 sx={{
-                  cursor: 'pointer',
-                  '&:hover': { textDecoration: 'underline' }
+                  cursor: "pointer",
+                  "&:hover": { textDecoration: "underline" },
                 }}
                 className="text-blue-500"
                 onClick={() => {
@@ -1007,67 +1133,101 @@ export default function Layout() {
         </Box>
 
         {isLoadingNotifications ? (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Box sx={{ p: 3, textAlign: "center" }}>
             <Typography variant="body2" color="text.secondary">
               Loading notifications...
             </Typography>
           </Box>
         ) : notifications.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Box sx={{ p: 3, textAlign: "center" }}>
             <NotificationsNoneOutlinedIcon sx={{ fontSize: 40, mb: 1 }} />
             <Typography variant="body2" color="text.secondary">
               No notifications
             </Typography>
           </Box>
         ) : (
-          <MenuList sx={{ p: 0, overflow: 'auto', maxHeight: "calc(100vh - 525px) !important" }}>
+          <MenuList
+            sx={{
+              p: 0,
+              overflow: "auto",
+              maxHeight: "calc(100vh - 525px) !important",
+            }}
+          >
             {notifications.map((notification) => (
               <MenuItem
                 key={notification.id}
                 onClick={() => handleNotificationItemClick(notification)}
                 sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
                   p: 2,
-                  '&:hover': {
-                    backgroundColor: 'var(--head) !important',
+                  "&:hover": {
+                    backgroundColor: "var(--head) !important",
                   },
-                  '&:last-child': {
-                    borderBottom: 'none',
-                  }
+                  "&:last-child": {
+                    borderBottom: "none",
+                  },
                 }}
                 className="!border-b !border-gray-200"
               >
-                <Box sx={{ display: 'flex', width: '100%', justifyContent: 'space-between', mb: 0.5 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    width: "100%",
+                    justifyContent: "space-between",
+                    mb: 0.5,
+                  }}
+                >
                   <ListItemText
                     primary={
-                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                        {notification.message.toLowerCase().includes('policy') ? 'Policy' : 'New'} Update
+                      <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                        {notification.message.toLowerCase().includes("policy")
+                          ? "Policy"
+                          : "New"}{" "}
+                        Update
                       </Typography>
                     }
                     secondary={
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mt: 0.5 }}
+                      >
                         {notification.message}
                       </Typography>
                     }
                   />
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', mt: 0.5 }}>
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Typography variant="caption" color="primary" sx={{ cursor: 'pointer' }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    width: "100%",
+                    mt: 0.5,
+                  }}
+                >
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    <Typography
+                      variant="caption"
+                      color="primary"
+                      sx={{ cursor: "pointer" }}
+                    >
                       View Details
                     </Typography>
-                    {notification.message.toLowerCase().includes('policy') && (
-                      <Chip
-                        label="Policy"
-                        size="small"
-                        color="primary"
-                        variant="filled"
-                        className="!bg-primary"
-                        sx={{ fontSize: '10px', height: 20 }}
-                      />
-                    )}
+                    {notification.message
+                      .toLowerCase()
+                      .includes("policy") && (
+                        <Chip
+                          label="Policy"
+                          size="small"
+                          color="primary"
+                          variant="filled"
+                          className="!bg-primary"
+                          sx={{ fontSize: "10px", height: 20 }}
+                        />
+                      )}
                   </Box>
                   <Typography variant="caption" color="text.secondary">
                     {formatNotificationTime(notification.notifiedAt)}
@@ -1079,17 +1239,20 @@ export default function Layout() {
         )}
 
         {notifications.length > 0 && (
-          <Box sx={{
-            p: 1.5,
-            textAlign: 'center',
-          }} className="border-t border-gray-200">
+          <Box
+            sx={{
+              p: 1.5,
+              textAlign: "center",
+            }}
+            className="border-t border-gray-200"
+          >
             <Typography
               variant="caption"
               className="text-primary"
               sx={{
-                cursor: 'pointer',
+                cursor: "pointer",
                 fontWeight: 500,
-                '&:hover': { textDecoration: 'underline' }
+                "&:hover": { textDecoration: "underline" },
               }}
               onClick={() => {
                 handleNotificationClose();
@@ -1167,15 +1330,19 @@ export default function Layout() {
                 <>
                   {/* Payroll Parent Item */}
                   <Tooltip title={!open ? "Payroll" : ""}>
-                    <ListItem disablePadding className="block whitespace-nowrap">
+                    <ListItem
+                      disablePadding
+                      className="block whitespace-nowrap"
+                    >
                       <ListItemButton
                         className={`min-h-[30px] px-2.5 py-1 text-[12px] ${location.pathname.startsWith("/payroll")
                           ? "text-primary !bg-primary-50"
                           : "text-gray-400"
-                          } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                          } ${open ? "justify-start" : "justify-center"
+                          } hover:!bg-primary-50`}
                         onClick={() => {
                           setOpen(true);
-                          setPayrollOpen(true);
+                          setPayrollOpen((prev) => !prev);
                           setAttendanceOpen(false);
                           setPolicyOpen(false);
                           setLeaveOpen(false);
@@ -1194,18 +1361,27 @@ export default function Layout() {
                         </ListItemIcon>
                         <ListItemText
                           primary="Payroll"
-                          className={open ? "opacity-100 text-gray-800" : "opacity-0"}
+                          className={
+                            open ? "opacity-100 text-gray-800" : "opacity-0"
+                          }
                           sx={{
                             "& .MuiTypography-root": {
                               fontSize: "12px",
                             },
                           }}
                         />
-                        {open && (payrollOpen ? (
-                          <ExpandLess fontSize="small" className="text-gray-800" />
-                        ) : (
-                          <ExpandMore fontSize="small" className="text-gray-800" />
-                        ))}
+                        {open &&
+                          (payrollOpen ? (
+                            <ExpandLess
+                              fontSize="small"
+                              className="text-gray-800"
+                            />
+                          ) : (
+                            <ExpandMore
+                              fontSize="small"
+                              className="text-gray-800"
+                            />
+                          ))}
                       </ListItemButton>
                     </ListItem>
                   </Tooltip>
@@ -1216,20 +1392,15 @@ export default function Layout() {
                       <List component="div" disablePadding>
                         {/* PAYROLL OPERATIONS Section */}
                         <ListItemButton
-                          sx={{
-                            pl: 1.5,
-                            pr: 1,
-                            minHeight: '28px',
-                          }}
+                          sx={{ pl: 1.5, pr: 1, minHeight: "28px" }}
                           className="hover:!bg-transparent"
-                          onClick={() => { setPayrollOperationsOpen((prev) => !prev); setPayrollConfigOpen(false); setPayrollAdvancedOpen(false) }}
+                          onClick={() => {
+                            setPayrollOperationsOpen((prev) => !prev);
+                            setPayrollConfigOpen(false);
+                            setPayrollAdvancedOpen(false);
+                          }}
                         >
-                          <ListItemIcon
-                            sx={{
-                              minWidth: 24,
-                              color: "#9ca3af",
-                            }}
-                          >
+                          <ListItemIcon sx={{ minWidth: 24, color: "#9ca3af" }}>
                             {payrollOperationsOpen ? (
                               <ExpandLess sx={{ fontSize: 16 }} />
                             ) : (
@@ -1251,13 +1422,18 @@ export default function Layout() {
                           />
                         </ListItemButton>
 
-                        <Collapse in={payrollOperationsOpen} timeout={0} unmountOnExit>
+                        <Collapse
+                          in={payrollOperationsOpen}
+                          timeout={0}
+                          unmountOnExit
+                        >
                           {filteredPayrollOperations.map((child) => (
                             <ListItemButton
                               key={child.path}
                               sx={{ pl: 4 }}
                               className={`min-h-[32px] text-[12px] ${location.pathname === child.path ||
-                                (child.path === "/payroll" && location.pathname === "/payroll")
+                                (child.path === "/payroll" &&
+                                  location.pathname === "/payroll")
                                 ? "text-primary !bg-primary-50"
                                 : "text-gray-400"
                                 }`}
@@ -1268,7 +1444,8 @@ export default function Layout() {
                                   minWidth: 28,
                                   color:
                                     location.pathname === child.path ||
-                                      (child.path === "/payroll" && location.pathname === "/payroll")
+                                      (child.path === "/payroll" &&
+                                        location.pathname === "/payroll")
                                       ? "var(--color-primary)"
                                       : "#9ca3af",
                                 }}
@@ -1290,20 +1467,15 @@ export default function Layout() {
 
                         {/* CONFIGURATION Section */}
                         <ListItemButton
-                          sx={{
-                            pl: 1.5,
-                            pr: 1,
-                            minHeight: '28px',
-                          }}
+                          sx={{ pl: 1.5, pr: 1, minHeight: "28px" }}
                           className="hover:!bg-transparent"
-                          onClick={() => { setPayrollConfigOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollAdvancedOpen(false) }}
+                          onClick={() => {
+                            setPayrollConfigOpen((prev) => !prev);
+                            setPayrollOperationsOpen(false);
+                            setPayrollAdvancedOpen(false);
+                          }}
                         >
-                          <ListItemIcon
-                            sx={{
-                              minWidth: 24,
-                              color: "#9ca3af",
-                            }}
-                          >
+                          <ListItemIcon sx={{ minWidth: 24, color: "#9ca3af" }}>
                             {payrollConfigOpen ? (
                               <ExpandLess sx={{ fontSize: 16 }} />
                             ) : (
@@ -1325,7 +1497,11 @@ export default function Layout() {
                           />
                         </ListItemButton>
 
-                        <Collapse in={payrollConfigOpen} timeout="auto" unmountOnExit>
+                        <Collapse
+                          in={payrollConfigOpen}
+                          timeout="auto"
+                          unmountOnExit
+                        >
                           {filteredPayrollConfiguration.map((child) => (
                             <ListItemButton
                               key={child.path}
@@ -1362,9 +1538,13 @@ export default function Layout() {
 
                         {/* ADVANCED FEATURES Section */}
                         <ListItemButton
-                          sx={{ pl: 1.5, pr: 1, minHeight: '28px' }}
+                          sx={{ pl: 1.5, pr: 1, minHeight: "28px" }}
                           className="hover:!bg-transparent"
-                          onClick={() => { setPayrollAdvancedOpen((prev) => !prev); setPayrollOperationsOpen(false); setPayrollConfigOpen(false); }}
+                          onClick={() => {
+                            setPayrollAdvancedOpen((prev) => !prev);
+                            setPayrollOperationsOpen(false);
+                            setPayrollConfigOpen(false);
+                          }}
                         >
                           <ListItemIcon sx={{ minWidth: 24, color: "#9ca3af" }}>
                             {payrollAdvancedOpen ? (
@@ -1388,7 +1568,11 @@ export default function Layout() {
                           />
                         </ListItemButton>
 
-                        <Collapse in={payrollAdvancedOpen} timeout="auto" unmountOnExit>
+                        <Collapse
+                          in={payrollAdvancedOpen}
+                          timeout="auto"
+                          unmountOnExit
+                        >
                           {filteredPayrollAdvanced.map((child) => (
                             <ListItemButton
                               key={child.path}
@@ -1430,36 +1614,44 @@ export default function Layout() {
                 // Regular menu item rendering
                 <>
                   <Tooltip title={!open ? item.text : ""}>
-                    <ListItem disablePadding className="block whitespace-nowrap">
+                    <ListItem
+                      disablePadding
+                      className="block whitespace-nowrap"
+                    >
                       <ListItemButton
                         className={`min-h-[30px] px-2.5 py-1 text-[12px] ${location.pathname === item.path ||
                           location.pathname.startsWith(`${item.path}/`)
                           ? "text-primary !bg-primary-50"
                           : "text-gray-400"
-                          } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                          } ${open ? "justify-start" : "justify-center"
+                          } hover:!bg-primary-50`}
                         onClick={() => {
                           if (item.children) {
                             setOpen(true);
                             if (item.text === "Attendance") {
-                              setAttendanceOpen(true);
+                              setAttendanceOpen((prev) => !prev);
                               setPolicyOpen(false);
                               setLeaveOpen(false);
                               setPayrollOpen(false);
                               navigate("/attendance/overview");
                             }
                             if (item.text === "Policy Engine") {
-                              setPolicyOpen(true);
+                              setPolicyOpen((prev) => !prev);
                               setAttendanceOpen(false);
                               setLeaveOpen(false);
                               setPayrollOpen(false);
                               navigate("/policies");
                             }
                             if (item.text === "Leave") {
-                              setLeaveOpen(true);
+                              setLeaveOpen((prev) => !prev);
                               setAttendanceOpen(false);
                               setPolicyOpen(false);
                               setPayrollOpen(false);
-                              navigate("/leaves/approvals");
+                              navigate(
+                                session?.user.roles.includes("ADMIN")
+                                  ? "/leaves/approvals"
+                                  : "/leaves/my-dashboard"
+                              );
                             }
                             return;
                           }
@@ -1475,7 +1667,9 @@ export default function Layout() {
                         </ListItemIcon>
                         <ListItemText
                           primary={item.text}
-                          className={open ? "opacity-100 text-gray-800" : "opacity-0"}
+                          className={
+                            open ? "opacity-100 text-gray-800" : "opacity-0"
+                          }
                           sx={{
                             "& .MuiTypography-root": {
                               fontSize: "12px",
@@ -1484,16 +1678,53 @@ export default function Layout() {
                         />
                         {item.children &&
                           open &&
-                          ((item.text === 'Attendance' && (attendanceOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
-                            (item.text === 'Policy Engine' && (policyOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)) ||
-                            (item.text === 'Leave' && (leaveOpen ? <ExpandLess fontSize="small" className="text-gray-800" /> : <ExpandMore fontSize="small" className="text-gray-800" />)))}
+                          ((item.text === "Attendance" &&
+                            (attendanceOpen ? (
+                              <ExpandLess
+                                fontSize="small"
+                                className="text-gray-800"
+                              />
+                            ) : (
+                              <ExpandMore
+                                fontSize="small"
+                                className="text-gray-800"
+                              />
+                            ))) ||
+                            (item.text === "Policy Engine" &&
+                              (policyOpen ? (
+                                <ExpandLess
+                                  fontSize="small"
+                                  className="text-gray-800"
+                                />
+                              ) : (
+                                <ExpandMore
+                                  fontSize="small"
+                                  className="text-gray-800"
+                                />
+                              ))) ||
+                            (item.text === "Leave" &&
+                              (leaveOpen ? (
+                                <ExpandLess
+                                  fontSize="small"
+                                  className="text-gray-800"
+                                />
+                              ) : (
+                                <ExpandMore
+                                  fontSize="small"
+                                  className="text-gray-800"
+                                />
+                              ))))}
                       </ListItemButton>
                     </ListItem>
                   </Tooltip>
 
                   {/* Sub Menus for other items */}
-                  {item.text === 'Attendance' && item.children && (
-                    <Collapse in={attendanceOpen && open} timeout="auto" unmountOnExit>
+                  {item.text === "Attendance" && item.children && (
+                    <Collapse
+                      in={attendanceOpen && open}
+                      timeout="auto"
+                      unmountOnExit
+                    >
                       <List component="div" disablePadding>
                         {item.children.map((child: any) => (
                           <ListItemButton
@@ -1531,8 +1762,12 @@ export default function Layout() {
                     </Collapse>
                   )}
 
-                  {item.text === 'Policy Engine' && item.children && (
-                    <Collapse in={policyOpen && open} timeout="auto" unmountOnExit>
+                  {item.text === "Policy Engine" && item.children && (
+                    <Collapse
+                      in={policyOpen && open}
+                      timeout="auto"
+                      unmountOnExit
+                    >
                       <List component="div" disablePadding>
                         {item.children.map((child: any) => (
                           <ListItemButton
@@ -1570,7 +1805,7 @@ export default function Layout() {
                     </Collapse>
                   )}
 
-                  {item.text === 'Leave' && item.children && (
+                  {item.text === "Leave" && item.children && (
                     <Collapse in={leaveOpen && open} timeout="auto" unmountOnExit>
                       <List component="div" disablePadding>
                         {item.children.map((child: any) => (
@@ -1625,7 +1860,8 @@ export default function Layout() {
                         location.pathname.startsWith(`${item.path}/`)
                         ? "text-primary !bg-primary-50"
                         : "text-gray-400"
-                        } ${open ? "justify-start" : "justify-center"} hover:!bg-primary-50`}
+                        } ${open ? "justify-start" : "justify-center"
+                        } hover:!bg-primary-50`}
                       onClick={() => {
                         navigate(item.path);
                       }}
@@ -1639,7 +1875,9 @@ export default function Layout() {
                       </ListItemIcon>
                       <ListItemText
                         primary={item.text}
-                        className={open ? "opacity-100 text-gray-800" : "opacity-0"}
+                        className={
+                          open ? "opacity-100 text-gray-800" : "opacity-0"
+                        }
                         sx={{
                           "& .MuiTypography-root": {
                             fontSize: "12px",
@@ -1665,17 +1903,25 @@ export default function Layout() {
                 </div>
                 <div className="text-[12px] text-gray-800">
                   <div>{user?.roles}</div>
-                  <div className="text-gray-500 text-[5px]">{user?.email}</div>
+                  <div className="text-gray-500 text-[5px]">
+                    {user?.email}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center">
                 <Tooltip title="Logout" onClick={() => handleLogout()}>
-                  <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                  <IconButton
+                    className={`dark:!text-primary ${open ? "!mr-1" : "!mr-4"
+                      }`}
+                  >
                     <PowerSettingsNewOutlined />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Theme" onClick={() => toggleMode()}>
-                  <IconButton className={`dark:!text-primary ${open ? '!mr-1' : '!mr-4'}`}>
+                  <IconButton
+                    className={`dark:!text-primary ${open ? "!mr-1" : "!mr-4"
+                      }`}
+                  >
                     {mode === "dark" ? (
                       <LightModeOutlined className="h-5 w-5" />
                     ) : (

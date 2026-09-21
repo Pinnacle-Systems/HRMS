@@ -24,6 +24,7 @@ export interface SalaryViewItem {
   action: string;
   days: number;
   amount: number;
+  name: string;
 }
 
 export interface SalaryViewStructure {

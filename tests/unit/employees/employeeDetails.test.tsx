@@ -76,6 +76,12 @@ vi.mock("../../../src/services/modules/branch", () => ({
   },
 }));
 
+vi.mock("../../../src/services/modules/payrollServices/salaryView", () => ({
+  salaryViewService: {
+    getEmployeeSalaryView: vi.fn(),
+  },
+}));
+
 // useMasterData hits external APIs — replace with a no-op stub
 vi.mock("../../../src/hooks/useMasterData", () => ({
   useMasterData: () => ({
@@ -161,6 +167,29 @@ async function setupMocks() {
   } as any);
   vi.mocked(categoryService.getCategoryItems).mockResolvedValue({
     data: { content: [] },
+  } as any);
+  const { salaryViewService } = await import(
+    "../../../src/services/modules/payrollServices/salaryView"
+  );
+  vi.mocked(salaryViewService.getEmployeeSalaryView).mockResolvedValue({
+    data: {
+      header: {
+        annualCtc: 1200000,
+        monthlyGross: 100000,
+        monthlyNet: 82000,
+      },
+      currentStructure: {
+        earnings: [
+          { leaveTypeId: "basic", leaveTypeCode: "BASIC", leaveTypeName: "Basic", amount: 60000 },
+        ],
+        grossSalary: 100000,
+        deductions: [
+          { leaveTypeId: "pf", leaveTypeCode: "PF", leaveTypeName: "Provident Fund", amount: 7200 },
+        ],
+        totalDeductions: 18000,
+        netTakeHome: 82000,
+      },
+    },
   } as any);
 }
 
@@ -273,12 +302,30 @@ describe("EmployeeDetails — tab navigation", () => {
     expect(qualTab).toHaveAttribute("aria-selected", "true");
   });
 
-  it("renders all ten tabs", async () => {
+  it("renders all twelve tabs", async () => {
     renderWithProviders(<EmployeeDetails />);
     await screen.findByText(/ID:\s*EMP001/i);
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(10);
+    expect(tabs).toHaveLength(12);
+  });
+
+  it("loads and displays the employee salary breakdown", async () => {
+    const user = userEvent.setup();
+    const { salaryViewService } = await import(
+      "../../../src/services/modules/payrollServices/salaryView"
+    );
+    renderWithProviders(<EmployeeDetails />);
+    await screen.findByText(/ID:\s*EMP001/i);
+
+    await user.click(screen.getByRole("tab", { name: /salary breakdown/i }));
+
+    await waitFor(() => {
+      expect(vi.mocked(salaryViewService.getEmployeeSalaryView)).toHaveBeenCalledWith("emp-1");
+    });
+    expect(await screen.findByText("Current Salary Structure")).toBeInTheDocument();
+    expect(screen.getByText("₹1,00,000")).toBeInTheDocument();
+    expect(screen.getByText("Basic")).toBeInTheDocument();
   });
 });
 

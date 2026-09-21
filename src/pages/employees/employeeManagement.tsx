@@ -695,7 +695,8 @@ export default function EmployeeManagement() {
           mobileNumber: formData.mobileNumber,
           employeeStatusId: formData.employeeStatusId,
           employeeGroupId: formData.employeeGroupId,
-          template: formData.template,
+          template: formData.templateId,
+          midNo: employeeId,
         };
         await employeeService.createEmployee(payload);
         showSnackbar(
@@ -1003,6 +1004,10 @@ export default function EmployeeManagement() {
     setActionMenuAnchor(null);
     setActionMenuEmployee(null);
   };
+
+  const viewEmployeeDetails = (employee :any) => {
+    if (employee) navigate(`/employees/${employee.id}`);
+  }
 
   return (
     <div className="">
@@ -1445,7 +1450,7 @@ export default function EmployeeManagement() {
                     minWidth: "100px",
                   }}
                   className="hover:!text-blue-500 hover:!underline"
-                  onClick={() => { if (employee) navigate(`/employees/${employee.id}`); }}>
+                  onClick={() => { viewEmployeeDetails(employee) }}>
                   {employee.employeeId}
                 </TableCell>
                 <TableCell className="font-medium">

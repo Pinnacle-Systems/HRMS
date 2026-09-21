@@ -100,6 +100,18 @@ export default function GeneratePayroll() {
     const [loading, setLoading] = useState(true);
     // const [failedEmployees, setFailedEmployees] = useState<any[]>([]);
 
+    useEffect(() => {
+        if (employees.length > 0 && selectedDept === "all") {
+            setSelectedEmployees(employees.map((emp: any) => emp.id));
+        }
+    }, [employees]);
+
+    const isLocked = (emp: any) => {
+        if (selectedDept === "all") return true;
+        return emp.department === selectedDept;
+    };
+
+
     // Fetch data on mount
     useEffect(() => {
         fetchPeriods();
@@ -199,8 +211,11 @@ export default function GeneratePayroll() {
     // Get departments from employees
     const departments = [
         "all",
-        ...Array.from(new Set(employees.map((e: any) => e.department))),
+        ...Array.from(
+            new Set(employees.map((e: any) => e.department).filter(Boolean))
+        ),
     ];
+
     const filteredEmployees =
         selectedDept === "all"
             ? employees
@@ -275,18 +290,33 @@ export default function GeneratePayroll() {
         (e: any) => e.status === "Failed"
     );
 
-    // Toggle employee selection
-    const toggleEmployee = (id: string) => {
-        setSelectedEmployees((prev: string[]) =>
-            prev.includes(id) ? prev.filter((x: string) => x !== id) : [...prev, id],
+
+    const toggleEmployee = (id: any) => {
+        const emp = employees.find((e: any) => e.id === id);
+        if (emp && isLocked(emp)) return;
+        setSelectedEmployees((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
     };
 
     const toggleAll = () => {
-        if (selectedEmployees.length === filteredEmployees.length) {
-            setSelectedEmployees([]);
+        if (selectedDept === "all") return;
+
+        const filteredIds = filteredEmployees.map((e: any) => e.id);
+        const allFilteredSelected = filteredIds.every((id) =>
+            selectedEmployees.includes(id)
+        );
+
+        if (allFilteredSelected) {
+            // Uncheck only the filtered ones (keep others)
+            setSelectedEmployees((prev) =>
+                prev.filter((id) => !filteredIds.includes(id))
+            );
         } else {
-            setSelectedEmployees(filteredEmployees.map((e: any) => e.id));
+            // Check all filtered (merge, dedupe)
+            setSelectedEmployees((prev) => [
+                ...new Set([...prev, ...filteredIds]),
+            ]);
         }
     };
 
@@ -570,7 +600,19 @@ export default function GeneratePayroll() {
                                         <FormControl size="small" sx={{ minWidth: 150 }}>
                                             <Select
                                                 value={selectedDept}
-                                                onChange={(e) => setSelectedDept(e.target.value)}
+                                                onChange={(e) => {
+                                                    const dept = e.target.value;
+                                                    setSelectedDept(dept);
+
+                                                    if (dept === "all") {
+                                                        setSelectedEmployees(employees.map((emp: any) => emp.id));
+                                                    } else {
+                                                        const deptEmployeeIds = employees
+                                                            .filter((emp: any) => emp.department === dept)
+                                                            .map((emp: any) => emp.id);
+                                                        setSelectedEmployees(deptEmployeeIds);
+                                                    }
+                                                }}
                                                 displayEmpty
                                             >
                                                 <MenuItem value="all">All Departments</MenuItem>
@@ -603,7 +645,8 @@ export default function GeneratePayroll() {
                                                             filteredEmployees.length
                                                         }
                                                         onChange={toggleAll}
-                                                        className="!p-1"
+                                                        className="!p-1 text-gray-800"
+                                                        disabled={selectedDept === "all"}
                                                     />
                                                 </TableCell>
                                                 {/* <TableCell className="!font-bold">#</TableCell> */}
@@ -618,14 +661,17 @@ export default function GeneratePayroll() {
                                                 <TableRow
                                                     key={emp.id}
                                                     sx={getRowColor(i)}
-                                                    onClick={() => toggleEmployee(emp.id)}
+                                                    onClick={() => {
+                                                        if (!isLocked(emp)) toggleEmployee(emp.id);
+                                                    }}
                                                 >
                                                     <TableCell>
                                                         <Checkbox
                                                             checked={selectedEmployees.includes(emp.id)}
                                                             onChange={() => toggleEmployee(emp.id)}
                                                             onClick={(e) => e.stopPropagation()}
-                                                            className="!p-1"
+                                                            disabled={isLocked(emp)}
+                                                            className="!p-1 text-gray-800"
                                                         />{i + 1}
                                                     </TableCell>
                                                     <TableCell>
@@ -1067,7 +1113,7 @@ export default function GeneratePayroll() {
                                                             {e.status === "Failed" ? "—" : (e.advanceDeduction > 0 ? formatCurrency(e.advanceDeduction) : "—")}
                                                         </Typography>
                                                     </TableCell>
-                                                     <TableCell align="right">
+                                                    <TableCell align="right">
                                                         <Typography className="text-blue-600">
                                                             {e.status === "Failed" ? "—" : (e.otherDeductions > 0 ? formatCurrency(e.otherDeductions) : "—")}
                                                         </Typography>

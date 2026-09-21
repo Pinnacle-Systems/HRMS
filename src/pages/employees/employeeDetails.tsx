@@ -98,6 +98,8 @@ import { ProfileCompletionProgress } from "./useProfileCompletion";
 import { attendanceService } from "../../services/modules/attendance";
 import { mobileAttendanceService, type GeofenceValidateData } from "../../services/modules/mobileAttendance";
 import { loadCompanyDetails } from "../../utils/companyDetails";
+import { salaryViewService, type SalaryViewResponse } from "../../services/modules/payrollServices/salaryView";
+import { formatCurrency } from "../payroll/const";
 
 const withMidNoFallback = (data: any) => {
   const midNo = typeof data.midNo === "string" ? data.midNo.trim() : data.midNo;
@@ -120,6 +122,14 @@ const getMigrantStatus = (employeeData: any): boolean | null => {
   if (!companyStateId || !permanentStateId) return null;
   return companyStateId !== permanentStateId;
 };
+
+const getMidNo = (employeeData: any) => {
+  if (employeeData.midNo !== null){
+    return true;
+  } else {
+    return false;
+  }
+}
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -156,7 +166,6 @@ const EditableGroup = ({
   onReactivate,
 }: any) => {
   const [isEditing, setIsEditing] = useState(false);
-  // const [editData, setEditData] = useState(data);
   const [editData, setEditData] = useState(() => withMidNoFallback(data));
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [department, setDepartments] = useState<Department[]>([]);
@@ -215,7 +224,6 @@ const EditableGroup = ({
     setIsEditing(false);
     onUnsavedChange?.(false);
   };
-
 
   const getFieldOptions = (
     fieldKey: string,
@@ -427,7 +435,6 @@ const EditableGroup = ({
       const payload = {
         aadhaarNumber,
         consent: true,
-        // consentGiven: true,
         employeeId: editData?.id || null,
       };
       const response: any = await employeeService.getAadhaarDetails(payload);
@@ -439,10 +446,6 @@ const EditableGroup = ({
           dateOfBirth: response.data.dateOfBirth || prev.dateOfBirth,
           gender: response.data.gender || prev.gender,
           fathersName: response.data.fathersName || prev.fathersName,
-          // address1: response.data.address1,
-          // city: response.data.city,
-          // state: response.data.state,
-          // pincode: response.data.pincode,
         }));
         showSnackbar(response.message, "success");
       } else {
@@ -511,7 +514,8 @@ const EditableGroup = ({
                       />
                     </MaterialModule.IconButton>
                   </MaterialModule.Tooltip>
-                )}
+                )
+              }
             </div>
           ) : (
             <div className="flex gap-1">
@@ -828,40 +832,40 @@ const EditableGroup = ({
             can be reactivated later.
           </div>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-           <div className="!space-y-6">
-             <DatePicker
-              label="Proposed Relieving Date"
-              format="DD/MM/YYYY"
-              value={proposedRelievedDate ? dayjs(proposedRelievedDate) : null}
-              onChange={(newValue) => {
-                const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
-                const generated = proposed
-                  ? dayjs(proposed).add(Number(editData?.noticePeriod || 0), "day").format("YYYY-MM-DD")
-                  : "";
-                setProposedRelievedDate(proposed);
-                setSystemGeneratedRelievedDate(generated);
-                setRelievingDate(generated);
-              }}
-            />
-            <MaterialModule.TextField
-              label="Notice Period (days)"
-              value={editData?.noticePeriod ?? 0}
-              disabled
-              className="!mt-4"
-            />
-            <MaterialModule.TextField
-              label="System Generated Relieving Date"
-              value={systemGeneratedRelievedDate}
-              disabled
-              className="!mt-4"
-            />
-            <DatePicker
-              label="Relieved Date"
-              format="DD/MM/YYYY"
-              value={relievingDate ? dayjs(relievingDate) : null}
-              onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
-            />
-           </div>
+            <div className="!space-y-6">
+              <DatePicker
+                label="Proposed Relieving Date"
+                format="DD/MM/YYYY"
+                value={proposedRelievedDate ? dayjs(proposedRelievedDate) : null}
+                onChange={(newValue) => {
+                  const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
+                  const generated = proposed
+                    ? dayjs(proposed).add(Number(editData?.noticePeriod || 0), "day").format("YYYY-MM-DD")
+                    : "";
+                  setProposedRelievedDate(proposed);
+                  setSystemGeneratedRelievedDate(generated);
+                  setRelievingDate(generated);
+                }}
+              />
+              <MaterialModule.TextField
+                label="Notice Period (days)"
+                value={editData?.noticePeriod ?? 0}
+                disabled
+                className="!mt-4"
+              />
+              <MaterialModule.TextField
+                label="System Generated Relieving Date"
+                value={systemGeneratedRelievedDate}
+                disabled
+                className="!mt-4"
+              />
+              <DatePicker
+                label="Relieved Date"
+                format="DD/MM/YYYY"
+                value={relievingDate ? dayjs(relievingDate) : null}
+                onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+              />
+            </div>
           </LocalizationProvider>
           <MaterialModule.FormControl fullWidth className="!mt-4">
             <MaterialModule.InputLabel>Resignation Type</MaterialModule.InputLabel>
@@ -1110,8 +1114,6 @@ const EditableTableGroup = ({
       setEditData(data);
     }
   }, [data, isEditing]);
-  // 7022763777
-  // jaikar.ss@bluechipssolutions.in
 
   useEffect(() => {
     if (isEditing && !isEditingRef.current) {
@@ -2265,6 +2267,10 @@ export default function EmployeeDetails() {
     "effective" | "assigned" | "history"
   >("effective");
 
+  const [salaryData, setSalaryData] = useState<SalaryViewResponse | null>(null);
+  const [salaryLoading, setSalaryLoading] = useState(false);
+  const [salaryError, setSalaryError] = useState<string | null>(null);
+
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any>(null);
 
@@ -2286,8 +2292,23 @@ export default function EmployeeDetails() {
     { label: "Family Details", icon: <MaterialModule.FamilyIcon /> },
     { label: "Nominations", icon: <MaterialModule.AccountBalanceIcon /> },
     { label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
+    { label: "Salary Breakdown", icon: <MaterialModule.AccountBalanceIcon /> },
     { label: "Policies", icon: <PolicyIcon /> },
   ];
+
+  useEffect(() => {
+    if (tabValue === 10 && apiId) {
+      setSalaryLoading(true);
+      setSalaryError(null);
+      salaryViewService
+        .getEmployeeSalaryView(String(apiId))
+        .then((response: any) => {
+          setSalaryData(response.data?.data || response.data);
+        })
+        .catch(() => setSalaryError("Failed to load salary breakdown."))
+        .finally(() => { setSalaryLoading(false); setSalaryData(null) });
+    }
+  }, [apiId, tabValue]);
 
   const fetchEmployeeAttendance = async (uid: any) => {
     try {
@@ -2334,6 +2355,7 @@ export default function EmployeeDetails() {
       const response: any = await employeeService.getEmployeeById(apiId);
       const employeeData = response.data;
       const migrant = getMigrantStatus(employeeData);
+      const midNo = getMidNo(employeeData);
       const normalizedEmployeeData = withMidNoFallback(
         migrant === null ? employeeData : { ...employeeData, migrant },
       );
@@ -2342,6 +2364,10 @@ export default function EmployeeDetails() {
 
       if (migrant !== null && employeeData.migrant !== migrant) {
         await employeeService.updateAdminInfo(apiId, { migrant });
+      }
+
+      if (midNo == false) {
+        await updateAdminInfo(employeeData);
       }
     } catch (error: any) {
       showSnackbar(error.message || "Failed to load employee details", "error");
@@ -3406,7 +3432,6 @@ export default function EmployeeDetails() {
   }, [tabValue]);
 
   useEffect(() => {
-    // if (tabValue !== 10 || !apiId) return;
     if (tabValue !== 3 || !apiId) return;
     setPolicyLoading(true);
     setPolicyError(null);
@@ -3464,7 +3489,6 @@ export default function EmployeeDetails() {
     id: member.id,
     name: `${member.name} (${member.relationship})`,
   }));
-
 
   const handleUpdateNominations = async (updatedData: any[]) => {
     showSpinner();
@@ -3809,9 +3833,6 @@ export default function EmployeeDetails() {
                 size={60}
                 showLabel={true}
               />
-              {/* <div className="mt-2">
-                <ProfileCompletionBadge employee={employee} />
-              </div> */}
             </div>
             {
               isAdmin ? (
@@ -3834,7 +3855,8 @@ export default function EmployeeDetails() {
                     {!checkIn ? 'Check In' : 'Check Out'}
                   </Button>
                 </div>
-              )}
+              )
+            }
           </div>
         </MaterialModule.CardContent>
       </MaterialModule.Card>
@@ -4212,7 +4234,6 @@ export default function EmployeeDetails() {
                 />
               ))}
             </div>
-
           </TabPanel>
 
           {/* Tab 9: Attachments */}
@@ -4233,9 +4254,78 @@ export default function EmployeeDetails() {
             />
           </TabPanel>
 
-          {/* Tab 10: Policies */}
+          {/* Tab 10: Salary Breakdown */}
           <TabPanel value={tabValue} index={10}>
-            {/* Policy tab content - unchanged */}
+            <div className="p-4 space-y-4">
+              {salaryLoading && (
+                <div className="flex justify-center py-10">
+                  <MaterialModule.CircularProgress />
+                </div>
+              )}
+              {salaryError && <MaterialModule.Alert severity="error">{salaryError}</MaterialModule.Alert>}
+              {!salaryLoading && !salaryError && salaryData && (
+                <>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    {[
+                      ["Annual CTC", salaryData.header.annualCtc],
+                      ["Monthly Gross", salaryData.header.monthlyGross],
+                      ["Monthly Net", salaryData.header.monthlyNet],
+                    ].map(([label, amount]) => (
+                      <MaterialModule.Card key={label} variant="outlined" className="!rounded-lg !bg-white">
+                        <MaterialModule.CardContent>
+                          <Typography variant="body2" className="!text-gray-500">{label}</Typography>
+                          <Typography variant="h6" className="!font-semibold !text-gray-900">
+                            {formatCurrency(Number(amount) || 0)}
+                          </Typography>
+                        </MaterialModule.CardContent>
+                      </MaterialModule.Card>
+                    ))}
+                  </div>
+
+                  <MaterialModule.Card variant="outlined" className="!rounded-lg !bg-white">
+                    <MaterialModule.CardContent>
+                      <Typography variant="h6" className="!mb-3 !font-semibold !text-gray-900">Current Salary Structure</Typography>
+                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <div>
+                          <Typography variant="subtitle2" className="!mb-2 !font-semibold !text-green-700">Earnings</Typography>
+                          {salaryData.currentStructure.earnings.length === 0 ? (
+                            <Typography variant="body2" className="!text-gray-500">No earnings configured.</Typography>
+                          ) : salaryData.currentStructure.earnings.map((item) => (
+                            <div key={item.name} className="flex justify-between border-b border-gray-200 py-2 text-[12px]">
+                              <span className="text-gray-800">{item.name}</span>
+                              <span className="text-gray-800 font-medium">{formatCurrency(Number(item.amount) || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <Typography variant="subtitle2" className="!mb-2 !font-semibold !text-error">Deductions</Typography>
+                          {salaryData.currentStructure.deductions.length === 0 ? (
+                            <Typography variant="body2" className="!text-gray-500">No deductions configured.</Typography>
+                          ) : salaryData.currentStructure.deductions.map((item) => (
+                            <div key={item.name} className="flex justify-between border-b border-gray-200 py-2 text-[12px]">
+                              <span className="text-gray-800">{item.name}</span>
+                              <span className="font-medium text-gray-800">{formatCurrency(Number(item.amount) || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex border-t border-gray-200 mt-4 p-5 items-center justify-between">
+                        <span className="text-gray-800">Gross: <strong className="text-green-600">{formatCurrency(salaryData.currentStructure.grossSalary || 0)}</strong></span>
+                        <span className="text-gray-800">Deductions: <strong className="text-error">{formatCurrency(salaryData.currentStructure.totalDeductions || 0)}</strong></span>
+                        <span className="text-gray-800">Take-home: <strong className="text-blue-500">{formatCurrency(salaryData.currentStructure.netTakeHome || 0)}</strong></span>
+                      </div>
+                    </MaterialModule.CardContent>
+                  </MaterialModule.Card>
+                </>
+              )}
+              {!salaryLoading && !salaryError && !salaryData && (
+                <MaterialModule.Alert severity="info">No salary breakdown is available for this employee.</MaterialModule.Alert>
+              )}
+            </div>
+          </TabPanel>
+
+          {/* Tab 11: Policies */}
+          <TabPanel value={tabValue} index={11}>
             <div className="p-4">
               {/* Section toggle buttons */}
               <div className="flex gap-2 mb-4 border-b border-gray-200 pb-3">

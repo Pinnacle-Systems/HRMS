@@ -967,43 +967,43 @@ export default function PayrollAnalyticsDashboard() {
           </Typography>
           <Grid container spacing={2}>
             {/* Salary Distribution */}
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card className="bg-white border border-gray-200" elevation={0} sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="subtitle1" sx={{ mb: 2 }} className="text-gray-800 !font-bold">
                     Salary Distribution
                   </Typography>
-                  <ChartRenderer option={overviewChartOptions.salaryDistribution || {}} height={350} />
+                  <ChartRenderer option={overviewChartOptions.salaryDistribution || {}} height={200} />
                 </CardContent>
               </Card>
             </Grid>
 
             {/* ESI Contribution */}
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card className="bg-white border border-gray-200" elevation={0} sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="subtitle1" sx={{ mb: 2 }} className="text-gray-800 !font-bold">
                     ESI Contribution
                   </Typography>
-                  <ChartRenderer option={overviewChartOptions.esiContribution || {}} height={350} />
+                  <ChartRenderer option={overviewChartOptions.esiContribution || {}} height={200} />
                 </CardContent>
               </Card>
             </Grid>
 
             {/* PF Contribution */}
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card className="bg-white border border-gray-200" elevation={0} sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="subtitle1" sx={{ mb: 2 }} className="text-gray-800 !font-bold">
                     PF Contribution
                   </Typography>
-                  <ChartRenderer option={overviewChartOptions.pfContribution || {}} height={350} />
+                  <ChartRenderer option={overviewChartOptions.pfContribution || {}} height={200} />
                 </CardContent>
               </Card>
             </Grid>
 
             {/* Employee Strength */}
-            <Grid size={{ xs: 12, md: 6 }}>
+            <Grid size={{ xs: 12}}>
               <Card className="bg-white border border-gray-200" elevation={0} sx={{ height: "100%" }}>
                 <CardContent>
                   <Typography variant="subtitle1" sx={{ mb: 2 }} className="text-gray-800 !font-bold">

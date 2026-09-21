@@ -2,6 +2,7 @@ import type { AuthSession } from "./authTypes";
 import { logger } from "../utils/logger";
 
 const AUTH_STORAGE_KEY = "hrms.auth.session";
+const AUTH_COMPANY_KEY = "hrms.company.details";
 
 export function saveSession(session: AuthSession): void {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -60,6 +61,7 @@ export function shouldRefreshSession(session: AuthSession | null): boolean {
 
 export function clearSession(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  localStorage.removeItem(AUTH_COMPANY_KEY);
   logger.debug("Cleared auth session");
 }
 

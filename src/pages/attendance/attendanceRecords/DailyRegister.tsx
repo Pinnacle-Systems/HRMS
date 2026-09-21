@@ -1075,17 +1075,54 @@ export function DailyRegister() {
           employeeId: e.employeeId,
           employeeCode: e.employeeCode || "",
           timestamp: e.timestamp,
+          punchType: e.punchType,
           deviceId: e.deviceId || e.machineInOutGridId || "",
         })),
       };
       const res: any = await attendanceService.importAttendance(payload);
       const data = res?.data?.data ?? res?.data;
       setPunchImportResult(data);
-      showSnackbar(
-        data?.message ||
-        `Imported ${data?.totalPunches || 0} punches successfully`,
-        data?.errors > 0 ? "warning" : "success",
-      );
+      const punchDates = validEntries
+        .map((e) => dayjs(e.timestamp))
+        .filter((d) => d.isValid());
+
+      const fromDate = punchDates.length
+        ? punchDates.reduce((min, d) => (d.isBefore(min) ? d : min)).format("YYYY-MM-DD")
+        : dayjs().format("YYYY-MM-DD");
+
+      const toDate = punchDates.length
+        ? punchDates.reduce((max, d) => (d.isAfter(max) ? d : max)).format("YYYY-MM-DD")
+        : dayjs().format("YYYY-MM-DD");
+      // showSnackbar(
+      //   data?.message ||
+      //   `Imported ${data?.totalPunches || 0} punches successfully`,
+      //   data?.errors > 0 ? "warning" : "success",
+      // );
+      try {
+        await attendanceService.processAttendance({
+          fromDate,
+          toDate,
+          departmentId: departmentId && departmentId !== "All" ? departmentId : undefined,
+          employeeIds: undefined,
+          workerType: "Both",
+          reprocess: true,
+        });
+
+        showSnackbar(
+          data?.message
+            ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
+            }`
+            : `Imported ${data?.totalPunches || 0} punches and processed attendance`,
+          data?.errors > 0 ? "warning" : "success",
+        );
+      } catch (processErr: any) {
+        // Punches were imported, but processing failed — warn the user
+        showSnackbar(
+          `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
+          }`,
+          "warning",
+        );
+      }
       loadRegister();
       loadTodaySummary();
       setPunchImportOpen(false);
@@ -2891,10 +2928,11 @@ export function DailyRegister() {
             {punchSource === "manual" && punchEntries.length > 0 && (
               <div className="border border-gray-200 rounded overflow-hidden">
                 {/* Header */}
-                <div className="grid grid-cols-[25px_220px_180px_140px_95px] gap-4 bg-gray-50 px-3 py-2 border-b border-gray-200">
+                <div className="grid grid-cols-[25px_220px_180px_100px_140px_95px] gap-4 bg-gray-50 px-3 py-2 border-b border-gray-200">
                   <div className="text-[12px] font-medium text-gray-600 !w-[20px]">#</div>
                   <div className="text-[12px] font-medium text-gray-600">Employee</div>
                   <div className="text-[12px] font-medium text-gray-600">Timestamp</div>
+                  <div className="text-[12px] font-medium text-gray-600">Punch Type</div>
                   <div className="text-[12px] font-medium text-gray-600">Device</div>
                   <div className="text-[12px] font-medium text-gray-600 text-center">Action</div>
                 </div>
@@ -2903,7 +2941,7 @@ export function DailyRegister() {
                 {punchEntries.map((entry, index) => (
                   <div
                     key={entry.id || index}
-                    className="grid grid-cols-[25px_220px_180px_140px_95px] gap-4 px-3 py-2 items-center border-b border-gray-100 last:border-0"
+                    className="grid grid-cols-[25px_220px_180px_100px_140px_95px] gap-4 px-3 py-2 items-center border-b border-gray-100 last:border-0"
                   >
                     <div className="text-[12px] text-gray-400 !w-[20px]">{index + 1}</div>
 
@@ -2952,6 +2990,23 @@ export function DailyRegister() {
                           }}
                         />
                       </LocalizationProvider>
+                    </div>
+
+                    <div>
+                      <FormControl >
+                        <Select
+                          value={entry.punchType || ''}
+                          onChange={(e) => updatePunchEntry(index, "punchType", e.target.value)}
+                          displayEmpty
+                          sx={selectSx}
+                        >
+
+                          <MenuItem value="IN">IN</MenuItem>
+                          <MenuItem value="OUT">OUT</MenuItem>
+
+
+                        </Select>
+                      </FormControl>
                     </div>
 
                     <div className="">
@@ -3005,6 +3060,7 @@ export function DailyRegister() {
                       checked={selectAllDevices}
                       indeterminate={selectedDeviceIds.length > 0 && selectedDeviceIds.length < devices.length}
                       onChange={handleSelectAllDevices}
+                      className="text-gray-800"
                     />
                   </div>
                   <div className="text-[12px] font-medium text-gray-600">Device Name</div>
@@ -3025,6 +3081,7 @@ export function DailyRegister() {
                           size="small"
                           checked={selectedDeviceIds.includes(device.id)}
                           onChange={() => handleSelectDevice(device.id)}
+                          className="text-gray-800"
                         />
                       </div>
                       <div className="text-[12px] text-gray-800">{device.deviceName}</div>

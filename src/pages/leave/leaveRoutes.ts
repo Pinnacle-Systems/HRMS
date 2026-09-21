@@ -202,24 +202,24 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     allowedRoles: ["ADMIN"],
     isImplemented: true,
   },
-  {
-    id: "adminWorkCalendars",
-    path: "/leaves/admin/work-calendars",
-    label: "Work Calendars",
-    description: "Work calendar setup and assignment shells will appear here.",
-    group: "admin",
-    allowedRoles: ["ADMIN"],
-    isImplemented: true,
-  },
-  {
-    id: "adminWorkflows",
-    path: "/leaves/admin/workflows",
-    label: "Workflows",
-    description: "Leave approval workflow configuration will appear here.",
-    group: "admin",
-    allowedRoles: ["ADMIN"],
-    isImplemented: true,
-  },
+  // {
+  //   id: "adminWorkCalendars",
+  //   path: "/leaves/admin/work-calendars",
+  //   label: "Work Calendars",
+  //   description: "Work calendar setup and assignment shells will appear here.",
+  //   group: "admin",
+  //   allowedRoles: ["ADMIN"],
+  //   isImplemented: true,
+  // },
+  // {
+  //   id: "adminWorkflows",
+  //   path: "/leaves/admin/workflows",
+  //   label: "Workflows",
+  //   description: "Leave approval workflow configuration will appear here.",
+  //   group: "admin",
+  //   allowedRoles: ["ADMIN"],
+  //   isImplemented: true,
+  // },
 ];
 
 export const leaveGroupLabels: Record<LeaveRouteGroup, string> = {

@@ -419,6 +419,15 @@ const ALL_ITEMS: SearchItem[] = [
     keywords: ["onboarding", "new hire", "joining"],
     roles: ["ADMIN", "HR"],
   },
+   {
+    label: "Muster Settings",
+    description: "Configure muster settings",
+    path: "/settings/attendance/muster-settings",
+    category: "Settings",
+    icon: <SettingsOutlinedIcon fontSize="small" />,
+    keywords: ["muster", "legends", "status", "settings"],
+    roles: ["ADMIN", "HR"],
+  },
   {
     label: "Payroll Settings",
     description: "Configure payroll rules and deductions",

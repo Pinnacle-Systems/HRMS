@@ -10,7 +10,6 @@ import {
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { attendanceService } from "../../../services/modules/attendance";
-// import { ATTENDANCE_STATUS_LABELS, ATTENDANCE_STATUS_BG } from "../const";
 import { MONTHS, getDaysInMonth, getCurrentMonthYear, formatTime } from "../const";
 import type { Branches, Department } from "../../employees/type";
 import { departmentService } from "../../../services/modules/department";
@@ -20,31 +19,257 @@ import { getRowColor } from "../../const";
 import type { MusterRow } from "../../../services/modules/attendanceTypes";
 import { apiService } from "../../../services";
 
-const LEGEND = [
-  { abbr: "P", label: "Present", color: "bg-green-500" },
-  { abbr: "A", label: "Absent", color: "bg-red-500" },
-  { abbr: "L", label: "Late", color: "bg-amber-500" },
-  { abbr: "H", label: "Half Day", color: "bg-blue-700" },
-  { abbr: "OD", label: "On Duty", color: "bg-cyan-500" },
-  { abbr: "LV", label: "Leave", color: "bg-violet-400" },
-  { abbr: "PM", label: "Permission", color: "bg-orange-500" },
-  { abbr: "HO", label: "Holiday", color: "bg-slate-300" },
-  { abbr: "WO", label: "Weekly Off", color: "bg-gray-200" },
-  { abbr: "IR", label: "Irregular", color: "bg-pink-400" },
+const FALLBACK_LEGEND = [
+  { status: "present", specification: "P", label: "Present", color: "#24b428" },
+  { status: "absent", specification: "A", label: "Absent", color: "#dc268c" },
+  { status: "late", specification: "L", label: "Late", color: "#CA8A04" },
+  { status: "half_day", specification: "H", label: "Half Day", color: "#14B8A6" },
+  { status: "on_duty", specification: "OD", label: "On Duty", color: "#0EA5E9" },
+  { status: "leave", specification: "LV", label: "Leave", color: "#F97316" },
+  { status: "permission", specification: "PM", label: "Permission", color: "#06B6D4" },
+  { status: "holiday", specification: "HD", label: "Holiday", color: "#3B82F6" },
+  { status: "weekly_off", specification: "WO", label: "Week Off", color: "#9CA3AF" },
+  { status: "irregular", specification: "IR", label: "Irregular", color: "#B45309" },
+  { status: "missed_out", specification: "MO", label: "Missed Out", color: "#9333EA" },
+  { status: "night_duty", specification: "ND", label: "Night Duty", color: "#6366F1" },
+  { status: "wfh", specification: "WFH", label: "WFH", color: "#10B981" },
+  { status: "comp_off", specification: "CO", label: "Comp Off", color: "#EC4899" },
 ];
 
-const STATUS_MAPPINGS: any = {
-  present: { abbr: 'P', class: 'bg-green-100 border border-green-700 text-green-700' },
-  absent: { abbr: 'A', class: 'bg-red-100 border border-red-700 text-red-700' },
-  'half-day': { abbr: 'HD', class: 'bg-blue-100 border border-blue-700 text-blue-700' },
-  late: { abbr: 'L', class: 'bg-amber-100 text-amber-700 border border-amber-700' },
-  leave: { abbr: 'LV', class: 'bg-violet-100 text-violet-700 border border-violet-700' },
-  holiday: { abbr: 'HO', class: 'bg-slate-100 text-slate-700 border border-slate-300' },
-  'weekly_off': { abbr: 'WO', class: 'bg-gray-100 text-gray-500 border border-gray-700' },
-  'on-duty': { abbr: 'OD', class: 'bg-cyan-100 text-cyan-500 border border-cyan-700' },
-  permission: { abbr: 'PM', class: 'bg-orange-100 text-orange-700 border border-orange-700' },
-  irregular: { abbr: 'IR', class: 'bg-pink-100 text-pink-700 border border-pink-700' },
+const SUMMARY_COL_WIDTH = 46;
+const REGISTER_PINNED_WIDTH = 85;
+
+type StatusMap = Record<string, { abbr: string; color: string; label: string }>;
+
+type SummaryColumn = {
+  key: string;
+  abbr: string;
+  color: string;
+  label: string;
+  field: string;
+  pinned?: boolean;
 };
+
+const MUSTER_SUMMARY_ORDER = [
+  "present",
+  "absent",
+  "late",
+  "leave",
+  "irregular",
+];
+
+const MUSTER_SUMMARY_FIELD_MAP: Record<string, string> = {
+  present: "totalPresent",
+  absent: "totalAbsent",
+  late: "totalLate",
+  leave: "totalLeave",
+  irregular: "totalIrregular",
+};
+
+const REGISTER_EXCLUDED_STATUSES = ["early_out", "irregular_early_out"];
+
+const REGISTER_FIELD_ALIASES: Record<string, string[]> = {
+  present: ["totalPresent", "presentDays", "present"],
+  absent: ["totalAbsent", "absentDays", "absent"],
+  late: ["totalLate", "lateDays", "late"],
+  leave: ["totalLeave", "leaveDays", "leave"],
+  irregular: ["totalIrregular", "irregularDays", "irregular"],
+  half_day: ["totalHalfDay", "halfDays", "halfDay"],
+  on_duty: ["totalOnDuty", "onDutyDays", "onDuty"],
+  permission: ["permissionDays", "totalPermission", "permission"],
+  early_out: ["earlyOutDays", "totalEarlyOut", "earlyOut", "early_out"],
+  lop: ["lopDays", "totalLop", "lop"],
+  missed_out: ["missedOutDays", "totalMissedOut", "missedOut"],
+  weekly_off: ["weeklyOffDays", "totalWeeklyOff", "weeklyOff", "weekOff"],
+  holiday: ["holidayDays", "totalHoliday", "holiday", "holidays"],
+  worked_hours: ["workedHours", "totalWorkedHours", "worked_hours"],
+  ot_hours: ["otHours", "totalOtHours", "otHours"],
+  // ot_minutes: ["otMinutes", "totalOtMinutes", "otMinutes"],
+  night_duty: ["nightDutyDays", "totalNightDuty", "nightDuty"],
+  wfh: ["wfhDays", "totalWfh", "wfh"],
+  comp_off: ["compOffDays", "totalCompOff", "compOff"],
+};
+
+/** Full-form header labels for register columns */
+const REGISTER_HEADER_LABELS: Record<string, string> = {
+  present: "Present",
+  absent: "Absent",
+  late: "Late",
+  half_day: "Half Day",
+  on_duty: "On Duty",
+  leave: "Leave",
+  permission: "Permission",
+  holiday: "Holiday",
+  weekly_off: "Week Off",
+  irregular: "Irregular",
+  missed_out: "Missed Out",
+  night_duty: "Night Duty",
+  wfh: "WFH",
+  comp_off: "Comp Off",
+  lop: "Lop",
+  worked_hours: "Worked(h)",
+  ot_hours: "OT (h)",
+  // ot_minutes: "OT (m)",
+  att: "Att %",
+};
+
+/** Extra (non-legend) columns for the Monthly Register, placed before OT columns. */
+const REGISTER_EXTRA_COLUMNS: SummaryColumn[] = [
+  {
+    key: "lop",
+    abbr: "Lop",
+    color: "#dc268c",
+    label: "Loss of Pay",
+    field: "lop",
+  },
+  {
+    key: "worked_hours",
+    abbr: "Worked(h)",
+    color: "#14a85c",
+    label: "Worked Hours",
+    field: "workedHours",
+  },
+];
+
+function buildLegendMaps(apiLegend: any[]): { mappings: StatusMap; normalized: any[] } {
+  const source = apiLegend?.length ? apiLegend : FALLBACK_LEGEND;
+  const mappings: StatusMap = {};
+  const normalized: any[] = [];
+
+  source.forEach((item: any) => {
+    const key = item.status;
+    if (!key) return;
+    mappings[key] = {
+      abbr: item.specification ?? "?",
+      color: item.color ?? "#9CA3AF",
+      label: item.label ?? key,
+    };
+    normalized.push({
+      status: key,
+      abbr: item.specification ?? "?",
+      label: item.label ?? key,
+      color: item.color ?? "#9CA3AF",
+    });
+  });
+
+  return { mappings, normalized };
+}
+
+function buildMusterSummaryColumns(legend: any[]): SummaryColumn[] {
+  const map = new Map(legend.map((l) => [l.status, l]));
+  const cols: SummaryColumn[] = [];
+
+  MUSTER_SUMMARY_ORDER.forEach((status) => {
+    const item = map.get(status);
+    const field = MUSTER_SUMMARY_FIELD_MAP[status];
+    if (!item || !field) return;
+    cols.push({
+      key: status,
+      abbr: item.abbr,
+      color: item.color,
+      label: item.label,
+      field,
+    });
+  });
+
+  cols.push({
+    key: "ot",
+    abbr: "OT(h)",
+    color: "#EA580C",
+    label: "Overtime (hours)",
+    field: "totalOT",
+  });
+  cols.push({
+    key: "att",
+    abbr: "Att%",
+    color: "#09b30f",
+    label: "Attendance Percentage",
+    field: "attendancePercentage",
+  });
+
+  return cols;
+}
+
+function buildRegisterColumns(legend: any[]): SummaryColumn[] {
+  const cols: SummaryColumn[] = [];
+
+  // 1. All legend statuses (in legend order), excluding ones we explicitly skip
+  legend.forEach((item) => {
+    if (REGISTER_EXCLUDED_STATUSES.includes(item.status)) return;
+    cols.push({
+      key: item.status,
+      abbr: REGISTER_HEADER_LABELS[item.status] ?? item.label ?? item.status,
+      color: item.color,
+      label: item.label,
+      field: item.status,
+    });
+  });
+
+  // 2. Extra non-legend columns (Lop, Worked(h))
+  REGISTER_EXTRA_COLUMNS.forEach((extra) => {
+    if (cols.find((c) => c.key === extra.key)) return;
+    cols.push(extra);
+  });
+
+  // 3. OT columns (scrollable, right after Worked(h))
+  cols.push({
+    key: "ot_hours",
+    abbr: REGISTER_HEADER_LABELS.ot_hours,
+    color: "#EA580C",
+    label: "Overtime (hours)",
+    field: "otHours",
+  });
+  // cols.push({
+  //   key: "ot_minutes",
+  //   abbr: REGISTER_HEADER_LABELS.ot_minutes,
+  //   color: "#EA580C",
+  //   label: "Overtime (minutes)",
+  //   field: "otMinutes",
+  // });
+
+  // 4. Att% (only pinned-right column)
+  cols.push({
+    key: "att",
+    abbr: REGISTER_HEADER_LABELS.att,
+    color: "#09b30f",
+    label: "Attendance Percentage",
+    field: "attendancePercentage",
+    pinned: true,
+  });
+
+  return cols;
+}
+
+function hexToRgba(hex: string, alpha = 0.15): string {
+  if (!hex) return `rgba(156, 163, 175, ${alpha})`;
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  const r = parseInt(full.substring(0, 2), 16);
+  const g = parseInt(full.substring(2, 4), 16);
+  const b = parseInt(full.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function resolveRegisterValue(row: any, status: string): number {
+  const aliases = REGISTER_FIELD_ALIASES[status] ?? [];
+  for (const key of aliases) {
+    if (row[key] !== undefined && row[key] !== null) return Number(row[key]);
+  }
+  return 0;
+}
+
+function getSolidRowBg(rowStyle: any): string {
+  const c = rowStyle?.backgroundColor;
+  if (!c || c === "transparent" || c === "inherit") return "#ffffff";
+  return c;
+}
+
+// ——— Attendance percentage color helper ———
+function getAttendanceColor(pct: number): string {
+  if (pct < 30) return "#dc2626"; // red
+  if (pct < 70) return "#f59e0b"; // amber
+  return "#24b428"; // green
+}
 
 const getAttendanceStatus = (cell: any): {
   overallStatus: string | null;
@@ -64,35 +289,30 @@ const getAttendanceStatus = (cell: any): {
     workedMinutes,
     shiftCode,
     shiftStart,
-    shiftEnd
+    shiftEnd,
   } = cell;
 
-  let amStatus = null;
-  let pmStatus = null;
-  let overallStatus = null;
-  let details = [];
+  let amStatus: string | null = null;
+  let pmStatus: string | null = null;
+  let overallStatus: string | null = null;
+  const details: string[] = [];
 
-  // Determine AM status
   if (checkIn && checkOut) {
-    // Full day present
     amStatus = firstHalf === "late" ? "late" : "present";
     pmStatus = secondHalf === "late" ? "late" : "present";
     overallStatus = firstHalf === "late" ? "late" : "present";
     details.push(`✅ Full Day (${formatTime(checkIn)} - ${formatTime(checkOut)})`);
   } else if (checkIn && !checkOut) {
-    // Half day present (checked in but not checked out)
     amStatus = firstHalf === "late" ? "late" : "present";
     pmStatus = "absent";
-    overallStatus = "half-day";
+    overallStatus = "half_day";
     details.push(`⏳ Half Day (In: ${formatTime(checkIn)})`);
   } else if (!checkIn && checkOut) {
-    // Late arrival (checked out but no check in)
     amStatus = "late";
     pmStatus = "present";
     overallStatus = "late";
     details.push(`⏰ Late Arrival (Out: ${formatTime(checkOut)})`);
   } else if (firstHalf === "present" || secondHalf === "present") {
-    // Based on manual status
     amStatus = firstHalf === "present" ? "present" : null;
     pmStatus = secondHalf === "present" ? "present" : null;
     overallStatus = "present";
@@ -117,15 +337,13 @@ const getAttendanceStatus = (cell: any): {
     overallStatus = "weekly_off";
     details.push("📅 Weekly Off");
   } else {
-    // Default to firstHalf/secondHalf values if they exist
     amStatus = firstHalf || null;
     pmStatus = secondHalf || null;
     overallStatus = firstHalf || secondHalf || null;
   }
 
-  // Add shift details
   if (shiftCode) {
-    details.push(`Shift: ${shiftCode} (${shiftStart || 'N/A'} - ${shiftEnd || 'N/A'})`);
+    details.push(`Shift: ${shiftCode} (${shiftStart || "N/A"} - ${shiftEnd || "N/A"})`);
   }
 
   if (workedMinutes) {
@@ -134,12 +352,7 @@ const getAttendanceStatus = (cell: any): {
     details.push(`⏱️ ${hours}h ${mins}m worked`);
   }
 
-  return {
-    overallStatus,
-    amStatus,
-    pmStatus,
-    details: details.join(' | ')
-  };
+  return { overallStatus, amStatus, pmStatus, details: details.join(" | ") };
 };
 
 export function AttendanceMuster() {
@@ -149,7 +362,6 @@ export function AttendanceMuster() {
   const [month, setMonth] = useState(curMonth);
   const [year, setYear] = useState(curYear);
   const [departmentId, setDepartmentId] = useState("");
-  // const [shiftId, setShifttId] = useState("");
   const [branchId, setBranchId] = useState("");
   const [employees, setEmployees] = useState<MusterRow[]>([]);
   const [holidays, setHolidays] = useState<string[]>([]);
@@ -158,7 +370,6 @@ export function AttendanceMuster() {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
-  // const [shifts, setShifts] = useState<Shift[]>([]);
   const [viewMode, setViewMode] = useState<"muster" | "register">("muster");
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -167,8 +378,26 @@ export function AttendanceMuster() {
   const [musterPage, setMusterPage] = useState(1);
   const [musterLimit, setMusterLimit] = useState(20);
 
+  // Dynamic legend & mappings from API
+  const [legend, setLegend] = useState<any[]>([]);
+  const [statusMappings, setStatusMappings] = useState<StatusMap>({});
+  const [musterColumns, setMusterColumns] = useState<SummaryColumn[]>([]);
+  const [registerColumns, setRegisterColumns] = useState<SummaryColumn[]>([]);
+
   const daysInMonth = getDaysInMonth(year, month);
   const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  // Split register columns: scrollable (middle) vs pinned-right (only Att%)
+  const registerScrollableColumns = registerColumns.filter((c) => !c.pinned);
+  const registerPinnedColumns = registerColumns.filter((c) => c.pinned);
+
+  // Compute right offset for a pinned-right register column at index `idx`
+  const getRegisterPinRightOffset = (idx: number) =>
+    `${(registerPinnedColumns.length - 1 - idx) * REGISTER_PINNED_WIDTH}px`;
+
+  // Compute right offset for a muster summary column at index `idx`
+  const getMusterRightOffset = (idx: number) =>
+    `${(musterColumns.length - 1 - idx) * SUMMARY_COL_WIDTH}px`;
 
   function getDayLabel(day: number) {
     const d = new Date(year, month - 1, day);
@@ -190,8 +419,9 @@ export function AttendanceMuster() {
     showSpinner();
     try {
       const res: any = await attendanceService.getMuster({
-        month, year,
-        departmentId: departmentId || undefined,
+        month,
+        year,
+        departmentId: departmentId !== "All" ? departmentId : undefined,
         branchId: branchId || undefined,
       });
       const data = res?.data?.data ?? res?.data;
@@ -199,6 +429,12 @@ export function AttendanceMuster() {
       setHolidays(data?.holidays ?? []);
       setWeeklyOffs(data?.weeklyOffs ?? []);
       setWorkingDays(data?.workingDays ?? 0);
+
+      const { mappings, normalized } = buildLegendMaps(data?.legend ?? []);
+      setStatusMappings(mappings);
+      setLegend(normalized);
+      setMusterColumns(buildMusterSummaryColumns(normalized));
+      setRegisterColumns(buildRegisterColumns(normalized));
     } catch {
       showSnackbar("Failed to load muster register", "error");
     } finally {
@@ -215,11 +451,8 @@ export function AttendanceMuster() {
       const branRes: any = await branchService.getActiveBranches();
       const branData = branRes.data?.content || branRes.data || [];
       setBranches(branData);
-      // const shiftRes: any = await shiftService.getActiveShifts();
-      // const shiftData = shiftRes.data?.content || shiftRes.data || [];
-      // setShifts(shiftData);
     } catch (error: any) {
-      console.error('Failed to fetch master data:', error);
+      console.error("Failed to fetch master data:", error);
     }
   };
 
@@ -227,8 +460,9 @@ export function AttendanceMuster() {
     setRegisterLoading(true);
     try {
       const res: any = await attendanceService.getMonthlyRegister({
-        month, year,
-        departmentId: departmentId || undefined,
+        month,
+        year,
+        departmentId: departmentId !== "All" ? departmentId : undefined,
         branchId: branchId || undefined,
       });
       const employees = res?.data?.employees ?? res?.data;
@@ -289,9 +523,8 @@ export function AttendanceMuster() {
         year,
         departmentId: departmentId || undefined,
         branchId: branchId || undefined,
-        exportFormat: 'excel'
-      }
-      );
+        exportFormat: "excel",
+      });
       await apiService.downloadFromPath(res.data.fileUrl, `attendance_${month}_${year}.xlsx`);
       showSnackbar(`Muster exported successfully for ${MONTHS[month - 1]} ${year}`, "success");
     } catch (err: any) {
@@ -300,6 +533,53 @@ export function AttendanceMuster() {
       hideSpinner();
     }
   }
+
+  // Render a colored badge using dynamic color from API legend
+  const renderStatusBadge = (statusKey: string | null, fallback = "—") => {
+    if (!statusKey || !statusMappings[statusKey]) {
+      return (
+        <span className="inline-flex items-center justify-center px-2 py-1 text-[8px] font-bold bg-gray-100 text-gray-400">
+          {fallback}
+        </span>
+      );
+    }
+    const info = statusMappings[statusKey];
+    return (
+      <span
+        className="inline-flex items-center justify-center px-2 py-1 text-[8px] font-bold border"
+        style={{
+          backgroundColor: hexToRgba(info.color, 0.15),
+          borderColor: info.color,
+          color: info.color,
+        }}
+      >
+        {info.abbr}
+      </span>
+    );
+  };
+
+  const REGISTER_COL_WIDTHS = {
+    sNo: 60,
+    name: 120,
+    designation: 120,
+  };
+
+  const REGISTER_OFFSETS = {
+    sNo: 0,
+    name: REGISTER_COL_WIDTHS.sNo,
+    designation: REGISTER_COL_WIDTHS.sNo + REGISTER_COL_WIDTHS.name,
+  };
+
+  const Z = {
+    headerLeft1: 50,
+    headerLeft2: 51,
+    headerLeft3: 52,
+    headerRightBase: 55,
+    bodyLeft1: 20,
+    bodyLeft2: 21,
+    bodyLeft3: 22,
+    bodyRightBase: 25,
+  };
 
   return (
     <div className="p-4">
@@ -320,33 +600,24 @@ export function AttendanceMuster() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* <FormControl className="!w-[180px]">
-            <InputLabel>Shift</InputLabel>
-            <Select value={shiftId} onChange={(e) => setShifttId(e.target.value)} label="Shift" sx={selectSx}>
-              {shifts.map(d => (
-                <MenuItem key={d.id} value={d.id}>{d.shiftName} ({d.shiftCode})</MenuItem>
-              ))}
-            </Select>
-          </FormControl> */}
           <FormControl className="!w-[180px]">
             <InputLabel>Department</InputLabel>
             <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} label="Department" sx={selectSx}>
               <MenuItem value="All">All Departments</MenuItem>
-              {departments.map(d => (
+              {departments.map((d) => (
                 <MenuItem key={d.id} value={d.id}>{d.departmentName}</MenuItem>
               ))}
             </Select>
           </FormControl>
           <FormControl className="!w-[180px]">
             <InputLabel>Branch</InputLabel>
-            <Select value={branchId} onChange={(e) => setBranchId(e.target.value)} label="Department" sx={selectSx}>
+            <Select value={branchId} onChange={(e) => setBranchId(e.target.value)} label="Branch" sx={selectSx}>
               <MenuItem value="">All Branches</MenuItem>
-              {branches.map(b => (
+              {branches.map((b) => (
                 <MenuItem key={b.id} value={b.id}>{b.branchName}</MenuItem>
               ))}
             </Select>
           </FormControl>
-          {/* View toggle */}
           <div className="flex border border-gray-300 rounded overflow-hidden">
             <Tooltip title="Muster Matrix">
               <button
@@ -380,18 +651,18 @@ export function AttendanceMuster() {
         </div>
       </div>
 
-      {/* Legend */}
+      {/* Dynamic Legend */}
       <div className="flex flex-wrap items-center gap-4 mb-5">
-        {LEGEND.map(({ abbr, label, color }) => (
-          <div key={abbr} className="flex items-center gap-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+        {legend.map(({ abbr, label, color, status }) => (
+          <div key={status} className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
             <span className="text-xs text-gray-700">{label}</span>
             <span className="text-[10px] text-gray-400 font-mono">({abbr})</span>
           </div>
         ))}
       </div>
 
-      {/* Monthly Register Table View */}
+      {/* Monthly Register — only Att% is right-sticky */}
       {viewMode === "register" && (
         <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
           {registerLoading ? (
@@ -404,64 +675,185 @@ export function AttendanceMuster() {
                 <Table stickyHeader>
                   <TableHead>
                     <TableRow>
-                      {["S No", "Name", "Designation",
-                        "Present", "Absent", "Late", "Half Day", "On Duty", "Leave", "Permission", "EarlyOut", "Lop","Week Off","Holidays", "Worked(h)", "OT (h)", "OT (m)", "Att %"].map((h, i) => (
-                          <TableCell key={h} className={`${i == 0 ? 'left-0 sticky bg-inherit !z-50' : i == 1 ? 'left-[58px] sticky bg-inherit !z-50' : i == 2 ? 'left-[160px] sticky bg-inherit !z-50' :
-                            i == 17 ? 'right-0 sticky bg-inherit !z-50' : ''} !font-bold whitespace-nowrap`}>{h}</TableCell>
-                        ))}
+                      <TableCell
+                        className="!font-bold whitespace-nowrap"
+                        sx={{
+                          position: "sticky",
+                          left: 0,
+                          zIndex: Z.headerLeft1,
+                          backgroundColor: "#ffffff",
+                          boxSizing: "border-box",
+                          width: REGISTER_COL_WIDTHS.sNo,
+                          minWidth: REGISTER_COL_WIDTHS.sNo,
+                        }}
+                      >
+                        S No
+                      </TableCell>
+
+                      <TableCell
+                        className="!font-bold whitespace-nowrap"
+                        sx={{
+                          position: "sticky",
+                          left: `${REGISTER_OFFSETS.name}px`,
+                          zIndex: Z.headerLeft2,
+                          backgroundColor: "#ffffff",
+                          boxSizing: "border-box",
+                          width: REGISTER_COL_WIDTHS.name,
+                          minWidth: REGISTER_COL_WIDTHS.name,
+                        }}
+                      >
+                        Name
+                      </TableCell>
+
+                      <TableCell
+                        className="!font-bold whitespace-nowrap"
+                        sx={{
+                          position: "sticky",
+                          left: `${REGISTER_OFFSETS.designation}px`,
+                          zIndex: Z.headerLeft3,
+                          backgroundColor: "#ffffff",
+                          boxSizing: "border-box",
+                          width: REGISTER_COL_WIDTHS.designation,
+                          minWidth: REGISTER_COL_WIDTHS.designation,
+                          borderRight: "1px solid #e5e7eb",
+                        }}
+                      >
+                        Designation
+                      </TableCell>
+
+                      {registerScrollableColumns.map((col) => (
+                        <TableCell
+                          key={col.key}
+                          className="!font-bold !text-[11px] !text-center"
+                          style={{ color: col.color}}
+                        >
+                          {col.abbr}
+                        </TableCell>
+                      ))}
+
+                      {registerPinnedColumns.map((col, idx) => (
+                        <TableCell
+                          key={col.key}
+                          className="!font-bold whitespace-nowrap !text-center"
+                          sx={{
+                            position: "sticky",
+                            right: getRegisterPinRightOffset(idx),
+                            zIndex: Z.headerRightBase + idx,
+                            backgroundColor: "#ffffff",
+                            boxSizing: "border-box",
+                            color: col.color,
+                            width: REGISTER_PINNED_WIDTH,
+                            minWidth: REGISTER_PINNED_WIDTH,
+                            borderLeft: "1px solid #e5e7eb",
+                          }}
+                          title={col.label}
+                        >
+                          {col.abbr}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   </TableHead>
+
                   <TableBody>
-                    {pagedRegisterRows.map((r: any, i: number) => (
-                      <TableRow key={r.employeeId ?? i} sx={getRowColor(i)} className="bg-inherit">
-                        <TableCell className="sticky left-0 z-20 bg-inherit" >{(registerPage - 1) * registerLimit + i + 1}</TableCell>
-                        <TableCell className="sticky left-[58px] bg-inherit z-20 text-gray-800 whitespace-nowrap">
-                          <div className="grid">
-                            <div>{r.employeeName} </div>
-                            <span className="text-primary text-[10px]">{r.employeeCode}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="sticky left-[168px] bg-inherit z-20">
-                          <div className="grid">
-                            <div>{r.designation || '-'} </div>
-                            <span className="text-blue-500 text-[10px]">{r.department}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="!text-center"><span className="!text-green-600 !font-bold">{r.totalPresent ?? r.presentDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-red-500 !font-bold">{r.totalAbsent ?? r.absentDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-amber-400 !font-bold">{r.totalLate ?? r.lateDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-blue-500 !font-bold">{r.totalHalfDay ?? r.halfDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-cyan-500 !font-bold">{r.totalOnDuty ?? r.onDutyDays ?? "-"}</span></TableCell>
+                    {pagedRegisterRows.map((r: any, i: number) => {
+                      const rowStyle = getRowColor(i);
+                      const rowBg = getSolidRowBg(rowStyle);
+                      return (
+                        <TableRow key={r.employeeId ?? i} sx={rowStyle}>
+                          <TableCell
+                            sx={{
+                              position: "sticky",
+                              left: 0,
+                              zIndex: Z.bodyLeft1,
+                              backgroundColor: rowBg,
+                              boxSizing: "border-box",
+                              width: REGISTER_COL_WIDTHS.sNo,
+                              minWidth: REGISTER_COL_WIDTHS.sNo,
+                            }}
+                          >
+                            {(registerPage - 1) * registerLimit + i + 1}
+                          </TableCell>
 
-                        <TableCell className="!text-center"><span className="!text-violet-400 !font-bold">{r.totalLeave ?? r.leaveDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-orange-500 !font-bold">{r.permissionDays ?? "-"}</span></TableCell>
+                          <TableCell
+                            className="text-gray-800 whitespace-nowrap"
+                            sx={{
+                              position: "sticky",
+                              left: `${REGISTER_OFFSETS.name}px`,
+                              zIndex: Z.bodyLeft2,
+                              backgroundColor: rowBg,
+                              boxSizing: "border-box",
+                              width: REGISTER_COL_WIDTHS.name,
+                              minWidth: REGISTER_COL_WIDTHS.name,
+                            }}
+                          >
+                            <div className="grid">
+                              <div className="truncate">{r.employeeName}</div>
+                              <span className="text-primary text-[10px]">{r.employeeCode}</span>
+                            </div>
+                          </TableCell>
 
-                        <TableCell className="!text-center"><span className="!text-sky-500 !font-bold">{r.earlyOutDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-red-600 !font-bold">{r.lossOfPayDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-gray-500 !font-bold">{r.weeklyOffDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-gray-300 !font-bold">{r.holidayDays ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center"><span className="!text-emerald-500 !font-bold">{r.totalWorkedHours ?? "-"}</span></TableCell>
-                        <TableCell className="!text-center">{r.otHours ?? 0}</TableCell>
-                        <TableCell className="!text-center">{((r.otHours ?? 0) * 60).toFixed(0)}</TableCell>
-                        <TableCell className="!text-center sticky right-0 z-20 bg-inherit" sx={{
-                          padding: '8px !important',
-                        }}>
-                          <span className={`px-2 py-0.5 !my-2 rounded-full font-semibold ${(r.attendancePercentage ?? 0) >= 90 ? "bg-green-100 text-green-700"
-                            : (r.attendancePercentage ?? 0) >= 75 ? "bg-amber-100 text-amber-700"
-                              : "bg-red-100 text-red-700"}`}>
-                            {(r.attendancePercentage ?? 0).toFixed(1)}%
-                          </span>
-                        </TableCell>
-                        {/* <TableCell>
-                          {r.status && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap
-                            ${ATTENDANCE_STATUS_BG[r.status as AttendanceStatus] ?? "bg-gray-100 text-gray-600"}`}>
-                              {ATTENDANCE_STATUS_LABELS[r.status as AttendanceStatus] ?? r.status}
-                            </span>
-                          )}
-                        </TableCell> */}
-                      </TableRow>
-                    ))}
+                          <TableCell
+                            sx={{
+                              position: "sticky",
+                              left: `${REGISTER_OFFSETS.designation}px`,
+                              zIndex: Z.bodyLeft3,
+                              backgroundColor: rowBg,
+                              boxSizing: "border-box",
+                              width: REGISTER_COL_WIDTHS.designation,
+                              minWidth: REGISTER_COL_WIDTHS.designation,
+                              borderRight: "1px solid #e5e7eb",
+                            }}
+                          >
+                            <div className="grid">
+                              <div className="truncate">{r.designation || "-"}</div>
+                              <span className="text-blue-500 text-[10px] truncate">{r.department}</span>
+                            </div>
+                          </TableCell>
+
+                          {registerScrollableColumns.map((col) => {
+                            const value = resolveRegisterValue(r, col.key);
+                            return (
+                              <TableCell key={col.key} className="!text-center" style={{ width: 60, minWidth: 60 }}>
+                                <span style={{ color: col.color }} className="!font-bold">
+                                  {value || "-"}
+                                </span>
+                              </TableCell>
+                            );
+                          })}
+
+                          {registerPinnedColumns.map((col, idx) => {
+                            const pct = Number(r.attendancePercentage ?? 0);
+                            const color = getAttendanceColor(pct);
+                            return (
+                              <TableCell
+                                key={col.key}
+                                className="!text-center"
+                                sx={{
+                                  position: "sticky",
+                                  right: getRegisterPinRightOffset(idx),
+                                  zIndex: Z.bodyRightBase + idx,
+                                  backgroundColor: rowBg,
+                                  boxSizing: "border-box",
+                                  width: REGISTER_PINNED_WIDTH,
+                                  minWidth: REGISTER_PINNED_WIDTH,
+                                  borderLeft: "1px solid #e5e7eb",
+                                }}
+                              >
+                                <span
+                                  className="px-2 py-0.5 rounded-full font-semibold whitespace-nowrap"
+                                  style={{
+                                    backgroundColor: hexToRgba(color, 0.15),
+                                    color,
+                                  }}
+                                >
+                                  {pct.toFixed(1)}%
+                                </span>
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>
@@ -487,233 +879,194 @@ export function AttendanceMuster() {
               <div className="overflow-x-auto max-h-[calc(100vh-270px)]">
                 <table className="text-xs border-collapse min-w-full">
                   <thead>
-                    {/* Day numbers row */}
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="sticky left-0 top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
+                      <th className="sticky left-0 top-0 z-40 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
                         Code
                       </th>
-                      <th className="sticky left-[53px] top-0 z-30 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
+                      <th className="sticky left-[53px] top-0 z-[41] bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
                         Employee
                       </th>
+
                       {dayNumbers.map((d) => (
                         <th
                           key={d}
-                          className={`sticky top-0 z-20  bg-gray-50 px-1 py-1 text-center font-semibold min-w-[32px] border-r border-gray-100
-                        ${isHoliday(d) ? "bg-slate-100 text-slate-500" : ""}
-                        ${isWeeklyOff(d) ? "bg-gray-100 text-gray-400" : ""}
-                      `}
+                          className={`sticky top-0 z-20 bg-gray-50 px-1 py-1 text-center font-semibold min-w-[32px] border-r border-gray-100
+                            ${isHoliday(d) ? "bg-slate-100 text-slate-500" : ""}
+                            ${isWeeklyOff(d) ? "bg-gray-100 text-gray-400" : ""}
+                          `}
                         >
                           <div>{d}</div>
                           <div className="text-[9px] font-normal text-gray-400">{getDayLabel(d)}</div>
                         </th>
                       ))}
-                      <th className="sticky top-0 right-[236px] z-20 px-2 py-2 text-center text-gray-600 font-semibold border-l border-gray-200 bg-gray-50 min-w-[36px]">P</th>
-                      <th className="sticky top-0 right-[200px] z-20  px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">A</th>
-                      <th className="sticky top-0 right-[166px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">L</th>
-                      <th className="sticky top-0 right-[130px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[36px]">LV</th>
-                      <th className="sticky top-0 right-[90px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">IR</th>
-                      <th className="sticky top-0 right-[43px] z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">OT(h)</th>
-                      <th className="sticky top-0 right-0 z-20 px-2 py-2 text-center text-gray-600 font-semibold bg-gray-50 min-w-[40px]">Att%</th>
+
+                      {musterColumns.map((col, idx) => (
+                        <th
+                          key={col.key}
+                          title={col.label}
+                          style={{
+                            right: getMusterRightOffset(idx),
+                            minWidth: `${SUMMARY_COL_WIDTH}px`,
+                            width: `${SUMMARY_COL_WIDTH}px`,
+                            zIndex: 60 + idx,
+                          }}
+                          className={`sticky top-0 px-1 py-2 text-center font-semibold bg-gray-50 text-gray-500
+                            ${idx === 0 ? "border-l border-gray-200" : ""}`}
+                        >
+                          {col.abbr}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {pagedEmployees.map((emp, ri) => (
-                      <tr key={emp.employeeId} style={getRowColor(ri)}>
-                        <td className="sticky left-0 z-10 bg-inherit whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono">
-                          {emp.employeeCode}
-                        </td>
-                        <td className="sticky left-[53px] z-10 bg-inherit border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap">
-                          {emp.employeeName}
-                        </td>
-                        {/* {dayNumbers.map((d) => {
-                          const cell = getCellForDay(emp, d);
-                          const status = cell?.status ?? null;
-                          const abbr = status ? (MUSTER_STATUS_ABBR[status] ?? "?") : "";
-                          const cellClass = status ? (MUSTER_STATUS_CELL[status] ?? "bg-gray-100 text-gray-500") : "";
-                          const isHol = isHoliday(d);
-                          const isWO = isWeeklyOff(d);
+                    {pagedEmployees.map((emp, ri) => {
+                      const rowStyle = getRowColor(ri);
+                      const rowBg = getSolidRowBg(rowStyle);
+                      return (
+                        <tr key={emp.employeeId} style={rowStyle}>
+                          <td
+                            className="sticky left-0 z-20 whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono"
+                            style={{ backgroundColor: rowBg }}
+                          >
+                            {emp.employeeCode}
+                          </td>
+                          <td
+                            className="sticky left-[53px] z-[21] border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap"
+                            style={{ backgroundColor: rowBg }}
+                          >
+                            {emp.employeeName}
+                          </td>
 
-                          return (
-                            <Tooltip
-                              key={d}
-                              title={
-                                cell
-                                  ? `${MUSTER_STATUS_ABBR[cell.status ?? ""] || cell.status}${cell.checkIn ? ` | In: ${formatDateTime(cell.checkIn)}` : ""}${cell.checkOut ? ` | Out: ${formatDateTime(cell.checkOut)}` : ""}`
-                                  : isHol ? "Holiday" : isWO ? "Weekly Off" : "No data"
-                              }
-                            >
-                              <td className="px-0.5 py-1 text-center border-r border-gray-100">
-                                {cell && status ? (
-                                  <span className={`inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold ${cellClass}`}>
-                                    {abbr}
-                                  </span>
-                                ) : isHol ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-slate-200 text-slate-500">HO</span>
-                                ) : isWO ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] bg-gray-100 text-gray-400">WO</span>
-                                ) : (
-                                  <span className="text-gray-200">—</span>
-                                )}
-                              </td>
-                            </Tooltip>
-                          );
-                        })} */}
-                        {dayNumbers.map((d) => {
-                          const cell = getCellForDay(emp, d);
-                          const status = getAttendanceStatus(cell);
-                          const isHol = isHoliday(d);
-                          const isWO = isWeeklyOff(d);
+                          {dayNumbers.map((d) => {
+                            const cell = getCellForDay(emp, d);
+                            const status = getAttendanceStatus(cell);
+                            const isHol = isHoliday(d);
+                            const isWO = isWeeklyOff(d);
+                            const showHoliday = isHol && !cell;
+                            const showWeeklyOff = isWO && !cell;
+                            const amInfo = status.amStatus ? statusMappings[status.amStatus] : null;
+                            const pmInfo = status.pmStatus ? statusMappings[status.pmStatus] : null;
 
-                          // Determine if we should show holiday/weekly off
-                          const showHoliday = isHol && !cell;
-                          const showWeeklyOff = isWO && !cell;
-
-                          // Get status display info
-                          const amStatusInfo = status.amStatus ? STATUS_MAPPINGS[status.amStatus] : null;
-                          const pmStatusInfo = status.pmStatus ? STATUS_MAPPINGS[status.pmStatus] : null;
-
-                          return (
-                            <Tooltip
-                              key={d}
-                              title={
-                                <div className="text-xs">
-                                  <div className="font-bold mb-1">Attendance Details</div>
-                                  <div>AM: {status.amStatus || '—'}</div>
-                                  <div>PM: {status.pmStatus || '—'}</div>
-                                  <div className="mt-1 text-gray-300">{status.details}</div>
-                                </div>
-                              }
-                            >
-                              <td className="px-0.5 py-1 text-center border-r border-gray-100">
-                                {cell ? (
-                                  <div className="">
-                                    {
-                                      amStatusInfo?.abbr == pmStatusInfo?.abbr ? (
-                                        <div className={`p-2 py-1 text-[8px] font-bold ${amStatusInfo?.class || 'bg-gray-100 text-gray-400'}`}>{amStatusInfo?.abbr || '—'}</div>
-                                      ) : (
-                                        <div className="flex items-center">
-                                          <span className={`p-2 py-1 text-[8px] border-r-0 font-bold ${amStatusInfo?.class || 'bg-gray-100 text-gray-400'}`}>{amStatusInfo?.abbr || '—'}</span>
-                                          <div className="h-6"></div>
-                                          <span className={`p-2 py-1 text-[8px] font-bold ${pmStatusInfo?.class || 'bg-gray-100 text-gray-400'}`}>{pmStatusInfo?.abbr || '—'}</span>
-                                        </div>
-                                      )
-                                    }
-                                  </div>
-                                ) : showHoliday ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">HO</span>
-                                ) : showWeeklyOff ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-gray-100 text-gray-500">WO</span>
-                                ) : (
-                                  <span className="text-gray-200">—</span>
-                                )}
-                              </td>
-                            </Tooltip>
-                          );
-                        })}
-                        {/* {dayNumbers.map((d) => {
-                          const cell = getCellForDay(emp, d);
-                          const status = getAttendanceStatus(cell);
-                          const isHol = isHoliday(d);
-                          const isWO = isWeeklyOff(d);
-
-                          const showHoliday = isHol && !cell;
-                          const showWeeklyOff = isWO && !cell;
-
-                          const amStatusInfo = status.amStatus ? STATUS_MAPPINGS[status.amStatus] : null;
-                          const pmStatusInfo = status.pmStatus ? STATUS_MAPPINGS[status.pmStatus] : null;
-
-                          // Get class for each half using MUSTER_STATUS_CELL
-                          const amClass = status.amStatus ? (MUSTER_STATUS_CELL[status.amStatus] ?? "bg-gray-100 text-gray-500") : "bg-gray-100 text-gray-500";
-                          const pmClass = status.pmStatus ? (MUSTER_STATUS_CELL[status.pmStatus] ?? "bg-gray-100 text-gray-500") : "bg-gray-100 text-gray-500";
-
-                          // Get abbreviation for each half
-                          const amAbbr = status.amStatus ? (MUSTER_STATUS_ABBR[status.amStatus] ?? "?") : "—";
-                          const pmAbbr = status.pmStatus ? (MUSTER_STATUS_ABBR[status.pmStatus] ?? "?") : "—";
-
-                          return (
-                            <Tooltip
-                              key={d}
-                              title={
-                                cell ? (
+                            return (
+                              <Tooltip
+                                key={d}
+                                title={
                                   <div className="text-xs">
                                     <div className="font-bold mb-1">Attendance Details</div>
-                                    <div>AM: {status.amStatus || '—'}</div>
-                                    <div>PM: {status.pmStatus || '—'}</div>
+                                    <div>AM: {status.amStatus || "—"}</div>
+                                    <div>PM: {status.pmStatus || "—"}</div>
                                     <div className="mt-1 text-gray-300">{status.details}</div>
                                   </div>
-                                ) : isHol ? (
-                                  "Holiday"
-                                ) : isWO ? (
-                                  "Weekly Off"
-                                ) : (
-                                  "No data"
-                                )
-                              }
-                            >
-                              <td className="px-0.5 py-1 text-center border-r border-gray-100">
-                                {cell ? (
-                                  <div className="flex items-center gap-0.5">
-                                    <span className={`inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold ${amClass}`}>
-                                      {amAbbr}
+                                }
+                              >
+                                <td className="px-0.5 py-1 text-center border-r border-gray-100">
+                                  {cell ? (
+                                    <div>
+                                      {amInfo?.abbr === pmInfo?.abbr ? (
+                                        renderStatusBadge(status.amStatus)
+                                      ) : (
+                                        <div className="flex items-center justify-center">
+                                          {renderStatusBadge(status.amStatus)}
+                                          <div className="h-6" />
+                                          {renderStatusBadge(status.pmStatus)}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : showHoliday ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-purple-100 text-purple-700">
+                                      HO
                                     </span>
-                                    <span className={`inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold ${pmClass}`}>
-                                      {pmAbbr}
+                                  ) : showWeeklyOff ? (
+                                    <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-gray-100 text-gray-500">
+                                      WO
                                     </span>
-                                  </div>
-                                ) : showHoliday ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] font-bold bg-slate-200 text-slate-500">HO</span>
-                                ) : showWeeklyOff ? (
-                                  <span className="inline-flex items-center justify-center w-6 h-5 rounded text-[9px] bg-gray-100 text-gray-400">WO</span>
-                                ) : (
-                                  <span className="text-gray-200">—</span>
-                                )}
+                                  ) : (
+                                    <span className="text-gray-200">—</span>
+                                  )}
+                                </td>
+                              </Tooltip>
+                            );
+                          })}
+
+                          {musterColumns.map((col, idx) => {
+                            const rawValue = (emp as any)[col.field];
+                            const isFirst = idx === 0;
+
+                            if (col.key === "att") {
+                              const pct = Number(rawValue ?? 0);
+                              const color = getAttendanceColor(pct);
+                              return (
+                                <td
+                                  key={col.key}
+                                  style={{
+                                    right: getMusterRightOffset(idx),
+                                    minWidth: `${SUMMARY_COL_WIDTH}px`,
+                                    backgroundColor: rowBg,
+                                    zIndex: 40 + idx,
+                                  }}
+                                  className={`sticky px-1 py-1.5 text-center ${isFirst ? "border-l border-gray-200" : ""}`}
+                                >
+                                  <span
+                                    className="font-semibold whitespace-nowrap"
+                                    style={{ color }}
+                                  >
+                                    {pct.toFixed(0)}%
+                                  </span>
+                                </td>
+                              );
+                            }
+
+                            return (
+                              <td
+                                key={col.key}
+                                style={{
+                                  right: getMusterRightOffset(idx),
+                                  minWidth: `${SUMMARY_COL_WIDTH}px`,
+                                  backgroundColor: rowBg,
+                                  zIndex: 40 + idx,
+                                }}
+                                className={`sticky px-1 py-1.5 text-center font-semibold ${isFirst ? "border-l border-gray-200" : ""}`}
+                              >
+                                <span style={{ color: col.color }}>{rawValue ?? 0}</span>
                               </td>
-                            </Tooltip>
-                          );
-                        })} */}
-                        <td className="sticky right-[236px] z-10 bg-inherit px-2 py-1.5 text-center text-green-600 font-semibold border-l border-gray-200">
-                          {emp.totalPresent}
-                        </td>
-                        <td className="sticky right-[200px] z-10 bg-inherit px-2 py-1.5 text-center text-red-500 font-semibold">{emp.totalAbsent}</td>
-                        <td className="sticky right-[166px] z-10 bg-inherit px-2 py-1.5 text-center text-amber-600 font-semibold">{emp.totalLate}</td>
-                        <td className="sticky right-[130px] z-10 bg-inherit px-2 py-1.5 text-center text-violet-600 font-semibold">{emp.totalLeave}</td>
-                        <td className="sticky right-[90px] z-10 bg-inherit px-2 py-1.5 text-center text-pink-600 font-semibold">{emp.totalIrregular}</td>
-                        <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
-                          {/* {(emp.totalOT / 60).toFixed(1)} */}
-                          {emp.totalOT}
-                        </td>
-                        {/* <td className="sticky right-[43px] z-10 bg-inherit px-2 py-1.5 text-center text-orange-600">
-                          {(emp.totalOT * 60).toFixed(0)}
-                        </td> */}
-                        <td className="sticky right-0 z-10 bg-inherit px-2 py-1.5 text-center">
-                          <span className={`text-xs font-semibold ${emp.attendancePercentage >= 90 ? "text-green-600" : emp.attendancePercentage >= 75 ? "text-amber-600" : "text-red-500"}`}>
-                            {emp.attendancePercentage.toFixed(0)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                   </tbody>
-                  {/* Summary Footer */}
+
                   <tfoot className="sticky bottom-0 z-30">
                     <tr className="bg-gray-100 border-t-2 border-gray-300">
-                      <td colSpan={2} className="sticky left-0 z-30 bg-gray-100 px-3 py-2 font-semibold text-gray-700 border-r border-gray-200">
+                      <td
+                        colSpan={2}
+                        className="sticky left-0 z-40 bg-gray-100 px-3 py-2 font-semibold text-gray-700 border-r border-gray-200"
+                      >
                         Day Total
                       </td>
                       {dayNumbers.map((d) => {
                         const presentCount = employees.filter((emp) => {
                           const cell = getCellForDay(emp, d);
-
-                          // const s = cell?.status;
                           const s = getAttendanceStatus(cell);
-                          return s.overallStatus === "present" || s.overallStatus === "checked_in" || s.overallStatus === "checked_out" || s.overallStatus === "late";
+                          return ["present", "late", "half_day"].includes(s.overallStatus ?? "");
                         }).length;
                         return (
-                          <td key={d} className="bg-gray-100 px-0.5 py-2 text-center text-[10px] font-semibold text-gray-600 border-r border-gray-100">
+                          <td
+                            key={d}
+                            className="bg-gray-100 px-0.5 py-2 text-center text-[10px] font-semibold text-gray-600 border-r border-gray-100"
+                          >
                             {presentCount > 0 ? presentCount : ""}
                           </td>
                         );
                       })}
-                      <td colSpan={6} className="sticky right-0 z-30 bg-gray-100 border-l border-gray-200" />
+                      <td
+                        colSpan={musterColumns.length}
+                        style={{
+                          right: 0,
+                          minWidth: `${musterColumns.length * SUMMARY_COL_WIDTH}px`,
+                        }}
+                        className="sticky z-40 bg-gray-100 border-l border-gray-200"
+                      />
                     </tr>
                   </tfoot>
                 </table>

@@ -27,6 +27,8 @@ import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import EventOutlinedIcon from "@mui/icons-material/EventOutlined";
 import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -56,7 +58,6 @@ import type { Branch } from "../../attendance/shiftSettings/types";
 import { CancelOutlined, Delete, Edit } from "@mui/icons-material";
 import { selectSx } from "../../../const";
 
-// ✅ Holiday Types - Backend compatible
 const holidayTypes: Holiday["holidayType"][] = [
   "PUBLIC",      // Standard/National holidays
   "RESTRICTED",  // Optional holidays
@@ -64,7 +65,6 @@ const holidayTypes: Holiday["holidayType"][] = [
   "FLOATING"     // Floating holidays
 ];
 
-// ✅ User-friendly display names for holiday types
 const getHolidayTypeDisplayName = (type: string): string => {
   const displayNames: Record<string, string> = {
     'PUBLIC': 'Public/National',
@@ -117,6 +117,10 @@ export default function AdminHolidayCalendarsPage() {
 
   const [branches, setBranches] = useState<Branch[]>([]);
 
+  const [expandedCalendarId, setExpandedCalendarId] = useState<string | null>(null);
+  const [expandedHolidays, setExpandedHolidays] = useState<Record<string, Holidays[]>>({});
+  const [expandedLoading, setExpandedLoading] = useState<string | null>(null);
+
   const [importOpen, setImportOpen] = useState(false);
   const [importCalendarId, setImportCalendarId] = useState("");
   const [importHolidays, setImportHolidays] = useState<HolidayImport[]>([
@@ -131,7 +135,6 @@ export default function AdminHolidayCalendarsPage() {
     },
   ]);
 
-  // ✅ Helper: Check if holiday type is optional
   const isOptionalHoliday = (holidayType: string): boolean => {
     return ["RESTRICTED", "OPTIONAL", "FLOATING"].includes(holidayType);
   };
@@ -153,6 +156,30 @@ export default function AdminHolidayCalendarsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const toggleExpandCalendar = async (calendar: HolidayCalendar) => {
+    if (expandedCalendarId === calendar.id) {
+      setExpandedCalendarId(null);
+      return;
+    }
+    setExpandedCalendarId(calendar.id);
+    if (expandedHolidays[calendar.id]) return;
+
+    setExpandedLoading(calendar.id);
+    try {
+      const res: any = await leaveService.getHolidays({
+        calendarId: calendar.id,
+      });
+      setExpandedHolidays((prev) => ({
+        ...prev,
+        [calendar.id]: res.data || [],
+      }));
+    } catch (err: any) {
+      showSnackbar(err?.message || "Failed to load holidays", "error");
+    } finally {
+      setExpandedLoading(null);
+    }
+  };
 
   const openCreateCalendar = () => {
     setEditingCalendarId(null);
@@ -221,6 +248,14 @@ export default function AdminHolidayCalendarsPage() {
           );
           if (response.success) {
             showSnackbar("Holiday calendar deleted", "success");
+            if (expandedCalendarId === calendar.id) {
+              setExpandedCalendarId(null);
+            }
+            setExpandedHolidays((prev) => {
+              const next = { ...prev };
+              delete next[calendar.id];
+              return next;
+            });
             await load();
           }
         } catch (err: any) {
@@ -270,6 +305,12 @@ export default function AdminHolidayCalendarsPage() {
         calendarId: selectedCalendar.id,
       });
       setHolidaysData(res.data || []);
+      if (expandedCalendarId === selectedCalendar.id) {
+        setExpandedHolidays((prev) => ({
+          ...prev,
+          [selectedCalendar.id]: res.data || [],
+        }));
+      }
     } catch (err: any) {
       showSnackbar(err?.message || "Failed to refresh holidays", "error");
     } finally {
@@ -441,6 +482,7 @@ export default function AdminHolidayCalendarsPage() {
         ]);
         setImportCalendarId("");
         await load();
+        setExpandedHolidays({});
         if (selectedCalendar && holidaysDialogOpen) {
           await refreshHolidays();
         }
@@ -501,10 +543,13 @@ export default function AdminHolidayCalendarsPage() {
         </div>
       }
     >
-      <TableContainer className="overflow-auto">
+      <TableContainer className="overflow-auto !mb-6">
         <Table className="border border-gray-200 rounded-sm">
           <TableHead>
             <TableRow sx={leaveTableHeaderRowSx}>
+              <TableCell className={leaveTableHeaderCellClassName} width={50}>
+                {/* Expand icon column */}
+              </TableCell>
               <TableCell className={leaveTableHeaderCellClassName}>
                 S No
               </TableCell>
@@ -517,76 +562,162 @@ export default function AdminHolidayCalendarsPage() {
               <TableCell className={leaveTableHeaderCellClassName}>
                 Branch
               </TableCell>
-              {/* <TableCell className={leaveTableHeaderCellClassName}>
-                Applicabel to
-              </TableCell> */}
-              {/* <TableCell className={leaveTableHeaderCellClassName}>
-                Allowed Leaves
-              </TableCell> */}
               <TableCell className={leaveTableHeaderCellClassName}>
                 Holidays
               </TableCell>
               <TableCell className={leaveTableHeaderCellClassName}>
                 Active
               </TableCell>
-              <TableCell className={leaveTableActionHeaderCellClassName}>
+              <TableCell align="center" className={leaveTableActionHeaderCellClassName}>
                 Actions
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {!loading &&
-              calendars.map((calendar, i) => (
-                <TableRow key={calendar.id} hover sx={getRowColor(i)}>
-                  <TableCell>{i + 1}</TableCell>
-                  <TableCell>{calendar.calendarName}</TableCell>
-                  <TableCell>{calendar.year}</TableCell>
-                  <TableCell>
-                    {calendar.branchName ||
-                      calendar.locations?.join(", ") ||
-                      "-"}
-                  </TableCell>
-                  {/* <TableCell>Staff/Labour</TableCell> */}
-                  {/* <TableCell>5</TableCell> */}
-                  <TableCell>{calendar.holidaysCount || 0}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={calendar.active ? "Active" : "Inactive"}
-                      color={calendar.active ? "success" : "error"}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Manage Holidays">
-                      <IconButton
-                        size="small"
-                        onClick={() => openHolidaysDialog(calendar)}
-                      >
-                        <EventOutlinedIcon className="!w-4 !h-4 text-cyan-500" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => openEditCalendar(calendar)}
-                      >
-                        <Edit className="!w-4 !h-4 text-blue-500" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => confirmDeleteCalendar(calendar)}
-                      >
-                        <Delete className="!w-4 !h-4 text-red-600" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
+              calendars.map((calendar, i) => {
+                const isExpanded = expandedCalendarId === calendar.id;
+                const isLoadingHolidays = expandedLoading === calendar.id;
+                const holidays = expandedHolidays[calendar.id] || [];
+
+                return (
+                  <>
+                    <TableRow key={calendar.id} hover sx={getRowColor(i)}>
+                      <TableCell width={50}>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleExpandCalendar(calendar)}
+                        >
+                          {isExpanded ? (
+                            <KeyboardArrowUpIcon className="!w-5 !h-5 text-gray-700" />
+                          ) : (
+                            <KeyboardArrowDownIcon className="!w-5 !h-5 text-gray-700" />
+                          )}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell>{i + 1}</TableCell>
+                      <TableCell>{calendar.calendarName}</TableCell>
+                      <TableCell>{calendar.year}</TableCell>
+                      <TableCell>
+                        {calendar.branchName ||
+                          calendar.locations?.join(", ") ||
+                          "-"}
+                      </TableCell>
+                      <TableCell>{calendar.holidaysCount || 0}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={calendar.active ? "Active" : "Inactive"}
+                          color={calendar.active ? "success" : "error"}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="Manage Holidays">
+                          <IconButton
+                            size="small"
+                            onClick={() => openHolidaysDialog(calendar)}
+                          >
+                            <EventOutlinedIcon className="!w-4 !h-4 text-cyan-500" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => openEditCalendar(calendar)}
+                          >
+                            <Edit className="!w-4 !h-4 text-blue-500" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={() => confirmDeleteCalendar(calendar)}
+                          >
+                            <Delete className="!w-4 !h-4 text-red-600" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+
+                    {isExpanded && (
+                      <TableRow>
+                        <TableCell colSpan={8} className="!p-0 !bg-gray-50">
+                          {isLoadingHolidays ? (
+                            <div className="p-4 text-center text-gray-500 text-sm">
+                              Loading holidays...
+                            </div>
+                          ) : holidays.length === 0 ? (
+                            <div className="p-4">
+                              <DataState
+                                compact
+                                type="empty"
+                                title="No holidays in this calendar."
+                              />
+                            </div>
+                          ) : (
+                            <div className="p-4">
+                              <div className="text-[12px] text-gray-700 font-semibold mb-2">
+                                Holidays in "{calendar.calendarName}" ({holidays.length})
+                              </div>
+                              <Table
+                                size="small"
+                                className={leaveTableClassName}
+                                sx={leaveTableSx}
+                              >
+                                <TableHead>
+                                  <TableRow sx={leaveTableHeaderRowSx}>
+                                    <TableCell className={leaveTableHeaderCellClassName}>
+                                      S No
+                                    </TableCell>
+                                    <TableCell className={leaveTableHeaderCellClassName}>
+                                      Date
+                                    </TableCell>
+                                    <TableCell className={leaveTableHeaderCellClassName}>
+                                      Name
+                                    </TableCell>
+                                    <TableCell className={leaveTableHeaderCellClassName}>
+                                      Type
+                                    </TableCell>
+                                    <TableCell className={leaveTableHeaderCellClassName}>
+                                      Applicable To
+                                    </TableCell>
+                                    <TableCell className={leaveTableHeaderCellClassName}>
+                                      Status
+                                    </TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {holidays.map((holiday, idx) => (
+                                    <TableRow key={holiday.id} sx={getRowColor(idx)}>
+                                      <TableCell>{idx + 1}</TableCell>
+                                      <TableCell>{formatDate(holiday.holidayDate)}</TableCell>
+                                      <TableCell>{holiday.holidayName}</TableCell>
+                                      <TableCell>
+                                        <HolidayTypeBadge type={holiday.holidayType} />
+                                      </TableCell>
+                                      <TableCell>{holiday.applicableTo || "-"}</TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={holiday.active ? "Active" : "Inactive"}
+                                          color={holiday.active ? "success" : "default"}
+                                          size="small"
+                                        />
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                );
+              })}
             {!loading && calendars.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9}>
+                <TableCell colSpan={8}>
                   <DataState
                     compact
                     type="empty"
@@ -792,7 +923,7 @@ export default function AdminHolidayCalendarsPage() {
                         <TableCell>
                           <IconButton
                             size="small"
-                            onClick={() => handleEditHoliday(holiday)} // ✅ Using handleEditHoliday
+                            onClick={() => handleEditHoliday(holiday)}
                           >
                             <Edit className="!w-4 !h-4 text-blue-500" />
                           </IconButton>
@@ -872,7 +1003,7 @@ export default function AdminHolidayCalendarsPage() {
                         <TableCell>
                           <IconButton
                             size="small"
-                            onClick={() => handleEditHoliday(holiday)} // ✅ Using handleEditHoliday
+                            onClick={() => handleEditHoliday(holiday)}
                           >
                             <Edit className="!w-4 !h-4 text-blue-500" />
                           </IconButton>
@@ -963,7 +1094,6 @@ export default function AdminHolidayCalendarsPage() {
                   <MenuItem value="Both">Both</MenuItem>
                 </TextField>
                 <FormControlLabel
-                  // className="justify-center"
                   control={
                     <Switch
                       checked={holidayForm.optionalHoliday ?? false}

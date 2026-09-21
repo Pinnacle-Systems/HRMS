@@ -99,6 +99,7 @@ const PayrollReports = lazy(() => import("../pages/payroll/AdvancedFeature/Payro
 const PayrollAudit = lazy(() => import("../pages/payroll/AdvancedFeature/PayrolAudit.tsx"));
 const EmployeePortal = lazy(() => import("../pages/payroll/AdvancedFeature/EmployeePortal"));
 const UserManagement = lazy(() => import("../pages/userManagement/userMangement"));
+const MusterSettings = lazy(() => import("../pages/settings/attendance/musterSettings.tsx"));
 
 // ============================================================================
 // ROUTE CONFIGURATION - Single Source of Truth
@@ -766,6 +767,18 @@ function AppRoutesContent() {
                     >
                       <Route path="payroll/payroll-settings" element={<PayrollSettings />} />
                       <Route path="payroll/payroll-settings/:tab" element={<PayrollSettings />} />
+                    </Route>
+
+                     {/* Attendance Settings - Admin & HR with ATTENDANCE_WRITE */}
+                    <Route
+                      element={
+                        <ProtectedRoute
+                          allowedRoles={["ADMIN", "HR"]}
+                          requiredPermissions={[PERMISSIONS.ATTENDANCE_WRITE]}
+                        />
+                      }
+                    >
+                      <Route path="attendance/muster-settings" element={<MusterSettings />} />
                     </Route>
 
                     <Route index element={<CompanySettings />} />

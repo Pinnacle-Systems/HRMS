@@ -1538,7 +1538,7 @@ export default function MyLeaveRequestsPage() {
                               ? "bg-emerald-50 text-emerald-600"
                               : approval.actionTaken === "REJECTED"
                                 ? "bg-red-50 text-red-600"
-                                : approval.actionTaken === "SUBMITTED" || approval.actionTaken === "RESUBMITTED" ? "bg-blue-500" : "bg-amber-50 text-amber-600"
+                                : approval.actionTaken === "SUBMITTED" || approval.actionTaken === "RESUBMITTED" ? "bg-blue-500 text-white" : "bg-amber-50 text-amber-600"
                               }`}
                           >
                             {approval.actionTaken}
