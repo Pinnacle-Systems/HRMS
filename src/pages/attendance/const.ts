@@ -113,6 +113,7 @@ export const STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: "weekly_off", label: "Weekly Off" },
   { value: "irregular", label: "Irregular" },
   { value: "missed_punch", label: "Missed Punch" },
+  { value: "night_duty", label: "Night Duty" },
 ];
 
 export function formatMinutes(minutes: number): string {

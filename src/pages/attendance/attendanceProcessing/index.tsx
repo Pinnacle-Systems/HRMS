@@ -24,11 +24,11 @@ const TABS = [
     icon: <PlayCircleOutlined className="!w-4" />,
     component: <ProcessAttendance />,
   },
-   {
-    label: "Consolidate",
-    icon: <SummarizeOutlined className="!w-4" />,
-    component: <AttendanceConsolidated />,
-  }, 
+  //  {
+  //   label: "Consolidate",
+  //   icon: <SummarizeOutlined className="!w-4" />,
+  //   component: <AttendanceConsolidated />,
+  // }, 
  
   {
     label: "Period Finalisation",

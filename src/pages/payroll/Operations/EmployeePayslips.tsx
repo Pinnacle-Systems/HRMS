@@ -269,7 +269,7 @@ export default function EmployeePayslips() {
           },
         ].map((s) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={s.label}>
-            <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+            <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <Box>

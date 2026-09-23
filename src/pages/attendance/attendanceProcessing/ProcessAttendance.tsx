@@ -57,10 +57,11 @@ function buildPreCheck(employees: any[]): PreCheckState {
   for (const emp of employees || []) {
     const hasIn = !!emp.checkInTime;
     const hasOut = !!emp.checkOutTime;
-    const missedCount = emp.missedPunches ?? 0;
+    // const missedCount = emp.missedPunches ?? 0;
 
     // ---- Missed punches ----
-    if ((hasIn && !hasOut) || (!hasIn && hasOut) || missedCount > 0) {
+    // if ((hasIn && !hasOut) || (!hasIn && hasOut) || missedCount > 0) {
+    if(emp.status == "missed_out"){
       missedPunches.push({
         employeeId: emp.employeeId,
         employeeCode: emp.employeeCode,
@@ -95,16 +96,16 @@ function buildPreCheck(employees: any[]): PreCheckState {
     }
 
     // ---- Night duty ----
-    const shiftEnd = emp.shiftEndTime;
-    const shiftStart = emp.shiftStartTime;
-    const isNight =
-      emp.isNightShift === true ||
-      (shiftStart && shiftEnd && shiftEnd < shiftStart) ||
-      (hasIn && hasOut &&
-        dayjs(emp.checkOutTime).isAfter(dayjs(emp.checkInTime).add(1, "hour")) &&
-        dayjs(emp.checkOutTime).hour() < 6);
+    // const shiftEnd = emp.shiftEndTime;
+    // const shiftStart = emp.shiftStartTime;
+    // const isNight =
+    //   emp.isNightShift === true ||
+    //   (shiftStart && shiftEnd && shiftEnd < shiftStart) ||
+    //   (hasIn && hasOut &&
+    //     dayjs(emp.checkOutTime).isAfter(dayjs(emp.checkInTime).add(1, "hour")) &&
+    //     dayjs(emp.checkOutTime).hour() < 6);
 
-    if (isNight) {
+    if (emp.status == "night_duty") {
       nightDuty.push({
         employeeId: emp.employeeId,
         employeeCode: emp.employeeCode,
@@ -482,6 +483,8 @@ export function ProcessAttendance() {
       return;
     }
 
+    if(!result) return showSnackbar("Re process Again","info")
+
     const pc = buildPreCheck(result?.employees ?? []);
     const totalIssues = pc.missedPunches.length + pc.absents.length + pc.nightDuty.length;
 
@@ -649,11 +652,11 @@ export function ProcessAttendance() {
             />
             <DatePicker
               label="To Date"
-              value={toDate ? dayjs(toDate) : null}
-              onChange={handleToDateChange}
+              value={fromDate ? dayjs(fromDate) : null}
+              // onChange={handleToDateChange}
               format="DD/MM/YYYY"
-              maxDate={dayjs()}
-              minDate={fromDate ? dayjs(fromDate) : undefined}
+              // maxDate={dayjs()}
+              // minDate={fromDate ? dayjs(fromDate) : undefined}
               slotProps={{ textField: { sx: { width: 170 } } }}
             />
           </LocalizationProvider>
@@ -1161,9 +1164,9 @@ export function ProcessAttendance() {
           {/* Missed Punches */}
           {preCheck && preCheck.missedPunches.length > 0 && (
             <section className="mb-5">
-              <h4 className="font-semibold text-amber-700 mb-2 text-sm">
+              <div className="font-semibold text-amber-700 mb-2 text-[12px]">
                 ⚠️ Missed Punch Records ({preCheck.missedPunches.length})
-              </h4>
+              </div>
               <TableContainer className="border border-gray-200 rounded max-h-[220px]">
                 <Table size="small" stickyHeader>
                   <TableHead>
@@ -1196,9 +1199,9 @@ export function ProcessAttendance() {
           {/* Absents */}
           {preCheck && preCheck.absents.length > 0 && (
             <section className="mb-5">
-              <h4 className="font-semibold text-red-700 mb-2 text-sm">
+              <div className="font-semibold text-red-700 mb-2 text-[12px]">
                 🔴 Absent Records — Verify Before Finalizing ({preCheck.absents.length})
-              </h4>
+              </div>
               <TableContainer className="border border-gray-200 rounded max-h-[220px]">
                 <Table size="small" stickyHeader>
                   <TableHead>
@@ -1235,9 +1238,9 @@ export function ProcessAttendance() {
           {/* Night Duty */}
           {preCheck && preCheck.nightDuty.length > 0 && (
             <section className="mb-5">
-              <h4 className="font-semibold text-indigo-700 mb-2 text-sm">
+              <div className="font-semibold text-indigo-700 mb-2 text-[12px]">
                 🌙 Night Duty Records ({preCheck.nightDuty.length})
-              </h4>
+              </div>
               <TableContainer className="border border-gray-200 rounded max-h-[220px]">
                 <Table size="small" stickyHeader>
                   <TableHead>
