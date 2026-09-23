@@ -302,6 +302,7 @@ export interface ProcessAttendancePayload {
   workerType?: WorkerType;
   lockReason?: string;
   lockedBy?: string;
+  preCheckDone?: boolean;
 }
 
 export interface BulkProcessPayload {

@@ -3,102 +3,53 @@ import { useParams } from "react-router-dom";
 import { Box, Button } from "@mui/material";
 import { formatDate } from "../../../utils/dateFormatter";
 import { salaryRevisionService } from "../../../services/modules/payrollServices/salaryRevision";
+import { useUI } from "../../../context/Snackbar";
+import BackButton from "../../../components/BackButton";
 
 export default function IncrementLetter() {
   const { id, employeeId } = useParams<{ id: string; employeeId: string }>();
   const [data, setData] = useState<any>(null);
+  const { showSnackbar } = useUI();
 
- useEffect(() => {
-  if (!id) return;
-  salaryRevisionService
-    .getRevisionById(id)
-    .then((res: any) => {
-      const emp = res.data.employees.find(
-        (e: any) => e.employeeId === employeeId
-      );
-      setData({ revision: res.data, employee: emp });
-    })
-    .catch((err: any) => {
-      console.error("Failed to load revision for letter", err);
-      const dummyRevision: any = {
-        id: id || "rev-101",
-        revisionCode: "REV-2026-001",
-        title: "Annual Increment 2026",
-        reason: "ANNUAL_INCREMENT",
-        effectiveFrom: "2026-04-01",
-        status: "APPLIED",
-        createdBy: "hr.admin@company.com",
-        createdAt: "2026-03-01T10:15:00Z",
-        employees: [
-          {
-            employeeId: "501",
-            employeeCode: "EMP001",
-            employeeName: "Ravi Kumar",
-            department: "Engineering",
-            designation: "Software Engineer",
-            oldCtc: 800000,
-            newCtc: 880000,
-            oldGross: 60000,
-            newGross: 66666.67,
-            incrementAmount: 80000,
-            incrementPercent: 10,
-            effectiveFrom: "2026-04-01",
-            components: [
-              { componentId: "c1", componentName: "Basic", componentType: "EARNING", oldValue: 24000, newValue: 27200, delta: 3200, deltaPercent: 13.33 },
-              { componentId: "c2", componentName: "HRA", componentType: "EARNING", oldValue: 12000, newValue: 13600, delta: 1600, deltaPercent: 13.33 },
-              { componentId: "c3", componentName: "Special Allowance", componentType: "EARNING", oldValue: 24000, newValue: 27200, delta: 3200, deltaPercent: 13.33 },
-            ],
-          },
-          {
-            employeeId: "502",
-            employeeCode: "EMP002",
-            employeeName: "Priya Sharma",
-            department: "HR",
-            designation: "HR Executive",
-            oldCtc: 600000,
-            newCtc: 660000,
-            oldGross: 45000,
-            newGross: 50000,
-            incrementAmount: 60000,
-            incrementPercent: 10,
-            effectiveFrom: "2026-04-01",
-            components: [
-              { componentId: "c1", componentName: "Basic", componentType: "EARNING", oldValue: 18000, newValue: 20400, delta: 2400, deltaPercent: 13.33 },
-              { componentId: "c2", componentName: "HRA", componentType: "EARNING", oldValue: 9000, newValue: 10200, delta: 1200, deltaPercent: 13.33 },
-              { componentId: "c3", componentName: "Special Allowance", componentType: "EARNING", oldValue: 18000, newValue: 20400, delta: 2400, deltaPercent: 13.33 },
-            ],
-          },
-        ],
-      };
-      const emp =
-        dummyRevision.employees.find((e: any) => e.employeeId === employeeId) ||
-        dummyRevision.employees[0];
-      setData({ revision: dummyRevision, employee: emp });
-    });
-}, [id, employeeId]);
+  useEffect(() => {
+    if (!id) return;
+    salaryRevisionService
+      .getRevisionById(id)
+      .then((res: any) => {
+        const emp = res.data.employees.find(
+          (e: any) => e.employeeId === employeeId
+        );
+        setData({ revision: res.data, employee: emp });
+      })
+      .catch(() => {
+        showSnackbar("Failed to load revision for letter", "error");
+      });
+  }, [id, employeeId]);
 
- const handleDownload = async () => {
-  if (!id || !employeeId) return;
-  try {
-    const blob: any = await salaryRevisionService.generateLetter(id, employeeId);
-    const url = window.URL.createObjectURL(new Blob([blob.data]));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Increment_Letter_${employeeId}.pdf`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("Failed to download letter", err);
-    alert("Letter PDF is not available yet. Backend is still being built.");
-  }
-};
+  const handleDownload = async () => {
+    if (!id || !employeeId) return;
+    try {
+      const blob: any = await salaryRevisionService.generateLetter(id, employeeId);
+      const url = window.URL.createObjectURL(new Blob([blob.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Increment_Letter_${employeeId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download letter", err);
+    }
+  };
 
   if (!data?.employee) return null;
 
   return (
     <Box>
-      <Box className="flex justify-between mb-3">
-        <div className="font-bold">Increment Letter</div>
+      <Box className="flex justify-between mb-3 items-center">
+        <div className="flex items-center gap-2">
+          <BackButton to={`/payroll/revision/${id}`} />
+          <div className="font-bold">Increment Letter</div>
+        </div>
         <Button
           variant="contained"
           className="!bg-primary"

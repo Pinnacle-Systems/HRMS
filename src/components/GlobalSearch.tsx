@@ -419,7 +419,7 @@ const ALL_ITEMS: SearchItem[] = [
     keywords: ["onboarding", "new hire", "joining"],
     roles: ["ADMIN", "HR"],
   },
-   {
+  {
     label: "Muster Settings",
     description: "Configure muster settings",
     path: "/settings/attendance/muster-settings",
@@ -635,6 +635,78 @@ const ALL_ITEMS: SearchItem[] = [
     keywords: ["payroll", "portal"],
     roles: ["ADMIN", "HR"],
   },
+  {
+    label: "Salary Revisions",
+    description: "List, create, and manage employee salary revisions & increments",
+    path: "/payroll/revision",
+    category: "Salary",
+    icon: <TrendingUpOutlinedIcon fontSize="small" />,
+    keywords: [
+      "salary", "revision", "increment", "raise", "hike",
+      "appraisal", "promotion", "annual", "payroll", "history",
+    ],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Create Salary Revision",
+    description: "Start a new salary revision wizard — select employees, apply increment rule",
+    path: "/payroll/revision/create",
+    category: "Salary",
+    icon: <TrendingUpOutlinedIcon fontSize="small" />,
+    keywords: [
+      "create", "new", "revision", "increment", "wizard",
+      "bulk", "hike", "raise", "salary", "appraisal",
+    ],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Revision Templates",
+    description: "Manage increment rules — percent, flat, slab-based",
+    path: "/payroll/revision/templates",
+    category: "Salary",
+    icon: <SchemaOutlinedIcon fontSize="small" />,
+    keywords: [
+      "template", "revision", "rule", "increment", "slab",
+      "percent", "flat", "rounding", "salary", "appraisal",
+    ],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Revision Details",
+    description: "View, approve, or reject a salary revision",
+    path: "/payroll/revision",
+    category: "Salary",
+    icon: <RequestPageOutlinedIcon fontSize="small" />,
+    keywords: [
+      "revision", "detail", "approve", "reject", "review",
+      "salary", "increment", "pending", "workflow",
+    ],
+    roles: ["ADMIN", "HR"],
+  },
+  {
+    label: "Employee Salary History",
+    description: "View complete salary revision history for an employee",
+    path: "/payroll/employee-salary",
+    category: "Salary",
+    icon: <HistoryToggleOffOutlinedIcon fontSize="small" />,
+    keywords: [
+      "history", "salary", "revision", "past", "increment",
+      "audit", "timeline", "raise", "hike", "appraisal",
+    ],
+    roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
+  },
+  {
+    label: "Increment Letters",
+    description: "Download or email salary revision letters to employees",
+    path: "/payroll/revision",
+    category: "Salary",
+    icon: <ReceiptLongOutlinedIcon fontSize="small" />,
+    keywords: [
+      "letter", "increment", "revision", "pdf", "download",
+      "email", "salary", "appraisal", "communication",
+    ],
+    roles: ["ADMIN", "HR"],
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -646,7 +718,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   Settings: "#03af98",
   Account: "#1976d2",
   Master: "#df9a07",
-  Documentation: "#df075a"
+  Documentation: "#df075a",
+  Salary: "#a21f7f",
 };
 
 interface GlobalSearchProps {

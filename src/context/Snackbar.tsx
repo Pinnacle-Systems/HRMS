@@ -32,6 +32,7 @@ interface UIState {
     onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
+    variant?: "danger" | "success" | "primary" | "warning";
   };
 }
 
@@ -51,6 +52,7 @@ interface UIContextType {
     onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
+    variant?: "danger" | "success" | "primary" | "warning";
   }) => void;
   hideConfirmDialog: () => void;
 }
@@ -70,6 +72,20 @@ interface UIProviderProps {
   children: ReactNode;
 }
 
+const getConfirmButtonColor = (variant?: string) => {
+  switch (variant) {
+    case "success":
+      return { bg: "#16a34a", hover: "#15803d" };     // green
+    case "primary":
+      return { bg: "#2563eb", hover: "#1d4ed8" };     // blue
+    case "warning":
+      return { bg: "#f59e0b", hover: "#d97706" };     // amber
+    case "danger":
+    default:
+      return { bg: "#ef4444", hover: "#dc2626" };     // red
+  }
+};
+
 export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
   const [state, setState] = useState<UIState>({
     snackbar: {
@@ -82,9 +98,10 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
       open: false,
       title: "",
       message: "",
-      onConfirm: () => {},
+      onConfirm: () => { },
       confirmText: "Confirm",
       cancelText: "Cancel",
+      variant: "danger",
     },
   });
 
@@ -120,6 +137,7 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
     onCancel?: () => void;
     confirmText?: string;
     cancelText?: string;
+    variant?: "danger" | "success" | "primary" | "warning";
   }) => {
     setState((prev) => ({
       ...prev,
@@ -131,6 +149,7 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
         onCancel: options.onCancel,
         confirmText: options.confirmText || "Confirm",
         cancelText: options.cancelText || "Cancel",
+        variant: options.variant || "danger",
       },
     }));
   };
@@ -225,9 +244,9 @@ export const UIProvider: React.FC<UIProviderProps> = ({ children }) => {
             variant="contained"
             sx={{
               textTransform: "none",
-              backgroundColor: "#ef4444",
+              backgroundColor: getConfirmButtonColor(state.confirmDialog.variant).bg,
               "&:hover": {
-                backgroundColor: "#dc2626",
+                backgroundColor: getConfirmButtonColor(state.confirmDialog.variant).hover,
               },
             }}
             autoFocus

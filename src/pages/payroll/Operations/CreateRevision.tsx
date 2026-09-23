@@ -16,8 +16,14 @@ import {
     TableRow,
     TextField,
     Checkbox,
+    TableContainer,
 } from "@mui/material";
-import { salaryRevisionService, type EmployeeRevision, type RevisionReason, type RevisionTemplate } from "../../../services/modules/payrollServices/salaryRevision";
+import {
+    salaryRevisionService,
+    type EmployeeRevision,
+    type RevisionReason,
+    type RevisionTemplate,
+} from "../../../services/modules/payrollServices/salaryRevision";
 import {
     calculateIncrement,
     distributeAcrossComponents,
@@ -27,132 +33,149 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import { getRowColor } from "../../const";
 import { useUI } from "../../../context/Snackbar";
+import { employeeService } from "../../../services/modules/employees";
 
-
+// Constants
 const REASONS: RevisionReason[] = [
     "ANNUAL_INCREMENT",
     "PROMOTION",
-    "CORRECTION",
-    "MARKET_ADJUSTMENT",
-    "PROBATION_CONFIRMATION",
+    "RETENTION",
+    "OTHER",
+    "MARKET_CORRECTION",
+    "PERFORMANCE",
 ];
 
-export default function CreateRevision() {
+// Props
+interface CreateRevisionProps {
+    mode?: "create" | "edit";
+    revisionId?: string;
+    initialData?: any;
+}
+
+export default function CreateRevision({
+    mode = "create",
+    revisionId,
+    initialData,
+}: CreateRevisionProps) {
     const navigate = useNavigate();
     const [activeStep, setActiveStep] = useState(0);
     const { showSnackbar } = useUI();
 
-    // Step 1
+    // ── Step 1 ──
     const [title, setTitle] = useState("");
     const [reason, setReason] = useState<RevisionReason>("ANNUAL_INCREMENT");
     const [effectiveFrom, setEffectiveFrom] = useState("");
 
-    // Step 2
+    // ── Step 2 ──
     const [employees, setEmployees] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [employeesLoading, setEmployeesLoading] = useState(true);
 
-    // Step 3
+    // ── Step 3 ──
     const [templates, setTemplates] = useState<RevisionTemplate[]>([]);
     const [templateId, setTemplateId] = useState("");
+    const [templatesLoading, setTemplatesLoading] = useState(true);
 
+    // ────────────────────────────────────────────────────────
+    // Load templates
+    // ────────────────────────────────────────────────────────
     useEffect(() => {
+        setTemplatesLoading(true);
         salaryRevisionService
             .getTemplateDropdown()
             .then((res: any) => {
-                const list = res.data || [];
+                const list = res?.data || [];
                 setTemplates(list);
-                if (list.length) setTemplateId(list[0].id);
+                if (list.length && !templateId) {
+                    setTemplateId(list[0].id);
+                }
             })
             .catch((_err: any) => {
-                showSnackbar("Failed to load templates", "error");
-                const local: RevisionTemplate[] = [
-                    { id: "t1", name: "Standard 10%", type: "PERCENT", config: { percent: 10, roundingRule: "NEAREST_100" } },
-                    { id: "t2", name: "Flat ₹5000", type: "FLAT", config: { flatAmount: 5000, roundingRule: "NEAREST_100" } },
-                    {
-                        id: "t3",
-                        name: "Slab Based",
-                        type: "SLAB",
-                        config: {
-                            slabs: [
-                                { from: 0, to: 500000, percent: 12 },
-                                { from: 500001, to: 1000000, percent: 10 },
-                                { from: 1000001, to: Number.MAX_SAFE_INTEGER, percent: 8 },
-                            ],
-                            roundingRule: "NEAREST_100",
-                        },
-                    },
-                ];
-                setTemplates(local);
-                setTemplateId(local[0].id);
-            });
+                showSnackbar("Failed to load revision templates", "error");
+                setTemplates([]);
+            })
+            .finally(() => setTemplatesLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // ────────────────────────────────────────────────────────
+    // Load employees
+    // ────────────────────────────────────────────────────────
     useEffect(() => {
-        Promise.resolve({ data: [] })
+        setEmployeesLoading(true);
+        employeeService
+            .getEmployees({ page: 0, size: 100, includeInactive: false })
             .then((res: any) => {
-                if (res.data && res.data.length) {
-                    setEmployees(res.data);
-                } else {
-                    setEmployees([
-                        {
-                            id: "501",
-                            code: "EMP001",
-                            name: "Ravi Kumar",
-                            dept: "Engineering",
-                            desig: "Software Engineer",
-                            ctc: 800000,
-                            gross: 60000,
-                            components: [
-                                { componentId: "c1", componentName: "Basic", componentType: "EARNING", oldValue: 24000, newValue: 24000, delta: 0, deltaPercent: 0 },
-                                { componentId: "c2", componentName: "HRA", componentType: "EARNING", oldValue: 12000, newValue: 12000, delta: 0, deltaPercent: 0 },
-                                { componentId: "c3", componentName: "Special Allowance", componentType: "EARNING", oldValue: 24000, newValue: 24000, delta: 0, deltaPercent: 0 },
-                            ],
-                        },
-                        {
-                            id: "502",
-                            code: "EMP002",
-                            name: "Priya Sharma",
-                            dept: "HR",
-                            desig: "HR Executive",
-                            ctc: 600000,
-                            gross: 45000,
-                            components: [
-                                { componentId: "c1", componentName: "Basic", componentType: "EARNING", oldValue: 18000, newValue: 18000, delta: 0, deltaPercent: 0 },
-                                { componentId: "c2", componentName: "HRA", componentType: "EARNING", oldValue: 9000, newValue: 9000, delta: 0, deltaPercent: 0 },
-                                { componentId: "c3", componentName: "Special Allowance", componentType: "EARNING", oldValue: 18000, newValue: 18000, delta: 0, deltaPercent: 0 },
-                            ],
-                        },
-                        {
-                            id: "503",
-                            code: "EMP003",
-                            name: "Arjun Nair",
-                            dept: "Finance",
-                            desig: "Accountant",
-                            ctc: 700000,
-                            gross: 52500,
-                            components: [
-                                { componentId: "c1", componentName: "Basic", componentType: "EARNING", oldValue: 21000, newValue: 21000, delta: 0, deltaPercent: 0 },
-                                { componentId: "c2", componentName: "HRA", componentType: "EARNING", oldValue: 10500, newValue: 10500, delta: 0, deltaPercent: 0 },
-                                { componentId: "c3", componentName: "Special Allowance", componentType: "EARNING", oldValue: 21000, newValue: 21000, delta: 0, deltaPercent: 0 },
-                            ],
-                        },
-                    ]);
+                const payload = res?.data;
+                const rows = Array.isArray(payload)
+                    ? payload
+                    : payload?.content || [];
+
+                const mapped = rows.map((e: any) => ({
+                    id: e.id,
+                    code: e.employeeId ?? e.employeeCode ?? e.code,
+                    name: e.name ?? e.fullName ?? e.employeeName,
+                    dept: e.department ?? e.departmentName,
+                    desig: e.designation ?? e.jobTitle,
+                    ctc: e.annualCtc ?? e.ctc ?? 0,
+                    gross: e.monthlyGross ?? e.gross ?? 0,
+                    components: e.salaryComponents ?? e.components ?? [],
+                }));
+
+                setEmployees(mapped);
+
+                if (!mapped.length) {
+                    showSnackbar(
+                        "No active employees found for salary revision",
+                        "warning"
+                    );
                 }
-            });
+            })
+            .catch(() => {
+                showSnackbar(
+                    "Failed to load employee list — using sample data",
+                    "warning"
+                );
+                setEmployees([]);
+            })
+            .finally(() => setEmployeesLoading(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // ────────────────────────────────────────────────────────
+    // Prefill when editing an existing draft
+    // ────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (mode !== "edit" || !initialData) return;
+
+        setTitle(initialData.title || "");
+        setReason(initialData.reason || "ANNUAL_INCREMENT");
+        setEffectiveFrom(initialData.effectiveFrom || "");
+        setTemplateId(initialData.templateId || "");
+
+        const ids = (initialData.employees || []).map(
+            (e: any) => e.employeeId || e.id
+        );
+        setSelectedIds(ids);
+    }, [mode, initialData]);
+
+    // ────────────────────────────────────────────────────────
+    // Live preview
+    // ────────────────────────────────────────────────────────
     const preview: EmployeeRevision[] = useMemo(() => {
         const template = templates.find((t) => t.id === templateId);
         if (!template) return [];
+
         return employees
             .filter((e) => selectedIds.includes(e.id))
             .map((e) => {
                 const incrementAmount = calculateIncrement(e.ctc, template);
                 const components = distributeAcrossComponents(
                     incrementAmount,
-                    e.components as any
+                    (e.components || []) as any
                 );
                 const newCtc = e.ctc + incrementAmount;
+
                 return {
                     employeeId: e.id,
                     employeeCode: e.code,
@@ -164,7 +187,9 @@ export default function CreateRevision() {
                     oldGross: e.gross,
                     newGross: e.gross + incrementAmount / 12,
                     incrementAmount,
-                    incrementPercent: (incrementAmount / e.ctc) * 100,
+                    incrementPercent: e.ctc
+                        ? (incrementAmount / e.ctc) * 100
+                        : 0,
                     components,
                     effectiveFrom,
                 };
@@ -173,6 +198,9 @@ export default function CreateRevision() {
 
     const totalCost = preview.reduce((s, p) => s + p.incrementAmount, 0);
 
+    // ────────────────────────────────────────────────────────
+    // Submit handler (create OR update, then optional submit)
+    // ────────────────────────────────────────────────────────
     const handleSubmit = async (asDraft: boolean) => {
         if (!title || !effectiveFrom) {
             showSnackbar("Please fill title and effective date", "warning");
@@ -183,6 +211,11 @@ export default function CreateRevision() {
             showSnackbar("Select at least one employee", "warning");
             return;
         }
+        if (!templateId) {
+            showSnackbar("Please select a revision template", "warning");
+            setActiveStep(2);
+            return;
+        }
 
         try {
             const payload = {
@@ -190,26 +223,81 @@ export default function CreateRevision() {
                 reason,
                 effectiveFrom,
                 templateId,
-                status: (asDraft ? "DRAFT" : "PENDING_APPROVAL") as any,
+                status: "DRAFT" as const,
                 employees: preview,
                 totalEmployees: preview.length,
                 totalIncrementCost: totalCost,
             };
-            const res: any = await salaryRevisionService.createRevision(payload);
-            const newId = res?.data?.id;
-            if (!asDraft && newId) {
-                await salaryRevisionService.submitForApproval(newId);
+
+            let newId: string | undefined = revisionId;
+
+            // ── Create OR Update ──
+            if (mode === "edit" && revisionId) {
+                await salaryRevisionService.updateRevision(revisionId, payload);
+            } else {
+                const res: any = await salaryRevisionService.createRevision(
+                    payload
+                );
+                newId = res?.data?.id ?? res?.data?.data?.id;
+
+                if (!newId) {
+                    showSnackbar(
+                        "Revision created, but ID missing in response",
+                        "error"
+                    );
+                    navigate("/payroll/revision");
+                    return;
+                }
             }
+
+            // ── Submit if requested ──
+            if (!asDraft && newId) {
+                try {
+                    await salaryRevisionService.submitForApproval(newId);
+                    showSnackbar("Revision submitted for approval", "success");
+                } catch {
+                    showSnackbar(
+                        "Saved as draft, but submit failed. Open the revision to retry.",
+                        "warning"
+                    );
+                }
+            } else if (asDraft) {
+                showSnackbar(
+                    mode === "edit"
+                        ? "Draft updated successfully"
+                        : "Revision saved as draft",
+                    "success"
+                );
+            }
+
             navigate("/payroll/revision");
-        } catch (err) {
-            showSnackbar(" Your revision has been captured on the screen but not saved.", "error");
-            navigate("/payroll/revision");
+        } catch (err: any) {
+            const msg =
+                err?.response?.data?.message ||
+                err?.message ||
+                "Failed to save revision";
+            showSnackbar(msg, "error");
         }
     };
 
+    // ────────────────────────────────────────────────────────
+    // Step navigation guard
+    // ────────────────────────────────────────────────────────
+    const canGoNext = (() => {
+        if (activeStep === 0) {
+            return Boolean(title.trim() && effectiveFrom);
+        }
+        if (activeStep === 1) {
+            return selectedIds.length > 0 && templates.length > 0;
+        }
+        return true;
+    })();
+
     return (
         <Box className="max-w-6xl">
-            <div className="text-[12px] font-bold text-gray-800 mb-4">New Salary Revision</div>
+            <div className="text-[12px] font-bold text-gray-800 mb-4">
+                {mode === "edit" ? "Edit Salary Revision" : "New Salary Revision"}
+            </div>
 
             <Stepper activeStep={activeStep} className="!mb-6">
                 <Step>
@@ -223,6 +311,9 @@ export default function CreateRevision() {
                 </Step>
             </Stepper>
 
+            {/* ══════════════════════════════════════════════ */}
+            {/* STEP 1: Basic Info                             */}
+            {/* ══════════════════════════════════════════════ */}
             {activeStep === 0 && (
                 <Paper className="!p-4 !shadow-sm grid grid-cols-3 gap-4 !bg-white">
                     <TextField
@@ -230,23 +321,29 @@ export default function CreateRevision() {
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         fullWidth
+                        required
                     />
-                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                    <LocalizationProvider
+                        dateAdapter={AdapterDayjs}
+                        adapterLocale="en-gb"
+                    >
                         <DatePicker
-                            label="From Date"
+                            label="Effective From"
                             format="DD/MM/YYYY"
                             value={effectiveFrom ? dayjs(effectiveFrom) : null}
                             className="!bg-white-50"
                             onChange={(newValue) =>
                                 setEffectiveFrom(
-                                    newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                                    newValue
+                                        ? dayjs(newValue).format("YYYY-MM-DD")
+                                        : ""
                                 )
                             }
                             slotProps={{
                                 textField: {
                                     fullWidth: true,
+                                    required: true,
                                 },
-
                             }}
                         />
                     </LocalizationProvider>
@@ -254,7 +351,9 @@ export default function CreateRevision() {
                         label="Reason"
                         select
                         value={reason}
-                        onChange={(e) => setReason(e.target.value as RevisionReason)}
+                        onChange={(e) =>
+                            setReason(e.target.value as RevisionReason)
+                        }
                         fullWidth
                     >
                         {REASONS.map((r) => (
@@ -263,149 +362,292 @@ export default function CreateRevision() {
                             </MenuItem>
                         ))}
                     </TextField>
-
                 </Paper>
             )}
 
+            {/* ══════════════════════════════════════════════ */}
+            {/* STEP 2: Select Employees                       */}
+            {/* ══════════════════════════════════════════════ */}
             {activeStep === 1 && (
-                <Table size="small" className="border border-gray-200 rounded-md">
-                    <TableHead className="!bg-gray-50">
-                        <TableRow>
-                            <TableCell padding="checkbox">
-                                <Checkbox
-                                    checked={
-                                        employees.length > 0 && selectedIds.length === employees.length
-                                    }
-                                    className="text-gray-800"
-                                    indeterminate={
-                                        selectedIds.length > 0 && selectedIds.length < employees.length
-                                    }
-                                    onChange={(e) =>
-                                        setSelectedIds(
-                                            e.target.checked ? employees.map((x) => x.id) : []
-                                        )
-                                    }
-                                />
-                            </TableCell>
-                            <TableCell className="!text-xs !font-semibold">Code</TableCell>
-                            <TableCell className="!text-xs !font-semibold">Name</TableCell>
-                            <TableCell className="!text-xs !font-semibold">Department</TableCell>
-                            <TableCell className="!text-xs !font-semibold">Designation</TableCell>
-                            <TableCell className="!text-xs !font-semibold">CTC</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {employees.map((e, i) => (
-                            <TableRow key={e.id} sx={getRowColor(i)}>
+                <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-220px)] overflow-auto">
+                    <Table stickyHeader>
+                        <TableHead className="!bg-gray-50">
+                            <TableRow>
                                 <TableCell padding="checkbox">
                                     <Checkbox
-                                        checked={selectedIds.includes(e.id)}
+                                        checked={
+                                            employees.length > 0 &&
+                                            selectedIds.length ===
+                                                employees.length
+                                        }
                                         className="text-gray-800"
-                                        onChange={(ev) =>
-                                            setSelectedIds((prev) =>
-                                                ev.target.checked
-                                                    ? [...prev, e.id]
-                                                    : prev.filter((x) => x !== e.id)
+                                        indeterminate={
+                                            selectedIds.length > 0 &&
+                                            selectedIds.length <
+                                                employees.length
+                                        }
+                                        onChange={(e) =>
+                                            setSelectedIds(
+                                                e.target.checked
+                                                    ? employees.map((x) => x.id)
+                                                    : []
                                             )
                                         }
                                     />
                                 </TableCell>
-                                <TableCell className="!text-xs"><div className="py-2">{e.code}</div></TableCell>
-                                <TableCell className="!text-xs">{e.name}</TableCell>
-                                <TableCell className="!text-xs">{e.dept}</TableCell>
-                                <TableCell className="!text-xs">{e.desig}</TableCell>
-                                <TableCell className="!text-xs">
-                                    ₹ {e.ctc.toLocaleString("en-IN")}
+                                <TableCell className="!text-xs !font-semibold">
+                                    Code
                                 </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            )}
-
-            {activeStep === 2 && (
-                <>
-                    <Paper className="!p-3 !pt-6 !my-3 !shadow-sm flex items-center gap-3 bg-white">
-                        <TextField
-                            select
-                            size="small"
-                            label="Revision Template"
-                            value={templateId}
-                            onChange={(e) => setTemplateId(e.target.value)}
-                            className="!w-72"
-                        >
-                            {templates.map((t) => (
-                                <MenuItem key={t.id} value={t.id}>
-                                    {t.name}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-                        <Chip label={`Total Employees: ${preview.length}`} size="small" className="text-gray-800 bg-gray-200" />
-                        <Chip
-                            label={`Total Cost: ₹ ${totalCost.toLocaleString("en-IN")}`}
-                            color="primary"
-                            size="small"
-                        />
-                    </Paper>
-
-                    <Table size="small" className="border border-gray-200 rounded-md">
-                        <TableHead className="!bg-gray-50">
-                            <TableRow>
-                                <TableCell className="!text-xs !font-semibold">S No</TableCell>
-                                <TableCell className="!text-xs !font-semibold">Employee</TableCell>
-                                <TableCell className="!text-xs !font-semibold">Old CTC</TableCell>
-                                <TableCell className="!text-xs !font-semibold">New CTC</TableCell>
-                                <TableCell className="!text-xs !font-semibold">Increment</TableCell>
-                                <TableCell className="!text-xs !font-semibold">%</TableCell>
+                                <TableCell className="!text-xs !font-semibold">
+                                    Name
+                                </TableCell>
+                                <TableCell className="!text-xs !font-semibold">
+                                    Department
+                                </TableCell>
+                                <TableCell className="!text-xs !font-semibold">
+                                    Designation
+                                </TableCell>
+                                <TableCell className="!text-xs !font-semibold">
+                                    CTC
+                                </TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {preview.map((p, i) => (
-                                <TableRow key={p.employeeId} sx={getRowColor(i)}>
-                                    <TableCell><div className="py-2">{i + 1}</div></TableCell>
-                                    <TableCell className="!text-xs">
-                                        {p.employeeName} ({p.employeeCode})
-                                    </TableCell>
-                                    <TableCell className="!text-xs">
-                                        ₹ {p.oldCtc.toLocaleString("en-IN")}
-                                    </TableCell>
-                                    <TableCell className="!text-xs !text-green-700">
-                                        ₹ {p.newCtc.toLocaleString("en-IN")}
-                                    </TableCell>
-                                    <TableCell className="!text-xs">
-                                        ₹ {p.incrementAmount.toLocaleString("en-IN")}
-                                    </TableCell>
-                                    <TableCell className="!text-xs">
-                                        {p.incrementPercent.toFixed(2)}%
+                            {employeesLoading && (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={6}
+                                        align="center"
+                                        className="!py-6 !text-xs !text-gray-500"
+                                    >
+                                        Loading employees…
                                     </TableCell>
                                 </TableRow>
-                            ))}
-                            {!preview.length && (
+                            )}
+                            {!employeesLoading &&
+                                employees.map((e, i) => (
+                                    <TableRow key={e.id} sx={getRowColor(i)}>
+                                        <TableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={selectedIds.includes(
+                                                    e.id
+                                                )}
+                                                className="text-gray-800"
+                                                onChange={(ev) =>
+                                                    setSelectedIds((prev) =>
+                                                        ev.target.checked
+                                                            ? [...prev, e.id]
+                                                            : prev.filter(
+                                                                  (x) =>
+                                                                      x !== e.id
+                                                              )
+                                                    )
+                                                }
+                                            />
+                                        </TableCell>
+                                        <TableCell className="!text-xs">
+                                            <div className="py-2">{e.code}</div>
+                                        </TableCell>
+                                        <TableCell className="!text-xs">
+                                            {e.name}
+                                        </TableCell>
+                                        <TableCell className="!text-xs">
+                                            {e.dept}
+                                        </TableCell>
+                                        <TableCell className="!text-xs">
+                                            {e.desig}
+                                        </TableCell>
+                                        <TableCell className="!text-xs">
+                                            ₹ {e.ctc.toLocaleString("en-IN")}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            {!employeesLoading && employees.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" className="!text-xs !py-6 !text-gray-500">
-                                        No employees selected.
+                                    <TableCell
+                                        colSpan={6}
+                                        align="center"
+                                        className="!py-6 !text-xs !text-gray-500"
+                                    >
+                                        No employees found. Please check with
+                                        HR/admin.
                                     </TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
                     </Table>
+                </TableContainer>
+            )}
+
+            {/* ══════════════════════════════════════════════ */}
+            {/* STEP 3: Revise & Preview                       */}
+            {/* ══════════════════════════════════════════════ */}
+            {activeStep === 2 && (
+                <>
+                    {templatesLoading ? (
+                        <Paper className="!p-6 !my-3 !shadow-sm bg-white text-center text-xs text-gray-500">
+                            Loading templates…
+                        </Paper>
+                    ) : templates.length === 0 ? (
+                        <Paper className="!p-6 !my-3 !shadow-sm bg-white text-center">
+                            <div className="text-xs text-gray-500 mb-2">
+                                No revision templates available. Create one to
+                                proceed.
+                            </div>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() =>
+                                    navigate("/payroll/revision/templates")
+                                }
+                            >
+                                Create a Template
+                            </Button>
+                        </Paper>
+                    ) : (
+                        <>
+                            <Paper className="!p-3 !pt-6 !my-3 !shadow-sm flex items-center gap-3 bg-white">
+                                <TextField
+                                    select
+                                    label="Revision Template"
+                                    value={templateId}
+                                    onChange={(e) =>
+                                        setTemplateId(e.target.value)
+                                    }
+                                    className="!w-72"
+                                >
+                                    {templates.map((t) => (
+                                        <MenuItem key={t.id} value={t.id}>
+                                            {t.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                                <Chip
+                                    label={`Total Employees: ${preview.length}`}
+                                    size="small"
+                                    className="text-gray-800 bg-gray-200"
+                                />
+                                <Chip
+                                    label={`Total Cost: ₹ ${totalCost.toLocaleString(
+                                        "en-IN"
+                                    )}`}
+                                    color="primary"
+                                    size="small"
+                                />
+                            </Paper>
+
+                            <Table
+                                size="small"
+                                className="border border-gray-200 rounded-md"
+                            >
+                                <TableHead className="!bg-gray-50">
+                                    <TableRow>
+                                        <TableCell className="!text-xs !font-semibold">
+                                            S No
+                                        </TableCell>
+                                        <TableCell className="!text-xs !font-semibold">
+                                            Employee
+                                        </TableCell>
+                                        <TableCell className="!text-xs !font-semibold">
+                                            Old CTC
+                                        </TableCell>
+                                        <TableCell className="!text-xs !font-semibold">
+                                            New CTC
+                                        </TableCell>
+                                        <TableCell className="!text-xs !font-semibold">
+                                            Increment
+                                        </TableCell>
+                                        <TableCell className="!text-xs !font-semibold">
+                                            %
+                                        </TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {preview.map((p, i) => (
+                                        <TableRow
+                                            key={p.employeeId}
+                                            sx={getRowColor(i)}
+                                        >
+                                            <TableCell>
+                                                <div className="py-2">
+                                                    {i + 1}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                {p.employeeName} (
+                                                {p.employeeCode})
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                ₹{" "}
+                                                {p.oldCtc.toLocaleString(
+                                                    "en-IN"
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="!text-xs !text-green-700">
+                                                ₹{" "}
+                                                {p.newCtc.toLocaleString(
+                                                    "en-IN"
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                ₹{" "}
+                                                {p.incrementAmount.toLocaleString(
+                                                    "en-IN"
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                {p.incrementPercent.toFixed(2)}%
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {!preview.length && (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={6}
+                                                align="center"
+                                            >
+                                                <div className="!text-xs !py-6 !text-gray-500">
+                                                    No employees selected.
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </>
+                    )}
                 </>
             )}
 
+            {/* ══════════════════════════════════════════════ */}
+            {/* Footer Actions                                 */}
+            {/* ══════════════════════════════════════════════ */}
             <Box className="flex justify-between mt-4">
-                <Button disabled={activeStep === 0} className="text-gray-800 bg-gray-100" onClick={() => setActiveStep((s) => s - 1)}>
+                <Button
+                    disabled={activeStep === 0}
+                    className="!text-gray-800 !bg-gray-100"
+                    onClick={() => setActiveStep((s) => s - 1)}
+                >
                     Back
                 </Button>
                 <Box className="flex gap-2">
                     {activeStep === 2 && (
                         <>
-                            <Button variant="outlined" onClick={() => handleSubmit(true)}>
-                                Save Draft
+                            <Button
+                                variant="outlined"
+                                className="!text-gray-800 !border-gray-200"
+                                onClick={() => handleSubmit(true)}
+                                disabled={!preview.length || !templateId}
+                            >
+                                {mode === "edit"
+                                    ? "Update Draft"
+                                    : "Save Draft"}
                             </Button>
                             <Button
                                 variant="contained"
                                 className="!bg-primary"
                                 onClick={() => handleSubmit(false)}
+                                disabled={!preview.length || !templateId}
                             >
                                 Submit for Approval
                             </Button>
@@ -415,6 +657,7 @@ export default function CreateRevision() {
                         <Button
                             variant="contained"
                             className="!bg-primary"
+                            disabled={!canGoNext}
                             onClick={() => setActiveStep((s) => s + 1)}
                         >
                             Next

@@ -20,6 +20,7 @@ import { formatTime } from "../const";
 import dayjs from "dayjs";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { getRowColor } from "../../const";
+import { formatDateTime } from "../../../utils/dateFormatter";
 
 const STATUS_STYLES: Record<CorrectionStatus, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -240,7 +241,7 @@ export function CorrectionsView() {
                       </span>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      {dayjs(c.createdAt).format("DD MMM, h:mm A")}
+                      {c.createdAt ? formatDateTime(c.createdAt) : ''}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">

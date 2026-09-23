@@ -18,6 +18,7 @@ import BranchFiscalYearSelectPage from "../pages/auth/BranchFYSelect.tsx";
 import WorkspaceGuard from "../auth/workSpaceGuard.tsx";
 import type { AppRole, Permission } from "../auth/authTypes.ts";
 import PayrollDashboard from "../pages/payroll/payroll.tsx";
+import EditRevision from "../pages/payroll/Operations/EditRevision.tsx";
 
 // Lazy imports (keeping your existing imports)
 const Employees = lazy(() => import("../pages/employees/employeeManagement"));
@@ -448,6 +449,13 @@ const routeConfigs: RouteConfig[] = [
     requiredPermissions: [PERMISSIONS.PAYROLL_READ],
     requiresWorkspace: true,
   },
+  {
+    path: "payroll/revision/edit/:id",
+    element: <EditRevision />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
+    requiresWorkspace: true,
+},
   {
     path: "payroll/revision/:id/letter/:employeeId",
     element: <IncrementLetter />,

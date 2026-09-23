@@ -11,9 +11,11 @@ export type RevisionStatus =
 export type RevisionReason =
   | "ANNUAL_INCREMENT"
   | "PROMOTION"
-  | "CORRECTION"
-  | "MARKET_ADJUSTMENT"
-  | "PROBATION_CONFIRMATION";
+  | "RETENTION"
+  | "MARKET_CORRECTION"
+  | "RETENTION"
+  | "OTHER"
+  | "PERFORMANCE";
 
 export type RevisionTemplateType = "PERCENT" | "FLAT" | "SLAB" | "CTC_BASED";
 

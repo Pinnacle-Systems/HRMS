@@ -35,7 +35,6 @@ import {
   GroupOutlined,
   EventNoteOutlined,
   CloseOutlined,
-  // WbSunnyOutlined,
   InfoOutlined,
   CloudUploadOutlined,
   PunchClockOutlined,
@@ -45,15 +44,21 @@ import {
   DownloadOutlined,
   ErrorOutlined,
   WarningAmberOutlined,
+  PendingActionsOutlined,
+  AccessTimeOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { AttendanceStatus } from "../../../services/modules/attendanceTypes";
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
-  // formatTime,
   formatTimewithSec,
+  type InlineDisplayProps,
+  type RegisterEmployee,
+  type TodaySummary,
+  type Holiday,
+  STATUS_CHIP_OPTIONS,
+  inlineInputSx,
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import { branchService } from "../../../services/modules/branch";
@@ -73,57 +78,35 @@ import { biometricService, type BiometricDevice } from "../../../services/module
 import { formatDateTime } from "../../../utils/dateFormatter";
 import { employeeService } from "../../../services/modules/employees";
 import { formatDate } from "../../leave/leaveFormatters";
-interface RegisterEmployee {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  department: string;
-  designation: string;
-  shiftCode: string;
-  shiftStart: string;
-  shiftEnd: string;
-  checkInTime: string | null;
-  checkOutTime: string | null;
-  status: AttendanceStatus;
-  workedMinutes: number;
-  lateMinutes: number;
-  checkInDate: string;
-  checkOutDate: string;
-  earlyOutMinutes: number;
-  overtimeMinutes: number;
-}
-interface TodaySummary {
-  date: string;
-  totalEmployees: number;
-  present: number;
-  absent: number;
-  late: number;
-  onLeave: number;
-  onDuty: number;
-  checkedIn: number;
-  notYetIn: number;
-  attendancePercentage: number;
-}
 
-interface Holiday {
-  date: string;
-  name: string;
-  type: string;
+function InlineDisplay({
+  value,
+  placeholder = "-",
+  className = "",
+  onClick,
+  disabled = false,
+}: InlineDisplayProps) {
+  return (
+    <div
+      onClick={disabled ? undefined : onClick}
+      title={disabled ? undefined : "Click to edit"}
+      tabIndex={disabled ? -1 : 0}
+      onKeyDown={(e) => {
+        if (disabled) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${disabled
+          ? "cursor-not-allowed opacity-60"
+          : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
+        } ${className}`}
+    >
+      {value || <span className="text-gray-400">{placeholder}</span>}
+    </div>
+  );
 }
-
-const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "All" },
-  { value: "present", label: "Present" },
-  { value: "absent", label: "Absent" },
-  { value: "late", label: "Late" },
-  { value: "irregular", label: "Irregular" },
-  { value: "checked_in", label: "Checked In" },
-  { value: "night_duty", label: "Night Duty" },
-  // { value: "on_duty", label: "On Duty" },
-  { value: "leave", label: "On Leave" },
-  // { value: "holiday", label: "Holiday" },
-  // { value: "weekly_off", label: "Weekly Off" },
-];
 
 export function DailyRegister() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -137,8 +120,6 @@ export function DailyRegister() {
   const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [total, setTotal] = useState(0);
-  // const [page, setPage] = useState(0);
-  // const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
@@ -147,12 +128,54 @@ export function DailyRegister() {
   // Selection for bulk actions
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Inline edit tracking
+  const [inlineEditInProgress, setInlineEditInProgress] = useState<string | null>(null);
+
+  // Which inline cell is currently open for editing.
+  // Key format: `${employeeId}:${field}` where field is
+  // 'checkInDate' | 'checkInTime' | 'checkOutDate' | 'checkOutTime'
+  const [editingField, setEditingField] = useState<string | null>(null);
+
+  // Local draft value held while the picker is open. This is what makes the
+  // picker actually editable — we never bind the picker to the server value.
+  const [draftDateTime, setDraftDateTime] = useState<any | null>(null);
+
+  const editKey = (employeeId: string, field: string) => `${employeeId}:${field}`;
+  const isEditingField = (employeeId: string, field: string) =>
+    editingField === editKey(employeeId, field);
+
+  const openField = (
+    employeeId: string,
+    field: string,
+    initial?: dayjs.Dayjs | null,
+  ) => {
+    setEditingField(editKey(employeeId, field));
+    setDraftDateTime(initial ?? null);
+  };
+
+  const closeField = () => {
+    setEditingField(null);
+    setDraftDateTime(null);
+  };
+
+  // Correction dialog state
+  const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false);
+  const [pendingCorrection, setPendingCorrection] = useState<{
+    employee: RegisterEmployee;
+    changes: Partial<{
+      checkInDate: string;
+      checkInTime: string;
+      checkOutDate: string;
+      checkOutTime: string;
+    }>;
+  } | null>(null);
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [submittingCorrection, setSubmittingCorrection] = useState(false);
+
   // Check-in / Check-out dialog
   const [punchDialogOpen, setPunchDialogOpen] = useState(false);
   const [punchType, setPunchType] = useState<"checkIn" | "checkOut">("checkIn");
-  const [punchEmployee, setPunchEmployee] = useState<RegisterEmployee | null>(
-    null,
-  );
+  const [punchEmployee, setPunchEmployee] = useState<RegisterEmployee | null>(null);
   const [punchTime, setPunchTime] = useState("");
   const [punchRemarks, setPunchRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -175,7 +198,7 @@ export function DailyRegister() {
 
   const [bulkActionResult, setBulkActionResult] = useState<{
     open: boolean;
-    type: 'checkIn' | 'checkOut';
+    type: "checkIn" | "checkOut";
     total: number;
     success: number;
     skipped: number;
@@ -186,18 +209,15 @@ export function DailyRegister() {
 
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false);
   const [reminderMessage, setReminderMessage] = useState("");
-  const [reminderType, setReminderType] = useState<
-    "check_in" | "check_out" | "attendance"
-  >("check_in");
+  const [reminderType, setReminderType] = useState<"check_in" | "check_out" | "attendance">("check_in");
   const [sendingReminders, setSendingReminders] = useState(false);
   const [employeesToRem, setEmployeesToRem] = useState<any[]>([]);
   const [sendVia, setSendVia] = useState(["email"]);
   const [importSource, setImportSource] = useState("biometric");
   const [importStartDate, setImportStartDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [importEndDate, setImportEndDate] = useState(dayjs().format("YYYY-MM-DD"));
-  const [importType, setImportType] = useState<'daywise' | 'weekwise' | 'monthwise'>('daywise');
+  const [importType, setImportType] = useState<"daywise" | "weekwise" | "monthwise">("daywise");
 
-  // Add these state variables after the existing ones
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [selectAllDevices, setSelectAllDevices] = useState(false);
   const [punchImportFromDate, setPunchImportFromDate] = useState(dayjs().format("YYYY-MM-DD"));
@@ -213,8 +233,6 @@ export function DailyRegister() {
 
   useEffect(() => {
     if (!date) return;
-
-    let cancelled = false;
     const fetchProcessStatus = async () => {
       try {
         await attendanceService.getProcessAttendanceStatus({
@@ -222,19 +240,14 @@ export function DailyRegister() {
           departmentId: departmentId === "All" ? undefined : departmentId || undefined,
         });
       } catch {
-        if (!cancelled) {
-          // Status is advisory here; register loading handles the visible data state.
-        }
+        // Advisory only
       }
     };
-
     fetchProcessStatus();
-    return () => { cancelled = true; };
   }, [date, departmentId]);
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
-    showSpinner();
     try {
       const res: any = await attendanceService.getRegister({
         startDate: date,
@@ -251,19 +264,17 @@ export function DailyRegister() {
       showSnackbar("Failed to load daily register", "error");
     } finally {
       setLoading(false);
-      hideSpinner();
     }
   }, [date, departmentId, branchId, statusFilter]);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
-  // const [importDate, setImportDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     success: number;
     failed: number;
     errors: string[] | any[];
-    rows: any[]
+    rows: any[];
   } | null>(null);
 
   const [punchImportOpen, setPunchImportOpen] = useState(false);
@@ -278,7 +289,6 @@ export function DailyRegister() {
   });
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [employeesData, setEmployeesData] = useState<Employee[]>([]);
-
 
   const loadTodaySummary = useCallback(async () => {
     try {
@@ -304,22 +314,24 @@ export function DailyRegister() {
     }
   }, [date]);
 
-
   useEffect(() => {
     loadRegister();
   }, [loadRegister]);
 
   useEffect(() => {
     loadTodaySummary();
+  }, [loadTodaySummary]);
+
+  useEffect(() => {
     loadHolidays();
-  }, [loadTodaySummary, loadHolidays]);
+  }, [loadHolidays]);
 
   useEffect(() => {
     Promise.all([
       departmentService.getActiveDepartments(),
       branchService.getActiveBranches(),
       biometricService.getAllDevices(),
-      employeeService.getEmployees({ includeInactive: true, size: 10000 }), // Fetch all employees for matching
+      employeeService.getEmployees({ includeInactive: true, size: 10000 }),
     ])
       .then(([depRes, branRes, devRes, empRes]: any[]) => {
         setDepartments(
@@ -341,7 +353,7 @@ export function DailyRegister() {
           Array.isArray(empRes.data?.content || empRes.data || empRes)
             ? empRes.data?.content || empRes.data || empRes
             : [],
-        )
+        );
       })
       .catch(() => { });
   }, []);
@@ -398,6 +410,251 @@ export function DailyRegister() {
     }
   }
 
+  // ── Inline Edit Helpers ───────────────────────────────────────────────────
+  function needsApproval(emp: RegisterEmployee): boolean {
+    return !!(emp.checkInTime && emp.checkOutTime);
+  }
+
+  async function handleInlineCheckInDateChange(
+    emp: RegisterEmployee,
+    newDate: string,
+    newTime: string,
+  ) {
+    if (inlineEditInProgress) return;
+    setInlineEditInProgress(emp.employeeId);
+    showSpinner();
+    try {
+      const newCheckInTime = dayjs(`${newDate}T${newTime}`).toISOString();
+      await attendanceService.checkIn({
+        employeeId: emp.employeeId,
+        checkInTime: newCheckInTime,
+        markedBy: session?.user?.userId,
+        remarks: "Inline check-in update",
+      });
+      showSnackbar(`Check-in updated for ${emp.employeeName}`, "success");
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.message ?? "Failed to update check-in", "error");
+    } finally {
+      setInlineEditInProgress(null);
+      hideSpinner();
+    }
+  }
+
+  async function handleInlineCheckOutDateChange(
+    emp: RegisterEmployee,
+    newDate: string,
+    newTime: string,
+  ) {
+    if (inlineEditInProgress) return;
+    if (!emp.checkInTime) {
+      showSnackbar("Please mark check-in first", "warning");
+      return;
+    }
+    setInlineEditInProgress(emp.employeeId);
+    showSpinner();
+    try {
+      const newCheckOutTime = dayjs(`${newDate}T${newTime}`).toISOString();
+      if (dayjs(newCheckOutTime).isBefore(dayjs(emp.checkInTime))) {
+        showSnackbar("Check-out cannot be before check-in", "warning");
+        return;
+      }
+      await attendanceService.checkOut({
+        employeeId: emp.employeeId,
+        checkOutTime: newCheckOutTime,
+        markedBy: session?.user?.userId,
+        remarks: "Inline check-out update",
+      });
+      showSnackbar(`Check-out updated for ${emp.employeeName}`, "success");
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(err?.response?.data?.message ?? "Failed to update check-out", "error");
+    } finally {
+      setInlineEditInProgress(null);
+      hideSpinner();
+    }
+  }
+
+  async function handleInlineCheckInTimeChange(emp: RegisterEmployee, newCheckInTime: string) {
+    if (inlineEditInProgress) return;
+
+    if (dayjs(newCheckInTime).isAfter(dayjs())) {
+      showSnackbar("Check-in time cannot be in the future", "warning");
+      return;
+    }
+
+    if (needsApproval(emp)) {
+      requestCorrection(emp, { checkInTime: newCheckInTime });
+      return;
+    }
+
+    setInlineEditInProgress(emp.employeeId);
+    showSpinner();
+    try {
+      await attendanceService.checkIn({
+        employeeId: emp.employeeId,
+        checkInTime: newCheckInTime,
+        markedBy: session?.user?.userId,
+        remarks: "Inline check-in time update",
+      });
+
+      showSnackbar(`Check-in updated for ${emp.employeeName}`, "success");
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to update check-in",
+        "error",
+      );
+    } finally {
+      setInlineEditInProgress(null);
+      hideSpinner();
+    }
+  }
+
+  async function handleInlineCheckOutTimeChange(emp: RegisterEmployee, newCheckOutTime: string) {
+    if (inlineEditInProgress) return;
+
+    if (dayjs(newCheckOutTime).isAfter(dayjs())) {
+      showSnackbar("Check-out time cannot be in the future", "warning");
+      return;
+    }
+
+    if (emp.checkInTime && dayjs(newCheckOutTime).isBefore(dayjs(emp.checkInTime))) {
+      showSnackbar("Check-out time cannot be before check-in time", "warning");
+      return;
+    }
+
+    if (!emp.checkInTime) {
+      showSnackbar("Please mark check-in first before marking check-out", "warning");
+      return;
+    }
+
+    if (needsApproval(emp)) {
+      requestCorrection(emp, { checkOutTime: newCheckOutTime });
+      return;
+    }
+
+    setInlineEditInProgress(emp.employeeId);
+    showSpinner();
+    try {
+      await attendanceService.checkOut({
+        employeeId: emp.employeeId,
+        checkOutTime: newCheckOutTime,
+        markedBy: session?.user?.userId,
+        remarks: "Inline check-out",
+      });
+
+      showSnackbar(`Check-out marked for ${emp.employeeName}`, "success");
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to mark check-out",
+        "error",
+      );
+    } finally {
+      setInlineEditInProgress(null);
+      hideSpinner();
+    }
+  }
+
+  function requestCorrection(
+    emp: RegisterEmployee,
+    changes: Partial<{
+      checkInDate: string;
+      checkInTime: string;
+      checkOutDate: string;
+      checkOutTime: string;
+    }>,
+  ) {
+    setPendingCorrection({ employee: emp, changes });
+    setCorrectionReason("");
+    setCorrectionDialogOpen(true);
+  }
+
+  async function submitCorrection() {
+    if (!pendingCorrection) return;
+    if (!correctionReason.trim()) {
+      showSnackbar("Please provide a reason for the correction", "warning");
+      return;
+    }
+
+    const { employee: emp, changes } = pendingCorrection;
+
+    const buildDateTime = (
+      datePart: string | undefined,
+      timePart: string | undefined,
+      fallbackDate: string | undefined,
+      fallbackTime: string | null,
+    ): string => {
+      if (timePart && timePart.includes("T") && dayjs(timePart).isValid()) {
+        return dayjs(timePart).toISOString();
+      }
+      const effectiveDate = datePart ?? fallbackDate;
+      if (!effectiveDate) return "";
+      const effectiveTime = timePart
+        ? dayjs(timePart).format("HH:mm:ss")
+        : fallbackTime
+          ? dayjs(fallbackTime).format("HH:mm:ss")
+          : "00:00:00";
+      return dayjs(`${effectiveDate}T${effectiveTime}`).toISOString();
+    };
+
+    const requestedCheckIn =
+      buildDateTime(
+        changes.checkInDate,
+        changes.checkInTime,
+        emp.checkInDate,
+        emp.checkInTime,
+      ) || (emp.checkInTime ?? "");
+
+    const requestedCheckOut =
+      buildDateTime(
+        changes.checkOutDate,
+        changes.checkOutTime,
+        emp.checkOutDate,
+        emp.checkOutTime,
+      ) || (emp.checkOutTime ?? "");
+
+    const payload = {
+      employeeId: emp.employeeId,
+      attendanceDate: date,
+      currentCheckIn: emp.checkInTime ?? null,
+      currentCheckOut: emp.checkOutTime ?? null,
+      requestedCheckIn,
+      requestedCheckOut,
+      reason: correctionReason.trim(),
+      supportingDocument: undefined,
+    };
+
+    setSubmittingCorrection(true);
+    showSpinner();
+    try {
+      await attendanceService.requestCorrection(payload);
+
+      showSnackbar(
+        `Correction request submitted for ${emp.employeeName}. Pending approval.`,
+        "success",
+      );
+
+      setCorrectionDialogOpen(false);
+      setPendingCorrection(null);
+      setCorrectionReason("");
+      loadRegister();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to submit correction request",
+        "error",
+      );
+    } finally {
+      setSubmittingCorrection(false);
+      hideSpinner();
+    }
+  }
+
   // ── Bulk daily status ─────────────────────────────────────────────────────
   async function submitBulkStatus() {
     if (selected.size === 0) {
@@ -409,12 +666,11 @@ export function DailyRegister() {
       await attendanceService.postDailyStatus({
         processDate: date,
         employeeIds: Array.from(selected),
-      });
-      showSnackbar(
-        `Daily status posted for ${selected.size} employees`,
-        "success",
-      );
+        remarks: bulkRemarks || undefined,
+      } as any);
+      showSnackbar(`Daily status posted for ${selected.size} employees`, "success");
       setBulkDialogOpen(false);
+      setBulkRemarks("");
       setSelected(new Set());
       loadRegister();
     } catch (err: any) {
@@ -444,10 +700,7 @@ export function DailyRegister() {
             processDate: date,
             employeeIds: Array.from(selected),
           });
-          showSnackbar(
-            `Attendance processed for ${selected.size} employees`,
-            "success",
-          );
+          showSnackbar(`Attendance processed for ${selected.size} employees`, "success");
           setSelected(new Set());
           loadRegister();
         } catch (err: any) {
@@ -481,7 +734,7 @@ export function DailyRegister() {
       const data = response?.data?.data ?? response?.data;
       setBulkActionResult({
         open: true,
-        type: 'checkIn',
+        type: "checkIn",
         total: data.total || 0,
         success: data.checkedIn || 0,
         skipped: data.skipped || 0,
@@ -510,7 +763,6 @@ export function DailyRegister() {
     }
   }
 
-  // Bulk check out
   async function submitBulkCheckout(employeesToCheckout = bulkCheckinEmployees) {
     if (employeesToCheckout.length === 0) {
       showSnackbar("Select at least one employee", "warning");
@@ -528,7 +780,7 @@ export function DailyRegister() {
       const data = response?.data?.data ?? response?.data;
       setBulkActionResult({
         open: true,
-        type: 'checkOut',
+        type: "checkOut",
         total: data.total || 0,
         success: data.checkedOut || 0,
         skipped: data.skipped || 0,
@@ -569,11 +821,12 @@ export function DailyRegister() {
   }
 
   function toggleSelectAll() {
-    if (selected.size === employees.length) {
+    const selectable = employees.filter((e) => e.status !== "leave");
+    if (selected.size === selectable.length && selectable.length > 0) {
       setSelected(new Set());
       setSelectAllChecked(false);
     } else {
-      setSelected(new Set(employees.map((e) => e.employeeId)));
+      setSelected(new Set(selectable.map((e) => e.employeeId)));
       setSelectAllChecked(true);
     }
   }
@@ -585,13 +838,22 @@ export function DailyRegister() {
       return;
     }
 
+    const employeeIds = employeesToRem
+      .map((e: any) => e.employeeId ?? e.id)
+      .filter(Boolean);
+
+    if (employeeIds.length === 0) {
+      showSnackbar("No valid employees selected", "warning");
+      return;
+    }
+
     setSendingReminders(true);
     showSpinner();
     try {
       await attendanceService.sendReminders({
         recipientType: reminderType,
         reminderMessage: reminderMessage,
-        employeeIds: employeesToRem.map((e) => e.id),
+        employeeIds,
         sendVia: sendVia,
       });
       showSnackbar(`Reminders sent successfully`, "success");
@@ -609,19 +871,6 @@ export function DailyRegister() {
     }
   }
 
-  // const handleAddEmployee = (employee: any) => {
-  //   if (!employee) return;
-  //   if (employeesToRem.find((e) => e.id === employee.id)) {
-  //     showSnackbar("Employee already added", "warning");
-  //     return;
-  //   }
-  //   setEmployeesToRem([...employeesToRem, employee]);
-  // };
-
-  // const handleRemoveEmployee = (id: string) => {
-  //   setEmployeesToRem(employeesToRem.filter((e) => e.id !== id));
-  // };
-
   const handleSendViaChange = (event: any) => {
     const value = event.target.value;
     if (value.length === 0) {
@@ -630,105 +879,6 @@ export function DailyRegister() {
     }
     setSendVia(value);
   };
-
-  // async function handleImportFile() {
-  //   if (!importFile) {
-  //     showSnackbar("Please select a file to import", "warning");
-  //     return;
-  //   }
-  //   if (!importStartDate || !importEndDate) {
-  //     showSnackbar("Please select date range", "warning");
-  //     return;
-  //   }
-  //   if (dayjs(importEndDate).isBefore(dayjs(importStartDate))) {
-  //     showSnackbar("End date must be after start date", "warning");
-  //     return;
-  //   }
-  //   setImporting(true);
-  //   setImportResult(null);
-  //   showSpinner();
-
-  //   try {
-  //     const extension = importFile.name.split('.').pop()?.toLowerCase();
-  //     let format = 'csv';
-  //     if (extension === 'xlsx' || extension === 'xls') {
-  //       format = 'excel';
-  //     } else if (extension === 'txt' || extension === 'csv') {
-  //       format = 'csv';
-  //     }
-  //     const params = {
-  //       format,
-  //       source: importSource,
-  //       type: importType,
-  //       startDate: importStartDate,
-  //       endDate: importEndDate,
-  //     };
-
-  //     let fileToUpload = importFile;
-
-  //     // Upload the file
-  //     const res: any = await attendanceService.importAttendanceFile(params, fileToUpload);
-  //     const data = res?.data?.data ?? res?.data;
-  //     if (data) {
-  //       const totalPunches = data.totalPunches || 0;
-  //       const errorCount = data.errors || 0;
-  //       const successCount = totalPunches - errorCount;
-  //       const errorMessages: string[] = [];
-  //       if (data.rows && Array.isArray(data.rows)) {
-  //         data.rows.forEach((row: any) => {
-  //           if (row.message && row.message !== 'imported') {
-  //             const errorMsg = row.employeeCode
-  //               ? `${row.employeeCode}: ${row.message}`
-  //               : row.message;
-  //             errorMessages.push(errorMsg);
-  //           }
-  //         });
-  //       }
-  //       if (errorCount > 0 && successCount === 0) {
-  //         showSnackbar(
-  //           `All ${totalPunches} records failed to import. Please check the format.`,
-  //           "error"
-  //         );
-  //       } else if (errorCount > 0) {
-  //         showSnackbar(
-  //           `Imported with ${errorCount} error(s). ${successCount} successful.`,
-  //           "warning"
-  //         );
-  //       } else {
-  //         showSnackbar(
-  //           `Successfully imported ${totalPunches} attendance records`,
-  //           "success"
-  //         );
-  //       }
-  //       setImportResult({
-  //         success: successCount,
-  //         failed: errorCount,
-  //         errors: errorMessages,
-  //         rows: data.rows || []
-  //       });
-  //       if (successCount > 0) {
-  //         loadRegister();
-  //         loadTodaySummary();
-  //       }
-  //     }
-  //   } catch (err: any) {
-  //     const errorMessage = err?.response?.data?.message
-  //       || err?.message
-  //       || "Failed to import attendance";
-  //     showSnackbar(errorMessage, "error");
-  //     setImportResult({
-  //       success: 0,
-  //       failed: 1,
-  //       errors: [errorMessage],
-  //       rows: []
-  //     });
-  //   } finally {
-  //     setImporting(false);
-  //     hideSpinner();
-  //   }
-  // }
-
-  // Preview handler - Updated for Excel support
 
   async function handleImportFile() {
     if (!importFile) {
@@ -747,68 +897,84 @@ export function DailyRegister() {
     setImportResult(null);
     showSpinner();
     try {
-      const extension = importFile.name.split('.').pop()?.toLowerCase();
-      let format = 'csv';
-      // Determine format
-      if (extension === 'xlsx' || extension === 'xls') {
-        format = 'excel';
-      } else if (extension === 'txt' || extension === 'csv') {
-        format = 'csv';
+      const extension = importFile.name.split(".").pop()?.toLowerCase();
+      let format = "csv";
+      if (extension === "xlsx" || extension === "xls") {
+        format = "excel";
+      } else if (extension === "txt" || extension === "csv") {
+        format = "csv";
       }
       let fileToUpload = importFile;
-      // If it's an Excel file, read and convert to a properly formatted CSV
-      if (format === 'excel') {
+      if (format === "excel") {
         try {
           const excelData = await readExcelFile(importFile);
           if (!excelData || excelData.length === 0) {
             showSnackbar("No data found in the Excel file", "warning");
             return;
           }
-          // Get headers and identify columns
           const headers = Object.keys(excelData[0]);
-          const employeeCodeKey = headers.find(h =>
-            ['employee code', 'employeecode', 'employee', 'emp code', 'empcode', 'code', 'employee id', 'employeeid', 'empid', 'id'].some(key =>
-              h.toLowerCase().replace(/\s/g, '') === key.replace(/\s/g, '') ||
-              h.toLowerCase().includes(key.toLowerCase())
-            )
-          ) || headers[0];
-          const timestampKey = headers.find(h =>
-            ['timestamp', 'time', 'date', 'datetime', 'punch time', 'punchtime', 'checkin time', 'checkintime'].some(key =>
-              h.toLowerCase().replace(/\s/g, '') === key.replace(/\s/g, '') ||
-              h.toLowerCase().includes(key.toLowerCase())
-            )
-          ) || headers[1];
-          // Format data for CSV
+          const employeeCodeKey =
+            headers.find((h) =>
+              [
+                "employee code",
+                "employeecode",
+                "employee",
+                "emp code",
+                "empcode",
+                "code",
+                "employee id",
+                "employeeid",
+                "empid",
+                "id",
+              ].some(
+                (key) =>
+                  h.toLowerCase().replace(/\s/g, "") === key.replace(/\s/g, "") ||
+                  h.toLowerCase().includes(key.toLowerCase()),
+              ),
+            ) || headers[0];
+          const timestampKey =
+            headers.find((h) =>
+              [
+                "timestamp",
+                "time",
+                "date",
+                "datetime",
+                "punch time",
+                "punchtime",
+                "checkin time",
+                "checkintime",
+              ].some(
+                (key) =>
+                  h.toLowerCase().replace(/\s/g, "") === key.replace(/\s/g, "") ||
+                  h.toLowerCase().includes(key.toLowerCase()),
+              ),
+            ) || headers[1];
           const rows: any[] = [];
           let errorCount = 0;
           for (const row of excelData) {
-            let employeeCode = row[employeeCodeKey] || '';
-            let timestamp = row[timestampKey] || '';
+            let employeeCode = row[employeeCodeKey] || "";
+            let timestamp = row[timestampKey] || "";
             if (!employeeCode && !timestamp) continue;
-            // Format timestamp
-            let formattedTimestamp = '';
+            let formattedTimestamp = "";
             if (timestamp) {
               let parsed = dayjs(timestamp);
-              // Handle Excel date serial numbers
-              if (typeof timestamp === 'number' && !parsed.isValid()) {
-                const excelEpoch = dayjs('1899-12-30');
-                parsed = excelEpoch.add(timestamp, 'day');
+              if (typeof timestamp === "number" && !parsed.isValid()) {
+                const excelEpoch = dayjs("1899-12-30");
+                parsed = excelEpoch.add(timestamp, "day");
               }
               if (parsed.isValid()) {
-                // Always convert to UTC ISO string
                 formattedTimestamp = parsed.utc().toISOString();
               } else {
-                // Try alternative formats
                 const formats = [
-                  'YYYY-MM-DD HH:mm:ss',
-                  'YYYY-MM-DD HH:mm',
-                  'YYYY-MM-DD',
-                  'DD/MM/YYYY HH:mm:ss',
-                  'DD/MM/YYYY HH:mm',
-                  'DD/MM/YYYY',
-                  'MM/DD/YYYY HH:mm:ss',
-                  'MM/DD/YYYY HH:mm',
-                  'MM/DD/YYYY'
+                  "YYYY-MM-DD HH:mm:ss",
+                  "YYYY-MM-DD HH:mm",
+                  "YYYY-MM-DD",
+                  "DD/MM/YYYY HH:mm:ss",
+                  "DD/MM/YYYY HH:mm",
+                  "DD/MM/YYYY",
+                  "MM/DD/YYYY HH:mm:ss",
+                  "MM/DD/YYYY HH:mm",
+                  "MM/DD/YYYY",
                 ];
                 let found = false;
                 for (const fmt of formats) {
@@ -829,7 +995,7 @@ export function DailyRegister() {
             if (employeeCode && formattedTimestamp) {
               rows.push({
                 employeeCode: employeeCode.toString().trim(),
-                timestamp: formattedTimestamp
+                timestamp: formattedTimestamp,
               });
             }
           }
@@ -838,26 +1004,26 @@ export function DailyRegister() {
             return;
           }
 
-          // Create CSV file
-          const csvHeader = 'employeeCode,timestamp';
-          const csvRows = rows.map(row => `${row.employeeCode},${row.timestamp}`);
-          const csvContent = [csvHeader, ...csvRows].join('\n');
+          const csvHeader = "employeeCode,timestamp";
+          const csvRows = rows.map((row) => `${row.employeeCode},${row.timestamp}`);
+          const csvContent = [csvHeader, ...csvRows].join("\n");
 
-          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-          fileToUpload = new File([blob], `import_${dayjs().format('YYYY-MM-DD')}.csv`, {
-            type: 'text/csv',
-            lastModified: new Date().getTime()
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          fileToUpload = new File([blob], `import_${dayjs().format("YYYY-MM-DD")}.csv`, {
+            type: "text/csv",
+            lastModified: new Date().getTime(),
           });
 
-          // Update format to CSV
-          format = 'csv';
+          format = "csv";
         } catch (error) {
-          showSnackbar("Failed to read Excel file. Please ensure it's a valid Excel file.", "error");
+          showSnackbar(
+            "Failed to read Excel file. Please ensure it's a valid Excel file.",
+            "error",
+          );
           return;
         }
       }
 
-      // Prepare params
       const params = {
         format: format,
         source: importSource,
@@ -865,7 +1031,6 @@ export function DailyRegister() {
         startDate: importStartDate,
         endDate: importEndDate,
       };
-      // Upload the file
       const res: any = await attendanceService.importAttendanceFile(params, fileToUpload);
       const data = res?.data?.data ?? res?.data;
 
@@ -874,11 +1039,10 @@ export function DailyRegister() {
         const errorCount = data.errors || 0;
         const successCount = totalPunches - errorCount;
 
-        // Collect error messages
         const errorMessages: string[] = [];
         if (data.rows && Array.isArray(data.rows)) {
           data.rows.forEach((row: any) => {
-            if (row.message && row.message !== 'imported' && row.message !== 'success') {
+            if (row.message && row.message !== "imported" && row.message !== "success") {
               const errorMsg = row.employeeCode
                 ? `${row.employeeCode}: ${row.message}`
                 : row.message;
@@ -887,21 +1051,20 @@ export function DailyRegister() {
           });
         }
 
-        // Show appropriate message
         if (errorCount > 0 && successCount === 0) {
           showSnackbar(
             `All ${totalPunches} records failed to import. Please check the format.`,
-            "error"
+            "error",
           );
         } else if (errorCount > 0) {
           showSnackbar(
             `Imported with ${errorCount} error(s). ${successCount} successful.`,
-            "warning"
+            "warning",
           );
         } else {
           showSnackbar(
             `Successfully imported ${totalPunches} attendance records`,
-            "success"
+            "success",
           );
         }
 
@@ -909,7 +1072,7 @@ export function DailyRegister() {
           success: successCount,
           failed: errorCount,
           errors: errorMessages,
-          rows: data.rows || []
+          rows: data.rows || [],
         });
 
         if (successCount > 0) {
@@ -918,15 +1081,14 @@ export function DailyRegister() {
         }
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message
-        || err?.message
-        || "Failed to import attendance";
+      const errorMessage =
+        err?.response?.data?.message || err?.message || "Failed to import attendance";
       showSnackbar(errorMessage, "error");
       setImportResult({
         success: 0,
         failed: 1,
         errors: [errorMessage],
-        rows: []
+        rows: [],
       });
     } finally {
       setImporting(false);
@@ -940,43 +1102,45 @@ export function DailyRegister() {
       return;
     }
     try {
-      const extension = importFile.name.split('.').pop()?.toLowerCase();
+      const extension = importFile.name.split(".").pop()?.toLowerCase();
       let preview: any = [];
 
-      if (extension === 'xlsx' || extension === 'xls') {
+      if (extension === "xlsx" || extension === "xls") {
         const excelData = await readExcelFile(importFile);
         if (excelData && excelData.length > 0) {
           const headers = Object.keys(excelData[0]);
-          const employeeCodeKey = headers.find(h =>
-            h.toLowerCase().includes('employee') ||
-            h.toLowerCase().includes('emp') ||
-            h.toLowerCase().includes('code')
-          ) || headers[0];
-          const timestampKey = headers.find(h =>
-            h.toLowerCase().includes('timestamp') ||
-            h.toLowerCase().includes('time') ||
-            h.toLowerCase().includes('date')
-          ) || headers[1];
+          const employeeCodeKey =
+            headers.find(
+              (h) =>
+                h.toLowerCase().includes("employee") ||
+                h.toLowerCase().includes("emp") ||
+                h.toLowerCase().includes("code"),
+            ) || headers[0];
+          const timestampKey =
+            headers.find(
+              (h) =>
+                h.toLowerCase().includes("timestamp") ||
+                h.toLowerCase().includes("time") ||
+                h.toLowerCase().includes("date"),
+            ) || headers[1];
 
           preview = excelData.slice(0, 5).map((row: any) => {
-            const employeeCode = row[employeeCodeKey] || 'N/A';
-            const originalTimestamp = row[timestampKey] || 'N/A';
+            const employeeCode = row[employeeCodeKey] || "N/A";
+            const originalTimestamp = row[timestampKey] || "N/A";
 
-            let formattedTimestamp = 'N/A';
+            let formattedTimestamp = "N/A";
             let isValid = false;
 
-            if (originalTimestamp !== 'N/A' && originalTimestamp) {
-              // Try to format the timestamp
+            if (originalTimestamp !== "N/A" && originalTimestamp) {
               const parsed = dayjs(originalTimestamp);
               if (parsed.isValid()) {
                 formattedTimestamp = parsed.toISOString();
                 isValid = true;
               } else {
-                // Try alternative formats
                 const parsed2 = dayjs(originalTimestamp, [
-                  'YYYY-MM-DD HH:mm:ss',
-                  'YYYY-MM-DD HH:mm',
-                  'YYYY-MM-DD'
+                  "YYYY-MM-DD HH:mm:ss",
+                  "YYYY-MM-DD HH:mm",
+                  "YYYY-MM-DD",
                 ]);
                 if (parsed2.isValid()) {
                   formattedTimestamp = parsed2.toISOString();
@@ -991,13 +1155,10 @@ export function DailyRegister() {
               employeeCode: String(employeeCode),
               originalTimestamp: String(originalTimestamp),
               formattedTimestamp,
-              isValid
+              isValid,
             };
           });
         }
-      } else {
-        // Handle CSV/TXT similarly with proper formatting
-        // ... (existing CSV preview code with the same formatting logic)
       }
 
       setPreviewData(preview);
@@ -1023,6 +1184,8 @@ export function DailyRegister() {
         employeeData: null,
         timestamp: dayjs().toISOString(),
         deviceId: "",
+        punchType: "IN",
+        machineInOutGridId: "",
       },
     ]);
   }
@@ -1056,9 +1219,7 @@ export function DailyRegister() {
   }
 
   async function handleBatchPunchImport() {
-    const validEntries = punchEntries.filter(
-      (e) => e.employeeId && e.timestamp,
-    );
+    const validEntries = punchEntries.filter((e) => e.employeeId && e.timestamp);
 
     if (validEntries.length === 0) {
       showSnackbar("Please add at least one valid punch entry", "warning");
@@ -1093,11 +1254,6 @@ export function DailyRegister() {
       const toDate = punchDates.length
         ? punchDates.reduce((max, d) => (d.isAfter(max) ? d : max)).format("YYYY-MM-DD")
         : dayjs().format("YYYY-MM-DD");
-      // showSnackbar(
-      //   data?.message ||
-      //   `Imported ${data?.totalPunches || 0} punches successfully`,
-      //   data?.errors > 0 ? "warning" : "success",
-      // );
       try {
         await attendanceService.processAttendance({
           fromDate,
@@ -1116,7 +1272,6 @@ export function DailyRegister() {
           data?.errors > 0 ? "warning" : "success",
         );
       } catch (processErr: any) {
-        // Punches were imported, but processing failed — warn the user
         showSnackbar(
           `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
           }`,
@@ -1126,7 +1281,7 @@ export function DailyRegister() {
       loadRegister();
       loadTodaySummary();
       setPunchImportOpen(false);
-      setPunchEntries([])
+      setPunchEntries([]);
     } catch (err: any) {
       showSnackbar(
         err?.response?.data?.message ?? "Failed to import punches",
@@ -1138,87 +1293,39 @@ export function DailyRegister() {
     }
   }
 
-  // const handlePageChange = (p: number) => {
-  //   setPage(p - 1);
-  // };
-  // const handleLimitChange = (l: number) => {
-  //   setLimit(l);
-  //   setPage(0);
-  // };
-
   const statCards = todaySummary
     ? [
-      {
-        label: "Total",
-        value: todaySummary.totalEmployees,
-        color: "text-blue-600",
-        border: "border-blue-500",
-      },
-      {
-        label: "Present",
-        value: todaySummary.present,
-        color: "text-green-600",
-        border: "border-green-500",
-      },
-      {
-        label: "Late",
-        value: todaySummary.late,
-        color: "text-amber-600",
-        border: "border-amber-500",
-      },
-      {
-        label: "Absent",
-        value: todaySummary.absent,
-        color: "text-red-500",
-        border: "border-red-500",
-      },
-      {
-        label: "On Leave",
-        value: todaySummary.onLeave,
-        color: "text-violet-600",
-        border: "border-violet-500",
-      },
-      {
-        label: "Checked In",
-        value: todaySummary.checkedIn,
-        color: "text-cyan-600",
-        border: "border-cyan-500",
-      },
-      {
-        label: "Not Yet In",
-        value: todaySummary.notYetIn,
-        color: "text-pink-600",
-        border: "border-pink-500",
-      },
-      {
-        label: "Attendance %",
-        value: todaySummary.attendancePercentage,
-        color: "text-emerald-600",
-        border: "border-emerald-500",
-      },
+      { label: "Total", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
+      { label: "Present", value: todaySummary.present, color: "text-green-600", border: "border-green-500" },
+      { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
+      { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
+      { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
+      { label: "Missed Punch", value: todaySummary.checkedIn, color: "text-cyan-600", border: "border-cyan-500" },
+      { label: "Not Yet In", value: todaySummary.notYetIn, color: "text-pink-600", border: "border-pink-500" },
+      { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
     ]
     : [];
 
   const handleEmployee = async (employee: any) => {
     if (!employee) return;
     const employeeId = employee.id || employee.employeeId;
-    if (employeesToRem.find(e => e.employeeId === employeeId)) {
+    if (!employeeId) return;
+
+    if (employeesToRem.find((e: any) => (e.employeeId ?? e.id) === employeeId)) {
       showSnackbar("Employee already added", "warning");
       return;
     }
     setEmployeesToRem([...employeesToRem, employee]);
-    if (!selected.has(employee.id)) {
+    if (!selected.has(employeeId)) {
       const newSelected = new Set(selected);
-      newSelected.add(employee.id);
+      newSelected.add(employeeId);
       setSelected(newSelected);
     }
-  }
+  };
 
-  // When opening the reminder dialog, pre-populate with selected employees
   const handleOpenReminderDialog = () => {
     if (selected.size > 0) {
-      // Get selected employees from the employees list
-      const selectedEmployees = employees.filter(emp => selected.has(emp.employeeId));
+      const selectedEmployees = employees.filter((emp) => selected.has(emp.employeeId));
       setEmployeesToRem(selectedEmployees);
     } else {
       setEmployeesToRem([]);
@@ -1226,11 +1333,10 @@ export function DailyRegister() {
     setReminderDialogOpen(true);
   };
 
-  // Add these handlers after the existing handlers
   const handleSelectDevice = (deviceId: string) => {
-    setSelectedDeviceIds(prev => {
+    setSelectedDeviceIds((prev) => {
       if (prev.includes(deviceId)) {
-        return prev.filter(id => id !== deviceId);
+        return prev.filter((id) => id !== deviceId);
       } else {
         return [...prev, deviceId];
       }
@@ -1241,12 +1347,11 @@ export function DailyRegister() {
     if (selectAllDevices) {
       setSelectedDeviceIds([]);
     } else {
-      setSelectedDeviceIds(devices.map(d => d.id));
+      setSelectedDeviceIds(devices.map((d) => d.id));
     }
     setSelectAllDevices(!selectAllDevices);
   };
 
-  // Add this function after the existing handlers
   const handleFetchFromDevices = async () => {
     if (!punchImportFromDate || !punchImportToDate) {
       showSnackbar("Please select both From Date and To Date", "warning");
@@ -1267,14 +1372,12 @@ export function DailyRegister() {
     showSpinner();
 
     try {
-      const selectedDevicesData = devices.filter(d => selectedDeviceIds.includes(d.id));
+      const selectedDevicesData = devices.filter((d) => selectedDeviceIds.includes(d.id));
 
-      // Format device IPs with ports as "ip:port"
-      const deviceIpsWithPorts = selectedDevicesData.map(device =>
-        `${device.ipAddress}:${device.port || 4370}`
+      const deviceIpsWithPorts = selectedDevicesData.map(
+        (device) => `${device.ipAddress}:${device.port || 4370}`,
       );
 
-      // Call the fetch logs API
       const result: any = await biometricService.fetchLogs({
         from_date: punchImportFromDate,
         to_date: punchImportToDate,
@@ -1288,18 +1391,19 @@ export function DailyRegister() {
         return;
       }
       const newPunchEntriesFilter: any = punchesData.map((punch: any) => {
-        const matchedEmp = employeesData.find(
-          (emp) => emp.midNo == punch.mid_no
-        );
+        const matchedEmp = employeesData.find((emp) => emp.midNo == punch.mid_no);
         return {
           ...punch,
           employeeName: matchedEmp ? matchedEmp.name : "Unknown",
           employeeCode: matchedEmp ? matchedEmp.employeeId : "Unknown",
-          employeeId: matchedEmp ? matchedEmp.id : "Unknown", //coment
-          // deviceId: selectedDevicesData.find(d => d.id === punch.machineInOutGridId)?.id || "",
+          employeeId: matchedEmp ? matchedEmp.id : "Unknown",
+          deviceId: punch.machineInOutGridId || punch.deviceId || "",
+          punchType: punch.punchType || "IN",
         };
       });
-      const newPunchEntries = newPunchEntriesFilter.filter((item: any) => item.employeeId !== "Unknown")
+      const newPunchEntries = newPunchEntriesFilter.filter(
+        (item: any) => item.employeeId !== "Unknown",
+      );
 
       const unknownCount = newPunchEntriesFilter.length - newPunchEntries.length;
       setDeviceFetchSummary((previous) => ({
@@ -1308,16 +1412,15 @@ export function DailyRegister() {
         unknown: previous.unknown + unknownCount,
       }));
 
-      // Add to existing punch entries
-      setPunchEntries(prev => [...prev, ...newPunchEntries]);
+      setPunchEntries((prev) => [...prev, ...newPunchEntries]);
       showSnackbar(
         `Fetched ${punchesData.length} logs: ${newPunchEntries.length} matched, ${unknownCount} unknown`,
-        "success"
+        "success",
       );
     } catch (err: any) {
       showSnackbar(
         err?.message || "Failed to fetch punch logs from devices",
-        "error"
+        "error",
       );
     } finally {
       setDeviceImportLoading(false);
@@ -1340,17 +1443,16 @@ export function DailyRegister() {
     if (!timeStr) return false;
     const d = dayjs(timeStr);
     if (!d.isValid()) return false;
-    // invalid only if time is exactly 00:00:00
     return d.hour() !== 0 || d.minute() !== 0 || d.second() !== 0;
   };
+
+  const selectableEmployees = employees.filter((e) => e.status !== "leave");
 
   return (
     <div className="p-4 space-y-3">
       {/* Summary cards */}
       <div className="flex items-center justify-between">
-        <div className="text-[12px] font-bold text-gray-500">
-          {getSummaryHeader()}
-        </div>
+        <div className="text-[12px] font-bold text-gray-500">{getSummaryHeader()}</div>
 
         <div className="flex gap-2">
           <Button
@@ -1386,13 +1488,8 @@ export function DailyRegister() {
       {statCards.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-2">
           {statCards.map(({ label, value, color, border }) => (
-            <div
-              key={label}
-              className={`border ${border} rounded-lg p-1 text-center`}
-            >
-              <div className={`text-[16px] font-bold ${color}`}>
-                {value ? value : 0}
-              </div>
+            <div key={label} className={`border ${border} rounded-lg p-1 text-center`}>
+              <div className={`text-[16px] font-bold ${color}`}>{value ? value : 0}</div>
               <div className="text-[12px] text-gray-500">{label}</div>
             </div>
           ))}
@@ -1405,11 +1502,9 @@ export function DailyRegister() {
           <FilterListOutlined className="text-gray-600" fontSize="small" />
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
-              // className="!w-[150px]"
               value={date ? dayjs(date) : null}
               onChange={(newValue) => {
                 setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
-                // setPage(0);
               }}
               format="DD/MM/YYYY"
               maxDate={dayjs()}
@@ -1420,10 +1515,7 @@ export function DailyRegister() {
             <Select
               value={departmentId}
               label="Department"
-              onChange={(e) => {
-                setDepartmentId(e.target.value);
-                // setPage(0);
-              }}
+              onChange={(e) => setDepartmentId(e.target.value)}
               sx={selectSx}
             >
               <MenuItem value="All">All Departments</MenuItem>
@@ -1440,10 +1532,7 @@ export function DailyRegister() {
             <Select
               value={branchId}
               label="Branch"
-              onChange={(e) => {
-                setBranchId(e.target.value);
-                // setPage(0);
-              }}
+              onChange={(e) => setBranchId(e.target.value)}
               sx={selectSx}
             >
               <MenuItem value="">All Branches</MenuItem>
@@ -1456,11 +1545,7 @@ export function DailyRegister() {
           </FormControl>
 
           {todayHoliday && (
-            <div className="bg-primary-100 !whitespace-nowrap !px-2 !py-2 rounded-md"
-            // severity="info"
-            // icon={<WbSunnyOutlined className="!w-4" />}
-            // sx={{ py: 0.5 }}
-            >
+            <div className="bg-primary-100 !whitespace-nowrap !px-2 !py-2 rounded-md">
               <span className="text-[12px] text-black mr-2">
                 Holiday: {todayHoliday?.name}
               </span>
@@ -1474,7 +1559,6 @@ export function DailyRegister() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Status quick chips */}
           <div className="flex items-center gap-1 flex-wrap">
             {STATUS_CHIP_OPTIONS.map((o) => (
               <Chip
@@ -1483,10 +1567,7 @@ export function DailyRegister() {
                 size="small"
                 variant={statusFilter === o.value ? "filled" : "outlined"}
                 color={statusFilter === o.value ? "primary" : "default"}
-                onClick={() => {
-                  setStatusFilter(o.value);
-                  // setPage(0);
-                }}
+                onClick={() => setStatusFilter(o.value)}
                 className="cursor-pointer text-gray-800"
                 sx={{
                   borderRadius: "8px",
@@ -1522,24 +1603,6 @@ export function DailyRegister() {
         </div>
       </div>
 
-      {/* Holiday banner */}
-      {/* {todayHoliday && (
-        <Alert
-          severity="info"
-          icon={<WbSunnyOutlined className="!w-4" />}
-        // sx={{ py: 0.5 }}
-        >
-          <span className="text-[12px] font-bold mr-2">
-            Holiday: {todayHoliday?.name}
-          </span>
-          {todayHoliday?.type && (
-            <span className="text-[12px] text-primary">
-              ({todayHoliday?.type})
-            </span>
-          )}
-        </Alert>
-      )} */}
-
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 bg-primary/5 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
@@ -1573,18 +1636,24 @@ export function DailyRegister() {
               startIcon={<PlaylistAddCheckCircleOutlined fontSize="small" />}
               onClick={() => {
                 setBulkActionType("checkIn");
-                const selectedEmployees = employees.filter(emp => selected.has(emp.employeeId));
+                const selectedEmployees = employees.filter((emp) =>
+                  selected.has(emp.employeeId),
+                );
                 setBulkCheckinEmployees(selectedEmployees);
                 setBulkCheckinOpen(true);
               }}
             >
               Bulk Action
             </Button>
-            <Button size="small" variant="outlined"
-              className="!text-gray-800 !border-gray-200" onClick={() => {
+            <Button
+              size="small"
+              variant="outlined"
+              className="!text-gray-800 !border-gray-200"
+              onClick={() => {
                 setSelected(new Set());
                 setSelectAllChecked(false);
-              }}>
+              }}
+            >
               Clear
             </Button>
           </div>
@@ -1610,17 +1679,17 @@ export function DailyRegister() {
                     color="primary"
                     className="text-gray-800"
                     indeterminate={
-                      selected.size > 0 && selected.size < employees.length
+                      selected.size > 0 && selected.size < selectableEmployees.length
                     }
                     checked={
-                      employees.length > 0 && selected.size === employees.length
+                      selectableEmployees.length > 0 &&
+                      selected.size === selectableEmployees.length
                     }
                     onChange={toggleSelectAll}
                   />
                 </TableCell>
                 {[
                   "Emp Name",
-                  // "Department",
                   "Shift",
                   "Check In Date",
                   "Check In Time",
@@ -1633,8 +1702,17 @@ export function DailyRegister() {
                   "Status",
                   "Action",
                 ].map((h, i) => (
-                  <TableCell key={h} className={`!font-bold ${i == 0 ? '!sticky left-[68px] !z-40' :
-                    h == 'Action' ? '!sticky right-0 !z-40' : h == 'Status' ? '!sticky right-[69px] !z-40' : ''}`}>
+                  <TableCell
+                    key={h}
+                    className={`!font-bold ${i == 0
+                      ? "!sticky left-[68px] !z-40"
+                      : h == "Action"
+                        ? "!sticky right-0 !z-40"
+                        : h == "Status"
+                          ? "!sticky right-[69px] !z-40"
+                          : ""
+                      }`}
+                  >
                     {h}
                   </TableCell>
                 ))}
@@ -1642,125 +1720,386 @@ export function DailyRegister() {
             </TableHead>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  {/* <TableCell colSpan={10} align="center" className="py-8">
-                    <div className="flex items-center justify-center">
-                      <LinearProgress className="w-32" />
-                    </div>
-                  </TableCell> */}
-                </TableRow>
+                <TableRow>{/* Loading placeholder */}</TableRow>
               ) : employees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" className="py-8">
+                  <TableCell colSpan={13} align="center" className="py-8">
                     <div className="text-[12px] text-gray-400 pt-7">
                       No records for {dayjs(date).format("DD MMM YYYY")}
                     </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                employees.map((emp, i) => (
-                  <TableRow
-                    key={emp.employeeId || i}
-                    // selected={selected.has(emp.employeeId)}
-                    sx={getRowColor(i)}
-                  >
-                    <TableCell className="!sticky left-0 !z-20 bg-inherit">
-                      <Checkbox
-                        size="small"
-                        color="primary"
-                        className="!border-red-500 text-gray-800"
-                        checked={selected.has(emp.employeeId)}
-                        onChange={() => toggleSelect(emp.employeeId)}
-                        disabled={emp.status == 'leave'}
-                      /> <span>{i + 1}</span>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap !sticky left-[68px] !z-20 bg-inherit">
-                      <div>{emp.employeeName} ({emp.employeeCode})</div>
-                      <div className="text-blue-500">{emp.department || '-'}</div>
-                    </TableCell>
-                    {/* <TableCell>{emp.department || '-'}</TableCell> */}
-                    {/* <TableCell>{emp.shiftCode || '-'}</TableCell> */}
-                    <TableCell className="text-gray-500">
-                      <div>{emp.shiftCode || '-'}</div>
-                      <div className="text-primary font-bold">{emp.shiftStart || "-"} - {emp.shiftEnd || "-"}</div>
-                    </TableCell>
-                    <TableCell>{emp.checkInDate ? formatDate(emp.checkInDate) : "-"}</TableCell>
+                employees.map((emp, i) => {
+                  const isLeave = emp.status === "leave";
+                  const isEditing = inlineEditInProgress === emp.employeeId;
 
-                    <TableCell>
-                      {emp.checkInTime ? (
-                        <span className="text-green-700 font-semibold">
-                          {formatTimewithSec(emp.checkInTime)}
-                        </span>
-                      ) : (
-                        <span className="text-red-400">-</span>
-                      )}
-                    </TableCell>
+                  return (
+                    <TableRow key={emp.employeeId || i} sx={getRowColor(i)}>
+                      <TableCell className="!sticky left-0 !z-20 bg-inherit">
+                        <Checkbox
+                          size="small"
+                          color="primary"
+                          className="!border-red-500 text-gray-800"
+                          checked={selected.has(emp.employeeId)}
+                          onChange={() => toggleSelect(emp.employeeId)}
+                          disabled={isLeave}
+                        />{" "}
+                        <span>{i + 1}</span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap !sticky left-[68px] !z-20 bg-inherit">
+                        <div>
+                          {emp.employeeName} ({emp.employeeCode})
+                        </div>
+                        <div className="text-blue-500">{emp.department || "-"}</div>
+                      </TableCell>
+                      <TableCell className="text-gray-500">
+                        <div>{emp.shiftCode || "-"}</div>
+                        <div className="text-primary font-bold">
+                          {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
+                        </div>
+                      </TableCell>
 
-                    <TableCell>{emp.checkOutDate ? formatDate(emp.checkOutDate) : '-'}</TableCell>
-                    <TableCell>
-                      {emp.checkOutTime ? (
-                        <span className="text-blue-600 font-semibold">
-                          {formatTimewithSec(emp.checkOutTime)}
-                        </span>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{emp.earlyOutMinutes || 0}</TableCell>
-                    <TableCell>{emp.lateMinutes || 0}</TableCell>
-                    <TableCell>{emp.overtimeMinutes || 0}</TableCell>
-                    <TableCell>{emp.workedMinutes || 0}</TableCell>
-                    <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
-                      <span
-                        className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap
-                        ${ATTENDANCE_STATUS_BG[emp.status] ?? "bg-gray-100 text-gray-600"}`}
-                      >
-                        {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="!sticky right-0 !z-20 !bg-inherit">
-                      {emp.status !== 'leave' ? (
+                      {/* ─── CHECK-IN DATE (shows only date) ─── */}
+                      <TableCell>
                         <div className="flex items-center gap-1">
-                          {!emp.checkInTime && (
-                            <Tooltip title="Mark Check-in">
-                              <IconButton
-                                size="small"
-                                onClick={() => openPunch(emp, "checkIn")}
-                                className="!text-green-700"
-                              >
-                                <LoginOutlined fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                          {isEditingField(emp.employeeId, "checkInDate") ? (
+                            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                              <DateTimePicker
+                                autoFocus
+                                open
+                                onClose={closeField}
+                                value={draftDateTime}
+                                onChange={(newValue) => setDraftDateTime(newValue)}
+                                onAccept={(newValue) => {
+                                  if (!newValue) return;
+                                  const selected = dayjs(newValue);
+                                  if (selected.isAfter(dayjs())) {
+                                    showSnackbar("Check-in cannot be in the future", "warning");
+                                    return;
+                                  }
+                                  closeField();
+                                  handleInlineCheckInDateChange(
+                                    emp,
+                                    selected.format("YYYY-MM-DD"),
+                                    selected.format("HH:mm:ss"),
+                                  );
+                                }}
+                                format="DD/MM/YYYY HH:mm:ss"
+                                ampm={false}
+                                maxDateTime={dayjs()}
+                                disabled={isLeave || isEditing}
+                                slotProps={{
+                                  textField: {
+                                    variant: "outlined",
+                                    sx: {
+                                      ...inlineInputSx,
+                                      width: "160px",
+                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                        padding: "0 2px 0 0px !important",
+                                      },
+                                    },
+                                  },
+                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                }}
+                              />
+                            </LocalizationProvider>
+                          ) : (
+                            <InlineDisplay
+                              value={emp.checkInDate ? dayjs(emp.checkInDate).format("DD MMM YYYY") : null}
+                              onClick={() =>
+                                !isLeave &&
+                                !isEditing &&
+                                openField(
+                                  emp.employeeId,
+                                  "checkInDate",
+                                  emp.checkInTime
+                                    ? dayjs(emp.checkInTime)
+                                    : emp.checkInDate
+                                      ? dayjs(`${emp.checkInDate}T00:00:00`)
+                                      : null,
+                                )
+                              }
+                              disabled={isLeave || isEditing}
+                            />
                           )}
-                          {emp.checkInTime && !emp.checkOutTime && (
-                            <Tooltip title="Mark Check-out">
-                              <IconButton
-                                size="small"
-                                onClick={() => openPunch(emp, "checkOut")}
-                                className="!text-blue-600"
-                              >
-                                <LogoutOutlined fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                        </div>
+                      </TableCell>
+
+                      {/* ─── CHECK-IN TIME (shows only time) ─── */}
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {isEditingField(emp.employeeId, "checkInTime") ? (
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                              <DateTimePicker
+                                autoFocus
+                                open
+                                onClose={closeField}
+                                value={draftDateTime}
+                                onChange={(newValue) => setDraftDateTime(newValue)}
+                                onAccept={(newValue) => {
+                                  if (!newValue) return;
+                                  const selected = dayjs(newValue);
+                                  if (selected.isAfter(dayjs())) {
+                                    showSnackbar("Check-in time cannot be in the future", "warning");
+                                    return;
+                                  }
+                                  closeField();
+                                  handleInlineCheckInTimeChange(emp, selected.toISOString());
+                                }}
+                                format="HH:mm:ss"
+                                ampm={false}
+                                maxDateTime={dayjs()}
+                                disabled={isLeave || isEditing}
+                                slots={{ openPickerIcon: AccessTimeOutlined }}
+                                slotProps={{
+                                  textField: {
+                                    size: "small",
+                                    variant: "outlined",
+                                    sx: {
+                                      ...inlineInputSx,
+                                      width: "100px",
+                                      "& .MuiInputBase-input": {
+                                        color: emp.checkInTime ? "#15803d" : "#ef4444",
+                                      },
+                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                        padding: "0 2px 0 0px !important",
+                                      },
+                                    },
+                                  },
+                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                }}
+                              />
+                            </LocalizationProvider>
+                          ) : (
+                            <InlineDisplay
+                              value={emp.checkInTime ? dayjs(emp.checkInTime).format("HH:mm:ss") : null}
+                              onClick={() =>
+                                !isLeave &&
+                                !isEditing &&
+                                openField(
+                                  emp.employeeId,
+                                  "checkInTime",
+                                  emp.checkInTime ? dayjs(emp.checkInTime) : null,
+                                )
+                              }
+                              disabled={isLeave || isEditing}
+                              className={emp.checkInTime ? "text-green-700 font-semibold" : "text-red-500"}
+                            />
                           )}
-                          {emp.checkInTime && emp.checkOutTime && (
-                            <Tooltip title="Marked">
-                              <IconButton size="small" className="!text-primary">
-                                <CheckCircleOutlined fontSize="small" />
-                              </IconButton>
+                        </div>
+                      </TableCell>
+
+                      {/* ─── CHECK-OUT DATE (shows only date) ─── */}
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {isEditingField(emp.employeeId, "checkOutDate") ? (
+                            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                              <DateTimePicker
+                                autoFocus
+                                open
+                                onClose={closeField}
+                                value={draftDateTime}
+                                onChange={(newValue) => setDraftDateTime(newValue)}
+                                onAccept={(newValue) => {
+                                  if (!newValue) return;
+                                  const selected = dayjs(newValue);
+                                  if (selected.isAfter(dayjs())) {
+                                    showSnackbar("Check-out cannot be in the future", "warning");
+                                    return;
+                                  }
+                                  if (emp.checkInTime && selected.isBefore(dayjs(emp.checkInTime))) {
+                                    showSnackbar("Check-out cannot be before check-in", "warning");
+                                    return;
+                                  }
+                                  closeField();
+                                  handleInlineCheckOutDateChange(
+                                    emp,
+                                    selected.format("YYYY-MM-DD"),
+                                    selected.format("HH:mm:ss"),
+                                  );
+                                }}
+                                format="DD/MM/YYYY HH:mm:ss"
+                                ampm={false}
+                                maxDateTime={dayjs()}
+                                minDateTime={emp.checkInTime ? dayjs(emp.checkInTime) : undefined}
+                                disabled={isLeave || isEditing || !emp.checkInTime}
+                                slotProps={{
+                                  textField: {
+                                    size: "small",
+                                    variant: "outlined",
+                                    sx: {
+                                      ...inlineInputSx,
+                                      width: "160px",
+                                      "& .MuiInputBase-input": {
+                                        color: emp.checkOutDate ? "#1f2937" : "#9ca3af",
+                                      },
+                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                        padding: "0 2px 0 0px !important",
+                                      },
+                                    },
+                                  },
+                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                }}
+                              />
+                            </LocalizationProvider>
+                          ) : (
+                            <InlineDisplay
+                              value={emp.checkOutDate ? dayjs(emp.checkOutDate).format("DD MMM YYYY") : null}
+                              onClick={() =>
+                                !isLeave &&
+                                !isEditing &&
+                                emp.checkInTime &&
+                                openField(
+                                  emp.employeeId,
+                                  "checkOutDate",
+                                  emp.checkOutTime
+                                    ? dayjs(emp.checkOutTime)
+                                    : emp.checkOutDate
+                                      ? dayjs(`${emp.checkOutDate}T00:00:00`)
+                                      : null,
+                                )
+                              }
+                              disabled={isLeave || isEditing || !emp.checkInTime}
+                            />
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* ─── CHECK-OUT TIME (shows only time) ─── */}
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          {isEditingField(emp.employeeId, "checkOutTime") ? (
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                              <DateTimePicker
+                                autoFocus
+                                open
+                                onClose={closeField}
+                                value={draftDateTime}
+                                onChange={(newValue) => setDraftDateTime(newValue)}
+                                onAccept={(newValue) => {
+                                  if (!newValue) return;
+                                  const selected = dayjs(newValue);
+                                  if (selected.isAfter(dayjs())) {
+                                    showSnackbar("Check-out time cannot be in the future", "warning");
+                                    return;
+                                  }
+                                  if (emp.checkInTime && selected.isBefore(dayjs(emp.checkInTime))) {
+                                    showSnackbar("Check-out time cannot be before check-in time", "warning");
+                                    return;
+                                  }
+                                  closeField();
+                                  handleInlineCheckOutTimeChange(emp, selected.toISOString());
+                                }}
+                                format="HH:mm:ss"
+                                ampm={false}
+                                maxDateTime={dayjs()}
+                                minDateTime={emp.checkInTime ? dayjs(emp.checkInTime) : undefined}
+                                disabled={isLeave || isEditing || !emp.checkInTime}
+                                slots={{ openPickerIcon: AccessTimeOutlined }}
+                                slotProps={{
+                                  textField: {
+                                    size: "small",
+                                    variant: "outlined",
+                                    sx: {
+                                      ...inlineInputSx,
+                                      width: "100px",
+                                      "& .MuiInputBase-input": {
+                                        color: emp.checkOutTime ? "#2563eb !important" : "#9ca3af",
+                                      },
+                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                        padding: "0 2px 0 0px !important",
+                                      },
+                                    },
+                                  },
+                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                }}
+                              />
+                            </LocalizationProvider>
+                          ) : (
+                            <InlineDisplay
+                              value={emp.checkOutTime ? dayjs(emp.checkOutTime).format("HH:mm:ss") : null}
+                              onClick={() =>
+                                !isLeave &&
+                                !isEditing &&
+                                emp.checkInTime &&
+                                openField(
+                                  emp.employeeId,
+                                  "checkOutTime",
+                                  emp.checkOutTime ? dayjs(emp.checkOutTime) : null,
+                                )
+                              }
+                              disabled={isLeave || isEditing || !emp.checkInTime}
+                              className={emp.checkOutTime ? "text-blue-600 font-semibold" : "text-gray-400"}
+                            />
+                          )}
+                        </div>
+                      </TableCell>
+
+                      <TableCell>{emp.earlyOutMinutes || 0}</TableCell>
+                      <TableCell>{emp.lateMinutes || 0}</TableCell>
+                      <TableCell>{emp.overtimeMinutes || 0}</TableCell>
+                      <TableCell>{emp.workedMinutes || 0}</TableCell>
+                      <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${ATTENDANCE_STATUS_BG[emp.status] ??
+                              "bg-gray-100 text-gray-600"
+                              }`}
+                          >
+                            {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
+                          </span>
+                          {emp.correctionPending && (
+                            <Tooltip title="Correction pending approval">
+                              <PendingActionsOutlined className="!w-4 !h-4 text-amber-500" />
                             </Tooltip>
                           )}
                         </div>
-                      ) : (
-                        <Tooltip title="On Leave">
-                          <IconButton size="small" className="!text-violet-700">
-                            <CheckCircleOutlined fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell className="!sticky right-0 !z-20 !bg-inherit">
+                        {!isLeave ? (
+                          <div className="flex items-center gap-1">
+                            {!emp.checkInTime && (
+                              <Tooltip title="Mark Check-in">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => openPunch(emp, "checkIn")}
+                                  className="!text-green-700"
+                                >
+                                  <LoginOutlined fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {emp.checkInTime && !emp.checkOutTime && (
+                              <Tooltip title="Mark Check-out">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => openPunch(emp, "checkOut")}
+                                  className="!text-blue-600"
+                                >
+                                  <LogoutOutlined fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {emp.checkInTime && emp.checkOutTime && (
+                              <Tooltip title="Marked">
+                                <IconButton size="small" className="!text-primary">
+                                  <CheckCircleOutlined fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </div>
+                        ) : (
+                          <Tooltip title="On Leave">
+                            <IconButton size="small" className="!text-violet-700">
+                              <CheckCircleOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -1768,18 +2107,6 @@ export function DailyRegister() {
         <div className="text-end text-gray-500 p-2 text-[12px]">
           Showing {total} records
         </div>
-        {/* Uncomment pagination if needed */}
-        {/* {total > 0 && (
-          <GlobalPagination
-            total={total}
-            page={page + 1}
-            limit={limit}
-            onPageChange={handlePageChange}
-            onLimitChange={handleLimitChange}
-            pageSizeOptions={[10, 20, 50, 100]}
-            showTotal={true}
-          />
-        )} */}
       </div>
 
       {/* ─── DIALOGS ─── */}
@@ -1818,9 +2145,6 @@ export function DailyRegister() {
                 format="DD/MM/YYYY HH:mm:ss"
                 ampm={false}
                 maxDateTime={dayjs()}
-                // onChange={(newValue) => {
-                //   setPunchTime(newValue ? dayjs(newValue).toISOString() : "");
-                // }}
                 minDateTime={
                   punchType === "checkOut" && punchEmployee?.checkInTime
                     ? dayjs(punchEmployee?.checkInTime)
@@ -1884,6 +2208,156 @@ export function DailyRegister() {
               : punchType === "checkIn"
                 ? "Confirm Check-in"
                 : "Confirm Check-out"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Correction Request Dialog */}
+      <Dialog
+        open={correctionDialogOpen}
+        onClose={() => {
+          if (!submittingCorrection) {
+            setCorrectionDialogOpen(false);
+            setPendingCorrection(null);
+            setCorrectionReason("");
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
+          <span className="!pl-4 flex items-center gap-2">
+            <PendingActionsOutlined className="text-amber-500" />
+            Request Attendance Correction
+          </span>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setCorrectionDialogOpen(false);
+              setPendingCorrection(null);
+              setCorrectionReason("");
+            }}
+            disabled={submittingCorrection}
+          >
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent className="!p-4">
+          {pendingCorrection && (
+            <div className="space-y-4">
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                <span className="text-[12px]">
+                  Both check-in and check-out already exist for{" "}
+                  <strong>{pendingCorrection.employee.employeeName}</strong>.
+                  Changes require approval.
+                </span>
+              </Alert>
+
+              <div className="bg-gray-50 rounded-lg p-3 text-[12px] space-y-2">
+                <div className="font-medium text-gray-700 mb-2">Proposed Changes:</div>
+
+                {pendingCorrection.changes.checkInDate && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Check-in Date:</span>
+                    <span>
+                      <span className="line-through text-gray-400 mr-2">
+                        {pendingCorrection.employee.checkInDate
+                          ? formatDate(pendingCorrection.employee.checkInDate)
+                          : "-"}
+                      </span>
+                      <span className="text-green-600 font-medium">
+                        → {formatDate(pendingCorrection.changes.checkInDate)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+
+                {pendingCorrection.changes.checkInTime && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Check-in Time:</span>
+                    <span>
+                      <span className="line-through text-gray-400 mr-2">
+                        {pendingCorrection.employee.checkInTime
+                          ? formatTimewithSec(pendingCorrection.employee.checkInTime)
+                          : "-"}
+                      </span>
+                      <span className="text-green-600 font-medium">
+                        → {formatTimewithSec(pendingCorrection.changes.checkInTime)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+
+                {pendingCorrection.changes.checkOutDate && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Check-out Date:</span>
+                    <span>
+                      <span className="line-through text-gray-400 mr-2">
+                        {pendingCorrection.employee.checkOutDate
+                          ? formatDate(pendingCorrection.employee.checkOutDate)
+                          : "-"}
+                      </span>
+                      <span className="text-blue-600 font-medium">
+                        → {formatDate(pendingCorrection.changes.checkOutDate)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+
+                {pendingCorrection.changes.checkOutTime && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Check-out Time:</span>
+                    <span>
+                      <span className="line-through text-gray-400 mr-2">
+                        {pendingCorrection.employee.checkOutTime
+                          ? formatTimewithSec(pendingCorrection.employee.checkOutTime)
+                          : "-"}
+                      </span>
+                      <span className="text-blue-600 font-medium">
+                        → {formatTimewithSec(pendingCorrection.changes.checkOutTime)}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <TextField
+                label="Reason for Correction *"
+                fullWidth
+                multiline
+                rows={3}
+                size="small"
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                placeholder="Please provide a reason for this correction..."
+                disabled={submittingCorrection}
+              />
+            </div>
+          )}
+        </DialogContent>
+
+        <DialogActions className="!p-4 !border-t !border-gray-200">
+          <Button
+            variant="outlined"
+            className="!text-gray-800 !border-gray-200"
+            onClick={() => {
+              setCorrectionDialogOpen(false);
+              setPendingCorrection(null);
+              setCorrectionReason("");
+            }}
+            disabled={submittingCorrection}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            onClick={submitCorrection}
+            disabled={submittingCorrection || !correctionReason.trim()}
+            startIcon={<PendingActionsOutlined />}
+          >
+            {submittingCorrection ? "Submitting..." : "Submit for Approval"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1957,40 +2431,20 @@ export function DailyRegister() {
             <PlaylistAddCheckCircleOutlined className="text-primary" />
             Bulk Check-in / Check-out
           </span>
-          <IconButton size="small" onClick={() => {
-            setBulkCheckinOpen(false);
-            setBulkCheckinEmployees([]);
-            setSelectAllChecked(false);
-            setBulkActionType("checkIn");
-          }}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setBulkCheckinOpen(false);
+              setBulkCheckinEmployees([]);
+              setSelectAllChecked(false);
+              setBulkActionType("checkIn");
+            }}
+          >
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
           <div className="space-y-6">
-            {/* Show selected from table */}
-            {/* {selected.size > 0 && (
-              <Alert severity="info" className="!py-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px]">
-                    <strong>{selected.size}</strong> employee{selected.size !== 1 ? 's' : ''} selected from table
-                  </span>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    className="!text-primary !border-primary"
-                    onClick={() => {
-                      setSelected(new Set());
-                      setBulkCheckinEmployees([]);
-                      setSelectAllChecked(false);
-                    }}
-                  >
-                    Clear Selection
-                  </Button>
-                </div>
-              </Alert>
-            )} */}
-
             {/* Toggle between Check-in and Check-out */}
             <div className="flex justify-center gap-2">
               <Button
@@ -2040,21 +2494,23 @@ export function DailyRegister() {
                   {bulkCheckinEmployees.map((emp) => (
                     <Chip
                       key={emp.employeeId}
-                      label={`${emp.employeeName || emp.name} (${emp.employeeCode || emp.employeeId})`}
+                      label={`${emp.employeeName || emp.name} (${emp.employeeCode || emp.employeeId
+                        })`}
                       size="small"
                       onDelete={() => {
-                        // Remove from bulk list
                         setBulkCheckinEmployees(
-                          bulkCheckinEmployees.filter(e => e.employeeId !== emp.employeeId)
+                          bulkCheckinEmployees.filter(
+                            (e) => e.employeeId !== emp.employeeId,
+                          ),
                         );
-                        // Also remove from main selection
                         const newSelected = new Set(selected);
                         newSelected.delete(emp.employeeId);
                         setSelected(newSelected);
-                        // Update select all state
-                        const nonLeaveEmployees = employees.filter((e) => e.status !== 'leave');
+                        const nonLeaveEmployees = employees.filter(
+                          (e) => e.status !== "leave",
+                        );
                         setSelectAllChecked(
-                          bulkCheckinEmployees.length - 1 === nonLeaveEmployees.length
+                          bulkCheckinEmployees.length - 1 === nonLeaveEmployees.length,
                         );
                       }}
                       color="primary"
@@ -2070,46 +2526,57 @@ export function DailyRegister() {
               <Autocomplete
                 multiple
                 options={employees
-                  .filter((emp) => emp.status !== 'leave')
-                  .filter((emp) => !bulkCheckinEmployees.some(e => e.employeeId === emp.employeeId))
-                  .map(emp => ({
+                  .filter((emp) => emp.status !== "leave")
+                  .filter(
+                    (emp) =>
+                      !bulkCheckinEmployees.some(
+                        (e) => e.employeeId === emp.employeeId,
+                      ),
+                  )
+                  .map((emp) => ({
                     employeeId: emp.employeeId,
                     employeeName: emp.employeeName,
                     employeeCode: emp.employeeCode,
-                    department: emp.department
+                    department: emp.department,
                   }))}
                 disableCloseOnSelect
                 value={[]}
                 getOptionLabel={(option) =>
-                  `${option.employeeName} ${option.employeeCode ? `- ${option.employeeCode}` : ""}`
+                  `${option.employeeName} ${option.employeeCode ? `- ${option.employeeCode}` : ""
+                  }`
                 }
                 onChange={(_, value) => {
                   if (value.length > 0) {
-                    // Add selected employees to bulk list
                     const newEmployees = [...bulkCheckinEmployees, ...value];
                     setBulkCheckinEmployees(newEmployees);
 
-                    // Also add to main selection
                     const newSelected = new Set(selected);
-                    value.forEach(emp => newSelected.add(emp.employeeId));
+                    value.forEach((emp) => newSelected.add(emp.employeeId));
                     setSelected(newSelected);
 
-                    // Update select all state
-                    const nonLeaveEmployees = employees.filter((e) => e.status !== 'leave');
-                    setSelectAllChecked(newEmployees.length === nonLeaveEmployees.length);
+                    const nonLeaveEmployees = employees.filter(
+                      (e) => e.status !== "leave",
+                    );
+                    setSelectAllChecked(
+                      newEmployees.length === nonLeaveEmployees.length,
+                    );
                   }
                 }}
                 renderOption={(props, option) => {
                   const { key, ...optionProps } = props;
                   return (
-                    <li key={key} {...optionProps} className='!px-3 !py-1 !flex !items-start'>
-                      <Checkbox checked={false} className='!py-0' />
+                    <li
+                      key={key}
+                      {...optionProps}
+                      className="!px-3 !py-1 !flex !items-start"
+                    >
+                      <Checkbox checked={false} className="!py-0" />
                       <div>
                         <div className="text-[12px]">
                           {option.employeeName} - {option.employeeCode}
                         </div>
                         {option.department && (
-                          <span className='text-[10px] text-gray-500'>
+                          <span className="text-[10px] text-gray-500">
                             {option.department}
                           </span>
                         )}
@@ -2134,52 +2601,72 @@ export function DailyRegister() {
               <div className="bg-sky-200/50 p-3 rounded-md">
                 <div className="flex items-center justify-between w-full gap-4">
                   <span className="!text-[12px]">
-                    {bulkCheckinEmployees.length} employee{bulkCheckinEmployees.length !== 1 ? "s" : ""} selected for {bulkActionType === "checkIn" ? "check-in" : "check-out"}
+                    {bulkCheckinEmployees.length} employee
+                    {bulkCheckinEmployees.length !== 1 ? "s" : ""} selected for{" "}
+                    {bulkActionType === "checkIn" ? "check-in" : "check-out"}
                     {selected.size > 0 && ` (${selected.size} from table)`}
                   </span>
-                  {/* Quick select all button */}
                   <div className="flex gap-2">
                     <Button
                       size="small"
                       variant="outlined"
                       className="!text-primary !border-primary"
                       onClick={() => {
-                        const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
-                        if (bulkCheckinEmployees.length === nonLeaveEmployees.length) {
-                          // Deselect all
+                        const nonLeaveEmployees = employees.filter(
+                          (emp) => emp.status !== "leave",
+                        );
+                        if (
+                          bulkCheckinEmployees.length === nonLeaveEmployees.length
+                        ) {
                           setBulkCheckinEmployees([]);
                           setSelected(new Set());
                           setSelectAllChecked(false);
                         } else {
-                          // Select all
                           setBulkCheckinEmployees(nonLeaveEmployees);
-                          const newSelected = new Set(nonLeaveEmployees.map(emp => emp.employeeId));
+                          const newSelected = new Set(
+                            nonLeaveEmployees.map((emp) => emp.employeeId),
+                          );
                           setSelected(newSelected);
                           setSelectAllChecked(true);
                         }
                       }}
                     >
-                      {bulkCheckinEmployees.length === employees.filter((emp) => emp.status !== 'leave').length
+                      {bulkCheckinEmployees.length ===
+                        employees.filter((emp) => emp.status !== "leave").length
                         ? "Deselect All"
-                        : `Select All (${employees.filter((emp) => emp.status !== 'leave').length})`}
+                        : `Select All (${employees.filter((emp) => emp.status !== "leave")
+                          .length
+                        })`}
                     </Button>
                   </div>
                 </div>
-
-
               </div>
             )}
 
-            {/* Time Picker - changes based on action type */}
+            {/* Time Picker */}
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DateTimePicker
-                label={bulkActionType === "checkIn" ? "Check-in Time" : "Check-out Time"}
-                value={bulkActionType === "checkIn" ? (bulkCheckinTime ? dayjs(bulkCheckinTime) : null) : (bulkCheckoutTime ? dayjs(bulkCheckoutTime) : null)}
+                label={
+                  bulkActionType === "checkIn" ? "Check-in Time" : "Check-out Time"
+                }
+                value={
+                  bulkActionType === "checkIn"
+                    ? bulkCheckinTime
+                      ? dayjs(bulkCheckinTime)
+                      : null
+                    : bulkCheckoutTime
+                      ? dayjs(bulkCheckoutTime)
+                      : null
+                }
                 onChange={(newValue) => {
                   if (bulkActionType === "checkIn") {
-                    setBulkCheckinTime(newValue ? dayjs(newValue).toISOString() : "");
+                    setBulkCheckinTime(
+                      newValue ? dayjs(newValue).toISOString() : "",
+                    );
                   } else {
-                    setBulkCheckoutTime(newValue ? dayjs(newValue).toISOString() : "");
+                    setBulkCheckoutTime(
+                      newValue ? dayjs(newValue).toISOString() : "",
+                    );
                   }
                 }}
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
@@ -2191,7 +2678,9 @@ export function DailyRegister() {
               fullWidth
               multiline
               rows={2}
-              value={bulkActionType === "checkIn" ? bulkCheckinRemarks : bulkCheckoutRemarks}
+              value={
+                bulkActionType === "checkIn" ? bulkCheckinRemarks : bulkCheckoutRemarks
+              }
               onChange={(e) => {
                 if (bulkActionType === "checkIn") {
                   setBulkCheckinRemarks(e.target.value);
@@ -2211,8 +2700,6 @@ export function DailyRegister() {
               setBulkCheckinEmployees([]);
               setSelectAllChecked(false);
               setBulkActionType("checkIn");
-              // Optionally clear the selection from table
-              // setSelected(new Set());
             }}
             disabled={bulkCheckinSubmitting || bulkCheckoutSubmitting}
           >
@@ -2224,42 +2711,42 @@ export function DailyRegister() {
               variant="contained"
               className="!bg-primary"
               onClick={() => {
-                const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                const nonLeaveEmployees = employees.filter(
+                  (emp) => emp.status !== "leave",
+                );
                 const employeesToCheckin = selectAllChecked
                   ? nonLeaveEmployees
                   : bulkCheckinEmployees;
                 submitBulkCheckin(employeesToCheckin);
               }}
-              disabled={
-                bulkCheckinSubmitting ||
-                bulkCheckinEmployees.length === 0
-              }
+              disabled={bulkCheckinSubmitting || bulkCheckinEmployees.length === 0}
               startIcon={<LoginOutlined />}
             >
               {bulkCheckinSubmitting
                 ? "Processing..."
-                : `Check-in ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}
+                : `Check-in ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""
+                }`}
             </Button>
           ) : (
             <Button
               variant="contained"
               className="!bg-primary"
               onClick={() => {
-                const nonLeaveEmployees = employees.filter((emp) => emp.status !== 'leave');
+                const nonLeaveEmployees = employees.filter(
+                  (emp) => emp.status !== "leave",
+                );
                 const employeesToCheckout = selectAllChecked
                   ? nonLeaveEmployees
                   : bulkCheckinEmployees;
                 submitBulkCheckout(employeesToCheckout);
               }}
-              disabled={
-                bulkCheckoutSubmitting ||
-                bulkCheckinEmployees.length === 0
-              }
+              disabled={bulkCheckoutSubmitting || bulkCheckinEmployees.length === 0}
               startIcon={<LogoutOutlined />}
             >
               {bulkCheckoutSubmitting
                 ? "Processing..."
-                : `Check-out ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""}`}
+                : `Check-out ${bulkCheckinEmployees.length} Employee${bulkCheckinEmployees.length !== 1 ? "s" : ""
+                }`}
             </Button>
           )}
         </DialogActions>
@@ -2281,22 +2768,25 @@ export function DailyRegister() {
             <NotificationsActiveOutlined className="text-primary" />
             Send Reminders
           </span>
-          <IconButton size="small" onClick={() => {
-            setReminderDialogOpen(false);
-            setEmployeesToRem([]);
-            setReminderMessage("");
-          }}>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setReminderDialogOpen(false);
+              setEmployeesToRem([]);
+              setReminderMessage("");
+            }}
+          >
             <CloseOutlined fontSize="small" className="text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-4">
           <div className="grid gap-6">
-            {/* Show selected count and info */}
             {selected.size > 0 && (
               <Alert severity="info" className="flex items-center">
                 <div className="flex items-center justify-between">
                   <div className="text-[12px]">
-                    <strong>{selected.size}</strong> employee{selected.size !== 1 ? 's' : ''} selected from table
+                    <strong>{selected.size}</strong> employee
+                    {selected.size !== 1 ? "s" : ""} selected from table
                   </div>
                   <Button
                     variant="outlined"
@@ -2312,7 +2802,6 @@ export function DailyRegister() {
               </Alert>
             )}
 
-            {/* Employee Selector */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">Recipients</span>
@@ -2323,18 +2812,23 @@ export function DailyRegister() {
                 )}
               </div>
 
-              {/* Show selected employees as chips */}
               {employeesToRem.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 border border-gray-200 rounded-lg p-2 min-h-[40px] max-h-[150px] overflow-y-auto">
                   {employeesToRem.map((emp) => (
                     <Chip
-                      key={emp.employeeId}
-                      label={`${emp.employeeName || emp.name} (${emp.employeeCode || emp.employeeId})`}
+                      key={emp.employeeId ?? emp.id}
+                      label={`${emp.employeeName || emp.name} (${emp.employeeCode || emp.employeeId || emp.id
+                        })`}
                       size="small"
                       onDelete={() => {
-                        setEmployeesToRem(employeesToRem.filter(e => e.employeeId !== emp.employeeId));
+                        const empId = emp.employeeId ?? emp.id;
+                        setEmployeesToRem(
+                          employeesToRem.filter(
+                            (e) => (e.employeeId ?? e.id) !== empId,
+                          ),
+                        );
                         const newSelected = new Set(selected);
-                        newSelected.delete(emp.employeeId);
+                        newSelected.delete(empId);
                         setSelected(newSelected);
                       }}
                       color="primary"
@@ -2352,7 +2846,6 @@ export function DailyRegister() {
                 </div>
               )}
 
-              {/* Employee Selector - only show when no employees are selected or to add more */}
               <div className="mt-3">
                 <EmployeeSelector
                   value={null}
@@ -2363,7 +2856,6 @@ export function DailyRegister() {
               </div>
             </div>
 
-            {/* Reminder Type */}
             <FormControl fullWidth size="small">
               <InputLabel>Reminder Type</InputLabel>
               <Select
@@ -2377,7 +2869,6 @@ export function DailyRegister() {
               </Select>
             </FormControl>
 
-            {/* Send Via */}
             <FormControl fullWidth size="small">
               <InputLabel>Send Via</InputLabel>
               <Select
@@ -2407,11 +2898,12 @@ export function DailyRegister() {
               </Select>
             </FormControl>
 
-            {/* Summary of recipients */}
             <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
               <div className="flex items-center justify-between text-[12px]">
                 <span className="text-gray-600">Total Recipients:</span>
-                <span className="font-bold text-gray-800">{employeesToRem.length}</span>
+                <span className="font-bold text-gray-800">
+                  {employeesToRem.length}
+                </span>
               </div>
               <div className="flex items-center justify-between text-[12px] mt-1">
                 <span className="text-gray-600">From Table Selection:</span>
@@ -2425,7 +2917,6 @@ export function DailyRegister() {
               </div>
             </div>
 
-            {/* Message */}
             <TextField
               label="Message"
               fullWidth
@@ -2433,7 +2924,10 @@ export function DailyRegister() {
               rows={4}
               value={reminderMessage}
               onChange={(e) => setReminderMessage(e.target.value)}
-              placeholder={`Enter reminder message for ${reminderType.replace("_", " ")}`}
+              placeholder={`Enter reminder message for ${reminderType.replace(
+                "_",
+                " ",
+              )}`}
               helperText={`${reminderMessage.length}/500 characters`}
             />
           </div>
@@ -2455,12 +2949,17 @@ export function DailyRegister() {
             variant="contained"
             className="!bg-primary"
             onClick={handleSendReminders}
-            disabled={sendingReminders || !reminderMessage.trim() || employeesToRem.length === 0}
+            disabled={
+              sendingReminders ||
+              !reminderMessage.trim() ||
+              employeesToRem.length === 0
+            }
             startIcon={<NotificationsActiveOutlined />}
           >
             {sendingReminders
               ? "Sending..."
-              : `Send to ${employeesToRem.length} Employee${employeesToRem.length !== 1 ? 's' : ''}`}
+              : `Send to ${employeesToRem.length} Employee${employeesToRem.length !== 1 ? "s" : ""
+              }`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2495,14 +2994,15 @@ export function DailyRegister() {
 
         <DialogContent className="!p-4">
           <div className="space-y-4">
-            {/* Date Range and Configuration */}
             <div className="grid grid-cols-2 mt-3 gap-3 gap-y-5">
               <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                 <DatePicker
                   label="Start Date"
                   value={importStartDate ? dayjs(importStartDate) : null}
                   onChange={(newValue) => {
-                    const formatted = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
+                    const formatted = newValue
+                      ? dayjs(newValue).format("YYYY-MM-DD")
+                      : "";
                     setImportStartDate(formatted);
                     setImportEndDate(formatted);
                   }}
@@ -2514,7 +3014,9 @@ export function DailyRegister() {
                   label="End Date"
                   value={importEndDate ? dayjs(importEndDate) : null}
                   onChange={(newValue) =>
-                    setImportEndDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+                    setImportEndDate(
+                      newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                    )
                   }
                   maxDate={dayjs()}
                   format="DD/MM/YYYY"
@@ -2546,14 +3048,10 @@ export function DailyRegister() {
                 >
                   <MenuItem value="biometric">Biometric</MenuItem>
                   <MenuItem value="manual">Manual</MenuItem>
-                  {/* <MenuItem value="mobile">Mobile</MenuItem>
-                  <MenuItem value="web">Web</MenuItem>
-                  <MenuItem value="remote">Remote</MenuItem> */}
                 </Select>
               </FormControl>
             </div>
 
-            {/* File Upload */}
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
               <input
                 type="file"
@@ -2562,7 +3060,6 @@ export function DailyRegister() {
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    // Validate file size (max 10MB)
                     if (file.size > 10 * 1024 * 1024) {
                       showSnackbar("File size should be less than 10MB", "warning");
                       return;
@@ -2594,11 +3091,8 @@ export function DailyRegister() {
               </label>
             </div>
 
-            {/* Template Download */}
             <div className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
-              <span className="text-[12px] text-gray-600">
-                Need a sample file?
-              </span>
+              <span className="text-[12px] text-gray-600">Need a sample file?</span>
               <Button
                 variant="outlined"
                 size="small"
@@ -2610,7 +3104,7 @@ export function DailyRegister() {
                   } catch (error: any) {
                     showSnackbar(
                       error?.message || "Failed to download template.",
-                      "error"
+                      "error",
                     );
                   }
                 }}
@@ -2621,7 +3115,6 @@ export function DailyRegister() {
               </Button>
             </div>
 
-            {/* Progress */}
             {importing && (
               <div className="space-y-1">
                 <LinearProgress />
@@ -2631,40 +3124,49 @@ export function DailyRegister() {
               </div>
             )}
 
-            {/* Import Results */}
             {importResult && !importing && (
-              <div className={`border rounded-lg p-3 ${importResult.failed > 0 && importResult.success === 0
-                ? 'border-red-200 bg-red-50'
-                : importResult.failed > 0
-                  ? 'border-orange-200 bg-orange-50'
-                  : 'border-green-200 bg-green-50'
-                }`}>
+              <div
+                className={`border rounded-lg p-3 ${importResult.failed > 0 && importResult.success === 0
+                  ? "border-red-200 bg-red-50"
+                  : importResult.failed > 0
+                    ? "border-orange-200 bg-orange-50"
+                    : "border-green-200 bg-green-50"
+                  }`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {importResult.failed > 0 && importResult.success === 0 ? (
                       <ErrorOutlined className="text-red-500" fontSize="small" />
                     ) : importResult.failed > 0 ? (
-                      <WarningAmberOutlined className="text-orange-500" fontSize="small" />
+                      <WarningAmberOutlined
+                        className="text-orange-500"
+                        fontSize="small"
+                      />
                     ) : (
-                      <CheckCircleOutlined className="text-green-500" fontSize="small" />
+                      <CheckCircleOutlined
+                        className="text-green-500"
+                        fontSize="small"
+                      />
                     )}
                     <span className="text-sm font-medium text-black">
                       {importResult.failed > 0 && importResult.success === 0
-                        ? 'Import Failed'
+                        ? "Import Failed"
                         : importResult.failed > 0
-                          ? 'Partial Success'
-                          : 'Success'}
+                          ? "Partial Success"
+                          : "Success"}
                     </span>
                   </div>
                   <span className="text-sm">
-                    <span className="text-green-600">{importResult.success}</span> <span className="text-black">successful</span>
+                    <span className="text-green-600">{importResult.success}</span>{" "}
+                    <span className="text-black">successful</span>
                     {importResult.failed > 0 && (
-                      <span className="text-red-600 ml-2">{importResult.failed} failed</span>
+                      <span className="text-red-600 ml-2">
+                        {importResult.failed} failed
+                      </span>
                     )}
                   </span>
                 </div>
 
-                {/* Error details with timestamp format help */}
                 {importResult.errors.length > 0 && (
                   <div className="mt-2">
                     <div className="text-[12px] font-medium text-gray-700 mb-1">
@@ -2672,12 +3174,15 @@ export function DailyRegister() {
                     </div>
                     <div className="max-h-[120px] overflow-y-auto bg-white/50 rounded p-2">
                       {importResult.errors.slice(0, 5).map((error, index) => {
-                        // Check if it's a timestamp error
-                        const isTimestampError = error.toLowerCase().includes('timestamp') ||
-                          error.toLowerCase().includes('unparseable');
+                        const isTimestampError =
+                          error.toLowerCase().includes("timestamp") ||
+                          error.toLowerCase().includes("unparseable");
                         return (
-                          <div key={index} className={`text-[12px] py-0.5 ${isTimestampError ? 'text-amber-600' : 'text-red-600'
-                            }`}>
+                          <div
+                            key={index}
+                            className={`text-[12px] py-0.5 ${isTimestampError ? "text-amber-600" : "text-red-600"
+                              }`}
+                          >
                             • {error}
                           </div>
                         );
@@ -2688,49 +3193,11 @@ export function DailyRegister() {
                         </div>
                       )}
                     </div>
-
-                    {/* Show timestamp format hint if timestamp errors exist */}
-                    {importResult.errors.some(e =>
-                      e.toLowerCase().includes('timestamp') ||
-                      e.toLowerCase().includes('unparseable')
-                    ) && (
-                        <Alert severity="info" sx={{ py: 0.5, mt: 2 }}>
-                          <div className="text-[12px]">
-                            <strong>Expected timestamp format:</strong>
-                            <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                              <li>ISO format: <code>2026-07-14T09:00:00</code></li>
-                              <li>Date & Time: <code>2026-07-14 09:00</code> or <code>2026-07-14 09:00:00</code></li>
-                              <li>Excel date: <code>2026-07-14</code> (time will be defaulted)</li>
-                            </ul>
-                            <div className="mt-1">
-                              <Button
-                                variant="text"
-                                size="small"
-                                className="!text-primary !p-0"
-                                onClick={async () => {
-                                  try {
-                                    await attendanceService.downloadImportTemplate();
-                                    showSnackbar("Template downloaded successfully", "success");
-                                  } catch (error: any) {
-                                    showSnackbar(
-                                      error?.message || "Failed to download template.",
-                                      "error"
-                                    );
-                                  }
-                                }}
-                              >
-                                Download sample template with correct format
-                              </Button>
-                            </div>
-                          </div>
-                        </Alert>
-                      )}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Info Alert */}
             <Alert severity="info" sx={{ py: 0.5 }}>
               <div className="text-[12px]">
                 <strong>File format requirements:</strong>
@@ -2753,28 +3220,44 @@ export function DailyRegister() {
                 Preview Data
               </Button>
             </div>
-            {/* Preview Results */}
+
             {previewData.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <span className="text-[12px] font-medium text-gray-600">Preview (first 5 rows)</span>
+                  <span className="text-[12px] font-medium text-gray-600">
+                    Preview (first 5 rows)
+                  </span>
                 </div>
                 <div className="max-h-[150px] overflow-y-auto">
                   <table className="w-full text-[12px]">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
-                        <th className="px-3 py-1.5 text-left text-gray-600">Employee</th>
-                        <th className="px-3 py-1.5 text-left text-gray-600">Original Timestamp</th>
-                        <th className="px-3 py-1.5 text-left text-gray-600">Formatted</th>
-                        <th className="px-3 py-1.5 text-center text-gray-600">Status</th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">
+                          Employee
+                        </th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">
+                          Original Timestamp
+                        </th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">
+                          Formatted
+                        </th>
+                        <th className="px-3 py-1.5 text-center text-gray-600">
+                          Status
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {previewData.map((row, index) => (
                         <tr key={index} className="border-t border-gray-100">
-                          <td className="px-3 py-1.5 font-mono">{row.employeeCode}</td>
-                          <td className="px-3 py-1.5 text-gray-500">{row.originalTimestamp}</td>
-                          <td className="px-3 py-1.5 font-mono">{row.formattedTimestamp}</td>
+                          <td className="px-3 py-1.5 font-mono">
+                            {row.employeeCode}
+                          </td>
+                          <td className="px-3 py-1.5 text-gray-500">
+                            {row.originalTimestamp}
+                          </td>
+                          <td className="px-3 py-1.5 font-mono">
+                            {row.formattedTimestamp}
+                          </td>
                           <td className="px-3 py-1.5 text-center">
                             {row.isValid ? (
                               <CheckCircleOutlined className="text-green-500 !w-4 !h-4" />
@@ -2843,7 +3326,6 @@ export function DailyRegister() {
 
         <DialogContent className="!p-4">
           <div className="space-y-3">
-            {/* Toolbar */}
             <div className="flex items-center gap-3 flex-wrap">
               <FormControl size="small" className="!min-w-[140px]">
                 <Select
@@ -2858,92 +3340,107 @@ export function DailyRegister() {
                 >
                   <MenuItem value="manual">Manual</MenuItem>
                   <MenuItem value="biometric">Biometric</MenuItem>
-                  {/* <MenuItem value="mobile">Mobile</MenuItem>
-                  <MenuItem value="web">Web</MenuItem> */}
                 </Select>
               </FormControl>
-              {
-                punchSource === "manual" ? (
-                  <>
-                    <Button
-                      variant="outlined"
-                      startIcon={<Add />}
-                      className="!text-primary !border-primary whitespace-nowrap"
-                      onClick={addPunchEntry}
-                    >
-                      Add Row
-                    </Button>
+              {punchSource === "manual" ? (
+                <>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Add />}
+                    className="!text-primary !border-primary whitespace-nowrap"
+                    onClick={addPunchEntry}
+                  >
+                    Add Row
+                  </Button>
 
-                    {punchEntries.length > 0 && (
-                      <Button
-                        size="small"
-                        color="error"
-                        onClick={clearPunchEntries}
-                      >
-                        Clear All
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-center gap-2 mt-5">
-                    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-                      <DatePicker
-                        label="From Date"
-                        value={punchImportFromDate ? dayjs(punchImportFromDate) : null}
-                        onChange={(newValue) =>
-                          setPunchImportFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
-                        }
-                        maxDate={dayjs()}
-                        format="DD/MM/YYYY"
-                        slotProps={{ textField: { style: { width: '140px' } } }}
-                      />
-                      <DatePicker
-                        label="To Date"
-                        value={punchImportToDate ? dayjs(punchImportToDate) : null}
-                        onChange={(newValue) =>
-                          setPunchImportToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
-                        }
-                        maxDate={dayjs()}
-                        format="DD/MM/YYYY"
-                        minDate={punchImportFromDate ? dayjs(punchImportFromDate) : undefined}
-                        slotProps={{ textField: { style: { width: '140px' } } }}
-                      />
-                    </LocalizationProvider>
-
-                    <Button
-                      variant="contained"
-                      className="!bg-primary"
-                      onClick={handleFetchFromDevices}
-                      disabled={deviceImportLoading || selectedDeviceIds.length === 0}
-                      startIcon={deviceImportLoading ? <CircularProgress size={20} /> : <PunchClockOutlined />}
-                    >
-                      {deviceImportLoading ? 'Fetching...' : 'Fetch from Devices'}
+                  {punchEntries.length > 0 && (
+                    <Button size="small" color="error" onClick={clearPunchEntries}>
+                      Clear All
                     </Button>
-                  </div>
-                )
-              }
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2 mt-5">
+                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                    <DatePicker
+                      label="From Date"
+                      value={punchImportFromDate ? dayjs(punchImportFromDate) : null}
+                      onChange={(newValue) =>
+                        setPunchImportFromDate(
+                          newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                        )
+                      }
+                      maxDate={dayjs()}
+                      format="DD/MM/YYYY"
+                      slotProps={{ textField: { style: { width: "140px" } } }}
+                    />
+                    <DatePicker
+                      label="To Date"
+                      value={punchImportToDate ? dayjs(punchImportToDate) : null}
+                      onChange={(newValue) =>
+                        setPunchImportToDate(
+                          newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                        )
+                      }
+                      maxDate={dayjs()}
+                      format="DD/MM/YYYY"
+                      minDate={
+                        punchImportFromDate ? dayjs(punchImportFromDate) : undefined
+                      }
+                      slotProps={{ textField: { style: { width: "140px" } } }}
+                    />
+                  </LocalizationProvider>
+
+                  <Button
+                    variant="contained"
+                    className="!bg-primary"
+                    onClick={handleFetchFromDevices}
+                    disabled={deviceImportLoading || selectedDeviceIds.length === 0}
+                    startIcon={
+                      deviceImportLoading ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <PunchClockOutlined />
+                      )
+                    }
+                  >
+                    {deviceImportLoading ? "Fetching..." : "Fetch from Devices"}
+                  </Button>
+                </div>
+              )}
             </div>
 
-            {/* Punch Entries - Grid Layout */}
             {punchSource === "manual" && punchEntries.length > 0 && (
               <div className="border border-gray-200 rounded overflow-hidden">
-                {/* Header */}
                 <div className="grid grid-cols-[25px_220px_180px_100px_140px_95px] gap-4 bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <div className="text-[12px] font-medium text-gray-600 !w-[20px]">#</div>
-                  <div className="text-[12px] font-medium text-gray-600">Employee</div>
-                  <div className="text-[12px] font-medium text-gray-600">Timestamp</div>
-                  <div className="text-[12px] font-medium text-gray-600">Punch Type</div>
-                  <div className="text-[12px] font-medium text-gray-600">Device</div>
-                  <div className="text-[12px] font-medium text-gray-600 text-center">Action</div>
+                  <div className="text-[12px] font-medium text-gray-600 !w-[20px]">
+                    #
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Employee
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Timestamp
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Punch Type
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Device
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600 text-center">
+                    Action
+                  </div>
                 </div>
 
-                {/* Rows */}
                 {punchEntries.map((entry, index) => (
                   <div
                     key={entry.id || index}
                     className="grid grid-cols-[25px_220px_180px_100px_140px_95px] gap-4 px-3 py-2 items-center border-b border-gray-100 last:border-0"
                   >
-                    <div className="text-[12px] text-gray-400 !w-[20px]">{index + 1}</div>
+                    <div className="text-[12px] text-gray-400 !w-[20px]">
+                      {index + 1}
+                    </div>
 
                     <div className="">
                       <EmployeeSelector
@@ -2968,7 +3465,11 @@ export function DailyRegister() {
                             if (!selected.isValid() || selected.isAfter(dayjs())) {
                               return;
                             }
-                            updatePunchEntry(index, "timestamp", selected.toISOString());
+                            updatePunchEntry(
+                              index,
+                              "timestamp",
+                              selected.toISOString(),
+                            );
                           }}
                           slotProps={{
                             textField: {
@@ -2993,47 +3494,38 @@ export function DailyRegister() {
                     </div>
 
                     <div>
-                      <FormControl >
+                      <FormControl>
                         <Select
-                          value={entry.punchType || ''}
-                          onChange={(e) => updatePunchEntry(index, "punchType", e.target.value)}
+                          value={entry.punchType || ""}
+                          onChange={(e) =>
+                            updatePunchEntry(index, "punchType", e.target.value)
+                          }
                           displayEmpty
                           sx={selectSx}
                         >
-
                           <MenuItem value="IN">IN</MenuItem>
                           <MenuItem value="OUT">OUT</MenuItem>
-
-
                         </Select>
                       </FormControl>
                     </div>
 
                     <div className="">
-                      {/* <TextField
-                        size="small"
-                        placeholder="Device ID"
-                        value={entry.deviceId}
-                        onChange={(e) =>
-                          updatePunchEntry(index, "deviceId", e.target.value)
-                        }
-                        fullWidth
-                      /> */}
-                      <FormControl >
+                      <FormControl>
                         <Select
-                          value={entry.deviceId || ''}
-                          onChange={(e) => updatePunchEntry(index, "deviceId", e.target.value)}
+                          value={entry.deviceId || ""}
+                          onChange={(e) =>
+                            updatePunchEntry(index, "deviceId", e.target.value)
+                          }
                           displayEmpty
                           sx={selectSx}
                         >
-                          {
-                            devices.map((d) => (
-                              <MenuItem key={d.id} value={d.id}>{d.deviceName}</MenuItem>
-                            ))
-                          }
+                          {devices.map((d) => (
+                            <MenuItem key={d.id} value={d.id}>
+                              {d.deviceName}
+                            </MenuItem>
+                          ))}
                         </Select>
                       </FormControl>
-
                     </div>
 
                     <div className="flex justify-center">
@@ -3050,7 +3542,6 @@ export function DailyRegister() {
               </div>
             )}
 
-            {/* Device Selection Table (only shown when "From Devices" is selected) */}
             {punchSource === "biometric" && devices.length > 0 && (
               <div className="border border-gray-200 rounded overflow-hidden">
                 <div className="grid grid-cols-[30px_1fr_2fr_1fr_1fr_1fr] gap-2 bg-gray-50 border-b items-center border-gray-200">
@@ -3058,16 +3549,29 @@ export function DailyRegister() {
                     <Checkbox
                       size="small"
                       checked={selectAllDevices}
-                      indeterminate={selectedDeviceIds.length > 0 && selectedDeviceIds.length < devices.length}
+                      indeterminate={
+                        selectedDeviceIds.length > 0 &&
+                        selectedDeviceIds.length < devices.length
+                      }
                       onChange={handleSelectAllDevices}
                       className="text-gray-800"
                     />
                   </div>
-                  <div className="text-[12px] font-medium text-gray-600">Device Name</div>
-                  <div className="text-[12px] font-medium text-gray-600">IP Address</div>
-                  <div className="text-[12px] font-medium text-gray-600">Location</div>
-                  <div className="text-[12px] font-medium text-gray-600">Machine Type</div>
-                  <div className="text-[12px] font-medium text-gray-600">Status</div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Device Name
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    IP Address
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Location
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Machine Type
+                  </div>
+                  <div className="text-[12px] font-medium text-gray-600">
+                    Status
+                  </div>
                 </div>
 
                 <div className="max-h-[200px] overflow-y-auto">
@@ -3084,32 +3588,49 @@ export function DailyRegister() {
                           className="text-gray-800"
                         />
                       </div>
-                      <div className="text-[12px] text-gray-800">{device.deviceName}</div>
-                      <div className="text-[12px] text-gray-600">{device.ipAddress}:{device.port || 4370}</div>
-                      <div className="text-[12px] text-gray-600">{device.location || 'N/A'}</div>
-                      <div className="text-[12px] text-gray-600">{device.machineType || 'N/A'}({device.machineSetUp || 'N/A'})</div>
+                      <div className="text-[12px] text-gray-800">
+                        {device.deviceName}
+                      </div>
+                      <div className="text-[12px] text-gray-600">
+                        {device.ipAddress}:{device.port || 4370}
+                      </div>
+                      <div className="text-[12px] text-gray-600">
+                        {device.location || "N/A"}
+                      </div>
+                      <div className="text-[12px] text-gray-600">
+                        {device.machineType || "N/A"}(
+                        {device.machineSetUp || "N/A"})
+                      </div>
                       <div className="flex items-center gap-1">
-                        <span className={`w-2 h-2 rounded-full ${device.isActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                        <span className="text-[10px] text-gray-500">{device.isActive ? 'Active' : 'Inactive'}</span>
+                        <span
+                          className={`w-2 h-2 rounded-full ${device.isActive ? "bg-green-500" : "bg-red-500"
+                            }`}
+                        ></span>
+                        <span className="text-[10px] text-gray-500">
+                          {device.isActive ? "Active" : "Inactive"}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 text-[12px] text-gray-600">
-                  Selected: <strong>{selectedDeviceIds.length}</strong> device{selectedDeviceIds.length !== 1 ? 's' : ''}
+                  Selected: <strong>{selectedDeviceIds.length}</strong> device
+                  {selectedDeviceIds.length !== 1 ? "s" : ""}
                 </div>
               </div>
             )}
 
-            {/* Show fetched entries from devices */}
             {punchSource === "biometric" && deviceFetchSummary.total > 0 && (
               <div className="border border-green-200 rounded overflow-hidden">
                 <div className="bg-green-50 px-3 py-2 border-b border-green-200 flex items-center justify-between">
                   <div className="text-[12px] font-medium text-green-700">
-                    <div>Fetched from Devices ({deviceFetchSummary.total} total logs)</div>
+                    <div>
+                      Fetched from Devices ({deviceFetchSummary.total} total logs)
+                    </div>
                     <div className="mt-0.5 text-[11px] font-normal text-gray-600">
-                      Matched: {deviceFetchSummary.matched} | Unknown: {deviceFetchSummary.unknown} | Showing: {punchEntries.length}
+                      Matched: {deviceFetchSummary.matched} | Unknown:{" "}
+                      {deviceFetchSummary.unknown} | Showing: {punchEntries.length}
                     </div>
                   </div>
                   <Button
@@ -3124,21 +3645,31 @@ export function DailyRegister() {
                 </div>
                 <div className="max-h-[150px] overflow-y-auto">
                   {punchEntries.map((entry, index) => (
-                    <div key={entry.id || index} className="grid grid-cols-[30px_1fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200">
+                    <div
+                      key={entry.id || index}
+                      className="grid grid-cols-[30px_1fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200"
+                    >
                       <div className="text-[12px] text-gray-400">{index + 1}</div>
                       <div className="text-[12px]">
                         <span className="font-medium">{entry.employeeName}</span>
-                        <span className="text-gray-500 ml-1">({entry.mid_no})</span>
+                        <span className="text-gray-500 ml-1">
+                          ({entry.mid_no})
+                        </span>
                       </div>
                       <div className="text-[12px] text-gray-600">
-                        {/* {dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm:ss')} */}
-                        {formatDateTime(entry.timestamp) !== dayjs(entry.timestamp).format('DD/MM/YYYY HH:mm:ss') && (
-                          <span className="ml-2 text-gray-500">{formatDateTime(entry.timestamp)}</span>
-                        )}
+                        {formatDateTime(entry.timestamp) !==
+                          dayjs(entry.timestamp).format("DD/MM/YYYY HH:mm:ss") && (
+                            <span className="ml-2 text-gray-500">
+                              {formatDateTime(entry.timestamp)}
+                            </span>
+                          )}
                       </div>
                       <div className="text-[12px] text-gray-500">
-                        {devices.find(d => d.id === entry.machineInOutGridId)?.deviceName || entry.deviceId}
-                        <span className="ml-1 text-red-500">({entry.machineIP})</span>
+                        {devices.find((d) => d.id === entry.machineInOutGridId)
+                          ?.deviceName || entry.deviceId}
+                        <span className="ml-1 text-red-500">
+                          ({entry.machineIP})
+                        </span>
                       </div>
                       <div className="text-[12px] text-gray-500">
                         {entry.machineType}
@@ -3149,20 +3680,28 @@ export function DailyRegister() {
               </div>
             )}
 
-            {/* Import Result */}
             {punchImportResult && (
               <Alert
                 severity={punchImportResult.errors > 0 ? "warning" : "success"}
                 className="!py-1"
               >
                 <div className="flex items-center gap-4 text-[12px] justify-between">
-                  <div>Total Punches Imported: <strong>{punchImportResult.totalPunches} Punches</strong></div>
-                  <div>Import Type: <strong>{punchImportResult.importType}</strong></div>
-                  <div>Skipped : <strong>{punchImportResult.skipped}</strong></div>
+                  <div>
+                    Total Punches Imported:{" "}
+                    <strong>{punchImportResult.totalPunches} Punches</strong>
+                  </div>
+                  <div>
+                    Import Type: <strong>{punchImportResult.importType}</strong>
+                  </div>
+                  <div>
+                    Skipped : <strong>{punchImportResult.skipped}</strong>
+                  </div>
                   {punchImportResult.errors > 0 && (
                     <>
                       <span>•</span>
-                      <span className="text-red-600">Errors: <strong>{punchImportResult.errors}</strong></span>
+                      <span className="text-red-600">
+                        Errors: <strong>{punchImportResult.errors}</strong>
+                      </span>
                     </>
                   )}
                 </div>
@@ -3199,7 +3738,7 @@ export function DailyRegister() {
         </DialogActions>
       </Dialog>
 
-      {/* Check in check out result  */}
+      {/* Bulk Action Result Dialog */}
       <Dialog
         open={bulkActionResult?.open || false}
         onClose={() => setBulkActionResult(null)}
@@ -3208,12 +3747,13 @@ export function DailyRegister() {
       >
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-3">
           <span className="!pl-4 flex items-center gap-2">
-            {bulkActionResult?.type === 'checkIn' ? (
+            {bulkActionResult?.type === "checkIn" ? (
               <LoginOutlined className="text-emerald-500" />
             ) : (
               <LogoutOutlined className="text-blue-500" />
             )}
-            Bulk {bulkActionResult?.type === 'checkIn' ? 'Check-in' : 'Check-out'} Results
+            Bulk {bulkActionResult?.type === "checkIn" ? "Check-in" : "Check-out"}{" "}
+            Results
           </span>
           <IconButton size="small" onClick={() => setBulkActionResult(null)}>
             <CloseOutlined fontSize="small" className="text-gray-800" />
@@ -3222,7 +3762,6 @@ export function DailyRegister() {
 
         <DialogContent className="!p-4">
           <div className="space-y-4">
-            {/* Summary Cards */}
             <div className="grid grid-cols-4 gap-3">
               <div className="bg-gray-50 rounded-lg p-3 text-center border border-gray-200">
                 <div className="text-2xl font-bold text-gray-800">
@@ -3250,38 +3789,45 @@ export function DailyRegister() {
               </div>
             </div>
 
-            {/* Checkout Time if available */}
             {bulkActionResult?.checkoutTime && (
               <Alert severity="info" sx={{ py: 0.5 }}>
                 <span className="text-[12px]">
-                  Check-out time: <strong>{dayjs(bulkActionResult.checkoutTime).format('DD MMM YYYY, hh:mm A')}</strong>
+                  Check-out time:{" "}
+                  <strong>
+                    {dayjs(bulkActionResult.checkoutTime).format(
+                      "DD MMM YYYY, hh:mm A",
+                    )}
+                  </strong>
                 </span>
               </Alert>
             )}
 
-            {/* Results Details */}
             {bulkActionResult?.results && bulkActionResult.results.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <span className="text-[12px] font-medium text-gray-600">Detailed Results</span>
+                  <span className="text-[12px] font-medium text-gray-600">
+                    Detailed Results
+                  </span>
                 </div>
                 <div className="max-h-[300px] overflow-y-auto">
                   {bulkActionResult.results.map((result, index) => {
-                    const isSuccess = result.message === 'checked_in' || result.message === 'checked_out';
-                    const isSkipped = result.message?.includes('skipped');
+                    const isSuccess =
+                      result.message === "checked_in" ||
+                      result.message === "checked_out";
+                    const isSkipped = result.message?.includes("skipped");
                     const isError = !isSuccess && !isSkipped;
 
-                    let statusColor = 'text-emerald-600';
-                    let statusBg = 'bg-emerald-50';
+                    let statusColor = "text-emerald-600";
+                    let statusBg = "bg-emerald-50";
                     let statusIcon = <CheckCircleOutlined className="!w-4 !h-4" />;
 
                     if (isSkipped) {
-                      statusColor = 'text-amber-600';
-                      statusBg = 'bg-amber-50';
+                      statusColor = "text-amber-600";
+                      statusBg = "bg-amber-50";
                       statusIcon = <InfoOutlined className="!w-4 !h-4" />;
                     } else if (isError) {
-                      statusColor = 'text-red-600';
-                      statusBg = 'bg-red-50';
+                      statusColor = "text-red-600";
+                      statusBg = "bg-red-50";
                       statusIcon = <CloseOutlined className="!w-4 !h-4" />;
                     }
 
@@ -3291,12 +3837,10 @@ export function DailyRegister() {
                         className={`flex items-center justify-between px-3 py-2 border-b border-gray-100 last:border-0 ${statusBg}`}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={statusColor}>
-                            {statusIcon}
-                          </div>
+                          <div className={statusColor}>{statusIcon}</div>
                           <div>
                             <div className="text-sm font-medium text-gray-800">
-                              {result.employeeCode || ''}
+                              {result.employeeCode || ""}
                             </div>
                             <div className="text-[12px] text-gray-500">
                               {result.employeeId}
@@ -3305,16 +3849,29 @@ export function DailyRegister() {
                         </div>
                         <div className="flex items-center gap-2">
                           {result.status && (
-                            <span className={`
+                            <span
+                              className={`
                         text-[12px] px-2 py-0.5 rounded-full
-                        ${result.status === 'present' ? 'bg-emerald-100 text-emerald-700' : ''}
-                        ${result.status === 'absent' ? 'bg-red-100 text-red-700' : ''}
-                        ${result.status === 'late' ? 'bg-amber-100 text-amber-700' : ''}
-                      `}>
+                        ${result.status === "present"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : ""
+                                }
+                        ${result.status === "absent"
+                                  ? "bg-red-100 text-red-700"
+                                  : ""
+                                }
+                        ${result.status === "late"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : ""
+                                }
+                      `}
+                            >
                               {result.status}
                             </span>
                           )}
-                          <span className={`text-[12px] font-medium ${statusColor}`}>
+                          <span
+                            className={`text-[12px] font-medium ${statusColor}`}
+                          >
                             {result.message}
                           </span>
                         </div>

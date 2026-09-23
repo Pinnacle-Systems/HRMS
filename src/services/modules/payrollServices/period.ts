@@ -1,26 +1,38 @@
 import { apiService } from "../../api/api.config";
 import { API_ENDPOINTS } from "../../api/endpoints";
 
+export interface DaySplit {
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  workingDays: number;
+  weekOff: number;
+  holidays: number;
+  holidayList: Holiday[];
+} 
 
 export interface Period {
+  holidays: Holiday[];
+  periodMonth?: string;
+  periodYear?: string;
   id: string;
   name: string;
-  startDate: string;
+  month: number;
+  monthName: string;     
+  year: number;
+  startDate: string;      
   endDate: string;
   paymentDate: string;
   cutoffDate: string;
   workingDays: number;
-  status: string;
-  holidays: Holiday[];
-  periodMonth?: string;
-  periodYear?: string;
-  month: number;
-  year: number;
+  status: string;         
+  daySplit: DaySplit;
 }
 
 export interface Holiday {
   name: string;
   date: string;
+  type: string;
 }
 
 export interface PeriodCreatePayload {

@@ -33,7 +33,7 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   irregular: "#ec4899",
   missed_punch: "#ec4899",
   missed_out: "#ec4899",
-  night_duty:"#047857"
+  night_duty: "#047857"
 };
 
 export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
@@ -128,7 +128,7 @@ export function formatTime(isoString: string | null | undefined): string {
   return d.toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
+    hour12: false,
   });
 }
 
@@ -171,3 +171,94 @@ export const WORKER_TYPE_OPTIONS = [
   { value: 'Labour', label: 'Labour' },
   { value: 'Both', label: 'Both' }
 ] as const;
+
+export const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "present", label: "Present" },
+  { value: "absent", label: "Absent" },
+  { value: "late", label: "Late" },
+  { value: "irregular", label: "Irregular" },
+  { value: "missed_out", label: "Missed Punch" },
+  { value: "night_duty", label: "Night Duty" },
+  { value: "leave", label: "On Leave" },
+];
+
+export const inlineInputSx = {
+  width: "100%",
+  "& .MuiPickersSectionList-root": {
+    padding: "0 !important",
+  },
+  "& .MuiPickersSectionList-sectionContent": {
+    fontSize: "12px !important",
+  },
+  "& .MuiInputAdornment-root": {
+    marginLeft: "0 !important",
+  },
+  "& .MuiIconButton-root": {
+    "& .MuiSvgIcon-root": {
+      fontSize: "14px !important",
+    },
+  },
+  "& .MuiInputAdornment-root .MuiIconButton-root": {
+    padding: "0 !important",
+    marginLeft: "0 !important",
+    marginRight: "0 !important",
+    minWidth: "auto !important",
+    width: "18px !important",
+    height: "18px !important",
+  },
+  "&.MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+    padding: "0 0 0 2px !important",
+    fontSize: "12px !important",
+    minHeight: "28px !important",
+    height: "28px !important",
+  },
+} as const;
+export interface RegisterEmployee {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  department: string;
+  designation: string;
+  shiftCode: string;
+  shiftStart: string;
+  shiftEnd: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  status: AttendanceStatus;
+  workedMinutes: number;
+  lateMinutes: number;
+  checkInDate: string;
+  checkOutDate: string;
+  earlyOutMinutes: number;
+  overtimeMinutes: number;
+  correctionPending?: boolean;
+}
+
+export interface TodaySummary {
+  date: string;
+  totalEmployees: number;
+  present: number;
+  absent: number;
+  late: number;
+  onLeave: number;
+  onDuty: number;
+  checkedIn: number;
+  notYetIn: number;
+  attendancePercentage: number;
+}
+
+export interface Holiday {
+  date: string;
+  name: string;
+  type: string;
+}
+
+// ── Inline display: shows the value as text; clicking reveals the picker ──
+export interface InlineDisplayProps {
+  value: string | null;
+  placeholder?: string;
+  className?: string;
+  onClick: () => void;
+  disabled?: boolean;
+}

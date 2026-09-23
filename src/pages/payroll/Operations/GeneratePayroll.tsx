@@ -47,7 +47,6 @@ import {
     Check as CheckIcon,
     Error as ErrorIcon,
     Info as InfoIcon,
-    AddCircle,
     ExpandMore as ExpandMoreIcon,
     TrendingUp as TrendingUpIcon,
     TrendingDown as TrendingDownIcon,
@@ -67,6 +66,7 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import dayjs from "dayjs";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { getRowColor } from "../../const";
+import { formatDate } from "../../leave/leaveFormatters";
 
 const STEPS = [
     { id: 1, label: "Select Period", icon: CalendarIcon },
@@ -490,7 +490,9 @@ export default function GeneratePayroll() {
                                         Choose the period for which payroll should be generated
                                     </div>
                                 </Box>
+
                                 <Grid container spacing={3} sx={{ maxWidth: 600 }}>
+                                    {/* Payroll Period Select */}
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <FormControl fullWidth required>
                                             <InputLabel>Payroll Period</InputLabel>
@@ -505,51 +507,83 @@ export default function GeneratePayroll() {
                                                         {p.name || `${p.month}/${p.year}`}
                                                     </MenuItem>
                                                 ))}
-                                                <MenuItem className="!text-primary" onClick={() => navigate("/payroll/periods")}>
-                                                    <AddCircle className="mr-2" /> Add Payroll Period
-                                                </MenuItem>
                                             </Select>
                                         </FormControl>
                                     </Grid>
+
+                                    {/* Payment Date */}
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                                             <DatePicker
                                                 label="Payment Date"
                                                 format="DD/MM/YYYY"
+                                                disabled={!periodDetails}
                                                 value={
-                                                    periodDetails?.paymentDate
-                                                        ? dayjs(periodDetails.paymentDate)
-                                                        : null
+                                                    periodDetails?.paymentDate ? dayjs(periodDetails.paymentDate) : null
                                                 }
-                                                onChange={(newValue) => {
-                                                    setPeriodDetails({
-                                                        ...periodDetails!,
-                                                        paymentDate: newValue
-                                                            ? dayjs(newValue).format("YYYY-MM-DD")
-                                                            : "",
-                                                    });
-                                                }}
+                                                onChange={(newValue) =>
+                                                    setPeriodDetails((prev) =>
+                                                        prev
+                                                            ? {
+                                                                ...prev,
+                                                                paymentDate: newValue
+                                                                    ? dayjs(newValue).format("YYYY-MM-DD")
+                                                                    : "",
+                                                            }
+                                                            : prev
+                                                    )
+                                                }
                                                 slotProps={{
-                                                    textField: {
-                                                        fullWidth: true,
-                                                        variant: "outlined",
-                                                    },
+                                                    textField: { fullWidth: true, variant: "outlined" },
                                                 }}
                                             />
                                         </LocalizationProvider>
                                     </Grid>
                                 </Grid>
+
+                                {/* Period Details Card */}
                                 {periodDetails && (
                                     <div className="p-3 rounded-md border border-green-700 max-w-[600px] bg-green-100 dark:bg-green-800/50">
                                         <div className="text-[12px] font-bold text-gray-800 mb-4">
                                             Period Details
                                         </div>
-                                        <Grid container spacing={1}>
+
+                                        <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                                             {[
-                                                ["Start Date", periodDetails.startDate],
-                                                ["End Date", periodDetails.endDate],
-                                                ["Working Days", periodDetails.workingDays],
-                                                ["Payment Date", periodDetails.paymentDate],
+                                                [
+                                                    "Period",
+                                                    periodDetails.name ||
+                                                    `${periodDetails.monthName} ${periodDetails.year}`,
+                                                ],
+                                                ["Total Days", periodDetails.daySplit?.totalDays ?? "-"],
+                                                [
+                                                    "Start Date",
+                                                    periodDetails.startDate
+                                                        ? formatDate(periodDetails.startDate)
+                                                        : "-",
+                                                ],
+                                                ["Working Days", periodDetails.workingDays ?? "-"],
+                                                [
+                                                    "End Date",
+                                                    periodDetails.endDate
+                                                        ? formatDate(periodDetails.endDate)
+                                                        : "-",
+                                                ],
+                                                ["Week Off", periodDetails.daySplit?.weekOff ?? "-"],
+                                                [
+                                                    "Payment Date",
+                                                    periodDetails.paymentDate
+                                                        ? formatDate(periodDetails.paymentDate)
+                                                        : "-",
+                                                ],
+                                                ["Holidays", periodDetails.daySplit?.holidays ?? "-"],
+                                                [
+                                                    "Cutoff Date",
+                                                    periodDetails.cutoffDate
+                                                        ? formatDate(periodDetails.cutoffDate)
+                                                        : "-",
+                                                ],
+                                                ["Status", periodDetails.status ?? "-"],
                                             ].map(([k, v]) => (
                                                 <Grid size={{ xs: 12 }} key={k}>
                                                     <Box
@@ -565,7 +599,35 @@ export default function GeneratePayroll() {
                                                     </Box>
                                                 </Grid>
                                             ))}
-                                        </Grid>
+                                        </div>
+
+                                        {/* Holiday List */}
+                                        {periodDetails.daySplit?.holidayList?.length > 0 && (
+                                            <div className="mt-4 pt-3 border-t border-green-700/40">
+                                                <div className="text-[12px] font-bold text-gray-800 mb-2">
+                                                    Holidays
+                                                </div>
+                                                <Grid container spacing={1}>
+                                                    {periodDetails.daySplit.holidayList.map((h) => (
+                                                        <Grid size={{ xs: 12 }} key={h.date}>
+                                                            <Box
+                                                                sx={{
+                                                                    display: "flex",
+                                                                    justifyContent: "space-between",
+                                                                }}
+                                                            >
+                                                                <div className="text-gray-500 text-[12px]">
+                                                                    {dayjs(h.date).format("DD/MM/YYYY")} — {h.name}
+                                                                </div>
+                                                                <div className="text-[12px] text-gray-800 font-bold">
+                                                                    {h.type}
+                                                                </div>
+                                                            </Box>
+                                                        </Grid>
+                                                    ))}
+                                                </Grid>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>

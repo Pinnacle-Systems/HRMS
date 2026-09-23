@@ -6,10 +6,8 @@ import {
     Dialog,
     DialogActions,
     DialogContent,
-    DialogTitle,
     IconButton,
     MenuItem,
-    Paper,
     Table,
     TableBody,
     TableCell,
@@ -19,9 +17,8 @@ import {
     Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { salaryRevisionService, type RevisionTemplate, type RevisionTemplateType } from "../../../services/modules/payrollServices/salaryRevision";
-import { CloseOutlined, DeleteOutlineOutlined } from "@mui/icons-material";
+import { CloseOutlined, Delete, Edit } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { getRowColor } from "../../const";
 
@@ -42,38 +39,9 @@ export default function RevisionTemplates() {
         showSpinner();
         try {
             const res: any = await salaryRevisionService.getTemplates();
-            setRows(res.data || []);
+            setRows(res.data.content || []);
         } catch (err) {
             showSnackbar("Failed to load templates", "error");
-            setRows([
-                {
-                    id: "t1",
-                    name: "Standard 10%",
-                    type: "PERCENT",
-                    config: { percent: 10, roundingRule: "NEAREST_100" },
-                },
-                {
-                    id: "t2",
-                    name: "Flat ₹5000",
-                    type: "FLAT",
-                    config: { flatAmount: 5000, roundingRule: "NEAREST_100" },
-                },
-                {
-                    id: "t3",
-                    name: "Slab Based FY26",
-                    type: "SLAB",
-                    config: {
-                        slabs: [
-                            { from: 0, to: 500000, percent: 12 },
-                            { from: 500001, to: 1000000, percent: 10 },
-                            { from: 1000001, to: Number.MAX_SAFE_INTEGER, percent: 8 },
-                        ],
-                        minIncrement: 5000,
-                        maxIncrement: 200000,
-                        roundingRule: "NEAREST_100",
-                    },
-                },
-            ] as any);
         } finally {
             hideSpinner();
         }
@@ -189,7 +157,7 @@ export default function RevisionTemplates() {
                             <TableCell>
                                 <Tooltip title="Edit">
                                     <IconButton size="small" onClick={() => openEdit(t)}>
-                                        <EditOutlinedIcon fontSize="small" className="text-blue-500 !w-4" />
+                                        <Edit fontSize="small" className="text-blue-500 !w-4" />
                                     </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Delete">
@@ -198,7 +166,7 @@ export default function RevisionTemplates() {
                                         className="!text-red-500"
                                         onClick={() => handleDelete(t.id)}
                                     >
-                                        <DeleteOutlineOutlined fontSize="small" className="!w-4" />
+                                        <Delete fontSize="small" className="!w-4" />
                                     </IconButton>
                                 </Tooltip>
                             </TableCell>
@@ -206,8 +174,8 @@ export default function RevisionTemplates() {
                     ))}
                     {!rows.length && (
                         <TableRow>
-                            <TableCell colSpan={5} align="center" className="!py-6 !text-xs !text-gray-500">
-                                No templates yet.
+                            <TableCell colSpan={6} align="center">
+                               <div className="!py-6 !text-xs !text-gray-500"> No templates Found.</div>
                             </TableCell>
                         </TableRow>
                     )}

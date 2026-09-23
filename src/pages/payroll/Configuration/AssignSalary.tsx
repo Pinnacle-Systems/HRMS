@@ -39,7 +39,6 @@ import {
 import {
   AttachMoney as DollarSignIcon,
   CheckCircle as CheckCircleIcon,
-  // ExpandMore as ExpandMoreIcon,
   AssessmentOutlined,
   Refresh as RefreshIcon,
   History as HistoryIcon,
@@ -63,7 +62,6 @@ import { GlobalPagination } from "../../../components/GlobalPagination";
 import { useNavigate } from "react-router-dom";
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Tooltip as ReTooltip } from "recharts";
-// import { Cell, Pie, PieChart, ResponsiveContainer, BarChart as ReBarChart, Bar, XAxis, YAxis, Tooltip as ReTooltip, Legend } from "recharts";
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
   active: { label: "Active", color: "#10b981", bgColor: "#d1fae5" },
@@ -101,6 +99,30 @@ const generateColorPalette = (count: number): string[] => {
   return Array.from({ length: count }, (_, i) => rotated[i % rotated.length]);
 };
 
+// Helper function to check if component is Special Allowance
+const isSpecialAllowance = (componentName: string) => {
+  return componentName?.toLowerCase().includes('special') ||
+    componentName?.toLowerCase().includes('spl');
+};
+
+// Compact select style for the redesigned filter bar
+const compactSelectSx = {
+  height: 34,
+  fontSize: "0.78rem",
+  borderRadius: 1.5,
+  bgcolor: "#fff",
+  "& .MuiSelect-select": {
+    py: 0.6,
+    px: 1.2,
+  },
+  "& fieldset": {
+    borderColor: "#e5e7eb",
+  },
+  "&:hover fieldset": {
+    borderColor: "#9ca3af !important",
+  },
+};
+
 export default function AssignSalaryStructure() {
   const theme = useTheme();
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
@@ -116,7 +138,6 @@ export default function AssignSalaryStructure() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tabValue, setTabValue] = useState(0);
-  // const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"monthly" | "annual">("monthly");
   const [activeStep, setActiveStep] = useState(0);
   const [showBreakdown, setShowBreakdown] = useState(false);
@@ -129,11 +150,13 @@ export default function AssignSalaryStructure() {
   // Form states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
-  const [selectedDesignation, setSelectedDesignation] = useState("all");
+  // const [selectedDesignation, setSelectedDesignation] = useState("all");
+  const [selectedEmployeeGroup, setSelectedEmployeeGroup] = useState("all");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [ctcAmount, setCtcAmount] = useState<number>(0);
   const [ctcMode, setCtcMode] = useState<"annual" | "monthly" | "perday">("monthly");
+  const [workingDays, setWorkingDays] = useState<number>(31);
   const [employees, setEmployees] = useState<any[]>([]);
   const [structures, setStructures] = useState<any[]>([]);
   const [bankDetails, setBankDetails] = useState({
@@ -152,19 +175,10 @@ export default function AssignSalaryStructure() {
     loadAssignments();
   }, [page, limit, statusFilter, searchTerm]);
 
-  // Auto-navigate to breakdown tab when all required fields are filled
-  // useEffect(() => {
-  //   if (selectedEmployees.length > 0 && selectedTemplate && ctcAmount > 0 && selectedTemplateDetails) {
-  //     setShowBreakdown(true);
-  //     setActiveStep(1);
-  //   }
-  // }, [selectedEmployees, selectedTemplate, ctcAmount, selectedTemplateDetails]);
-
   // Auto-set CTC mode based on selected employee's employee group
   useEffect(() => {
     if (selectedEmployees.length === 0) return;
 
-    // Get the first selected employee's group (assumes single selection for mode determination)
     const firstEmployeeId = selectedEmployees[0];
     const employee = employees.find((e) => e.id === firstEmployeeId);
     if (!employee) return;
@@ -173,8 +187,10 @@ export default function AssignSalaryStructure() {
 
     if (group.includes("staff")) {
       setCtcMode("monthly");
+      setWorkingDays(31);
     } else if (group.includes("labour") || group.includes("labor")) {
       setCtcMode("perday");
+      setWorkingDays((prev) => prev || 31);
     }
   }, [selectedEmployees, employees]);
 
@@ -238,9 +254,9 @@ export default function AssignSalaryStructure() {
     setOpenHistoryDialog(true);
   };
 
-  const departments = ["all", ...Array.from(new Set(employees.map((e) => e.department)))];
-  const designation = ["all", ...Array.from(new Set(employees.map((e) => e.designation)))];
-
+  const departments = ["all", ...Array.from(new Set(employees.map((e) => e.department).filter(Boolean)))];
+  // const designation = ["all", ...Array.from(new Set(employees.map((e) => e.designation).filter(Boolean)))];
+  const employeeGroups = ["all", ...Array.from(new Set(employees.map((e) => e.employeeGroup).filter(Boolean)))];
 
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
@@ -248,9 +264,24 @@ export default function AssignSalaryStructure() {
       emp.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.id?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = selectedDept === "all" || emp.department === selectedDept;
-    const matchesDesg = selectedDesignation === "all" || emp.designation === selectedDesignation;
-    return matchesSearch && matchesDept && matchesDesg;
+    // const matchesDesg = selectedDesignation === "all" || emp.designation === selectedDesignation;
+    const matchesGroup = selectedEmployeeGroup === "all" || emp.employeeGroup === selectedEmployeeGroup;
+    return matchesSearch && matchesDept && matchesGroup;
   });
+
+  // Check if any employee filter is active
+  // const hasActiveFilters =
+  //   searchQuery !== "" ||
+  //   selectedDept !== "all" ||
+  //   selectedDesignation !== "all" ||
+  //   selectedEmployeeGroup !== "all";
+
+  // const clearAllFilters = () => {
+  //   setSearchQuery("");
+  //   setSelectedDept("all");
+  //   setSelectedDesignation("all");
+  //   setSelectedEmployeeGroup("all");
+  // };
 
   const fetchEmployeeBankDetails = async (employeeId: string) => {
     try {
@@ -274,12 +305,10 @@ export default function AssignSalaryStructure() {
       const isRemoving = prev.includes(empId);
       const next = isRemoving ? prev.filter((id) => id !== empId) : [...prev, empId];
 
-      // Auto-fetch bank details when first employee is selected
       if (!isRemoving && next.length === 1) {
         fetchEmployeeBankDetails(empId);
       }
 
-      // Clear bank details when no employees are selected
       if (next.length === 0) {
         setBankDetails({
           accountNumber: "",
@@ -336,20 +365,17 @@ export default function AssignSalaryStructure() {
   const calculateBreakdown = () => {
     if (!selectedTemplateDetails || !selectedTemplate || ctcAmount === 0) return null;
 
-    // const userMonthlyCtc = ctcMode === "monthly" ? ctcAmount : ctcAmount / 12;
     let userMonthlyCtc = ctcAmount;
     if (ctcMode === "annual") {
       userMonthlyCtc = ctcAmount / 12;
     } else if (ctcMode === "monthly") {
       userMonthlyCtc = ctcAmount;
     } else if (ctcMode === "perday") {
-      // per day → monthly (26 working days)
-      userMonthlyCtc = ctcAmount * 26;
+      userMonthlyCtc = ctcAmount * (workingDays || 31);
     }
     const templateEarnings = selectedTemplateDetails.earnings || [];
     const templateDeductions = selectedTemplateDetails.deductions || [];
 
-    // Find Basic component
     const basicComponent = templateEarnings.find(
       (e: any) =>
         e.componentCode === "BS001" ||
@@ -357,7 +383,6 @@ export default function AssignSalaryStructure() {
         e.componentName?.toLowerCase() === "basic"
     );
 
-    // Calculate Basic amount
     let basicAmount = 0;
     if (basicComponent) {
       if (basicComponent.calculationType === "PERCENT_OF_CTC" || basicComponent.calculationType === "PERCENTAGE") {
@@ -367,7 +392,6 @@ export default function AssignSalaryStructure() {
       }
     }
 
-    // First pass: Calculate all earnings except Special Allowance
     const calculatedEarnings = templateEarnings
       .filter((e: any) => !isSpecialAllowance(e.componentName))
       .map((earning: any) => {
@@ -377,7 +401,7 @@ export default function AssignSalaryStructure() {
         switch (earning.calculationType) {
           case "PERCENT_OF_CTC":
             monthlyValue = (earning.value / 100) * userMonthlyCtc;
-            percentageOfCTC = earning.value; // e.g., 30%
+            percentageOfCTC = earning.value;
             break;
           case "PERCENT_OF_BASIC":
             monthlyValue = (earning.value / 100) * basicAmount;
@@ -417,21 +441,17 @@ export default function AssignSalaryStructure() {
         };
       });
 
-    // Calculate total percentage used by all other earnings
     const totalPercentageUsed = calculatedEarnings.reduce(
       (sum: number, e: any) => sum + e.percentageOfCTC, 0
     );
 
-    // Calculate Special Allowance balance percentage
     const specialAllowancePercentage = 100 - totalPercentageUsed;
     const specialAllowanceAmount = userMonthlyCtc * (specialAllowancePercentage / 100);
 
-    // Find Special Allowance component
     const specialAllowanceComponent = templateEarnings.find(
       (e: any) => isSpecialAllowance(e.componentName)
     );
 
-    // Build final earnings array with Special Allowance
     let allEarnings = [...calculatedEarnings];
 
     if (specialAllowanceComponent) {
@@ -441,15 +461,13 @@ export default function AssignSalaryStructure() {
         componentCode: specialAllowanceComponent.componentCode || "SPL",
         componentName: specialAllowanceComponent.componentName || "Special Allowance",
         calculationType: "PERCENT_OF_CTC",
-        value: specialAllowancePercentage, // Store the percentage
+        value: specialAllowancePercentage,
         monthlyValue: specialAllowanceAmount,
         annualValue: specialAllowanceAmount * 12,
         percentageOfCTC: specialAllowancePercentage,
         isSpecialAllowance: true,
       });
     } else {
-      // If no Special Allowance component exists, check if we need to add one
-      // This handles the case where the template doesn't have a Special Allowance component
       if (Math.abs(specialAllowanceAmount) > 0.01) {
         allEarnings.push({
           id: "SPL",
@@ -466,7 +484,6 @@ export default function AssignSalaryStructure() {
       }
     }
 
-    // Now calculate deductions
     const scaledDeductions = templateDeductions.map((deduction: any) => {
       let monthlyValue = 0;
       let percentageOfCTC = 0;
@@ -510,7 +527,6 @@ export default function AssignSalaryStructure() {
       };
     });
 
-    // Calculate totals
     const totalEarningsMonthly = allEarnings.reduce((sum: number, e: any) => sum + e.monthlyValue, 0);
     const totalDeductionsMonthly = scaledDeductions.reduce((sum: number, d: any) => sum + d.monthlyValue, 0);
     const netMonthly = totalEarningsMonthly - totalDeductionsMonthly;
@@ -527,19 +543,12 @@ export default function AssignSalaryStructure() {
       userMonthlyCtc,
       templateName: selectedTemplateDetails.name,
       templateCode: selectedTemplateDetails.code,
-      // Special Allowance specific info
       specialAllowance: {
         percentage: specialAllowancePercentage,
         amount: specialAllowanceAmount,
       },
       totalPercentageUsed,
     };
-  };
-
-  // Helper function to check if component is Special Allowance
-  const isSpecialAllowance = (componentName: string) => {
-    return componentName?.toLowerCase().includes('special') ||
-      componentName?.toLowerCase().includes('spl');
   };
 
   const breakdown = calculateBreakdown();
@@ -562,6 +571,10 @@ export default function AssignSalaryStructure() {
       showSnackbar("Please enter a valid CTC amount", "warning");
       return;
     }
+    if (ctcMode === "perday" && workingDays <= 0) {
+      showSnackbar("Please enter valid working days", "warning");
+      return;
+    }
 
     showSpinner();
     try {
@@ -569,7 +582,7 @@ export default function AssignSalaryStructure() {
       if (ctcMode === "monthly") {
         annualCtc = ctcAmount * 12;
       } else if (ctcMode === "perday") {
-        annualCtc = ctcAmount * 26 * 12;
+        annualCtc = ctcAmount * (workingDays || 31) * 12;
       }
 
       const payload = {
@@ -595,6 +608,7 @@ export default function AssignSalaryStructure() {
       setSelectedTemplate("");
       setSelectedTemplateDetails(null);
       setCtcAmount(0);
+      setWorkingDays(31);
       setBankDetails({
         accountNumber: "",
         bankName: "",
@@ -625,7 +639,12 @@ export default function AssignSalaryStructure() {
     setPage(0);
   };
 
-  // Render Salary Breakdown with Charts
+  const isPreviewDisabled =
+    selectedEmployees.length === 0 ||
+    !selectedTemplate ||
+    ctcAmount <= 0 ||
+    (ctcMode === "perday" && workingDays <= 0);
+
   const renderSalaryBreakdownWithCharts = () => {
     if (!breakdown) return null;
 
@@ -633,9 +652,7 @@ export default function AssignSalaryStructure() {
     const totalEarnings = isMonthly ? breakdown.totalEarningsMonthly : breakdown.totalEarningsMonthly * 12;
     const totalDeductions = isMonthly ? breakdown.totalDeductionsMonthly : breakdown.totalDeductionsMonthly * 12;
     const netPay = isMonthly ? breakdown.netMonthly : breakdown.netMonthly * 12;
-    // const ctcDisplay = isMonthly ? breakdown.userMonthlyCtc : breakdown.annualCtc;
 
-    // Prepare data for pie chart
     const pieData = [
       ...breakdown.earnings.map((e: any) => ({
         name: e.componentName,
@@ -651,28 +668,6 @@ export default function AssignSalaryStructure() {
 
     const dynamicColors = generateColorPalette(pieData.length);
 
-
-    // Prepare data for bar chart
-    // const barData = [
-    //   ...breakdown.earnings.map((e: any) => ({
-    //     name: e.componentName,
-    //     Earnings: isMonthly ? e.monthlyValue : e.annualValue,
-    //     type: 'earning'
-    //   })),
-    //   ...breakdown.deductions.map((d: any) => ({
-    //     name: d.componentName,
-    //     Deductions: isMonthly ? d.monthlyValue : d.annualValue,
-    //     type: 'deduction'
-    //   }))
-    // ];
-
-    // const formatCurrencyForChart = (value: any) => {
-    //   if (typeof value === 'number') {
-    //     return formatCurrency(value);
-    //   }
-    //   return String(value || 0);
-    // };
-
     const tooltipFormatter = (value: any, _name: any, props: any) => {
       const componentName = props?.payload?.name || "Amount";
       if (typeof value === "number") {
@@ -685,7 +680,6 @@ export default function AssignSalaryStructure() {
       <Slide direction="up" in={true} mountOnEnter unmountOnExit>
         <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
           <CardContent className="!p-0">
-            {/* Header */}
             <Box
               className="p-4"
               sx={{
@@ -701,7 +695,7 @@ export default function AssignSalaryStructure() {
                   <PieChartIcon sx={{ color: "primary.main", fontSize: 24 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, }} className="text-gray-800">
+                  <Typography variant="h6" sx={{ fontWeight: 600 }} className="text-gray-800">
                     Salary Breakdown
                   </Typography>
                   <Typography variant="caption" className="text-gray-800">
@@ -744,7 +738,27 @@ export default function AssignSalaryStructure() {
             </Box>
 
             <Box sx={{ p: 3 }}>
-              {/* Summary Cards */}
+              {ctcMode === "perday" && (
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 1.5,
+                    borderRadius: 2,
+                    bgcolor: alpha(theme.palette.info.main, 0.06),
+                    border: `1px dashed ${alpha(theme.palette.info.main, 0.4)}`,
+                  }}
+                >
+                  <Typography variant="caption" className="text-gray-800" sx={{ fontWeight: 600 }}>
+                    Per Day Calculation
+                  </Typography>
+                  <Typography variant="body2" className="text-gray-500">
+                    {formatCurrency(ctcAmount)}/day × {workingDays} working days ={" "}
+                    <strong>{formatCurrency(breakdown.userMonthlyCtc)}/month</strong>
+                    {" "}({formatCurrency(breakdown.annualCtc)}/year)
+                  </Typography>
+                </Box>
+              )}
+
               <Fade in timeout={500}>
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                   <Grid size={{ xs: 6, sm: 3 }}>
@@ -783,24 +797,10 @@ export default function AssignSalaryStructure() {
                       </Box>
                     </Grow>
                   </Grid>
-                  {/* <Grid size={{ xs: 6, sm: 3 }}>
-                    <Grow in timeout={900}>
-                      <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.warning.main, 0.08), border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}` }}>
-                        <Typography variant="caption" sx={{ color: "warning.main", fontWeight: 600 }}>
-                          Employees
-                        </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: "warning.main" }}>
-                          {selectedEmployees.length}
-                        </Typography>
-                      </Box>
-                    </Grow>
-                  </Grid> */}
                 </Grid>
               </Fade>
 
-              {/* Grid: Chart + Earnings + Deductions */}
               <Grid container spacing={3}>
-                {/* Earnings Table */}
                 <Grid size={{ xs: 12, md: 4 }}>
                   <Fade in timeout={1100}>
                     <Paper className="bg-white-50 border border-gray-200" sx={{ borderRadius: 2, overflow: 'hidden', height: '100%' }}>
@@ -856,7 +856,6 @@ export default function AssignSalaryStructure() {
                   </Fade>
                 </Grid>
 
-                {/* Deductions Table */}
                 <Grid size={{ xs: 12, md: 4 }}>
                   <Fade in timeout={1200}>
                     <Paper className="bg-white-50 border border-gray-200" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`, overflow: 'hidden', height: '100%' }}>
@@ -897,17 +896,14 @@ export default function AssignSalaryStructure() {
                   </Fade>
                 </Grid>
 
-                {/* Chart Column */}
                 <Grid size={{ xs: 12, md: 4 }}>
                   <Fade in timeout={1000}>
                     <Paper className="bg-white-50 border border-blue-200" sx={{ borderRadius: 2, height: '100%' }}>
-
                       <Box sx={{ p: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.06), display: 'flex', alignItems: 'center', gap: 1, borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.2)}` }}>
                         <PieChartOutlined sx={{ fontSize: 18, color: 'primary.main' }} />
                         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "primary.main" }}>
                           CTC Distribution
                         </Typography>
-
                       </Box>
                       <ResponsiveContainer width="100%" height={260}>
                         <PieChart>
@@ -980,54 +976,15 @@ export default function AssignSalaryStructure() {
                   </Grid>
                 </Box>
               )}
-
-              {/* Footer Summary */}
-              {/* <Fade in timeout={1400}>
-                <Box sx={{ mt: 3, pt: 2, borderTop: `2px solid ${theme.palette.divider}` }}>
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 4 }}>
-                      <Typography variant="caption" className="text-gray-800">
-                        Basic Amount
-                      </Typography>
-                      <Typography className="text-gray-500">
-                        {formatCurrency(breakdown.basicAmount)}/{isMonthly ? 'mo' : 'yr'}
-                      </Typography>
-                    </Grid>
-                    <Grid size={{ xs: 4 }}>
-                      <Typography variant="caption" className="text-gray-800">
-                        CTC ({isMonthly ? 'Monthly' : 'Annual'})
-                      </Typography>
-                      <Typography className="text-gray-800" sx={{ fontWeight: 700 }}>
-                        {formatCurrency(ctcDisplay)}
-                      </Typography>
-                    </Grid>
-                    <Grid size={{ xs: 4 }}>
-                      <Typography variant="caption" className="text-gray-800">
-                        Net Pay
-                      </Typography>
-                      <Typography sx={{ fontWeight: 700, color: "success.main" }}>
-                        {formatCurrency(netPay)}/{isMonthly ? 'mo' : 'yr'}
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                  {breakdown.basicAmount > 0 && (
-                    <Typography variant="caption" className="text-error" sx={{ fontSize: "0.65rem", mt: 1, display: 'block' }}>
-                      * Basic is the base for all percentage-based calculations
-                    </Typography>
-                  )}
-                </Box>
-              </Fade> */}
             </Box>
           </CardContent>
         </Card>
       </Slide>
-
     );
   };
 
   return (
     <div className="bg-white-50">
-      {/* Main Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }} className="border-b border-gray-200">
         <Tabs
           value={tabValue}
@@ -1047,10 +1004,8 @@ export default function AssignSalaryStructure() {
         </Tabs>
       </Box>
 
-      {/* Tab 0: Assign Salary */}
       {tabValue === 0 && (
         <>
-          {/* Header */}
           <div className="flex items-center gap-4 mb-4">
             <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.1), display: "flex", alignItems: "center", justifyContent: "center" }}>
               <AssessmentOutlined sx={{ color: "primary.main" }} />
@@ -1068,7 +1023,6 @@ export default function AssignSalaryStructure() {
             </Box>
           </div>
 
-          {/* Step Indicator */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{
@@ -1114,39 +1068,70 @@ export default function AssignSalaryStructure() {
           {!showBreakdown ? (
             <Grid container spacing={2}>
               {/* Left: Employee selection */}
-              <Grid size={{ xs: 12, md: 7 }}>
+              <Grid size={{ xs: 12, md: 8 }}>
                 <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                   <CardContent className="!p-4">
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                      <Typography className="text-gray-800" sx={{ fontWeight: 600 }}>
-                        {/* <PersonAdd fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} /> */}
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                      <div className="text-gray-800 text-[12px] font-bold">
                         Select Employees
-                      </Typography>
+                      </div>
                       {selectedEmployees.length > 0 && (
                         <Chip
                           icon={<CheckCircleIcon fontSize="small" />}
                           label={`${selectedEmployees.length} selected`}
                           color="primary"
                           size="small"
+                          sx={{ height: 22, fontSize: "0.7rem" }}
                         />
                       )}
                     </Box>
 
-                    <Stack spacing={1}>
-                      <Box sx={{ display: "flex", gap: 2 }}>
+                    <Stack spacing={1.2}>
+                      {/* ===== Redesigned Compact Filter Bar ===== */}
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 border border-gray-200">
+                        {/* Search field */}
                         <TextField
-                          placeholder="Search by name or ID..."
+                          placeholder="Search name or ID..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           size="small"
-                          fullWidth
+                          sx={{
+                            flex: "1 1 180px",
+                            minWidth: 160,
+                            "& .MuiOutlinedInput-root": {
+                              height: 34,
+                              fontSize: "0.78rem",
+                              borderRadius: 1.5,
+                              bgcolor: "#fff",
+                            },
+                          }}
+
                         />
-                        <FormControl size="small" sx={{ minWidth: 180 }}>
+
+                        {/* Employee Group */}
+                        <FormControl size="small" sx={{ minWidth: 130, flex: "0 1 auto" }}>
+                          <Select
+                            value={selectedEmployeeGroup}
+                            onChange={(e) => setSelectedEmployeeGroup(e.target.value)}
+                            displayEmpty
+                            sx={compactSelectSx}
+                            renderValue={(val) => (val === "all" ? "All Groups" : val)}
+                          >
+                            <MenuItem value="all">All Groups</MenuItem>
+                            {employeeGroups.filter((g) => g !== "all").map((grp) => (
+                              <MenuItem key={grp} value={grp}>{grp}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+
+                        {/* Department */}
+                        <FormControl size="small" sx={{ minWidth: 130, flex: "0 1 auto" }}>
                           <Select
                             value={selectedDept}
                             onChange={(e) => setSelectedDept(e.target.value)}
                             displayEmpty
-                            sx={selectSx}
+                            sx={compactSelectSx}
+                            renderValue={(val) => (val === "all" ? "All Departments" : val)}
                           >
                             <MenuItem value="all">All Departments</MenuItem>
                             {departments.filter((d) => d !== "all").map((dept) => (
@@ -1154,20 +1139,34 @@ export default function AssignSalaryStructure() {
                             ))}
                           </Select>
                         </FormControl>
-                        <FormControl size="small" sx={{ minWidth: 180 }}>
+
+                        {/* Designation */}
+                        {/* <FormControl size="small" sx={{ minWidth: 130, flex: "0 1 auto" }}>
                           <Select
                             value={selectedDesignation}
                             onChange={(e) => setSelectedDesignation(e.target.value)}
                             displayEmpty
-                            sx={selectSx}
+                            sx={compactSelectSx}
+                            renderValue={(val) =>
+                              val === "all" ? (
+                                <span style={{ color: "#9ca3af" }}>Designation</span>
+                              ) : (
+                                val
+                              )
+                            }
                           >
                             <MenuItem value="all">All Designations</MenuItem>
                             {designation.filter((d) => d !== "all").map((desg) => (
                               <MenuItem key={desg} value={desg}>{desg}</MenuItem>
                             ))}
                           </Select>
-                        </FormControl>
-                      </Box>
+                        </FormControl> */}
+
+
+
+
+                      </div>
+                      {/* ===== End Redesigned Filter Bar ===== */}
 
                       <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-250px)] overflow-auto">
                         <Table stickyHeader>
@@ -1204,14 +1203,6 @@ export default function AssignSalaryStructure() {
                                   sx={{
                                     ...getRowColor(i),
                                     cursor: "pointer",
-                                    // bgcolor: selectedEmployees.includes(employee.id)
-                                    //   ? alpha(theme.palette.primary.main, 0.04)
-                                    //   : "transparent",
-                                    // "&:hover": {
-                                    //   bgcolor: selectedEmployees.includes(employee.id)
-                                    //     ? alpha(theme.palette.primary.main, 0.08)
-                                    //     : alpha(theme.palette.primary.main, 0.02),
-                                    // },
                                   }}
                                   onClick={() => toggleEmployeeSelection(employee.id)}
                                 >
@@ -1224,9 +1215,9 @@ export default function AssignSalaryStructure() {
                                   </TableCell>
                                   <TableCell>
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                                      <Avatar sx={{ width: 32, height: 32, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main", fontSize: "0.75rem", fontWeight: 600 }}>
+                                      {/* <Avatar sx={{ width: 32, height: 32, bgcolor: alpha(theme.palette.primary.main, 0.1), color: "primary.main", fontSize: "0.75rem", fontWeight: 600 }}>
                                         {employee.name?.charAt(0) || "?"}
-                                      </Avatar>
+                                      </Avatar> */}
                                       <Box>
                                         <Typography sx={{ fontWeight: 500 }}>
                                           {employee.name || "Unknown"}
@@ -1261,24 +1252,14 @@ export default function AssignSalaryStructure() {
               </Grid>
 
               {/* Right: Assignment details */}
-              <Grid size={{ xs: 12, md: 5 }}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                   <CardContent className="!p-0">
                     <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }} className="sticky top-0 z-30 p-4 bg-gray-200 text-gray-800 border-b border-gray-200">
-                      {/* <FileCopy fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} /> */}
                       Assignment Details
                     </Typography>
 
                     <Stack spacing={2} className="p-4">
-                      {/* <div className="p-3 rounded-sm bg-head flex items-center justify-between">
-                        <Typography className="text-gray-800">
-                          Selected Employees
-                        </Typography>
-                        <Typography sx={{ fontWeight: 600 }} className="text-gray-800">
-                          {selectedEmployees.length}
-                        </Typography>
-                      </div> */}
-
                       <FormControl fullWidth>
                         <InputLabel>Salary Template <span className="text-error">*</span></InputLabel>
                         <Select
@@ -1329,8 +1310,37 @@ export default function AssignSalaryStructure() {
                             </Select>
                           </FormControl>
                         </Box>
+
+                        {ctcMode === "perday" && (
+                          <Box sx={{ mt: 1.5 }}>
+                            <Typography sx={{ fontWeight: 500, mb: 0.5, ml: 0.5 }} className="text-gray-800">
+                              Working Days <span className="text-error">*</span>
+                            </Typography>
+                            <TextField
+                              type="number"
+                              value={workingDays || ""}
+                              onChange={(e) => setWorkingDays(Number(e.target.value))}
+                              placeholder="Enter working days (e.g., 30)"
+                              fullWidth
+                              size="small"
+                              slotProps={{ htmlInput: { min: 1, max: 31 } }}
+                            />
+                            {ctcAmount > 0 && workingDays > 0 && (
+                              <Typography
+                                variant="caption"
+                                className="text-gray-500"
+                                sx={{ ml: 0.5, mt: 0.5, display: 'block' }}
+                              >
+                                Monthly CTC = {formatCurrency(ctcAmount)} × {workingDays} days ={" "}
+                                <strong>{formatCurrency(ctcAmount * workingDays)}</strong>
+                                {" "}| Annual ={" "}
+                                <strong>{formatCurrency(ctcAmount * workingDays * 12)}</strong>
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
                       </Box>
-                      {/* Bank Details Card */}
+
                       <Box
                         sx={{
                           border: `1px solid ${theme.palette.divider}`,
@@ -1339,13 +1349,8 @@ export default function AssignSalaryStructure() {
                           bgcolor: "#fff",
                         }}
                       >
-                        {/* Header */}
-                        <div className="p-3 border-b border-gray-200"
-                        >
-                          <Typography
-                            sx={{ fontWeight: 600 }}
-                            className="text-gray-800"
-                          >
+                        <div className="p-3 border-b border-gray-200">
+                          <Typography sx={{ fontWeight: 600 }} className="text-gray-800">
                             Bank Details
                           </Typography>
                         </div>
@@ -1354,73 +1359,43 @@ export default function AssignSalaryStructure() {
                           {hasBankDetails ? (
                             <Grid container spacing={1.5}>
                               <Grid size={{ xs: 6 }}>
-                                <Typography
-                                  variant="caption"
-                                  className="text-gray-500"
-
-                                >
+                                <Typography variant="caption" className="text-gray-500">
                                   Account Number
                                 </Typography>
-                                <Typography
-                                  className="text-gray-800"
-                                >
+                                <Typography className="text-gray-800">
                                   {bankDetails.accountNumber || "-"}
                                 </Typography>
                               </Grid>
-
                               <Grid size={{ xs: 6 }}>
-                                <Typography
-                                  variant="caption"
-                                  className="text-gray-500"
-                                >
+                                <Typography variant="caption" className="text-gray-500">
                                   Bank Name
                                 </Typography>
-                                <Typography
-                                  className="text-gray-800"
-                                >
+                                <Typography className="text-gray-800">
                                   {bankDetails.bankName || "-"}
                                 </Typography>
                               </Grid>
-
                               <Grid size={{ xs: 6 }}>
-                                <Typography
-                                  variant="caption"
-                                  className="text-gray-500"
-                                >
+                                <Typography variant="caption" className="text-gray-500">
                                   IFSC Code
                                 </Typography>
-                                <Typography
-                                  className="text-gray-800"
-                                >
+                                <Typography className="text-gray-800">
                                   {bankDetails.ifscCode || "-"}
                                 </Typography>
                               </Grid>
-
                               <Grid size={{ xs: 6 }}>
-                                <Typography
-                                  variant="caption"
-                                  className="text-gray-500"
-                                >
+                                <Typography variant="caption" className="text-gray-500">
                                   Branch
                                 </Typography>
-                                <Typography
-                                  className="text-gray-800"
-                                >
+                                <Typography className="text-gray-800">
                                   {bankDetails.branch || "-"}
                                 </Typography>
                               </Grid>
                             </Grid>
                           ) : (
-                            <div
-                              className="flex items-center justify-center flex-col py-3 gap-1"
-                            >
-                              <Typography
-                                className="text-gray-500"
-
-                              >
+                            <div className="flex items-center justify-center flex-col py-3 gap-1">
+                              <Typography className="text-gray-500">
                                 No Bank Details Available
                               </Typography>
-
                             </div>
                           )}
                         </Box>
@@ -1431,9 +1406,9 @@ export default function AssignSalaryStructure() {
                         fullWidth
                         className="!bg-primary"
                         sx={{ textTransform: "none" }}
-                        disabled={selectedEmployees.length === 0 || !selectedTemplate || ctcAmount <= 0}
+                        disabled={isPreviewDisabled}
                         onClick={() => {
-                          if (selectedEmployees.length > 0 && selectedTemplate && ctcAmount > 0) {
+                          if (!isPreviewDisabled) {
                             setShowBreakdown(true);
                             setActiveStep(1);
                           }
@@ -1447,11 +1422,9 @@ export default function AssignSalaryStructure() {
               </Grid>
             </Grid>
           ) : (
-            // Show Salary Breakdown with Charts
             <Box sx={{ maxWidth: '100%', overflow: 'hidden' }}>
               {renderSalaryBreakdownWithCharts()}
 
-              {/* Action Buttons */}
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, my: 3 }}>
                 <Button
                   variant="outlined"
@@ -1478,10 +1451,8 @@ export default function AssignSalaryStructure() {
         </>
       )}
 
-      {/* Tab 1: Assignments List */}
       {tabValue === 1 && (
         <Box>
-          {/* Header */}
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
             <Box>
               <div className="text-gray-800 text-[12px] font-bold">
@@ -1511,7 +1482,6 @@ export default function AssignSalaryStructure() {
             </div>
           </Box>
 
-          {/* Filters */}
           <div className="flex items-center gap-4 justify-between mb-4">
             <TextField
               placeholder="Search by employee or structure..."
@@ -1539,7 +1509,6 @@ export default function AssignSalaryStructure() {
             </div>
           </div>
 
-          {/* Assignments Table */}
           <TableContainer className="border border-gray-200 rounded-sm max-h-[calc(100vh-310px)] overflow-auto">
             <Table stickyHeader>
               <TableHead>
@@ -1640,7 +1609,6 @@ export default function AssignSalaryStructure() {
             </Table>
           </TableContainer>
 
-          {/* Pagination */}
           {totalPages > 0 && (
             <GlobalPagination
               total={totalCount}
@@ -1655,7 +1623,6 @@ export default function AssignSalaryStructure() {
         </Box>
       )}
 
-      {/* View Assignment Dialog */}
       <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" sx={dialogsx}>
         <DialogTitle className="flex items-center justify-between !p-2 border-b border-gray-200">
           <Typography variant="h6" className="!ml-4">Assignment Details</Typography>
@@ -1742,7 +1709,6 @@ export default function AssignSalaryStructure() {
         </DialogActions>
       </Dialog>
 
-      {/* History Dialog */}
       <Dialog open={openHistoryDialog} onClose={() => setOpenHistoryDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle className="flex items-center justify-between !p-2 border-b border-gray-200">
           <Typography variant="h6" className="!ml-4">Assignment History</Typography>

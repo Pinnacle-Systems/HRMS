@@ -7,6 +7,8 @@ import {
   MenuItem,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Button,
 } from "@mui/material";
 import {
   PlayArrowOutlined,
@@ -28,6 +30,96 @@ import { useAuth } from "../../../auth/authContext";
 import { useSearchParams } from "react-router-dom";
 import { apiService } from "../../../services";
 import { formatDate } from "../../leave/leaveFormatters";
+
+interface PreCheckIssue {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  shiftCode?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  status: AttendanceStatus;
+  reason: string;
+  meta?: Record<string, any>;
+}
+
+interface PreCheckState {
+  missedPunches: PreCheckIssue[];
+  absents: PreCheckIssue[];
+  nightDuty: PreCheckIssue[];
+}
+
+function buildPreCheck(employees: any[]): PreCheckState {
+  const missedPunches: PreCheckIssue[] = [];
+  const absents: PreCheckIssue[] = [];
+  const nightDuty: PreCheckIssue[] = [];
+
+  for (const emp of employees || []) {
+    const hasIn = !!emp.checkInTime;
+    const hasOut = !!emp.checkOutTime;
+    const missedCount = emp.missedPunches ?? 0;
+
+    // ---- Missed punches ----
+    if ((hasIn && !hasOut) || (!hasIn && hasOut) || missedCount > 0) {
+      missedPunches.push({
+        employeeId: emp.employeeId,
+        employeeCode: emp.employeeCode,
+        employeeName: emp.employeeName,
+        shiftCode: emp.shiftCode,
+        checkInTime: emp.checkInTime,
+        checkOutTime: emp.checkOutTime,
+        status: emp.status,
+        reason: !hasIn
+          ? "Missing check-in"
+          : !hasOut
+          ? "Missing check-out"
+          : "Missed punch flagged",
+      });
+    }
+
+    // ---- Absents ----
+    if (emp.status === "absent") {
+      absents.push({
+        employeeId: emp.employeeId,
+        employeeCode: emp.employeeCode,
+        employeeName: emp.employeeName,
+        shiftCode: emp.shiftCode,
+        checkInTime: emp.checkInTime,
+        checkOutTime: emp.checkOutTime,
+        status: emp.status,
+        reason:
+          hasIn || hasOut
+            ? "Marked absent but has a punch — verify"
+            : "No punches — confirm truly absent",
+      });
+    }
+
+    // ---- Night duty ----
+    const shiftEnd = emp.shiftEndTime;
+    const shiftStart = emp.shiftStartTime;
+    const isNight =
+      emp.isNightShift === true ||
+      (shiftStart && shiftEnd && shiftEnd < shiftStart) ||
+      (hasIn && hasOut &&
+        dayjs(emp.checkOutTime).isAfter(dayjs(emp.checkInTime).add(1, "hour")) &&
+        dayjs(emp.checkOutTime).hour() < 6);
+
+    if (isNight) {
+      nightDuty.push({
+        employeeId: emp.employeeId,
+        employeeCode: emp.employeeCode,
+        employeeName: emp.employeeName,
+        shiftCode: emp.shiftCode,
+        checkInTime: emp.checkInTime,
+        checkOutTime: emp.checkOutTime,
+        status: emp.status,
+        reason: "Night shift — verify cross-midnight hours",
+      });
+    }
+  }
+
+  return { missedPunches, absents, nightDuty };
+}
 
 export function ProcessAttendance() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -64,6 +156,11 @@ export function ProcessAttendance() {
 
   const [validationResult, setValidationResult] = useState<ProcessResult | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+
+  // Pre-check state
+  const [preCheck, setPreCheck] = useState<PreCheckState | null>(null);
+  const [preCheckOpen, setPreCheckOpen] = useState(false);
+  const [preCheckConfirmed, setPreCheckConfirmed] = useState(false);
 
   // Fetch departments
   useEffect(() => {
@@ -171,7 +268,6 @@ export function ProcessAttendance() {
       const data = res?.data?.data ?? res?.data;
       setValidationResult(data);
 
-      // Check for skipped employees
       const skippedCount = data.skippedEmployees?.length || 0;
       const readyCount = data.summary?.employeesProcessed || 0;
 
@@ -226,7 +322,6 @@ export function ProcessAttendance() {
       return;
     }
 
-    // Check if there are skipped employees from validation
     const hasSkippedEmployees = validationResult?.skippedEmployees && validationResult.skippedEmployees.length > 0;
 
     if (hasSkippedEmployees) {
@@ -249,7 +344,6 @@ export function ProcessAttendance() {
       return;
     }
 
-    // If no validation done, confirm with generic message
     if (!validationResult) {
       showConfirmDialog({
         title: "Process Attendance",
@@ -265,7 +359,6 @@ export function ProcessAttendance() {
       return;
     }
 
-    // Check if there are any employees to process
     if (validationResult.summary?.employeesProcessed === 0) {
       showSnackbar("No employees ready for processing. Please check your filters.", "warning");
       return;
@@ -327,7 +420,6 @@ export function ProcessAttendance() {
       setIsClosed(data?.locked || false);
       await refreshProcessStatus();
 
-      // Check if there were skipped employees during processing
       const skippedInProcess = data.skippedEmployees?.length || 0;
       const processedCount = data.processed || 0;
 
@@ -380,13 +472,31 @@ export function ProcessAttendance() {
     }
   }
 
-  // Close and Finalize function
-  async function handleCloseAndFinalize() {
-    if ((!result || result.processed === 0) && (!processStatus || processStatus.recordCount === 0)) {
+  /* ------------------------------------------------------------------ */
+  /* Close & Finalize — now goes through the pre-check dialog            */
+  /* ------------------------------------------------------------------ */
+  function handleCloseAndFinalize() {
+    if ((!result || result.processed === 0) &&
+        (!processStatus || processStatus.recordCount === 0)) {
       showSnackbar("No processed records to close", "warning");
       return;
     }
 
+    const pc = buildPreCheck(result?.employees ?? []);
+    const totalIssues = pc.missedPunches.length + pc.absents.length + pc.nightDuty.length;
+
+    // Nothing to verify → go straight to confirm + close
+    if (totalIssues === 0) {
+      confirmAndClose(true);
+      return;
+    }
+
+    setPreCheck(pc);
+    setPreCheckConfirmed(false);
+    setPreCheckOpen(true);
+  }
+
+  function confirmAndClose(preCheckDone: boolean) {
     const skippedCount = result?.skippedEmployees?.length ?? 0;
     const hasSkipped = skippedCount > 0;
 
@@ -410,6 +520,7 @@ export function ProcessAttendance() {
             reprocess: false,
             lockReason: `End of day processing - ${workerType === 'Both' ? 'both Staff and Labour' : workerType}`,
             lockedBy: session?.user.userId || "System",
+            preCheckDone,
           });
 
           const updatedData = res?.data?.data ?? res?.data;
@@ -432,6 +543,8 @@ export function ProcessAttendance() {
         } finally {
           setProcessing(false);
           hideSpinner();
+          setPreCheck(null);
+          setPreCheckConfirmed(false);
         }
       },
     });
@@ -446,11 +559,8 @@ export function ProcessAttendance() {
         workerType,
         format: "pdf"
       };
-      // await Promise.all([
       const res = await attendanceService.exportDaily(params);
       await apiService.downloadFromPath(res.data.fileUrl, `Attendance Report ${formatDate(fromDate)} - ${formatDate(toDate)}.pdf`)
-      // attendanceService.exportReport("daily-summary", "excel", params),
-      // ]);
       showSnackbar("Attendance reports generated successfully", "success");
     } catch {
       showSnackbar("Attendance was finalized, but report generation failed", "warning");
@@ -492,6 +602,7 @@ export function ProcessAttendance() {
             reprocess: false,
             lockReason: lockReason.trim(),
             lockedBy: session?.user.userId || "System",
+            preCheckDone: false,
           });
 
           const updatedData = res?.data?.data ?? res?.data;
@@ -519,27 +630,6 @@ export function ProcessAttendance() {
       },
     });
   }
-
-  // Helper to get skipped count from either validation or result
-  // const getSkippedCount = () => {
-  //   if (result && result.skippedEmployees) {
-  //     return result.skippedEmployees.length;
-  //   }
-  //   if (validationResult && validationResult.skippedEmployees) {
-  //     return validationResult.skippedEmployees.length;
-  //   }
-  //   return 0;
-  // };
-
-  // const getSkippedEmployees = () => {
-  //   if (result && result.skippedEmployees) {
-  //     return result.skippedEmployees;
-  //   }
-  //   if (validationResult && validationResult.skippedEmployees) {
-  //     return validationResult.skippedEmployees;
-  //   }
-  //   return [];
-  // };
 
   return (
     <div className="p-4 space-y-4">
@@ -634,7 +724,6 @@ export function ProcessAttendance() {
             />
           )}
 
-          {/* Validation status chips */}
           {validationResult && (
             <div className="flex items-center gap-2">
               <Chip
@@ -699,16 +788,6 @@ export function ProcessAttendance() {
                 Re-process Attendance
               </button>
             )}
-            {/* {processStatus?.processed && !processStatus.locked && (
-              <button
-                onClick={handleCloseAndFinalize}
-                disabled={processing || isLoadingStatus}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded text-[12px] font-medium hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <LockOutlined fontSize="small" />
-                Close & Finalize
-              </button>
-            )} */}
           </div>
         </div>
 
@@ -744,7 +823,6 @@ export function ProcessAttendance() {
             <InfoOutlined className="text-amber-600" />
             <span className="text-[12px] text-amber-800">
               Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}.
-              {/* {result.skippedEmployees?.length > 0 && ` ${result.skippedEmployees.length} employee(s) were skipped.`} */}
               Click below to close and finalize.
             </span>
           </div>
@@ -756,6 +834,16 @@ export function ProcessAttendance() {
             Close & Finalize
           </button>
         </div>
+      )}
+
+      {/* Absent warning banner */}
+      {(result?.summary?.absent ?? 0) > 0 && !result?.locked && (
+        <Alert severity="warning" icon={<WarningAmberOutlined fontSize="small" />}>
+          <span className="text-xs">
+            {result?.summary?.absent} employee(s) marked Absent. Please verify before finalizing —
+            some may have missed punches, approved leave, or on-duty records.
+          </span>
+        </Alert>
       )}
 
       {/* Results */}
@@ -812,67 +900,38 @@ export function ProcessAttendance() {
               </div>
 
               <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                {/* Present */}
                 <div className="bg-emerald-50 rounded-lg p-2 text-center border border-emerald-100">
-                  <div className="text-lg font-bold text-emerald-700">
-                    {result.summary?.present || 0}
-                  </div>
+                  <div className="text-lg font-bold text-emerald-700">{result.summary?.present || 0}</div>
                   <div className="text-[10px] text-emerald-600 font-medium">Present</div>
                 </div>
-
-                {/* Absent */}
                 <div className="bg-red-50 rounded-lg p-2 text-center border border-red-100">
-                  <div className="text-lg font-bold text-red-700">
-                    {result.summary?.absent || 0}
-                  </div>
+                  <div className="text-lg font-bold text-red-700">{result.summary?.absent || 0}</div>
                   <div className="text-[10px] text-red-600 font-medium">Absent</div>
                 </div>
-
-                {/* Late */}
                 <div className="bg-amber-50 rounded-lg p-2 text-center border border-amber-100">
-                  <div className="text-lg font-bold text-amber-700">
-                    {result.summary?.late || 0}
-                  </div>
+                  <div className="text-lg font-bold text-amber-700">{result.summary?.late || 0}</div>
                   <div className="text-[10px] text-amber-600 font-medium">Late</div>
                 </div>
-
-                {/* Leave & Weekly Off */}
                 <div className="bg-purple-50 rounded-lg p-2 text-center border border-purple-100">
                   <div className="text-lg font-bold text-purple-700">
                     {(result.summary?.leave || 0) + (result.summary?.weeklyOff || 0)}
                   </div>
                   <div className="text-[10px] text-purple-600 font-medium">Leave/Off</div>
                 </div>
-
-                {/* Holidays */}
                 <div className="bg-indigo-50 rounded-lg p-2 text-center border border-indigo-100">
-                  <div className="text-lg font-bold text-indigo-700">
-                    {result.summary?.holidays || 0}
-                  </div>
+                  <div className="text-lg font-bold text-indigo-700">{result.summary?.holidays || 0}</div>
                   <div className="text-[10px] text-indigo-600 font-medium">Holidays</div>
                 </div>
-
-                {/* Early Out */}
                 <div className="bg-pink-50 rounded-lg p-2 text-center border border-pink-100">
-                  <div className="text-lg font-bold text-pink-700">
-                    {result.summary?.earlyOut || 0}
-                  </div>
+                  <div className="text-lg font-bold text-pink-700">{result.summary?.earlyOut || 0}</div>
                   <div className="text-[10px] text-pink-600 font-medium">Early Out</div>
                 </div>
-
-                {/* Missed Punches */}
                 <div className="bg-rose-50 rounded-lg p-2 text-center border border-rose-100">
-                  <div className="text-lg font-bold text-rose-400">
-                    {result.summary?.missedPunches || 0}
-                  </div>
+                  <div className="text-lg font-bold text-rose-400">{result.summary?.missedPunches || 0}</div>
                   <div className="text-[10px] text-rose-400 font-medium">Missed Punches</div>
                 </div>
-
-                {/* Overtime */}
                 <div className="bg-orange-50 rounded-lg p-2 text-center border border-orange-100">
-                  <div className="text-lg font-bold text-orange-700">
-                    {result.summary?.overtimeHours || 0}h
-                  </div>
+                  <div className="text-lg font-bold text-orange-700">{result.summary?.overtimeHours || 0}h</div>
                   <div className="text-[10px] text-orange-600 font-medium">Overtime</div>
                 </div>
               </div>
@@ -886,7 +945,7 @@ export function ProcessAttendance() {
             </Alert>
           )}
 
-          {/* Manual Close Button (for non-today dates) */}
+          {/* Manual Close Button */}
           {!result.locked && !processStatus?.locked && result.processed > 0 && !showCloseOption && (
             <div className="flex justify-end">
               <button
@@ -990,7 +1049,6 @@ export function ProcessAttendance() {
             />
           </div>
 
-          {/* Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-blue-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-blue-600">{validationResult.totalEmployees || 0}</div>
@@ -1010,14 +1068,12 @@ export function ProcessAttendance() {
             </div>
           </div>
 
-          {/* Status Message */}
           {validationResult.message && (
             <Alert severity={validationResult.skippedEmployees?.length === 0 ? "success" : "warning"} sx={{ py: 0.5 }}>
               <span className="text-xs">{validationResult.message}</span>
             </Alert>
           )}
 
-          {/* Skipped Employees Table */}
           {(validationResult.skippedEmployees && validationResult.skippedEmployees.length > 0) && (
             <div id="skipped-employees">
               <div className="text-[12px] font-medium text-amber-600 mb-2 flex items-center gap-2">
@@ -1063,10 +1119,206 @@ export function ProcessAttendance() {
               <li>Use "Validate" first to check for any issues before processing</li>
               <li>Employees without shifts will be skipped and listed separately</li>
               <li>Skipped employees will be marked as absent in the final record</li>
+              <li>Close & Finalize now reviews missed punches, absents, and night duty before locking</li>
             </ul>
           </span>
         </Alert>
       </div>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Pre-Check Dialog                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <Dialog
+        open={preCheckOpen}
+        onClose={() => setPreCheckOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle className="border-b border-gray-200">
+          Pre-Close Verification — {formatDate(fromDate)}
+          <div className="text-xs text-gray-500 mt-1 font-normal">
+            Verify the following records before finalizing. Once locked, records cannot be modified.
+          </div>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <Chip
+              color={preCheck?.missedPunches.length ? "warning" : "success"}
+              label={`Missed Punches: ${preCheck?.missedPunches.length ?? 0}`}
+            />
+            <Chip
+              color={preCheck?.absents.length ? "error" : "success"}
+              label={`Absents: ${preCheck?.absents.length ?? 0}`}
+            />
+            <Chip
+              color={preCheck?.nightDuty.length ? "info" : "default"}
+              label={`Night Duty: ${preCheck?.nightDuty.length ?? 0}`}
+              className="text-gray-800 bg-gray-200"
+            />
+          </div>
+
+          {/* Missed Punches */}
+          {preCheck && preCheck.missedPunches.length > 0 && (
+            <section className="mb-5">
+              <h4 className="font-semibold text-amber-700 mb-2 text-sm">
+                ⚠️ Missed Punch Records ({preCheck.missedPunches.length})
+              </h4>
+              <TableContainer className="border border-gray-200 rounded max-h-[220px]">
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow className="bg-amber-50">
+                      <TableCell className="!font-bold">Code</TableCell>
+                      <TableCell className="!font-bold">Name</TableCell>
+                      <TableCell className="!font-bold">Shift</TableCell>
+                      <TableCell className="!font-bold">In</TableCell>
+                      <TableCell className="!font-bold">Out</TableCell>
+                      <TableCell className="!font-bold">Reason</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {preCheck.missedPunches.map((mp,i) => (
+                      <TableRow key={mp.employeeId} sx={getRowColor(i)}>
+                        <TableCell className="font-mono text-xs">{mp.employeeCode}</TableCell>
+                        <TableCell><div className="p-2">{mp.employeeName}</div></TableCell>
+                        <TableCell>{mp.shiftCode ?? "-"}</TableCell>
+                        <TableCell>{mp.checkInTime ? formatTimewithSec(mp.checkInTime) : "-"}</TableCell>
+                        <TableCell>{mp.checkOutTime ? formatTimewithSec(mp.checkOutTime) : "-"}</TableCell>
+                        <TableCell className="text-amber-600 text-xs">{mp.reason}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </section>
+          )}
+
+          {/* Absents */}
+          {preCheck && preCheck.absents.length > 0 && (
+            <section className="mb-5">
+              <h4 className="font-semibold text-red-700 mb-2 text-sm">
+                🔴 Absent Records — Verify Before Finalizing ({preCheck.absents.length})
+              </h4>
+              <TableContainer className="border border-gray-200 rounded max-h-[220px]">
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow className="bg-red-50">
+                      <TableCell className="!font-bold">Code</TableCell>
+                      <TableCell className="!font-bold">Name</TableCell>
+                      <TableCell className="!font-bold">Shift</TableCell>
+                      <TableCell className="!font-bold">In</TableCell>
+                      <TableCell className="!font-bold">Out</TableCell>
+                      <TableCell className="!font-bold">Reason</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {preCheck.absents.map((a,i) => (
+                      <TableRow
+                        key={a.employeeId}
+                        sx={getRowColor(i)}
+                        className={a.checkInTime || a.checkOutTime ? "bg-amber-50" : ""}
+                      >
+                        <TableCell className="font-mono text-xs">{a.employeeCode}</TableCell>
+                        <TableCell><div className="p-2">{a.employeeName}</div></TableCell>
+                        <TableCell>{a.shiftCode ?? "-"}</TableCell>
+                        <TableCell>{a.checkInTime ? formatTimewithSec(a.checkInTime) : "-"}</TableCell>
+                        <TableCell>{a.checkOutTime ? formatTimewithSec(a.checkOutTime) : "-"}</TableCell>
+                        <TableCell className="text-red-600 text-xs">{a.reason}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </section>
+          )}
+
+          {/* Night Duty */}
+          {preCheck && preCheck.nightDuty.length > 0 && (
+            <section className="mb-5">
+              <h4 className="font-semibold text-indigo-700 mb-2 text-sm">
+                🌙 Night Duty Records ({preCheck.nightDuty.length})
+              </h4>
+              <TableContainer className="border border-gray-200 rounded max-h-[220px]">
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow className="bg-indigo-50">
+                      <TableCell className="!font-bold">Code</TableCell>
+                      <TableCell className="!font-bold">Name</TableCell>
+                      <TableCell className="!font-bold">Shift</TableCell>
+                      <TableCell className="!font-bold">In</TableCell>
+                      <TableCell className="!font-bold">Out</TableCell>
+                      <TableCell className="!font-bold">Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {preCheck.nightDuty.map(n => (
+                      <TableRow key={n.employeeId} hover>
+                        <TableCell className="font-mono text-xs">{n.employeeCode}</TableCell>
+                        <TableCell>{n.employeeName}</TableCell>
+                        <TableCell>{n.shiftCode ?? "-"}</TableCell>
+                        <TableCell>{n.checkInTime ? formatTimewithSec(n.checkInTime) : "-"}</TableCell>
+                        <TableCell>{n.checkOutTime ? formatTimewithSec(n.checkOutTime) : "-"}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_BG[n.status as AttendanceStatus] ?? "bg-gray-100 text-gray-600"}`}>
+                            {ATTENDANCE_STATUS_LABELS[n.status as AttendanceStatus] ?? n.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </section>
+          )}
+
+          {preCheck &&
+            preCheck.missedPunches.length === 0 &&
+            preCheck.absents.length === 0 &&
+            preCheck.nightDuty.length === 0 && (
+              <Alert severity="success">
+                No exceptions found. Safe to finalize.
+              </Alert>
+            )}
+
+          {/* Acknowledgement */}
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={preCheckConfirmed}
+                onChange={(e) => setPreCheckConfirmed(e.target.checked)}
+                className="mt-0.5"
+              />
+              <span className="text-xs text-amber-900">
+                I have reviewed all missed punch, absent, and night duty records above and confirm
+                they are accurate. I understand this will lock attendance for{" "}
+                <strong>{formatDate(fromDate)}</strong> and cannot be undone.
+              </span>
+            </label>
+          </div>
+        </DialogContent>
+
+        <DialogActions className="!border-t !border-gray-200">
+          <Button
+            onClick={() => setPreCheckOpen(false)}
+            className="!text-gray-800 !border-gray-200"
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              setPreCheckOpen(false);
+              confirmAndClose(true);
+            }}
+            disabled={!preCheckConfirmed || processing}
+            variant="contained"
+            color="success"
+          >
+            Confirm & Finalize
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

@@ -177,7 +177,7 @@ export default function PayrollPeriodConfig() {
 
     showSpinner();
     try {
-      const payload = {
+      const payload:any = {
         name: formData.name,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -325,7 +325,7 @@ export default function PayrollPeriodConfig() {
           <Grid size={{ xs: 3 }}>
             <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.warning.main, 0.04) }}>
               <Typography variant="h6" color="warning">
-                {summaryData.weekends}
+                {summaryData.weekends || 0}
               </Typography>
               <Typography variant="caption" className="text-gray-800">
                 Weekends
@@ -335,7 +335,7 @@ export default function PayrollPeriodConfig() {
           <Grid size={{ xs: 3 }}>
             <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.info.main, 0.04) }}>
               <Typography variant="h6" color="info">
-                {summaryData.holidays}
+                {summaryData.holidays || 0}
               </Typography>
               <Typography variant="caption" className="text-gray-800">
                 Holidays
@@ -394,7 +394,7 @@ export default function PayrollPeriodConfig() {
         }}>
           <Typography variant="caption" className="text-gray-500" align="center">
             Total: {summaryData.totalDays} days | Working: {summaryData.workingDays} | 
-            Non-working: {summaryData.weekends + summaryData.holidays}
+            Non-working: {( summaryData.weekends || 0 ) + summaryData.holidays}
           </Typography>
         </Box>
       </Stack>

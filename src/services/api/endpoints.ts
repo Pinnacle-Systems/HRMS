@@ -1316,29 +1316,30 @@ export const API_ENDPOINTS = {
   },
 
   SALARY_REVISION: {
-    BASE: "/payroll/salary-revisions",
-    GET_BY_ID: (id: string) => `/payroll/salary-revisions/${id}`,
-    UPDATE: (id: string) => `/payroll/salary-revisions/${id}`,
-    DELETE: (id: string) => `/payroll/salary-revisions/${id}`,
-    SUBMIT: (id: string) => `/payroll/salary-revisions/${id}/submit`,
-    APPROVE: (id: string) => `/payroll/salary-revisions/${id}/approve`,
-    REJECT: (id: string) => `/payroll/salary-revisions/${id}/reject`,
-    APPLY: (id: string) => `/payroll/salary-revisions/${id}/apply`,
-    PREVIEW: "/payroll/salary-revisions/preview",
+    BASE: "/v1/payroll/salary-revisions",
+    GET_BY_ID: (id: string) => `/v1/payroll/salary-revisions/${id}`,
+    UPDATE: (id: string) => `/v1/payroll/salary-revisions/${id}`,
+    DELETE: (id: string) => `/v1/payroll/salary-revisions/${id}`,
+    SUBMIT: (id: string) => `/v1/payroll/salary-revisions/${id}/submit`,
+    APPROVE: (id: string) => `/v1/payroll/salary-revisions/${id}/approve`,
+    REJECT: (id: string) => `/v1/payroll/salary-revisions/${id}/reject`,
+    APPLY: (id: string) => `/v1/payroll/salary-revisions/${id}/apply`,
+    PREVIEW: "/v1/payroll/salary-revisions/preview",
     LETTER: (revisionId: string, employeeId: string) =>
-      `/payroll/salary-revisions/${revisionId}/employees/${employeeId}/letter`,
+      `/v1/payroll/salary-revisions/${revisionId}/employees/${employeeId}/letter`,
   },
 
   REVISION_TEMPLATE: {
-    BASE: "/payroll/revision-templates",
-    GET_BY_ID: (id: string) => `/payroll/revision-templates/${id}`,
-    UPDATE: (id: string) => `/payroll/revision-templates/${id}`,
-    DELETE: (id: string) => `/payroll/revision-templates/${id}`,
-    DROPDOWN: "/payroll/revision-templates/dropdown",
+    BASE: "/v1/payroll/revision-templates",
+    GET_BY_ID: (id: string) => `/v1/payroll/revision-templates/${id}`,
+    UPDATE: (id: string) => `/v1/payroll/revision-templates/${id}`,
+    DELETE: (id: string) => `/v1/payroll/revision-templates/${id}`,
+    DROPDOWN: "/v1/payroll/revision-templates/dropdown",
   },
   
   SALARY_HISTORY: {
-    BY_EMPLOYEE: (employeeId: string) => `/employees/${employeeId}/salary-history`,
-    GET_BY_ID: (id: string) => `/salary-history/${id}`,
+    BY_EMPLOYEE: (employeeId: string) => `/v1/employees/${employeeId}/salary-history`,
+    GET_BY_ID: (id: string) => `/v1/salary-history/${id}`,
+    BULK: "/v1/payroll/salary-history"
   },
 };
