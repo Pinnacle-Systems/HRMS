@@ -67,6 +67,7 @@ import dayjs from "dayjs";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
+import { attendanceService } from "../../../services/modules/attendance";
 
 const STEPS = [
     { id: 1, label: "Select Period", icon: CalendarIcon },
@@ -94,11 +95,14 @@ export default function GeneratePayroll() {
 
     // API Data States
     const [payrollPeriods, setPayrollPeriods] = useState<Period[]>([]);
+    const [finalisedPeriodKeys, setFinalisedPeriodKeys] = useState<Set<string>>(new Set());
     const [employees, setEmployees] = useState<any[]>([]);
     const [periodDetails, setPeriodDetails] = useState<Period | null>(null);
     const [previewData, setPreviewData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     // const [failedEmployees, setFailedEmployees] = useState<any[]>([]);
+    const periodKey = (month: number, year: number) => `${year}-${month}`;
+
 
     useEffect(() => {
         if (employees.length > 0 && selectedDept === "all") {
@@ -112,11 +116,26 @@ export default function GeneratePayroll() {
     };
 
 
-    // Fetch data on mount
+    const loadFinalisedPeriods = async () => {
+        try {
+            const res: any = await attendanceService.getFinalisedPeriods();
+            const data: any[] = res?.data?.data ?? res?.data ?? [];
+
+            const keys = new Set<string>(
+                data.map((p: any) => periodKey(p.month, p.year))
+            );
+            setFinalisedPeriodKeys(keys);
+        } catch {
+            showSnackbar("Failed to load finalised periods", "error");
+        }
+    };
+
     useEffect(() => {
         fetchPeriods();
         fetchEmployees();
+        loadFinalisedPeriods();
     }, []);
+
 
     // Fetch preview when moving to relevant steps
     useEffect(() => {
@@ -202,10 +221,18 @@ export default function GeneratePayroll() {
 
     // Handle period selection
     const handlePeriodChange = (periodId: string) => {
-        setSelectedPeriodId(periodId);
-        if (periodId) {
-            fetchPeriodDetails(periodId);
+        const period = payrollPeriods.find((p) => p.id === periodId);
+
+        if (!period || !isPeriodFinalised(period)) {
+            showSnackbar(
+                "This payroll period has not been finalised. Please finalise attendance first.",
+                "warning"
+            );
+            return;
         }
+
+        setSelectedPeriodId(periodId);
+        fetchPeriodDetails(periodId);
     };
 
     // Get departments from employees
@@ -342,7 +369,7 @@ export default function GeneratePayroll() {
                 paymentDate: periodDetails?.paymentDate || new Date().toISOString().split("T")[0],
                 workingDays: period?.workingDays || 0,
                 employeeIds: selectedEmployees,
-                previewData: previewData, // Send the preview data
+                previewData: previewData,
             };
 
             await payrollRunsService.createPayrollRun(payload);
@@ -366,14 +393,19 @@ export default function GeneratePayroll() {
 
     const isStepValid = () => {
         switch (step) {
-            case 1:
-                return !!selectedPeriodId;
+            case 1: {
+                const period = payrollPeriods.find((p) => p.id === selectedPeriodId);
+                return !!period && isPeriodFinalised(period);
+            }
             case 2:
                 return selectedEmployees.length > 0;
             default:
                 return true;
         }
     };
+
+    const isPeriodFinalised = (p: Period) =>
+        finalisedPeriodKeys.has(periodKey(p.month, p.year));
 
     if (loading) {
         return (
@@ -502,11 +534,26 @@ export default function GeneratePayroll() {
                                                 label="Payroll Period"
                                                 required
                                             >
-                                                {payrollPeriods.map((p: Period) => (
-                                                    <MenuItem key={p.id} value={p.id}>
-                                                        {p.name || `${p.month}/${p.year}`}
-                                                    </MenuItem>
-                                                ))}
+                                                {payrollPeriods.map((p: Period) => {
+                                                    const finalised = isPeriodFinalised(p);
+                                                    return (
+                                                        <MenuItem
+                                                            key={p.id}
+                                                            value={p.id}
+                                                            disabled={!finalised}
+                                                            sx={!finalised ? { opacity: 0.5 } : undefined}
+                                                        >
+                                                            <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center" }}>
+                                                                <span>{p.name || `${p.month}/${p.year}`}</span>
+                                                                {!finalised && (
+                                                                    <span className="text-gray-400 text-[10px] ml-2">
+                                                                        (Not Finalised)
+                                                                    </span>
+                                                                )}
+                                                            </Box>
+                                                        </MenuItem>
+                                                    );
+                                                })}
                                             </Select>
                                         </FormControl>
                                     </Grid>

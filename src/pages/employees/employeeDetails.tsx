@@ -100,6 +100,7 @@ import { mobileAttendanceService, type GeofenceValidateData } from "../../servic
 import { loadCompanyDetails } from "../../utils/companyDetails";
 import { salaryViewService, type SalaryViewResponse } from "../../services/modules/payrollServices/salaryView";
 import { formatCurrency } from "../payroll/const";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 const withMidNoFallback = (data: any) => {
   const midNo = typeof data.midNo === "string" ? data.midNo.trim() : data.midNo;
@@ -124,7 +125,7 @@ const getMigrantStatus = (employeeData: any): boolean | null => {
 };
 
 const getMidNo = (employeeData: any) => {
-  if (employeeData.midNo !== null){
+  if (employeeData.midNo !== null) {
     return true;
   } else {
     return false;
@@ -2187,6 +2188,352 @@ const EditableTableGroup = ({
   );
 };
 
+// ============================================================
+// Salary Breakdown Panel — Dynamic Pie Chart
+// ============================================================
+function SalaryBreakdownPanel({ salaryData }: { salaryData: any }) {
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  // ---- Generate N distinct colors within a hue band ----
+  const generatePalette = (
+    count: number,
+    baseHue: number,
+    options: { sat?: number; light?: number; spread?: number } = {}
+  ): string[] => {
+    const { sat = 65, light = 45, spread = 40 } = options;
+    if (count === 0) return [];
+    if (count === 1) return [`hsl(${baseHue}, ${sat}%, ${light}%)`];
+
+    const step = spread / (count - 1);
+    return Array.from({ length: count }, (_, i) => {
+      const hue = baseHue - spread / 2 + step * i;
+      const l = light + (i % 2 === 0 ? 8 : -4);
+      return `hsl(${hue}, ${sat}%, ${l}%)`;
+    });
+  };
+
+  const sortByValue = (arr: any[] = []) =>
+    [...arr].sort(
+      (a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)
+    );
+
+  const earnings = sortByValue(salaryData?.currentStructure?.earnings || []);
+  const deductions = sortByValue(salaryData?.currentStructure?.deductions || []);
+
+  const earningColors = generatePalette(earnings.length, 145, { spread: 60 });
+  const deductionColors = generatePalette(deductions.length, 5, { spread: 30 });
+
+  const chartData = [
+    ...earnings.map((e: any, i: number) => ({
+      name: e.name,
+      value: Number(e.amount) || 0,
+      type: "Earning" as const,
+      fill: earningColors[i],
+    })),
+    ...deductions.map((d: any, i: number) => ({
+      name: d.name,
+      value: Number(d.amount) || 0,
+      type: "Deduction" as const,
+      fill: deductionColors[i],
+    })),
+  ];
+
+  const totalValue = chartData.reduce((s, d) => s + d.value, 0);
+
+  // ---- Custom Tooltip ----
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0].payload;
+    const pct = totalValue
+      ? ((item.value / totalValue) * 100).toFixed(1)
+      : "0";
+    return (
+      <div className="bg-white border border-gray-200 shadow-lg rounded-lg px-3 py-2 text-[12px]">
+        <div className="flex items-center gap-2 mb-1">
+          <span
+            className="w-2.5 h-2.5 rounded-full"
+            style={{ background: item.fill }}
+          />
+          <span className="font-semibold text-gray-800">{item.name}</span>
+        </div>
+        <div className="text-gray-600">
+          Amount:{" "}
+          <strong className="text-gray-900">
+            {formatCurrency(item.value)}
+          </strong>
+        </div>
+        <div className="text-gray-600">
+          Share: <strong className="text-gray-900">{pct}%</strong>
+        </div>
+        <div
+          className={`mt-1 text-[10px] font-medium ${item.type === "Earning" ? "text-green-600" : "text-red-600"
+            }`}
+        >
+          {item.type}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* ===================== Summary Cards ===================== */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {[
+          {
+            label: "Annual CTC",
+            amount: salaryData.header.annualCtc,
+            color: "#6366f1",
+            icon: "💰",
+          },
+          {
+            label: "Monthly Gross",
+            amount: salaryData.header.monthlyGross,
+            color: "#10b981",
+            icon: "📈",
+          },
+          {
+            label: "Monthly Net",
+            amount: salaryData.header.monthlyNet,
+            color: "#3b82f6",
+            icon: "🏦",
+          },
+        ].map((c) => (
+          <MaterialModule.Card
+            key={c.label}
+            variant="outlined"
+            className="!rounded-xl !bg-white !border-gray-200"
+            sx={{
+              transition: "all .25s ease",
+              "&:hover": {
+                boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
+                transform: "translateY(-2px)",
+              },
+            }}
+          >
+            <MaterialModule.CardContent className="!py-4">
+              <div className="flex items-center justify-between mb-1">
+                <Typography variant="body2" className="!text-gray-500">
+                  {c.label}
+                </Typography>
+                <span className="text-lg opacity-70">{c.icon}</span>
+              </div>
+              <Typography
+                variant="h6"
+                className="!font-semibold"
+                sx={{ color: c.color }}
+              >
+                {formatCurrency(Number(c.amount) || 0)}
+              </Typography>
+            </MaterialModule.CardContent>
+          </MaterialModule.Card>
+        ))}
+      </div>
+
+      {/* ===================== Salary Breakdown Card ===================== */}
+      <MaterialModule.Card
+        variant="outlined"
+        className="!rounded-xl !bg-white !border-gray-200"
+      >
+        <MaterialModule.CardContent>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <Typography
+                variant="h6"
+                className="!font-semibold !text-gray-900"
+              >
+                Salary Breakdown
+              </Typography>
+              <Typography
+                variant="body2"
+                className="!text-gray-500 !text-[12px]"
+              >
+                Composition of monthly gross
+              </Typography>
+            </div>
+            <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-600" />
+                <span className="text-gray-600">
+                  Earnings ({earnings.length})
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                <span className="text-gray-600">
+                  Deductions ({deductions.length})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-center">
+            {/* ---- Donut Chart ---- */}
+            <div className="lg:col-span-3 relative h-[340px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <defs>
+                    {chartData.map((d, i) => (
+                      <linearGradient
+                        key={i}
+                        id={`salary-grad-${i}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor={d.fill}
+                          stopOpacity={1}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={d.fill}
+                          stopOpacity={0.75}
+                        />
+                      </linearGradient>
+                    ))}
+                  </defs>
+
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={70}
+                    outerRadius={120}
+                    paddingAngle={2}
+                    cornerRadius={6}
+                    stroke="#fff"
+                    strokeWidth={2}
+                    labelLine={false}
+                    label={({ percent }) =>
+                      percent != null && percent > 0.06
+                        ? `${(percent * 100).toFixed(0)}%`
+                        : ""
+                    }
+                    onMouseEnter={(_, idx) => setActiveIndex(idx)}
+                    onMouseLeave={() => setActiveIndex(null)}
+                  >
+                    {chartData.map((_, i) => (
+                      <Cell
+                        key={i}
+                        fill={`url(#salary-grad-${i})`}
+                        opacity={
+                          activeIndex === null || activeIndex === i ? 1 : 0.45
+                        }
+                        style={{
+                          transition: "opacity .2s ease",
+                          cursor: "pointer",
+                        }}
+                      />
+                    ))}
+                  </Pie>
+
+                  <Tooltip content={<CustomTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+
+              {/* Center total */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[11px] text-gray-500">
+                  Gross / Month
+                </span>
+                <span className="text-[18px] font-bold text-gray-900">
+                  {formatCurrency(
+                    salaryData.currentStructure.grossSalary || 0
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* ---- Legend list ---- */}
+            <div className="lg:col-span-2 space-y-3 max-h-[340px] overflow-y-auto pr-1">
+              {chartData.map((item, idx) => {
+                const pct = totalValue
+                  ? ((item.value / totalValue) * 100).toFixed(1)
+                  : "0";
+                const isActive = activeIndex === idx;
+                return (
+                  <div
+                    key={`${item.type}-${item.name}-${idx}`}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onMouseLeave={() => setActiveIndex(null)}
+                    className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${isActive
+                      ? "bg-gray-50 border border-gray-200"
+                      : "border border-transparent"
+                      }`}
+                  >
+                    <div className="flex items-center justify-between text-[12px] mb-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                          style={{ background: item.fill }}
+                        />
+                        <span className="text-gray-800 font-medium truncate">
+                          {item.name}
+                        </span>
+                      </div>
+                      <span className="text-gray-500 text-[11px] whitespace-nowrap ml-2">
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="h-1.5 bg-gray-100 rounded-full w-full mr-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${pct}%`,
+                            background: item.fill,
+                          }}
+                        />
+                      </div>
+                      <span className="text-[12px] font-semibold text-gray-800 whitespace-nowrap">
+                        {formatCurrency(item.value)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ---- Footer totals ---- */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-t border-gray-200 mt-6 pt-4">
+            <div className="flex items-center justify-between bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+              <span className="text-[12px] text-green-700">Gross</span>
+              <strong className="text-green-700">
+                {formatCurrency(
+                  salaryData.currentStructure.grossSalary || 0
+                )}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+              <span className="text-[12px] text-red-700">Deductions</span>
+              <strong className="text-red-700">
+                {formatCurrency(
+                  salaryData.currentStructure.totalDeductions || 0
+                )}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              <span className="text-[12px] text-blue-700">Take-home</span>
+              <strong className="text-blue-700">
+                {formatCurrency(
+                  salaryData.currentStructure.netTakeHome || 0
+                )}
+              </strong>
+            </div>
+          </div>
+        </MaterialModule.CardContent>
+      </MaterialModule.Card>
+    </div>
+  );
+}
+
 export default function EmployeeDetails() {
   const { session } = useAuth();
   const { id } = useParams();
@@ -2306,7 +2653,7 @@ export default function EmployeeDetails() {
           setSalaryData(response.data?.data || response.data);
         })
         .catch(() => setSalaryError("Failed to load salary breakdown."))
-        .finally(() => { setSalaryLoading(false); setSalaryData(null) });
+        .finally(() => { setSalaryLoading(false); });
     }
   }, [apiId, tabValue]);
 
@@ -2532,6 +2879,7 @@ export default function EmployeeDetails() {
         esiJoiningDate: updatedData.esiJoiningDate,
         esiRelievingDate: updatedData.esiRelievingDate,
         templateId: updatedData.templateId,
+        employeeGroupId: updatedData.employeeGroupId,
       };
       if (!payload.aadhaarNumber) {
         payload['dateOfBirth'] = updatedData.dateOfBirth,
@@ -4255,7 +4603,7 @@ export default function EmployeeDetails() {
           </TabPanel>
 
           {/* Tab 10: Salary Breakdown */}
-          <TabPanel value={tabValue} index={10}>
+          {/* <TabPanel value={tabValue} index={10}>
             <div className="p-4 space-y-4">
               {salaryLoading && (
                 <div className="flex justify-center py-10">
@@ -4320,6 +4668,31 @@ export default function EmployeeDetails() {
               )}
               {!salaryLoading && !salaryError && !salaryData && (
                 <MaterialModule.Alert severity="info">No salary breakdown is available for this employee.</MaterialModule.Alert>
+              )}
+            </div>
+          </TabPanel> */}
+          <TabPanel value={tabValue} index={10}>
+            <div className="p-4 space-y-4">
+              {salaryLoading && (
+                <div className="flex justify-center py-10">
+                  <MaterialModule.CircularProgress />
+                </div>
+              )}
+
+              {salaryError && (
+                <MaterialModule.Alert severity="error">
+                  {salaryError}
+                </MaterialModule.Alert>
+              )}
+
+              {!salaryLoading && !salaryError && salaryData && (
+                <SalaryBreakdownPanel salaryData={salaryData} />
+              )}
+
+              {!salaryLoading && !salaryError && !salaryData && (
+                <MaterialModule.Alert severity="info">
+                  No salary breakdown is available for this employee.
+                </MaterialModule.Alert>
               )}
             </div>
           </TabPanel>

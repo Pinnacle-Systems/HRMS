@@ -195,7 +195,7 @@ export const PROFESSIONAL_PALETTE = [
 export const statusColor: Record<string, "default" | "warning" | "info" | "success" | "error"> = {
   DRAFT: "default",
   PENDING_APPROVAL: "warning",
-  APPROVED: "info",
+  APPROVED: "success",
   APPLIED: "success",
   REJECTED: "error",
 };

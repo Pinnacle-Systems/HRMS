@@ -1286,7 +1286,7 @@ export default function AssignSalaryStructure() {
                         <Box sx={{ display: "flex", gap: 1 }}>
                           <TextField
                             type="number"
-                            value={ctcAmount || ""}
+                            value={ctcMode == "perday" ? ctcAmount * workingDays :  ctcAmount}
                             onChange={(e) => setCtcAmount(Number(e.target.value))}
                             placeholder={
                               ctcMode === "annual"
@@ -1297,6 +1297,7 @@ export default function AssignSalaryStructure() {
                             }
                             fullWidth
                             size="small"
+                            disabled={ctcMode === "perday"}
                           />
                           <FormControl size="small" sx={{ minWidth: 100 }}>
                             <Select
@@ -1311,7 +1312,19 @@ export default function AssignSalaryStructure() {
                           </FormControl>
                         </Box>
 
+                        
                         {ctcMode === "perday" && (
+                          <>
+                           <TextField
+                            type="number"
+                            value={ctcAmount || ""}
+                            onChange={(e) => setCtcAmount(Number(e.target.value))}
+                            placeholder="Enter per day amount"
+                            fullWidth
+                            size="small"
+                            className="!mt-3"
+                          />
+
                           <Box sx={{ mt: 1.5 }}>
                             <Typography sx={{ fontWeight: 500, mb: 0.5, ml: 0.5 }} className="text-gray-800">
                               Working Days <span className="text-error">*</span>
@@ -1338,6 +1351,7 @@ export default function AssignSalaryStructure() {
                               </Typography>
                             )}
                           </Box>
+                          </>
                         )}
                       </Box>
 

@@ -781,6 +781,7 @@ export const API_ENDPOINTS = {
       `/attendance/corrections/${id}/approve`,
     POST_CORRECTION_REQ: "/attendance/correction/request",
     POST_CHECKIN: "/attendance/check-in",
+    GET_RECORDS: "attendance/records",
 
     GET_SUMMARY: "/attendance/summary",
     GET_DETAILED: "/attendance/detailed",

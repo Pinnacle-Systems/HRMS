@@ -41,7 +41,7 @@ async function loadAndSaveCompanyDetails(session: AuthSession): Promise<void> {
       (session.user.roles.includes("EMPLOYEE")) && !(session.user.roles.includes("ADMIN")) &&
       !(session.user.roles.includes("MANAGER")) && !(session.user.roles.includes("HR"))
     )) {
-      saveCompanyDetails({ stateId: "", cityId: "" });
+      saveCompanyDetails({ stateId: "", cityId: "", companyAddress: "", gstNo: "", cityName: "", phone: "", stateName: "",pincode: "" });
       return;
     }
 
@@ -51,9 +51,15 @@ async function loadAndSaveCompanyDetails(session: AuthSession): Promise<void> {
     saveCompanyDetails({
       stateId: company?.stateId ?? "",
       cityId: company?.cityId ?? "",
+      companyAddress: company?.companyAddress ?? "",
+      gstNo: company?.gstNo ?? "",
+      cityName: company?.cityName ?? "",
+      phone: company?.phone ?? "",
+      stateName: company?.stateName ?? "",
+      pincode: company?.pincode ?? ""
     });
   } catch (error) {
-    saveCompanyDetails({ stateId: "", cityId: "" });
+    saveCompanyDetails({ stateId: "", cityId: "", companyAddress: "", gstNo: "", cityName: "", phone: "", stateName: "",pincode: "" });
   }
 }
 
@@ -128,8 +134,8 @@ export async function selectTenant(
 
   const outcome: any = mapLoginResponseToOutcome(response, request.email);
 
-  if (outcome.type === "authenticated" || 
-      (outcome.type === "mustChangePassword" && outcome.session)) {
+  if (outcome.type === "authenticated" ||
+    (outcome.type === "mustChangePassword" && outcome.session)) {
     saveSession(outcome.session);
     await loadAndSaveCompanyDetails(outcome.session);
   }
@@ -170,7 +176,7 @@ export async function refreshSession(): Promise<AuthSession | null> {
 
       // Load current session to preserve context
       const currentSession = loadSession();
-      
+
       // FIX: Always preserve branch and fiscal year context from current session
       // Create session data with preserved context
       const sessionData = {
@@ -411,7 +417,7 @@ export async function silentRefresh(): Promise<AuthSession | null> {
     }
 
     const currentSession = loadSession();
-    
+
     // Preserve context for silent refresh too
     const sessionData = {
       ...response.data,
@@ -426,16 +432,16 @@ export async function silentRefresh(): Promise<AuthSession | null> {
     let session = response.data.userId || response.data.roles?.length
       ? mapAuthResponseToSession(sessionData)
       : updateAccessToken(
-          response.data.accessToken,
-          response.data.expiresIn,
-          {
-            branchId: currentSession?.branchId,
-            branchName: currentSession?.branchName,
-            branchScoped: currentSession?.branchScoped,
-            fiscalYearId: currentSession?.fiscalYearId,
-            fiscalYearLabel: currentSession?.fiscalYearLabel,
-          }
-        );
+        response.data.accessToken,
+        response.data.expiresIn,
+        {
+          branchId: currentSession?.branchId,
+          branchName: currentSession?.branchName,
+          branchScoped: currentSession?.branchScoped,
+          fiscalYearId: currentSession?.fiscalYearId,
+          fiscalYearLabel: currentSession?.fiscalYearLabel,
+        }
+      );
 
     if (!session && currentSession) {
       session = updateAccessToken(

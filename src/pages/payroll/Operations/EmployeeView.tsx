@@ -677,7 +677,7 @@ export default function EmployeeSalaryView() {
             </Grid>
           </TabPanel>
 
-          {/* Tab 5: Tax Summary */}
+          {/* Tab 5: Salary History */}
           <TabPanel value={tabValue} index={4}>
             <SalaryHistory selectedEmployee={selectedEmployee.id}></SalaryHistory>
           </TabPanel>

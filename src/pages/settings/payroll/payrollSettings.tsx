@@ -46,6 +46,7 @@ import {
   ChevronRight as ChevronRightIcon,
   CheckCircle as CheckCircleIcon,
   CancelOutlined,
+  CloseOutlined,
 } from "@mui/icons-material";
 import { getRowColor } from "../../const";
 import { useEffect, useState } from "react";
@@ -386,11 +387,14 @@ const AllowancesSettings = ({ settings, onSave, saving }: SettingsComponentProps
 
       {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingAllowance ? 'Edit Allowance' : 'Add New Allowance'}
+         <DialogTitle className="!p-2 border-b border-gray-200 flex items-center justify-between">
+          <div className="!ml-4">{editingAllowance ? 'Edit Allowance Rule' : 'Add New Allowance Rule'}</div>
+          <IconButton onClick={handleCloseDialog}>
+            <CloseOutlined className="!w-4 text-gray-800"/>
+          </IconButton>
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 3 }}>
             <TextField
               label="Allowance Name"
               value={formData.name}
@@ -421,8 +425,8 @@ const AllowancesSettings = ({ settings, onSave, saving }: SettingsComponentProps
             </Box>
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+        <DialogActions className="!border-t border-gray-200">
+          <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={handleCloseDialog}>Cancel</Button>
           <Button 
             onClick={handleSubmit} 
             variant="contained" 
@@ -606,11 +610,14 @@ const DeductionRulesSettings = ({ settings, onSave, saving }: SettingsComponentP
 
       {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingDeduction ? 'Edit Deduction Rule' : 'Add New Deduction Rule'}
+        <DialogTitle className="!p-2 border-b border-gray-200 flex items-center justify-between">
+          <div className="!ml-4">{editingDeduction ? 'Edit Deduction Rule' : 'Add New Deduction Rule'}</div>
+          <IconButton onClick={handleCloseDialog}>
+            <CloseOutlined className="!w-4 text-gray-800"/>
+          </IconButton>
         </DialogTitle>
         <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 3 }}>
             <TextField
               label="Deduction Name"
               value={formData.name}
@@ -646,8 +653,8 @@ const DeductionRulesSettings = ({ settings, onSave, saving }: SettingsComponentP
             />
           </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+        <DialogActions className="border-t border-gray-200">
+          <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={handleCloseDialog}>Cancel</Button>
           <Button 
             onClick={handleSubmit} 
             variant="contained" 

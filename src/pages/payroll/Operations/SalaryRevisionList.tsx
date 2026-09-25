@@ -256,8 +256,8 @@ export default function SalaryRevisionList() {
             {!filtered.length && (
               <TableRow>
                 <TableCell colSpan={9} align="center">
-                  <div className="!py-6 !text-xs !text-gray-500">
-                    No revisions found. Create your first revision.
+                  <div className="!py-6 !text-gray-500">
+                    No revisions found.
                   </div>
                 </TableCell>
               </TableRow>

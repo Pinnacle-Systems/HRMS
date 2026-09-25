@@ -70,6 +70,8 @@ export default function CreateRevision({
     const [employees, setEmployees] = useState<any[]>([]);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [employeesLoading, setEmployeesLoading] = useState(true);
+    const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
+    const [groupFilter, setGroupFilter] = useState<string>("ALL");
 
     // ── Step 3 ──
     const [templates, setTemplates] = useState<RevisionTemplate[]>([]);
@@ -118,8 +120,10 @@ export default function CreateRevision({
                     dept: e.department ?? e.departmentName,
                     desig: e.designation ?? e.jobTitle,
                     ctc: e.annualCtc ?? e.ctc ?? 0,
-                    gross: e.monthlyGross ?? e.gross ?? 0,
-                    components: e.salaryComponents ?? e.components ?? [],
+                    gross: e.monthlyCtc ?? e.monthlyGross ?? e.gross ?? 0,
+                    // 👇 employeeGroup is a plain string in your API
+                    employeeGroup: e.employeeGroup ?? "",
+                    // components: e.salaryComponents ?? e.components ?? [],
                 }));
 
                 setEmployees(mapped);
@@ -158,6 +162,56 @@ export default function CreateRevision({
         );
         setSelectedIds(ids);
     }, [mode, initialData]);
+
+    // ────────────────────────────────────────────────────────
+    // Unique departments (derived from loaded employees)
+    // ────────────────────────────────────────────────────────
+    const departments = useMemo(() => {
+        const set = new Set<string>();
+        employees.forEach((e) => {
+            if (e.dept) set.add(e.dept);
+        });
+        return Array.from(set).sort();
+    }, [employees]);
+
+    // ────────────────────────────────────────────────────────
+    // Unique employee groups (derived from loaded employees)
+    // ────────────────────────────────────────────────────────
+    const employeeGroups = useMemo(() => {
+        const set = new Set<string>();
+        employees.forEach((e) => {
+            if (e.employeeGroup) set.add(e.employeeGroup);
+        });
+        return Array.from(set).sort();
+    }, [employees]);
+
+    // ────────────────────────────────────────────────────────
+    // Filtered employees (department + employee group)
+    // ────────────────────────────────────────────────────────
+    const filteredEmployees = useMemo(() => {
+        return employees.filter((e) => {
+            const deptOk =
+                departmentFilter === "ALL" || e.dept === departmentFilter;
+
+            const groupOk =
+                groupFilter === "ALL" || e.employeeGroup === groupFilter;
+
+            return deptOk && groupOk;
+        });
+    }, [employees, departmentFilter, groupFilter]);
+
+    const filteredIds = useMemo(
+        () => filteredEmployees.map((e) => e.id),
+        [filteredEmployees]
+    );
+
+    const allFilteredSelected =
+        filteredIds.length > 0 &&
+        filteredIds.every((id) => selectedIds.includes(id));
+
+    const someFilteredSelected =
+        filteredIds.some((id) => selectedIds.includes(id)) &&
+        !allFilteredSelected;
 
     // ────────────────────────────────────────────────────────
     // Live preview
@@ -199,7 +253,7 @@ export default function CreateRevision({
     const totalCost = preview.reduce((s, p) => s + p.incrementAmount, 0);
 
     // ────────────────────────────────────────────────────────
-    // Submit handler (create OR update, then optional submit)
+    // Submit handler
     // ────────────────────────────────────────────────────────
     const handleSubmit = async (asDraft: boolean) => {
         if (!title || !effectiveFrom) {
@@ -231,7 +285,6 @@ export default function CreateRevision({
 
             let newId: string | undefined = revisionId;
 
-            // ── Create OR Update ──
             if (mode === "edit" && revisionId) {
                 await salaryRevisionService.updateRevision(revisionId, payload);
             } else {
@@ -250,7 +303,6 @@ export default function CreateRevision({
                 }
             }
 
-            // ── Submit if requested ──
             if (!asDraft && newId) {
                 try {
                     await salaryRevisionService.submitForApproval(newId);
@@ -369,114 +421,205 @@ export default function CreateRevision({
             {/* STEP 2: Select Employees                       */}
             {/* ══════════════════════════════════════════════ */}
             {activeStep === 1 && (
-                <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-220px)] overflow-auto">
-                    <Table stickyHeader>
-                        <TableHead className="!bg-gray-50">
-                            <TableRow>
-                                <TableCell padding="checkbox">
-                                    <Checkbox
-                                        checked={
-                                            employees.length > 0 &&
-                                            selectedIds.length ===
-                                                employees.length
-                                        }
-                                        className="text-gray-800"
-                                        indeterminate={
-                                            selectedIds.length > 0 &&
-                                            selectedIds.length <
-                                                employees.length
-                                        }
-                                        onChange={(e) =>
-                                            setSelectedIds(
-                                                e.target.checked
-                                                    ? employees.map((x) => x.id)
-                                                    : []
-                                            )
-                                        }
-                                    />
-                                </TableCell>
-                                <TableCell className="!text-xs !font-semibold">
-                                    Code
-                                </TableCell>
-                                <TableCell className="!text-xs !font-semibold">
-                                    Name
-                                </TableCell>
-                                <TableCell className="!text-xs !font-semibold">
-                                    Department
-                                </TableCell>
-                                <TableCell className="!text-xs !font-semibold">
-                                    Designation
-                                </TableCell>
-                                <TableCell className="!text-xs !font-semibold">
-                                    CTC
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {employeesLoading && (
+                <>
+                    {/* ── Filter Bar ── */}
+                    <Paper className="!p-3 !mb-3 !pt-5 !shadow-sm flex flex-wrap items-center gap-3 !bg-white">
+                        <TextField
+                            select
+                            size="small"
+                            label="Department"
+                            value={departmentFilter}
+                            onChange={(e) =>
+                                setDepartmentFilter(e.target.value)
+                            }
+                            className="!w-56"
+                        >
+                            <MenuItem value="ALL">All Departments</MenuItem>
+                            {departments.map((d) => (
+                                <MenuItem key={d} value={d}>
+                                    {d}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+
+                        <TextField
+                            select
+                            size="small"
+                            label="Employee Group"
+                            value={groupFilter}
+                            onChange={(e) => setGroupFilter(e.target.value)}
+                            className="!w-56"
+                        >
+                            <MenuItem value="ALL">All Groups</MenuItem>
+                            {employeeGroups.map((g) => (
+                                <MenuItem key={g} value={g}>
+                                    {g}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+
+                        {(departmentFilter !== "ALL" ||
+                            groupFilter !== "ALL") && (
+                                <Button
+                                    size="small"
+                                    variant="text"
+                                    className="!text-gray-600"
+                                    onClick={() => {
+                                        setDepartmentFilter("ALL");
+                                        setGroupFilter("ALL");
+                                    }}
+                                >
+                                    Clear Filters
+                                </Button>
+                            )}
+
+
+                        <Chip
+                            size="small"
+                            label={`Selected: ${selectedIds.length}`}
+                            color="primary"
+                        />
+                    </Paper>
+
+                    <TableContainer className="border border-gray-200 rounded-md max-h-[calc(100vh-300px)] overflow-auto">
+                        <Table stickyHeader>
+                            <TableHead className="!bg-gray-50">
                                 <TableRow>
-                                    <TableCell
-                                        colSpan={6}
-                                        align="center"
-                                        className="!py-6 !text-xs !text-gray-500"
-                                    >
-                                        Loading employees…
+                                    <TableCell padding="checkbox">
+                                        <Checkbox
+                                            className="text-gray-800"
+                                            checked={allFilteredSelected}
+                                            indeterminate={someFilteredSelected}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedIds((prev) =>
+                                                        Array.from(
+                                                            new Set([
+                                                                ...prev,
+                                                                ...filteredIds,
+                                                            ])
+                                                        )
+                                                    );
+                                                } else {
+                                                    setSelectedIds((prev) =>
+                                                        prev.filter(
+                                                            (id) =>
+                                                                !filteredIds.includes(
+                                                                    id
+                                                                )
+                                                        )
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell className="!text-xs !font-semibold">
+                                        Code
+                                    </TableCell>
+                                    <TableCell className="!text-xs !font-semibold">
+                                        Name
+                                    </TableCell>
+                                    <TableCell className="!text-xs !font-semibold">
+                                        Department
+                                    </TableCell>
+                                    <TableCell className="!text-xs !font-semibold">
+                                        Designation
+                                    </TableCell>
+                                    <TableCell className="!text-xs !font-semibold">
+                                        Employee Group
+                                    </TableCell>
+                                    <TableCell className="!text-xs !font-semibold">
+                                        CTC
                                     </TableCell>
                                 </TableRow>
-                            )}
-                            {!employeesLoading &&
-                                employees.map((e, i) => (
-                                    <TableRow key={e.id} sx={getRowColor(i)}>
-                                        <TableCell padding="checkbox">
-                                            <Checkbox
-                                                checked={selectedIds.includes(
-                                                    e.id
-                                                )}
-                                                className="text-gray-800"
-                                                onChange={(ev) =>
-                                                    setSelectedIds((prev) =>
-                                                        ev.target.checked
-                                                            ? [...prev, e.id]
-                                                            : prev.filter(
-                                                                  (x) =>
-                                                                      x !== e.id
-                                                              )
-                                                    )
-                                                }
-                                            />
-                                        </TableCell>
-                                        <TableCell className="!text-xs">
-                                            <div className="py-2">{e.code}</div>
-                                        </TableCell>
-                                        <TableCell className="!text-xs">
-                                            {e.name}
-                                        </TableCell>
-                                        <TableCell className="!text-xs">
-                                            {e.dept}
-                                        </TableCell>
-                                        <TableCell className="!text-xs">
-                                            {e.desig}
-                                        </TableCell>
-                                        <TableCell className="!text-xs">
-                                            ₹ {e.ctc.toLocaleString("en-IN")}
+                            </TableHead>
+                            <TableBody>
+                                {employeesLoading && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={7}
+                                            align="center"
+                                            className="!py-6 !text-xs !text-gray-500"
+                                        >
+                                            Loading employees…
                                         </TableCell>
                                     </TableRow>
-                                ))}
-                            {!employeesLoading && employees.length === 0 && (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={6}
-                                        align="center"
-                                        className="!py-6 !text-xs !text-gray-500"
-                                    >
-                                        No employees found. Please check with
-                                        HR/admin.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                )}
+
+                                {!employeesLoading &&
+                                    filteredEmployees.map((e, i) => (
+                                        <TableRow
+                                            key={e.id}
+                                            sx={getRowColor(i)}
+                                        >
+                                            <TableCell padding="checkbox">
+                                                <Checkbox
+                                                    className="text-gray-800"
+                                                    checked={selectedIds.includes(
+                                                        e.id
+                                                    )}
+                                                    onChange={(ev) =>
+                                                        setSelectedIds(
+                                                            (prev) =>
+                                                                ev.target
+                                                                    .checked
+                                                                    ? [
+                                                                        ...prev,
+                                                                        e.id,
+                                                                    ]
+                                                                    : prev.filter(
+                                                                        (x) =>
+                                                                            x !==
+                                                                            e.id
+                                                                    )
+                                                        )
+                                                    }
+                                                />
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                <div className="py-2">
+                                                    {e.code}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                {e.name}
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                {e.dept}
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                {e.desig}
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                {e.employeeGroup}
+                                            </TableCell>
+                                            <TableCell className="!text-xs">
+                                                ₹{" "}
+                                                {e.ctc.toLocaleString("en-IN")}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+
+                                {!employeesLoading &&
+                                    filteredEmployees.length === 0 && (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={7}
+                                                align="center"
+
+                                            >
+                                                <div className="!py-6 !text-xs !text-gray-500">
+                                                    {employees.length === 0
+                                                        ? "No employees found. Please check with HR/admin."
+                                                        : "No employees match the selected filters."}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </>
             )}
 
             {/* ══════════════════════════════════════════════ */}
@@ -536,84 +679,89 @@ export default function CreateRevision({
                                 />
                             </Paper>
 
-                            <Table
-                                size="small"
-                                className="border border-gray-200 rounded-md"
-                            >
-                                <TableHead className="!bg-gray-50">
-                                    <TableRow>
-                                        <TableCell className="!text-xs !font-semibold">
-                                            S No
-                                        </TableCell>
-                                        <TableCell className="!text-xs !font-semibold">
-                                            Employee
-                                        </TableCell>
-                                        <TableCell className="!text-xs !font-semibold">
-                                            Old CTC
-                                        </TableCell>
-                                        <TableCell className="!text-xs !font-semibold">
-                                            New CTC
-                                        </TableCell>
-                                        <TableCell className="!text-xs !font-semibold">
-                                            Increment
-                                        </TableCell>
-                                        <TableCell className="!text-xs !font-semibold">
-                                            %
-                                        </TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {preview.map((p, i) => (
-                                        <TableRow
-                                            key={p.employeeId}
-                                            sx={getRowColor(i)}
-                                        >
-                                            <TableCell>
-                                                <div className="py-2">
-                                                    {i + 1}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="!text-xs">
-                                                {p.employeeName} (
-                                                {p.employeeCode})
-                                            </TableCell>
-                                            <TableCell className="!text-xs">
-                                                ₹{" "}
-                                                {p.oldCtc.toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="!text-xs !text-green-700">
-                                                ₹{" "}
-                                                {p.newCtc.toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="!text-xs">
-                                                ₹{" "}
-                                                {p.incrementAmount.toLocaleString(
-                                                    "en-IN"
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="!text-xs">
-                                                {p.incrementPercent.toFixed(2)}%
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {!preview.length && (
+                            <TableContainer className="max-h-[calc(100vh-300px)] overflow-auto">
+                                <Table
+                                    size="small"
+                                    className="border border-gray-200 rounded-md"
+                                >
+                                    <TableHead className="!bg-gray-50">
                                         <TableRow>
-                                            <TableCell
-                                                colSpan={6}
-                                                align="center"
-                                            >
-                                                <div className="!text-xs !py-6 !text-gray-500">
-                                                    No employees selected.
-                                                </div>
+                                            <TableCell className="!text-xs !font-semibold">
+                                                S No
+                                            </TableCell>
+                                            <TableCell className="!text-xs !font-semibold">
+                                                Employee
+                                            </TableCell>
+                                            <TableCell className="!text-xs !font-semibold">
+                                                Old CTC
+                                            </TableCell>
+                                            <TableCell className="!text-xs !font-semibold">
+                                                New CTC
+                                            </TableCell>
+                                            <TableCell className="!text-xs !font-semibold">
+                                                Increment
+                                            </TableCell>
+                                            <TableCell className="!text-xs !font-semibold">
+                                                %
                                             </TableCell>
                                         </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                                    </TableHead>
+                                    <TableBody>
+                                        {preview.map((p, i) => (
+                                            <TableRow
+                                                key={p.employeeId}
+                                                sx={getRowColor(i)}
+                                            >
+                                                <TableCell>
+                                                    <div className="py-2">
+                                                        {i + 1}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="!text-xs">
+                                                    {p.employeeName} (
+                                                    {p.employeeCode})
+                                                </TableCell>
+                                                <TableCell className="!text-xs">
+                                                    ₹{" "}
+                                                    {p.oldCtc.toLocaleString(
+                                                        "en-IN"
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="!text-xs !text-green-700">
+                                                    ₹{" "}
+                                                    {p.newCtc.toLocaleString(
+                                                        "en-IN"
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="!text-xs">
+                                                    ₹{" "}
+                                                    {p.incrementAmount.toLocaleString(
+                                                        "en-IN"
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="!text-xs">
+                                                    {p.incrementPercent.toFixed(
+                                                        2
+                                                    )}
+                                                    %
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {!preview.length && (
+                                            <TableRow>
+                                                <TableCell
+                                                    colSpan={6}
+                                                    align="center"
+                                                >
+                                                    <div className="!text-xs !py-6 !text-gray-500">
+                                                        No employees selected.
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
                         </>
                     )}
                 </>

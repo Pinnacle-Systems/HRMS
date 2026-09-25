@@ -84,6 +84,13 @@ export const attendanceService = {
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_REGISTER, { params });
   },
 
+  async getRecords(params?: Record<string, any>) {
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockRegister(params), "Daily register loaded");
+    // }
+    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_RECORDS, { params });
+  },
+
   async getMuster(params: MusterQuery) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockMuster(params), "Muster register loaded");

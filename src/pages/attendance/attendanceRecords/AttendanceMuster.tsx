@@ -267,8 +267,8 @@ function getSolidRowBg(rowStyle: any): string {
 // ——— Attendance percentage color helper ———
 function getAttendanceColor(pct: number): string {
   if (pct < 30) return "#dc2626"; // red
-  if (pct < 70) return "#f59e0b"; // amber
-  return "#24b428"; // green
+  if (pct < 70) return "#d19d02"; // amber
+  return "#039208"; // green
 }
 
 const getAttendanceStatus = (cell: any): {

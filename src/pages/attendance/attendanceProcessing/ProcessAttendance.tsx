@@ -171,8 +171,9 @@ export function ProcessAttendance() {
     }).catch(() => { });
   }, []);
 
+  //|| fromDate !== toDate
   useEffect(() => {
-    if (!fromDate || !toDate || fromDate !== toDate) {
+    if (!fromDate || !toDate ) {
       setProcessStatus(null);
       return;
     }
@@ -393,10 +394,24 @@ export function ProcessAttendance() {
       onConfirm: async () => {
         setReprocess(true);
         await executeProcess(true);
+        // await getRecords();
       },
     });
   }
 
+  // async function getRecords() {
+  //   try {
+  //     const payload = {
+  //       fromDate: fromDate,
+  //       toDate: toDate,
+  //       departmentId: departmentId
+  //     }
+  //     await attendanceService.getRecords(payload);
+  //   } catch (error) {
+  //     showSnackbar("Failed to load the attendance rocords","error")
+  //   }
+  // }
+ 
   // Execute process function
   async function executeProcess(reprocessOverride = reprocess) {
     setProcessing(true);
@@ -456,7 +471,7 @@ export function ProcessAttendance() {
   }
 
   async function refreshProcessStatus() {
-    if (!fromDate || !toDate || fromDate !== toDate) return;
+    if (!fromDate || !toDate ) return;
 
     try {
       const res: any = await attendanceService.getProcessAttendanceStatus({
@@ -505,7 +520,7 @@ export function ProcessAttendance() {
 
     showConfirmDialog({
       title: "Close & Finalize Attendance",
-      message: `Are you sure you want to close attendance for ${fromDate} for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}? \n\n` +
+      message: `Are you sure you want to close attendance for ( ${fromDate} to ${toDate} ) for ${workerType === 'Both' ? 'both Staff and Labour' : workerType}? \n\n` +
         `This will lock all records and prevent further modifications. ` +
         (hasSkipped ? `${skippedCount} employee(s) were skipped and will remain unprocessed. ` : '') +
         `This action cannot be undone!`,
@@ -524,6 +539,8 @@ export function ProcessAttendance() {
             lockReason: `End of day processing - ${workerType === 'Both' ? 'both Staff and Labour' : workerType}`,
             lockedBy: session?.user.userId || "System",
             preCheckDone,
+            preCheckDoneBy:session?.user.email,
+            preCheckDoneDateTime:new Date().toISOString()
           });
 
           const updatedData = res?.data?.data ?? res?.data;
@@ -652,11 +669,11 @@ export function ProcessAttendance() {
             />
             <DatePicker
               label="To Date"
-              value={fromDate ? dayjs(fromDate) : null}
-              // onChange={handleToDateChange}
+              value={toDate ? dayjs(toDate) : null}
+              onChange={handleToDateChange}
               format="DD/MM/YYYY"
-              // maxDate={dayjs()}
-              // minDate={fromDate ? dayjs(fromDate) : undefined}
+              maxDate={dayjs()}
+              minDate={fromDate ? dayjs(fromDate) : undefined}
               slotProps={{ textField: { sx: { width: 170 } } }}
             />
           </LocalizationProvider>
@@ -825,7 +842,7 @@ export function ProcessAttendance() {
           <div className="flex items-center gap-2">
             <InfoOutlined className="text-amber-600" />
             <span className="text-[12px] text-amber-800">
-              Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate}.
+              Attendance for {workerType === 'Both' ? 'both Staff and Labour' : workerType} processed for {fromDate} to {toDate}.
               Click below to close and finalize.
             </span>
           </div>
@@ -1071,11 +1088,11 @@ export function ProcessAttendance() {
             </div>
           </div>
 
-          {validationResult.message && (
+          {/* {validationResult.message && (
             <Alert severity={validationResult.skippedEmployees?.length === 0 ? "success" : "warning"} sx={{ py: 0.5 }}>
               <span className="text-xs">{validationResult.message}</span>
             </Alert>
-          )}
+          )} */}
 
           {(validationResult.skippedEmployees && validationResult.skippedEmployees.length > 0) && (
             <div id="skipped-employees">
@@ -1138,7 +1155,7 @@ export function ProcessAttendance() {
         fullWidth
       >
         <DialogTitle className="border-b border-gray-200">
-          Pre-Close Verification — {formatDate(fromDate)}
+          Pre-Close Verification — {formatDate(fromDate)} to {formatDate(toDate)}
           <div className="text-xs text-gray-500 mt-1 font-normal">
             Verify the following records before finalizing. Once locked, records cannot be modified.
           </div>
@@ -1295,7 +1312,7 @@ export function ProcessAttendance() {
               <span className="text-xs text-amber-900">
                 I have reviewed all missed punch, absent, and night duty records above and confirm
                 they are accurate. I understand this will lock attendance for{" "}
-                <strong>{formatDate(fromDate)}</strong> and cannot be undone.
+                <strong>{formatDate(fromDate)} to {formatDate(toDate)}</strong> and cannot be undone.
               </span>
             </label>
           </div>

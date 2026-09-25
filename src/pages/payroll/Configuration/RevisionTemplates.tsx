@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { salaryRevisionService, type RevisionTemplate, type RevisionTemplateType } from "../../../services/modules/payrollServices/salaryRevision";
-import { CloseOutlined, Delete, Edit } from "@mui/icons-material";
+import { CloseOutlined, Delete, Edit, TrendingDownOutlined, TrendingUpOutlined } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { getRowColor } from "../../const";
 
@@ -33,7 +33,7 @@ export default function RevisionTemplates() {
     const [open, setOpen] = useState(false);
     const [form, setForm] = useState<Partial<RevisionTemplate>>(EMPTY);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const { hideSpinner, showSpinner, showSnackbar } = useUI()
+    const { hideSpinner, showSpinner, showSnackbar, showConfirmDialog } = useUI()
 
     const load = async () => {
         showSpinner();
@@ -65,7 +65,7 @@ export default function RevisionTemplates() {
 
     const handleSave = async () => {
         if (!form.name) {
-            alert("Template name required");
+            showSnackbar("Template name required", "warning");
             return;
         }
         try {
@@ -95,14 +95,24 @@ export default function RevisionTemplates() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!window.confirm("Delete this template?")) return;
-        try {
-            await salaryRevisionService.deleteTemplate(id);
-            load();
-        } catch (err) {
-            showSnackbar("Delete failed (local removal)", "error");
-            setRows((prev) => prev.filter((r) => r.id !== id));
-        }
+        showConfirmDialog({
+            title: 'Delete Template',
+            message: `Are you sure you want to delete this template?`,
+            confirmText: 'Delete',
+            onConfirm: async () => {
+                try {
+                    showSpinner();
+                    await salaryRevisionService.deleteTemplate(id);
+                    showSnackbar("Template deleted successfully!", "success");
+                    load();
+                } catch (error: any) {
+                    showSnackbar("Delete failed (local removal)", "error");
+                    setRows((prev) => prev.filter((r) => r.id !== id));
+                } finally {
+                    hideSpinner();
+                }
+            }
+        });
     };
 
     const renderConfigSummary = (t: RevisionTemplate) => {
@@ -138,6 +148,7 @@ export default function RevisionTemplates() {
                         <TableCell className="!text-xs !font-semibold">Name</TableCell>
                         <TableCell className="!text-xs !font-semibold">Type</TableCell>
                         <TableCell className="!text-xs !font-semibold">Config</TableCell>
+                        <TableCell className="!text-xs !font-semibold">Revision Type</TableCell>
                         <TableCell className="!text-xs !font-semibold">Rounding</TableCell>
                         <TableCell className="!text-xs !font-semibold">Actions</TableCell>
                     </TableRow>
@@ -145,12 +156,30 @@ export default function RevisionTemplates() {
                 <TableBody>
                     {rows.map((t, i) => (
                         <TableRow key={t.id} sx={getRowColor(i)}>
-                            <TableCell className="!text-xs">{i+1}</TableCell>
+                            <TableCell className="!text-xs">{i + 1}</TableCell>
                             <TableCell className="!text-xs">{t.name}</TableCell>
                             <TableCell className="!text-xs">
                                 <Chip label={t.type} size="small" variant="outlined" className="text-gray-800" />
                             </TableCell>
                             <TableCell className="!text-xs">{renderConfigSummary(t)}</TableCell>
+                            <TableCell>
+                                {
+                                    t.config.revisionType != "decrement" && (
+                                        <div>
+                                            <span className="text-error">-</span>
+                                            <TrendingDownOutlined className="text-error" />
+                                        </div>
+                                    )
+                                }
+                                {
+                                    t.config.revisionType == "decrement" && (
+                                        <div>
+                                            <TrendingUpOutlined className=" text-green-700" />
+                                            <span className=" text-green-700">+</span>
+                                        </div>
+                                    )
+                                }
+                            </TableCell>
                             <TableCell className="!text-xs">
                                 {t.config.roundingRule || "NONE"}
                             </TableCell>
@@ -175,7 +204,7 @@ export default function RevisionTemplates() {
                     {!rows.length && (
                         <TableRow>
                             <TableCell colSpan={6} align="center">
-                               <div className="!py-6 !text-xs !text-gray-500"> No templates Found.</div>
+                                <div className="!py-6 !text-xs !text-gray-500"> No templates Found.</div>
                             </TableCell>
                         </TableRow>
                     )}
@@ -211,8 +240,8 @@ export default function RevisionTemplates() {
                     >
                         <MenuItem value="PERCENT">PERCENT</MenuItem>
                         <MenuItem value="FLAT">FLAT</MenuItem>
-                        <MenuItem value="SLAB">SLAB</MenuItem>
-                        <MenuItem value="CTC_BASED">CTC_BASED</MenuItem>
+                        {/* <MenuItem value="SLAB">SLAB</MenuItem>
+                        <MenuItem value="CTC_BASED">CTC_BASED</MenuItem> */}
                     </TextField>
 
                     {form.type === "PERCENT" && (
@@ -250,6 +279,26 @@ export default function RevisionTemplates() {
                             Slab config handled by backend. Default slab percentages will apply.
                         </div>
                     )}
+
+                    <TextField
+                        label="Revision Type"
+                        size="small"
+                        select
+                        value={form.config?.revisionType || "increment"}
+                        onChange={(e) =>
+                            setForm({
+                                ...form,
+                                config: {
+                                    ...form.config,
+                                    revisionType: e.target.value as any,
+                                },
+                            })
+                        }
+                        fullWidth
+                    >
+                        <MenuItem value="increment">Increment</MenuItem>
+                        <MenuItem value="decrement">Decrement</MenuItem>
+                    </TextField>
 
                     <TextField
                         label="Rounding Rule"

@@ -1,6 +1,12 @@
 export type CompanyDetails = {
   stateId: string;
   cityId: string;
+  companyAddress: string;
+  gstNo: string;
+  cityName: string;
+  phone: string;
+  stateName: string;
+  pincode: string;
 };
 
 const COMPANY_DETAILS_STORAGE_KEY = "hrms.company.details";
@@ -18,6 +24,12 @@ export function loadCompanyDetails(): CompanyDetails | null {
     return {
       stateId: details.stateId ?? "",
       cityId: details.cityId ?? "",
+      companyAddress: details.companyAddress ?? "",
+      gstNo: details.gstNo ?? "",
+      cityName: details.cityName ?? "",
+      phone: details.phone ?? "",
+      stateName: details.stateName ?? "",
+      pincode: details.pincode ?? ""
     };
   } catch {
     return null;

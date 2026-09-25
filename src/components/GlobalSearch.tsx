@@ -431,7 +431,7 @@ const ALL_ITEMS: SearchItem[] = [
   {
     label: "Payroll Settings",
     description: "Configure payroll rules and deductions",
-    path: "/settings/payroll-settings",
+    path: "/settings/payroll/payroll-settings",
     category: "Settings",
     icon: <SettingsOutlinedIcon fontSize="small" />,
     keywords: ["payroll", "salary", "deduction", "settings"],
@@ -642,23 +642,23 @@ const ALL_ITEMS: SearchItem[] = [
     category: "Salary",
     icon: <TrendingUpOutlinedIcon fontSize="small" />,
     keywords: [
-      "salary", "revision", "increment", "raise", "hike",
+      "salary", "revision", "increment", "raise", "hike", "letter",
       "appraisal", "promotion", "annual", "payroll", "history",
     ],
     roles: ["ADMIN", "HR"],
   },
-  {
-    label: "Create Salary Revision",
-    description: "Start a new salary revision wizard — select employees, apply increment rule",
-    path: "/payroll/revision/create",
-    category: "Salary",
-    icon: <TrendingUpOutlinedIcon fontSize="small" />,
-    keywords: [
-      "create", "new", "revision", "increment", "wizard",
-      "bulk", "hike", "raise", "salary", "appraisal",
-    ],
-    roles: ["ADMIN", "HR"],
-  },
+  // {
+  //   label: "Create Salary Revision",
+  //   description: "Start a new salary revision wizard — select employees, apply increment rule",
+  //   path: "/payroll/revision/create",
+  //   category: "Salary",
+  //   icon: <TrendingUpOutlinedIcon fontSize="small" />,
+  //   keywords: [
+  //     "create", "new", "revision", "increment", "wizard",
+  //     "bulk", "hike", "raise", "salary", "appraisal",
+  //   ],
+  //   roles: ["ADMIN", "HR"],
+  // },
   {
     label: "Revision Templates",
     description: "Manage increment rules — percent, flat, slab-based",
@@ -671,18 +671,18 @@ const ALL_ITEMS: SearchItem[] = [
     ],
     roles: ["ADMIN", "HR"],
   },
-  {
-    label: "Revision Details",
-    description: "View, approve, or reject a salary revision",
-    path: "/payroll/revision",
-    category: "Salary",
-    icon: <RequestPageOutlinedIcon fontSize="small" />,
-    keywords: [
-      "revision", "detail", "approve", "reject", "review",
-      "salary", "increment", "pending", "workflow",
-    ],
-    roles: ["ADMIN", "HR"],
-  },
+  // {
+  //   label: "Revision Details",
+  //   description: "View, approve, or reject a salary revision",
+  //   path: "/payroll/revision",
+  //   category: "Salary",
+  //   icon: <RequestPageOutlinedIcon fontSize="small" />,
+  //   keywords: [
+  //     "revision", "detail", "approve", "reject", "review",
+  //     "salary", "increment", "pending", "workflow",
+  //   ],
+  //   roles: ["ADMIN", "HR"],
+  // },
   {
     label: "Employee Salary History",
     description: "View complete salary revision history for an employee",
@@ -695,18 +695,18 @@ const ALL_ITEMS: SearchItem[] = [
     ],
     roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
   },
-  {
-    label: "Increment Letters",
-    description: "Download or email salary revision letters to employees",
-    path: "/payroll/revision",
-    category: "Salary",
-    icon: <ReceiptLongOutlinedIcon fontSize="small" />,
-    keywords: [
-      "letter", "increment", "revision", "pdf", "download",
-      "email", "salary", "appraisal", "communication",
-    ],
-    roles: ["ADMIN", "HR"],
-  },
+  // {
+  //   label: "Increment Letters",
+  //   description: "Download or email salary revision letters to employees",
+  //   path: "/payroll/revision",
+  //   category: "Salary",
+  //   icon: <ReceiptLongOutlinedIcon fontSize="small" />,
+  //   keywords: [
+  //     "letter", "increment", "revision", "pdf", "download",
+  //     "email", "salary", "appraisal", "communication",
+  //   ],
+  //   roles: ["ADMIN", "HR"],
+  // },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {

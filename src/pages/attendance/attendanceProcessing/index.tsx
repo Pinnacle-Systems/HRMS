@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Box } from "@mui/material";
 import {
-  PlayCircleOutlined, LockOutlined, SummarizeOutlined,
+  PlayCircleOutlined, LockOutlined,
 
 } from "@mui/icons-material";
 import type { TabPanelProps } from "../shiftSettings/types";
-import { AttendanceConsolidated } from "./Consolidated";
 import { PeriodFinalisation } from "./PeriodFinalisation";
 import { ProcessAttendance } from "./ProcessAttendance";
 

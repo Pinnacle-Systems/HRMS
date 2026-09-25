@@ -27,6 +27,8 @@ export interface SalaryComponentValue {
   newValue: number;
   delta: number;
   deltaPercent: number;
+  deltaFormatted: string;
+  deltaPercentFormatted: string;
 }
 
 export interface EmployeeRevision {
@@ -70,6 +72,7 @@ export interface RevisionTemplateConfig {
   minIncrement?: number;
   maxIncrement?: number;
   roundingRule?: "NEAREST_100" | "NEAREST_1000" | "NONE";
+  revisionType?: "increment" | "decrement";
 }
 
 export interface RevisionTemplate {
@@ -77,6 +80,7 @@ export interface RevisionTemplate {
   name: string;
   type: RevisionTemplateType;
   config: RevisionTemplateConfig;
+  revisionType?: string
 }
 
 export interface SalaryHistoryEntry {
@@ -92,6 +96,7 @@ export interface SalaryHistoryEntry {
   approvedBy: string;
   createdAt: string;
   letterUrl?: string;
+  employeeName: string;
 }
 
 export interface GetRevisionParams {
