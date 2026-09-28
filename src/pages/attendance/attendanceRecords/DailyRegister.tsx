@@ -99,8 +99,8 @@ function InlineDisplay({
         }
       }}
       className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${disabled
-          ? "cursor-not-allowed opacity-60"
-          : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
+        ? "cursor-not-allowed opacity-60"
+        : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
         } ${className}`}
     >
       {value || <span className="text-gray-400">{placeholder}</span>}
@@ -223,6 +223,7 @@ export function DailyRegister() {
   const [punchImportFromDate, setPunchImportFromDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [punchImportToDate, setPunchImportToDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [deviceImportLoading, setDeviceImportLoading] = useState(false);
+  const [processStatus, setProcessStatus] = useState<any>({});
 
   useEffect(() => {
     if (date) {
@@ -235,12 +236,13 @@ export function DailyRegister() {
     if (!date) return;
     const fetchProcessStatus = async () => {
       try {
-        await attendanceService.getProcessAttendanceStatus({
+        const res = await attendanceService.getProcessAttendanceStatus({
           date,
           departmentId: departmentId === "All" ? undefined : departmentId || undefined,
         });
+        setProcessStatus(res.data || {})
       } catch {
-        // Advisory only
+        showSnackbar("Failed to fetch status", "error")
       }
     };
     fetchProcessStatus();
@@ -1763,7 +1765,7 @@ export function DailyRegister() {
                       {/* ─── CHECK-IN DATE (shows only date) ─── */}
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkInDate") ? (
+                          {isEditingField(emp.employeeId, "checkInDate") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                               <DateTimePicker
                                 autoFocus
@@ -1810,6 +1812,7 @@ export function DailyRegister() {
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
+                                !processStatus.locked &&
                                 openField(
                                   emp.employeeId,
                                   "checkInDate",
@@ -1829,7 +1832,7 @@ export function DailyRegister() {
                       {/* ─── CHECK-IN TIME (shows only time) ─── */}
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkInTime") ? (
+                          {isEditingField(emp.employeeId, "checkInTime") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                               <DateTimePicker
                                 autoFocus
@@ -1877,6 +1880,7 @@ export function DailyRegister() {
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
+                                !processStatus.locked &&
                                 openField(
                                   emp.employeeId,
                                   "checkInTime",
@@ -1893,7 +1897,7 @@ export function DailyRegister() {
                       {/* ─── CHECK-OUT DATE (shows only date) ─── */}
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkOutDate") ? (
+                          {isEditingField(emp.employeeId, "checkOutDate") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                               <DateTimePicker
                                 autoFocus
@@ -1948,7 +1952,8 @@ export function DailyRegister() {
                               value={emp.checkOutDate ? dayjs(emp.checkOutDate).format("DD MMM YYYY") : null}
                               onClick={() =>
                                 !isLeave &&
-                                !isEditing &&
+                                !isEditing && 
+                                !processStatus.locked &&
                                 emp.checkInTime &&
                                 openField(
                                   emp.employeeId,
@@ -1969,7 +1974,7 @@ export function DailyRegister() {
                       {/* ─── CHECK-OUT TIME (shows only time) ─── */}
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkOutTime") ? (
+                          {isEditingField(emp.employeeId, "checkOutTime") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                               <DateTimePicker
                                 autoFocus
@@ -2022,6 +2027,7 @@ export function DailyRegister() {
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
+                                !processStatus.locked &&
                                 emp.checkInTime &&
                                 openField(
                                   emp.employeeId,

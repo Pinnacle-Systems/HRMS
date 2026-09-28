@@ -2444,7 +2444,7 @@ function SalaryBreakdownPanel({ salaryData }: { salaryData: any }) {
                 </span>
                 <span className="text-[18px] font-bold text-gray-900">
                   {formatCurrency(
-                    salaryData.currentStructure.grossSalary || 0
+                    salaryData?.currentStructure?.grossSalary || 0
                   )}
                 </span>
               </div>
@@ -2507,7 +2507,7 @@ function SalaryBreakdownPanel({ salaryData }: { salaryData: any }) {
               <span className="text-[12px] text-green-700">Gross</span>
               <strong className="text-green-700">
                 {formatCurrency(
-                  salaryData.currentStructure.grossSalary || 0
+                  salaryData?.currentStructure?.grossSalary || 0
                 )}
               </strong>
             </div>
@@ -2515,7 +2515,7 @@ function SalaryBreakdownPanel({ salaryData }: { salaryData: any }) {
               <span className="text-[12px] text-red-700">Deductions</span>
               <strong className="text-red-700">
                 {formatCurrency(
-                  salaryData.currentStructure.totalDeductions || 0
+                  salaryData?.currentStructure?.totalDeductions || 0
                 )}
               </strong>
             </div>
@@ -2523,7 +2523,7 @@ function SalaryBreakdownPanel({ salaryData }: { salaryData: any }) {
               <span className="text-[12px] text-blue-700">Take-home</span>
               <strong className="text-blue-700">
                 {formatCurrency(
-                  salaryData.currentStructure.netTakeHome || 0
+                  salaryData?.currentStructure?.netTakeHome || 0
                 )}
               </strong>
             </div>
