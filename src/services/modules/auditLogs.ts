@@ -33,6 +33,8 @@ export interface AuditLogRecord {
   changedOn: string;
   ipAddress?: string;
   userAgent?: string;
+  newValueLabel?: string;
+  oldValueLabel?: string;
 }
 
 export const auditLogService = {

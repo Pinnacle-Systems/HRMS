@@ -195,7 +195,29 @@ export const PROFESSIONAL_PALETTE = [
 export const statusColor: Record<string, "default" | "warning" | "info" | "success" | "error"> = {
   DRAFT: "default",
   PENDING_APPROVAL: "warning",
-  APPROVED: "success",
+  APPROVED: "info",
   APPLIED: "success",
   REJECTED: "error",
+};
+
+export const shortenHeader = (name: string, threshold = 8) => {
+  if (!name) return "";
+  const words = name.trim().split(/\s+/);
+  // If single short word, leave as is
+  if (words.length === 1 && name.length <= threshold) return name;
+  // Take first 3 letters of up to the first 2 words
+  return words
+    .slice(0, 2)
+    .map((w) => w.slice(0, 3))
+    .join(" ");
+};
+
+export const getApiStatus = (uiStatus: string) => {
+  switch (uiStatus) {
+    case "assigned":   return "ACTIVE";
+    case "unassigned": return "ACTIVE";
+    case "inactive":   return "INACTIVE";
+    case "all":        return "ALL";
+    default:           return "ACTIVE";
+  }
 };

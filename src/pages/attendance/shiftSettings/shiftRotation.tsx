@@ -71,7 +71,7 @@ export const ShiftRotation = () => {
       const [rotationsRes, shiftsRes, employeesRes] = await Promise.all([
         shiftService.getRotations(),
         shiftService.getActiveShifts(),
-        employeeService.getEmployees({ includeInactive: true, size: 100 })
+        employeeService.getEmployees({ includeInactive: true })
 
       ]);
 

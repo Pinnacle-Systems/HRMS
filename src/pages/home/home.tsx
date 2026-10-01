@@ -1835,7 +1835,7 @@ export default function Home() {
   const [filterValues, setFilterValues] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(false);
   const [editingMode, setEditingMode] = useState(false);
-  const [is3DEnabled, setIs3DEnabled] = useState(false);
+  const [is3DEnabled, _setIs3DEnabled] = useState(false);
 
   const [addWidgetDialogOpen, setAddWidgetDialogOpen] = useState(false);
   const [drilldownDialogOpen, setDrilldownDialogOpen] = useState(false);
@@ -2474,7 +2474,7 @@ export default function Home() {
           </Stack>
           <div className="flex items-center gap-2 flex-wrap">
             {/* 3D Toggle Button */}
-            <Tooltip title="Toggle 3D visualization">
+            {/* <Tooltip title="Toggle 3D visualization">
               <Button
                 variant={is3DEnabled ? "contained" : "outlined"}
                 color="primary"
@@ -2489,7 +2489,7 @@ export default function Home() {
               >
                 {is3DEnabled ? '3D ON' : '3D OFF'}
               </Button>
-            </Tooltip>
+            </Tooltip> */}
 
             <FormControl size="small" className="!w-[200px]">
               <Select

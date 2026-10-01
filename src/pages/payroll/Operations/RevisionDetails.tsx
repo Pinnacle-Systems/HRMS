@@ -32,6 +32,7 @@ export default function RevisionDetails() {
     const [tab, setTab] = useState(0);
     const [data, setData] = useState<SalaryRevision | null>(null);
     const [remarks, setRemarks] = useState("");
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const {
         showSpinner,
         showSnackbar,
@@ -194,6 +195,7 @@ export default function RevisionDetails() {
             onConfirm: async () => {
                 showSpinner();
                 try {
+                    if (hasUnsavedChanges) await saveDraftChanges();
                     await salaryRevisionService.submitForApproval(data.id);
                     showSnackbar("Revision submitted for approval", "success");
                     load();
@@ -239,6 +241,106 @@ export default function RevisionDetails() {
                 }
             },
         });
+    };
+
+    const sumValues = (rows: any[], key: "oldValue" | "newValue") =>
+        rows.reduce((s, c) => s + Number(c[key] ?? 0), 0);
+
+    // const updateComponentAmount = (
+    //     employeeId: string,
+    //     componentIndex: number,
+    //     rawValue: string
+    // ) => {
+    //     const newValue = Number(rawValue);
+    //     if (!Number.isFinite(newValue) || newValue < 0) return;
+
+    //     setHasUnsavedChanges(true);
+    //     setData((current) => {
+    //         if (!current) return current;
+
+    //         const employees = current.employees.map((employee) => {
+    //             if (employee.employeeId !== employeeId) return employee;
+
+    //             const originalEarningsDelta = employee.components
+    //                 .filter((component) => component.componentType === "EARNING")
+    //                 .reduce(
+    //                     (total, component) =>
+    //                         total + Number(component.newValue ?? 0) - Number(component.oldValue ?? 0),
+    //                     0
+    //                 );
+    //             const components = employee.components.map((component, index) => {
+    //                 if (index !== componentIndex) return component;
+
+    //                 const delta = newValue - Number(component.oldValue ?? 0);
+    //                 const deltaPercent = component.oldValue
+    //                     ? (delta / Number(component.oldValue)) * 100
+    //                     : 0;
+    //                 return { ...component, newValue, delta, deltaPercent };
+    //             });
+    //             const updatedEarningsDelta = components
+    //                 .filter((component) => component.componentType === "EARNING")
+    //                 .reduce(
+    //                     (total, component) =>
+    //                         total + Number(component.newValue ?? 0) - Number(component.oldValue ?? 0),
+    //                     0
+    //                 );
+    //             const incrementAmount =
+    //                 Number(employee.incrementAmount ?? 0) +
+    //                 updatedEarningsDelta -
+    //                 originalEarningsDelta;
+
+    //             return {
+    //                 ...employee,
+    //                 components,
+    //                 incrementAmount,
+    //                 incrementPercent: employee.oldCtc
+    //                     ? (incrementAmount / employee.oldCtc) * 100
+    //                     : 0,
+    //                 newCtc: Number(employee.oldCtc) + incrementAmount,
+    //                 newGross: Number(employee.oldGross) + incrementAmount / 12,
+    //             };
+    //         });
+
+    //         return {
+    //             ...current,
+    //             employees,
+    //             totalIncrementCost: employees.reduce(
+    //                 (total, employee) => total + Number(employee.incrementAmount ?? 0),
+    //                 0
+    //             ),
+    //         };
+    //     });
+    // };
+
+    const saveDraftChanges = async () => {
+        if (!data) return;
+
+        await salaryRevisionService.updateRevision(data.id, {
+            title: data.title,
+            reason: data.reason,
+            effectiveFrom: data.effectiveFrom,
+            templateId: data.templateId,
+            status: "DRAFT",
+            employees: data.employees,
+            totalEmployees: data.employees.length,
+            totalIncrementCost: data.totalIncrementCost,
+        });
+        setHasUnsavedChanges(false);
+    };
+
+    const handleSaveDraftChanges = async () => {
+        showSpinner();
+        try {
+            await saveDraftChanges();
+            showSnackbar("Draft changes saved", "success");
+        } catch (err: any) {
+            showSnackbar(
+                err?.response?.data?.message || "Failed to save draft changes",
+                "error"
+            );
+        } finally {
+            hideSpinner();
+        }
     };
 
     // ────────────────────────────────────────────────────────
@@ -312,6 +414,15 @@ export default function RevisionDetails() {
 
                     {data.status === "DRAFT" && (
                         <>
+                            {hasUnsavedChanges && (
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={handleSaveDraftChanges}
+                                >
+                                    Save Changes
+                                </Button>
+                            )}
                             <Button
                                 size="small"
                                 variant="outlined"
@@ -499,68 +610,87 @@ export default function RevisionDetails() {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 gap-y-4">
                             {data.employees.map((e: any) => {
-                                const totalOld = (e.components || []).reduce(
-                                    (s: number, c: any) =>
-                                        c.componentType === "EARNING"
-                                            ? s + Number(c.oldValue ?? 0)
-                                            : s,
+                                const components = e.components || [];
+
+                                // Separate earnings and deductions
+                                const earnings = components.filter(
+                                    (c: any) => c.componentType === "EARNING"
+                                );
+                                const deductions = components.filter(
+                                    (c: any) => c.componentType === "DEDUCTION"
+                                );
+
+                                // Earnings totals
+                                const totalOld = earnings.reduce(
+                                    (s: number, c: any) => s + Number(c.oldValue ?? 0),
                                     0
                                 );
-                                const totalNew = (e.components || []).reduce(
-                                    (s: number, c: any) =>
-                                        c.componentType === "EARNING"
-                                            ? s + Number(c.newValue ?? 0)
-                                            : s,
+                                const totalNew = earnings.reduce(
+                                    (s: number, c: any) => s + Number(c.newValue ?? 0),
                                     0
                                 );
                                 const totalDelta = totalNew - totalOld;
                                 const totalPct =
                                     totalOld > 0 ? (totalDelta / totalOld) * 100 : 0;
 
+                                // Deduction totals
+                                const totalDeductionOld = sumValues(deductions, "oldValue");
+                                const totalDeductionNew = sumValues(deductions, "newValue");
+                                const deductionDelta = totalDeductionNew - totalDeductionOld;
+                                const deductionPct =
+                                    totalDeductionOld > 0
+                                        ? (deductionDelta / totalDeductionOld) * 100
+                                        : 0;
+
+                                // Net totals (Earnings - Deductions)
+                                const netOld = totalOld - totalDeductionOld;
+                                const netNew = totalNew - totalDeductionNew;
+                                const netDelta = netNew - netOld;
+                                const netPct = netOld > 0 ? (netDelta / netOld) * 100 : 0;
+
                                 return (
                                     <Paper
                                         key={e.employeeId}
-                                        className="!shadow-sm border border-gray-200 !bg-white !rounded-lg overflow-hidden"
+                                        className="!shadow-sm border border-gray-200 !bg-white-50 overflow-hidden !w-max"
                                     >
                                         {/* ── Employee header ── */}
-                                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
-                                            <div>
-                                                <div className="text-sm font-semibold text-gray-800">
-                                                    {e.employeeName}
+                                        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+                                            <div className="mr-8">
+                                                <div className="text-[12px] text-gray-800">
+                                                    {e.employeeName} <span className="text-primary font-bold">({e.employeeCode})</span>
                                                 </div>
                                                 <div className="text-[11px] text-gray-500">
-                                                    {e.employeeCode} • {e.department} •{" "}
-                                                    {e.designation}
+                                                    {e.department}
+                                                    {/* •{" "}{e.designation} */}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                {/* Old */}
                                                 <Chip
                                                     size="small"
-                                                    label={`Old: ₹ ${totalOld.toLocaleString(
-                                                        "en-IN"
-                                                    )}`}
+                                                    label={`Old: ₹ ${netOld.toLocaleString("en-IN")}`}
                                                     className="!bg-gray-200 !text-gray-700"
                                                 />
                                                 <span className="text-gray-400 text-[12px]">→</span>
+
+                                                {/* New */}
                                                 <Chip
                                                     size="small"
-                                                    label={`New: ₹ ${totalNew.toLocaleString(
-                                                        "en-IN"
-                                                    )}`}
+                                                    label={`New: ₹ ${netNew.toLocaleString("en-IN")}`}
                                                     className="!bg-blue-100 !text-blue-800"
                                                 />
+                                                <span className="text-gray-400 text-[12px]">→</span>
+
+                                                {/* Delta */}
                                                 <Chip
                                                     size="small"
-                                                    label={`${totalDelta >= 0 ? "+" : "-"
-                                                        }₹ ${Math.abs(totalDelta).toLocaleString(
-                                                            "en-IN"
-                                                        )} (${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(
-                                                            2
-                                                        )}%)`}
+                                                    label={`${netDelta >= 0 ? "+" : "-"}₹ ${Math.abs(
+                                                        netDelta
+                                                    ).toLocaleString("en-IN")} (${netPct >= 0 ? "+" : ""}${netPct.toFixed(2)}%)`}
                                                     className={
-                                                        totalDelta >= 0
+                                                        netDelta >= 0
                                                             ? "!bg-green-100 !text-green-800"
                                                             : "!bg-red-100 !text-red-800"
                                                     }
@@ -571,34 +701,33 @@ export default function RevisionDetails() {
                                         {/* ── Components table ── */}
                                         <Table size="small">
                                             <TableHead>
-                                                <TableRow className="!bg-gray-50">
-                                                    <TableCell className="!text-[12px] !font-semibold">
+                                                <TableRow>
+                                                    <TableCell
+                                                        className="!text-[12px] !p-0 !font-bold"
+                                                    >
                                                         Component
                                                     </TableCell>
-                                                    {/* <TableCell className="!text-[12px] !font-semibold">
-                                                    Type
-                                                </TableCell> */}
                                                     <TableCell
                                                         align="right"
-                                                        className="!text-[12px] !font-semibold"
+                                                        className="!text-[12px] !font-bold"
                                                     >
                                                         Old Value
                                                     </TableCell>
                                                     <TableCell
                                                         align="right"
-                                                        className="!text-[12px] !font-semibold"
+                                                        className="!text-[12px] !font-bold"
                                                     >
                                                         New Value
                                                     </TableCell>
                                                     <TableCell
                                                         align="right"
-                                                        className="!text-[12px] !font-semibold"
+                                                        className="!text-[12px] !font-bold"
                                                     >
                                                         Δ Amount
                                                     </TableCell>
                                                     <TableCell
                                                         align="right"
-                                                        className="!text-[12px] !font-semibold"
+                                                        className="!text-[12px] !font-bold"
                                                     >
                                                         Δ %
                                                     </TableCell>
@@ -606,91 +735,165 @@ export default function RevisionDetails() {
                                             </TableHead>
 
                                             <TableBody>
-                                                {(e.components || []).map(
-                                                    (c: any, i: number) => {
-                                                        const delta = Number(c.delta ?? 0);
-                                                        const pct = Number(
-                                                            c.deltaPercent ?? 0
-                                                        );
-                                                        // const isEarning =
-                                                        //     c.componentType === "EARNING";
+                                                {/* ── Earnings ── */}
+                                                {earnings.map((c: any, i: number) => {
+                                                    const delta = Number(c.delta ?? 0);
+                                                    const pct = Number(c.deltaPercent ?? 0);
 
-                                                        return (
-                                                            <TableRow
-                                                                key={
-                                                                    c.componentId ||
-                                                                    `${c.componentName}-${i}`
-                                                                }
-                                                                sx={getRowColor(i)}
+                                                    return (
+                                                        <TableRow className="!border-b !border-gray-200"
+                                                            key={c.componentId || `${c.componentName}-${i}`}
+                                                        // sx={getRowColor(i)}
+                                                        >
+                                                            <TableCell className="!text-[12px]">
+                                                                {c.componentName}
+                                                            </TableCell>
+                                                            <TableCell
+                                                                align="right"
+                                                                className="!text-[12px] !text-gray-600"
                                                             >
-                                                                <TableCell className="!text-[12px]">
-                                                                    {c.componentName}
-                                                                    {/* <Chip
-                                                                        size="small"
-                                                                        label={c.componentType}
-                                                                        className={
-                                                                            isEarning
-                                                                                ? "!bg-green-100 !text-green-800 !h-5 !text-[10px] ml-2"
-                                                                                : "!bg-red-100 !text-red-800 !h-5 !text-[10px] ml-2"
-                                                                        }
-                                                                    /> */}
-                                                                </TableCell>
-
-                                                                <TableCell
-                                                                    align="right"
-                                                                    className="!text-[12px] !text-gray-600"
+                                                                ₹ {Number(c.oldValue ?? 0).toLocaleString("en-IN")}
+                                                            </TableCell>
+                                                            <TableCell
+                                                                align="right"
+                                                                className="!text-[12px] !text-gray-600"
+                                                            >
+                                                                ₹ {Number(c.newValue ?? 0).toLocaleString("en-IN")}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <span
+                                                                    className={`!text-[12px]`}
                                                                 >
-                                                                    ₹{" "}
-                                                                    {Number(
-                                                                        c.oldValue ?? 0
-                                                                    ).toLocaleString("en-IN")}
-                                                                </TableCell>
-                                                                <TableCell
-                                                                    align="right"
-                                                                    className="!text-[12px] "
+                                                                    {delta >= 0 ? "+" : "-"}₹
+                                                                    {Math.abs(delta).toLocaleString("en-IN")}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <span
+                                                                    className={`!text-[12px]`}
                                                                 >
-                                                                    ₹{" "}
-                                                                    {Number(
-                                                                        c.newValue ?? 0
-                                                                    ).toLocaleString("en-IN")}
-                                                                </TableCell>
-                                                                <TableCell
-                                                                    align="right"
+                                                                    {pct >= 0 ? "+" : "-"}
+                                                                    {Math.abs(pct).toFixed(2)}%
+                                                                </span>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
 
-                                                                >
-                                                                    <div className={`!text-[12px] !font-bold ${delta >= 0
-                                                                        ? "!text-green-700"
-                                                                        : "!text-red-700"
-                                                                        }`}>
-                                                                        {delta >= 0 ? "+" : "-"}₹
-                                                                        {Math.abs(
-                                                                            delta
-                                                                        ).toLocaleString("en-IN")}
-                                                                    </div>
-
-                                                                </TableCell>
-                                                                <TableCell
-                                                                    align="right"
-
-                                                                >
-                                                                    <div className={`!text-[12px] !font-bold ${pct >= 0
-                                                                        ? "!text-green-700"
-                                                                        : "!text-red-700"
-                                                                        }`}>
-                                                                        {pct >= 0 ? "+" : ""}
-                                                                        {pct.toFixed(2)}%
-                                                                    </div>
-
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        );
-                                                    }
+                                                {/* ── Subtotal (Earnings) ── */}
+                                                {earnings.length > 0 && (
+                                                    <TableRow className="bg-green-100">
+                                                        <TableCell className="!text-[12px] !font-bold">
+                                                            <div className="text-green-700">Subtotal (Earnings)</div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="text-green-700">
+                                                                ₹ {totalOld.toLocaleString("en-IN")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="text-green-700">
+                                                                ₹ {totalNew.toLocaleString("en-IN")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="text-green-700">
+                                                                {totalDelta >= 0 ? "+" : "-"}₹
+                                                                {Math.abs(totalDelta).toLocaleString("en-IN")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="text-green-700">
+                                                                {totalPct >= 0 ? "+" : "-"}
+                                                                {Math.abs(totalPct).toFixed(2)}%
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
                                                 )}
 
-                                                {(e.components || []).length === 0 && (
+                                                {/* ── Deductions ── */}
+                                                {deductions.map((c: any, i: number) => {
+                                                    const delta = Number(c.delta ?? 0);
+                                                    const pct = Number(c.deltaPercent ?? 0);
+
+                                                    return (
+                                                        <TableRow className="!border-b !border-gray-200"
+                                                            key={c.componentId || `${c.componentName}-${i}`}
+                                                            // sx={getRowColor(earnings.length + i)}
+                                                        >
+                                                            <TableCell className="!text-[12px]">
+                                                                {c.componentName}
+                                                            </TableCell>
+                                                            <TableCell
+                                                                align="right"
+                                                                className="!text-[12px]"
+                                                            >
+                                                                ₹ {Number(c.oldValue ?? 0).toLocaleString("en-IN")}
+                                                            </TableCell>
+                                                            <TableCell
+                                                                align="right"
+                                                                className="!text-[12px]"
+                                                            >
+                                                                ₹ {Number(c.newValue ?? 0).toLocaleString("en-IN")}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <span
+                                                                    className={`!text-[12px] `}
+                                                                >
+                                                                    {delta >= 0 ? "+" : "-"}₹
+                                                                    {Math.abs(delta).toLocaleString("en-IN")}
+                                                                </span>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <span
+                                                                    className={`!text-[12px] !font-bold`}
+                                                                >
+                                                                    {pct >= 0 ? "+" : "-"}
+                                                                    {Math.abs(pct).toFixed(2)}%
+                                                                </span>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+
+                                                {/* ── Subtotal (Deductions) ── */}
+                                                {deductions.length > 0 && (
+                                                    <TableRow className="!bg-red-100">
+                                                        <TableCell className="!text-[12px] !font-bold">
+                                                            <div className="text-red-700">Subtotal (Deductions)</div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="text-red-700">
+                                                                ₹ {totalDeductionOld.toLocaleString("en-IN")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="text-red-700">
+                                                                ₹ {totalDeductionNew.toLocaleString("en-IN")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="!text-red-700">
+                                                                {deductionDelta >= 0 ? "+" : "-"}₹{" "}
+                                                                {Math.abs(deductionDelta).toLocaleString("en-IN")}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell align="right" className="!text-[12px] !font-bold">
+                                                            <div className="!text-red-700">
+                                                                {totalDeductionOld > 0
+                                                                    ? `${deductionPct >= 0 ? "+" : "-"}${Math.abs(
+                                                                        deductionPct
+                                                                    ).toFixed(2)}%`
+                                                                    : "0.00%"}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+
+                                                {components.length === 0 && (
                                                     <TableRow>
                                                         <TableCell
-                                                            colSpan={6}
+                                                            colSpan={5}
                                                             align="center"
                                                             className="!text-[12px] !py-4 !text-gray-500"
                                                         >
@@ -699,62 +902,6 @@ export default function RevisionDetails() {
                                                     </TableRow>
                                                 )}
                                             </TableBody>
-
-                                            {/* ── Footer total row ── */}
-                                            {(e.components || []).length > 0 && (
-                                                <TableHead>
-                                                    <TableRow className="!bg-gray-50">
-                                                        <TableCell
-                                                            colSpan={1}
-                                                            className="!text-[12px] !font-bold !text-gray-700"
-                                                        >
-                                                            Total (Earnings)
-                                                        </TableCell>
-                                                        <TableCell
-                                                            align="right"
-                                                            className="!text-[12px] !font-bold !text-gray-700"
-                                                        >
-                                                            ₹{" "}
-                                                            {totalOld.toLocaleString("en-IN")}
-                                                        </TableCell>
-                                                        <TableCell
-                                                            align="right"
-                                                            className="!text-[12px] !font-bold !text-gray-700"
-                                                        >
-                                                            ₹{" "}
-                                                            {totalNew.toLocaleString("en-IN")}
-                                                        </TableCell>
-                                                        <TableCell
-                                                            align="right"
-
-                                                        >
-                                                            <div className={`!text-[12px] !font-bold ${totalDelta >= 0
-                                                                ? "!text-blue-700"
-                                                                : "!text-red-700"
-                                                                }`}>
-                                                                {totalDelta >= 0 ? "+" : "-"}₹
-                                                                {Math.abs(totalDelta).toLocaleString(
-                                                                    "en-IN"
-                                                                )}
-                                                            </div>
-
-                                                        </TableCell>
-                                                        <TableCell
-                                                            align="right"
-
-                                                        >
-                                                            <div className={`!text-[12px] !font-bold ${totalPct >= 0
-                                                                ? "!text-blue-700"
-                                                                : "!text-red-700"
-                                                                }`}>
-                                                                {totalPct >= 0 ? "+" : ""}
-                                                                {totalPct.toFixed(2)}%
-                                                            </div>
-
-                                                        </TableCell>
-                                                    </TableRow>
-                                                </TableHead>
-                                            )}
                                         </Table>
                                     </Paper>
                                 );
@@ -762,6 +909,7 @@ export default function RevisionDetails() {
                         </div>
                     </Box>
                 )}
+
             </Paper>
 
             {data.status === "PENDING_APPROVAL" && (

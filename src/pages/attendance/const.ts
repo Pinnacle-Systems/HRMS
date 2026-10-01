@@ -247,6 +247,8 @@ export interface TodaySummary {
   checkedIn: number;
   notYetIn: number;
   attendancePercentage: number;
+  missedPunchCount: number;
+  irregular: number;
 }
 
 export interface Holiday {

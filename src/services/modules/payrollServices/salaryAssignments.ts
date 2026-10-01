@@ -6,9 +6,11 @@ export interface AssignmentQuery {
   employeeId?: string;
   structureId?: string;
   status?: string;
-  page?: number;
-  size?: number;
-  sort?: string[];
+  page: number;
+  size: number;
+  sort: string[];
+  search?: string;
+  exportFormat?: string;
 }
 
 export interface Assignment {
@@ -76,9 +78,14 @@ export const assignmentService = {
     return apiService.get(API_ENDPOINTS.PAYROLL.ASSIGN.BASE, { params });
   },
 
-  // async getAssignmentByEmployee(employeeId: string) {
-  //   return apiService.get(API_ENDPOINTS.PAYROLL.ASSIGN.GET_BY_EMPLOYEE(employeeId));
-  // },
+  async getAssignmentByEmployee(employeeId: string, exportFormat?: string) {
+    return apiService.get(
+      API_ENDPOINTS.PAYROLL.ASSIGN.GET_BY_EMPLOYEE(employeeId),
+      {
+        params: exportFormat ? { exportFormat } : undefined,
+      }
+    );
+  },
 
   async getEmployeeAssignmentHistory(employeeId: string) {
     return apiService.get(API_ENDPOINTS.PAYROLL.ASSIGN.EMPLOYEE_HISTORY(employeeId));

@@ -62,9 +62,9 @@ export const ProgressTracking = () => {
   const fetchOnboardings = async () => {
     try {
       showSpinner();
-      const response: any = await onBoardService.getAssignments({ 
-        page, 
-        size: limit 
+      const response: any = await onBoardService.getAssignments({
+        page,
+        size: limit
       });
       const content = response.data?.content || response.data || [];
       setOnboardings(content);
@@ -83,11 +83,11 @@ export const ProgressTracking = () => {
       const avgProgress =
         content.length > 0
           ? Math.round(
-              content.reduce(
-                (sum: number, o: any) => sum + (o.overallProgressPercent || 0),
-                0,
-              ) / content.length,
-            )
+            content.reduce(
+              (sum: number, o: any) => sum + (o.overallProgressPercent || 0),
+              0,
+            ) / content.length,
+          )
           : 0;
 
       setStats({
@@ -242,29 +242,59 @@ export const ProgressTracking = () => {
   // };
 
   // Send reminder functionality
-  const handleSendReminder = async (employeeId: string) => {
-    if (!employeeId) {
-      showSnackbar("Employee ID is missing", "error");
+  const handleSendReminder = async (
+    onboarding: OnboardingAssignment,
+    channel: "EMAIL" | "SMS" | "BOTH" = "EMAIL",
+  ) => {
+    if (!onboarding.onboardingId) {
+      showSnackbar("Onboarding ID is missing", "error");
       return;
     }
 
     showConfirmDialog({
       title: "Send Reminder",
-      message: "Send a reminder to this employee about pending tasks?",
+      message: `Send a reminder to ${onboarding.employeeName || "this employee"
+        } about pending onboarding tasks via Email?`,
       confirmText: "Send",
       onConfirm: async () => {
-        // try {
-        //   showSpinner();
-        //   await onBoardService.sendReminder({
-        //     employeeId,
-        //     reminderType: "OVERDUE",
-        //   });
-        //   showSnackbar("Reminder sent successfully!", "success");
-        // } catch (error: any) {
-        //   showSnackbar(error.message, "error");
-        // } finally {
-        //   hideSpinner();
-        // }
+        try {
+          showSpinner();
+          const response: any = await onBoardService.sendReminder(onboarding.onboardingId, channel);
+
+          const data = response?.data?.data ?? response?.data ?? {};
+          const { sent, emailSent, smsSent, channelRequested } = data;
+
+          if (sent) {
+            const channels: string[] = [];
+            if (emailSent) channels.push("Email");
+            if (smsSent) channels.push("SMS");
+            showSnackbar(
+              `Reminder sent successfully via ${channels.join(" & ") || channelRequested}!`,
+              "success",
+            );
+          } else if (channelRequested === "BOTH" && (emailSent || smsSent)) {
+            const delivered = emailSent ? "Email" : "SMS";
+            const failed = emailSent ? "SMS" : "Email";
+            showSnackbar(
+              `Reminder sent via ${delivered}. ${failed} could not be delivered (no contact info or gateway not configured).`,
+              "warning",
+            );
+          } else {
+            showSnackbar(
+              "Reminder could not be sent. Missing contact info or SMS gateway not configured.",
+              "warning",
+            );
+          }
+        } catch (error: any) {
+          showSnackbar(
+            error?.response?.data?.message ||
+            error.message ||
+            "Failed to send reminder",
+            "error",
+          );
+        } finally {
+          hideSpinner();
+        }
       },
     });
   };
@@ -294,9 +324,8 @@ export const ProgressTracking = () => {
             <Button
               size="small"
               variant="outlined"
-              // color="warning"
               className="!border-primary !text-primary hover:!bg-primary hover:!text-white"
-              onClick={() => handleSendReminder(onboarding.employeeId || "")}
+              onClick={() => handleSendReminder(onboarding, "EMAIL")}
               sx={{ textTransform: "none", fontSize: "11px" }}
             >
               Remind
@@ -397,7 +426,7 @@ export const ProgressTracking = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{xs: 6, sm: 4, md: 2}}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
           <Card className="!bg-gradient-to-r !from-purple-100 !to-purple-300 shadow-lg">
             <CardContent>
               <div className="flex items-center justify-between">
@@ -547,8 +576,8 @@ export const ProgressTracking = () => {
                       <div>
                         {onboarding.assignedAt
                           ? dayjs(onboarding.assignedAt).format(
-                              "DD MMM YYYY hh:mm a",
-                            )
+                            "DD MMM YYYY hh:mm a",
+                          )
                           : "—"}
                       </div>
                     </TableCell>
@@ -695,7 +724,7 @@ export const ProgressTracking = () => {
                       "& .MuiLinearProgress-bar": {
                         backgroundColor:
                           (selectedOnboarding.overallProgressPercent || 0) ===
-                          100
+                            100
                             ? "#0f7735"
                             : "#3b82f6",
                       },
@@ -749,15 +778,14 @@ export const ProgressTracking = () => {
                       {checklist.tasks?.map((task: Task) => (
                         <Card
                           key={task.id}
-                          className={`border-l-4 ${
-                            task.status === "COMPLETED"
-                              ? "border-l-green-600"
-                              : task.status === "IN_PROGRESS"
-                                ? "border-l-blue-500"
-                                : task.status === "OVERDUE"
-                                  ? "border-l-red-500"
-                                  : "border-l-gray-300"
-                          }`}
+                          className={`border-l-4 ${task.status === "COMPLETED"
+                            ? "border-l-green-600"
+                            : task.status === "IN_PROGRESS"
+                              ? "border-l-blue-500"
+                              : task.status === "OVERDUE"
+                                ? "border-l-red-500"
+                                : "border-l-gray-300"
+                            }`}
                         >
                           <CardContent className="py-2 px-4 bg-head text-gray-800">
                             <div className="flex items-start gap-3">

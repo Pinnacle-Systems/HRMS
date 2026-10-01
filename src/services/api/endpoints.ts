@@ -408,7 +408,7 @@ export const API_ENDPOINTS = {
 
     // ============ Notifications ============
     SEND_WELCOME: "/onboarding/send-welcome",
-    // SEND_REMINDER: "/onboarding/send-reminder",
+    SEND_REMINDER: (id: string) => `/onboarding/${id}/remind`,
     // BULK_REMINDER: "/onboarding/send-reminder/bulk",
     // COMPLETION_NOTIFICATION: "/onboarding/notifications/completion",
     // NOTIFICATION_SETTINGS: "/onboarding/notifications/settings",

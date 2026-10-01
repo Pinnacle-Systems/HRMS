@@ -101,13 +101,13 @@ export default function Login() {
           break;
 
         case "mustChangePassword":
-          // navigate("/reset-password", {
-          //   replace: true,
-          //   state: {
-          //     email: outcome.email || email,
-          //     token: outcome.session?.accessToken
-          //   },
-          // });
+          navigate("/reset-password", {
+            replace: true,
+            state: {
+              email: outcome.email || email,
+              token: outcome.session?.accessToken
+            },
+          });
           break;
 
         case "failed":
@@ -202,6 +202,7 @@ export default function Login() {
             replace: true,
             state: { 
               email: outcome.email || mobileNumber,
+              token: outcome.session?.accessToken
             },
           });
           break;

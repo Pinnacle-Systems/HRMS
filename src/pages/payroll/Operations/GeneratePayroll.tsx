@@ -164,7 +164,7 @@ export default function GeneratePayroll() {
         try {
             const res: any = await employeeService.getEmployees({
                 includeInactive: false,
-                size: 1000
+                // size: 1000
             });
             setEmployees(res.data?.content || []);
         } catch (error) {

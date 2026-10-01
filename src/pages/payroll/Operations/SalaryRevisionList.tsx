@@ -13,6 +13,7 @@ import {
   TableRow,
   TextField,
   Tooltip,
+  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -24,6 +25,8 @@ import type { SalaryRevision } from "../../../services/modules/payrollServices/s
 import {
   CheckCircleOutlineOutlined,
   Delete,
+  PlayCircleOutlineOutlined,
+  InfoOutlined,
 } from "@mui/icons-material";
 import { getRowColor } from "../../const.ts";
 import { statusColor } from "../const.ts";
@@ -117,6 +120,39 @@ export default function SalaryRevisionList() {
   };
 
   // ────────────────────────────────────────────────────────
+  // Quick Apply to Payroll (with confirm dialog)
+  // ────────────────────────────────────────────────────────
+  const handleQuickApply = (row: SalaryRevision) => {
+    showConfirmDialog({
+      title: "Apply Revision to Payroll",
+      message:
+        `Apply "${row.title}" to payroll?\n\n` +
+        `• Employees affected: ${row.totalEmployees}\n` +
+        `• Effective from: ${formatDate(row.effectiveFrom)}\n` +
+        `• Total cost: ₹ ${row.totalIncrementCost.toLocaleString("en-IN")}\n\n` +
+        `This will update employee salary records and cannot be undone.`,
+      confirmText: "Apply",
+      cancelText: "Cancel",
+      variant: "success",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await salaryRevisionService.applyRevision(row.id);
+          showSnackbar("Revision applied to payroll", "success");
+          load();
+        } catch (err: any) {
+          showSnackbar(
+            err?.response?.data?.message || "Failed to apply revision",
+            "error"
+          );
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  // ────────────────────────────────────────────────────────
   // Filter
   // ────────────────────────────────────────────────────────
   const filtered = rows.filter(
@@ -150,6 +186,17 @@ export default function SalaryRevisionList() {
         </Button>
       </Box>
 
+      {/* Note: only applied revisions update employee records */}
+      <Alert
+        severity="info"
+        icon={<InfoOutlined fontSize="small" />}
+        className="!mb-3 !text-xs !py-1"
+      >
+        Only <strong>applied</strong> revisions update employee salary records.
+        Draft, pending, and approved revisions do not affect payroll until
+        applied.
+      </Alert>
+
       <TextField
         size="small"
         placeholder="Search by code or title…"
@@ -158,7 +205,7 @@ export default function SalaryRevisionList() {
         className="!mb-3 !w-72"
       />
 
-      <TableContainer>
+      <TableContainer className="max-h-[calc(100vh-260px)] overflow-auto">
         <Table size="small" className="border border-gray-200 rounded-md">
           <TableHead className="!bg-gray-50">
             <TableRow>
@@ -227,12 +274,27 @@ export default function SalaryRevisionList() {
                     <Tooltip title="Quick Approve">
                       <IconButton
                         size="small"
-                        className="!text-green-600"
+                        className="!text-blue-600"
                         onClick={() => handleQuickApprove(r.id, r.title)}
                       >
                         <CheckCircleOutlineOutlined
                           fontSize="small"
                           className="!w-4"
+                        />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {r.status === "APPROVED" && (
+                    <Tooltip title="Apply to Payroll">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleQuickApply(r)}
+                      >
+                        <PlayCircleOutlineOutlined
+                          fontSize="small"
+                          className="!w-4"
+                          color="success"
                         />
                       </IconButton>
                     </Tooltip>

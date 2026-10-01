@@ -216,12 +216,12 @@ export function AttendanceSummary() {
           const deptRecords = filteredContent.filter((r) => r.department === dept.departmentName);
           if (deptRecords.length === 0) return null;
 
-          const present = deptRecords.filter((r) => ["present", "checked_in", "checked_out", "late", "on_duty"].includes(r.status)).length;
+          const present = deptRecords.filter((r) => ["present", "checked_in", "irregular", "late", "on_duty", "missed_punch", "night_duty"].includes(r.status)).length;
           return {
             department: dept.departmentName,
             total: deptRecords.length,
             present,
-            absent: deptRecords.length - present,
+            absent: deptRecords.filter((r) => ["absent"].includes(r.status)).length,
             attendancePercentage: deptRecords.length ? Math.round((present / deptRecords.length) * 1000) / 10 : 0,
           };
         })
@@ -391,12 +391,13 @@ export function AttendanceSummary() {
               onClick={() => openDetailedView("late")}
             />
             <StatCard
-              label="Early Departures"
-              value={summary.earlyOut}
+              label="Irregular"
+              value={summary.irregular}
               icon={<ExitToAppOutlined fontSize="medium" />}
               color="#ec4899"
               bgColor="bg-pink-50"
-              percentage={(summary.earlyOut / summary.totalEmployees) * 100}
+              percentage={(summary.irregular / summary.totalEmployees) * 100}
+              onClick={() => openDetailedView("irregular")}
             />
             <StatCard
               label="On Duty"

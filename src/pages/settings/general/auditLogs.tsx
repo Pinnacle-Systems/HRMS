@@ -292,9 +292,9 @@ export default function AuditLogs() {
   };
 
   // Render field changes for a single log entry
-  const renderFieldChanges = (log: AuditLogRecord) => {
-    const oldParsed = parseValue(log.oldValue);
-    const newParsed = parseValue(log.newValue);
+  const renderFieldChanges = (log: AuditLogRecord) => {    
+    const oldParsed = parseValue(log.oldValueLabel ? log.oldValueLabel : log.oldValue);
+    const newParsed = parseValue(log.newValueLabel ? log.newValueLabel : log.newValue);
 
     if (log.actionType === 'CREATE' || (!log.oldValue && log.newValue)) {
       if (isPrimitive(newParsed) || newParsed === null) {

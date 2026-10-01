@@ -173,11 +173,11 @@ export type OnboardingStats = {
     [key: string]: any;
 };
 
-export type ReminderRequest = {
-    employeeId: string;
-    reminderType?: "OVERDUE" | "UPCOMING_DEADLINE" | "WEEKLY_SUMMARY";
-    message?: string;
-};
+export interface ReminderRequest {
+    onboardingId: string;
+    channel?: "EMAIL" | "SMS" | "BOTH";
+}
+
 
 export type BulkAssignRequest = {
     employeeIds: string[];
@@ -362,7 +362,7 @@ export const onBoardService = {
         return response;
     },
 
-    async reorderTasks(checklistId: string, data: Array<{taskId: string, sortOrder: number}>) {
+    async reorderTasks(checklistId: string, data: Array<{ taskId: string, sortOrder: number }>) {
         const response = await apiService.patch(API_ENDPOINTS.ONBOARDING.PATCH_REORDER(checklistId), data);
         return response;
     },
@@ -576,13 +576,13 @@ export const onBoardService = {
         return response;
     },
 
-    // async sendReminder(data: ReminderRequest) {
-    //     const response = await apiService.post(
-    //         API_ENDPOINTS.ONBOARDING.SEND_REMINDER,
-    //         data
-    //     );
-    //     return response;
-    // },
+async sendReminder(onboardingId: any, channel: "EMAIL" | "SMS" | "BOTH" = "EMAIL") {
+  return apiService.post(
+    API_ENDPOINTS.ONBOARDING.SEND_REMINDER(onboardingId),
+    { channel },
+  );
+}
+
 
     // async sendBulkReminder(employeeIds: string[], reminderType?: string) {
     //     const response = await apiService.post(

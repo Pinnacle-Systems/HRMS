@@ -53,7 +53,7 @@ import {
   CloseOutlined,
   CloudUploadOutlined,
   DownloadOutlined,
-  EditOutlined,
+  Edit,
   ExpandLessOutlined,
   ExpandMoreOutlined,
   FileDownloadOutlined,
@@ -352,7 +352,6 @@ export default function EmployeeManagement() {
         params.includeInactive = false;
       } else if (employeeView === "inactive") {
         params.includeInactive = true;
-        params.size = 100
       } else {
         params.includeInactive = true;
       }
@@ -452,7 +451,7 @@ export default function EmployeeManagement() {
 
       const employeeOptionsResponse = await employeeService.getEmployees({
         page: 0,
-        size: 1000,
+        // size: 1000,
         sort: 'name,asc',
         includeInactive: true,
       });
@@ -1005,7 +1004,7 @@ export default function EmployeeManagement() {
     setActionMenuEmployee(null);
   };
 
-  const viewEmployeeDetails = (employee :any) => {
+  const viewEmployeeDetails = (employee: any) => {
     if (employee) navigate(`/employees/${employee.id}`);
   }
 
@@ -1350,7 +1349,7 @@ export default function EmployeeManagement() {
                   {getSortIcon("name")}
                 </div>
               </TableCell>
-              
+
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("branch")}
@@ -1462,7 +1461,7 @@ export default function EmployeeManagement() {
                 <TableCell className="font-medium">
                   {employee.name}
                 </TableCell>
-               
+
                 <TableCell>
                   {employee.branch || "-"}
                 </TableCell>
@@ -1472,7 +1471,7 @@ export default function EmployeeManagement() {
                 <TableCell>
                   {employee.designation || "-"}
                 </TableCell>
-                 <TableCell>
+                <TableCell>
                   {employee.emailAddress}
                 </TableCell>
                 <TableCell>
@@ -1502,15 +1501,14 @@ export default function EmployeeManagement() {
                         <MoreVertOutlined className="!w-4 text-gray-800" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Export Employee">
+                    <Tooltip title="Edit">
                       <IconButton
                         size="small"
-                        onClick={(e) => openExportMenu(e, employee.id)}
+                        onClick={() => {
+                          if (employee) handleOpenEditDialog(employee);
+                        }}
                       >
-                        <FileDownloadOutlined
-                          className="!w-4"
-                          color="primary"
-                        />
+                        <Edit className="!w-3" color="info" />
                       </IconButton>
                     </Tooltip>
                     {isEmployeeInactive(employee) ? (
@@ -2081,7 +2079,7 @@ export default function EmployeeManagement() {
           />
           View Details
         </MenuItem>
-        <MenuItem
+        {/* <MenuItem
           className="!text-[12px]"
           onClick={() => {
             if (actionMenuEmployee) handleOpenEditDialog(actionMenuEmployee);
@@ -2090,6 +2088,19 @@ export default function EmployeeManagement() {
         >
           <EditOutlined className="!w-4 mr-2" color="info" />
           Edit Employee
+        </MenuItem> */}
+        <MenuItem
+          className="!text-[12px]"
+          onClick={(e) => {
+            if (actionMenuEmployee) openExportMenu(e, actionMenuEmployee.id);
+            // closeActionMenu();
+          }}
+        >
+          <FileDownloadOutlined
+            className="!w-4 mr-2"
+            color="primary"
+          />
+          Export Employee
         </MenuItem>
       </Menu>
 

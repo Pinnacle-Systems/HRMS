@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Box,
@@ -17,6 +17,7 @@ import {
     TextField,
     Checkbox,
     TableContainer,
+    Tooltip,
 } from "@mui/material";
 import {
     salaryRevisionService,
@@ -31,9 +32,11 @@ import {
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
-import { getRowColor } from "../../const";
+import { getRowColor, handleEnterAsTab } from "../../const";
 import { useUI } from "../../../context/Snackbar";
 import { employeeService } from "../../../services/modules/employees";
+import { formatName } from "../../../const";
+import { RefreshOutlined } from "@mui/icons-material";
 
 // Constants
 const REASONS: RevisionReason[] = [
@@ -45,7 +48,6 @@ const REASONS: RevisionReason[] = [
     "PERFORMANCE",
 ];
 
-// Props
 interface CreateRevisionProps {
     mode?: "create" | "edit";
     revisionId?: string;
@@ -78,6 +80,20 @@ export default function CreateRevision({
     const [templateId, setTemplateId] = useState("");
     const [templatesLoading, setTemplatesLoading] = useState(true);
 
+    // Manual increment overrides (employeeId -> amount)
+    const [editedIncrements, setEditedIncrements] = useState<
+        Record<string, number>
+    >({});
+
+    // Manual component overrides (employeeId -> componentName -> amount)
+    const [editedComponents, setEditedComponents] = useState<
+        Record<string, Record<string, number>>
+    >({});
+
+    // Tracks the last templateId we've "seen" so we can distinguish
+    // a user-initiated template change from the initial set (mount/prefill).
+    const prevTemplateIdRef = useRef<string>("");
+
     // ────────────────────────────────────────────────────────
     // Load templates
     // ────────────────────────────────────────────────────────
@@ -88,11 +104,13 @@ export default function CreateRevision({
             .then((res: any) => {
                 const list = res?.data || [];
                 setTemplates(list);
-                if (list.length && !templateId) {
+                // Only auto-pick a default on create mode.
+                // In edit mode, the prefill effect will set the correct one.
+                if (list.length && !templateId && mode !== "edit") {
                     setTemplateId(list[0].id);
                 }
             })
-            .catch((_err: any) => {
+            .catch(() => {
                 showSnackbar("Failed to load revision templates", "error");
                 setTemplates([]);
             })
@@ -101,36 +119,40 @@ export default function CreateRevision({
     }, []);
 
     // ────────────────────────────────────────────────────────
-    // Load employees
+    // Load employees (skip CTC = 0)
     // ────────────────────────────────────────────────────────
     useEffect(() => {
         setEmployeesLoading(true);
         employeeService
-            .getEmployees({ page: 0, size: 100, includeInactive: false })
+            .getEmployees({ page: 0, includeInactive: false, sort: ["employeeId,asc"] })
             .then((res: any) => {
                 const payload = res?.data;
                 const rows = Array.isArray(payload)
                     ? payload
                     : payload?.content || [];
 
-                const mapped = rows.map((e: any) => ({
-                    id: e.id,
-                    code: e.employeeId ?? e.employeeCode ?? e.code,
-                    name: e.name ?? e.fullName ?? e.employeeName,
-                    dept: e.department ?? e.departmentName,
-                    desig: e.designation ?? e.jobTitle,
-                    ctc: e.annualCtc ?? e.ctc ?? 0,
-                    gross: e.monthlyCtc ?? e.monthlyGross ?? e.gross ?? 0,
-                    // 👇 employeeGroup is a plain string in your API
-                    employeeGroup: e.employeeGroup ?? "",
-                    // components: e.salaryComponents ?? e.components ?? [],
-                }));
+                const mapped = rows
+                    .map((e: any) => ({
+                        id: e.id,
+                        code: e.employeeId ?? e.employeeCode ?? e.code,
+                        name: e.name ?? e.fullName ?? e.employeeName,
+                        dept: e.department ?? e.departmentName,
+                        desig: e.designation ?? e.jobTitle,
+                        ctc: e.annualCtc ?? e.ctc ?? 0,
+                        gross: e.monthlyCtc ?? e.monthlyGross ?? e.gross ?? 0,
+                        employeeGroup: e.employeeGroup ?? "",
+                        // 👇 carry components so we can split increment
+                        components: Array.isArray(e.components)
+                            ? e.components
+                            : [],
+                    }))
+                    .filter((e: any) => Number(e.ctc) > 0);
 
                 setEmployees(mapped);
 
                 if (!mapped.length) {
                     showSnackbar(
-                        "No active employees found for salary revision",
+                        "No eligible employees found (employees with CTC = 0 are excluded)",
                         "warning"
                     );
                 }
@@ -155,16 +177,67 @@ export default function CreateRevision({
         setTitle(initialData.title || "");
         setReason(initialData.reason || "ANNUAL_INCREMENT");
         setEffectiveFrom(initialData.effectiveFrom || "");
-        setTemplateId(initialData.templateId || "");
 
         const ids = (initialData.employees || []).map(
             (e: any) => e.employeeId || e.id
         );
         setSelectedIds(ids);
+
+        const seed: Record<string, number> = {};
+        const compSeed: Record<string, Record<string, number>> = {};
+        (initialData.employees || []).forEach((e: any) => {
+            const empId = e.employeeId || e.id;
+            if (empId != null && e.incrementAmount != null) {
+                seed[empId] = Number(e.incrementAmount);
+            }
+            if (empId != null && Array.isArray(e.components)) {
+                const map: Record<string, number> = {};
+                e.components.forEach((c: any) => {
+                    if (c.componentName) {
+                        map[c.componentName] = Number(c.amount) || 0;
+                    }
+                });
+                if (Object.keys(map).length) compSeed[empId] = map;
+            }
+        });
+
+        setEditedIncrements(seed);
+        setEditedComponents(compSeed);
+
+        // Set templateId last. Mark the ref so the template-change
+        // effect below treats this as the "initial" value, not a
+        // user-initiated change — otherwise it would wipe the
+        // overrides we just restored.
+        if (initialData.templateId) {
+            prevTemplateIdRef.current = initialData.templateId;
+            setTemplateId(initialData.templateId);
+        }
     }, [mode, initialData]);
 
     // ────────────────────────────────────────────────────────
-    // Unique departments (derived from loaded employees)
+    // Clear manual overrides when template changes
+    // (skip the very first observed value — that's the initial
+    //  load / prefill, not a user action)
+    // ────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!templateId) return;
+
+        if (prevTemplateIdRef.current === "") {
+            // First time we see a templateId — record it, don't clear.
+            prevTemplateIdRef.current = templateId;
+            return;
+        }
+
+        if (templateId !== prevTemplateIdRef.current) {
+            // User actually changed the template — clear overrides.
+            prevTemplateIdRef.current = templateId;
+            setEditedIncrements({});
+            setEditedComponents({});
+        }
+    }, [templateId]);
+
+    // ────────────────────────────────────────────────────────
+    // Unique departments
     // ────────────────────────────────────────────────────────
     const departments = useMemo(() => {
         const set = new Set<string>();
@@ -174,9 +247,6 @@ export default function CreateRevision({
         return Array.from(set).sort();
     }, [employees]);
 
-    // ────────────────────────────────────────────────────────
-    // Unique employee groups (derived from loaded employees)
-    // ────────────────────────────────────────────────────────
     const employeeGroups = useMemo(() => {
         const set = new Set<string>();
         employees.forEach((e) => {
@@ -186,16 +256,14 @@ export default function CreateRevision({
     }, [employees]);
 
     // ────────────────────────────────────────────────────────
-    // Filtered employees (department + employee group)
+    // Filtered employees
     // ────────────────────────────────────────────────────────
     const filteredEmployees = useMemo(() => {
         return employees.filter((e) => {
             const deptOk =
                 departmentFilter === "ALL" || e.dept === departmentFilter;
-
             const groupOk =
                 groupFilter === "ALL" || e.employeeGroup === groupFilter;
-
             return deptOk && groupOk;
         });
     }, [employees, departmentFilter, groupFilter]);
@@ -214,20 +282,109 @@ export default function CreateRevision({
         !allFilteredSelected;
 
     // ────────────────────────────────────────────────────────
-    // Live preview
+    // Unique EARNING component names (used as editable columns)
+    // ────────────────────────────────────────────────────────
+    const earningComponentNames = useMemo(() => {
+        const set = new Set<string>();
+        employees.forEach((e) => {
+            (e.components || []).forEach((c: any) => {
+                if (c.componentType === "EARNING" && c.componentName) {
+                    set.add(c.componentName);
+                }
+            });
+        });
+        return Array.from(set).sort();
+    }, [employees]);
+
+    // ────────────────────────────────────────────────────────
+    // Update a single employee's increment (redistributes components)
+    // ────────────────────────────────────────────────────────
+    const updateIncrement = (employeeId: string, amount: number) => {
+        setEditedIncrements((prev) => ({ ...prev, [employeeId]: amount }));
+        // Also clear component overrides so distributeAcrossComponents re-splits
+        setEditedComponents((prev) => {
+            const next = { ...prev };
+            delete next[employeeId];
+            return next;
+        });
+    };
+
+    // ────────────────────────────────────────────────────────
+    // Update a single earning component for an employee.
+    // Recomputes the employee's total increment from components.
+    // ────────────────────────────────────────────────────────
+    const updateComponent = (
+        employeeId: string,
+        componentName: string,
+        amount: number
+    ) => {
+        setEditedComponents((prev) => {
+            const empMap = { ...(prev[employeeId] || {}) };
+            empMap[componentName] = amount;
+            return { ...prev, [employeeId]: empMap };
+        });
+    };
+
+    // ────────────────────────────────────────────────────────
+    // Live preview (respects manual overrides)
     // ────────────────────────────────────────────────────────
     const preview: EmployeeRevision[] = useMemo(() => {
         const template = templates.find((t) => t.id === templateId);
         if (!template) return [];
 
         return employees
-            .filter((e) => selectedIds.includes(e.id))
+            .filter(
+                (e) => selectedIds.includes(e.id) && Number(e.ctc) > 0
+            )
             .map((e) => {
-                const incrementAmount = calculateIncrement(e.ctc, template);
-                const components = distributeAcrossComponents(
-                    incrementAmount,
-                    (e.components || []) as any
+                const autoIncrement = calculateIncrement(e.ctc, template);
+                const baseIncrement =
+                    editedIncrements[e.id] !== undefined
+                        ? editedIncrements[e.id]
+                        : autoIncrement;
+
+                // Build component split
+                const existingEarnings = (e.components || []).filter(
+                    (c: any) => c.componentType === "EARNING"
                 );
+
+                let components: any[];
+
+                if (editedComponents[e.id]) {
+                    // Use the manually edited component amounts
+                    const edited = editedComponents[e.id];
+                    components = existingEarnings.map((c: any) => ({
+                        ...c,
+                        amount:
+                            edited[c.componentName] !== undefined
+                                ? edited[c.componentName]
+                                : c.amount,
+                    }));
+                } else {
+                    // Auto-distribute the increment across earning components
+                    components = distributeAcrossComponents(
+                        baseIncrement,
+                        (e.components || []) as any
+                    );
+                }
+
+                // Total increment = sum of earning component amounts
+                // (if components are being manually managed)
+                const componentTotal = components
+                    .filter(
+                        (c: any) =>
+                            c.componentType === "EARNING" ||
+                            !c.componentType
+                    )
+                    .reduce(
+                        (s: number, c: any) => s + (Number(c.amount) || 0),
+                        0
+                    );
+
+                const incrementAmount = editedComponents[e.id]
+                    ? componentTotal
+                    : baseIncrement;
+
                 const newCtc = e.ctc + incrementAmount;
 
                 return {
@@ -248,7 +405,15 @@ export default function CreateRevision({
                     effectiveFrom,
                 };
             });
-    }, [employees, selectedIds, templateId, templates, effectiveFrom]);
+    }, [
+        employees,
+        selectedIds,
+        templateId,
+        templates,
+        effectiveFrom,
+        editedIncrements,
+        editedComponents,
+    ]);
 
     const totalCost = preview.reduce((s, p) => s + p.incrementAmount, 0);
 
@@ -346,7 +511,7 @@ export default function CreateRevision({
     })();
 
     return (
-        <Box className="max-w-6xl">
+        <Box className="">
             <div className="text-[12px] font-bold text-gray-800 mb-4">
                 {mode === "edit" ? "Edit Salary Revision" : "New Salary Revision"}
             </div>
@@ -363,11 +528,9 @@ export default function CreateRevision({
                 </Step>
             </Stepper>
 
-            {/* ══════════════════════════════════════════════ */}
-            {/* STEP 1: Basic Info                             */}
-            {/* ══════════════════════════════════════════════ */}
+            {/* STEP 1 */}
             {activeStep === 0 && (
-                <Paper className="!p-4 !shadow-sm grid grid-cols-3 gap-4 !bg-white">
+                <div className="!p-4 !shadow-sm grid grid-cols-3 gap-4 !bg-white" onKeyDown={handleEnterAsTab}>
                     <TextField
                         label="Revision Title"
                         value={title}
@@ -414,15 +577,12 @@ export default function CreateRevision({
                             </MenuItem>
                         ))}
                     </TextField>
-                </Paper>
+                </div>
             )}
 
-            {/* ══════════════════════════════════════════════ */}
-            {/* STEP 2: Select Employees                       */}
-            {/* ══════════════════════════════════════════════ */}
+            {/* STEP 2 */}
             {activeStep === 1 && (
                 <>
-                    {/* ── Filter Bar ── */}
                     <Paper className="!p-3 !mb-3 !pt-5 !shadow-sm flex flex-wrap items-center gap-3 !bg-white">
                         <TextField
                             select
@@ -460,19 +620,18 @@ export default function CreateRevision({
 
                         {(departmentFilter !== "ALL" ||
                             groupFilter !== "ALL") && (
-                                <Button
-                                    size="small"
-                                    variant="text"
-                                    className="!text-gray-600"
-                                    onClick={() => {
-                                        setDepartmentFilter("ALL");
-                                        setGroupFilter("ALL");
-                                    }}
-                                >
-                                    Clear Filters
-                                </Button>
-                            )}
-
+                            <Button
+                                size="small"
+                                variant="text"
+                                className="!text-gray-600"
+                                onClick={() => {
+                                    setDepartmentFilter("ALL");
+                                    setGroupFilter("ALL");
+                                }}
+                            >
+                                Clear Filters
+                            </Button>
+                        )}
 
                         <Chip
                             size="small"
@@ -485,9 +644,9 @@ export default function CreateRevision({
                         <Table stickyHeader>
                             <TableHead className="!bg-gray-50">
                                 <TableRow>
-                                    <TableCell padding="checkbox">
+                                    <TableCell>
                                         <Checkbox
-                                            className="text-gray-800"
+                                            className="!p-0 text-gray-800"
                                             checked={allFilteredSelected}
                                             indeterminate={someFilteredSelected}
                                             onChange={(e) => {
@@ -554,7 +713,7 @@ export default function CreateRevision({
                                         >
                                             <TableCell padding="checkbox">
                                                 <Checkbox
-                                                    className="text-gray-800"
+                                                    className="!p-0 text-gray-800"
                                                     checked={selectedIds.includes(
                                                         e.id
                                                     )}
@@ -606,11 +765,10 @@ export default function CreateRevision({
                                             <TableCell
                                                 colSpan={7}
                                                 align="center"
-
                                             >
                                                 <div className="!py-6 !text-xs !text-gray-500">
                                                     {employees.length === 0
-                                                        ? "No employees found. Please check with HR/admin."
+                                                        ? "No eligible employees found. Employees with CTC = 0 are excluded."
                                                         : "No employees match the selected filters."}
                                                 </div>
                                             </TableCell>
@@ -622,9 +780,7 @@ export default function CreateRevision({
                 </>
             )}
 
-            {/* ══════════════════════════════════════════════ */}
-            {/* STEP 3: Revise & Preview                       */}
-            {/* ══════════════════════════════════════════════ */}
+            {/* STEP 3 */}
             {activeStep === 2 && (
                 <>
                     {templatesLoading ? (
@@ -679,78 +835,272 @@ export default function CreateRevision({
                                 />
                             </Paper>
 
-                            <TableContainer className="max-h-[calc(100vh-300px)] overflow-auto">
-                                <Table
-                                    size="small"
-                                    className="border border-gray-200 rounded-md"
-                                >
-                                    <TableHead className="!bg-gray-50">
+                            <TableContainer
+                                className="max-h-[calc(100vh-300px)] overflow-auto border border-gray-200 rounded-md"
+                            >
+                                <Table size="small" stickyHeader>
+                                    <TableHead>
                                         <TableRow>
-                                            <TableCell className="!text-xs !font-semibold">
-                                                S No
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700">
+                                                #
                                             </TableCell>
-                                            <TableCell className="!text-xs !font-semibold">
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700">
                                                 Employee
                                             </TableCell>
-                                            <TableCell className="!text-xs !font-semibold">
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700 !text-right">
                                                 Old CTC
                                             </TableCell>
-                                            <TableCell className="!text-xs !font-semibold">
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700 !text-right">
                                                 New CTC
                                             </TableCell>
-                                            <TableCell className="!text-xs !font-semibold">
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700 !text-right">
                                                 Increment
                                             </TableCell>
-                                            <TableCell className="!text-xs !font-semibold">
+
+                                            {earningComponentNames.map((name) => (
+                                                <TableCell
+                                                    key={name}
+                                                    className="!text-[11px] !font-semibold border-l border-gray-200 !text-gray-700 !text-center"
+                                                    sx={{ width: 50 }}
+                                                >
+                                                    {formatName(name)}
+                                                </TableCell>
+                                            ))}
+
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700 !text-right">
                                                 %
+                                            </TableCell>
+                                            <TableCell className="!text-[11px] !font-semibold !text-gray-700 !text-center">
+                                                Reset
                                             </TableCell>
                                         </TableRow>
                                     </TableHead>
+
                                     <TableBody>
-                                        {preview.map((p, i) => (
-                                            <TableRow
-                                                key={p.employeeId}
-                                                sx={getRowColor(i)}
-                                            >
-                                                <TableCell>
-                                                    <div className="py-2">
+                                        {preview.map((p, i) => {
+                                            const compMap: Record<
+                                                string,
+                                                number
+                                            > = {};
+                                            (p.components || []).forEach(
+                                                (c: any) => {
+                                                    if (c.componentName) {
+                                                        compMap[c.componentName] =
+                                                            Number(c.amount) || 0;
+                                                    }
+                                                }
+                                            );
+
+                                            const isEdited =
+                                                editedIncrements[p.employeeId] !==
+                                                undefined ||
+                                                editedComponents[p.employeeId] !==
+                                                undefined;
+
+                                            return (
+                                                <TableRow
+                                                    key={p.employeeId}
+                                                    sx={getRowColor(i)}
+                                                >
+                                                    <TableCell className="!text-xs !text-gray-500">
                                                         {i + 1}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="!text-xs">
-                                                    {p.employeeName} (
-                                                    {p.employeeCode})
-                                                </TableCell>
-                                                <TableCell className="!text-xs">
-                                                    ₹{" "}
-                                                    {p.oldCtc.toLocaleString(
-                                                        "en-IN"
+                                                    </TableCell>
+
+                                                    <TableCell>
+                                                        <div className="py-1">
+                                                            <div className="text-xs font-semibold text-gray-800">
+                                                                {p.employeeName}
+                                                            </div>
+                                                            <div className="text-[10px] text-gray-500">
+                                                                {p.employeeCode}
+                                                                {p.department
+                                                                    ? ` • ${p.department}`
+                                                                    : ""}
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+
+                                                    <TableCell className="!text-xs !text-right !text-gray-600">
+                                                        ₹{" "}
+                                                        {p.oldCtc.toLocaleString(
+                                                            "en-IN"
+                                                        )}
+                                                    </TableCell>
+
+                                                    <TableCell className="!text-xs !text-right !font-semibold !text-green-700">
+                                                        ₹{" "}
+                                                        {p.newCtc.toLocaleString(
+                                                            "en-IN"
+                                                        )}
+                                                    </TableCell>
+
+                                                    <TableCell className="!text-right">
+                                                        <TextField
+                                                            type="number"
+                                                            size="small"
+                                                            variant="outlined"
+                                                            value={p.incrementAmount}
+                                                            onChange={(ev) => {
+                                                                const val =
+                                                                    Number(
+                                                                        ev.target.value
+                                                                    ) || 0;
+                                                                updateIncrement(
+                                                                    p.employeeId,
+                                                                    val
+                                                                );
+                                                            }}
+                                                            sx={{
+                                                                width: 70,
+                                                                "& .MuiInputBase-root":
+                                                                {
+                                                                    height: 28,
+                                                                    fontSize: 12,
+                                                                },
+                                                                "& .MuiInputBase-input":
+                                                                {
+                                                                    fontSize: 12,
+                                                                    textAlign:
+                                                                        "right",
+                                                                    "&::-webkit-outer-spin-button, &::-webkit-inner-spin-button":
+                                                                    {
+                                                                        WebkitAppearance:
+                                                                            "none",
+                                                                        margin: 0,
+                                                                    },
+                                                                },
+                                                            }}
+                                                        />
+                                                    </TableCell>
+
+                                                    {earningComponentNames.map(
+                                                        (name) => {
+                                                            const val =
+                                                                compMap[name] ?? 0;
+                                                            return (
+                                                                <TableCell
+                                                                    key={name}
+                                                                    className="!text-center border-l border-gray-200"
+                                                                >
+                                                                    <TextField
+                                                                        type="number"
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                        value={val}
+                                                                        onChange={(
+                                                                            ev
+                                                                        ) => {
+                                                                            const v =
+                                                                                Number(
+                                                                                    ev
+                                                                                        .target
+                                                                                        .value
+                                                                                ) || 0;
+                                                                            updateComponent(
+                                                                                p.employeeId,
+                                                                                name,
+                                                                                v
+                                                                            );
+                                                                        }}
+                                                                        sx={{
+                                                                            width: 70,
+                                                                            "& .MuiInputBase-root":
+                                                                            {
+                                                                                height: 26,
+                                                                                fontSize: 12,
+                                                                            },
+                                                                            "& .MuiInputBase-input":
+                                                                            {
+                                                                                fontSize: 12,
+                                                                                textAlign:
+                                                                                    "right",
+                                                                                "&::-webkit-outer-spin-button, &::-webkit-inner-spin-button":
+                                                                                {
+                                                                                    WebkitAppearance:
+                                                                                        "none",
+                                                                                    margin: 0,
+                                                                                },
+                                                                            },
+                                                                        }}
+                                                                    />
+                                                                </TableCell>
+                                                            );
+                                                        }
                                                     )}
-                                                </TableCell>
-                                                <TableCell className="!text-xs !text-green-700">
-                                                    ₹{" "}
-                                                    {p.newCtc.toLocaleString(
-                                                        "en-IN"
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="!text-xs">
-                                                    ₹{" "}
-                                                    {p.incrementAmount.toLocaleString(
-                                                        "en-IN"
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="!text-xs">
-                                                    {p.incrementPercent.toFixed(
-                                                        2
-                                                    )}
-                                                    %
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+
+                                                    <TableCell className="!text-right">
+                                                        <span
+                                                            className={
+                                                                p.incrementPercent >= 0
+                                                                    ? "text-xs font-bold text-green-700"
+                                                                    : "text-xs font-bold text-red-700"
+                                                            }
+                                                        >
+                                                            {p.incrementPercent.toFixed(
+                                                                2
+                                                            )}
+                                                            %
+                                                        </span>
+                                                    </TableCell>
+
+                                                    <TableCell className="!text-center">
+                                                        <Tooltip title="Reset to template default">
+                                                            <span>
+                                                                <Button
+                                                                    size="small"
+                                                                    disabled={!isEdited}
+                                                                    onClick={() => {
+                                                                        setEditedIncrements(
+                                                                            (prev) => {
+                                                                                const n = {
+                                                                                    ...prev,
+                                                                                };
+                                                                                delete n[
+                                                                                    p
+                                                                                        .employeeId
+                                                                                ];
+                                                                                return n;
+                                                                            }
+                                                                        );
+                                                                        setEditedComponents(
+                                                                            (prev) => {
+                                                                                const n = {
+                                                                                    ...prev,
+                                                                                };
+                                                                                delete n[
+                                                                                    p
+                                                                                        .employeeId
+                                                                                ];
+                                                                                return n;
+                                                                            }
+                                                                        );
+                                                                    }}
+                                                                    sx={{
+                                                                        minWidth: 0,
+                                                                        p: 0.5,
+                                                                        color: "#2c74f1",
+                                                                        "&:hover": {
+                                                                            color: "#ef4444",
+                                                                        },
+                                                                    }}
+                                                                >
+                                                                    <RefreshOutlined />
+                                                                </Button>
+                                                            </span>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+
                                         {!preview.length && (
                                             <TableRow>
                                                 <TableCell
-                                                    colSpan={6}
+                                                    colSpan={
+                                                        6 +
+                                                        earningComponentNames.length +
+                                                        1
+                                                    }
                                                     align="center"
                                                 >
                                                     <div className="!text-xs !py-6 !text-gray-500">
@@ -767,9 +1117,7 @@ export default function CreateRevision({
                 </>
             )}
 
-            {/* ══════════════════════════════════════════════ */}
-            {/* Footer Actions                                 */}
-            {/* ══════════════════════════════════════════════ */}
+            {/* Footer Actions */}
             <Box className="flex justify-between mt-4">
                 <Button
                     disabled={activeStep === 0}

@@ -66,6 +66,7 @@ import type { Department, Branches, Employee } from "../../employees/type";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
@@ -99,7 +100,7 @@ function InlineDisplay({
         }
       }}
       className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${disabled
-        ? "cursor-not-allowed opacity-60"
+        ? ""
         : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
         } ${className}`}
     >
@@ -157,6 +158,59 @@ export function DailyRegister() {
     setEditingField(null);
     setDraftDateTime(null);
   };
+
+  function saveInlineField(
+    emp: RegisterEmployee,
+    field: "checkInDate" | "checkInTime" | "checkOutDate" | "checkOutTime",
+  ) {
+    const selected = dayjs(draftDateTime);
+    if (!selected.isValid()) {
+      showSnackbar("Please enter a complete, valid date and time", "warning");
+      return;
+    }
+
+    const value = field.endsWith("Time")
+      ? dayjs(
+          `${dayjs(
+            field === "checkInTime"
+              ? emp.checkInTime || emp.checkInDate || date
+              : emp.checkOutTime || emp.checkOutDate || date,
+          ).format("YYYY-MM-DD")}T${selected.format("HH:mm:ss")}`,
+        )
+      : selected;
+
+    if (value.isAfter(dayjs())) {
+      showSnackbar("Attendance time cannot be in the future", "warning");
+      return;
+    }
+    if (field.startsWith("checkOut")) {
+      if (!emp.checkInTime) {
+        showSnackbar("Please mark check-in first", "warning");
+        return;
+      }
+      if (value.isBefore(dayjs(emp.checkInTime))) {
+        showSnackbar("Check-out cannot be before check-in", "warning");
+        return;
+      }
+    }
+
+    closeField();
+    if (field === "checkInDate" || field === "checkOutDate") {
+      const changeHandler =
+        field === "checkInDate"
+          ? handleInlineCheckInDateChange
+          : handleInlineCheckOutDateChange;
+      void changeHandler(
+        emp,
+        value.format("YYYY-MM-DD"),
+        value.format("HH:mm:ss"),
+      );
+    } else if (field === "checkInTime") {
+      void handleInlineCheckInTimeChange(emp, value.toISOString());
+    } else {
+      void handleInlineCheckOutTimeChange(emp, value.toISOString());
+    }
+  }
 
   // Correction dialog state
   const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false);
@@ -333,7 +387,7 @@ export function DailyRegister() {
       departmentService.getActiveDepartments(),
       branchService.getActiveBranches(),
       biometricService.getAllDevices(),
-      employeeService.getEmployees({ includeInactive: true, size: 10000 }),
+      employeeService.getEmployees({ includeInactive: true }),
     ])
       .then(([depRes, branRes, devRes, empRes]: any[]) => {
         setDepartments(
@@ -1302,8 +1356,8 @@ export function DailyRegister() {
       { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
       { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
       { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
-      { label: "Missed Punch", value: todaySummary.checkedIn, color: "text-cyan-600", border: "border-cyan-500" },
-      { label: "Not Yet In", value: todaySummary.notYetIn, color: "text-pink-600", border: "border-pink-500" },
+      { label: "Missed Punch", value: todaySummary.missedPunchCount, color: "text-cyan-600", border: "border-cyan-500" },
+      { label: "Irregular", value: todaySummary.irregular, color: "text-pink-600", border: "border-pink-500" },
       { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
     ]
     : [];
@@ -1768,25 +1822,8 @@ export function DailyRegister() {
                           {isEditingField(emp.employeeId, "checkInDate") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                               <DateTimePicker
-                                autoFocus
-                                open
-                                onClose={closeField}
                                 value={draftDateTime}
                                 onChange={(newValue) => setDraftDateTime(newValue)}
-                                onAccept={(newValue) => {
-                                  if (!newValue) return;
-                                  const selected = dayjs(newValue);
-                                  if (selected.isAfter(dayjs())) {
-                                    showSnackbar("Check-in cannot be in the future", "warning");
-                                    return;
-                                  }
-                                  closeField();
-                                  handleInlineCheckInDateChange(
-                                    emp,
-                                    selected.format("YYYY-MM-DD"),
-                                    selected.format("HH:mm:ss"),
-                                  );
-                                }}
                                 format="DD/MM/YYYY HH:mm:ss"
                                 ampm={false}
                                 maxDateTime={dayjs()}
@@ -1796,15 +1833,25 @@ export function DailyRegister() {
                                     variant: "outlined",
                                     sx: {
                                       ...inlineInputSx,
-                                      width: "160px",
+                                      width: "140px",
                                       ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 0px !important",
+                                        padding: "0 2px 0 5px !important",
                                       },
                                     },
                                   },
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
+                              <Tooltip title="Save check-in date and time">
+                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkInDate")} disabled={isEditing}> */}
+                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkInDate")} className="!w-4 text-green-700 cursor-pointer" />
+                                {/* </IconButton> */}
+                              </Tooltip>
+                              <Tooltip title="Cancel edit">
+                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
+                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-700 cursor-pointer" />
+                                {/* </IconButton> */}
+                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
@@ -1813,17 +1860,14 @@ export function DailyRegister() {
                                 !isLeave &&
                                 !isEditing &&
                                 !processStatus.locked &&
+                                !emp.checkInDate &&
                                 openField(
                                   emp.employeeId,
                                   "checkInDate",
-                                  emp.checkInTime
-                                    ? dayjs(emp.checkInTime)
-                                    : emp.checkInDate
-                                      ? dayjs(`${emp.checkInDate}T00:00:00`)
-                                      : null,
+                                  dayjs(emp.checkInTime || emp.checkInDate || date),
                                 )
                               }
-                              disabled={isLeave || isEditing}
+                              disabled={isLeave || isEditing || !!emp.checkInDate}
                             />
                           )}
                         </div>
@@ -1834,25 +1878,11 @@ export function DailyRegister() {
                         <div className="flex items-center gap-1">
                           {isEditingField(emp.employeeId, "checkInTime") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
-                              <DateTimePicker
-                                autoFocus
-                                open
-                                onClose={closeField}
+                              <TimePicker
+                                ampm={false}
                                 value={draftDateTime}
                                 onChange={(newValue) => setDraftDateTime(newValue)}
-                                onAccept={(newValue) => {
-                                  if (!newValue) return;
-                                  const selected = dayjs(newValue);
-                                  if (selected.isAfter(dayjs())) {
-                                    showSnackbar("Check-in time cannot be in the future", "warning");
-                                    return;
-                                  }
-                                  closeField();
-                                  handleInlineCheckInTimeChange(emp, selected.toISOString());
-                                }}
                                 format="HH:mm:ss"
-                                ampm={false}
-                                maxDateTime={dayjs()}
                                 disabled={isLeave || isEditing}
                                 slots={{ openPickerIcon: AccessTimeOutlined }}
                                 slotProps={{
@@ -1861,18 +1891,29 @@ export function DailyRegister() {
                                     variant: "outlined",
                                     sx: {
                                       ...inlineInputSx,
-                                      width: "100px",
+                                      width: "80px",
                                       "& .MuiInputBase-input": {
                                         color: emp.checkInTime ? "#15803d" : "#ef4444",
                                       },
                                       ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 0px !important",
+                                        padding: "0 2px 0 5px !important",
                                       },
                                     },
                                   },
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
+                              <Tooltip title="Save check-in time">
+                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkInTime")} disabled={isEditing}> */}
+                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkInTime")}  
+                                  className="!w-4 text-green-700" />
+                                {/* </IconButton> */}
+                              </Tooltip>
+                              <Tooltip title="Cancel edit">
+                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
+                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-500" />
+                                {/* </IconButton> */}
+                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
@@ -1900,29 +1941,8 @@ export function DailyRegister() {
                           {isEditingField(emp.employeeId, "checkOutDate") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                               <DateTimePicker
-                                autoFocus
-                                open
-                                onClose={closeField}
                                 value={draftDateTime}
                                 onChange={(newValue) => setDraftDateTime(newValue)}
-                                onAccept={(newValue) => {
-                                  if (!newValue) return;
-                                  const selected = dayjs(newValue);
-                                  if (selected.isAfter(dayjs())) {
-                                    showSnackbar("Check-out cannot be in the future", "warning");
-                                    return;
-                                  }
-                                  if (emp.checkInTime && selected.isBefore(dayjs(emp.checkInTime))) {
-                                    showSnackbar("Check-out cannot be before check-in", "warning");
-                                    return;
-                                  }
-                                  closeField();
-                                  handleInlineCheckOutDateChange(
-                                    emp,
-                                    selected.format("YYYY-MM-DD"),
-                                    selected.format("HH:mm:ss"),
-                                  );
-                                }}
                                 format="DD/MM/YYYY HH:mm:ss"
                                 ampm={false}
                                 maxDateTime={dayjs()}
@@ -1934,38 +1954,45 @@ export function DailyRegister() {
                                     variant: "outlined",
                                     sx: {
                                       ...inlineInputSx,
-                                      width: "160px",
+                                      width: "140px",
                                       "& .MuiInputBase-input": {
                                         color: emp.checkOutDate ? "#1f2937" : "#9ca3af",
                                       },
                                       ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 0px !important",
+                                        padding: "0 2px 0 5px !important",
                                       },
                                     },
                                   },
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
+                              <Tooltip title="Save check-out date and time">
+                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkOutDate")} disabled={isEditing}> */}
+                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkOutDate")} className="!w-4 text-green-700" />
+                                {/* </IconButton> */}
+                              </Tooltip>
+                              <Tooltip title="Cancel edit">
+                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
+                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-700" />
+                                {/* </IconButton> */}
+                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
                               value={emp.checkOutDate ? dayjs(emp.checkOutDate).format("DD MMM YYYY") : null}
                               onClick={() =>
                                 !isLeave &&
-                                !isEditing && 
+                                !isEditing &&
                                 !processStatus.locked &&
                                 emp.checkInTime &&
+                                !emp.checkOutDate &&
                                 openField(
                                   emp.employeeId,
                                   "checkOutDate",
-                                  emp.checkOutTime
-                                    ? dayjs(emp.checkOutTime)
-                                    : emp.checkOutDate
-                                      ? dayjs(`${emp.checkOutDate}T00:00:00`)
-                                      : null,
+                                  dayjs(emp.checkOutTime || emp.checkOutDate || date),
                                 )
                               }
-                              disabled={isLeave || isEditing || !emp.checkInTime}
+                              disabled={isLeave || isEditing || !emp.checkInTime || !!emp.checkOutDate}
                             />
                           )}
                         </div>
@@ -1976,30 +2003,11 @@ export function DailyRegister() {
                         <div className="flex items-center gap-1">
                           {isEditingField(emp.employeeId, "checkOutTime") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
-                              <DateTimePicker
-                                autoFocus
-                                open
-                                onClose={closeField}
+                              <TimePicker
+                                ampm={false}
                                 value={draftDateTime}
                                 onChange={(newValue) => setDraftDateTime(newValue)}
-                                onAccept={(newValue) => {
-                                  if (!newValue) return;
-                                  const selected = dayjs(newValue);
-                                  if (selected.isAfter(dayjs())) {
-                                    showSnackbar("Check-out time cannot be in the future", "warning");
-                                    return;
-                                  }
-                                  if (emp.checkInTime && selected.isBefore(dayjs(emp.checkInTime))) {
-                                    showSnackbar("Check-out time cannot be before check-in time", "warning");
-                                    return;
-                                  }
-                                  closeField();
-                                  handleInlineCheckOutTimeChange(emp, selected.toISOString());
-                                }}
                                 format="HH:mm:ss"
-                                ampm={false}
-                                maxDateTime={dayjs()}
-                                minDateTime={emp.checkInTime ? dayjs(emp.checkInTime) : undefined}
                                 disabled={isLeave || isEditing || !emp.checkInTime}
                                 slots={{ openPickerIcon: AccessTimeOutlined }}
                                 slotProps={{
@@ -2008,18 +2016,28 @@ export function DailyRegister() {
                                     variant: "outlined",
                                     sx: {
                                       ...inlineInputSx,
-                                      width: "100px",
+                                      width: "80px",
                                       "& .MuiInputBase-input": {
                                         color: emp.checkOutTime ? "#2563eb !important" : "#9ca3af",
                                       },
                                       ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 0px !important",
+                                        padding: "0 2px 0 5px !important",
                                       },
                                     },
                                   },
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
+                              <Tooltip title="Save check-out time">
+                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkOutTime")} disabled={isEditing}> */}
+                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkOutTime")} className="!w-4 text-green-700" />
+                                {/* </IconButton> */}
+                              </Tooltip>
+                              <Tooltip title="Cancel edit">
+                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
+                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-700" />
+                                {/* </IconButton> */}
+                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
@@ -3371,10 +3389,14 @@ export function DailyRegister() {
                     <DatePicker
                       label="From Date"
                       value={punchImportFromDate ? dayjs(punchImportFromDate) : null}
-                      onChange={(newValue) =>
+                      onChange={(newValue) => {
                         setPunchImportFromDate(
                           newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                        );
+                        setPunchImportToDate(
+                          newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                         )
+                      }
                       }
                       maxDate={dayjs()}
                       format="DD/MM/YYYY"

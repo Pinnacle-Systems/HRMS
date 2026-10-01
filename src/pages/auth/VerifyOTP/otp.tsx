@@ -262,6 +262,7 @@ export default function VerifyOTP() {
               replace: true,
               state: {
                 email: outcome.email || state.mobileNumber,
+                token: outcome.session?.accessToken
               },
             });
             break;

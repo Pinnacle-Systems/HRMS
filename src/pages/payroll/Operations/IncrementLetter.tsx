@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Button, Chip } from "@mui/material";
 import { formatDate } from "../../../utils/dateFormatter";
@@ -12,7 +12,10 @@ import { loadCompanyDetails } from "../../../utils/companyDetails";
 const joinParts = (
     parts: Array<string | number | null | undefined>,
     sep = ", "
-): string => parts.filter((p) => p != null && String(p).trim() !== "").join(sep);
+): string =>
+    parts
+        .filter((p) => p != null && String(p).trim() !== "")
+        .join(sep);
 
 const humanizeComponentType = (t: string | undefined): string => {
     if (!t) return "—";
@@ -22,6 +25,19 @@ const humanizeComponentType = (t: string | undefined): string => {
         EMPLOYER_CONTRIBUTION: "Employer Contribution",
     };
     return map[t] ?? t.charAt(0) + t.slice(1).toLowerCase();
+};
+
+const capitalizeFirst = (s: string): string =>
+    s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+const formatINR = (n: number): string => n.toLocaleString("en-IN");
+
+const formatSigned = (n: number): string =>
+    `${n >= 0 ? "+" : "-"}${formatINR(Math.abs(n))}`;
+
+const formatPct = (pct: number | null): string => {
+    if (pct == null || !isFinite(pct)) return "—";
+    return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
 };
 
 export default function IncrementLetter() {
@@ -38,9 +54,12 @@ export default function IncrementLetter() {
     // ── Load revision + employee ──
     useEffect(() => {
         if (!id) return;
+        let cancelled = false;
+
         salaryRevisionService
             .getRevisionById(id)
             .then((res: any) => {
+                if (cancelled) return;
                 const revision = res.data;
                 const emp = (revision.employees || []).find(
                     (e: any) => e.employeeId === employeeId
@@ -58,12 +77,21 @@ export default function IncrementLetter() {
                 }
             })
             .catch(() => {
-                showSnackbar("Failed to load revision for letter", "error");
+                if (!cancelled) {
+                    showSnackbar(
+                        "Failed to load revision for letter",
+                        "error"
+                    );
+                }
             });
-    }, [id, employeeId, showSnackbar]);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id, employeeId]);
 
     // ── Download PDF ──
-    const handleDownload = async () => {
+    const handleDownload = useCallback(async () => {
         if (!id || !employeeId || !letterUrl) return;
         showSpinner();
         try {
@@ -77,78 +105,159 @@ export default function IncrementLetter() {
         } finally {
             hideSpinner();
         }
-    };
+    }, [id, employeeId, letterUrl, showSpinner, hideSpinner, showSnackbar]);
 
-    if (!data?.employee) return null;
+    // ── Derived values (memoized so hooks order is stable) ──
+    const derived = useMemo(() => {
+        if (!data?.employee) return null;
 
-    const { revision, employee } = data;
-    const components = employee.components || [];
+        const { revision, employee } = data;
+        const components = employee.components || [];
 
-    const companyName = session?.company?.companyName || "—";
-    const companyAddressLine =
-        joinParts([
-            companyDetails?.companyAddress,
-            companyDetails?.cityName,
-            companyDetails?.stateName,
-            companyDetails?.pincode,
-        ]) || "—";
-    const companyGstin = companyDetails?.gstNo?.trim() || null;
-    const companyPlace = companyDetails?.cityName?.trim() || "—";
-    const companyHrContact =
-        companyDetails?.phone?.trim() ||
-        // companyDetails?.email?.trim() ||
-        "the HR department";
+        const companyName = session?.company?.companyName || "—";
 
-    const companyLogoUrl: string | null =
-        session?.company?.logoUrl?.trim() ||
-        null;
+        const companyAddressLine =
+            joinParts([
+                companyDetails?.companyAddress,
+                companyDetails?.cityName,
+                companyDetails?.stateName,
+                companyDetails?.pincode,
+            ]) || "—";
 
-    const letterDate = formatDate(
-        revision.issuedAt ||
+        const companyGstin = companyDetails?.gstNo?.trim() || null;
+        const companyPlace = companyDetails?.cityName?.trim() || "—";
+
+        // Fixed HR contact grammar
+        const hrPhone = companyDetails?.phone?.trim();
+        const hrContactLine = hrPhone
+            ? `please contact HR at ${hrPhone}.`
+            : "please contact the HR department.";
+
+        const companyLogoUrl: string | null =
+            session?.company?.logoUrl?.trim() || null;
+
+        const letterDate = formatDate(
+            revision.issuedAt ||
             revision.createdAt ||
             new Date().toISOString()
-    );
+        );
 
-    const oldCtc = Number(employee.oldCtc ?? 0);
-    const newCtc = Number(employee.newCtc ?? 0);
-    const incrementAmount = newCtc - oldCtc;
-    const incrementPercent =
-        oldCtc > 0
-            ? (incrementAmount / oldCtc) * 100
-            : Number(employee.incrementPercent ?? 0);
+        const oldCtc = Number(employee.oldCtc ?? 0);
+        const newCtc = Number(employee.newCtc ?? 0);
+        const oldGross = Number(employee.oldGross ?? 0);
+        const newGross = Number(employee.newGross ?? 0);
+        const incrementGross = newGross - oldGross;
+        const incrementGrossPercent =
+            oldGross > 0 ? (incrementGross / oldGross) * 100 : 0;
 
-    const reasonText = (revision.reason || "")
-        .replace(/_/g, " ")
-        .toLowerCase();
+        const incrementAmount = newCtc - oldCtc;
+        const incrementPercent =
+            oldCtc > 0
+                ? (incrementAmount / oldCtc) * 100
+                : Number(employee.incrementPercent ?? 0);
 
-    const effectiveFromText = employee.effectiveFrom
-        ? formatDate(employee.effectiveFrom)
-        : "—";
+        // ── Compute totals from components ──
+        // const isEarning = (c: any) =>
+        //     String(c.componentType || "").toUpperCase() === "EARNING";
+        const isDeduction = (c: any) =>
+            String(c.componentType || "").toUpperCase() === "DEDUCTION";
+
+        const oldDeductions = components
+            .filter(isDeduction)
+            .reduce(
+                (s: number, c: any) => s + Number(c.oldValue ?? 0),
+                0
+            );
+        const newDeductions = components
+            .filter(isDeduction)
+            .reduce(
+                (s: number, c: any) => s + Number(c.newValue ?? 0),
+                0
+            );
+
+        const oldNetPay = oldGross - oldDeductions;
+        const newNetPay = newGross - newDeductions;
+        const incrementNetPay = newNetPay - oldNetPay;
+        const incrementNetPayPercent =
+            oldNetPay > 0 ? (incrementNetPay / oldNetPay) * 100 : 0;
+
+        const incrementDeductions = newDeductions - oldDeductions;
+        const incrementDeductionsPercent =
+            oldDeductions > 0
+                ? (incrementDeductions / oldDeductions) * 100
+                : 0;
+
+        const reasonRaw = (revision.reason || "")
+            .replace(/_/g, " ")
+            .toLowerCase()
+            .trim();
+        const reasonText = reasonRaw ? capitalizeFirst(reasonRaw) : "";
+
+        const effectiveFromText = employee.effectiveFrom
+            ? formatDate(employee.effectiveFrom)
+            : "—";
+
+        return {
+            revision,
+            employee,
+            components,
+            companyName,
+            companyAddressLine,
+            companyGstin,
+            companyPlace,
+            hrContactLine,
+            companyLogoUrl,
+            letterDate,
+            oldCtc,
+            newCtc,
+            incrementAmount,
+            incrementPercent,
+            oldGross,
+            newGross,
+            incrementGross,
+            incrementGrossPercent,
+            oldDeductions,
+            newDeductions,
+            incrementDeductions,
+            incrementDeductionsPercent,
+            oldNetPay,
+            newNetPay,
+            incrementNetPay,
+            incrementNetPayPercent,
+            reasonText,
+            effectiveFromText,
+        };
+    }, [data, session, companyDetails]);
+
+    if (!derived) return null;
+
+    const {
+        revision,
+        employee,
+        components,
+        companyName,
+        companyAddressLine,
+        companyGstin,
+        companyPlace,
+        hrContactLine,
+        companyLogoUrl,
+        letterDate,
+        newGross,
+        newNetPay,
+        newDeductions,
+        reasonText,
+        effectiveFromText,
+    } = derived;
 
     return (
-        <Box>
-            {/* ── Print CSS ── */}
-            <style>{`
-                @media print {
-                    body * { visibility: hidden; }
-                    .letter-body, .letter-body * { visibility: visible; }
-                    .letter-body {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        box-shadow: none !important;
-                        padding: 0 !important;
-                    }
-                    .no-print { display: none !important; }
-                }
-            `}</style>
-
+        <div className="mb-3">
             {/* ── Toolbar ── */}
             <Box className="flex justify-between mb-3 items-center no-print">
                 <div className="flex items-center gap-2">
                     <BackButton to={`/payroll/revision/${id}`} />
-                    <div className="font-bold">Salary Revision Letter</div>
+                    <div className="font-bold text-gray-500">
+                        Salary Revision Letter
+                    </div>
                     {!letterUrl && (
                         <Chip
                             size="small"
@@ -168,28 +277,25 @@ export default function IncrementLetter() {
             </Box>
 
             {/* ── Letter body ── */}
-            <div className="letter-body !p-8 !shadow-sm max-w-3xl mx-auto text-sm leading-relaxed bg-white">
-                {/* ── Company letterhead ── */}
-                <div className="flex items-center gap-4 border-b border-gray-200 pb-4 mb-6">
-                    {/* Logo */}
+            <div className="letter-body p-4 shadow-sm max-w-3xl mx-auto text-sm leading-relaxed bg-white">
+                <div className="flex justify-between items-center gap-4 border-b border-gray-200 pb-3 mb-3">
                     {companyLogoUrl ? (
-                        <div className="w-28 h-20">
+                        <div className="w-40">
                             <img
                                 src={companyLogoUrl}
                                 alt={`${companyName} logo`}
                                 className="max-w-full max-h-full object-contain"
                                 onError={(e) => {
-                                    // Hide broken image so layout doesn't break
-                                    (e.currentTarget as HTMLImageElement).style.display =
-                                        "none";
+                                    (
+                                        e.currentTarget as HTMLImageElement
+                                    ).style.display = "none";
                                 }}
                             />
                         </div>
                     ) : null}
 
-                    {/* Company name + address */}
-                    <div className="flex-1 text-center">
-                        <div className="text-xl font-bold tracking-wide">
+                    <div className="text-right">
+                        <div className="text-[12px] font-bold tracking-wide">
                             {companyName}
                         </div>
                         <div className="text-[11px] text-gray-600 mt-1">
@@ -201,15 +307,10 @@ export default function IncrementLetter() {
                             </div>
                         )}
                     </div>
-
-                    {/* Spacer to keep name visually centered when logo exists */}
-                    {companyLogoUrl ? (
-                        <div className="shrink-0 w-20 h-20" aria-hidden="true" />
-                    ) : null}
                 </div>
 
                 {/* ── Letter title ── */}
-                <div className="text-center mb-6">
+                <div className="text-center mb-3">
                     <div className="text-base font-bold underline">
                         SALARY REVISION LETTER
                     </div>
@@ -227,7 +328,7 @@ export default function IncrementLetter() {
                 </div>
 
                 {/* ── Employee block ── */}
-                <div className="mb-4">
+                <div>
                     <div className="font-semibold">
                         {employee.employeeName}
                     </div>
@@ -239,7 +340,10 @@ export default function IncrementLetter() {
                     {(employee.designation || employee.department) && (
                         <div className="text-[12px] text-gray-700">
                             {joinParts(
-                                [employee.designation, employee.department],
+                                [
+                                    employee.designation,
+                                    employee.department,
+                                ],
                                 " — "
                             )}
                         </div>
@@ -249,14 +353,14 @@ export default function IncrementLetter() {
                     </div>
                 </div>
 
-                <p className="mt-4">
+                <p className="mt-2">
                     <b>Subject:</b> Revision of Salary with effect from{" "}
                     <b>{effectiveFromText}</b>
                 </p>
 
-                <p className="mt-4">Dear {employee.employeeName},</p>
+                <p className="mt-2">Dear {employee.employeeName},</p>
 
-                <p className="mt-3 text-justify">
+                <p className="mt-2 text-justify">
                     We are pleased to inform you that in recognition of your
                     contributions and performance, your salary has been
                     revised with effect from <b>{effectiveFromText}</b>
@@ -271,6 +375,9 @@ export default function IncrementLetter() {
 
                 {/* ── Salary components table ── */}
                 <table className="w-full mt-4 border-collapse">
+                    <caption className="sr-only">
+                        Salary component comparison: previous vs revised
+                    </caption>
                     <thead>
                         <tr className="bg-gray-100">
                             <th className="border p-2 text-left text-xs">
@@ -294,7 +401,7 @@ export default function IncrementLetter() {
                         </tr>
                     </thead>
                     <tbody>
-                        {components.map((c: any) => {
+                        {components.map((c: any, idx: number) => {
                             const oldVal = Number(c.oldValue ?? 0);
                             const newVal = Number(c.newValue ?? 0);
                             const delta =
@@ -305,10 +412,14 @@ export default function IncrementLetter() {
                                 oldVal > 0
                                     ? Number(c.deltaPercent ?? 0)
                                     : null;
+                            const isNewComponent = oldVal === 0 && newVal > 0;
 
                             return (
                                 <tr
-                                    key={c.componentId || c.componentName}
+                                    key={
+                                        c.componentId ??
+                                        `${c.componentName}-${idx}`
+                                    }
                                 >
                                     <td className="border p-2 text-xs">
                                         {c.componentName}
@@ -319,23 +430,18 @@ export default function IncrementLetter() {
                                         )}
                                     </td>
                                     <td className="border p-2 text-right text-xs">
-                                        {oldVal.toLocaleString("en-IN")}
+                                        {formatINR(oldVal)}
                                     </td>
                                     <td className="border p-2 text-right text-xs">
-                                        {newVal.toLocaleString("en-IN")}
+                                        {formatINR(newVal)}
                                     </td>
                                     <td className="border p-2 text-right text-xs">
-                                        {delta >= 0 ? "+" : "-"}
-                                        {Math.abs(delta).toLocaleString(
-                                            "en-IN"
-                                        )}
+                                        {formatSigned(delta)}
                                     </td>
                                     <td className="border p-2 text-right text-xs">
-                                        {pct != null
-                                            ? `${pct >= 0 ? "+" : ""}${pct.toFixed(
-                                                  2
-                                              )}%`
-                                            : "—"}
+                                        {isNewComponent
+                                            ? "New"
+                                            : formatPct(pct)}
                                     </td>
                                 </tr>
                             );
@@ -352,36 +458,133 @@ export default function IncrementLetter() {
                             </tr>
                         )}
 
-                        {/* ── Total CTC row ── */}
-                        <tr className="font-bold bg-gray-50">
+                        {/* ── Total Gross row ── */}
+                        {/* <tr className="font-bold bg-gray-50">
                             <td
                                 className="border p-2 text-xs"
                                 colSpan={2}
                             >
-                                Total CTC (Annual)
+                                Total Gross (Monthly)
                             </td>
                             <td className="border p-2 text-right text-xs">
-                                {oldCtc.toLocaleString("en-IN")}
+                                {formatINR(oldGross)}
                             </td>
                             <td className="border p-2 text-right text-xs">
-                                {newCtc.toLocaleString("en-IN")}
+                                {formatINR(newGross)}
                             </td>
                             <td className="border p-2 text-right text-xs">
-                                {incrementAmount >= 0 ? "+" : "-"}
-                                {Math.abs(incrementAmount).toLocaleString(
-                                    "en-IN"
-                                )}
+                                {formatSigned(incrementGross)}
                             </td>
                             <td className="border p-2 text-right text-xs">
-                                {incrementPercent >= 0 ? "+" : ""}
-                                {incrementPercent.toFixed(2)}%
+                                {formatPct(incrementGrossPercent)}
                             </td>
-                        </tr>
+                        </tr> */}
+
+                        {/* ── Total Deductions row ── */}
+                        {/* <tr className="font-bold bg-gray-50">
+                            <td
+                                className="border p-2 text-xs"
+                                colSpan={2}
+                            >
+                                Total Deductions
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {formatINR(oldDeductions)}
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {formatINR(newDeductions)}
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {formatSigned(incrementDeductions)}
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {oldDeductions > 0
+                                    ? formatPct(
+                                          incrementDeductionsPercent
+                                      )
+                                    : "—"}
+                            </td>
+                        </tr> */}
+
+                        {/* ── Net Pay row ── */}
+                        {/* <tr className="font-bold bg-gray-100">
+                            <td
+                                className="border p-2 text-xs"
+                                colSpan={2}
+                            >
+                                Net Pay (Monthly)
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {formatINR(oldNetPay)}
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {formatINR(newNetPay)}
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {formatSigned(incrementNetPay)}
+                            </td>
+                            <td className="border p-2 text-right text-xs">
+                                {oldNetPay > 0
+                                    ? formatPct(incrementNetPayPercent)
+                                    : "—"}
+                            </td>
+                        </tr> */}
                     </tbody>
                 </table>
 
+                {/* ── Summary highlight strip ── */}
+                <div className="mt-3 text-xs flex justify-between border border-gray-200 rounded">
+                    <div className="flex-1 flex justify-between items-center py-3 px-3 border-r">
+                        <span>Total Gross (Monthly) (₹)</span>
+                        <span className="font-bold text-green-700">
+                            {formatINR(newGross)}
+                        </span>
+                    </div>
+
+                    <div className="flex-1 flex justify-between items-center py-3 px-3 border-r">
+                        <span>Total Deductions (₹)</span>
+                        <span className="font-bold text-red-600">
+                            {formatINR(newDeductions)}
+                        </span>
+                    </div>
+
+                    <div className="flex-1 flex justify-between items-center py-3 px-3 bg-gray-100 rounded">
+                        <span>Net Pay (Monthly) (₹)</span>
+                        <span className="font-bold text-blue-700">
+                            {formatINR(newNetPay)}
+                        </span>
+                    </div>
+                </div>
+
+                {/* ── Increment summary ── */}
+                {/* <div className="mt-3 text-xs flex justify-between border border-gray-200 rounded">
+                    <div className="flex-1 flex justify-between items-center py-3 px-3 border-r">
+                        <span>Gross Increase (Monthly) (₹)</span>
+                        <span className="font-bold text-green-700">
+                            {formatSigned(incrementGross)} (
+                            {formatPct(incrementGrossPercent)})
+                        </span>
+                    </div>
+
+                    <div className="flex-1 flex justify-between items-center py-3 px-3 border-r">
+                        <span>Net Increase (Monthly) (₹)</span>
+                        <span className="font-bold text-blue-700">
+                            {formatSigned(incrementNetPay)} (
+                            {formatPct(incrementNetPayPercent)})
+                        </span>
+                    </div>
+
+                    <div className="flex-1 flex justify-between items-center py-3 px-3 bg-gray-100 rounded">
+                        <span>Annual CTC Increase (₹)</span>
+                        <span className="font-bold text-green-700">
+                            {formatSigned(incrementAmount)} (
+                            {formatPct(incrementPercent)})
+                        </span>
+                    </div>
+                </div> */}
+
                 {/* ── Terms & Conditions ── */}
-                <div className="mt-6">
+                <div className="mt-4">
                     <p className="font-semibold text-[13px]">
                         Terms &amp; Conditions:
                     </p>
@@ -406,13 +609,13 @@ export default function IncrementLetter() {
                     </ol>
                 </div>
 
-                <p className="mt-6 text-justify">
+                <p className="mt-2 text-justify">
                     We appreciate your continued contribution and wish you
                     greater success in the future.
                 </p>
 
                 {/* ── Signature block ── */}
-                <div className="mt-10 flex justify-between items-end">
+                <div className="flex justify-between items-end">
                     <div>
                         <p className="text-[12px] text-gray-700">
                             Place: {companyPlace}
@@ -436,17 +639,17 @@ export default function IncrementLetter() {
                 </div>
 
                 {/* ── Query contact ── */}
-                <p className="mt-6 text-[11px] text-gray-500 text-center">
-                    For any queries regarding this revision, please contact
-                    HR at {companyHrContact}.
+                <p className="mt-4 text-[11px] text-gray-500 text-center">
+                    For any queries regarding this revision,{" "}
+                    {hrContactLine}
                 </p>
 
                 {/* ── Acknowledgement ── */}
-                <div className="mt-10 pt-6 border-t border-dashed border-gray-300">
-                    <p className="font-semibold text-[13px] mb-3">
+                <div className="mt-4 pt-6 border-t border-dashed border-gray-300">
+                    <p className="font-semibold text-[13px] mb-2">
                         Employee Acknowledgement
                     </p>
-                    <p className="text-[12px] text-gray-700 mb-6">
+                    <p className="text-[12px] text-gray-700 mb-4">
                         I, <b>{employee.employeeName}</b>
                         {employee.employeeCode
                             ? ` (${employee.employeeCode})`
@@ -468,6 +671,6 @@ export default function IncrementLetter() {
                     </div>
                 </div>
             </div>
-        </Box>
+        </div>
     );
 }
