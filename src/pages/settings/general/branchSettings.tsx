@@ -1301,42 +1301,43 @@ export default function BranchSettings() {
                 />
               </div>
             </div>
-
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.active || false}
-                    onChange={handleSwitchChange}
-                    color="primary"
+            <div className="flex gap-3">
+              <FormControl fullWidth size="small">
+                <InputLabel id="geofence-mode-label">Geofence Mode</InputLabel>
+                <Select
+                  labelId="geofence-mode-label"
+                  id="geofence-mode-select"
+                  value={formData.geofenceMode || "disabled"}
+                  label="Geofence Mode"
+                  onChange={(e: SelectChangeEvent) => {
+                    const nextMode = e.target.value as GeofenceMode;
+                    setFormData((prev) => ({
+                      ...prev,
+                      geofenceMode: nextMode,
+                    }));
+                  }}
+                >
+                  <MenuItem value="disabled">Disabled</MenuItem>
+                  <MenuItem value="soft">Soft (Allow but flag)</MenuItem>
+                  <MenuItem value="strict">Strict (Block outside radius)</MenuItem>
+                </Select>
+              </FormControl>
+              {
+                formData.branchCode != 'HEAD OFFICE' &&
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.active || false}
+                        onChange={handleSwitchChange}
+                        color="primary"
+                      />
+                    }
+                    label="Active"
+                    className="text-gray-800"
                   />
-                }
-                label="Active"
-                className="text-gray-800"
-              />
-
-              <div className="min-w-[220px]">
-                <FormControl fullWidth size="small">
-                  <InputLabel id="geofence-mode-label">Geofence Mode</InputLabel>
-                  <Select
-                    labelId="geofence-mode-label"
-                    id="geofence-mode-select"
-                    value={formData.geofenceMode || "disabled"}
-                    label="Geofence Mode"
-                    onChange={(e: SelectChangeEvent) => {
-                      const nextMode = e.target.value as GeofenceMode;
-                      setFormData((prev) => ({
-                        ...prev,
-                        geofenceMode: nextMode,
-                      }));
-                    }}
-                  >
-                    <MenuItem value="disabled">Disabled</MenuItem>
-                    <MenuItem value="soft">Soft (Allow but flag)</MenuItem>
-                    <MenuItem value="strict">Strict (Block outside radius)</MenuItem>
-                  </Select>
-                </FormControl>
-              </div>
+                </div>
+              }
             </div>
           </div>
         </DialogContent>

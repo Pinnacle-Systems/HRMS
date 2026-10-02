@@ -26,9 +26,11 @@ import "dayjs/locale/en-gb";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import {
   getRowColor,
+  getStickyLeftOffsetSx,
   getStickyLeftSx,
   getStickyRightSx,
   handleEnterAsTab,
+  stickyHeaderLeftOffsetSx,
   stickyHeaderLeftSx,
   stickyHeaderRightSx,
 } from "../const";
@@ -59,8 +61,10 @@ import {
   FileDownloadOutlined,
   FileUploadOutlined,
   HowToRegOutlined,
+  MoneyOffCsred,
   MoreVertOutlined,
   NoAccountsOutlined,
+  PaidOutlined,
   VisibilityOutlined
 } from "@mui/icons-material";
 import {
@@ -862,6 +866,7 @@ export default function EmployeeManagement() {
       const response: any = await employeeService.bulkUploadEmployees(
         uploadFile,
         excelHasEmployeeIdColumn,
+        session?.branchId || "",
         (progress) => {
           setUploadProgress(progress);
         },
@@ -1315,49 +1320,51 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="nth-c !font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("employeeId")}
+                onClick={() => toggleSort("employeeGroup")}
+                sx={{ ...stickyHeaderLeftOffsetSx("70px"), minWidth: "90px" }}
               >
                 <div className="flex items-center gap-1">
+                  Emp Group
+                  {getSortIcon("employeeGroup")}
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() => toggleSort("employeeId")}
+                sx={{ ...stickyHeaderLeftOffsetSx("160px"), minWidth: "100px" }}
+              >
+                <div className="relative flex items-center gap-1">
+                  {(() => {
+                    const hasIncomplete = employees.some(
+                      (employee) =>
+                        !employee.department ||
+                        !employee.designation ||
+                        !employee.template ||
+                        !employee.employeeGroup
+                    );
+                    if (!hasIncomplete) return null;
+                    return (
+                      <Tooltip
+                        arrow
+                        title="Some employees are missing Department / Designation / Template / Group"
+                      >
+                        <span
+                          className="animate-blink absolute top-0 right-[15px] h-2 w-2 rounded-full bg-red-500"/>
+                      </Tooltip>
+                    );
+                  })()}
                   Employee ID
                   {getSortIcon("employeeId")}
                 </div>
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("employeeGroup")}
-              >
-                <div className="flex items-center gap-1">
-                  Employee Group
-                  {getSortIcon("employeeGroup")}
-                </div>
-              </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("template")}
-              >
-                <div className="flex items-center gap-1">
-                  Common Template
-                  {getSortIcon("template")}
-                </div>
-              </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("name")}
+                sx={{ ...stickyHeaderLeftOffsetSx("260px"), minWidth: "150px" }}
               >
                 <div className="flex items-center gap-1">
                   Employee Name
                   {getSortIcon("name")}
-                </div>
-              </TableCell>
-
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("branch")}
-              >
-                <div className="flex items-center gap-1">
-                  Branch
-                  {getSortIcon("branch")}
-
                 </div>
               </TableCell>
               <TableCell
@@ -1382,6 +1389,15 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
+                onClick={() => toggleSort("joiningDate")}
+              >
+                <div className="flex items-center gap-1">
+                  Joining Date
+                  {getSortIcon("joiningDate")}
+                </div>
+              </TableCell>
+              <TableCell
+                className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("emailAddress")}
               >
                 <div className="flex items-center gap-1">
@@ -1400,20 +1416,18 @@ export default function EmployeeManagement() {
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("joiningDate")}
+                onClick={() => toggleSort("template")}
               >
                 <div className="flex items-center gap-1">
-                  Joining Date
-                  {getSortIcon("joiningDate")}
+                  Common Template
+                  {getSortIcon("template")}
                 </div>
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                onClick={() => toggleSort("employeeStatus")}
               >
                 <div className="flex items-center gap-1">
-                  Status
-                  {getSortIcon("employeeStatus")}
+                  Relieved Date
                 </div>
               </TableCell>
               <TableCell
@@ -1423,7 +1437,9 @@ export default function EmployeeManagement() {
                   minWidth: "100px",
                 }}
               >
-                Actions
+                <div className="text-center">
+                  Actions
+                </div>
               </TableCell>
             </TableRow>
           </TableHead>
@@ -1443,27 +1459,45 @@ export default function EmployeeManagement() {
                   {page * limit + index + 1}
                 </TableCell>
                 <TableCell
-                  sx={{
-                    ...getStickyLeftSx(index),
-                    left: "70px",
-                    minWidth: "100px",
-                  }}
-                  className="hover:!text-blue-500 hover:!underline"
-                  onClick={() => { viewEmployeeDetails(employee) }}>
-                  {employee.employeeId}
+                  className="font-medium"
+                  sx={{ ...getStickyLeftOffsetSx(index, "70px"), minWidth: "90px" }}
+                >
+                  {employee.employeeGroup || "-"}
                 </TableCell>
-                <TableCell className="font-medium">
-                  {employee.employeeGroup}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {employee.template}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {employee.name}
-                </TableCell>
+                <TableCell
+                  className="cursor-pointer"
+                  onClick={() => viewEmployeeDetails(employee)}
+                  sx={{ ...getStickyLeftOffsetSx(index, "160px"), minWidth: "100px" }}
+                >
+                  {(() => {
+                    const missing: string[] = [];
+                    if (!employee.department) missing.push("Department");
+                    if (!employee.designation) missing.push("Designation");
+                    if (!employee.template) missing.push("Template");
+                    if (!employee.employeeGroup) missing.push("Group");
 
-                <TableCell>
-                  {employee.branch || "-"}
+                    const isComplete = missing.length === 0;
+
+                    return (
+                      <Tooltip
+                        title={isComplete ? "All details assigned" : `Missing: ${missing.join(", ")}`}
+                        arrow
+                      >
+                        <div
+                          className={`!font-bold cursor-pointer transition-colors hover:!text-blue-500 hover:!underline ${isComplete ? "!text-green-800" : "!text-red-600"
+                            }`}
+                        >
+                          {employee.employeeId}
+                        </div>
+                      </Tooltip>
+                    );
+                  })()}
+                </TableCell>
+                <TableCell
+                  className="font-medium"
+                  sx={{ ...getStickyLeftOffsetSx(index, "260px"), minWidth: "150px" }}
+                >
+                  {employee.name}
                 </TableCell>
                 <TableCell>
                   {employee.department || "-"}
@@ -1472,18 +1506,21 @@ export default function EmployeeManagement() {
                   {employee.designation || "-"}
                 </TableCell>
                 <TableCell>
-                  {employee.emailAddress}
-                </TableCell>
-                <TableCell>
-                  {employee.mobileNumber || "-"}
-                </TableCell>
-                <TableCell>
                   {employee.joiningDate
                     ? formatDate(employee.joiningDate)
                     : "-"}
                 </TableCell>
                 <TableCell>
-                  {employee.employeeStatus || "-"}
+                  {employee.emailAddress}
+                </TableCell>
+                <TableCell>
+                  {employee.mobileNumber || "-"}
+                </TableCell>
+                <TableCell className="font-medium">
+                  {employee.template || '-'}
+                </TableCell>
+                <TableCell>
+                  {employee.relievedDate || "-"}
                 </TableCell>
                 <TableCell
                   className="text-center"
@@ -1509,6 +1546,30 @@ export default function EmployeeManagement() {
                         }}
                       >
                         <Edit className="!w-3" color="info" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip
+                      title={
+                        employee.annualCtc && employee.annualCtc > 0
+                          ? "Salary Assigned"
+                          : "Click to Assign Salary"
+                      }
+                    >
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          if (employee.annualCtc && employee.annualCtc > 0) return;
+                          navigate(`/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`);
+                        }}
+                        sx={{
+                          cursor: employee.annualCtc && employee.annualCtc > 0 ? "default" : "pointer",
+                        }}
+                      >
+                        {employee.annualCtc && employee.annualCtc > 0 ? (
+                          <PaidOutlined className="!w-4 text-green-600" />
+                        ) : (
+                          <MoneyOffCsred className="!w-4 text-red-500" />
+                        )}
                       </IconButton>
                     </Tooltip>
                     {isEmployeeInactive(employee) ? (
@@ -1751,7 +1812,7 @@ export default function EmployeeManagement() {
               sx={masterSx}
             />
 
-            <Autocomplete
+            {/* <Autocomplete
               fullWidth
               options={empStatus}
               getOptionLabel={(option) => option.name || ""}
@@ -1774,7 +1835,7 @@ export default function EmployeeManagement() {
                 />
               )}
               sx={masterSx}
-            />
+            /> */}
 
             {!isEditing && (
               <>

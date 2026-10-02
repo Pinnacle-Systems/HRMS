@@ -426,7 +426,7 @@ export default function VerifyOTP() {
             <div className="flex items-center gap-2 mb-8">
               <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
-                Dot<span className="text-primary">HR</span>
+                Dot.<span className="text-primary">HR</span>
               </span>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 leading-snug mb-4">

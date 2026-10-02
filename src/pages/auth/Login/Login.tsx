@@ -244,12 +244,12 @@ export default function Login() {
             <div className="flex items-center gap-2 mb-8">
               <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
-                Dot<span className="text-primary">HR</span>
+                Dot.<span className="text-primary">HR</span>
               </span>
             </div>
             <h1 className="text-2xl font-semibold leading-snug mb-6">
               Sign in to <br />
-              Dot<span className="text-primary">HR</span>
+              Dot.<span className="text-primary">HR</span>
             </h1>
             <div className="flex items-center justify-center">
               <img src={grp} width="50" height="100" alt="group" />
@@ -288,7 +288,7 @@ export default function Login() {
               alt="pinnacle"
             />
             Welcome in <br />
-            Dot<span className="text-primary">HR</span> Platform
+            Dot.<span className="text-primary">HR</span> Platform
           </h2>
           <div className="text-[12px] mb-8 text-gray-400">
             {isMobile 

@@ -151,7 +151,7 @@ export const employeeColumns = [
   // { key: "employeeIdentity", label: "Employee Identity" },
   // { key: "employeeReferenceNumber", label: "Employee Reference Number" },
   { key: "referredBy", label: "Referred By" },
-  { key: "employeeStatus", label: "Employee Status", type: "select" },
+  // { key: "employeeStatus", label: "Employee Status", type: "select" },
   { key: "adminRemarks", label: "Remarks" },
   // { key: "idCardNo", label: "ID Card Number" },
   { key: "midNo", label: "Fingerprint ID Number", type: "text" },

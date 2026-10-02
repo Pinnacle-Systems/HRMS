@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Box, CardContent, Typography, Button, TextField, Select, MenuItem,
   FormControl, Table, TableBody, TableCell, TableHead, TableRow,
@@ -35,7 +35,7 @@ import { dialogSx, dialogsx, formatName, selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
 import { apiService } from "../../../services";
 import { departmentService } from "../../../services/modules/department";
@@ -154,6 +154,8 @@ export default function AssignSalaryStructure() {
   const theme = useTheme();
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autoOpenHandledRef = useRef(false);
 
   // ── Data state ──────────────────────────────────────────────────────────────
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -699,8 +701,8 @@ export default function AssignSalaryStructure() {
         exportFormat: format,
       };
       if (searchQuery.trim()) params.search = searchQuery.trim();
-      if (selectedDept !== "all") params.departmentId = selectedDept;              // ✅
-      if (selectedEmployeeGroup !== "all") params.employeeGroupId = selectedEmployeeGroup; // ✅
+      if (selectedDept !== "all") params.departmentId = selectedDept;
+      if (selectedEmployeeGroup !== "all") params.employeeGroupId = selectedEmployeeGroup;
 
       const res: any = await assignmentService.getAssignments(params);
       const fileUrl: string | undefined = res?.data?.fileUrl;
@@ -780,6 +782,43 @@ export default function AssignSalaryStructure() {
       ),
     [employeesWithAssignment]
   );
+
+  // ── Auto-open assign dialog when ?employeeId= is present in URL ─────────────
+  useEffect(() => {
+    const targetId = searchParams.get("employeeId");
+    if (!targetId) return;
+    if (autoOpenHandledRef.current) return;
+    if (employeesWithAssignment.length === 0) return;
+
+    const target =
+      employeesWithAssignment.find(
+        (e) =>
+          e.id === targetId ||
+          e.employeeId === targetId ||
+          e.employeeCode === targetId
+      ) ||
+      ({
+        id: targetId,
+        assignmentId: undefined,
+        employeeId: targetId,
+        employeeCode: targetId,
+        name: "Selected Employee",
+        department: "-",
+        designation: "-",
+        employeeGroup: "",
+        assignment: null,
+        isAssigned: false,
+        assignmentStatus: "unassigned",
+      } as any);
+
+    autoOpenHandledRef.current = true;
+    openAssignDialog(target);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("employeeId");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, employeesWithAssignment]);
 
   // ─── Render: Salary breakdown with charts ───────────────────────────────────
   const renderSalaryBreakdownWithCharts = () => {

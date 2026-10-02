@@ -62,6 +62,8 @@ export interface Employee {
   template: any;
   employeeGroup: any;
   templateId: string;
+  annualCtc: number;
+  monthlyCtc: number;
 }
 export interface Department {
   id: string;

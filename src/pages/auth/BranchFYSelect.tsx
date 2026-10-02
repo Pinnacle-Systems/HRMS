@@ -156,7 +156,7 @@ export default function BranchFiscalYearSelectPage() {
               </div>
               <h2 className="text-xl font-semibold text-gray-900">Company Setup Required</h2>
               <p className="text-gray-500 mt-2 text-sm">
-                <span className="font-bold text-lg"> Welcome to <span className="text-primary">Dot</span>HR!</span> <br></br>
+                <span className="font-bold text-lg"> Welcome to <span className="text-primary">Dot.</span>HR!</span> <br></br>
                 To access the dashboard, you need to configure your <span className="font-bold text-red-500">company details,
                   branches, and financial year</span> first.
               </p>

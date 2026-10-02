@@ -612,10 +612,12 @@ export const employeeService = {
   async bulkUploadEmployees(
     file: File,
     excelHasEmployeeIdColumn?: boolean,
+    branchId?: any,
     onProgress?: (progress: number) => void,
   ) {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("branchId", branchId);
     if (excelHasEmployeeIdColumn !== undefined) {
       formData.append("excelHasEmployeeIdColumn", excelHasEmployeeIdColumn.toString());
     }

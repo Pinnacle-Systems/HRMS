@@ -773,7 +773,7 @@ export default function Layout() {
                   <div>
                     <div className="flex items-center gap-2">
                       <div className="font-bold text-gray-700 whitespace-nowrap">
-                        Dot<span className="text-primary">HR</span>
+                        Dot.<span className="text-primary">HR</span>
                       </div>
                       {user && getWorkspaceLabel && (
                         <div className="text-[10px] text-gray-400 leading-3 whitespace-nowrap">

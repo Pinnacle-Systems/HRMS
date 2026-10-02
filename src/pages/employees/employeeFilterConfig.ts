@@ -90,13 +90,13 @@ export const getEmployeeFilterFields = (
       group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
       options: employeeTypes.map(type => ({ value: type.id, label: type.name }))
     },
-    { 
-      id: 'employeeStatusId', 
-      label: 'Employee Status', 
-      type: 'select',
-      group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
-      options: empStatus.map(s => ({ value: s.id, label: s.name }))
-    },
+    // { 
+    //   id: 'employeeStatusId', 
+    //   label: 'Employee Status', 
+    //   type: 'select',
+    //   group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
+    //   options: empStatus.map(s => ({ value: s.id, label: s.name }))
+    // },
     { id: 'includeInactive', label: 'Include Inactive', type: 'boolean', group: EMPLOYEE_FIELD_GROUPS.SYSTEM },
   ];
   return employmentFields;

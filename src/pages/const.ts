@@ -87,3 +87,18 @@ export const handleEnterAsTab = (
     focusable[index + 1].focus();
   }
 };
+
+export const stickyHeaderLeftOffsetSx = (left: any) => ({
+  position: "sticky",
+  left: left,
+  zIndex: 4,
+  background: "var(--bg-primary)",
+});
+
+export const getStickyLeftOffsetSx = (index: number, left: any) => ({
+  position: "sticky",
+  left: left,
+  zIndex: 2,
+  backgroundColor:
+    index % 2 === 0 ? "var(--bg-primary)" : "var(--bg-secondary)",
+});
