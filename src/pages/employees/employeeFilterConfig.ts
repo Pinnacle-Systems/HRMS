@@ -34,7 +34,7 @@ export const getEmployeeFilterFields = (
   departments: Department[],
   designations: Designation[],
   branches: Branches[],
-  empStatus: Category[],
+  // empStatus: Category[],
   employeeTypes: Category[] = [],
   employees: EmployeeSummaryResponse[] = [],
 ): FilterField[] => {

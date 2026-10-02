@@ -195,7 +195,7 @@ export default function CategoryItems() {
             onClick={() => navigate("/settings/employee/category-settings")}
             className="!bg-gray-100"
           >
-            <ArrowBackIcon className="!text-gray-800"/>
+            <ArrowBackIcon className="!text-gray-800" />
           </IconButton>
           <div>
             <Typography
@@ -213,14 +213,16 @@ export default function CategoryItems() {
             </Typography>
           </div>
         </div>
-        <Button
-          variant="contained"
-          onClick={() => handleOpenDialog()}
-          className="!bg-primary"
-          disabled={!category.enabled}
-        >
-          Add Items
-        </Button>
+        {category.categoryName !== "Employee Group" &&
+          <Button
+            variant="contained"
+            onClick={() => handleOpenDialog()}
+            className="!bg-primary"
+            disabled={!category.enabled}
+          >
+            Add Items
+          </Button>
+        }
       </div>
 
       {/* Search Bar */}
@@ -251,9 +253,11 @@ export default function CategoryItems() {
               <TableCell className="!font-semibold text-gray-800">
                 Status
               </TableCell>
-              <TableCell className="!font-semibold text-gray-800 text-center">
-                Actions
-              </TableCell>
+              {category.categoryName !== "Employee Group" &&
+                <TableCell className="!font-semibold text-gray-800 text-center">
+                  Actions
+                </TableCell>
+              }
             </TableRow>
           </TableHead>
           <TableBody>
@@ -271,31 +275,33 @@ export default function CategoryItems() {
                     label={item.active ? "Active" : "Inactive"}
                     color={item.active ? "success" : "error"}
                     size="small"
-                    onClick={() => handleToggleStatus(item)}
+                    onClick={() => {category.categoryName !== "Employee Group"  ? handleToggleStatus(item) : ''}}
                     className="cursor-pointer"
                   />
                 </TableCell>
-                <TableCell className="text-center">
-                  <Tooltip title="Edit">
-                    <IconButton
-                      size="small" className="!mr-2"
-                      onClick={() => handleOpenDialog(item)}
-                    >
-                      <EditIcon
-                        className="!w-4"
-                        sx={{ color: "#0087ff" }}
-                      />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(item.id, item.name)}
-                    >
-                      <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
+                {category.categoryName !== "Employee Group" &&
+                  <TableCell className="text-center">
+                    <Tooltip title="Edit">
+                      <IconButton
+                        size="small" className="!mr-2"
+                        onClick={() => handleOpenDialog(item)}
+                      >
+                        <EditIcon
+                          className="!w-4"
+                          sx={{ color: "#0087ff" }}
+                        />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDelete(item.id, item.name)}
+                      >
+                        <DeleteIcon className="!w-4" sx={{ color: "#ef4444" }} />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                }
               </TableRow>
             ))}
           </TableBody>
@@ -337,7 +343,7 @@ export default function CategoryItems() {
               : `Add New ${category.categoryName}`}
           </div>
           <IconButton onClick={() => setDialogOpen(false)}>
-            <CloseOutlined className="!text-gray-800"/>
+            <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
         <DialogContent>
@@ -374,7 +380,7 @@ export default function CategoryItems() {
                     onChange={(e) =>
                       setFormData({ ...formData, active: e.target.checked })
                     }
-                    color="primary"                    
+                    color="primary"
                   />
                 }
                 label="Active"

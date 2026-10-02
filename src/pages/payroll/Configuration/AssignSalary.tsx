@@ -659,7 +659,7 @@ export default function AssignSalaryStructure() {
       setAssigningEmployee(null);
       setSelectedEmployees([]);
       setBulkAssignMode(false);
-      await loadAssignmentsPage();
+      navigate("/employees", { state: { removePageHistoryPath: "/payroll/assign" } });
     } catch (error: any) {
       showSnackbar(error?.message || "Failed to assign salary structure", "error");
     } finally {

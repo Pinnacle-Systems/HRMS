@@ -31,7 +31,6 @@ import Visibility from "@mui/icons-material/Visibility";
 import Schedule from "@mui/icons-material/Schedule";
 import TrendingUp from "@mui/icons-material/TrendingUp";
 import Email from "@mui/icons-material/Email";
-import Business from "@mui/icons-material/Business";
 import {
   onBoardService,
   type OnboardingAssignment,
@@ -450,15 +449,15 @@ export const ProgressTracking = () => {
         <Table className="border border-gray-200 rounded-md">
           <TableHead className="bg-gray-100">
             <TableRow>
-              <TableCell className="font-semibold !sticky left-0 !z-30 bg-inherit">#</TableCell>
-              <TableCell className="font-semibold !sticky left-[35px] !z-30 bg-inherit">Employee</TableCell>
-              <TableCell className="font-semibold">Department</TableCell>
-              <TableCell className="font-semibold">Branch</TableCell>
-              <TableCell className="font-semibold">Status</TableCell>
-              <TableCell className="font-semibold">Progress</TableCell>
-              <TableCell className="font-semibold">Checklists</TableCell>
-              <TableCell className="font-semibold">Assigned At</TableCell>
-              <TableCell className="font-semibold !sticky right-0 !z-30 bg-inherit text-center">
+              <TableCell className="!font-semibold !sticky left-0 !z-30 bg-inherit">#</TableCell>
+              <TableCell className="!font-semibold !sticky left-[35px] !z-30 bg-inherit">Employee</TableCell>
+              <TableCell className="!font-semibold">Department</TableCell>
+              <TableCell className="!font-semibold">Branch</TableCell>
+              <TableCell className="!font-semibold">Status</TableCell>
+              <TableCell className="!font-semibold">Progress</TableCell>
+              <TableCell className="!font-semibold">Checklists</TableCell>
+              <TableCell className="!font-semibold">Assigned At</TableCell>
+              <TableCell align="center" className="!font-semibold !sticky right-0 !z-30 bg-inherit">
                 Actions
               </TableCell>
             </TableRow>
@@ -490,13 +489,13 @@ export const ProgressTracking = () => {
                     <TableCell className="!sticky left-0 !z-20 bg-inherit">{index + 1}</TableCell>
                     <TableCell className="!sticky left-[35px] !z-20 bg-inherit">
                       <div className="flex items-center gap-3">
-                        <Avatar className="!w-8 !h-8 !bg-primary">
+                        {/* <Avatar className="!w-8 !h-8 !bg-primary">
                           {onboarding.employeeName?.charAt(0) || "?"}
-                        </Avatar>
+                        </Avatar> */}
                         <div>
                           <div className="text-gray-800">
                             {onboarding.employeeName || "—"}{" "}
-                            <span className="text-[10px] text-gray-500">
+                            <span className="text-[10px] text-primary">
                               ({onboarding.employeeCode || "—"})
                             </span>
                           </div>
@@ -650,57 +649,6 @@ export const ProgressTracking = () => {
         <DialogContent className="!pt-4">
           {selectedOnboarding && (
             <div className="space-y-4">
-              {/* Employee Info Cards */}
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card className="!bg-blue-50 !border !border-blue-100">
-                    <CardContent className="flex items-center gap-2">
-                      <Business className="text-blue-500" />
-                      <div>
-                        <Typography variant="caption" color="textSecondary">
-                          Department
-                        </Typography>
-                        <Typography variant="body2" className="font-medium">
-                          {selectedOnboarding.checklists?.[0]?.checklistName ||
-                            "—"}
-                        </Typography>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card className="!bg-green-50 !border !border-green-100">
-                    <CardContent className="flex items-center gap-2">
-                      <CheckCircle className="text-green-700" />
-                      <div>
-                        <Typography variant="caption" color="textSecondary">
-                          Completed Checklists
-                        </Typography>
-                        <Typography variant="body2" className="font-medium">
-                          {selectedOnboarding.completedChecklists || 0}/
-                          {selectedOnboarding.totalChecklists || 0}
-                        </Typography>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card className="!bg-purple-50 !border !border-purple-100">
-                    <CardContent className="flex items-center gap-2">
-                      <TrendingUp className="text-purple-500" />
-                      <div>
-                        <Typography variant="caption" color="textSecondary">
-                          Overall Progress
-                        </Typography>
-                        <Typography variant="body2" className="font-medium">
-                          {selectedOnboarding.overallProgressPercent || 0}%
-                        </Typography>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-
               {/* Overall Progress */}
               <Card className="bg-gray-50 border border-gray-200">
                 <CardContent>

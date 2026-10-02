@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Button,
   Dialog,
@@ -31,6 +31,8 @@ import {
   Card,
   CardContent,
   OutlinedInput,
+  TextField,
+  ListItemText,
 } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -52,9 +54,10 @@ import { onBoardService } from "../../../../services/modules/onBoard";
 import { useUI } from "../../../../context/Snackbar";
 import { getRowColor } from "../../../const";
 import { GlobalPagination } from "../../../../components/GlobalPagination";
-import { EmployeeSelector } from "../../../../components/PolicyManagement/Common/EmployeeSelector";
 import type { OnboardingAssignment, OnboardingDetail } from "./type";
 import { useSearchParams } from "react-router-dom";
+import { employeeService } from "../../../../services/modules/employees";
+import { formatDateTime } from "../../../../utils/dateFormatter";
 
 // Constants
 const STATUS_MAP = {
@@ -89,11 +92,222 @@ const TASK_STATUS_DISPLAY = {
 
 type StatusKey = keyof typeof STATUS_MAP;
 
+/* ------------------------------------------------------------------ */
+/* Reusable employee multi-select with search + select-all            */
+/* ------------------------------------------------------------------ */
+interface EmployeeMultiSelectProps {
+  employees: any[];
+  value: string[];
+  onChange: (ids: string[], selected: any[]) => void;
+  label?: string;
+  placeholder?: string;
+}
+
+const EmployeeMultiSelect = ({
+  employees,
+  value,
+  onChange,
+  label = "Select Employees",
+  placeholder = "Search employees...",
+}: EmployeeMultiSelectProps) => {
+  const [search, setSearch] = useState("");
+
+  const getEmpId = (emp: any) => emp.id || emp.employeeId;
+  const getEmpName = (emp: any) => emp.name || emp.employeeName || "—";
+  const getEmpCode = (emp: any) => emp.employeeId || "";
+  const getEmpEmail = (emp: any) => emp.emailAddress || "";
+  const getEmpDepartment = (emp: any) => emp.department || "";
+  const getEmpDesignation = (emp: any) => emp.designation || "";
+
+  const filteredEmployees = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return employees;
+    return employees.filter((emp) => {
+      const name = getEmpName(emp).toLowerCase();
+      const code = getEmpCode(emp).toLowerCase();
+      const email = getEmpEmail(emp).toLowerCase();
+      const dept = getEmpDepartment(emp).toLowerCase();
+      const desig = getEmpDesignation(emp).toLowerCase();
+      return (
+        name.includes(q) ||
+        code.includes(q) ||
+        email.includes(q) ||
+        dept.includes(q) ||
+        desig.includes(q)
+      );
+    });
+  }, [employees, search]);
+
+  const filteredIds = filteredEmployees.map(getEmpId);
+  const allFilteredSelected =
+    filteredIds.length > 0 && filteredIds.every((id) => value.includes(id));
+
+  const handleToggleAll = () => {
+    if (allFilteredSelected) {
+      // Deselect all currently-filtered employees
+      const remaining = value.filter((id) => !filteredIds.includes(id));
+      const selected = employees.filter((emp) =>
+        remaining.includes(getEmpId(emp))
+      );
+      onChange(remaining, selected);
+    } else {
+      // Select all currently-filtered employees (merge with existing)
+      const merged = Array.from(new Set([...value, ...filteredIds]));
+      const selected = employees.filter((emp) =>
+        merged.includes(getEmpId(emp))
+      );
+      onChange(merged, selected);
+    }
+  };
+
+  return (
+    <FormControl fullWidth>
+      <InputLabel id="employee-multiselect-label">{label}</InputLabel>
+      <Select
+        labelId="employee-multiselect-label"
+        multiple
+        value={value}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const ids = typeof raw === "string" ? raw.split(",") : raw;
+          const selected = employees.filter((emp) =>
+            ids.includes(getEmpId(emp))
+          );
+          onChange(ids, selected);
+        }}
+        input={<OutlinedInput label={label} />}
+        renderValue={(selected) => (
+          <Box
+            sx={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 0.5,
+              maxHeight: 80,
+              overflowY: "auto",
+            }}
+          >
+            {selected.length === 0 ? (
+              <span className="text-gray-400 text-[12px]">
+                {placeholder || "None selected"}
+              </span>
+            ) : (
+              selected.map((id) => {
+                const emp = employees.find((e) => getEmpId(e) === id);
+                return (
+                  <Chip
+                    key={id}
+                    label={emp ? getEmpName(emp) : id}
+                    size="small"
+                  // className="!bg-primary-50 !text-primary"
+                  />
+                );
+              })
+            )}
+          </Box>
+        )}
+      >
+        {/* Search + Select All header (sticky) */}
+        <Box
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
+            bgcolor: "background.paper",
+            px: 1,
+            pt: 1,
+            pb: 0.5,
+            borderBottom: "1px solid #e5e7eb",
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <TextField
+            size="small"
+            fullWidth
+            autoFocus
+            placeholder={placeholder}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              mt: 0.5,
+              px: 0.5,
+            }}
+          >
+            <Button
+              size="small"
+              onClick={handleToggleAll}
+              disabled={filteredIds.length === 0}
+              className="!text-primary !text-xs !normal-case"
+            >
+              {allFilteredSelected ? "Deselect All" : "Select All"}
+              {search ? " (filtered)" : ""}
+            </Button>
+            <Typography variant="caption" className="text-gray-500">
+              {value.length} selected
+              {search ? ` • ${filteredEmployees.length} match` : ""}
+            </Typography>
+          </Box>
+        </Box>
+
+        {filteredEmployees.length === 0 ? (
+          <MenuItem disabled value="">
+            <span className="text-gray-500 text-[12px]">No employees found</span>
+          </MenuItem>
+        ) : (
+          filteredEmployees.map((emp) => {
+            const empId = getEmpId(emp);
+            const checked = value.indexOf(empId) > -1;
+            const code = getEmpCode(emp);
+            const dept = getEmpDepartment(emp);
+            const desig = getEmpDesignation(emp);
+
+            // Build "code • dept • desig" while skipping empty parts
+            const secondaryParts = [code, dept, desig].filter(Boolean);
+
+            return (
+              <MenuItem key={empId} value={empId} dense>
+                <Checkbox
+                  checked={checked}
+                  className="text-gray-800 !p-0 !mr-2"
+                  size="small"
+                />
+                <ListItemText
+                  primary={
+                    <span className="text-gray-800 text-[12px]">
+                      {getEmpName(emp)}
+                    </span>
+                  }
+                  secondary={
+                    secondaryParts.length > 0 ? (
+                      <span className="text-[10px] text-gray-500">
+                        {secondaryParts.join(" • ")}
+                      </span>
+                    ) : null
+                  }
+                />
+              </MenuItem>
+            );
+          })
+        )}
+      </Select>
+    </FormControl>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Main component                                                     */
+/* ------------------------------------------------------------------ */
 export const AssignOnboarding = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
 
   // State
   const [checklists, setChecklists] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
   const [assignments, setAssignments] = useState<OnboardingAssignment[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -125,13 +339,13 @@ export const AssignOnboarding = () => {
   });
 
   const [searchParams] = useSearchParams();
-  const statusParam = searchParams.get('status');
+  const statusParam = searchParams.get("status");
 
   useEffect(() => {
-    if (statusParam === 'inprogress') {
-      setStatusFilter('IN_PROGRESS');
-    } else if (statusParam === 'completed') {
-      setStatusFilter('COMPLETED');
+    if (statusParam === "inprogress") {
+      setStatusFilter("IN_PROGRESS");
+    } else if (statusParam === "completed") {
+      setStatusFilter("COMPLETED");
     }
   }, [statusParam]);
 
@@ -171,10 +385,12 @@ export const AssignOnboarding = () => {
         params.status = statusFilter;
       }
 
-      const [checklistsResult, assignmentsResult] = await Promise.allSettled([
-        onBoardService.getChecklists(),
-        onBoardService.getAssignments(params),
-      ]);
+      const [checklistsResult, assignmentsResult, employeesResult] =
+        await Promise.allSettled([
+          onBoardService.getChecklists(),
+          onBoardService.getAssignments(params),
+          employeeService.getEmployees({ includeInactive: true }),
+        ]);
 
       if (checklistsResult.status === "fulfilled") {
         const checklistsRes: any = checklistsResult.value;
@@ -186,6 +402,11 @@ export const AssignOnboarding = () => {
         const content = responseData.data?.content || responseData.data || [];
         setAssignments(content);
         setTotal(responseData.data?.totalElements || 0);
+      }
+
+      if (employeesResult.status === "fulfilled") {
+        const employeesRes: any = employeesResult.value;
+        setEmployees(employeesRes.data?.content || employeesRes.data || []);
       }
     } catch (error: any) {
       showSnackbar(error.message, "error");
@@ -462,7 +683,9 @@ export const AssignOnboarding = () => {
   };
 
   const getStatusDisplay = (status: string): string => {
-    return STATUS_DISPLAY[status as keyof typeof STATUS_DISPLAY] || status || "—";
+    return (
+      STATUS_DISPLAY[status as keyof typeof STATUS_DISPLAY] || status || "—"
+    );
   };
 
   const calculateProgress = (assignment: OnboardingAssignment): number => {
@@ -472,13 +695,13 @@ export const AssignOnboarding = () => {
   const getTaskStatusIcon = (status: string) => {
     switch (status?.toUpperCase()) {
       case "COMPLETED":
-        return <CheckCircleIcon className="!text-green-700 text-sm" />;
+        return <CheckCircleIcon className="!text-green-700 text-[12px]" />;
       case "IN_PROGRESS":
-        return <PendingIcon className="text-blue-500 text-sm" />;
+        return <PendingIcon className="text-blue-500 text-[12px]" />;
       case "OVERDUE":
-        return <PendingIcon className="text-red-500 text-sm" />;
+        return <PendingIcon className="text-red-500 text-[12px]" />;
       default:
-        return <PendingIcon className="!text-gray-400 text-sm" />;
+        return <PendingIcon className="!text-gray-400 text-[12px]" />;
     }
   };
 
@@ -586,7 +809,7 @@ export const AssignOnboarding = () => {
                   onChange={handleSelectAll}
                   disabled={unsentAssignments.length === 0}
                   color="primary"
-                  className="text-gray-800"
+                  className="text-gray-800 !p-0 !mr-2"
                 />
                 #
               </TableCell>
@@ -594,7 +817,7 @@ export const AssignOnboarding = () => {
                 Employee
               </TableCell>
               <TableCell className="!font-bold">Department</TableCell>
-              <TableCell className="!font-bold">Branch</TableCell>
+              {/* <TableCell className="!font-bold">Branch</TableCell> */}
               <TableCell className="!font-bold">Status</TableCell>
               <TableCell className="!font-bold">Progress</TableCell>
               <TableCell className="!font-bold">Assigned At</TableCell>
@@ -617,7 +840,9 @@ export const AssignOnboarding = () => {
             ) : (
               assignments.map((assignment, index) => {
                 const progress = calculateProgress(assignment);
-                const statusDisplay = getStatusDisplay(assignment.overallStatus);
+                const statusDisplay = getStatusDisplay(
+                  assignment.overallStatus
+                );
                 const statusColor = getStatusColor(assignment.overallStatus);
                 const isSelected = selectedAssignments.has(
                   assignment.onboardingId
@@ -626,7 +851,9 @@ export const AssignOnboarding = () => {
 
                 return (
                   <TableRow
-                    key={assignment.onboardingId || assignment.employeeId || index}
+                    key={
+                      assignment.onboardingId || assignment.employeeId || index
+                    }
                     sx={getRowColor(index)}
                     className={isSelected ? "bg-primary/5" : ""}
                   >
@@ -638,21 +865,18 @@ export const AssignOnboarding = () => {
                         }
                         disabled={hasWelcomeSent}
                         color="primary"
-                        className="text-gray-800"
+                        className="text-gray-800 !p-0 !mr-2"
                       />
                       {index + 1}
                     </TableCell>
                     <TableCell className="!sticky left-[75px] !z-20 bg-inherit">
                       <div className="flex items-center gap-2">
-                        <Avatar className="!w-8 !h-8 !bg-primary">
+                        {/* <Avatar className="!w-8 !h-8 !bg-primary">
                           {assignment.employeeName?.charAt(0) || "?"}
-                        </Avatar>
+                        </Avatar> */}
                         <div>
-                          <div className="font-medium">
-                            {assignment.employeeName || "—"}
-                          </div>
-                          <div className="text-[10px] text-gray-500">
-                            {assignment.employeeCode || "—"}
+                          <div className="text-[12px]">
+                            {assignment.employeeName || "—"} <span className="text-primary">({assignment.employeeCode || "—"})</span>
                           </div>
                           <div className="text-[10px] text-gray-400">
                             {assignment.employeeEmail || "—"}
@@ -668,14 +892,14 @@ export const AssignOnboarding = () => {
                         className="text-gray-800"
                       />
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       <Chip
                         label={assignment.branchName || "N/A"}
                         size="small"
                         variant="outlined"
                         className="text-gray-800"
                       />
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>
                       <Chip
                         label={statusDisplay}
@@ -689,7 +913,9 @@ export const AssignOnboarding = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
                         <Box
                           sx={{
                             width: "80px",
@@ -734,17 +960,8 @@ export const AssignOnboarding = () => {
                     </TableCell>
                     <TableCell>
                       {assignment.assignedAt
-                        ? dayjs(assignment.assignedAt).format("DD MMM YYYY")
+                        ? formatDateTime(assignment.assignedAt)
                         : "—"}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ display: "block", fontSize: "10px" }}
-                      >
-                        {assignment.assignedAt
-                          ? dayjs(assignment.assignedAt).format("HH:mm")
-                          : ""}
-                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -757,18 +974,9 @@ export const AssignOnboarding = () => {
                         }
                         variant="outlined"
                         sx={{ fontSize: "10px" }}
+
                       />
-                      {assignment.welcomeEmailSentAt && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ display: "block", fontSize: "10px" }}
-                        >
-                          {dayjs(assignment.welcomeEmailSentAt).format(
-                            "DD MMM YYYY"
-                          )}
-                        </Typography>
-                      )}
+                      <span className="text-[10px] text-gray-500 !ml-2">{formatDateTime(assignment.welcomeEmailSentAt)}</span>
                     </TableCell>
                     <TableCell
                       align="center"
@@ -808,8 +1016,12 @@ export const AssignOnboarding = () => {
                             size="small"
                             onClick={() =>
                               assignment.isActive
-                                ? handleDeleteAssignment(assignment.onboardingId)
-                                : handleReactivateAssignment(assignment.onboardingId)
+                                ? handleDeleteAssignment(
+                                  assignment.onboardingId
+                                )
+                                : handleReactivateAssignment(
+                                  assignment.onboardingId
+                                )
                             }
                             color={assignment.isActive ? "error" : "success"}
                           >
@@ -861,47 +1073,21 @@ export const AssignOnboarding = () => {
         </DialogTitle>
         <DialogContent>
           <div className="space-y-6 pt-6">
-            <EmployeeSelector
-              value={selectedEmployees}
-              onChange={(value) => {
-                const employees = value as any[];
-                setSelectedEmployees(employees);
-                const employeeIds = employees
-                  .map((emp) => emp.id || emp.employeeId)
-                  .filter((id) => id);
+            {/* Employees multi-select with search + select all */}
+            <EmployeeMultiSelect
+              employees={employees}
+              value={formData.employeeIds}
+              onChange={(ids, selected) => {
+                setSelectedEmployees(selected);
                 setFormData({
                   ...formData,
-                  employeeIds,
-                  employeeId: employeeIds.length === 1 ? employeeIds[0] : "",
+                  employeeIds: ids,
+                  employeeId: ids.length === 1 ? ids[0] : "",
                 });
               }}
-              multiple
               label="Select Employees"
-              placeholder="Search multiple employees..."
+              placeholder="Search employees by name, code, email..."
             />
-
-            {selectedEmployees.length > 0 && (
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                {selectedEmployees.map((emp) => (
-                  <Chip
-                    key={emp.id}
-                    label={emp.name || emp.emailAddress}
-                    size="small"
-                    className="!bg-primary-50 !text-primary"
-                    onDelete={() => {
-                      const newEmployees = selectedEmployees.filter(
-                        (e) => e.id !== emp.id
-                      );
-                      setSelectedEmployees(newEmployees);
-                      setFormData({
-                        ...formData,
-                        employeeIds: newEmployees.map((e) => e.id),
-                      });
-                    }}
-                  />
-                ))}
-              </Box>
-            )}
 
             <FormControl fullWidth>
               <InputLabel id="assign-onboarding-checklist-label">
@@ -939,8 +1125,10 @@ export const AssignOnboarding = () => {
                 {checklists.map((checklist) => (
                   <MenuItem key={checklist.id} value={checklist.id}>
                     <Checkbox
-                      checked={formData.checklistIds.indexOf(checklist.id) > -1}
-                      className="text-gray-800"
+                      checked={
+                        formData.checklistIds.indexOf(checklist.id) > -1
+                      }
+                      className="text-gray-800 !py-1"
                     />
                     <span className="text-gray-800">
                       {checklist.name} ({checklist.taskCount || 0} tasks)
@@ -950,7 +1138,10 @@ export const AssignOnboarding = () => {
               </Select>
             </FormControl>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
                 label="Start Date"
                 format="DD/MM/YYYY"
@@ -965,7 +1156,10 @@ export const AssignOnboarding = () => {
               />
             </LocalizationProvider>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
                 label="Due Date (Optional)"
                 format="DD/MM/YYYY"
@@ -997,13 +1191,15 @@ export const AssignOnboarding = () => {
             variant="contained"
             className="!bg-primary"
             disabled={
-              selectedEmployees.length === 0 || formData.checklistIds.length === 0
+              selectedEmployees.length === 0 ||
+              formData.checklistIds.length === 0
             }
           >
             Assign to {selectedEmployees.length} Employee
             {selectedEmployees.length > 1 ? "s" : ""}
             {formData.checklistIds.length > 0 &&
-              ` with ${formData.checklistIds.length} Checklist${formData.checklistIds.length > 1 ? "s" : ""}`}
+              ` with ${formData.checklistIds.length} Checklist${formData.checklistIds.length > 1 ? "s" : ""
+              }`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1025,21 +1221,21 @@ export const AssignOnboarding = () => {
         </DialogTitle>
         <DialogContent>
           <div className="space-y-6 pt-6">
-            <div>
-              <Typography variant="subtitle2" className="text-gray-700 !mb-2">
-                Selected Employees ({selectedEmployees.length})
-              </Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                {selectedEmployees.map((emp) => (
-                  <Chip
-                    key={emp.id}
-                    label={emp.name || emp.emailAddress}
-                    size="small"
-                    className="!bg-primary-50 !text-primary"
-                  />
-                ))}
-              </Box>
-            </div>
+            {/* Employees multi-select with search + select all */}
+            <EmployeeMultiSelect
+              employees={employees}
+              value={formData.employeeIds}
+              onChange={(ids, selected) => {
+                setSelectedEmployees(selected);
+                setFormData({
+                  ...formData,
+                  employeeIds: ids,
+                  employeeId: ids.length === 1 ? ids[0] : "",
+                });
+              }}
+              label="Select Employees"
+              placeholder="Search employees by name, code, email..."
+            />
 
             <FormControl fullWidth>
               <InputLabel id="bulk-assign-checklist-label">
@@ -1077,7 +1273,9 @@ export const AssignOnboarding = () => {
                 {checklists.map((checklist) => (
                   <MenuItem key={checklist.id} value={checklist.id}>
                     <Checkbox
-                      checked={formData.checklistIds.indexOf(checklist.id) > -1}
+                      checked={
+                        formData.checklistIds.indexOf(checklist.id) > -1
+                      }
                       className="text-gray-800"
                     />
                     <span className="text-gray-800">
@@ -1088,7 +1286,10 @@ export const AssignOnboarding = () => {
               </Select>
             </FormControl>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
                 label="Start Date"
                 format="DD/MM/YYYY"
@@ -1103,7 +1304,10 @@ export const AssignOnboarding = () => {
               />
             </LocalizationProvider>
 
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
                 label="Due Date (Optional)"
                 format="DD/MM/YYYY"
@@ -1135,7 +1339,8 @@ export const AssignOnboarding = () => {
             variant="contained"
             className="!bg-primary"
             disabled={
-              selectedEmployees.length === 0 || formData.checklistIds.length === 0
+              selectedEmployees.length === 0 ||
+              formData.checklistIds.length === 0
             }
           >
             Assign to {selectedEmployees.length} Employee
@@ -1458,17 +1663,18 @@ export const AssignOnboarding = () => {
                               </TableCell>
                             </TableRow>
                           ))}
-                          {(!checklist.tasks || checklist.tasks.length === 0) && (
-                            <TableRow>
-                              <TableCell
-                                colSpan={5}
-                                align="center"
-                                className="py-4 text-gray-400"
-                              >
-                                No tasks in this checklist
-                              </TableCell>
-                            </TableRow>
-                          )}
+                          {(!checklist.tasks ||
+                            checklist.tasks.length === 0) && (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={5}
+                                  align="center"
+                                  className="py-4 text-gray-400"
+                                >
+                                  No tasks in this checklist
+                                </TableCell>
+                              </TableRow>
+                            )}
                         </TableBody>
                       </Table>
                     </TableContainer>

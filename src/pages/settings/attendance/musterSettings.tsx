@@ -39,7 +39,7 @@ export default function MusterSettings() {
         color: "",
         active: true,
     });
-    
+
 
     // --- Color Picker State ---
     const [colorAnchorEl, setColorAnchorEl] = useState<HTMLElement | null>(null);
@@ -308,20 +308,31 @@ export default function MusterSettings() {
                                 name="color"
                                 value={formData.color || ""}
                                 onClick={handleOpenColorPicker}
-                                
+                                slotProps={{
+                                    input: {
+                                        readOnly: true,
+                                        startAdornment: (
+                                            <div
+                                                style={{
+                                                    width: 20,
+                                                    height: 20,
+                                                    borderRadius: 4,
+                                                    background: formData.color || "#1976d2",
+                                                    marginLeft: 10,
+                                                    flexShrink: 0,
+                                                }}
+                                            />
+                                        ),
+                                    },
+                                }}
+                                sx={{ "& .MuiInputBase-input": { cursor: "pointer" } }}
                             />
                             <Popover
                                 open={openColorPicker}
                                 anchorEl={colorAnchorEl}
                                 onClose={handleCloseColorPicker}
-                                anchorOrigin={{
-                                    vertical: "bottom",
-                                    horizontal: "left",
-                                }}
-                                transformOrigin={{
-                                    vertical: "top",
-                                    horizontal: "left",
-                                }}
+                                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+                                transformOrigin={{ vertical: "top", horizontal: "left" }}
                             >
                                 <SketchPicker
                                     color={formData.color || "#1976d2"}

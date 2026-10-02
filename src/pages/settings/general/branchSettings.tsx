@@ -110,6 +110,7 @@ export default function BranchSettings() {
     contactEmail: "",
     contactNumber: "",
   });
+  const isDefaultBranch = editingBranch?.branchCode === "HEAD OFFICE";
 
   // Fetch branches with pagination, sorting, and search
   const getBranches = async () => {
@@ -1132,6 +1133,7 @@ export default function BranchSettings() {
                   value={formData.branchName || ""}
                   onChange={handleInputChange}
                   required
+                  disabled={isDefaultBranch}
                 />
               </div>
               <div className="w-full">
@@ -1142,6 +1144,7 @@ export default function BranchSettings() {
                   value={formData.branchCode || ""}
                   onChange={handleInputChange}
                   required
+                  disabled={isDefaultBranch}
                 />
               </div>
             </div>
@@ -1155,6 +1158,7 @@ export default function BranchSettings() {
                 value={formData.branchAddress || ""}
                 onChange={handleInputChange}
                 required
+                disabled={isDefaultBranch}
               />
             </div>
 
@@ -1261,6 +1265,7 @@ export default function BranchSettings() {
                   value={formData.pfCode || ""}
                   onChange={handleInputChange}
                   required
+                  disabled={isDefaultBranch}
                 />
               </div>
               <div className="w-full">
@@ -1271,6 +1276,7 @@ export default function BranchSettings() {
                   value={formData.esiCode || ""}
                   onChange={handleInputChange}
                   required
+                  disabled={isDefaultBranch}
                 />
               </div>
             </div>

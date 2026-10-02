@@ -608,19 +608,36 @@ export default function Layout() {
       return;
     }
 
+    const removePageHistoryPath = location.pathname === "/employees"
+      ? (location.state as { removePageHistoryPath?: string } | null)?.removePageHistoryPath
+      : undefined;
+
     setPageHistory((currentHistory) => {
+      const shouldRemovePage = removePageHistoryPath && currentHistory.some(
+        (page) =>
+          page.path === removePageHistoryPath ||
+          page.path.startsWith(`${removePageHistoryPath}?`)
+      );
+      const historyWithoutRemovedPage = shouldRemovePage
+        ? currentHistory.filter(
+          (page) =>
+            page.path !== removePageHistoryPath &&
+            !page.path.startsWith(`${removePageHistoryPath}?`)
+        )
+        : currentHistory;
       const nextPage = { path: currentPath, label: getRouteLabel(currentPath) };
-      const existingPage = currentHistory.find(
+      const existingPage = historyWithoutRemovedPage.find(
         (page) => page.path === currentPath
       );
-      if (existingPage?.label === nextPage.label) {
-        return currentHistory;
-      }
-      const nextHistory = existingPage
-        ? currentHistory.map((page) =>
-          page.path === currentPath ? nextPage : page
-        )
-        : [...currentHistory, nextPage];
+      const nextHistory = existingPage?.label === nextPage.label
+        ? historyWithoutRemovedPage
+        : existingPage
+          ? historyWithoutRemovedPage.map((page) =>
+            page.path === currentPath ? nextPage : page
+          )
+          : [...historyWithoutRemovedPage, nextPage];
+
+      if (nextHistory === currentHistory) return currentHistory;
 
       try {
         localStorage.setItem(
@@ -632,7 +649,7 @@ export default function Layout() {
       }
       return nextHistory;
     });
-  }, [location.pathname, location.search, pageHistoryStorageKey, routeLabels]);
+  }, [location.pathname, location.search, location.state, pageHistoryStorageKey, routeLabels]);
 
 
   useEffect(() => {

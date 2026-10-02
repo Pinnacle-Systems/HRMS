@@ -33,8 +33,8 @@ import {
   DialogActions,
 } from "@mui/material";
 import {
-  Layers as LayersIcon,
-  RemoveCircle as MinusCircleIcon,
+  // Layers as LayersIcon,
+  // RemoveCircle as MinusCircleIcon,
   Description as FileStackIcon,
   People as UsersIcon,
   CalendarToday as CalendarIcon,
@@ -149,8 +149,8 @@ interface PayrollSettings {
 // ==================== NAVIGATION ====================
 
 const NAV_ITEMS = [
-  { id: "allowances", label: "Allowances Configuration", icon: LayersIcon },
-  { id: "deductions", label: "Deduction Rules", icon: MinusCircleIcon },
+  // { id: "allowances", label: "Allowances Configuration", icon: LayersIcon },
+  // { id: "deductions", label: "Deduction Rules", icon: MinusCircleIcon },
   { id: "tax", label: "Tax Rules", icon: FileStackIcon },
   { id: "pf-esi", label: "PF / ESI Settings", icon: UsersIcon },
   { id: "schedule", label: "Payroll Schedule", icon: CalendarIcon },

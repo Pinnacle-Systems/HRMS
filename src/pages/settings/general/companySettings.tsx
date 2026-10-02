@@ -46,6 +46,7 @@ import { handleEnterAsTab } from "../../const";
 import { branchService } from "../../../services/modules/branch";
 import useUnsavedChanges from "../../../hooks/useUnsavedChanges";
 import { selectSx } from "../../../const";
+import { useNavigate } from "react-router-dom";
 
 // Helper to check if two objects are equal
 const isEqual = (obj1: any, obj2: any): boolean => {
@@ -116,7 +117,8 @@ const CompanySettings = () => {
   const [showGstResults, setShowGstResults] = useState(false);
   const [isSearchingGst, setIsSearchingGst] = useState(false);
   const [expandedGstResult, setExpandedGstResult] = useState<string | null>(null);
-
+  const [hasBranches, setHasBranches] = useState<boolean>(true);
+  const navigate = useNavigate();
   const [isSaving, setIsSaving] = useState(false);
 
   // Check if there are unsaved changes
@@ -144,6 +146,16 @@ const CompanySettings = () => {
     setGoogleMapLink(
       `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`
     );
+  };
+
+  const checkBranches = async () => {
+    try {
+      const res: any = await branchService.getBranches({ page: 0, size: 1 });
+      const list = res?.data?.content || res?.data || [];
+      setHasBranches(Array.isArray(list) && list.length > 0);
+    } catch {
+      setHasBranches(true);
+    }
   };
 
   const handleMasterDataChange = async (
@@ -446,6 +458,7 @@ const CompanySettings = () => {
 
   useEffect(() => {
     fetchCompanyInfo();
+    checkBranches();
   }, []);
 
   useEffect(() => {
@@ -694,7 +707,7 @@ const CompanySettings = () => {
         const gstData = response.data;
         setGstSearchResults([gstData]);
         setShowGstResults(true);
-        
+
         // Show source information
         let sourceMessage = '';
         if (gstData.source === 'provider') {
@@ -706,7 +719,7 @@ const CompanySettings = () => {
         } else {
           sourceMessage = 'Data fetched successfully';
         }
-        
+
         showSnackbar(`GST details found! (${sourceMessage})`, "success");
       } else {
         // Try fallback to existing company records
@@ -949,6 +962,14 @@ const CompanySettings = () => {
             <span className="text-primary font-medium">
               {getCurrentRouteLabel()}
             </span>
+            {hasBranches === false && (
+              <div
+                className="text-[12px] ml-3 cursor-pointer animate-blink text-white bg-red-500 px-2 rounded-lg"
+                onClick={() => navigate("/settings/general/branch-settings")}
+              >
+                No branches found — Go to Branch Settings
+              </div>
+            )}
             <div className={`text-[12px] ml-3 cursor-pointer ${fiscalYears.length == 0 ? 'animate-blink text-white bg-red-500 px-2 rounded-lg' : 'text-sky-500 underline'}`}
               onClick={() => {
                 setFiscalYearDialogOpen(true);
@@ -1171,7 +1192,7 @@ const CompanySettings = () => {
                           </div>
                         </Collapse>
                       </div>
-                      
+
                       {/* Apply Button */}
                       <Button
                         variant="contained"

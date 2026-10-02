@@ -672,7 +672,7 @@ export const ShiftList = () => {
               <TableCell className='!font-semibold'>Hours</TableCell>
               <TableCell className='!font-semibold'>Shift Type</TableCell>
               <TableCell className='!font-semibold'>Weekly Off</TableCell>
-              <TableCell className='!font-semibold !sticky !right-[100px] !z-[100]'>Status</TableCell>
+              <TableCell className='!font-semibold !sticky !right-[100px] !z-[170]'>Status</TableCell>
               <TableCell className='!font-semibold' sx={{
                 ...stickyHeaderRightSx,
                 minWidth: "100px",
@@ -885,11 +885,18 @@ export const ShiftList = () => {
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
+                  select
                   label="Shift Code"
                   value={formData.shiftCode}
-                  onChange={(e) => setFormData({ ...formData, shiftCode: e.target.value.toUpperCase() })}
+                  onChange={(e) => setFormData({ ...formData, shiftCode: e.target.value })}
                   required
-                />
+                >
+                  {["I", "II", "III", "IV", "V", "GEN"].map((option) => (
+                    <MenuItem key={option} value={option}>
+                      {option}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Grid>
             </Grid>
 

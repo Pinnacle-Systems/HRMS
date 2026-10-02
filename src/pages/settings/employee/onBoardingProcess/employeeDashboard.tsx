@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
 	Card,
 	CardContent,
@@ -58,7 +58,7 @@ interface EmployeeDashboardProps {
 }
 
 export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
-	const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+	const { showSnackbar, showSpinner, hideSpinner } = useUI();
 	const [onboarding, setOnboarding] = useState<OnboardingProgress | null>(null);
 	const [selectedTask, setSelectedTask] = useState<AssignedTaskDetail | null>(
 		null,
@@ -75,24 +75,45 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 	);
 	const [hoveredTask, setHoveredTask] = useState<string | null>(null);
 
-	const fetchOnboardingProgress = async () => {
-		showSpinner();
-		if (!employeeId) return;
+	const fetchingRef = useRef(false);
+	const fetchOnboardingProgress = async (silent = false) => {
+		if (!employeeId || fetchingRef.current) return;
+		fetchingRef.current = true;
+		if (!silent) showSpinner();
 		try {
 			const response: any = await onBoardService.getProgress(employeeId);
 			setOnboarding(response.data);
 		} catch (error: any) {
 			showSnackbar(error.message, "error");
 		} finally {
-			hideSpinner();
+			fetchingRef.current = false;
+			if (!silent) hideSpinner();
 		}
 	};
 
 	useEffect(() => {
-		if (employeeId) {
-			fetchOnboardingProgress();
-		}
-	}, []);
+		if (!employeeId) return;
+		let isMounted = true;
+
+		const load = async () => {
+			showSpinner();
+			try {
+				const response: any = await onBoardService.getProgress(employeeId);
+				if (isMounted) setOnboarding(response.data);
+			} catch (error: any) {
+				if (isMounted) showSnackbar(error.message, "error");
+			} finally {
+				if (isMounted) hideSpinner();
+			}
+		};
+
+		load();
+
+		return () => {
+			isMounted = false;
+		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [employeeId]);
 
 	const handleCompleteTask = async (task: AssignedTaskDetail) => {
 		setSelectedTask(task);
@@ -117,7 +138,7 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 			setIsCompleteDialogOpen(false);
 			setSelectedTask(null);
 			setTaskNotes("");
-			await fetchOnboardingProgress();
+			await fetchOnboardingProgress(true);
 
 			if (onboarding) {
 				const allTasksCompleted = onboarding.checklists?.every((checklist) =>
@@ -159,13 +180,12 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				file: selectedFile,
 				taskInstanceId: selectedTask?.taskInstanceId || selectedTask?.id || "",
 				employeeId: employeeId,
-				// notes: `Uploaded for task: ${selectedTask?.title || selectedTask?.taskName}`,
 			});
 			showSnackbar("Document uploaded successfully! 📄", "success");
 			setIsUploadDialogOpen(false);
 			setSelectedFile(null);
 			setUploadProgress(0);
-			await fetchOnboardingProgress();
+			await fetchOnboardingProgress(true);
 		} catch (error: any) {
 			showSnackbar(error.message, "error");
 		} finally {
@@ -173,71 +193,58 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 		}
 	};
 
-	const handleCompleteOnboarding = async () => {
-		if (!onboarding?.onboardingId) {
-			showSnackbar("Onboarding ID is missing", "error");
-			return;
-		}
-		showConfirmDialog({
-			title: "Complete Onboarding",
-			message:
-				"Congratulations! You've completed all your onboarding tasks. Are you ready to complete the onboarding process?",
-			confirmText: "Yes, Complete!",
-			onConfirm: async () => {
-				// try {
-				//   showSpinner();
-				//   await onBoardService.completeOnboarding(onboarding.onboardingId);
-				//   showSnackbar("🎉 Onboarding completed successfully!", "success");
-				//   setShowCompletionDialog(false);
-				//   await fetchOnboardingProgress();
-				// } catch (error: any) {
-				//   showSnackbar(error.message, "error");
-				// } finally {
-				//   hideSpinner();
-				// }
-			},
-		});
-	};
+	// const handleCompleteOnboarding = async () => {
+	// 	if (!onboarding?.onboardingId) {
+	// 		showSnackbar("Onboarding ID is missing", "error");
+	// 		return;
+	// 	}
+	// 	showConfirmDialog({
+	// 		title: "Complete Onboarding",
+	// 		message:
+	// 			"Congratulations! You've completed all your onboarding tasks. Are you ready to complete the onboarding process?",
+	// 		confirmText: "Yes, Complete!",
+	// 		onConfirm: async () => {
+	// 			// try {
+	// 			//   showSpinner();
+	// 			//   await onBoardService.completeOnboarding(onboarding.onboardingId);
+	// 			//   showSnackbar("🎉 Onboarding completed successfully!", "success");
+	// 			//   setShowCompletionDialog(false);
+	// 			//   await fetchOnboardingProgress(true);
+	// 			// } catch (error: any) {
+	// 			//   showSnackbar(error.message, "error");
+	// 			// } finally {
+	// 			//   hideSpinner();
+	// 			// }
+	// 		},
+	// 	});
+	// };
 
-	const handleDownloadCertificate = async () => {
-		if (!onboarding?.onboardingId) {
-			showSnackbar("Onboarding ID is missing", "error");
-			return;
-		}
-		// try {
-		//   showSpinner();
-		//   const response: any = await onBoardService.downloadCompletionCertificate(
-		//     onboarding.onboardingId,
-		//   );
-		//   const url = window.URL.createObjectURL(new Blob([response.data]));
-		//   const link = document.createElement("a");
-		//   link.href = url;
-		//   link.setAttribute(
-		//     "download",
-		//     `onboarding-certificate-${dayjs().format("YYYY-MM-DD")}.pdf`,
-		//   );
-		//   document.body.appendChild(link);
-		//   link.click();
-		//   link.remove();
-		//   showSnackbar("Certificate downloaded successfully! 📜", "success");
-		// } catch (error: any) {
-		//   showSnackbar(error.message, "error");
-		// } finally {
-		//   hideSpinner();
-		// }
-	};
-
-	// const getStatusIcon = (status: string) => {
-	//     switch (status?.toUpperCase()) {
-	//         case "COMPLETED":
-	//             return <CheckCircleIcon className="text-green-500" />;
-	//         case "IN_PROGRESS":
-	//             return <ScheduleIcon className="text-blue-500" />;
-	//         case "OVERDUE":
-	//             return <WarningIcon className="text-red-500" />;
-	//         default:
-	//             return <PendingIcon className="text-orange-500" />;
-	//     }
+	// const handleDownloadCertificate = async () => {
+	// 	if (!onboarding?.onboardingId) {
+	// 		showSnackbar("Onboarding ID is missing", "error");
+	// 		return;
+	// 	}
+	// 	// try {
+	// 	//   showSpinner();
+	// 	//   const response: any = await onBoardService.downloadCompletionCertificate(
+	// 	//     onboarding.onboardingId,
+	// 	//   );
+	// 	//   const url = window.URL.createObjectURL(new Blob([response.data]));
+	// 	//   const link = document.createElement("a");
+	// 	//   link.href = url;
+	// 	//   link.setAttribute(
+	// 	//     "download",
+	// 	//     `onboarding-certificate-${dayjs().format("YYYY-MM-DD")}.pdf`,
+	// 	//   );
+	// 	//   document.body.appendChild(link);
+	// 	//   link.click();
+	// 	//   link.remove();
+	// 	//   showSnackbar("Certificate downloaded successfully! 📜", "success");
+	// 	// } catch (error: any) {
+	// 	//   showSnackbar(error.message, "error");
+	// 	// } finally {
+	// 	//   hideSpinner();
+	// 	// }
 	// };
 
 	const getStatusColor = (
@@ -289,7 +296,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				<Fade in timeout={600}>
 					<Box className="text-center">
 						<Box className="relative inline-block mb-5">
-							{/* <CircularProgress size={48} className="text-primary" /> */}
 							<Box className="absolute inset-0 flex items-center justify-center">
 								<AssignmentIcon className="text-gray-500 !w-8 !h-8" />
 							</Box>
@@ -301,8 +307,7 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 							Onboarding tasks...
 						</Typography>
 						<Typography variant="caption" className="text-gray-400">
-							{/* Please wait while we fetch your progress */}
-							No Onborading found for You!
+							No Onboarding found for You!
 						</Typography>
 					</Box>
 				</Fade>
@@ -322,13 +327,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 		<Box className="mt-4">
 			{/* ============ PREMIUM WELCOME HEADER ============ */}
 			<Card className="!rounded-xl !shadow-lg !border-0 mb-4 overflow-hidden relative !bg-white">
-				{/* Decorative Background Elements */}
-				{/* <Box className="absolute inset-0 pointer-events-none">
-                    <Box className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary/5 to-primary/10 rounded-full blur-3xl -translate-y-32 translate-x-32" />
-                    <Box className="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-blue-100/30 to-indigo-100/30 rounded-full blur-2xl -translate-x-24 translate-y-24" />
-                    <Box className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-primary/5 to-transparent rounded-full blur-2xl" />
-                </Box> */}
-
 				<CardContent className="!py-4 !px-6 relative">
 					<div className="flex items-center justify-between">
 						{/* Left Section - User Info */}
@@ -348,28 +346,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 											</Box>
 										</Box>
 									</Box>
-									{/* Progress Ring */}
-									{/* <Box className="absolute -top-1 -right-1">
-                                        <Box className="relative w-8 h-8">
-                                            <CircularProgress
-                                                variant="determinate"
-                                                value={onboarding.overallProgressPercent}
-                                                size={32}
-                                                thickness={4}
-                                                sx={{
-                                                    color: onboarding.overallProgressPercent === 100 ? "#22c55e" : "#3b82f6",
-                                                    "& .MuiCircularProgress-circle": {
-                                                        strokeLinecap: "round",
-                                                    },
-                                                }}
-                                            />
-                                            <Box className="absolute inset-0 flex items-center justify-center">
-                                                <Typography variant="caption" className="text-[8px] font-bold text-gray-600">
-                                                    {onboarding.overallProgressPercent}%
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                    </Box> */}
 								</Box>
 
 								{/* User Details */}
@@ -442,20 +418,19 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 									<Box className="flex flex-wrap items-center justify-end gap-2 w-full">
 										<Button
 											variant="contained"
-											color="success"
+											
 											size="small"
 											startIcon={<DownloadIcon />}
-											onClick={handleDownloadCertificate}
-										// className="!normal-case !rounded-full !px-6 !py-2.5 !shadow-lg !shadow-green-600/20 hover:!shadow-xl hover:!shadow-green-600/30 transition-all"
+											// onClick={handleDownloadCertificate}
 										>
 											Download Certificate
 										</Button>
 										<Button
 											variant="contained"
-											onClick={handleCompleteOnboarding}
+											// onClick={handleCompleteOnboarding}
 											size="small"
+											color="success"
 											startIcon={<TrophyIcon />}
-										// className="!bg-primary !normal-case !rounded-full !px-6 !py-2.5 !shadow-lg !shadow-primary/20 hover:!shadow-xl hover:!shadow-primary/30 transition-all"
 										>
 											Complete Onboarding
 										</Button>
@@ -547,124 +522,10 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				</CardContent>
 			</Card>
 
-			{/* ============ PREMIUM STATS CARDS ============ */}
-			{/* <Grid container spacing={3} className="mb-6">
-                {[
-                    {
-                        title: "Total Tasks",
-                        value: totalTasks,
-                        icon: <AssignmentIcon />,
-                        color: "#3b82f6",
-                        bg: "bg-blue-50",
-                        sub: `${completedTasks} completed · ${pendingTasks} pending`,
-                        progress: (completedTasks / totalTasks) * 100,
-                    },
-                    {
-                        title: "Checklists",
-                        value: `${onboarding.completedChecklists}/${onboarding.totalChecklists}`,
-                        icon: <FolderIcon />,
-                        color: "#22c55e",
-                        bg: "bg-green-50",
-                        sub: `${onboarding.completedChecklists} completed out of ${onboarding.totalChecklists}`,
-                        progress:
-                            (onboarding.completedChecklists / onboarding.totalChecklists) *
-                            100,
-                    },
-                    {
-                        title: "Progress",
-                        value: `${onboarding.overallProgressPercent}%`,
-                        icon: <TrendingUpIcon />,
-                        color: "#8b5cf6",
-                        bg: "bg-purple-50",
-                        sub: allCompleted ? "All tasks completed!" : "In progress",
-                        progress: onboarding.overallProgressPercent,
-                    },
-                    {
-                        title: "Status",
-                        value: getStatusDisplay(onboarding.overallStatus),
-                        icon: <ScheduleIcon />,
-                        color: "#f59e0b",
-                        bg: "bg-orange-50",
-                        sub: allCompleted ? "✅ All done!" : "Keep going!",
-                        progress: onboarding.overallProgressPercent,
-                        chip: true,
-                    },
-                ].map((stat, idx) => (
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={idx}>
-                        <Zoom in timeout={300 + idx * 100}>
-                            <Card className="!rounded-2xl !shadow-md !border-0 hover:!shadow-xl transition-all duration-300 hover:-translate-y-1">
-                                <CardContent className="!p-5">
-                                    <Box className="flex items-start justify-between">
-                                        <Box>
-                                            <Typography
-                                                variant="caption"
-                                                className="text-gray-500 font-semibold uppercase tracking-wider text-[10px]"
-                                            >
-                                                {stat.title}
-                                            </Typography>
-                                            <Typography
-                                                variant="h4"
-                                                className="font-bold text-gray-800 mt-1"
-                                                style={{ color: stat.color }}
-                                            >
-                                                {stat.value}
-                                            </Typography>
-                                        </Box>
-                                        <Box
-                                            className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                                            style={{
-                                                backgroundColor: alpha(stat.color, 0.1),
-                                                color: stat.color,
-                                            }}
-                                        >
-                                            {stat.icon}
-                                        </Box>
-                                    </Box>
-
-                                    {!stat.chip && (
-                                        <>
-                                            <LinearProgress
-                                                variant="determinate"
-                                                value={stat.progress || 0}
-                                                className="mt-3 h-1.5 rounded-full"
-                                                sx={{
-                                                    backgroundColor: "#e5e7eb",
-                                                    "& .MuiLinearProgress-bar": {
-                                                        backgroundColor: stat.color,
-                                                    },
-                                                }}
-                                            />
-                                            <Typography
-                                                variant="caption"
-                                                className="text-gray-400 mt-1 block"
-                                            >
-                                                {stat.sub}
-                                            </Typography>
-                                        </>
-                                    )}
-
-                                    {stat.chip && (
-                                        <Box className="mt-2">
-                                            <Chip
-                                                label={stat.sub}
-                                                size="small"
-                                                color={allCompleted ? "success" : "warning"}
-                                                className="!h-6 !text-[10px] font-medium"
-                                            />
-                                        </Box>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        </Zoom>
-                    </Grid>
-                ))}
-            </Grid> */}
-
 			{/* ============ PREMIUM COMPLETION BANNER ============ */}
 			{allCompleted && (
 				<Zoom in timeout={600}>
 					<Card className="!rounded-3xl !shadow-lg !border-0 my-6 overflow-hidden bg-white">
-						{/* <Box className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5" /> */}
 						<CardContent className="!p-8 text-center relative">
 							<Box className="flex flex-col items-center gap-2">
 								<Box className="relative">
@@ -690,16 +551,16 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 								>
 									You have successfully completed all onboarding tasks. Your
 									onboarding journey is now complete! You're all set to start
-									your journey with us.
+									your journey with us. Review your completed tasks below.
 								</Typography>
 								<Box className="flex flex-wrap gap-3 mt-6 justify-center">
 									<Button
 										variant="contained"
 										color="success"
 										startIcon={<TrophyIcon />}
-										onClick={handleCompleteOnboarding}
+										// onClick={handleCompleteOnboarding}
 										size="large"
-										className="!bg-green-600 !normal-case !rounded-full !px-8 !shadow-lg !shadow-green-600/30 hover:!shadow-xl"
+										className="!rounded-full !px-8"
 									>
 										Complete Onboarding
 									</Button>
@@ -707,7 +568,7 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 										variant="outlined"
 										color="primary"
 										startIcon={<DownloadIcon />}
-										onClick={handleDownloadCertificate}
+										// onClick={handleDownloadCertificate}
 										className="!normal-case !rounded-full !px-8 !border-2"
 									>
 										Download Certificate
@@ -719,434 +580,459 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				</Zoom>
 			)}
 
-			{/* ============ WIZARD-STYLE ONBOARDING CHECKLIST ============ */}
-			{!allCompleted && (
-				<Box className="mb-6">
-					<Box className="flex items-center justify-between mb-4 mx-4">
-						<Box>
-							<Typography variant="h6" className="font-bold text-gray-800">
-								Your Onboarding Journey
-							</Typography>
-							<Typography variant="caption" className="text-gray-400">
-								Complete each step to progress through your onboarding
-							</Typography>
-						</Box>
-						<Box className="flex items-center gap-2">
+			{/* ============ WIZARD-STYLE ONBOARDING CHECKLIST (ALWAYS VISIBLE) ============ */}
+			<Box className="mb-6">
+				<Box className="flex items-center justify-between mb-4 mx-4">
+					<Box>
+						<Typography variant="h6" className="font-bold text-gray-800">
+							{allCompleted
+								? "Your Completed Onboarding"
+								: "Your Onboarding Journey"}
+						</Typography>
+						<Typography variant="caption" className="text-gray-400">
+							{allCompleted
+								? "Review everything you've completed"
+								: "Complete each step to progress through your onboarding"}
+						</Typography>
+					</Box>
+					<Box className="flex items-center gap-2">
+						<Chip
+							label={`${onboarding.overallProgressPercent}% Complete`}
+							color={allCompleted ? "success" : "primary"}
+							className="!h-8 !rounded-full !font-medium"
+						/>
+						{allCompleted && (
 							<Chip
-								label={`${onboarding.overallProgressPercent}% Complete`}
-								color="primary"
+								icon={<VerifiedIcon className="!w-4" />}
+								label="All Done"
+								color="success"
 								className="!h-8 !rounded-full !font-medium"
 							/>
-						</Box>
+						)}
 					</Box>
+				</Box>
 
-					{/* ============ WIZARD STEPS ============ */}
-					<Box className="space-y-3">
-						{onboarding.checklists.map((checklist, idx) => {
-							const checklistId = checklist.checklistId || checklist.id;
-							const isActive = expandedChecklist === checklistId;
-							const isCompleted = checklist.progressPercent === 100;
-							const stepNumber = idx + 1;
+				{/* ============ WIZARD STEPS ============ */}
+				<Box className="space-y-3">
+					{onboarding.checklists.map((checklist, idx) => {
+						const checklistId = checklist.checklistId || checklist.id;
+						// ✅ Auto-expand first checklist when everything is completed
+						const isActive =
+							expandedChecklist === checklistId ||
+							(allCompleted && expandedChecklist === null && idx === 0);
+						const isCompleted = checklist.progressPercent === 100;
+						const stepNumber = idx + 1;
 
-							return (
-								<Fade in timeout={400 + idx * 150} key={checklistId}>
-									<Card
-										className={`!rounded-xl !shadow-sm !bg-white-50 !border transition-all duration-300 overflow-hidden ${isActive
+						return (
+							<Fade in timeout={400 + idx * 150} key={checklistId}>
+								<Card
+									className={`!rounded-xl !shadow-sm !bg-white-50 !border transition-all duration-300 overflow-hidden ${
+										isActive
 											? "!border-primary/40 !shadow-md ring-2 ring-primary"
 											: isCompleted
 												? "!border-green-500 !bg-green-50/20"
 												: "!border-gray-200 hover:!border-gray-300"
-											}`}
-									>
-										{/* ============ STEP HEADER ============ */}
-										<Box
-											className={`flex items-center gap-3 p-4 cursor-pointer transition-all duration-200 ${isActive
+									}`}
+								>
+									{/* ============ STEP HEADER ============ */}
+									<Box
+										className={`flex items-center gap-3 p-4 cursor-pointer transition-all duration-200 ${
+											isActive
 												? "bg-gradient-to-r from-primary/5 to-primary/10"
 												: ""
-												}`}
-											onClick={() => handleToggleChecklist(checklistId)}
-										>
-											{/* Step Number Badge */}
-											<Box className="flex-shrink-0">
-												<Box
-													className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${isCompleted
+										}`}
+										onClick={() => handleToggleChecklist(checklistId)}
+									>
+										{/* Step Number Badge */}
+										<Box className="flex-shrink-0">
+											<Box
+												className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+													isCompleted
 														? "bg-green-500 text-white shadow-lg shadow-green-200"
 														: isActive
 															? "bg-primary text-white shadow-lg shadow-primary/30"
 															: "bg-gray-100 text-gray-500"
-														}`}
-												>
-													{isCompleted ? (
-														<CheckCircleIcon className="!w-5 !h-5" />
-													) : (
-														stepNumber
-													)}
-												</Box>
-												{/* Connecting Line */}
-												{idx < onboarding.checklists.length - 1 && (
-													<Box className="w-0.5 h-6 bg-gray-200 mx-auto mt-1" />
+												}`}
+											>
+												{isCompleted ? (
+													<CheckCircleIcon className="!w-5 !h-5" />
+												) : (
+													stepNumber
 												)}
 											</Box>
+											{/* Connecting Line */}
+											{idx < onboarding.checklists.length - 1 && (
+												<Box className="w-0.5 h-6 bg-gray-200 mx-auto mt-1" />
+											)}
+										</Box>
 
-											{/* Step Info */}
-											<Box className="flex-1 min-w-0">
-												<Box className="flex items-center gap-2 flex-wrap">
-													<Typography
-														variant="subtitle1"
-														className="font-semibold text-gray-800"
-													>
-														Step {stepNumber}: {checklist.checklistName}
-													</Typography>
-													{isCompleted && (
-														<Chip
-															icon={<VerifiedIcon className="!w-4" />}
-															label="Complete"
-															size="small"
-															color="success"
-															className="!h-5 !text-[9px] !rounded-full"
-														/>
-													)}
-												</Box>
-												<Box className="flex items-center gap-3 mt-0.5 flex-wrap">
-													<Typography
-														variant="caption"
-														className="text-gray-500"
-													>
-														{checklist.completedTasks}/{checklist.totalTasks}{" "}
-														tasks
-													</Typography>
+										{/* Step Info */}
+										<Box className="flex-1 min-w-0">
+											<Box className="flex items-center gap-2 flex-wrap">
+												<Typography
+													variant="subtitle1"
+													className="font-semibold text-gray-800"
+												>
+													Step {stepNumber}: {checklist.checklistName}
+												</Typography>
+												{isCompleted && (
 													<Chip
-														label={`${checklist.progressPercent}%`}
+														icon={<VerifiedIcon className="!w-4" />}
+														label="Complete"
 														size="small"
-														className={`!h-5 !text-[9px] !rounded-full ${isCompleted
-															? "!bg-green-100 !text-green-700"
-															: "!bg-primary-50 !text-primary"
-															}`}
-													/>
-													<Chip
-														label={getStatusDisplay(checklist.status)}
-														size="small"
-														color={getStatusColor(checklist.status)}
-														variant="outlined"
+														color="success"
 														className="!h-5 !text-[9px] !rounded-full"
 													/>
-												</Box>
+												)}
 											</Box>
-
-											{/* Progress & Expand Toggle */}
-											<Box className="flex items-center gap-3 flex-shrink-0">
-												<Box className="min-w-[80px] hidden sm:block">
-													<LinearProgress
-														variant="determinate"
-														value={checklist.progressPercent}
-														className="h-1.5 rounded-full"
-														sx={{
-															backgroundColor: "#e5e7eb",
-															"& .MuiLinearProgress-bar": {
-																backgroundColor: isCompleted
-																	? "#22c55e"
-																	: checklist.progressPercent >= 70
-																		? "#3b82f6"
-																		: checklist.progressPercent >= 40
-																			? "#f59e0b"
-																			: "#ef4444",
-																borderRadius: "999px",
-															},
-														}}
-													/>
-												</Box>
-												<Box
-													className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isActive
-														? "bg-primary-50 text-primary"
-														: "bg-gray-100 text-gray-500"
-														}`}
+											<Box className="flex items-center gap-3 mt-0.5 flex-wrap">
+												<Typography
+													variant="caption"
+													className="text-gray-500"
 												>
-													{isActive ? (
-														<KeyboardArrowUp className="!w-5 !h-5" />
-													) : (
-														<KeyboardArrowDownIcon className="!w-5 !h-5" />
-													)}
-												</Box>
+													{checklist.completedTasks}/{checklist.totalTasks}{" "}
+													tasks
+												</Typography>
+												<Chip
+													label={`${checklist.progressPercent}%`}
+													size="small"
+													className={`!h-5 !text-[9px] !rounded-full ${
+														isCompleted
+															? "!bg-green-100 !text-green-700"
+															: "!bg-primary-50 !text-primary"
+													}`}
+												/>
+												<Chip
+													label={getStatusDisplay(checklist.status)}
+													size="small"
+													color={getStatusColor(checklist.status)}
+													variant="outlined"
+													className="!h-5 !text-[9px] !rounded-full"
+												/>
 											</Box>
 										</Box>
 
-										{/* ============ STEP CONTENT ============ */}
-										<Collapse in={isActive} timeout="auto" unmountOnExit>
-											<Box className="p-4 pt-2">
-												{/* Step Info Alert */}
-												{/* <Box className="mb-3 flex items-center gap-2 text-sm text-gray-500 bg-white rounded-xl px-3 py-2 border border-gray-200">
-                        <InfoOutlined className="!w-4 !h-4 text-primary" />
-                        <Typography variant="caption">
-                          {isCompleted
-                            ? `✅ Step ${stepNumber} completed!`
-                            : `Complete all ${checklist.totalTasks} tasks in this step to move forward`}
-                        </Typography>
-                      </Box> */}
+										{/* Progress & Expand Toggle */}
+										<Box className="flex items-center gap-3 flex-shrink-0">
+											<Box className="min-w-[80px] hidden sm:block">
+												<LinearProgress
+													variant="determinate"
+													value={checklist.progressPercent}
+													className="h-1.5 rounded-full"
+													sx={{
+														backgroundColor: "#e5e7eb",
+														"& .MuiLinearProgress-bar": {
+															backgroundColor: isCompleted
+																? "#22c55e"
+																: checklist.progressPercent >= 70
+																	? "#3b82f6"
+																	: checklist.progressPercent >= 40
+																		? "#f59e0b"
+																		: "#ef4444",
+															borderRadius: "999px",
+														},
+													}}
+												/>
+											</Box>
+											<Box
+												className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+													isActive
+														? "bg-primary-50 text-primary"
+														: "bg-gray-100 text-gray-500"
+												}`}
+											>
+												{isActive ? (
+													<KeyboardArrowUp className="!w-5 !h-5" />
+												) : (
+													<KeyboardArrowDownIcon className="!w-5 !h-5" />
+												)}
+											</Box>
+										</Box>
+									</Box>
 
-												{/* ============ TASKS LIST ============ */}
-												<Box className="space-y-2">
-													{checklist.tasks?.map(
-														(task: any, taskIdx: number) => {
-															const isHovered = hoveredTask === task.id;
-															const isTaskCompleted =
-																task.status === "COMPLETED";
-															const isTaskInProgress =
-																task.status === "IN_PROGRESS";
-															const isTaskOverdue = task.status === "OVERDUE";
+									{/* ============ STEP CONTENT ============ */}
+									<Collapse in={isActive} timeout="auto" unmountOnExit>
+										<Box className="p-4 pt-2">
+											{/* ============ TASKS LIST ============ */}
+											<Box className="space-y-2">
+												{checklist.tasks?.map(
+													(task: any, taskIdx: number) => {
+														const isHovered = hoveredTask === task.id;
+														const isTaskCompleted =
+															task.status === "COMPLETED";
+														const isTaskInProgress =
+															task.status === "IN_PROGRESS";
+														const isTaskOverdue = task.status === "OVERDUE";
 
-															return (
-																<Paper
-																	key={task.taskInstanceId || task.id}
-																	onMouseEnter={() => setHoveredTask(task.id)}
-																	onMouseLeave={() => setHoveredTask(null)}
-																	className={`!rounded-xl transition-all duration-200 ${isTaskCompleted
+														return (
+															<Paper
+																key={task.taskInstanceId || task.id}
+																onMouseEnter={() => setHoveredTask(task.id)}
+																onMouseLeave={() => setHoveredTask(null)}
+																className={`!rounded-xl transition-all duration-200 ${
+																	isTaskCompleted
 																		? "!bg-green-50/40 !border-green-200"
 																		: isTaskOverdue
 																			? "!bg-red-50/60 !border-red-200"
 																			: isTaskInProgress
 																				? "!bg-blue-50/60 !border-blue-200"
 																				: "bg-gray-200 !border-gray-200"
-																		} ${isHovered ? "!shadow-md !border-primary/30" : "!shadow-sm"}`}
-																	elevation={0}
-																	variant="outlined"
-																>
-																	<Box className="p-3">
-																		<div className="flex items-center justify-between">
-																			{/* Task Info */}
-																			<Grid size={{ xs: 12, sm: 6, md: 7 }}>
-																				<Box className="flex items-start gap-3">
-																					{/* Task Status Icon */}
-																					<Box className="mt-0.5 flex-shrink-0">
-																						{isTaskCompleted ? (
-																							<Box className="w-6 h-6 rounded-full bg-green-700 flex items-center justify-center shadow-sm shadow-green-200">
-																								<CheckCircleIcon className="!w-4 !h-4 text-white" />
-																							</Box>
-																						) : isTaskOverdue ? (
-																							<Box className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-sm shadow-red-200">
-																								<WarningIcon className="!w-4 !h-4 text-white" />
-																							</Box>
-																						) : isTaskInProgress ? (
-																							<Box className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shadow-sm shadow-blue-200">
-																								<ScheduleIcon className="!w-4 !h-4 text-white" />
-																							</Box>
-																						) : (
-																							<Box className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center bg-gray-50">
-																								<Typography
-																									variant="caption"
-																									className="text-gray-400 font-medium text-[10px]"
-																								>
-																									{taskIdx + 1}
-																								</Typography>
-																							</Box>
-																						)}
-																					</Box>
-
-																					{/* Task Details */}
-																					<Box className="flex-1 min-w-0">
-																						<Typography
-																							variant="body2"
-																							className={`font-medium ${isTaskCompleted ? "text-gray-500 line-through" : "text-gray-800"}`}
-																						>
-																							{task.title || task.taskName}
-																							{task.required && (
-																								<Chip
-																									label="Required"
-																									size="small"
-																									color="error"
-																									className="ml-1.5 !h-4 !text-[8px] !rounded-full"
-																								/>
-																							)}
-																						</Typography>
-
-																						{task.description && (
-																							<Typography
-																								variant="caption"
-																								className="text-gray-500 block mt-0.5 line-clamp-1"
-																							>
-																								{task.description}
-																							</Typography>
-																						)}
-
-																						<Box className="flex gap-1 mt-1 flex-wrap">
-																							<Chip
-																								label={
-																									task.taskType || "CUSTOM"
-																								}
-																								size="small"
-																								variant="outlined"
-																								color="primary"
-																								className="!h-5 !text-[8px] !rounded-full"
-																							/>
-																							{task.documentName && (
-																								<Chip
-																									icon={
-																										<AttachFileIcon className="!w-3 !h-3 !text-gray-800" />
-																									}
-																									label={task.documentName}
-																									size="small"
-																									variant="outlined"
-																									className="!h-5 !text-[8px] text-gray-800 !rounded-full text-blue-600 border-blue-200"
-																								/>
-																							)}
+																} ${
+																	isHovered
+																		? "!shadow-md !border-primary/30"
+																		: "!shadow-sm"
+																}`}
+																elevation={0}
+																variant="outlined"
+															>
+																<Box className="p-3">
+																	<div className="flex items-center justify-between">
+																		{/* Task Info */}
+																		<Grid size={{ xs: 12, sm: 6, md: 7 }}>
+																			<Box className="flex items-start gap-3">
+																				{/* Task Status Icon */}
+																				<Box className="mt-0.5 flex-shrink-0">
+																					{isTaskCompleted ? (
+																						<Box className="w-6 h-6 rounded-full bg-green-700 flex items-center justify-center shadow-sm shadow-green-200">
+																							<CheckCircleIcon className="!w-4 !h-4 text-white" />
 																						</Box>
-																					</Box>
-																				</Box>
-																			</Grid>
-
-																			{/* Actions */}
-																			<Grid size={{ xs: 12, sm: 6, md: 5 }}>
-																				<Box className="flex items-center justify-end gap-2 flex-wrap">
-																					{task.fileUrl && (
-																						<Tooltip title="Download">
-																							<IconButton
-																								size="small"
-																								href={task.fileUrl}
-																								target="_blank"
-																								component="a"
-																								className="text-blue-600 hover:bg-blue-50 !w-7 !h-7"
-																							>
-																								<DownloadIcon className="!w-4 text-blue-500" />
-																							</IconButton>
-																						</Tooltip>
-																					)}
-																					{/* Status Chip */}
-																					<Chip
-																						label={getStatusDisplay(
-																							task.status,
-																						)}
-																						size="small"
-																						color={getStatusColor(task.status)}
-																						variant={
-																							isTaskCompleted
-																								? "filled"
-																								: "outlined"
-																						}
-																						className="!h-6 !text-[10px] !rounded-full !font-medium flex-shrink-0"
-																					/>
-
-																					{!isTaskCompleted ? (
-																						<Box className="flex !gap-2">
-																							{task.taskType === "DOCUMENT" ? (
-																								<Tooltip title="Upload Document">
-																									<Button
-																										size="small"
-																										variant="outlined"
-																										onClick={() =>
-																											handleUploadDocument(task)
-																										}
-																										className="!text-[10px] !px-4"
-																										startIcon={
-																											<UploadOutlined className="!w-4" />
-																										}
-																									>
-																										Upload
-																									</Button>
-																								</Tooltip>
-																							) : (
-																								<Tooltip title="Mark as Complete">
-																									<Button
-																										size="small"
-																										variant="outlined"
-																										// color="info"
-																										onClick={() =>
-																											handleCompleteTask(task)
-																										}
-																										className="!text-[10px]"
-																										disabled={isCompleting}
-																										startIcon={
-																											<CheckCircleOutlined className="!w-4" />
-																										}
-																									>
-																										Complete
-																									</Button>
-																								</Tooltip>
-																							)}
-
+																					) : isTaskOverdue ? (
+																						<Box className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-sm shadow-red-200">
+																							<WarningIcon className="!w-4 !h-4 text-white" />
+																						</Box>
+																					) : isTaskInProgress ? (
+																						<Box className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center shadow-sm shadow-blue-200">
+																							<ScheduleIcon className="!w-4 !h-4 text-white" />
 																						</Box>
 																					) : (
-																						<Box className="flex items-center gap-1">
-																							{task.completedAt && (
-																								<Typography
-																									variant="caption"
-																									className="text-gray-800 text-[10px] flex items-center gap-0.5"
-																								>
-																									{/* ✅{" "} */}
-																									{/* {dayjs(
-																										task.completedAt,
-																									).format("DD MMM YYYY hh:mm:ss")} */}
-																									{ formatDateTime(task.completedAt)}
-																								</Typography>
-																							)}
-																							{/* {task.fileUrl && (
-																								<Tooltip title="Download">
-																									<IconButton
-																										size="small"
-																										href={task.fileUrl}
-																										target="_blank"
-																										component="a"
-																										className="text-blue-600 hover:bg-blue-50 !w-7 !h-7"
-																									>
-																										<DownloadIcon className="!w-4 text-sky-500" />
-																									</IconButton>
-																								</Tooltip>
-																							)} */}
+																						<Box className="w-6 h-6 rounded-full border-2 border-gray-300 flex items-center justify-center bg-gray-50">
+																							<Typography
+																								variant="caption"
+																								className="text-gray-400 font-medium text-[10px]"
+																							>
+																								{taskIdx + 1}
+																							</Typography>
 																						</Box>
 																					)}
 																				</Box>
-																			</Grid>
-																		</div>
-																	</Box>
-																</Paper>
-															);
-														},
-													)}
 
-													{/* Empty State */}
-													{(!checklist.tasks ||
-														checklist.tasks.length === 0) && (
-															<Box className="text-center py-6 bg-white rounded-xl border border-dashed border-gray-200">
-																<DescriptionIcon className="text-gray-300 !w-10 !h-10 mb-2" />
-																<Typography
-																	variant="body2"
-																	className="text-gray-400"
-																>
-																	No tasks in this step
-																</Typography>
-															</Box>
-														)}
-												</Box>
+																				{/* Task Details */}
+																				<Box className="flex-1 min-w-0">
+																					<Typography
+																						variant="body2"
+																						className={`font-medium ${
+																							isTaskCompleted
+																								? "text-gray-500 line-through"
+																								: "text-gray-800"
+																						}`}
+																					>
+																						{task.title || task.taskName}
+																						{task.required && (
+																							<Chip
+																								label="Required"
+																								size="small"
+																								color="error"
+																								className="ml-1.5 !h-4 !text-[8px] !rounded-full"
+																							/>
+																						)}
+																					</Typography>
 
-												{/* Step Completion Status */}
-												{isCompleted && (
-													<Box className="mt-3 flex items-center gap-2 bg-green-50 rounded-xl px-4 py-2.5 border border-green-200">
-														<Box className="w-8 h-8 rounded-full bg-green-700 flex items-center justify-center shadow-sm shadow-green-200 flex-shrink-0">
-															<CheckCircleIcon className="!w-4 !h-4 text-white" />
-														</Box>
-														<Box>
-															<Typography
-																variant="caption"
-																className="text-green-700 font-medium"
-															>
-																Step {stepNumber} completed! 🎉
-															</Typography>
-															<Typography
-																variant="caption"
-																className="text-green-600 block text-[10px]"
-															>
-																All tasks in this step are done
-															</Typography>
-														</Box>
+																					{task.description && (
+																						<Typography
+																							variant="caption"
+																							className="text-gray-500 block mt-0.5 line-clamp-1"
+																						>
+																							{task.description}
+																						</Typography>
+																					)}
+
+																					<Box className="flex gap-1 mt-1 flex-wrap">
+																						<Chip
+																							label={
+																								task.taskType || "CUSTOM"
+																							}
+																							size="small"
+																							variant="outlined"
+																							color="primary"
+																							className="!h-5 !text-[8px] !rounded-full"
+																						/>
+																						{task.documentName && (
+																							<Chip
+																								icon={
+																									<AttachFileIcon className="!w-3 !h-3 !text-gray-800" />
+																								}
+																								label={task.documentName}
+																								size="small"
+																								variant="outlined"
+																								className="!h-5 !text-[8px] text-gray-800 !rounded-full text-blue-600 border-blue-200"
+																							/>
+																						)}
+																					</Box>
+
+																					{/* ✅ Completed task metadata: timestamp + notes */}
+																					{isTaskCompleted &&
+																						(task.completedAt || task.notes) && (
+																							<Box className="flex items-center gap-2 mt-1.5 flex-wrap">
+																								{task.completedAt && (
+																									<Typography
+																										variant="caption"
+																										className="text-gray-600 text-[10px] flex items-center gap-0.5"
+																									>
+																										<AccessTimeIcon className="!w-3 !h-3" />
+																										{formatDateTime(
+																											task.completedAt,
+																										)}
+																									</Typography>
+																								)}
+																								{task.notes && (
+																									<Typography
+																										variant="caption"
+																										className="text-gray-500 text-[10px] italic line-clamp-1"
+																									>
+																										• {task.notes}
+																									</Typography>
+																								)}
+																							</Box>
+																						)}
+																				</Box>
+																			</Box>
+																		</Grid>
+
+																		{/* Actions */}
+																		<Grid size={{ xs: 12, sm: 6, md: 5 }}>
+																			<Box className="flex items-center justify-end gap-2 flex-wrap">
+																				{task.fileUrl && (
+																					<Tooltip title="Download">
+																						<IconButton
+																							size="small"
+																							href={task.fileUrl}
+																							target="_blank"
+																							component="a"
+																							className="text-blue-600 hover:bg-blue-50 !w-7 !h-7"
+																						>
+																							<DownloadIcon className="!w-4 text-blue-500" />
+																						</IconButton>
+																					</Tooltip>
+																				)}
+
+																				{/* Status Chip */}
+																				<Chip
+																					label={getStatusDisplay(task.status)}
+																					size="small"
+																					color={getStatusColor(task.status)}
+																					variant={
+																						isTaskCompleted
+																							? "filled"
+																							: "outlined"
+																					}
+																					className="!h-6 !text-[10px] !rounded-full !font-medium flex-shrink-0"
+																				/>
+
+																				{!isTaskCompleted ? (
+																					<Box className="flex !gap-2">
+																						{task.taskType === "DOCUMENT" ? (
+																							<Tooltip title="Upload Document">
+																								<Button
+																									size="small"
+																									variant="outlined"
+																									onClick={() =>
+																										handleUploadDocument(task)
+																									}
+																									className="!text-[10px] !px-4"
+																									startIcon={
+																										<UploadOutlined className="!w-4" />
+																									}
+																								>
+																									Upload
+																								</Button>
+																							</Tooltip>
+																						) : (
+																							<Tooltip title="Mark as Complete">
+																								<Button
+																									size="small"
+																									variant="outlined"
+																									onClick={() =>
+																										handleCompleteTask(task)
+																									}
+																									className="!text-[10px]"
+																									disabled={isCompleting}
+																									startIcon={
+																										<CheckCircleOutlined className="!w-4" />
+																									}
+																								>
+																									Complete
+																								</Button>
+																							</Tooltip>
+																						)}
+																					</Box>
+																				) : (
+																					<Box className="flex items-center gap-1">
+																						{task.completedAt && (
+																							<Typography
+																								variant="caption"
+																								className="text-gray-800 text-[10px] flex items-center gap-0.5"
+																							>
+																								{formatDateTime(
+																									task.completedAt,
+																								)}
+																							</Typography>
+																						)}
+																					</Box>
+																				)}
+																			</Box>
+																		</Grid>
+																	</div>
+																</Box>
+															</Paper>
+														);
+													},
+												)}
+
+												{/* Empty State */}
+												{(!checklist.tasks ||
+													checklist.tasks.length === 0) && (
+													<Box className="text-center py-6 bg-white rounded-xl border border-dashed border-gray-200">
+														<DescriptionIcon className="text-gray-300 !w-10 !h-10 mb-2" />
+														<Typography
+															variant="body2"
+															className="text-gray-400"
+														>
+															No tasks in this step
+														</Typography>
 													</Box>
 												)}
 											</Box>
-										</Collapse>
-									</Card>
-								</Fade>
-							);
-						})}
-					</Box>
+
+											{/* Step Completion Status */}
+											{isCompleted && (
+												<Box className="mt-3 flex items-center gap-2 bg-green-50 rounded-xl px-4 py-2.5 border border-green-200">
+													<Box className="w-8 h-8 rounded-full bg-green-700 flex items-center justify-center shadow-sm shadow-green-200 flex-shrink-0">
+														<CheckCircleIcon className="!w-4 !h-4 text-white" />
+													</Box>
+													<Box>
+														<Typography
+															variant="caption"
+															className="text-green-700 font-medium"
+														>
+															Step {stepNumber} completed! 🎉
+														</Typography>
+														<Typography
+															variant="caption"
+															className="text-green-600 block text-[10px]"
+														>
+															All tasks in this step are done
+														</Typography>
+													</Box>
+												</Box>
+											)}
+										</Box>
+									</Collapse>
+								</Card>
+							</Fade>
+						);
+					})}
 				</Box>
-			)}
+			</Box>
 
 			{/* ============ COMPLETE TASK DIALOG ============ */}
 			<Dialog
@@ -1154,8 +1040,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				onClose={() => setIsCompleteDialogOpen(false)}
 				maxWidth="sm"
 				fullWidth
-			// PaperProps={{ className: "!rounded-3xl" }}
-			// TransitionComponent={Zoom}
 			>
 				<DialogTitle className="flex justify-between items-center !border-b !border-gray-200">
 					<Box>
@@ -1224,8 +1108,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				onClose={() => setIsUploadDialogOpen(false)}
 				maxWidth="sm"
 				fullWidth
-			// PaperProps={{ className: "!rounded-3xl" }}
-			// TransitionComponent={Zoom}
 			>
 				<DialogTitle className="flex justify-between items-center !border-b !border-gray-200">
 					<Box>
@@ -1276,10 +1158,11 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 								startIcon={
 									selectedFile ? <CheckCircleIcon /> : <DescriptionIcon />
 								}
-								className={`py-5 border-2 border-dashed !rounded-2xl transition-all ${selectedFile
-									? "border-green-700 bg-green-50 text-green-700"
-									: "border-gray-300 hover:border-primary hover:bg-primary/5"
-									}`}
+								className={`py-5 border-2 border-dashed !rounded-2xl transition-all ${
+									selectedFile
+										? "border-green-700 bg-green-50 text-green-700"
+										: "border-gray-300 hover:border-primary hover:bg-primary/5"
+								}`}
 							>
 								{selectedFile ? (
 									<span className="font-medium">{selectedFile.name}</span>
@@ -1341,8 +1224,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				onClose={() => setShowCompletionDialog(false)}
 				maxWidth="sm"
 				fullWidth
-			// PaperProps={{ className: "!rounded-3xl" }}
-			// TransitionComponent={Zoom}
 			>
 				<DialogTitle className="text-center !pt-8">
 					<Box className="flex flex-col items-center">
@@ -1382,7 +1263,7 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 						variant="contained"
 						color="success"
 						startIcon={<TrophyIcon />}
-						onClick={handleCompleteOnboarding}
+						// onClick={handleCompleteOnboarding}
 						size="large"
 						className="!bg-green-600 !normal-case !rounded-full !px-8 !shadow-lg !shadow-green-600/30"
 					>

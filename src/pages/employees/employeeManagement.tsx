@@ -208,7 +208,7 @@ export default function EmployeeManagement() {
         branches,
         empStatus,
         employeeTypes,
-        filterEmployees,
+        // filterEmployees,
       ),
     [departments, designations, branches, empStatus, employeeTypes, filterEmployees],
   );
@@ -493,9 +493,9 @@ export default function EmployeeManagement() {
     const sortCriterion = sortCriteria.find(s => s.field === column);
     if (!sortCriterion) return null;
     const orderIcon = sortCriterion.order === "ASC" ? (
-      <ArrowUpward fontSize="small" className="ml-1 !w-3" />
+      <ArrowUpward fontSize="small" className="!w-3" />
     ) : (
-      <ArrowDownward fontSize="small" className="ml-1 !w-3" />
+      <ArrowDownward fontSize="small" className="!w-3" />
     );
 
     return (
@@ -1305,7 +1305,7 @@ export default function EmployeeManagement() {
         className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-385px)]" : "h-[calc(100vh-330px)]"} overflow-auto border border-gray-200 !bg-white-50`}
       >
         <Table stickyHeader>
-          <TableHead>
+          <TableHead className="bg-gray-100">
             <TableRow>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
@@ -1334,33 +1334,28 @@ export default function EmployeeManagement() {
                 sx={{ ...stickyHeaderLeftOffsetSx("160px"), minWidth: "100px" }}
               >
                 <div className="relative flex items-center gap-1">
-                  {(() => {
-                    const hasIncomplete = employees.some(
-                      (employee) =>
-                        !employee.department ||
-                        !employee.designation ||
-                        !employee.template ||
-                        !employee.employeeGroup
-                    );
-                    if (!hasIncomplete) return null;
-                    return (
-                      <Tooltip
-                        arrow
-                        title="Some employees are missing Department / Designation / Template / Group"
-                      >
-                        <span
-                          className="animate-blink absolute top-0 right-[15px] h-2 w-2 rounded-full bg-red-500"/>
-                      </Tooltip>
-                    );
-                  })()}
-                  Employee ID
+                  Employee ID <Tooltip title="Few Information are missing for the highlighted employees (Department / Designation / Template / Group)" arrow>
+                    <span className="animate-blink bg-red-500 w-2 h-2 rounded-full">
+                      {(() => {
+                        const hasIncomplete = employees.some(
+                          (employee) =>
+                            !employee.department ||
+                            !employee.designation ||
+                            !employee.template ||
+                            !employee.employeeGroup
+                        );
+                        if (!hasIncomplete) return null;
+                        return;
+                      })()}
+                    </span>
+                  </Tooltip>
                   {getSortIcon("employeeId")}
                 </div>
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("name")}
-                sx={{ ...stickyHeaderLeftOffsetSx("260px"), minWidth: "150px" }}
+                sx={{ ...stickyHeaderLeftOffsetSx("270px"), minWidth: "150px" }}
               >
                 <div className="flex items-center gap-1">
                   Employee Name
@@ -1495,7 +1490,7 @@ export default function EmployeeManagement() {
                 </TableCell>
                 <TableCell
                   className="font-medium"
-                  sx={{ ...getStickyLeftOffsetSx(index, "260px"), minWidth: "150px" }}
+                  sx={{ ...getStickyLeftOffsetSx(index, "270px"), minWidth: "150px" }}
                 >
                   {employee.name}
                 </TableCell>
@@ -1551,18 +1546,17 @@ export default function EmployeeManagement() {
                     <Tooltip
                       title={
                         employee.annualCtc && employee.annualCtc > 0
-                          ? "Salary Assigned"
+                          ? "Click to Re-assign Salary"
                           : "Click to Assign Salary"
                       }
                     >
                       <IconButton
                         size="small"
                         onClick={() => {
-                          if (employee.annualCtc && employee.annualCtc > 0) return;
                           navigate(`/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`);
                         }}
                         sx={{
-                          cursor: employee.annualCtc && employee.annualCtc > 0 ? "default" : "pointer",
+                          cursor: "pointer",
                         }}
                       >
                         {employee.annualCtc && employee.annualCtc > 0 ? (
