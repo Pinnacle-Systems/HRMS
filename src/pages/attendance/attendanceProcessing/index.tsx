@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Box } from "@mui/material";
 import {
   PlayCircleOutlined, LockOutlined,
@@ -7,6 +6,7 @@ import {
 import type { TabPanelProps } from "../shiftSettings/types";
 import { PeriodFinalisation } from "./PeriodFinalisation";
 import { ProcessAttendance } from "./ProcessAttendance";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 function TabPanel({ children, value, index }: TabPanelProps) {
   return (
@@ -19,6 +19,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 const TABS = [
 
    {
+    path: "run",
     label: "Process Attendance",
     icon: <PlayCircleOutlined className="!w-4" />,
     component: <ProcessAttendance />,
@@ -30,6 +31,7 @@ const TABS = [
   // }, 
  
   {
+    path: "finalisation",
     label: "Period Finalisation",
     icon: <LockOutlined className="!w-4" />,
     component: <PeriodFinalisation />,
@@ -42,7 +44,10 @@ const TABS = [
 ];
 
 export default function AttendanceProcessing() {
-  const [activeTab, setActiveTab] = useState(0);
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activeTab = Math.max(TABS.findIndex((tab) => tab.path === activeTabPath), 0);
 
   return (
     <div className="w-full">
@@ -63,7 +68,7 @@ export default function AttendanceProcessing() {
               return (
                 <button
                   key={index}
-                  onClick={() => setActiveTab(index)}
+                  onClick={() => navigate(`/attendance/process/${tab.path}${location.search}`)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200 whitespace-nowrap
                     ${active
                       ? "bg-primary-50 text-primary shadow-sm"

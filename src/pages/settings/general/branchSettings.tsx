@@ -58,6 +58,7 @@ import LocationMap from "../../../components/Map";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { companyService } from "../../../services/modules/company";
+import { normalizeGeofenceMode } from "../../../utils/geofence";
 import { useAuth } from "../../../auth/authContext";
 
 export default function BranchSettings() {
@@ -221,7 +222,13 @@ export default function BranchSettings() {
   const handleOpenDialog = (branch?: Branch) => {
     if (branch) {
       setEditingBranch(branch);
-      setFormData(branch);
+      const geofenceMode = normalizeGeofenceMode(branch.geofenceMode);
+      setFormData({
+        ...branch,
+        geofenceMode: geofenceMode
+          ? (geofenceMode.toLowerCase() as GeofenceMode)
+          : "disabled",
+      });
       setSelectedBranchHead(
         branch.branchHeadId
           ? {
@@ -349,8 +356,8 @@ export default function BranchSettings() {
           esiCode: formData.esiCode,
           pfLocation: formData.pfLocation,
           esiLocation: formData.esiLocation,
-          contactEmail: selectedBranchHead?.emailAddress,
-          contactNumber: selectedBranchHead?.mobileNumber,
+          contactEmail: selectedBranchHead?.emailAddress || formData.contactEmail,
+          contactNumber: selectedBranchHead?.mobileNumber || formData.contactNumber,
         };
         const res: any = await branchService.updateBranch(
           editingBranch.id,
@@ -374,8 +381,8 @@ export default function BranchSettings() {
           esiCode: formData.esiCode,
           pfLocation: formData.pfLocation,
           esiLocation: formData.esiLocation,
-          contactEmail: selectedBranchHead?.emailAddress,
-          contactNumber: selectedBranchHead?.mobileNumber,
+          contactEmail: selectedBranchHead?.emailAddress || formData.contactEmail,
+          contactNumber: selectedBranchHead?.mobileNumber || formData.contactNumber,
         };
         const res: any = await branchService.createBranch(payload);
         if (res.success) {
@@ -1242,7 +1249,7 @@ export default function BranchSettings() {
                 label="Contact Email"
                 name="contactEmail"
                 type="text"
-                value={selectedBranchHead?.emailAddress || ""}
+                value={selectedBranchHead?.emailAddress || formData.contactEmail ||  ""}
                 disabled={true}
               />
               <TextField
@@ -1250,7 +1257,7 @@ export default function BranchSettings() {
                 label="Contact Number"
                 name="radius"
                 type="contactNumber"
-                value={selectedBranchHead?.mobileNumber || ""}
+                value={selectedBranchHead?.mobileNumber || formData.contactNumber ||  ""}
                 disabled={true}
               />
             </div>

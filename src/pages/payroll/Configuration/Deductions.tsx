@@ -62,6 +62,7 @@ import {
   type EmployeeDeductionQuery,
 } from "../../../services/modules/payrollServices/deductions";
 import { useUI } from "../../../context/Snackbar";
+import { useNavigate, useParams } from "react-router-dom";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { dialogsx } from "../../../const";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -680,6 +681,9 @@ const useDeductionManagement = () => {
 
 // Main Component
 export default function DeductionConfiguration() {
+  const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const tabValue = activeTabPath === "all" ? 1 : 0;
   const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
 
   const {
@@ -708,7 +712,6 @@ export default function DeductionConfiguration() {
   const [formErrors, setFormErrors] = useState({ name: false, monthlyAmount: false });
   const [isLoanDialogOpen, setIsLoanDialogOpen] = useState(false);
   const [loanRequestId, setLoanRequestId] = useState("");
-  const [tabValue, setTabValue] = useState(0);
   const [selectedDeductionDetail, setSelectedDeductionDetail] = useState<EmployeeDeduction | null>(null);
 
   // Handlers
@@ -969,7 +972,7 @@ export default function DeductionConfiguration() {
             <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <CardContent>
                 <Box className="border-b border-gray-200 mb-3">
-                  <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)} sx={{
+                  <Tabs value={tabValue} onChange={(_, newValue) => navigate(`/payroll/deductions/${newValue === 1 ? "all" : "active"}`)} sx={{
                     "& .MuiTabs-indicator": {
                       backgroundColor: "var(--color-primary)",
                       height: 3,

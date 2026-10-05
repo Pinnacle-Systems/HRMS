@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateGeofenceAccess } from '../../src/utils/geofence';
+import { evaluateGeofenceAccess, normalizeGeofenceMode } from '../../src/utils/geofence';
+
+describe('normalizeGeofenceMode', () => {
+  it('normalizes configured modes regardless of casing', () => {
+    expect(normalizeGeofenceMode('soft')).toBe('SOFT');
+    expect(normalizeGeofenceMode('STRICT')).toBe('STRICT');
+  });
+
+  it('rejects unsupported configured modes', () => {
+    expect(normalizeGeofenceMode('flexible')).toBeNull();
+  });
+});
 
 describe('evaluateGeofenceAccess', () => {
   it('allows check-in when distance is within strict radius', () => {
@@ -60,5 +71,18 @@ describe('evaluateGeofenceAccess', () => {
     expect(result.allowed).toBe(true);
     expect(result.withinGeofence).toBe(true);
     expect(result.message).toContain('disabled');
+  });
+
+  it('does not treat an unsupported mode as disabled', () => {
+    expect(() =>
+      evaluateGeofenceAccess({
+        branchLatitude: 12.9716,
+        branchLongitude: 77.5946,
+        userLatitude: 13.0,
+        userLongitude: 77.7,
+        radiusKm: 0.5,
+        mode: 'flexible',
+      }),
+    ).toThrow('Unsupported geofence mode');
   });
 });

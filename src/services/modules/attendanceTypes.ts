@@ -779,8 +779,8 @@ export interface ImportFileParams {
   format: string;
   source: string;
   type:string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface ImportResponseData {
@@ -863,4 +863,26 @@ export interface ProcessStatusData {
   recommendedAction: string;
   reprocess: boolean;
   closeAction: string | null;
+}
+
+export interface BulkDecisionPayload {
+  ids: string[];
+  status: "approved" | "rejected";
+  approverRemarks?: string;
+  approvedBy: string;
+}
+
+export interface BulkDecisionError {
+  rowNumber: number;
+  branchName?: string;
+  branchCode?: string;
+  errors: string[];
+}
+
+export interface BulkDecisionResponse {
+  totalRequested: number;
+  successCount: number;
+  failureCount: number;
+  decided: CorrectionRequest[];
+  errors: BulkDecisionError[];
 }

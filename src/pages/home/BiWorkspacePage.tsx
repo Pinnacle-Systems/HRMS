@@ -87,6 +87,7 @@ import { formatDate } from "../leave/leaveFormatters";
 import { DashboardBuilderFull } from "./dashboardBuiler";
 import type { QueryJson, QuerySet } from "./const";
 import { apiService } from "../../services";
+import { useNavigate, useParams } from "react-router-dom";
 
 // ============ Utility Functions ============
 
@@ -129,9 +130,10 @@ const getStatusIcon = (status: string) => {
 export default function BiWorkspacePage() {
   const theme = useTheme();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
 
   // Tabs
-  const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -265,15 +267,16 @@ export default function BiWorkspacePage() {
   // Tabs
   const tabs = useMemo(
     () => [
-      { label: "Reports", icon: <Report /> },
-      { label: "Query Engine", icon: <QueryStats /> },
-      { label: "Exports", icon: <Download /> },
-      { label: "Datasets", icon: <SchemaIcon /> },
-      { label: "Builder", icon: <Dashboard /> },
-      { label: "Query Sets", icon: <FilterListIcon /> },
+      { path: "reports", label: "Reports", icon: <Report /> },
+      { path: "query-engine", label: "Query Engine", icon: <QueryStats /> },
+      { path: "exports", label: "Exports", icon: <Download /> },
+      { path: "datasets", label: "Datasets", icon: <SchemaIcon /> },
+      { path: "builder", label: "Builder", icon: <Dashboard /> },
+      { path: "query-sets", label: "Query Sets", icon: <FilterListIcon /> },
     ],
     []
   );
+  const activeTab = Math.max(tabs.findIndex((tab) => tab.path === activeTabPath), 0);
 
   // ============ Load Data ============
 
@@ -598,7 +601,7 @@ export default function BiWorkspacePage() {
       const data = response?.data;
       if (data) {
         setQueryResult(data);
-        setActiveTab(1);
+        navigate("/bi-workspace/query-engine");
         showSnackbar("Report executed successfully", "success");
       }
     } catch (err) {
@@ -2424,7 +2427,7 @@ export default function BiWorkspacePage() {
               <CardContent>
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                   <Button size="small" variant="outlined" className="!text-primary !border-primary" startIcon={<SchemaIcon />} onClick={() => { setSelectedDataset(dataset.datasetId); handleLoadDatasetSchema(); }} disabled={!dataset.available}>View Schema</Button>
-                  <Button size="small" variant="outlined" color="success" startIcon={<PlayArrow />} onClick={() => { setSelectedDataset(dataset.datasetId); setActiveTab(1); }} disabled={!dataset.available}>Query</Button>
+                  <Button size="small" variant="outlined" color="success" startIcon={<PlayArrow />} onClick={() => { setSelectedDataset(dataset.datasetId); navigate("/bi-workspace/query-engine"); }} disabled={!dataset.available}>Query</Button>
                 </Box>
               </CardContent>
             </Card>
@@ -3104,7 +3107,7 @@ ORDER BY headcount DESC`}
       {error && <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>{error}</Alert>}
 
       <Paper sx={{ borderRadius: 3 }} className="bg-white-50 text-gray-800 border border-gray-200">
-        <Tabs value={activeTab} onChange={(_, value) => setActiveTab(value)} variant="scrollable"
+        <Tabs value={activeTab} onChange={(_, value) => navigate(`/bi-workspace/${tabs[value].path}`)} variant="scrollable"
           scrollButtons="auto" indicatorColor="primary" textColor="primary" className="!border-b !border-gray-300"
           sx={{
             "& .MuiTabs-indicator": {

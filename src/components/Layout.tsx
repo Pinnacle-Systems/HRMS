@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
@@ -107,6 +107,241 @@ const getFallbackRouteLabel = (path: string) => {
   return segment
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+};
+
+const tabRouteLabels: Record<string, Record<string, string>> = {
+  "attendance/overview": {
+    summary: "Summary",
+    "on-leave": "On Leave Today",
+    holidays: "Holidays",
+  },
+  "attendance/records": {
+    "daily-register": "Daily Register",
+    detailed: "Detailed View",
+    "muster-register": "Muster Register",
+    "employee-view": "Employee View",
+  },
+  "attendance/management": {
+    corrections: "Corrections",
+    "remote-checkins": "Remote Check-ins",
+    overtime: "Overtime",
+    lop: "LOP",
+    biometric: "Device Integration",
+    "offline-sync": "Offline Sync",
+  },
+  "attendance/process": {
+    run: "Process Attendance",
+    finalisation: "Period Finalisation",
+  },
+  "attendance/shifts": {
+    list: "Shift List",
+    rotation: "Shift Rotation",
+    roster: "Shift Roster",
+    schedule: "Shift Schedule",
+    "swap-requests": "Swap Requests",
+  },
+  profile: {
+    info: "Profile Info",
+    "login-history": "Login History",
+  },
+  "user-management": {
+    "role-mapping": "Role Mapping",
+    configurations: "Configurations",
+    permissions: "Permission Settings",
+  },
+  "bi-workspace": {
+    reports: "Reports",
+    "query-engine": "Query Engine",
+    exports: "Exports",
+    datasets: "Datasets",
+    builder: "Builder",
+    "query-sets": "Query Sets",
+    widgets: "Widgets",
+    filters: "Filters",
+  },
+  "payroll/loan-advance-request": {
+    "all-requests": "All Requests",
+    pending: "Pending",
+    approved: "Approved",
+    rejected: "Rejected",
+  },
+  "payroll/employee-salary": {
+    "current-structure": "Current Structure",
+    "payroll-history": "Payroll History",
+    "loans-advances": "Loans & Advances",
+    "tax-summary": "Tax Summary",
+    "salary-history": "View Salary History",
+  },
+  "payroll/employee-portal": {
+    employees: "Employee List",
+    "self-service": "Self-Service Features",
+    payslips: "Employee Payslips",
+    "tax-summary": "Tax Summary",
+  },
+  "payroll/runs": {
+    breakdown: "Employee Breakdown",
+    earnings: "Earnings",
+    deductions: "Deductions",
+    taxes: "Taxes",
+    summary: "Summary",
+    history: "Approval History",
+  },
+  "payroll/revision": {
+    summary: "Summary",
+    employees: "Employee Revisions",
+    components: "Component Breakdown",
+  },
+  "payroll/structures": {
+    list: "My Structures",
+    create: "Create Structure",
+  },
+  "payroll/assign": {
+    list: "Assign Salary",
+    breakdown: "Detailed Breakdown",
+  },
+  "payroll/deductions": {
+    active: "Active Deductions",
+    all: "All Deductions",
+  },
+  "policies/details": {
+    overview: "Overview",
+    versions: "Versions",
+    assignments: "Assignments",
+    "audit-log": "Audit Log",
+  },
+  "policies/edit": {
+    overview: "Overview",
+    versions: "Version History",
+    assignments: "Assignments",
+  },
+  "leaves/hr/reports": {
+    overview: "Overview",
+    usage: "Usage",
+    pending: "Pending",
+    lop: "LOP",
+    balance: "Balance",
+    "comp-off": "Comp Off",
+    snapshot: "Snapshot",
+  },
+};
+
+const getTabRouteLabel = (pathname: string, search: string, isAdmin: boolean) => {
+  const segments = pathname.split("/").filter(Boolean);
+  let routeKey: string | undefined;
+  let tab: string | null = null;
+
+  if (segments[0] === "attendance" && segments.length <= 3) {
+    routeKey = segments.slice(0, 2).join("/");
+    tab = segments[2] ?? null;
+  } else if (segments[0] === "profile" || segments[0] === "user-management") {
+    routeKey = segments[0];
+    tab = segments[1] ?? null;
+  } else if (segments[0] === "onboarding-process" ||
+    (segments[0] === "settings" && segments[1] === "employee" && segments[2] === "onboarding-process")) {
+    const oldTab = new URLSearchParams(search).get("tab");
+    tab = segments[segments.length - 1] === "onboarding-process"
+      ? oldTab
+      : segments[segments.length - 1];
+    routeKey = "onboarding-process";
+  } else if (segments[0] === "bi-workspace") {
+    routeKey = "bi-workspace";
+    tab = segments[1] === "builder" ? segments[2] ?? "builder" : segments[1] ?? null;
+  } else if (segments[0] === "my-portal") {
+    routeKey = "payroll/employee-portal";
+    tab = "employees";
+  } else if (segments[0] === "payroll") {
+    if (segments[1] === "loan-advance-request" ||
+      segments[1] === "employee-salary" ||
+      segments[1] === "employee-portal" ||
+      segments[1] === "structures" ||
+      segments[1] === "assign" ||
+      segments[1] === "deductions") {
+      routeKey = segments.slice(0, 2).join("/");
+      tab = segments[2] ?? null;
+    } else if (segments[1] === "runs" && segments.length >= 3) {
+      routeKey = "payroll/runs";
+      tab = segments[3] ?? null;
+    } else if (segments[1] === "revision" && segments.length >= 3 && segments.length <= 4) {
+      routeKey = "payroll/revision";
+      tab = segments[3];
+    }
+  } else if (segments[0] === "policies" && segments.length >= 2) {
+    if (segments[2] === "edit") {
+      routeKey = "policies/edit";
+      tab = segments[3] ?? null;
+    } else if (!["create", "simulator", "reports"].includes(segments[1])) {
+      routeKey = "policies/details";
+      tab = segments[2] ?? null;
+    }
+  } else if (segments[0] === "employees" && segments.length >= 2) {
+    routeKey = "employees";
+    tab = segments[2] ?? null;
+  } else if (segments[0] === "leaves" && segments[1] === "hr" && segments[2] === "reports") {
+    routeKey = "leaves/hr/reports";
+    tab = segments[3] ?? null;
+  }
+
+  if (routeKey === "onboarding-process") {
+    const onboardingTabs: Record<string, string> = {
+      checklist: "Checklist Builder",
+      assign: "Assign Onboarding",
+      progress: "Progress Tracking",
+      documents: "Documents",
+      myonboarding: "My Onboarding",
+    };
+    const onboardingTab = tab ?? (isAdmin ? "checklist" : "myonboarding");
+    return onboardingTabs[onboardingTab] ?? null;
+  }
+
+  if (routeKey === "employees") {
+    const employeeTabs: Record<string, string> = {
+      "personal-info": "Personal Info",
+      addresses: "Addresses",
+      qualifications: "Qualifications",
+      "employee-details": "Employee Details",
+      "training-details": "Training Details",
+      "previous-employment": "Previous Employment",
+      identification: "Identification Details",
+      "family-details": "Family Details",
+      nominations: "Nominations",
+      attachments: "Attachments",
+      "salary-breakdown": "Salary Breakdown",
+      policies: "Policies",
+    };
+    return employeeTabs[tab ?? "personal-info"] ?? null;
+  }
+
+  if (routeKey && tabRouteLabels[routeKey]) {
+    if (routeKey === "attendance/records" && !tab) {
+      tab = new URLSearchParams(search).get("tab") === "detailed"
+        ? "detailed"
+        : "daily-register";
+    }
+    const defaultTab: Record<string, string> = {
+      "attendance/overview": "summary",
+      "attendance/records": "daily-register",
+      "attendance/management": "corrections",
+      "attendance/process": "run",
+      "attendance/shifts": "list",
+      profile: "info",
+      "user-management": "role-mapping",
+      "payroll/loan-advance-request": "all-requests",
+      "payroll/employee-salary": "current-structure",
+      "payroll/employee-portal": "employees",
+      "payroll/runs": "breakdown",
+      "payroll/revision": "summary",
+      "payroll/structures": "list",
+      "payroll/assign": "list",
+      "payroll/deductions": "active",
+      "policies/details": "overview",
+      "policies/edit": "overview",
+      "leaves/hr/reports": "overview",
+    };
+    const label = tabRouteLabels[routeKey][tab ?? defaultTab[routeKey]];
+    if (label) return label;
+  }
+
+  return null;
 };
 
 const clearAllPageHistories = () => {
@@ -584,14 +819,22 @@ export default function Layout() {
     ],
   );
 
-  const getRouteLabel = (path: string) => {
-    const matchingRoute = routeLabels
+  const routeLabelsRef = useRef(routeLabels);
+  routeLabelsRef.current = routeLabels;
+
+  const getRouteLabel = useCallback((path: string) => {
+    const [pathname, search = ""] = path.split("?");
+    const isAdmin = Boolean(user?.roles.some((role) => role === "ADMIN" || role === "HR"));
+    const tabLabel = getTabRouteLabel(pathname, search, isAdmin);
+    if (tabLabel) return tabLabel;
+
+    const matchingRoute = routeLabelsRef.current
       .filter(
         (route) => path === route.path || path.startsWith(`${route.path}/`)
       )
       .sort((first, second) => second.path.length - first.path.length)[0];
     return matchingRoute?.label || getFallbackRouteLabel(path);
-  };
+  }, [user]);
 
   useEffect(() => {
     if (loggingOutRef.current) return;
@@ -649,7 +892,7 @@ export default function Layout() {
       }
       return nextHistory;
     });
-  }, [location.pathname, location.search, location.state, pageHistoryStorageKey, routeLabels]);
+  }, [location.pathname, location.search, location.state, pageHistoryStorageKey, getRouteLabel]);
 
 
   useEffect(() => {
@@ -658,12 +901,31 @@ export default function Layout() {
     try {
       const storedPages = localStorage.getItem(pageHistoryStorageKey);
       const parsedPages = storedPages ? JSON.parse(storedPages) : [];
-      setPageHistory(Array.isArray(parsedPages) ? parsedPages : []);
+      const normalizedPages: PreviousPage[] = Array.isArray(parsedPages)
+        ? parsedPages
+          .filter((page): page is PreviousPage => typeof page?.path === "string")
+          .map((page) => ({ ...page, label: getRouteLabel(page.path) }))
+        : [];
+      setPageHistory((currentHistory) =>
+        currentHistory.length === normalizedPages.length &&
+        currentHistory.every(
+          (page, index) =>
+            page.path === normalizedPages[index].path &&
+            page.label === normalizedPages[index].label
+        )
+          ? currentHistory
+          : normalizedPages
+      );
+      if (JSON.stringify(parsedPages) !== JSON.stringify(normalizedPages)) {
+        localStorage.setItem(pageHistoryStorageKey, JSON.stringify(normalizedPages));
+      }
     } catch {
-      setPageHistory([]);
+      setPageHistory((currentHistory) =>
+        currentHistory.length === 0 ? currentHistory : []
+      );
     }
     closingPagePathRef.current = null;
-  }, [pageHistoryStorageKey]);
+  }, [pageHistoryStorageKey, getRouteLabel]);
 
   const handleRemovePage = (pathToRemove: string) => {
     setPageHistory((currentHistory) => {

@@ -1173,7 +1173,7 @@ export default function EmployeeManagement() {
             tone: "text-indigo-700 bg-indigo-50",
             bar: "bg-indigo-500",
             onClick: () => {
-              navigate("/settings/employee/onboarding-process?tab=assign&status=inprogress");
+              navigate("/settings/employee/onboarding-process/assign?status=inprogress");
             },
           },
           {
@@ -1184,7 +1184,7 @@ export default function EmployeeManagement() {
             tone: "text-teal-700 bg-teal-50",
             bar: "bg-teal-500",
             onClick: () => {
-              navigate("/settings/employee/onboarding-process?tab=assign&status=completed");
+              navigate("/settings/employee/onboarding-process/assign?status=completed");
             },
           },
         ];
@@ -1334,20 +1334,21 @@ export default function EmployeeManagement() {
                 sx={{ ...stickyHeaderLeftOffsetSx("160px"), minWidth: "100px" }}
               >
                 <div className="relative flex items-center gap-1">
-                  Employee ID <Tooltip title="Few Information are missing for the highlighted employees (Department / Designation / Template / Group)" arrow>
-                    <span className="animate-blink bg-red-500 w-2 h-2 rounded-full">
-                      {(() => {
-                        const hasIncomplete = employees.some(
-                          (employee) =>
-                            !employee.department ||
-                            !employee.designation ||
-                            !employee.template ||
-                            !employee.employeeGroup
-                        );
-                        if (!hasIncomplete) return null;
-                        return;
-                      })()}
-                    </span>
+                  Employee ID <Tooltip
+                    title="Few Information are missing for the highlighted employees (Department / Designation / Template / Group)"
+                    arrow
+                  >
+                    {employees.some(
+                      (employee) =>
+                        !employee.department ||
+                        !employee.designation ||
+                        !employee.template ||
+                        !employee.employeeGroup
+                    ) ? (
+                      <span className="animate-blink bg-red-500 w-2 h-2 rounded-full" />
+                    ) : (
+                      <span />
+                    )}
                   </Tooltip>
                   {getSortIcon("employeeId")}
                 </div>
@@ -1762,7 +1763,7 @@ export default function EmployeeManagement() {
             <Autocomplete
               fullWidth
               options={formData.branch ? departments.filter((item) => item.branchName == formData.branch) : departments}
-              getOptionLabel={(option) => option.departmentName + ' - ' + (option.branchName) || ""}
+              getOptionLabel={(option) => option.departmentName || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               value={formData.department || null}
               onChange={(_, newValue) => {
@@ -1980,6 +1981,7 @@ export default function EmployeeManagement() {
                             </MenuItem>
                           </Select>
                         </FormControl>
+
                         {empCodeType === "pattern" && (
                           <>
                             <TextField
@@ -1993,23 +1995,36 @@ export default function EmployeeManagement() {
                             <TextField
                               fullWidth
                               type="number"
-                              label="Zero"
+                              label="Starting Number"
                               className="!text-[12px]"
-                              value={zero}
-                              onChange={(e) => setZero(Number(e.target.value))}
+                              value={empStartNumber}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setEmpStartNumber(value);
+                                setZero(value.length);
+                              }}
+                              slotProps={{ htmlInput: { min: 1 } }}
                             />
                             <TextField
                               fullWidth
                               type="number"
-                              label="Starting Number"
+                              label="Zero"
                               className="!text-[12px]"
-                              value={empStartNumber}
-                              onChange={(e) =>
-                                setEmpStartNumber(e.target.value)
-                              }
+                              value={zero}
+                              onChange={(e) => {
+                                const newZero = Number(e.target.value);
+                                setZero(
+                                  newZero < empStartNumber.length
+                                    ? empStartNumber.length
+                                    : newZero
+                                );
+                              }}
+                              slotProps={{ htmlInput: { min: empStartNumber.length } }}
+                              helperText={`Minimum: ${empStartNumber.length}`}
                             />
                           </>
                         )}
+
                         {empCodeType === "alphanumeric" && (
                           <TextField
                             fullWidth
@@ -2021,23 +2036,38 @@ export default function EmployeeManagement() {
                             helperText="Random mixed employee ID"
                           />
                         )}
+
                         {empCodeType === "number" && (
                           <>
-                            <TextField
-                              fullWidth
-                              type="number"
-                              label="Zero"
-                              className="!text-[12px]"
-                              value={zero}
-                              onChange={(e) => setZero(Number(e.target.value))}
-                            />
                             <TextField
                               fullWidth
                               type="number"
                               label="Starting Number"
                               className="!text-[12px]"
                               value={empStartNumber}
-                              onChange={(e) => setEmpStartNumber(e.target.value)}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setEmpStartNumber(value);
+                                setZero(value.length);
+                              }}
+                              slotProps={{ htmlInput: { min: 1 } }}
+                            />
+                            <TextField
+                              fullWidth
+                              type="number"
+                              label="Zero"
+                              className="!text-[12px]"
+                              value={zero}
+                              onChange={(e) => {
+                                const newZero = Number(e.target.value);
+                                setZero(
+                                  newZero < empStartNumber.length
+                                    ? empStartNumber.length
+                                    : newZero
+                                );
+                              }}
+                              slotProps={{ htmlInput: { min: empStartNumber.length } }}
+                              helperText={`Minimum: ${empStartNumber.length}`}
                             />
                           </>
                         )}

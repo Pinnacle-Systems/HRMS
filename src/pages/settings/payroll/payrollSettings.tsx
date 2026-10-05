@@ -26,131 +26,43 @@ import {
   Alert,
   AlertTitle,
   CircularProgress,
-  Snackbar,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  Chip,
 } from "@mui/material";
 import {
-  // Layers as LayersIcon,
-  // RemoveCircle as MinusCircleIcon,
   Description as FileStackIcon,
   People as UsersIcon,
   CalendarToday as CalendarIcon,
   List as ListOrderedIcon,
-  Add as PlusIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
   Save as SaveIcon,
+  History as HistoryIcon,
   ChevronRight as ChevronRightIcon,
-  CheckCircle as CheckCircleIcon,
-  CancelOutlined,
+  Add as AddIcon,
+  Delete as DeleteIcon,
   CloseOutlined,
 } from "@mui/icons-material";
-import { getRowColor } from "../../const";
 import { useEffect, useState } from "react";
-import { payrollService } from "../../../services/modules/payrollServices/payroll";
-
-// ==================== TYPES BASED ON API RESPONSE ====================
-
-interface TaxSlab {
-  min: number;
-  max: number;
-  rate: number;
-}
-
-interface TaxRules {
-  defaultRegime: string;
-  tdsComputation: {
-    perquisiteTax: string;
-    projectionMethod: string;
-    declarationConsideration: string;
-  };
-  slabs: TaxSlab[];
-}
-
-interface PF {
-  voluntaryPF: boolean;
-  epsOutOfEmployer: string;
-  employerContribution: string;
-  employeeContribution: string;
-  edliContribution: string;
-  wageCeiling: number;
-  pfAdminCharges: string;
-}
-
-interface ESI {
-  employerContribution: string;
-  wageCeiling: number;
-  employeeContribution: string;
-  esiEnabled: boolean;
-}
-
-interface PFESISettings {
-  pf: PF;
-  esi: ESI;
-}
-
-interface Schedule {
-  salaryPaymentDate: number;
-  frequency: string;
-  attendanceCutoffDate: number;
-  processingStartDate: number;
-}
-
-interface AutoSyncFeature {
-  enabled: boolean;
-  name: string;
-}
-
-interface ApprovalWorkflowStep {
-  active: boolean;
-  action: string;
-  step: number;
-  role: string;
-  sla: string;
-}
-
-interface Allowance {
-  id?: string;
-  name: string;
-  basis: string;
-  limit: string;
-  taxExempt: boolean;
-}
-
-interface DeductionRule {
-  id?: string;
-  employer: string;
-  name: string;
-  rate: string;
-  applicability: string;
-  cap: string;
-}
-
-interface PayrollSettings {
-  taxRules: TaxRules;
-  pfEsiSettings: PFESISettings;
-  schedule: Schedule;
-  autoSyncFeatures: AutoSyncFeature[];
-  approvalWorkflow: ApprovalWorkflowStep[];
-  allowances: Allowance[];
-  deductionRules: DeductionRule[];
-}
-
-// interface ApiResponse<T> {
-//   success: boolean;
-//   message: string;
-//   data: T;
-//   timestamp: string;
-// }
+import {
+  payrollService,
+  type ApprovalWorkflowStep,
+  type AutoSyncFeature,
+  type PayrollSettingsHistoryEntry,
+  type TaxRules,
+  type PayrollSettings,
+  type TaxSlab,
+  type Schedule,
+  type PFESISettings,
+} from "../../../services/modules/payrollServices/payroll";
+import { useUI } from "../../../context/Snackbar";
+import { getRowColor } from "../../const";
 
 // ==================== NAVIGATION ====================
 
 const NAV_ITEMS = [
-  // { id: "allowances", label: "Allowances Configuration", icon: LayersIcon },
-  // { id: "deductions", label: "Deduction Rules", icon: MinusCircleIcon },
   { id: "tax", label: "Tax Rules", icon: FileStackIcon },
   { id: "pf-esi", label: "PF / ESI Settings", icon: UsersIcon },
   { id: "schedule", label: "Payroll Schedule", icon: CalendarIcon },
@@ -158,21 +70,6 @@ const NAV_ITEMS = [
 ];
 
 // ==================== DEFAULT DATA ====================
-
-const defaultAllowances: Allowance[] = [
-  { id: "1", name: "House Rent Allowance", basis: "50% of Basic (Metro) / 40% (Non-Metro)", limit: "Actual or 50% of Basic", taxExempt: true },
-  { id: "2", name: "Conveyance Allowance", basis: "Fixed ₹1,600/month", limit: "₹19,200/year", taxExempt: true },
-  { id: "3", name: "Medical Allowance", basis: "Fixed ₹1,250/month", limit: "₹15,000/year", taxExempt: true },
-  { id: "4", name: "LTA (Leave Travel)", basis: "Actuals as submitted", limit: "2 journeys in 4 years", taxExempt: true },
-  { id: "5", name: "Special Allowance", basis: "Balancing component", limit: "Fully taxable", taxExempt: false },
-];
-
-const defaultDeductionRules: DeductionRule[] = [
-  { id: "1", name: "Provident Fund", applicability: "Salary ≤ ₹15,000 Basic (Mandatory)", rate: "12% of Basic", cap: "₹1,800/month", employer: "12% of Basic" },
-  { id: "2", name: "Professional Tax", applicability: "All employees", rate: "Slab based", cap: "₹2,500/year", employer: "N/A" },
-  { id: "3", name: "ESIC", applicability: "Gross ≤ ₹21,000/month", rate: "0.75% of Gross", cap: "None", employer: "3.25% of Gross" },
-  { id: "4", name: "Income Tax (TDS)", applicability: "Income > exemption limit", rate: "Slab based", cap: "None", employer: "N/A" },
-];
 
 const defaultApprovalSteps: ApprovalWorkflowStep[] = [
   { step: 1, role: "Payroll Administrator", action: "Generate Payroll", sla: "2 days", active: true },
@@ -190,33 +87,259 @@ const defaultAutoSyncFeatures: AutoSyncFeature[] = [
   { name: "Bank File Export", enabled: true },
 ];
 
-// ==================== HELPER COMPONENTS ====================
+const formatCurrency = (amount: number): string =>
+  `₹${amount.toLocaleString("en-IN")}`;
 
-const BoolDot = ({ value }: { value: boolean }) => {
+// ==================== HISTORY VALUE RENDERERS ====================
+
+const humanizeKey = (key: string): string =>
+  key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (c) => c.toUpperCase())
+    .replace(/\s+/g, " ")
+    .trim();
+
+const isTaxSlab = (value: unknown): value is TaxSlab =>
+  typeof value === "object" &&
+  value !== null &&
+  "min" in value &&
+  "max" in value &&
+  "rate" in value;
+
+const formatSlabRange = (slab: TaxSlab): string => {
+  if (slab.min === 0) return `Up to ${formatCurrency(slab.max)}`;
+  if (slab.max === 0) return `Above ${formatCurrency(slab.min)}`;
+  return `${formatCurrency(slab.min)} – ${formatCurrency(slab.max)}`;
+};
+
+const renderHistoryValue = (value: unknown): React.ReactNode => {
+  if (value === null || value === undefined) {
+    return (
+      <Typography variant="body2" className="!text-gray-800">
+        —
+      </Typography>
+    );
+  }
+
+  if (typeof value === "boolean") {
+    return (
+      <Chip
+        size="small"
+        label={value ? "Enabled" : "Disabled"}
+        color={value ? "success" : "default"}
+        variant={value ? "filled" : "outlined"}
+        className={` ${value ? "": "!text-gray-800"} `}
+      />
+    );
+  }
+
+  if (typeof value === "number") {
+    return (
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+        {value.toLocaleString("en-IN")}
+      </Typography>
+    );
+  }
+
+  if (typeof value === "string") {
+    if (value === "Enabled" || value === "Disabled") {
+      const on = value === "Enabled";
+      return (
+        <Chip
+          size="small"
+          label={value}
+          color={on ? "success" : "default"}
+          variant={on ? "filled" : "outlined"}
+          className={`${on ? "" : "!text-gray-800"}`}
+        />
+      );
+    }
+    return <Typography variant="body2">{value}</Typography>;
+  }
+
+  if (isTaxSlab(value)) {
+    return (
+      <Stack direction="row" spacing={1.5}>
+        <Typography variant="body2">{formatSlabRange(value)}dd</Typography>
+        <Chip
+          size="small"
+          label={value.rate === 0 ? "Nil" : `${value.rate}%`}
+          color="primary"
+          variant="outlined"
+        />
+      </Stack>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return (
+        <Typography variant="body2" className="!text-gray-800">
+          No items
+        </Typography>
+      );
+    }
+    return (
+      <Stack spacing={1}>
+        {value.map((item, i) => (
+          <Box
+            className="bg-white-50 border border-gray-200 rounded-md p-2"
+            key={i}
+          >
+            <HistoryEntryBody data={item} />
+          </Box>
+        ))}
+      </Stack>
+    );
+  }
+
+  if (typeof value === "object") {
+    return <HistoryEntryBody data={value as Record<string, unknown>} />;
+  }
+
+  return <Typography variant="body2">{String(value)}</Typography>;
+};
+
+const HistoryEntryBody = ({ data }: { data: unknown }) => {
+  if (data === null || data === undefined) {
+    return (
+      <Typography variant="body2" className="!text-gray-800">
+        No data
+      </Typography>
+    );
+  }
+
+  if (typeof data !== "object" || Array.isArray(data)) {
+    return <>{renderHistoryValue(data)}</>;
+  }
+
+  const fields = Object.entries(data as Record<string, unknown>);
+  if (fields.length === 0) {
+    return (
+      <Typography variant="body2" className="!text-gray-800">
+        No fields
+      </Typography>
+    );
+  }
+
   return (
-    <Box
-      sx={{
-        width: 20,
-        height: 20,
-        borderRadius: "50%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        mx: "auto",
-      }}
-    >
-      {value ? (
-        <CheckCircleIcon sx={{ fontSize: 14, color: "success.main" }} />
-      ) : (
-        <CancelOutlined sx={{ fontSize: 14, color: "error.main" }} />
-      )}
-    </Box>
+    <Stack spacing={1.25}>
+      {fields.map(([key, value]) => {
+        const isComplex = value !== null && typeof value === "object";
+        return (
+          <Box
+            key={key}
+            sx={{
+              display: "grid",
+              gridTemplateColumns: isComplex ? "1fr" : "minmax(180px, 220px) 1fr",
+              gap: 1,
+              alignItems: isComplex ? "stretch" : "center",
+            }}
+          >
+            <Typography
+              variant="body2"
+              className="!text-gray-800"
+              sx={{ fontWeight: 500 }}
+            >
+              {humanizeKey(key)}
+            </Typography>
+            <Box>{renderHistoryValue(value)}</Box>
+          </Box>
+        );
+      })}
+    </Stack>
   );
 };
 
-const formatCurrency = (amount: number): string => {
-  return `₹${amount.toLocaleString('en-IN')}`;
-};
+// ==================== HISTORY DIALOG ====================
+
+const SettingsHistoryDialog = ({
+  title,
+  open,
+  onClose,
+  loading,
+  error,
+  entries,
+}: {
+  title: string;
+  open: boolean;
+  onClose: () => void;
+  loading: boolean;
+  error: string | null;
+  entries: PayrollSettingsHistoryEntry[];
+}) => (
+  <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <DialogTitle className="!border-b border-gray-200 flex items-center justify-between !p-1">
+      <div className="!ml-4">{title}</div>
+      <IconButton onClick={onClose}>
+        <CloseOutlined className="text-gray-800 !w-4" />
+      </IconButton>
+    </DialogTitle>
+    <DialogContent>
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : error ? (
+        <Alert severity="error">{error}</Alert>
+      ) : entries.length === 0 ? (
+        <Typography className="!text-gray-800">No previous configurations found.</Typography>
+      ) : (
+        <Stack spacing={2} sx={{ mt: 2 }}>
+          {entries.map((entry, index) => {
+            const { id, supersededAt, changedBy, ...configuration } = entry;
+            return (
+              <Card
+                key={id ?? index}
+                variant="outlined"
+                className="!border !border-gray-200"
+                sx={{ borderRadius: 2, overflow: "hidden" }}
+              >
+                {/* Header strip */}
+                <Box
+                  className="bg-head text-gray-800"
+                  sx={{
+                    px: 2,
+                    py: 1.25,
+                    borderBottom: "1px solid",
+                    borderColor: "divider",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 2,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Stack direction="row" spacing={1}>
+                    <HistoryIcon fontSize="small" className="!text-gray-800 !w-4" />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {supersededAt
+                        ? new Date(supersededAt).toLocaleString()
+                        : "Date unavailable"}
+                    </Typography>
+                  </Stack>
+                  <Typography variant="caption" className="!text-gray-800">
+                    Changed by: <strong>{changedBy ?? "—"}</strong>
+                  </Typography>
+                </Box>
+
+                {/* Structured body */}
+                <CardContent sx={{ p: 2 }} className="!bg-white text-gray-800">
+                  <HistoryEntryBody data={configuration} />
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Stack>
+      )}
+    </DialogContent>
+    <DialogActions className="!border-t !border-gray-200">
+      <Button onClick={onClose} variant="outlined" className="!text-gray-800 !border-gray-200">
+        Close
+      </Button>
+    </DialogActions>
+  </Dialog>
+);
 
 // ==================== COMPONENT PROPS ====================
 
@@ -226,453 +349,14 @@ interface SettingsComponentProps {
   saving: boolean;
 }
 
-// ==================== ALLOWANCES SETTINGS ====================
-
-const AllowancesSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
-  const theme = useTheme();
-  const [allowances, setAllowances] = useState<Allowance[]>(defaultAllowances);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingAllowance, setEditingAllowance] = useState<Allowance | null>(null);
-  const [formData, setFormData] = useState<Allowance>({
-    name: '',
-    basis: '',
-    limit: '',
-    taxExempt: true,
-  });
-
-  useEffect(() => {
-    if (settings?.allowances && settings.allowances.length > 0) {
-      setAllowances(settings.allowances);
-    }
-  }, [settings]);
-
-  const handleSave = () => {
-    onSave({ allowances });
-  };
-
-  const handleOpenDialog = (allowance?: Allowance) => {
-    if (allowance) {
-      setEditingAllowance(allowance);
-      setFormData(allowance);
-    } else {
-      setEditingAllowance(null);
-      setFormData({
-        name: '',
-        basis: '',
-        limit: '',
-        taxExempt: true,
-      });
-    }
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setEditingAllowance(null);
-  };
-
-  const handleFormChange = (field: keyof Allowance, value: any) => {
-    setFormData({ ...formData, [field]: value });
-  };
-
-  const handleSubmit = () => {
-    if (editingAllowance) {
-      // Edit existing
-      setAllowances(allowances.map(a => 
-        a.id === editingAllowance.id ? { ...formData, id: a.id } : a
-      ));
-    } else {
-      // Add new
-      const newId = (Math.max(...allowances.map(a => parseInt(a.id || '0'))) + 1).toString();
-      setAllowances([...allowances, { ...formData, id: newId }]);
-    }
-    handleCloseDialog();
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this allowance?')) {
-      setAllowances(allowances.filter(a => a.id !== id));
-    }
-  };
-
-  return (
-    <Stack spacing={2}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Allowances Configuration
-          </Typography>
-          <Typography variant="body2" className="text-gray-500 !mt-1">
-            Configure allowance rules, limits, and tax exemption eligibility
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="contained"
-            startIcon={<PlusIcon fontSize="small" />}
-            className="!bg-primary"
-            onClick={() => handleOpenDialog()}
-          >
-            Add Allowance
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon fontSize="small" />}
-            className="!bg-success"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </Box>
-      </Box>
-
-      <TableContainer className="border border-gray-200 rounded-md">
-        <Table stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell className="!font-bold">S.No</TableCell>
-              <TableCell className="!font-bold">Allowance</TableCell>
-              <TableCell className="!font-bold">Calculation Basis</TableCell>
-              <TableCell className="!font-bold">Exemption Limit</TableCell>
-              <TableCell align="center" className="!font-bold">Tax Exempt</TableCell>
-              <TableCell align="center" className="!font-bold">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {allowances.map((a, i) => (
-              <TableRow key={a.id || i} sx={getRowColor(i)}>
-                <TableCell>{i + 1}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {a.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{a.basis}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{a.limit}</Typography>
-                </TableCell>
-                <TableCell align="center"><BoolDot value={a.taxExempt} /></TableCell>
-                <TableCell align="center">
-                  <Stack direction="row">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(a)}
-                      sx={{
-                        color: "text.secondary",
-                        "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                      }}
-                    >
-                      <EditIcon fontSize="small" className="!w-4 text-blue-500" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(a.id || '')}
-                      sx={{
-                        color: "text.secondary",
-                        "&:hover": { color: "error.main", bgcolor: alpha(theme.palette.error.main, 0.08) },
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" className="text-error !w-4" />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-         <DialogTitle className="!p-2 border-b border-gray-200 flex items-center justify-between">
-          <div className="!ml-4">{editingAllowance ? 'Edit Allowance Rule' : 'Add New Allowance Rule'}</div>
-          <IconButton onClick={handleCloseDialog}>
-            <CloseOutlined className="!w-4 text-gray-800"/>
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 3 }}>
-            <TextField
-              label="Allowance Name"
-              value={formData.name}
-              onChange={(e) => handleFormChange('name', e.target.value)}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Calculation Basis"
-              value={formData.basis}
-              onChange={(e) => handleFormChange('basis', e.target.value)}
-              fullWidth
-              multiline
-              rows={2}
-            />
-            <TextField
-              label="Exemption Limit"
-              value={formData.limit}
-              onChange={(e) => handleFormChange('limit', e.target.value)}
-              fullWidth
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography>Tax Exempt</Typography>
-              <Switch
-                checked={formData.taxExempt}
-                onChange={(e) => handleFormChange('taxExempt', e.target.checked)}
-              />
-            </Box>
-          </Stack>
-        </DialogContent>
-        <DialogActions className="!border-t border-gray-200">
-          <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={handleCloseDialog}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
-            className="!bg-primary"
-            disabled={!formData.name}
-          >
-            {editingAllowance ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Stack>
-  );
-};
-
-// ==================== DEDUCTION RULES SETTINGS ====================
-
-const DeductionRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
-  const theme = useTheme();
-  const [deductions, setDeductions] = useState<DeductionRule[]>(defaultDeductionRules);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editingDeduction, setEditingDeduction] = useState<DeductionRule | null>(null);
-  const [formData, setFormData] = useState<DeductionRule>({
-    name: '',
-    applicability: '',
-    rate: '',
-    cap: '',
-    employer: '',
-  });
-
-  useEffect(() => {
-    if (settings?.deductionRules && settings.deductionRules.length > 0) {
-      setDeductions(settings.deductionRules);
-    }
-  }, [settings]);
-
-  const handleSave = () => {
-    onSave({ deductionRules: deductions });
-  };
-
-  const handleOpenDialog = (deduction?: DeductionRule) => {
-    if (deduction) {
-      setEditingDeduction(deduction);
-      setFormData(deduction);
-    } else {
-      setEditingDeduction(null);
-      setFormData({
-        name: '',
-        applicability: '',
-        rate: '',
-        cap: '',
-        employer: '',
-      });
-    }
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setEditingDeduction(null);
-  };
-
-  const handleFormChange = (field: keyof DeductionRule, value: any) => {
-    setFormData({ ...formData, [field]: value });
-  };
-
-  const handleSubmit = () => {
-    if (editingDeduction) {
-      setDeductions(deductions.map(d => 
-        d.id === editingDeduction.id ? { ...formData, id: d.id } : d
-      ));
-    } else {
-      const newId = (Math.max(...deductions.map(d => parseInt(d.id || '0'))) + 1).toString();
-      setDeductions([...deductions, { ...formData, id: newId }]);
-    }
-    handleCloseDialog();
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this deduction rule?')) {
-      setDeductions(deductions.filter(d => d.id !== id));
-    }
-  };
-
-  return (
-    <Stack spacing={2}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Deduction Rules
-          </Typography>
-          <Typography variant="body2" className="text-gray-500 !mt-1">
-            Statutory and custom deduction rules with employee/employer contributions
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="contained"
-            startIcon={<PlusIcon fontSize="small" />}
-            className="!bg-primary"
-            onClick={() => handleOpenDialog()}
-          >
-            Add Deduction
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon fontSize="small" />}
-            className="!bg-success"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </Box>
-      </Box>
-
-      <TableContainer className="border border-gray-200 rounded-md">
-        <Table>
-          <TableHead>
-            <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-              <TableCell className="!font-bold">S.No</TableCell>
-              <TableCell className="!font-bold">Deduction</TableCell>
-              <TableCell className="!font-bold">Applicability</TableCell>
-              <TableCell className="!font-bold">Employee Rate</TableCell>
-              <TableCell className="!font-bold">Employer Contribution</TableCell>
-              <TableCell className="!font-bold">Cap</TableCell>
-              <TableCell align="center" className="!font-bold">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {deductions.map((d, i) => (
-              <TableRow key={d.id || i} sx={getRowColor(i)}>
-                <TableCell>{i + 1}</TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {d.name}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{d.applicability}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" sx={{ color: "error.main", fontWeight: 500 }}>
-                    {d.rate}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{d.employer}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{d.cap}</Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <Stack direction="row">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(d)}
-                      sx={{
-                        color: "text.secondary",
-                        "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                      }}
-                    >
-                      <EditIcon fontSize="small" className="!w-4 text-blue-500" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(d.id || '')}
-                      sx={{
-                        color: "text.secondary",
-                        "&:hover": { color: "error.main", bgcolor: alpha(theme.palette.error.main, 0.08) },
-                      }}
-                    >
-                      <DeleteIcon fontSize="small" className="text-error !w-4" />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle className="!p-2 border-b border-gray-200 flex items-center justify-between">
-          <div className="!ml-4">{editingDeduction ? 'Edit Deduction Rule' : 'Add New Deduction Rule'}</div>
-          <IconButton onClick={handleCloseDialog}>
-            <CloseOutlined className="!w-4 text-gray-800"/>
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 3 }}>
-            <TextField
-              label="Deduction Name"
-              value={formData.name}
-              onChange={(e) => handleFormChange('name', e.target.value)}
-              fullWidth
-              required
-            />
-            <TextField
-              label="Applicability"
-              value={formData.applicability}
-              onChange={(e) => handleFormChange('applicability', e.target.value)}
-              fullWidth
-              multiline
-              rows={2}
-            />
-            <TextField
-              label="Employee Rate"
-              value={formData.rate}
-              onChange={(e) => handleFormChange('rate', e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Employer Contribution"
-              value={formData.employer}
-              onChange={(e) => handleFormChange('employer', e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Cap"
-              value={formData.cap}
-              onChange={(e) => handleFormChange('cap', e.target.value)}
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions className="border-t border-gray-200">
-          <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={handleCloseDialog}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
-            className="!bg-primary"
-            disabled={!formData.name}
-          >
-            {editingDeduction ? 'Update' : 'Add'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Stack>
-  );
-};
-
-// ==================== TAX RULES SETTINGS ====================
+// ==================== TAX RULES SETTINGS (EDITABLE) ====================
 
 const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
-  const theme = useTheme();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [history, setHistory] = useState<PayrollSettingsHistoryEntry[]>([]);
+
   const [taxRules, setTaxRules] = useState<TaxRules>({
     defaultRegime: "New Regime",
     tdsComputation: {
@@ -691,23 +375,59 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
   });
 
   useEffect(() => {
-    if (settings?.taxRules) {
-      setTaxRules(settings.taxRules);
-    }
+    if (settings?.taxRules) setTaxRules(settings.taxRules);
   }, [settings]);
 
-  const handleSave = () => {
-    onSave({ taxRules });
+  const handleSave = () => onSave({ taxRules });
+
+  const handleOpenHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response: any = await payrollService.getPayrollTaxRulesHistory();
+      if (!response.success) throw new Error(response.message || "Failed to fetch tax rules history");
+      if (!Array.isArray(response.data)) throw new Error("The tax rules history response was invalid");
+      setHistory(response.data);
+    } catch (error: unknown) {
+      console.error("Failed to fetch tax rules history:", error);
+      setHistoryError(error instanceof Error ? error.message : "An error occurred while fetching tax rules history");
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
-  const formatSlabRange = (slab: TaxSlab): string => {
-    if (slab.min === 0) {
-      return `Up to ${formatCurrency(slab.max)}`;
-    } else if (slab.max === 0) {
-      return `Above ${formatCurrency(slab.min)}`;
-    } else {
-      return `${formatCurrency(slab.min)} – ${formatCurrency(slab.max)}`;
-    }
+  const formatSlabRangeLocal = (slab: TaxSlab): string => {
+    if (slab.min === 0) return `Up to ${formatCurrency(slab.max)}`;
+    if (slab.max === 0) return `Above ${formatCurrency(slab.min)}`;
+    return `${formatCurrency(slab.min)} – ${formatCurrency(slab.max)}`;
+  };
+
+  // ---------- Slab CRUD ----------
+  const updateSlab = (index: number, patch: Partial<TaxSlab>) => {
+    setTaxRules((prev) => {
+      const slabs = [...prev.slabs];
+      slabs[index] = { ...slabs[index], ...patch };
+      return { ...prev, slabs };
+    });
+  };
+
+  const addSlab = () => {
+    setTaxRules((prev) => {
+      const last = prev.slabs[prev.slabs.length - 1];
+      const newMin = last ? (last.max === 0 ? last.min + 300000 : last.max + 1) : 0;
+      return {
+        ...prev,
+        slabs: [...prev.slabs, { min: newMin, max: newMin + 299999, rate: 0 }],
+      };
+    });
+  };
+
+  const removeSlab = (index: number) => {
+    setTaxRules((prev) => ({
+      ...prev,
+      slabs: prev.slabs.filter((_, i) => i !== index),
+    }));
   };
 
   return (
@@ -721,15 +441,25 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
             Configure tax regime, slabs, and computation rules for FY 2026-27
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon fontSize="small" />}
-          className="!bg-primary"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            className="!border-amber-500 !text-amber-500"
+            startIcon={<HistoryIcon fontSize="small" />}
+            onClick={handleOpenHistory}
+          >
+            View history
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon fontSize="small" />}
+            className="!bg-primary"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={2}>
@@ -746,6 +476,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       key={r}
                       variant={r === taxRules.defaultRegime ? "contained" : "outlined"}
                       fullWidth
+                      className={` ${r === taxRules.defaultRegime ? "text-white !font-bold" : "!text-gray-800 !border-gray-200"}`}
                       sx={{
                         textTransform: "none",
                         py: 1.5,
@@ -764,27 +495,81 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
             </CardContent>
           </Card>
         </Grid>
+
         <Grid size={{ xs: 12, md: 6 }}>
           <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
+            <CardContent sx={{ p: 1, pb: "10px !important" }}>
+              <Typography variant="subtitle2" className="text-gray-800 !mb-6 !font-bold">
                 TDS Computation
               </Typography>
-              <Stack spacing={1.5}>
-                {[
-                  { label: "Projection Method", value: taxRules.tdsComputation.projectionMethod },
-                  { label: "Declaration Consideration", value: taxRules.tdsComputation.declarationConsideration },
-                  { label: "Perquisite Tax", value: taxRules.tdsComputation.perquisiteTax },
-                ].map((s) => (
-                  <Box key={s.label} sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <Typography variant="body2" className="text-gray-500">
-                      {s.label}
-                    </Typography>
-                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
-                      {s.value}
-                    </Typography>
+              <Stack>
+                <FormControl fullWidth>
+                  <InputLabel>Projection Method</InputLabel>
+                  <Select
+                    value={taxRules.tdsComputation.projectionMethod}
+                    label="Projection Method"
+                    onChange={(e) =>
+                      setTaxRules({
+                        ...taxRules,
+                        tdsComputation: { ...taxRules.tdsComputation, projectionMethod: e.target.value },
+                      })
+                    }
+                  >
+                    <MenuItem value="Annualized">Annualized</MenuItem>
+                    <MenuItem value="Monthly">Monthly</MenuItem>
+                    <MenuItem value="Actual">Actual</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <Stack spacing={1.5} sx={{ mt: 2 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
+                        Declaration Consideration
+                      </Typography>
+                      <Typography variant="caption" className="text-gray-500">
+                        Consider employee investment declarations when computing TDS
+                      </Typography>
+                    </Box>
+                    <Switch
+                      checked={taxRules.tdsComputation.declarationConsideration === "Enabled"}
+                      onChange={(e) =>
+                        setTaxRules({
+                          ...taxRules,
+                          tdsComputation: {
+                            ...taxRules.tdsComputation,
+                            declarationConsideration: e.target.checked ? "Enabled" : "Disabled",
+                          },
+                        })
+                      }
+                    />
                   </Box>
-                ))}
+
+                  <Divider className="border border-gray-200" />
+
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
+                        Perquisite Tax
+                      </Typography>
+                      <Typography variant="caption" className="text-gray-500">
+                        Include perquisite value in taxable income
+                      </Typography>
+                    </Box>
+                    <Switch
+                      checked={taxRules.tdsComputation.perquisiteTax === "Enabled"}
+                      onChange={(e) =>
+                        setTaxRules({
+                          ...taxRules,
+                          tdsComputation: {
+                            ...taxRules.tdsComputation,
+                            perquisiteTax: e.target.checked ? "Enabled" : "Disabled",
+                          },
+                        })
+                      }
+                    />
+                  </Box>
+                </Stack>
               </Stack>
             </CardContent>
           </Card>
@@ -793,43 +578,111 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
 
       <Card className="border border-gray-200 bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
-            New Regime Tax Slabs (FY 2026-27)
-          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+            <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600 }}>
+              New Regime Tax Slabs (FY 2026-27)
+            </Typography>
+            <Button
+              size="small"
+              className="!bg-primary"
+              startIcon={<AddIcon />}
+              onClick={addSlab}
+              variant="contained"
+            >
+              Add Slab
+            </Button>
+          </Box>
+
           <TableContainer className="border border-gray-200 rounded-sm">
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-                  <TableCell className="!font-bold">Income Range</TableCell>
-                  <TableCell align="right" className="!font-bold">Tax Rate</TableCell>
+                <TableRow>
+                  <TableCell className="!font-bold">From (₹)</TableCell>
+                  <TableCell className="!font-bold">To (₹) — 0 = no upper limit</TableCell>
+                  <TableCell className="!font-bold">Rate (%)</TableCell>
+                  <TableCell align="right" className="!font-bold">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {taxRules.slabs.map((slab, index) => (
-                  <TableRow key={index} hover>
+                  <TableRow key={index} sx={getRowColor(index)}>
                     <TableCell>
-                      <Typography variant="body2">{formatSlabRange(slab)}</Typography>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={slab.min}
+                        onChange={(e) => updateSlab(index, { min: parseInt(e.target.value) || 0 })}
+                        sx={{ width: 140, "& .MuiInputBase-input": { px: 2, py: 0.5 } }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={slab.max}
+                        onChange={(e) => updateSlab(index, { max: parseInt(e.target.value) || 0 })}
+                        sx={{ width: 140, "& .MuiInputBase-input": { px: 2, py: 0.5 } }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        type="number"
+                        size="small"
+                        value={slab.rate}
+                        onChange={(e) => updateSlab(index, { rate: parseFloat(e.target.value) || 0 })}
+                        sx={{ width: 100, "& .MuiInputBase-input": { px: 2, py: 0.5 } }}
+                        slotProps={{
+                          htmlInput: { min: 0, max: 100, step: 0.5 },
+                        }}
+                      />
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: "primary.main" }}>
-                        {slab.rate === 0 ? "Nil" : `${slab.rate}%`}
-                      </Typography>
+                      <IconButton size="small" color="error" onClick={() => removeSlab(index)}>
+                        <DeleteIcon fontSize="small" className="!w-4" />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="caption" className="text-gray-800">
+              Preview:
+            </Typography>
+            <Stack direction="row" sx={{ mt: 0.5 }}>
+              {taxRules.slabs.map((slab, i) => (
+                <Box key={i} className="p-3 rounded-lg text-[12px] bg-head text-gray-800">
+                  {formatSlabRangeLocal(slab)} → {slab.rate === 0 ? "Nil" : `${slab.rate}%`}
+                </Box>
+              ))}
+            </Stack>
+          </Box>
         </CardContent>
       </Card>
+
+      <SettingsHistoryDialog
+        title="Tax Rules History"
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        loading={historyLoading}
+        error={historyError}
+        entries={history}
+      />
     </Stack>
   );
 };
 
-// ==================== PF/ESI SETTINGS ====================
+// ==================== PF/ESI SETTINGS (EDITABLE) ====================
 
 const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
   const theme = useTheme();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [history, setHistory] = useState<PayrollSettingsHistoryEntry[]>([]);
+
   const [pfEsi, setPfEsi] = useState<PFESISettings>({
     pf: {
       employeeContribution: "12%",
@@ -849,28 +702,70 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
   });
 
   useEffect(() => {
-    if (settings?.pfEsiSettings) {
-      setPfEsi(settings.pfEsiSettings);
-    }
+    if (settings?.pfEsiSettings) setPfEsi(settings.pfEsiSettings);
   }, [settings]);
 
-  const handleSave = () => {
-    onSave({ pfEsiSettings: pfEsi });
+  const handleSave = () => onSave({ pfEsiSettings: pfEsi });
+
+  const handleOpenHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response: any = await payrollService.getPayrollPfEsiHistory();
+      if (!response.success) throw new Error(response.message || "Failed to fetch PF / ESI history");
+      if (!Array.isArray(response.data)) throw new Error("The PF / ESI history response was invalid");
+      setHistory(response.data);
+    } catch (error: unknown) {
+      console.error("Failed to fetch PF / ESI history:", error);
+      setHistoryError(error instanceof Error ? error.message : "An error occurred while fetching PF / ESI history");
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
-  const toggleVoluntaryPF = () => {
-    setPfEsi({
-      ...pfEsi,
-      pf: { ...pfEsi.pf, voluntaryPF: !pfEsi.pf.voluntaryPF },
-    });
-  };
+  const toggleVoluntaryPF = () =>
+    setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, voluntaryPF: !pfEsi.pf.voluntaryPF } });
 
-  const toggleESI = () => {
-    setPfEsi({
-      ...pfEsi,
-      esi: { ...pfEsi.esi, esiEnabled: !pfEsi.esi.esiEnabled },
-    });
-  };
+  const toggleESI = () =>
+    setPfEsi({ ...pfEsi, esi: { ...pfEsi.esi, esiEnabled: !pfEsi.esi.esiEnabled } });
+
+  const EditableRow = ({
+    label,
+    desc,
+    value,
+    color,
+    onChange,
+    type = "text",
+  }: {
+    label: string;
+    desc: string;
+    value: string | number;
+    color: string;
+    onChange: (v: string) => void;
+    type?: "text" | "number";
+  }) => (
+    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
+          {label}
+        </Typography>
+        <Typography variant="caption" className="text-gray-500">
+          {desc}
+        </Typography>
+      </Box>
+      <TextField
+        size="small"
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        sx={{
+          width: 120,
+          "& input": { textAlign: "right", fontWeight: 700, color },
+        }}
+      />
+    </Box>
+  );
 
   return (
     <Stack spacing={2}>
@@ -883,15 +778,21 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
             Configure Provident Fund and Employee State Insurance parameters
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon fontSize="small" />}
-          className="!bg-primary"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" className="!border-amber-500 !text-amber-500"
+          startIcon={<HistoryIcon fontSize="small" />} onClick={handleOpenHistory}>
+            View history
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon fontSize="small" />}
+            className="!bg-primary"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </Stack>
       </Box>
 
       <Grid container spacing={2}>
@@ -902,28 +803,49 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
                 Provident Fund (EPF)
               </Typography>
               <Stack spacing={2}>
-                {[
-                  { label: "Employee Contribution", value: pfEsi.pf.employeeContribution, desc: "Of Basic + DA" },
-                  { label: "Employer Contribution", value: pfEsi.pf.employerContribution, desc: "Of Basic + DA" },
-                  { label: "EPS (Out of Employer)", value: pfEsi.pf.epsOutOfEmployer, desc: "Capped at ₹1,250" },
-                  { label: "EDLI Contribution", value: pfEsi.pf.edliContribution, desc: "Employer only" },
-                  { label: "PF Admin Charges", value: pfEsi.pf.pfAdminCharges, desc: "Employer only" },
-                  { label: "Wage Ceiling", value: formatCurrency(pfEsi.pf.wageCeiling), desc: "For mandatory coverage" },
-                ].map((f) => (
-                  <Box key={f.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
-                        {f.label}
-                      </Typography>
-                      <Typography variant="caption" className="text-gray-500">
-                        {f.desc}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: "info.main" }}>
-                      {f.value}
-                    </Typography>
-                  </Box>
-                ))}
+                <EditableRow
+                  label="Employee Contribution"
+                  desc="Of Basic + DA"
+                  value={pfEsi.pf.employeeContribution}
+                  color={theme.palette.info.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, employeeContribution: v } })}
+                />
+                <EditableRow
+                  label="Employer Contribution"
+                  desc="Of Basic + DA"
+                  value={pfEsi.pf.employerContribution}
+                  color={theme.palette.info.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, employerContribution: v } })}
+                />
+                <EditableRow
+                  label="EPS (Out of Employer)"
+                  desc="Capped at ₹1,250"
+                  value={pfEsi.pf.epsOutOfEmployer}
+                  color={theme.palette.info.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, epsOutOfEmployer: v } })}
+                />
+                <EditableRow
+                  label="EDLI Contribution"
+                  desc="Employer only"
+                  value={pfEsi.pf.edliContribution}
+                  color={theme.palette.info.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, edliContribution: v } })}
+                />
+                <EditableRow
+                  label="PF Admin Charges"
+                  desc="Employer only"
+                  value={pfEsi.pf.pfAdminCharges}
+                  color={theme.palette.info.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, pfAdminCharges: v } })}
+                />
+                <EditableRow
+                  label="Wage Ceiling"
+                  desc="For mandatory coverage"
+                  value={pfEsi.pf.wageCeiling}
+                  color={theme.palette.info.main}
+                  type="number"
+                  onChange={(v) => setPfEsi({ ...pfEsi, pf: { ...pfEsi.pf, wageCeiling: parseInt(v) || 0 } })}
+                />
                 <Divider className="border border-gray-200" />
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box>
@@ -940,6 +862,7 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
             </CardContent>
           </Card>
         </Grid>
+
         <Grid size={{ xs: 12, md: 6 }}>
           <Card className="bg-white" sx={{ borderRadius: 2, border: `1px solid ${alpha(theme.palette.success.main, 0.3)}` }}>
             <CardContent sx={{ p: 2.5 }}>
@@ -947,25 +870,28 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
                 Employee State Insurance (ESI)
               </Typography>
               <Stack spacing={2}>
-                {[
-                  { label: "Employee Contribution", value: pfEsi.esi.employeeContribution, desc: "Of Gross Salary" },
-                  { label: "Employer Contribution", value: pfEsi.esi.employerContribution, desc: "Of Gross Salary" },
-                  { label: "Wage Ceiling", value: formatCurrency(pfEsi.esi.wageCeiling), desc: "Monthly gross limit" },
-                ].map((f) => (
-                  <Box key={f.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }} className="text-gray-800">
-                        {f.label}
-                      </Typography>
-                      <Typography variant="caption" className="text-gray-500">
-                        {f.desc}
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: "success.main" }}>
-                      {f.value}
-                    </Typography>
-                  </Box>
-                ))}
+                <EditableRow
+                  label="Employee Contribution"
+                  desc="Of Gross Salary"
+                  value={pfEsi.esi.employeeContribution}
+                  color={theme.palette.success.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, esi: { ...pfEsi.esi, employeeContribution: v } })}
+                />
+                <EditableRow
+                  label="Employer Contribution"
+                  desc="Of Gross Salary"
+                  value={pfEsi.esi.employerContribution}
+                  color={theme.palette.success.main}
+                  onChange={(v) => setPfEsi({ ...pfEsi, esi: { ...pfEsi.esi, employerContribution: v } })}
+                />
+                <EditableRow
+                  label="Wage Ceiling"
+                  desc="Monthly gross limit"
+                  value={pfEsi.esi.wageCeiling}
+                  color={theme.palette.success.main}
+                  type="number"
+                  onChange={(v) => setPfEsi({ ...pfEsi, esi: { ...pfEsi.esi, wageCeiling: parseInt(v) || 0 } })}
+                />
                 <Divider className="border border-gray-200" />
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <Box>
@@ -983,6 +909,15 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
           </Card>
         </Grid>
       </Grid>
+
+      <SettingsHistoryDialog
+        title="PF / ESI Settings History"
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        loading={historyLoading}
+        error={historyError}
+        entries={history}
+      />
     </Stack>
   );
 };
@@ -1000,22 +935,18 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
   const [autoSyncFeatures, setAutoSyncFeatures] = useState<AutoSyncFeature[]>(defaultAutoSyncFeatures);
 
   useEffect(() => {
-    if (settings?.schedule) {
-      setSchedule(settings.schedule);
-    }
+    if (settings?.schedule) setSchedule(settings.schedule);
     if (settings?.autoSyncFeatures && settings.autoSyncFeatures.length > 0) {
       setAutoSyncFeatures(settings.autoSyncFeatures);
     }
   }, [settings]);
 
-  const handleSave = () => {
-    onSave({ schedule, autoSyncFeatures });
-  };
+  const handleSave = () => onSave({ schedule, autoSyncFeatures });
 
   const toggleAutoSync = (index: number) => {
-    const updatedFeatures = [...autoSyncFeatures];
-    updatedFeatures[index].enabled = !updatedFeatures[index].enabled;
-    setAutoSyncFeatures(updatedFeatures);
+    const updated = [...autoSyncFeatures];
+    updated[index].enabled = !updated[index].enabled;
+    setAutoSyncFeatures(updated);
   };
 
   return (
@@ -1118,6 +1049,7 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
             </CardContent>
           </Card>
         </Grid>
+
         <Grid size={{ xs: 12, md: 6 }}>
           <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2.5 }}>
@@ -1133,15 +1065,12 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       justifyContent: "space-between",
                       alignItems: "center",
                       py: 1,
-                      "&:last-child": { borderBottom: "none" },
                     }}
                     className="border-b border-gray-200"
                   >
-                    <Box>
-                      <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
-                        {feature.name}
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 500 }}>
+                      {feature.name}
+                    </Typography>
                     <Switch checked={feature.enabled} onChange={() => toggleAutoSync(index)} />
                   </Box>
                 ))}
@@ -1154,11 +1083,12 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
   );
 };
 
-// ==================== APPROVAL WORKFLOW SETTINGS ====================
+// ==================== APPROVAL WORKFLOW SETTINGS (EDITABLE) ====================
 
 const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
   const theme = useTheme();
   const [approvalWorkflow, setApprovalWorkflow] = useState<ApprovalWorkflowStep[]>(defaultApprovalSteps);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (settings?.approvalWorkflow && settings.approvalWorkflow.length > 0) {
@@ -1166,14 +1096,36 @@ const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponen
     }
   }, [settings]);
 
-  const handleSave = () => {
-    onSave({ approvalWorkflow });
-  };
+  const handleSave = () => onSave({ approvalWorkflow });
 
   const toggleStepActive = (stepIndex: number) => {
-    const updatedSteps = [...approvalWorkflow];
-    updatedSteps[stepIndex].active = !updatedSteps[stepIndex].active;
-    setApprovalWorkflow(updatedSteps);
+    const updated = [...approvalWorkflow];
+    updated[stepIndex].active = !updated[stepIndex].active;
+    setApprovalWorkflow(updated);
+  };
+
+  const updateStep = (index: number, patch: Partial<ApprovalWorkflowStep>) => {
+    setApprovalWorkflow((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], ...patch };
+      return updated;
+    });
+  };
+
+  const addStep = () => {
+    const nextStep = approvalWorkflow.length + 1;
+    setApprovalWorkflow([
+      ...approvalWorkflow,
+      { step: nextStep, role: "", action: "", sla: "1 day", active: true },
+    ]);
+  };
+
+  const removeStep = (index: number) => {
+    setApprovalWorkflow((prev) =>
+      prev
+        .filter((_, i) => i !== index)
+        .map((s, i) => ({ ...s, step: i + 1 }))
+    );
   };
 
   return (
@@ -1187,15 +1139,20 @@ const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponen
             Define the multi-level approval chain for payroll processing
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon fontSize="small" />}
-          className="!bg-primary"
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? "Saving..." : "Save Workflow"}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button variant="outlined" className="!border-primary !text-primary" startIcon={<AddIcon />} onClick={addStep}>
+            Add Step
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon fontSize="small" />}
+            className="!bg-primary"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save Workflow"}
+          </Button>
+        </Stack>
       </Box>
 
       <Stack spacing={2}>
@@ -1222,36 +1179,76 @@ const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponen
                 <Box sx={{ width: 2, height: 32, bgcolor: alpha(theme.palette.primary.main, 0.2) }} />
               )}
             </Box>
+
             <Card className="bg-white" sx={{ flex: 1, borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-              <CardContent sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Box>
-                  <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 600 }}>
-                    {step.action}
-                  </Typography>
-                  <Typography variant="caption" className="text-gray-500">
-                    Role: <strong>{step.role}</strong>
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <Box sx={{ textAlign: "right" }}>
-                    <Typography variant="caption" className="text-gray-800">
-                      SLA
-                    </Typography>
-                    <Typography variant="body2" className="text-gray-500" sx={{ fontWeight: 600 }}>
-                      {step.sla}
-                    </Typography>
+              <CardContent sx={{ p: 2 }}>
+                {editIndex === i ? (
+                  <div className="flex gap-2 items-center">
+                    <TextField
+                      label="Action"
+                      value={step.action}
+                      onChange={(e) => updateStep(i, { action: e.target.value })}
+                      fullWidth
+                    />
+                    <TextField
+                      label="Role"
+                      value={step.role}
+                      onChange={(e) => updateStep(i, { role: e.target.value })}
+                      fullWidth
+                    />
+                    <TextField
+                      label="SLA"
+                      value={step.sla}
+                      onChange={(e) => updateStep(i, { sla: e.target.value })}
+                      fullWidth
+                    />
+                    {/* <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}> */}
+                      <Button size="small" variant="contained" className="!bg-primary" onClick={() => setEditIndex(null)}>
+                        Done
+                      </Button>
+                    {/* </Box> */}
+                  </div>
+                ) : (
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Box>
+                      <Typography variant="body2" className="text-gray-800" sx={{ fontWeight: 600 }}>
+                        {step.action || "—"}
+                      </Typography>
+                      <Typography variant="caption" className="text-gray-500">
+                        Role: <strong>{step.role || "—"}</strong>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Box sx={{ textAlign: "right" }}>
+                        <Typography variant="caption" className="text-gray-800">
+                          SLA
+                        </Typography>
+                        <Typography variant="body2" className="text-gray-500" sx={{ fontWeight: 600 }}>
+                          {step.sla}
+                        </Typography>
+                      </Box>
+                      <Switch checked={step.active} onChange={() => toggleStepActive(i)} />
+                      <IconButton
+                        size="small"
+                        onClick={() => setEditIndex(i)}
+                        sx={{
+                          color: "text.secondary",
+                          "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
+                        }}
+                      >
+                        <EditIcon fontSize="small" className="!w-4 text-blue-500" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => removeStep(i)}
+                        disabled={approvalWorkflow.length <= 1}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
-                  <Switch checked={step.active} onChange={() => toggleStepActive(i)} />
-                  <IconButton
-                    size="small"
-                    sx={{
-                      color: "text.secondary",
-                      "&:hover": { color: "primary.main", bgcolor: alpha(theme.palette.primary.main, 0.08) },
-                    }}
-                  >
-                    <EditIcon fontSize="small" className="!w-4 text-blue-500" />
-                  </IconButton>
-                </Box>
+                )}
               </CardContent>
             </Card>
           </Box>
@@ -1269,8 +1266,6 @@ const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponen
 // ==================== CONTENT MAP ====================
 
 const contentMap: Record<string, React.ComponentType<SettingsComponentProps>> = {
-  allowances: AllowancesSettings,
-  deductions: DeductionRulesSettings,
   tax: TaxRulesSettings,
   "pf-esi": PFESISettings,
   schedule: ScheduleSettings,
@@ -1280,32 +1275,40 @@ const contentMap: Record<string, React.ComponentType<SettingsComponentProps>> = 
 // ==================== MAIN COMPONENT ====================
 
 export default function PayrollSettings() {
-  const { tab = "allowances" } = useParams<{ tab: string }>();
+  const { tab = "tax" } = useParams<{ tab: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const activeTab = contentMap[tab] ? tab : "tax";
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<PayrollSettings | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { showSnackbar } = useUI();
 
-  // Fetch settings on mount
+  // ---------- FETCH ALL SETTINGS ----------
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        setError(null);
-        const response: any = await payrollService.getPayrollSettings();
+        const [settingsResponse, taxRulesResponse]: any = await Promise.all([
+          payrollService.getPayrollSettings(),
+          payrollService.getPayrollTaxRules<TaxRules>(),
+        ]);
 
-        if (response.success) {
-          setSettings(response.data);
-        } else {
-          setError(response.message || 'Failed to fetch settings');
+        if (!settingsResponse.success) {
+          throw new Error(settingsResponse.message || "Failed to fetch settings");
         }
-      } catch (error: any) {
-        console.error('Failed to fetch payroll settings:', error);
-        setError(error?.message || 'An error occurred while fetching settings');
+        if (!taxRulesResponse.success) {
+          throw new Error(taxRulesResponse.message || "Failed to fetch tax rules");
+        }
+
+        setSettings({
+          ...settingsResponse.data,
+          taxRules: taxRulesResponse.data,
+          // pfEsiSettings is expected to come embedded in settingsResponse.data
+        });
+      } catch (error: unknown) {
+        showSnackbar("Failed to fetch payroll settings", "error");
       } finally {
         setLoading(false);
       }
@@ -1313,37 +1316,44 @@ export default function PayrollSettings() {
     fetchSettings();
   }, []);
 
+  // ---------- SAVE (routes to the right endpoint) ----------
   const handleSaveSettings = async (updatedSettings: Partial<PayrollSettings>) => {
     try {
       setSaving(true);
-      setError(null);
-      const response: any = await payrollService.updatePayrollSettings(updatedSettings);
 
-      if (response.success) {
-        setSettings(response.data);
-        setSuccessMessage('Settings saved successfully!');
-      } else {
-        setError(response.message || 'Failed to save settings');
+      // 1) Tax rules → dedicated endpoint
+      if (updatedSettings.taxRules) {
+        const response: any = await payrollService.updatePayrollTaxRules<TaxRules>(updatedSettings.taxRules);
+        if (!response.success) throw new Error(response.message || "Failed to save tax rules");
+        setSettings((current) => (current ? { ...current, taxRules: response.data } : current));
       }
-    } catch (error: any) {
-      console.error('Failed to update payroll settings:', error);
-      setError(error?.message || 'An error occurred while saving settings');
+
+      // 2) PF/ESI + Schedule + AutoSync + Approval → base settings endpoint
+      const basePayload: Partial<PayrollSettings> = {};
+      if (updatedSettings.pfEsiSettings) basePayload.pfEsiSettings = updatedSettings.pfEsiSettings;
+      if (updatedSettings.schedule) basePayload.schedule = updatedSettings.schedule;
+      if (updatedSettings.autoSyncFeatures) basePayload.autoSyncFeatures = updatedSettings.autoSyncFeatures;
+      if (updatedSettings.approvalWorkflow) basePayload.approvalWorkflow = updatedSettings.approvalWorkflow;
+
+      if (Object.keys(basePayload).length > 0) {
+        const response: any = await payrollService.updatePayrollSettings(basePayload);
+        if (!response.success) throw new Error(response.message || "Failed to save settings");
+        setSettings((current) => (current ? { ...current, ...response.data } : response.data));
+      }
+
+      showSnackbar("Settings saved successfully!", "success");
+    } catch (error: unknown) {
+      showSnackbar(error instanceof Error ? error.message : "An error occurred while saving settings", "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCloseSnackbar = () => {
-    setSuccessMessage(null);
-    setError(null);
-  };
+  const Content = contentMap[activeTab];
 
-  const Content = contentMap[tab] ?? AllowancesSettings;
-
-  // Show loading state
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', my: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", my: 3 }}>
         <CircularProgress />
       </Box>
     );
@@ -1358,7 +1368,7 @@ export default function PayrollSettings() {
             <CardContent sx={{ p: 1.5 }}>
               <Stack spacing={0.5}>
                 {NAV_ITEMS.map((item) => {
-                  const active = tab === item.id;
+                  const active = activeTab === item.id;
                   return (
                     <Button
                       key={item.id}
@@ -1374,7 +1384,7 @@ export default function PayrollSettings() {
                       }}
                     >
                       <item.icon className="text-gray-500 dark:text-primary mr-2 !w-4" sx={{ fontSize: 18 }} />
-                      <Box sx={{ flex: 1, textAlign: "left" }} className={active ? 'text-black' : 'text-gray-800'}>
+                      <Box sx={{ flex: 1, textAlign: "left" }} className={active ? "text-black" : "text-gray-800"}>
                         {item.label}
                       </Box>
                       {active && <ChevronRightIcon className="text-primary" />}
@@ -1388,29 +1398,9 @@ export default function PayrollSettings() {
 
         {/* Content */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Content 
-            settings={settings} 
-            onSave={handleSaveSettings} 
-            saving={saving}
-          />
+          <Content settings={settings} onSave={handleSaveSettings} saving={saving} />
         </Box>
       </Box>
-
-      {/* Success/Error Snackbar */}
-      <Snackbar
-        open={!!successMessage || !!error}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert 
-          onClose={handleCloseSnackbar} 
-          severity={error ? 'error' : 'success'} 
-          sx={{ width: '100%' }}
-        >
-          {error || successMessage}
-        </Alert>
-      </Snackbar>
     </>
   );
 }

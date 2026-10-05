@@ -12,10 +12,13 @@ export default function LeaveTabs({ group }: LeaveTabsProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
   const visibleRoutes = getVisibleLeaveRoutes(session?.user, group);
+  const activeRoute = visibleRoutes.find(
+    (route) => location.pathname === route.path || location.pathname.startsWith(`${route.path}/`),
+  );
 
   return (
     <Tabs
-      value={location.pathname}
+      value={activeRoute?.path ?? false}
       variant="scrollable"
       scrollButtons="auto"
       className="!border-b !border-gray-300"

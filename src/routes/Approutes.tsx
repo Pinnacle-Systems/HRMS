@@ -137,14 +137,14 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "bi-workspace",
+    path: "bi-workspace/:tab?/:subtab?",
     element: <BIWorkspacePage />,
     allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.REPORT_READ],
     requiresWorkspace: true,
   },
   {
-    path: "profile",
+    path: "profile/:tab?",
     element: <Profile />,
     allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.PROFILE_READ],
@@ -165,14 +165,14 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "onboarding-process",
+    path: "onboarding-process/:tab?",
     element: <OnBoardingProcess />,
     allowedRoles: ["HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.EMPLOYEE_WRITE],
     requiresWorkspace: true,
   },
   {
-    path: "payroll/loan-advance-request",
+    path: "payroll/loan-advance-request/:tab?",
     element: <LoanAdvanceRequestPage />,
     allowedRoles: ["HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.PAYROLL_READ],
@@ -188,7 +188,7 @@ const routeConfigs: RouteConfig[] = [
 
   // ===================== EMPLOYEE MANAGEMENT =====================
   {
-    path: "user-management",
+    path: "user-management/:tab?",
     element: <UserManagement />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.USER_MANAGE],
@@ -202,7 +202,7 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "employees/:id",
+    path: "employees/:id/:tab?",
     element: <EmployeeDetails />,
     allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.EMPLOYEE_READ],
@@ -225,14 +225,14 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "policies/:id",
+    path: "policies/:id/:tab?",
     element: <PolicyDetails />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.POLICY_READ],
     requiresWorkspace: true,
   },
   {
-    path: "policies/:id/edit",
+    path: "policies/:id/edit/:tab?",
     element: <EditPolicy />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.POLICY_WRITE],
@@ -255,35 +255,35 @@ const routeConfigs: RouteConfig[] = [
 
   // ===================== ATTENDANCE MANAGEMENT =====================
   {
-    path: "attendance/shifts",
+    path: "attendance/shifts/:tab?",
     element: <ShiftSettings />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.ATTENDANCE_READ, PERMISSIONS.SETTINGS_READ],
     requiresWorkspace: true,
   },
   {
-    path: "attendance/overview",
+    path: "attendance/overview/:tab?",
     element: <AttendanceOverview />,
     allowedRoles: ["ADMIN", "HR", "MANAGER"],
     requiredPermissions: [PERMISSIONS.ATTENDANCE_READ],
     requiresWorkspace: true,
   },
   {
-    path: "attendance/management",
+    path: "attendance/management/:tab?",
     element: <AttendanceManagement />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.ATTENDANCE_WRITE],
     requiresWorkspace: true,
   },
   {
-    path: "attendance/process",
+    path: "attendance/process/:tab?",
     element: <AttendanceProcessing />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.ATTENDANCE_WRITE],
     requiresWorkspace: true,
   },
   {
-    path: "attendance/records",
+    path: "attendance/records/:tab?",
     element: <AttendanceRecords />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.ATTENDANCE_READ],
@@ -327,14 +327,14 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "payroll/employee-salary",
+    path: "payroll/employee-salary/:tab?",
     element: <EmployeeSalaryView />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_READ],
     requiresWorkspace: true,
   },
   {
-    path: "payroll/runs/:id",
+    path: "payroll/runs/:id/:tab?",
     element: <PayrollDetails />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_READ],
@@ -357,21 +357,21 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "payroll/structures",
+    path: "payroll/structures/:tab?",
     element: <SalaryStructureTemplate />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
     requiresWorkspace: true,
   },
   {
-    path: "payroll/assign",
+    path: "payroll/assign/:tab?",
     element: <AssignSalaryStructure />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
     requiresWorkspace: true,
   },
   {
-    path: "payroll/deductions",
+    path: "payroll/deductions/:tab?",
     element: <DeductionConfiguration />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
@@ -413,7 +413,7 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "payroll/employee-portal",
+    path: "payroll/employee-portal/:tab?",
     element: <EmployeePortal />,
     allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.PAYROLL_WRITE],
@@ -443,7 +443,7 @@ const routeConfigs: RouteConfig[] = [
     requiresWorkspace: true,
   },
   {
-    path: "payroll/revision/:id",
+    path: "payroll/revision/:id/:tab?",
     element: <RevisionDetails />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_READ],
@@ -686,7 +686,7 @@ function AppRoutesContent() {
                   {hrLeaveRoutes.map((route) => (
                     <Route
                       key={route.path}
-                      path={route.path.replace(/^\//, "")}
+                      path={`${route.path.replace(/^\//, "")}${route.id === "hrReports" ? "/:tab?" : ""}`}
                       element={getLeaveRouteElement(route)}
                     />
                   ))}
@@ -793,7 +793,7 @@ function AppRoutesContent() {
                         />
                       }
                     >
-                      <Route path="employee/onboarding-process" element={<OnBoardingProcess />} />
+                      <Route path="employee/onboarding-process/:tab?" element={<OnBoardingProcess />} />
                       <Route path="employee/department-settings" element={<DepartmentSettings />} />
                       <Route path="employee/category-settings" element={<CategorySettings />} />
                       <Route path="employee/category-items/:categoryId" element={<CategoryItems />} />

@@ -81,6 +81,7 @@ import {
   AreaChart,
 } from "recharts";
 import { useUI } from "../../../context/Snackbar";
+import { useNavigate, useParams } from "react-router-dom";
 import { leaveService } from "../../../services/modules/leave";
 import type {
   LeaveRequest,
@@ -95,6 +96,17 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { CHART_COLORS_LIGHT, type BalanceReportItem, type CompOffReportItem, type LeaveUsageItem, type LopReportItem, type PendingApprovalItem, type ReportFilter, type ReportType } from "./types";
 import { useAuth } from "../../../auth/authContext";
+
+const REPORT_TAB_PATHS = ["overview", "usage", "pending", "lop", "balance", "comp-off", "snapshot"] as const;
+const REPORT_TYPES_BY_TAB: ReportType[] = [
+  "LEAVE_USAGE",
+  "LEAVE_USAGE",
+  "LEAVE_PENDING_APPROVALS",
+  "LEAVE_LOP",
+  "LEAVE_BALANCE",
+  "LEAVE_COMP_OFFS",
+  "LEAVE_USAGE",
+];
 
 // ==================== COMPONENTS ====================
 
@@ -2176,16 +2188,22 @@ function ExpandableBalanceRow({ employee }: { employee: any }) {
 // ==================== MAIN COMPONENT ====================
 export default function HrLeaveReportsPage() {
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const activeTab = Math.max(REPORT_TAB_PATHS.findIndex((path) => path === activeTabPath), 0);
 
   // State
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState(0);
   const [viewType, setViewType] = useState<"bar" | "area" | "line">("bar");
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [selectedReportType, setSelectedReportType] =
-    useState<ReportType>("LEAVE_USAGE");
+    useState<ReportType>(REPORT_TYPES_BY_TAB[activeTab]);
+
+  useEffect(() => {
+    setSelectedReportType(REPORT_TYPES_BY_TAB[activeTab]);
+  }, [activeTab]);
   const [exportFormat, setExportFormat] = useState<"csv" | "xlsx">("csv");
 
   // DrillDown
@@ -4117,18 +4135,7 @@ export default function HrLeaveReportsPage() {
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Tabs
             value={activeTab}
-            onChange={(_e, v) => {
-              setActiveTab(v);
-              const reportTypes: ReportType[] = [
-                "LEAVE_USAGE",
-                "LEAVE_USAGE",
-                "LEAVE_PENDING_APPROVALS",
-                "LEAVE_LOP",
-                "LEAVE_BALANCE",
-                "LEAVE_COMP_OFFS",
-              ];
-              setSelectedReportType(reportTypes[v]);
-            }}
+            onChange={(_e, v) => navigate(`/leaves/hr/reports/${REPORT_TAB_PATHS[v]}`)}
             sx={{
               alignItems: "center",
               "& .MuiTabs-flexContainer": {

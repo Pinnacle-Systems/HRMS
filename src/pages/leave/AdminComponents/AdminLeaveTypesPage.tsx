@@ -236,11 +236,11 @@ export default function AdminLeaveTypesPage() {
                   <TableCell>{leaveType.name}</TableCell>
                   <TableCell>{leaveType.payrollTreatment}</TableCell>
                   <TableCell className="!text-center">{leaveType.paid ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-red-500" />}</TableCell>
-                  <TableCell className="!text-center">{leaveType.allowHalfDay ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-red-500" />}</TableCell>
-                  <TableCell className="!text-center">{leaveType.allowNegativeBalance ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-red-500" />}</TableCell>
-                  <TableCell className="!text-center">{leaveType.encashable ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-red-500" />}</TableCell>
-                  <TableCell className="!text-center">{leaveType.requiresAttachment ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-red-500" />}</TableCell>
-                  <TableCell className="!text-center">{leaveType.requiresHrVerification ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-red-500" />}</TableCell>
+                  <TableCell className="!text-center">{leaveType.allowHalfDay ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-gray-300" />}</TableCell>
+                  <TableCell className="!text-center">{leaveType.allowNegativeBalance ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-gray-300" />}</TableCell>
+                  <TableCell className="!text-center">{leaveType.encashable ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-gray-300" />}</TableCell>
+                  <TableCell className="!text-center">{leaveType.requiresAttachment ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-gray-300" />}</TableCell>
+                  <TableCell className="!text-center">{leaveType.requiresHrVerification ? <CheckCircleOutlineOutlined className="text-green-700" /> : <RemoveCircleOutlineOutlined className="text-gray-300" />}</TableCell>
                   <TableCell>
                     <Chip
                       label={leaveType.active ? "Active" : "Inactive"}
@@ -403,6 +403,7 @@ export default function AdminLeaveTypesPage() {
                       }))
                     }
                     color="primary"
+                    disabled
                   />
                 }
                 label="Paid"
@@ -420,6 +421,7 @@ export default function AdminLeaveTypesPage() {
                       }))
                     }
                     color="primary"
+                    disabled
                   />
                 }
                 label="Allow Half a Day"
@@ -437,6 +439,7 @@ export default function AdminLeaveTypesPage() {
                       }))
                     }
                     color="primary"
+                    disabled
                   />
                 }
                 label="Allow Negative Balance"
@@ -457,6 +460,7 @@ export default function AdminLeaveTypesPage() {
                   />
                 }
                 label="Encashable"
+                disabled
               />
             </div>
 
@@ -472,6 +476,7 @@ export default function AdminLeaveTypesPage() {
                       }))
                     }
                     color="primary"
+                    disabled
                   />
                 }
                 label="Requires Attachment"
@@ -489,6 +494,7 @@ export default function AdminLeaveTypesPage() {
                       }))
                     }
                     color="primary"
+                    disabled
                   />
                 }
                 label="Requires Hr Verification"

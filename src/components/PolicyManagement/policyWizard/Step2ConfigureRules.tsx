@@ -19,6 +19,7 @@ import { useUI } from '../../../context/Snackbar';
 import { usePolicyDomains } from '../../../hooks/usePolicyDomains';
 import { useLeaveTypesList } from '../../../hooks/useLeaveTypesList';
 import { useExpenseCategoriesList } from '../../../hooks/useExpenseCategoriesList';
+import { withRuleBlockDefaults } from './ruleBlocks/defaultConfig';
 import {
   LeaveEntitlementsBlock,
   // AccrualRulesBlock,
@@ -84,13 +85,30 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
     }
   };
 
-  const initialConfig = (config && Object.keys(config).length > 0
+  const configFromProps = (config && Object.keys(config).length > 0
     ? config
     : (template.defaultConfig as PolicyConfig)) ?? ({} as PolicyConfig);
+  const initialConfig = { ...configFromProps };
   if (typeof initialConfig.carryForward === 'boolean') {
     initialConfig.carryForward = {};
   }
-  const [localConfig, setLocalConfig] = useState<PolicyConfig>(initialConfig);
+  const [localConfig, setLocalConfig] = useState<PolicyConfig>(
+    withRuleBlockDefaults(initialConfig, template.ruleBlocks ?? []),
+  );
+  const localConfigRef = useRef(localConfig);
+
+  useEffect(() => {
+    onChange(localConfigRef.current);
+  }, [onChange]);
+
+  useEffect(() => {
+    const configWithDefaults = withRuleBlockDefaults(localConfigRef.current, ruleBlocks);
+    if (configWithDefaults !== localConfigRef.current) {
+      localConfigRef.current = configWithDefaults;
+      setLocalConfig(configWithDefaults);
+      onChange(configWithDefaults);
+    }
+  }, [ruleBlocks, onChange]);
 
   const domainName = getDomainName(template.domainId);
   const { leaveTypes: leaveType } = useLeaveTypesList(domainName === 'Leave');
@@ -209,6 +227,7 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       current = current[keys[i]];
     }
     current[keys[keys.length - 1]] = value;
+    localConfigRef.current = newConfig;
     setLocalConfig(newConfig);
     onChange(newConfig);
     validateAndSaveConfig(newConfig);

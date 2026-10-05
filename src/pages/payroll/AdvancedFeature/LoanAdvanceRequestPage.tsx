@@ -46,6 +46,7 @@ import { useUI } from "../../../context/Snackbar";
 import { useAuth } from "../../../auth/authContext";
 import { getRowColor } from "../../const";
 import { apiService } from "../../../services";
+import { useNavigate, useParams } from "react-router-dom";
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
   PENDING: { label: "Pending", color: "#f59e0b", bgColor: "#fef3c7", icon: PendingIcon },
@@ -54,11 +55,14 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
 };
 
 export default function LoanAdvanceRequest() {
+  const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const tabPaths = ["all-requests", "pending", "approved", "rejected"] as const;
   const theme = useTheme();
   const { session } = useAuth();
   const isAdmin = session?.user.roles.includes('ADMIN');
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
-  const [tabValue, setTabValue] = useState(0);
+  const tabValue = Math.max(tabPaths.findIndex((path) => path === activeTabPath), 0);
   const [openDialog, setOpenDialog] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
@@ -221,7 +225,7 @@ export default function LoanAdvanceRequest() {
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    navigate(`/payroll/loan-advance-request/${tabPaths[newValue]}`);
   };
 
   const handleDialogClose = () => {

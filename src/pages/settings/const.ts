@@ -156,12 +156,14 @@ export const companyFieldsWithSections = [
     label: "PF Code",
     type: "text",
     placeholder: "MH/12345/1234 (15-20 characters)",
+    required: true,
   },
   {
     key: "esiNo",
     label: "ESI Code",
     type: "text",
     placeholder: "12345678901234567 (17 digits)",
+    required: true,
   },
   {
     key: "esicCode",
@@ -200,12 +202,14 @@ export const companyFieldsWithSections = [
     label: "Phone Number",
     type: "text",
     placeholder: "(e.g.,  +91 9876543210)",
+    required: true
   },
   {
     key: "contactEmail",
     label: "Email Address",
     type: "text",
     placeholder: "(e.g., johndoe@example.com)",
+    required: true
   },
   {
     key: "linkedinUrl",
@@ -528,18 +532,18 @@ export const tabs = [
       //   path: "/settings/payroll/payroll-settings/components",
       //   roles: ["ADMIN"] as UserRole[],
       // },
-      {
-        id: "allowances-config",
-        label: "Allowances Configuration",
-        path: "/settings/payroll/payroll-settings/allowances",
-        roles: ["ADMIN"] as UserRole[],
-      },
-      {
-        id: "deduction-rules",
-        label: "Deduction Rules",
-        path: "/settings/payroll/payroll-settings/deductions",
-        roles: ["ADMIN"] as UserRole[],
-      },
+      // {
+      //   id: "allowances-config",
+      //   label: "Allowances Configuration",
+      //   path: "/settings/payroll/payroll-settings/allowances",
+      //   roles: ["ADMIN"] as UserRole[],
+      // },
+      // {
+      //   id: "deduction-rules",
+      //   label: "Deduction Rules",
+      //   path: "/settings/payroll/payroll-settings/deductions",
+      //   roles: ["ADMIN"] as UserRole[],
+      // },
       {
         id: "tax-rules",
         label: "Tax Rules",

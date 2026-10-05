@@ -96,7 +96,6 @@ import { useAuth } from "../../auth/authContext";
 import useUnsavedChanges from "../../hooks/useUnsavedChanges";
 import { ProfileCompletionProgress } from "./useProfileCompletion";
 import { attendanceService } from "../../services/modules/attendance";
-import { mobileAttendanceService, type GeofenceValidateData } from "../../services/modules/mobileAttendance";
 import { loadCompanyDetails } from "../../utils/companyDetails";
 import { salaryViewService, type SalaryViewResponse } from "../../services/modules/payrollServices/salaryView";
 import { formatCurrency } from "../payroll/const";
@@ -2536,7 +2535,7 @@ function SalaryBreakdownPanel({ salaryData }: { salaryData: any }) {
 
 export default function EmployeeDetails() {
   const { session } = useAuth();
-  const { id } = useParams();
+  const { id, tab: tabPath } = useParams();
   const isAdmin = session?.user.roles.includes('ADMIN');
   const isUser = session?.user.roles.includes('EMPLOYEE') || session?.user.roles.includes('MANAGER');
   const userId = session?.user.employeeId ? session?.user.employeeId : session?.user.userId;
@@ -2545,7 +2544,6 @@ export default function EmployeeDetails() {
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const [employee, setEmployee] = useState<any>();
-  const [tabValue, setTabValue] = useState(0);
   const [categoryOptions, setCategoryOptions] = useState<Record<string, any[]>>(
     {},
   );
@@ -2626,22 +2624,24 @@ export default function EmployeeDetails() {
   const [checkIn, setCheckIn] = useState(false);
 
   const tabs = [
-    { label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
-    { label: "Addresses", icon: <MaterialModule.LocationIcon /> },
-    { label: "Qualifications", icon: <MaterialModule.SchoolIcon /> },
-    { label: "Employee Details", icon: <MaterialModule.Person2TwoTone /> },
-    { label: "Training Details", icon: <MaterialModule.AccountBalanceIcon /> },
-    { label: "Previous Employment", icon: <MaterialModule.WorkHistoryIcon /> },
+    { path: "personal-info", label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
+    { path: "addresses", label: "Addresses", icon: <MaterialModule.LocationIcon /> },
+    { path: "qualifications", label: "Qualifications", icon: <MaterialModule.SchoolIcon /> },
+    { path: "employee-details", label: "Employee Details", icon: <MaterialModule.Person2TwoTone /> },
+    { path: "training-details", label: "Training Details", icon: <MaterialModule.AccountBalanceIcon /> },
+    { path: "previous-employment", label: "Previous Employment", icon: <MaterialModule.WorkHistoryIcon /> },
     {
+      path: "identification",
       label: "Identification Details",
       icon: <MaterialModule.WorkHistoryIcon />,
     },
-    { label: "Family Details", icon: <MaterialModule.FamilyIcon /> },
-    { label: "Nominations", icon: <MaterialModule.AccountBalanceIcon /> },
-    { label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
-    { label: "Salary Breakdown", icon: <MaterialModule.AccountBalanceIcon /> },
-    { label: "Policies", icon: <PolicyIcon /> },
+    { path: "family-details", label: "Family Details", icon: <MaterialModule.FamilyIcon /> },
+    { path: "nominations", label: "Nominations", icon: <MaterialModule.AccountBalanceIcon /> },
+    { path: "attachments", label: "Attachments", icon: <MaterialModule.AttachmentIcon /> },
+    { path: "salary-breakdown", label: "Salary Breakdown", icon: <MaterialModule.AccountBalanceIcon /> },
+    { path: "policies", label: "Policies", icon: <PolicyIcon /> },
   ];
+  const tabValue = Math.max(tabs.findIndex((tab) => tab.path === tabPath), 0);
 
   useEffect(() => {
     if (tabValue === 10 && apiId) {
@@ -3973,56 +3973,111 @@ export default function EmployeeDetails() {
 
   const handleCheckIn = async () => {
     try {
-      if (!navigator.geolocation) {
-        showSnackbar("This browser does not support location access for geofence validation.", "error");
-        return;
+      const position = navigator.geolocation
+        ? await new Promise<GeolocationPosition | null>((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (geoPosition) => resolve(geoPosition),
+              () => resolve(null),
+              {
+                enableHighAccuracy: true,
+                timeout: 10000,
+              },
+            );
+          })
+        : null;
+
+      const checkInPayload = {
+        employeeId: apiId || "",
+        checkInTime: new Date().toISOString(),
+        ...(position
+          ? {
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            }
+          : {}),
+        markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
+      };
+
+      if (import.meta.env.DEV) {
+        console.info("[Attendance geofence] Check-in request", {
+          ...checkInPayload,
+          locationAccuracyMeters: position?.coords.accuracy ?? null,
+        });
       }
 
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition((geoPosition) => resolve(geoPosition), reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
+      const res: any = await attendanceService.checkIn(checkInPayload);
+      const responseData = res?.data?.data ?? res?.data ?? res;
+      const responsePayload =
+        responseData && typeof responseData === "object"
+          ? responseData as Record<string, any>
+          : {};
+      const geofenceResult =
+        responsePayload.geofence && typeof responsePayload.geofence === "object"
+          ? responsePayload.geofence
+          : responsePayload;
+      const serverMode = String(
+        geofenceResult.geofenceMode ?? geofenceResult.mode ?? "",
+      ).toUpperCase();
+      const serverWithinGeofence =
+        geofenceResult.withinGeofence ??
+        geofenceResult.checkInWithinGeofence;
+      const serverAllowed = geofenceResult.allowed;
+
+      if (import.meta.env.DEV) {
+        console.info("[Attendance geofence] Server check-in result", {
+          success: responsePayload.success ?? res?.success ?? null,
+          mode: serverMode || null,
+          withinGeofence: serverWithinGeofence ?? null,
+          allowed: serverAllowed ?? null,
+          distanceMeters: geofenceResult.distanceMeters ?? null,
+          allowedRadiusMeters: geofenceResult.allowedRadiusMeters ?? null,
+          attendanceStatus:
+            responsePayload.status ?? responsePayload.attendanceStatus ?? null,
+          message: responsePayload.message ?? res?.message ?? null,
         });
-      });
+        if (
+          serverWithinGeofence == null &&
+          serverAllowed == null &&
+          geofenceResult.distanceMeters == null
+        ) {
+          console.warn(
+            "[Attendance geofence] The check-in response did not include the server geofence decision or distance/radius. The submitted coordinates are visible above, but the server must return these fields to verify the comparison.",
+          );
+        }
+      }
 
-      const validationResponse: any = await mobileAttendanceService.validateGeofence({
-        employeeId: apiId || "",
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-      const validation = (validationResponse?.data?.data || validationResponse?.data) as GeofenceValidateData;
-      const geofenceMode = validation?.geofenceMode || "STRICT";
-      const withinGeofence = validation?.withinGeofence ?? false;
-      const allowed = validation?.allowed ?? (
-        geofenceMode === "DISABLED" ||
-        geofenceMode === "SOFT" ||
-        withinGeofence
-      );
-
-      if (!allowed) {
+      if (
+        responsePayload.success === false ||
+        res?.success === false ||
+        serverAllowed === false ||
+        (serverMode === "STRICT" && serverWithinGeofence === false)
+      ) {
         showSnackbar(
-          validation?.message || "Check-in blocked: you are outside the assigned branch geofence.",
+          responsePayload.message ||
+            res?.message ||
+            "Check-in was rejected by the server geofence validation.",
           "error",
         );
         return;
       }
 
-      const res: any = await attendanceService.checkIn({
-        employeeId: apiId || "",
-        checkInTime: new Date().toISOString(),
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        withinGeofence,
-        geofenceMode,
-        markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
-      });
-
       showSnackbar(
-        res.message || validation?.message || "Check-in marked successfully.",
-        withinGeofence ? "success" : "warning",
+        responsePayload.message ||
+          res?.message ||
+          (position
+            ? "Check-in marked successfully."
+            : "Check-in submitted without location; geofence validation is handled by the server."),
+        position ? "success" : "warning",
       );
       setCheckIn(true);
     } catch (error: any) {
+      if (import.meta.env.DEV) {
+        console.error("[Attendance geofence] Check-in request failed", {
+          status: error?.response?.status ?? null,
+          message:
+            error?.response?.data?.message ?? error?.message ?? "Unknown error",
+        });
+      }
       showSnackbar(error?.message || "Unable to check in.", "error");
     }
   }
@@ -4048,7 +4103,7 @@ export default function EmployeeDetails() {
         return;
       }
     }
-    setTabValue(newValue);
+    navigate(`/employees/${id}/${tabs[newValue].path}`);
   };
 
   const filterAuditLogs = (logs: any[], searchTerm: string) => {

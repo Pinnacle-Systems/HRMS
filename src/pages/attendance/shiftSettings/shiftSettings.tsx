@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Box, FormControlLabel, Switch } from "@mui/material";
 
 import {
@@ -33,7 +34,9 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function ShiftSettings() {
-  const [activeTab, setActiveTab] = useState(0);
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isAutoAssignShift, setIsAutoAssignShift] = useState(false);
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
 
@@ -64,31 +67,37 @@ export default function ShiftSettings() {
 
   const tabs = [
     {
+      path: "list",
       label: "Shift List",
       icon: <SettingsOutlined className="!w-4" />,
       component: <ShiftList />,
     },
     {
+      path: "rotation",
       label: "Shift Rotation",
       icon: <Rotate90DegreesCwOutlined className="!w-4" />,
       component: <ShiftRotation />,
     },
     {
+      path: "roster",
       label: "Shift Roster",
       icon: <GroupOutlined className="!w-4" />,
       component: <ShiftRoster />,
     },
     {
+      path: "schedule",
       label: "Shift Schedule",
       icon: <ScheduleOutlined className="!w-4" />,
       component: <ShiftScheduleView />,
     },
     {
+      path: "swap-requests",
       label: "Swap Requests",
       icon: <SwapHorizOutlined className="!w-4" />,
       component: <ShiftSwapRequests />,
     },
   ];
+  const activeTab = Math.max(tabs.findIndex((tab) => tab.path === activeTabPath), 0);
 
   return (
     <div className="w-full">
@@ -118,7 +127,7 @@ export default function ShiftSettings() {
               return (
                 <button
                   key={index}
-                  onClick={() => setActiveTab(index)}
+                  onClick={() => navigate(`/attendance/shifts/${tab.path}${location.search}`)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200
               ${active
                       ? "bg-primary-50 text-primary shadow-sm" : disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed"

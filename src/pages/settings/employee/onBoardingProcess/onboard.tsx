@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
     Tabs,
     Tab,
@@ -51,6 +51,7 @@ function a11yProps(index: number) {
 const OnBoardingProcess = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { tab: tabPath } = useParams<{ tab?: string }>();
     const { showSnackbar } = useUI();
     const { session } = useAuth();
     
@@ -125,10 +126,10 @@ const OnBoardingProcess = () => {
         return -1;
     };
 
-    // Get initial tab from URL query parameter or default based on role
+    // Resolve the requested route tab, retaining compatibility with existing query-string links.
     const getInitialTab = () => {
         const params = new URLSearchParams(location.search);
-        const tab = params.get("tab");        
+        const tab = tabPath ?? params.get("tab");
         const allTabMap: Record<string, number> = {
             checklist: 0,
             assign: 1,
@@ -150,7 +151,7 @@ const OnBoardingProcess = () => {
         return 0;
     };
 
-    const [activeTab, setActiveTab] = useState(getInitialTab());
+    const activeTab = getInitialTab();
 
     const fetchCounts = useCallback(async () => {
         if (hasFetched.current) {
@@ -198,11 +199,16 @@ const OnBoardingProcess = () => {
 
     // Handle tab change
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-        setActiveTab(newValue);
         const actualIndex = getActualIndex(newValue);
         if (actualIndex !== -1) {
             const tabNames = ["checklist", "assign", "progress", "documents", "myonboarding"];
-            navigate(`?tab=${tabNames[actualIndex]}`, { replace: true });
+            const params = new URLSearchParams(location.search);
+            params.delete("tab");
+            const search = params.toString();
+            const basePath = tabPath
+                ? location.pathname.slice(0, -(tabPath.length + 1))
+                : location.pathname;
+            navigate(`${basePath}/${tabNames[actualIndex]}${search ? `?${search}` : ""}`, { replace: true });
         }
     };
 

@@ -16,6 +16,7 @@ import { type PolicyTemplate, type PolicyDefinition, type PolicyConfig } from '.
 import { useUI } from '../../../context/Snackbar';
 import { steps, type PolicyWizardProps } from '../types';
 import { policyService } from '../../../services';
+import { withRuleBlockDefaults } from './ruleBlocks/defaultConfig';
 
 export const PolicyWizard: React.FC<PolicyWizardProps> = ({
   companyId,
@@ -152,7 +153,10 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
       const policyId: string = newPolicy.data?.id || newPolicy.id;
 
       const completeConfig = {
-        ...(policyConfig || {}),
+        ...withRuleBlockDefaults(
+          policyConfig ?? selectedTemplate!.defaultConfig,
+          selectedTemplate!.ruleBlocks ?? [],
+        ),
         approvalFlow,
       } as PolicyConfig;
 

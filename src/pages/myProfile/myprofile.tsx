@@ -56,6 +56,7 @@ import {
 } from "../../utils/passwordPolicyValidation";
 import { formatDate } from "../leave/leaveFormatters";
 import { Person3Outlined } from "@mui/icons-material";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -79,7 +80,9 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function Profile() {
-  const [tabValue, setTabValue] = useState(0);
+  const navigate = useNavigate();
+  const { tab } = useParams<{ tab?: string }>();
+  const tabValue = tab === "login-history" ? 1 : 0;
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -203,7 +206,7 @@ export default function Profile() {
   }, []);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    navigate(`/profile/${newValue === 1 ? "login-history" : "info"}`);
   };
 
   const handleEditDialogOpen = () => {

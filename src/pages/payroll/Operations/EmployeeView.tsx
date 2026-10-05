@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
   Card,
@@ -68,8 +69,11 @@ function TabPanel(props: TabPanelProps) {
 
 export default function EmployeeSalaryView() {
   const theme = useTheme();
+  const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const tabPaths = ["current-structure", "payroll-history", "loans-advances", "tax-summary", "salary-history"] as const;
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
-  const [tabValue, setTabValue] = useState(0);
+  const tabValue = Math.max(tabPaths.findIndex((path) => path === activeTabPath), 0);
   const [salaryData, setSalaryData] = useState<any>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -263,7 +267,7 @@ export default function EmployeeSalaryView() {
 
           {/* Tabs */}
           <Box className="bg-white">
-            <Tabs value={tabValue} className="border-b border-gray-200" onChange={(_, v) => setTabValue(v)} sx={{
+            <Tabs value={tabValue} className="border-b border-gray-200" onChange={(_, v) => navigate(`/payroll/employee-salary/${tabPaths[v]}`)} sx={{
               "& .MuiTabs-indicator": {
                 backgroundColor: "var(--color-primary)",
                 height: 3,

@@ -81,7 +81,7 @@ export const qualificationColumns = [
 // ==================== EMPLOYEE DETAILS FIELDS ====================
 export const employeeColumns = [
   { key: "employeeGroup", label: "Employee Group", type: "select" },
-  { key: "employeeId", label: "Employee ID" },
+  { key: "employeeId", label: "Employee ID", disabled: true },
   { key: "name", label: "Name" },
   { key: "joiningDate", label: "Joining Date", type: "date" },
   { key: "confirmationDate", label: "Confirmation Date", type: "date" },

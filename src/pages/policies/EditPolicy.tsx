@@ -42,9 +42,10 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, index, value }) => {
 };
 
 export default function EditPolicy() {
-  const { id } = useParams<{ id: string }>();
+  const { id, tab: tabPath } = useParams<{ id: string; tab?: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState(0);
+  const tabPaths = ["overview", "versions", "assignments"] as const;
+  const activeTab = Math.max(tabPaths.findIndex((path) => path === tabPath), 0);
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
   const [assignments, setAssignments] = useState<Record<string, PolicyAssignment[]>>({});
@@ -347,7 +348,7 @@ export default function EditPolicy() {
           )}
 
           <div className='mb-3 !bg-white'>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{
+            <Tabs value={activeTab} onChange={(_, v) => navigate(`/policies/${id}/edit/${tabPaths[v]}`)} sx={{
               "& .MuiTabs-indicator": {
                 backgroundColor: "var(--color-primary)",
                 height: 3,

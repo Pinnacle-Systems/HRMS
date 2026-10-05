@@ -57,7 +57,7 @@ import { useUI } from "../../../context/Snackbar";
 import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import type { StructureItem } from "../../../services/modules/payrollServices/masters";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { categoryService } from "../../../services/modules/category";
 
 // Helper function to get display value based on calculation type
@@ -102,6 +102,7 @@ const isSpecialAllowance = (componentName: string) => {
 export default function SalaryStructureTemplate() {
   const theme = useTheme();
   const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
   const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
   const [currentStep, setCurrentStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -111,7 +112,8 @@ export default function SalaryStructureTemplate() {
   });
   const [previewData, setPreviewData] = useState<any>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [tabValue, setTabValue] = useState(0);
+  const tabValue = activeTabPath === "create" ? 1 : 0;
+  const setTabValue = (value: number) => navigate(`/payroll/structures/${value === 1 ? "create" : "list"}`);
   const [structures, setStructures] = useState<any[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(0);

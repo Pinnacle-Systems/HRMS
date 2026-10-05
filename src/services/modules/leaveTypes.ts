@@ -430,6 +430,7 @@ export type LeaveListParams = {
   days?: number;
   payrollMonth?: string;
   branchId?: string;
+  sortDir?: string;
 };
 
 export type PageResponse<T> = {

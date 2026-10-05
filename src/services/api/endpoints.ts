@@ -779,7 +779,9 @@ export const API_ENDPOINTS = {
     POST_DAILY_STATUS: "/attendance/daily-status",
     POST_CORRECTION_APPROVE: (id: string) =>
       `/attendance/corrections/${id}/approve`,
+    BULK_CORRECTION_APPROVE: "/attendance/corrections/bulk-approve",
     POST_CORRECTION_REQ: "/attendance/correction/request",
+    BULK_CORRECTION_REQ: "/attendance/correction/bulk-request",
     POST_CHECKIN: "/attendance/check-in",
     GET_RECORDS: "attendance/records",
 
@@ -1238,10 +1240,9 @@ export const API_ENDPOINTS = {
     },
     SETTINGS: {
       BASE: "/payroll/settings",
-      // GET_BY_CATEGORY: (category: string) => `/payroll/settings/${category}`,
-      // UPDATE: "/payroll/settings",
-      // UPDATE_CATEGORY: (category: string) => `/payroll/settings/${category}`,
-      // RESET: "/payroll/settings/reset",
+      TAX_RULES: "/payroll/settings/tax-rules",
+      TAX_RULES_HISTORY: "/payroll/settings/tax-rules/history",
+      PF_ESI_HISTORY: "/payroll/settings/pf-esi/history",
     },
     MASTERS: {
       DEDUCTIONS: {

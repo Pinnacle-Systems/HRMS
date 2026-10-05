@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField,
+  Button, TextField, Checkbox,
   IconButton, Tooltip, CircularProgress,
   Chip,
 } from "@mui/material";
@@ -14,13 +14,18 @@ import {
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { CorrectionRequest, CorrectionStatus } from "../../../services/modules/attendanceTypes";
+import type {
+  CorrectionRequest,
+  CorrectionStatus,
+  BulkDecisionError,
+} from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { formatTime } from "../const";
 import dayjs from "dayjs";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { getRowColor } from "../../const";
 import { formatDateTime } from "../../../utils/dateFormatter";
+import { useAuth } from "../../../auth/authContext";
 
 const STATUS_STYLES: Record<CorrectionStatus, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -49,6 +54,15 @@ export function CorrectionsView() {
   const [submitting, setSubmitting] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
+  // Bulk selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<"approved" | "rejected">("approved");
+  const [bulkRemarks, setBulkRemarks] = useState("");
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkErrors, setBulkErrors] = useState<BulkDecisionError[]>([]);
+
+  const { session } = useAuth();
 
   const loadCorrections = useCallback(async () => {
     setLoading(true);
@@ -57,7 +71,7 @@ export function CorrectionsView() {
       const res: any = await attendanceService.getCorrections({
         status: statusFilter || undefined,
         employeeId: search || undefined,
-        page, limit
+        page, limit,
       });
       const data = res?.data?.data ?? res?.data;
       setCorrections(Array.isArray(data) ? data : data?.content ?? []);
@@ -73,6 +87,11 @@ export function CorrectionsView() {
   useEffect(() => {
     loadCorrections();
   }, [loadCorrections]);
+
+  // Clear stale selection when the visible page/filter changes
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [page, limit, statusFilter, search]);
 
   async function openDetail(correction: CorrectionRequest) {
     setSelected(correction);
@@ -103,7 +122,7 @@ export function CorrectionsView() {
       await attendanceService.approveCorrection(selected.id, {
         status: approveStatus,
         approverRemarks,
-        approvedBy: "current-user",
+        approvedBy: session?.user.email  || "current-user",
       });
       showSnackbar(
         approveStatus === "approved" ? "Correction approved" : "Correction rejected",
@@ -126,6 +145,73 @@ export function CorrectionsView() {
     setLimit(newLimit);
     setPage(0);
   };
+
+  // -------- Bulk selection helpers --------
+  const pendingCorrections = corrections.filter((c) => c.status === "pending");
+  const selectableIds = pendingCorrections.map((c) => c.id);
+
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selectedIds.includes(id));
+  const someSelected = selectedIds.length > 0 && !allSelected;
+
+  const toggleSelectAll = () => {
+    setSelectedIds(allSelected ? [] : selectableIds);
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  function openBulk(status: "approved" | "rejected") {
+    setBulkStatus(status);
+    setBulkRemarks("");
+    setBulkErrors([]);
+    setBulkOpen(true);
+  }
+
+  async function submitBulk() {
+    if (selectedIds.length === 0) return;
+    if (bulkStatus === "rejected" && !bulkRemarks.trim()) return;
+
+    setBulkSubmitting(true);
+    setBulkErrors([]);
+    try {
+      const res: any = await attendanceService.bulkApproveCorrections({
+        ids: selectedIds,
+        status: bulkStatus,
+        approverRemarks: bulkRemarks,
+        approvedBy: session?.user.email  || "current-user",
+      });
+
+      const data = res?.data?.data ?? res?.data;
+
+      // All-or-nothing: if the API returned errors, nothing was applied
+      if (data?.errors?.length) {
+        setBulkErrors(data.errors);
+        showSnackbar(
+          "Some requests could not be processed. No changes were applied.",
+          "error"
+        );
+        return;
+      }
+
+      showSnackbar(
+        `${data?.successCount ?? selectedIds.length} correction(s) ${
+          bulkStatus === "approved" ? "approved" : "rejected"
+        }`,
+        bulkStatus === "approved" ? "success" : "info"
+      );
+      setBulkOpen(false);
+      setSelectedIds([]);
+      loadCorrections();
+    } catch {
+      showSnackbar("Failed to process bulk correction", "error");
+    } finally {
+      setBulkSubmitting(false);
+    }
+  }
 
   return (
     <div className="p-4 pt-1 space-y-3">
@@ -187,13 +273,57 @@ export function CorrectionsView() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedIds.length > 0 && (
+        <div className="bg-blue-50/20 border border-blue-200 rounded-md px-3 py-2 flex items-center justify-between">
+          <span className="text-sm text-blue-800 dark:text-blue-200">
+            {selectedIds.length} request{selectedIds.length > 1 ? "s" : ""} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              size="small"
+              variant="outlined"
+              className="!border-gray-200 !text-gray-800"
+              onClick={() => setSelectedIds([])}
+            >
+              Clear
+            </Button>
+            <Button
+              size="small"
+              color="error"
+              variant="outlined"
+              onClick={() => openBulk("rejected")}
+            >
+              Reject Selected
+            </Button>
+            <Button
+              size="small"
+              color="success"
+              variant="contained"
+              onClick={() => openBulk("approved")}
+            >
+              Approve Selected
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <TableContainer className="max-h-[calc(100vh-325px)]">
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                {["S No", "Employee Name", "Date", "In Time", "Out Time", "Reason","Source", "Status", "Requested At", "Actions"].map((h) => (
+                <TableCell className="bg-gray-50" padding="checkbox">
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onChange={toggleSelectAll}
+                    disabled={selectableIds.length === 0}
+                    className="!p-0 text-gray-800"
+                  />
+                </TableCell>
+                {["S No", "Employee Name", "Date", "In Time", "Out Time", "Reason", "Source", "Status", "Requested At", "Actions"].map((h) => (
                   <TableCell key={h} className="bg-gray-50 text-gray-600 font-semibold text-xs whitespace-nowrap">
                     {h}
                   </TableCell>
@@ -214,7 +344,15 @@ export function CorrectionsView() {
               ) : (
                 corrections.map((c, index) => (
                   <TableRow key={c.id} hover sx={getRowColor(index)}>
-                    <TableCell >{index + 1}</TableCell>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        className="!p-0 text-gray-800"
+                        checked={selectedIds.includes(c.id)}
+                        onChange={() => toggleSelectOne(c.id)}
+                        disabled={c.status !== "pending"}
+                      />
+                    </TableCell>
+                    <TableCell>{index + 1}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {c.employeeName} <span className="text-gray-500 text-[10px]">({c.employeeCode})</span>
                     </TableCell>
@@ -223,19 +361,15 @@ export function CorrectionsView() {
                     </TableCell>
                     <TableCell>
                       <div className="text-green-700" title="Current In Time">{c.currentCheckIn ? formatTime(c.currentCheckIn) : '-'}</div>
-                      <div className={`${c.currentCheckIn == c.requestedCheckIn ? 'text-green-700' : 'text-red-500'}`} title="Requested In Time"> {formatTime(c.requestedCheckIn)}</div>
+                      <div className={`${c.currentCheckIn == c.requestedCheckIn ? 'text-green-700' : 'text-red-500'}`} title="Requested In Time">{formatTime(c.requestedCheckIn)}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-green-700" title="Current Out Time"> {c.currentCheckOut ? formatTime(c.currentCheckOut) : '-'}</div>
+                      <div className="text-green-700" title="Current Out Time">{c.currentCheckOut ? formatTime(c.currentCheckOut) : '-'}</div>
                       <div className={`${c.currentCheckOut == c.requestedCheckOut ? 'text-green-700' : 'text-red-500'}`} title="Requested Out Time">{formatTime(c.requestedCheckOut)}</div>
                     </TableCell>
-                    {/* <TableCell><span className="text-green-700"> {formatTime(c.requestedCheckIn)}</span></TableCell>
-                    <TableCell> <span className="text-green-700">{formatTime(c.requestedCheckOut)}</span></TableCell> */}
                     <TableCell className="max-w-[250px] truncate" title={c.reason}>{c.reason}</TableCell>
                     <TableCell>{c.source}</TableCell>
-                    <TableCell sx={{
-                      padding: '8px !important',
-                    }}>
+                    <TableCell sx={{ padding: '8px !important' }}>
                       <span className={`px-2 py-1 rounded-full capitalize ${STATUS_STYLES[c.status]}`}>
                         {c.status}
                       </span>
@@ -326,12 +460,20 @@ export function CorrectionsView() {
           <Button size="small" variant="outlined" className="!border-gray-200 !text-gray-800" onClick={() => setDetailOpen(false)}>Close</Button>
           {selected?.status === "pending" && (
             <>
-              <Button size="small" color="error" variant="outlined"
-                onClick={() => { setDetailOpen(false); openApprove(selected, "rejected"); }}>
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                onClick={() => { setDetailOpen(false); openApprove(selected, "rejected"); }}
+              >
                 Reject
               </Button>
-              <Button size="small" color="success" variant="contained"
-                onClick={() => { setDetailOpen(false); openApprove(selected, "approved"); }}>
+              <Button
+                size="small"
+                color="success"
+                variant="contained"
+                onClick={() => { setDetailOpen(false); openApprove(selected, "approved"); }}
+              >
                 Approve
               </Button>
             </>
@@ -367,7 +509,12 @@ export function CorrectionsView() {
           </div>
         </DialogContent>
         <DialogActions className="!p-4 !border-t !border-gray-200">
-          <Button onClick={() => setApproveOpen(false)} disabled={submitting} variant="outlined" className="!border-gray-200 !text-gray-800" >
+          <Button
+            onClick={() => setApproveOpen(false)}
+            disabled={submitting}
+            variant="outlined"
+            className="!border-gray-200 !text-gray-800"
+          >
             Cancel
           </Button>
           <Button
@@ -377,6 +524,69 @@ export function CorrectionsView() {
             disabled={submitting || (approveStatus === "rejected" && !approverRemarks.trim())}
           >
             {submitting ? "Processing..." : approveStatus === "approved" ? "Approve" : "Reject"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Bulk Approve/Reject Dialog */}
+      <Dialog open={bulkOpen} onClose={() => !bulkSubmitting && setBulkOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle className="flex items-center justify-between !p-2 !border-b !border-gray-200">
+          <span className="!pl-4">
+            {bulkStatus === "approved" ? "Approve" : "Reject"} {selectedIds.length} Correction{selectedIds.length > 1 ? "s" : ""}
+          </span>
+          <IconButton size="small" onClick={() => setBulkOpen(false)} disabled={bulkSubmitting}>
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <div className="space-y-3 pt-1">
+            <div className="text-sm text-gray-600 bg-head mt-2 rounded p-2">
+              All <span className="font-medium text-gray-700">{selectedIds.length}</span> selected request(s)
+              will be {bulkStatus === "approved" ? "approved" : "rejected"} together.
+              {bulkStatus === "approved" && " Corrected times will be applied to each attendance record."}
+            </div>
+
+            <TextField
+              label={`Remarks ${bulkStatus === "rejected" ? "(required)" : "(optional)"}`}
+              fullWidth
+              multiline
+              required={bulkStatus === "rejected"}
+              rows={3}
+              value={bulkRemarks}
+              onChange={(e) => setBulkRemarks(e.target.value)}
+            />
+
+            {bulkErrors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 max-h-40 overflow-auto">
+                <div className="font-medium mb-1">Nothing was applied. Fix the following:</div>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {bulkErrors.map((e, i) => (
+                    <li key={i}>
+                      {e.branchName ? `${e.branchName}: ` : ""}
+                      {e.errors.join(", ")}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+        <DialogActions className="!p-4 !border-t !border-gray-200">
+          <Button
+            onClick={() => setBulkOpen(false)}
+            disabled={bulkSubmitting}
+            variant="outlined"
+            className="!border-gray-200 !text-gray-800"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color={bulkStatus === "approved" ? "success" : "error"}
+            onClick={submitBulk}
+            disabled={bulkSubmitting || (bulkStatus === "rejected" && !bulkRemarks.trim())}
+          >
+            {bulkSubmitting ? "Processing..." : bulkStatus === "approved" ? "Approve All" : "Reject All"}
           </Button>
         </DialogActions>
       </Dialog>

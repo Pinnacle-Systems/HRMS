@@ -30,7 +30,7 @@ export const AccrualRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }
     </Grid>
     <Grid size={{ xs: 12, md: 8 }}>
       <FormControlLabel control={<Switch checked={!!localConfig?.accrualRules?.enableProRata} onChange={(e) => set('accrualRules.enableProRata', e.target.checked)} />} label="Enable Pro-rata Accrual" />
-      <span className='text-gray-500 text-[12px]'>Leave accrual proportional to joining date (as per Indian Labour Laws)</span>
+      <span className='text-gray-500 text-[12px]'>Leave accrual proportional to joining date</span>
     </Grid>
     <Grid size={{ xs: 12, md: 4 }}>
       <FormControlLabel control={<Switch checked={!!localConfig?.accrualRules?.carryForwardUnused} onChange={(e) => set('accrualRules.carryForwardUnused', e.target.checked)} />} label="Carry Forward Unused Leave" />

@@ -27,9 +27,10 @@ import { ArrowLeftIcon } from "@mui/x-date-pickers";
 import { useUI } from "../../../context/Snackbar";
 
 export default function RevisionDetails() {
-    const { id } = useParams<{ id: string }>();
+    const { id, tab: tabPath } = useParams<{ id: string; tab?: string }>();
     const navigate = useNavigate();
-    const [tab, setTab] = useState(0);
+    const tabNames = ["summary", "employees", "components"] as const;
+    const tab = Math.max(tabNames.findIndex((name) => name === tabPath), 0);
     const [data, setData] = useState<SalaryRevision | null>(null);
     const [remarks, setRemarks] = useState("");
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -459,7 +460,7 @@ export default function RevisionDetails() {
             <Paper className="!shadow-sm !bg-white">
                 <Tabs
                     value={tab}
-                    onChange={(_, v) => setTab(v)}
+                    onChange={(_, v) => navigate(`/payroll/revision/${id}/${tabNames[v]}`)}
                     className="border-b border-gray-200"
                     sx={{
                         "& .MuiTabs-indicator": {

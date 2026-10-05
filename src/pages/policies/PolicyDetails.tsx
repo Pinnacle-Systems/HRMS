@@ -42,13 +42,14 @@ import { getRowColor } from '../const';
 import ConfigurationViewer from '../../components/PolicyManagement/ConfigurationViewer';
 
 export default function PolicyDetails() {
-  const { id } = useParams<{ id: string }>();
+  const { id, tab: tabPath } = useParams<{ id: string; tab?: string }>();
   const navigate = useNavigate();
   const [policy, setPolicy] = useState<PolicyDefinition | null>(null);
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
   const [assignments, setAssignments] = useState<Record<string, PolicyAssignment[]>>({});
   const [auditLogs, setAuditLogs] = useState<PolicyAuditLog[]>([]);
-  const [activeTab, setActiveTab] = useState(0);
+  const tabPaths = ["overview", "versions", "assignments", "audit-log"] as const;
+  const activeTab = Math.max(tabPaths.findIndex((path) => path === tabPath), 0);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectingVersionId, setRejectingVersionId] = useState('');
@@ -185,7 +186,7 @@ export default function PolicyDetails() {
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 8 }}>
           <div className='mb-3 bg-white text-gray-800'>
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{
+            <Tabs value={activeTab} onChange={(_, v) => navigate(`/policies/${id}/${tabPaths[v]}`)} sx={{
               "& .MuiTabs-indicator": {
                 backgroundColor: "var(--color-primary)",
                 height: 3,
@@ -445,7 +446,7 @@ export default function PolicyDetails() {
                 fullWidth
                 variant="outlined"
                 startIcon={<HistoryIcon className='!w-4'/>}
-                onClick={() => setActiveTab(1)}
+                onClick={() => navigate(`/policies/${id}/versions`)}
                 className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
               >
                 View Version History
@@ -455,7 +456,7 @@ export default function PolicyDetails() {
                 fullWidth
                 variant="outlined"
                 startIcon={<AssessmentOutlined className='!w-4'/>}
-                onClick={() => setActiveTab(2)}
+                onClick={() => navigate(`/policies/${id}/assignments`)}
                 className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
               >
                 Manage Assignments

@@ -35,7 +35,7 @@ import { dialogSx, dialogsx, formatName, selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as ReTooltip } from "recharts";
 import { apiService } from "../../../services";
 import { departmentService } from "../../../services/modules/department";
@@ -154,6 +154,7 @@ export default function AssignSalaryStructure() {
   const theme = useTheme();
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
   const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const autoOpenHandledRef = useRef(false);
 
@@ -172,7 +173,7 @@ export default function AssignSalaryStructure() {
   const [totalCount, setTotalCount] = useState(0);
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  const [tabValue, setTabValue] = useState(0);
+  const tabValue = activeTabPath === "breakdown" ? 1 : 0;
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
   const [selectedEmployeeGroup, setSelectedEmployeeGroup] = useState("all");
@@ -768,7 +769,8 @@ export default function AssignSalaryStructure() {
   };
 
   const handleTabChange = (_e: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    const search = searchParams.toString();
+    navigate(`/payroll/assign/${newValue === 1 ? "breakdown" : "list"}${search ? `?${search}` : ""}`);
   };
 
   const isPreviewDisabled =

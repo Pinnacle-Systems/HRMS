@@ -44,6 +44,7 @@ import {
     FormHelperText,
 } from "@mui/material";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { dashboardService, type DashboardBuilderFilter, type DashboardBuilderPage, type DashboardBuilderWidget } from "../../services/modules/dashboard";
 import { getRowColor } from "../const";
 import { useUI } from "../../context/Snackbar";
@@ -51,6 +52,8 @@ import type { BIDimension, BIMetric, BuilderMeta } from "./const";
 
 export function DashboardBuilderFull() {
     const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+    const navigate = useNavigate();
+    const { subtab } = useParams<{ subtab?: string }>();
 
     // ===== Page State =====
     const [builderPages, setBuilderPages] = useState<DashboardBuilderPage[]>([]);
@@ -118,7 +121,10 @@ export function DashboardBuilderFull() {
     const [availableWidgetIds, setAvailableWidgetIds] = useState<string[]>([]);
 
     // ===== UI State =====
-    const [builderTab, setBuilderTab] = useState(0);
+    const builderTab = subtab === "filters" ? 1 : 0;
+    const setBuilderTab = (value: number) => {
+        navigate(`/bi-workspace/builder/${value === 1 ? "filters" : "widgets"}`);
+    };
 
     // ===== Helper Functions =====
     const combineDataSource = (type: string, id: string) => {

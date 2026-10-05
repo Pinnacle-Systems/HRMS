@@ -95,9 +95,9 @@ export function AttendanceSummary() {
   const [branches, setBranches] = useState<Branches[]>([]);
 
   const openDetailedView = (status?: string) => {
-    const params = new URLSearchParams({ tab: "detailed", date: selectedDate });
+    const params = new URLSearchParams({ date: selectedDate });
     if (status) params.set("status", status);
-    navigate(`/attendance/records?${params.toString()}`);
+    navigate(`/attendance/records/detailed?${params.toString()}`);
   };
 
   const loadSummary = useCallback(async () => {

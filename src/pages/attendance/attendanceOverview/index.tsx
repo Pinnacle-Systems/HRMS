@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Box, Button } from "@mui/material";
 import {
     DashboardOutlined,
@@ -9,7 +8,7 @@ import type { TabPanelProps } from "../types";
 import { HolidayCalendar } from "./HolidayCalendar";
 import { LeaveToday } from "./LeaveToday";
 import { AttendanceSummary } from "./AttendanceSummary";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 function TabPanel({ children, value, index }: TabPanelProps) {
     return (
@@ -21,16 +20,19 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 
 const TABS = [
     {
+        path: "summary",
         label: "Summary",
         icon: <DashboardOutlined className="!w-4" />,
         component: <AttendanceSummary />,
     },
     {
+        path: "on-leave",
         label: "On Leave Today",
         icon: <BeachAccessOutlined className="!w-4" />,
         component: <LeaveToday />,
     },
     {
+        path: "holidays",
         label: "Holidays",
         icon: <EventNoteOutlined className="!w-4" />,
         component: <HolidayCalendar />,
@@ -38,8 +40,9 @@ const TABS = [
 ];
 
 export default function AttendanceOverview() {
-    const [activeTab, setActiveTab] = useState(0);
     const navigate = useNavigate();
+    const { tab: activeTabPath } = useParams<{ tab?: string }>();
+    const activeTab = Math.max(TABS.findIndex((tab) => tab.path === activeTabPath), 0);
     return (
         <div className="w-full">
             {/* Header */}
@@ -58,7 +61,7 @@ export default function AttendanceOverview() {
                             return (
                                 <button
                                     key={index}
-                                    onClick={() => setActiveTab(index)}
+                                    onClick={() => navigate(`/attendance/overview/${tab.path}`)}
                                     className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200 whitespace-nowrap
                     ${active
                                             ? "bg-primary-50 text-primary shadow-sm"

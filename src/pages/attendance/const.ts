@@ -234,6 +234,7 @@ export interface RegisterEmployee {
   earlyOutMinutes: number;
   overtimeMinutes: number;
   correctionPending?: boolean;
+  template?: string;
 }
 
 export interface TodaySummary {

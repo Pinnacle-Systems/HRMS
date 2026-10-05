@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Box, Button } from "@mui/material";
 import {
   EditNoteOutlined,
@@ -15,7 +14,7 @@ import { RemoteCheckins } from "./RemoteCheckins";
 import { LopManagement } from "./LopManagement";
 import OfflineSyncManagement from "./offlineSync";
 import DeviceManagement from "./BiometricDevice";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 
 function TabPanel({ children, value, index }: TabPanelProps) {
@@ -28,31 +27,37 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 
 const TABS = [
   {
+    path: "corrections",
     label: "Corrections",
     icon: <EditNoteOutlined className="!w-4" />,
     component: <CorrectionsView />,
   },
   {
+    path: "remote-checkins",
     label: "Remote Check-ins",
     icon: <LocationOnOutlined className="!w-4" />,
     component: <RemoteCheckins />,
   },
   {
+    path: "overtime",
     label: "Overtime",
     icon: <AccessTimeOutlined className="!w-4" />,
     component: <OvertimeManagement />,
   },
   {
+    path: "lop",
     label: "LOP",
     icon: <MoneyOffCsredOutlined className="!w-4" />,
     component: <LopManagement />,
   },
   {
+    path: "biometric",
     label: "Device Integration",
     icon: <FingerprintOutlined className="!w-4" />,
     component: <DeviceManagement />,
   },
   {
+    path: "offline-sync",
     label: "Offline Sync",
     icon: <OfflinePinOutlined className="!w-4" />,
     component: <OfflineSyncManagement />,
@@ -60,8 +65,9 @@ const TABS = [
 ];
 
 export default function AttendanceManagement() {
-  const [activeTab, setActiveTab] = useState(0);
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
+  const activeTab = Math.max(TABS.findIndex((item) => item.path === activeTabPath), 0);
 
   return (
     <div className="w-full">
@@ -82,7 +88,7 @@ export default function AttendanceManagement() {
               return (
                 <button
                   key={index}
-                  onClick={() => setActiveTab(index)}
+                  onClick={() => navigate(`/attendance/management/${tab.path}`)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200 whitespace-nowrap
                     ${active
                       ? "bg-primary-50 text-primary shadow-sm"

@@ -1,5 +1,20 @@
 export type GeofenceMode = "DISABLED" | "SOFT" | "STRICT";
 
+export function normalizeGeofenceMode(
+  mode?: GeofenceMode | string | null,
+): GeofenceMode | null {
+  if (mode == null || mode.trim() === "") {
+    return null;
+  }
+
+  const normalizedMode = mode.trim().toUpperCase();
+  return normalizedMode === "DISABLED" ||
+    normalizedMode === "SOFT" ||
+    normalizedMode === "STRICT"
+    ? normalizedMode
+    : null;
+}
+
 export interface GeofenceEvaluationInput {
   branchLatitude?: number | null;
   branchLongitude?: number | null;
@@ -48,14 +63,18 @@ export function evaluateGeofenceAccess({
   radiusKm,
   mode,
 }: GeofenceEvaluationInput): GeofenceEvaluationResult {
-  const normalizedMode = (mode ?? "DISABLED").toString().toUpperCase() as GeofenceMode;
+  const normalizedMode = normalizeGeofenceMode(mode);
+  if (mode != null && normalizedMode == null) {
+    throw new Error(`Unsupported geofence mode: ${mode}`);
+  }
+  const effectiveMode = normalizedMode ?? "DISABLED";
 
-  if (normalizedMode === "DISABLED") {
+  if (effectiveMode === "DISABLED") {
     return {
       allowed: true,
       withinGeofence: true,
       distanceKm: 0,
-      mode: normalizedMode,
+      mode: effectiveMode,
       message: "Geofence validation is disabled for this branch.",
     };
   }
@@ -67,22 +86,22 @@ export function evaluateGeofenceAccess({
     Number(radiusKm) <= 0
   ) {
     return {
-      allowed: normalizedMode !== "STRICT",
+      allowed: effectiveMode !== "STRICT",
       withinGeofence: false,
       distanceKm: 0,
-      mode: normalizedMode,
+      mode: effectiveMode,
       message: "Branch geofence is not configured. Please contact your administrator.",
     };
   }
 
   if (userLatitude == null || userLongitude == null) {
     return {
-      allowed: normalizedMode !== "STRICT",
+      allowed: effectiveMode !== "STRICT",
       withinGeofence: false,
       distanceKm: 0,
-      mode: normalizedMode,
+      mode: effectiveMode,
       message:
-        normalizedMode === "STRICT"
+        effectiveMode === "STRICT"
           ? "Location access is required to check in. Your current location could not be detected."
           : "Location access is required for geofence validation. Soft mode allows the punch but marks it outside the geofence.",
     };
@@ -97,13 +116,13 @@ export function evaluateGeofenceAccess({
 
   const withinGeofence = distanceKm <= Number(radiusKm);
 
-  if (normalizedMode === "STRICT") {
+  if (effectiveMode === "STRICT") {
     if (withinGeofence) {
       return {
         allowed: true,
         withinGeofence: true,
         distanceKm,
-        mode: normalizedMode,
+        mode: effectiveMode,
         message: `You are within the allowed geofence (${distanceKm.toFixed(2)} km).`,
       };
     }
@@ -112,7 +131,7 @@ export function evaluateGeofenceAccess({
       allowed: false,
       withinGeofence: false,
       distanceKm,
-      mode: normalizedMode,
+      mode: effectiveMode,
       message: `Check-in blocked: you are outside the branch radius. Distance: ${distanceKm.toFixed(2)} km; allowed: ${Number(radiusKm).toFixed(2)} km.`,
     };
   }
@@ -122,7 +141,7 @@ export function evaluateGeofenceAccess({
       allowed: true,
       withinGeofence: true,
       distanceKm,
-      mode: normalizedMode,
+      mode: effectiveMode,
       message: `You are within the geofence (${distanceKm.toFixed(2)} km).`,
     };
   }
@@ -131,7 +150,7 @@ export function evaluateGeofenceAccess({
     allowed: true,
     withinGeofence: false,
     distanceKm,
-    mode: normalizedMode,
+    mode: effectiveMode,
     message: `Warning: you are outside the geofence (${distanceKm.toFixed(2)} km). Soft mode is enabled, so the check-in is allowed but flagged outside the geofence.`,
   };
 }

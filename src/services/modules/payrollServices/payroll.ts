@@ -194,6 +194,104 @@ export interface PayrollAnalyticsResponse {
   timestamp: string;
 }
 
+export interface TaxSlab {
+  min: number;
+  max: number;
+  rate: number;
+}
+
+export interface TaxRules {
+  defaultRegime: string;
+  tdsComputation: {
+    perquisiteTax: string;
+    projectionMethod: string;
+    declarationConsideration: string;
+  };
+  slabs: TaxSlab[];
+}
+
+export interface PayrollSettingsHistoryEntry {
+  id?: string;
+  supersededAt?: string;
+  changedBy?: string;
+  [key: string]: unknown;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+}
+
+export interface PF {
+  voluntaryPF: boolean;
+  epsOutOfEmployer: string;
+  employerContribution: string;
+  employeeContribution: string;
+  edliContribution: string;
+  wageCeiling: number;
+  pfAdminCharges: string;
+}
+
+export interface ESI {
+  employerContribution: string;
+  wageCeiling: number;
+  employeeContribution: string;
+  esiEnabled: boolean;
+}
+
+export interface PFESISettings {
+  pf: PF;
+  esi: ESI;
+}
+
+export interface Schedule {
+  salaryPaymentDate: number;
+  frequency: string;
+  attendanceCutoffDate: number;
+  processingStartDate: number;
+}
+
+export interface AutoSyncFeature {
+  enabled: boolean;
+  name: string;
+}
+
+export interface ApprovalWorkflowStep {
+  active: boolean;
+  action: string;
+  step: number;
+  role: string;
+  sla: string;
+}
+
+export interface Allowance {
+  id?: string;
+  name: string;
+  basis: string;
+  limit: string;
+  taxExempt: boolean;
+}
+
+export interface DeductionRule {
+  id?: string;
+  employer: string;
+  name: string;
+  rate: string;
+  applicability: string;
+  cap: string;
+}
+
+export interface PayrollSettings {
+  taxRules: TaxRules;
+  pfEsiSettings: PFESISettings;
+  schedule: Schedule;
+  autoSyncFeatures: AutoSyncFeature[];
+  approvalWorkflow: ApprovalWorkflowStep[];
+  allowances: Allowance[];
+  deductionRules: DeductionRule[];
+}
+
 export const payrollService = {
   async getPayrollOverview(params?: PayrollAnalyticsParams): Promise<PayrollAnalyticsResponse> {
     return apiService.get<PayrollAnalyticsResponse>(
@@ -305,5 +403,21 @@ export const payrollService = {
 
   async updatePayrollSettings(settingsData: any) {
     return apiService.put(API_ENDPOINTS.PAYROLL.SETTINGS.BASE, settingsData);
+  },
+
+  async getPayrollTaxRules<TResponse = unknown>() {
+    return apiService.get<TResponse>(API_ENDPOINTS.PAYROLL.SETTINGS.TAX_RULES);
+  },
+
+  async updatePayrollTaxRules<TResponse = unknown>(taxRules: object) {
+    return apiService.put<TResponse>(API_ENDPOINTS.PAYROLL.SETTINGS.TAX_RULES, taxRules);
+  },
+
+  async getPayrollTaxRulesHistory<TResponse = unknown>() {
+    return apiService.get<TResponse>(API_ENDPOINTS.PAYROLL.SETTINGS.TAX_RULES_HISTORY);
+  },
+
+  async getPayrollPfEsiHistory<TResponse = unknown>() {
+    return apiService.get<TResponse>(API_ENDPOINTS.PAYROLL.SETTINGS.PF_ESI_HISTORY);
   },
 };

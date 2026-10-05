@@ -59,11 +59,11 @@ const TABS = [
 ];
 
 export default function PayrollDetails() {
-  const { id } = useParams();
+  const { id, tab: tabPath } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
-  const [activeTab, setActiveTab] = useState("breakdown");
+  const activeTab = TABS.some((tab) => tab.id === tabPath) ? tabPath! : "breakdown";
   const [run, setRun] = useState<any | null>(null);
   const [breakdown, setBreakdown] = useState<any[]>([]);
   const [filteredBreakdown, setFilteredBreakdown] = useState<any[]>([]);
@@ -151,7 +151,7 @@ export default function PayrollDetails() {
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
-    setActiveTab(newValue);
+    navigate(`/payroll/runs/${id}/${newValue}`);
   };
 
   const handlePageChange = (newPage: number) => {

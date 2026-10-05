@@ -1,18 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   Button,
-  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
-  FormControl,
   FormControlLabel,
   IconButton,
-  InputLabel,
-  ListItemText,
   MenuItem,
-  Select,
   Switch,
   Table,
   TableBody,
@@ -53,16 +48,17 @@ import {
   leaveTableSx,
 } from "../components/leaveTableStyles";
 import { getRowColor } from "../../const";
-import { branchService } from "../../../services/modules/branch";
-import type { Branch } from "../../attendance/shiftSettings/types";
-import { CancelOutlined, Delete, Edit } from "@mui/icons-material";
+// import { branchService } from "../../../services/modules/branch";
+// import type { Branch } from "../../attendance/shiftSettings/types";
+import { ArrowDownwardOutlined, ArrowUpwardOutlined, CancelOutlined, Delete, Edit } from "@mui/icons-material";
 import { selectSx } from "../../../const";
+import { useAuth } from "../../../auth/authContext";
 
 const holidayTypes: Holiday["holidayType"][] = [
-  "PUBLIC",      // Standard/National holidays
-  "RESTRICTED",  // Optional holidays
-  "OPTIONAL",    // Optional holidays
-  "FLOATING"     // Floating holidays
+  "PUBLIC",
+  "RESTRICTED",
+  "OPTIONAL",
+  "FLOATING"
 ];
 
 const getHolidayTypeDisplayName = (type: string): string => {
@@ -115,7 +111,8 @@ export default function AdminHolidayCalendarsPage() {
     useState<Partial<Holidays>>(emptyHolidayForm);
   const [editingHolidayId, setEditingHolidayId] = useState<string | null>(null);
 
-  const [branches, setBranches] = useState<Branch[]>([]);
+  // const [branches, setBranches] = useState<Branch[]>([]);
+  const { session } = useAuth();
 
   const [expandedCalendarId, setExpandedCalendarId] = useState<string | null>(null);
   const [expandedHolidays, setExpandedHolidays] = useState<Record<string, Holidays[]>>({});
@@ -123,6 +120,8 @@ export default function AdminHolidayCalendarsPage() {
 
   const [importOpen, setImportOpen] = useState(false);
   const [importCalendarId, setImportCalendarId] = useState("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
   const [importHolidays, setImportHolidays] = useState<HolidayImport[]>([
     {
       holidayCalendarId: "",
@@ -169,6 +168,7 @@ export default function AdminHolidayCalendarsPage() {
     try {
       const res: any = await leaveService.getHolidays({
         calendarId: calendar.id,
+        sortDir: sortDir,
       });
       setExpandedHolidays((prev) => ({
         ...prev,
@@ -207,7 +207,8 @@ export default function AdminHolidayCalendarsPage() {
 
     const payload: Partial<HolidayCalendar> = {
       calendarName: calendarForm.calendarName,
-      branchIds: calendarForm.branchIds,
+      // branchIds: calendarForm.branchIds,
+      branchIds: [session?.branchId || ""],
       active: calendarForm.active,
       year: calendarForm.year || new Date().getFullYear(),
     };
@@ -280,6 +281,7 @@ export default function AdminHolidayCalendarsPage() {
     try {
       const res: any = await leaveService.getHolidays({
         calendarId: calendar.id,
+        sortDir: sortDir,
       });
       setHolidaysData(res.data || []);
     } catch (err: any) {
@@ -303,6 +305,7 @@ export default function AdminHolidayCalendarsPage() {
     try {
       const res: any = await leaveService.getHolidays({
         calendarId: selectedCalendar.id,
+        sortDir: sortDir,
       });
       setHolidaysData(res.data || []);
       if (expandedCalendarId === selectedCalendar.id) {
@@ -494,18 +497,18 @@ export default function AdminHolidayCalendarsPage() {
     }
   };
 
-  const getBranches = async () => {
-    try {
-      const response: any = await branchService.getDropdownBranches();
-      setBranches(response.data.content || response.data || []);
-    } catch (error: any) {
-      console.error("Failed to load branches:", error.message);
-    }
-  };
+  // const getBranches = async () => {
+  //   try {
+  //     const response: any = await branchService.getDropdownBranches();
+  //     setBranches(response.data.content || response.data || []);
+  //   } catch (error: any) {
+  //     console.error("Failed to load branches:", error.message);
+  //   }
+  // };
 
-  useEffect(() => {
-    getBranches();
-  }, []);
+  // useEffect(() => {
+  //   getBranches();
+  // }, []);
 
   const standardHolidays = holidaysData.filter(
     (holiday) => !isOptionalHoliday(holiday.holidayType) && !holiday.optionalHoliday
@@ -514,6 +517,35 @@ export default function AdminHolidayCalendarsPage() {
   const optionalHolidays = holidaysData.filter(
     (holiday) => isOptionalHoliday(holiday.holidayType) || holiday.optionalHoliday
   );
+
+  const toggleSortDir = () => {
+    const nextDir = sortDir === "asc" ? "desc" : "asc";
+    setSortDir(nextDir);
+
+    // Re-fetch holidays for expanded calendar
+    if (expandedCalendarId) {
+      leaveService
+        .getHolidays({ calendarId: expandedCalendarId, sortDir: nextDir })
+        .then((res: any) => {
+          setExpandedHolidays((prev) => ({
+            ...prev,
+            [expandedCalendarId]: res.data || [],
+          }));
+        })
+        .catch((err: any) =>
+          showSnackbar(err?.message || "Failed to sort holidays", "error"),
+        );
+    }
+
+    if (selectedCalendar) {
+      leaveService
+        .getHolidays({ calendarId: selectedCalendar.id, sortDir: nextDir })
+        .then((res: any) => setHolidaysData(res.data || []))
+        .catch((err: any) =>
+          showSnackbar(err?.message || "Failed to sort holidays", "error"),
+        );
+    }
+  };
 
   return (
     <LeavePageShell
@@ -669,8 +701,19 @@ export default function AdminHolidayCalendarsPage() {
                                     <TableCell className={leaveTableHeaderCellClassName}>
                                       S No
                                     </TableCell>
-                                    <TableCell className={leaveTableHeaderCellClassName}>
-                                      Date
+                                    <TableCell
+                                      className={leaveTableHeaderCellClassName}
+                                      onClick={toggleSortDir}
+                                      sx={{ cursor: "pointer", userSelect: "none" }}
+                                    >
+                                      <span className="inline-flex items-center">
+                                        Date
+                                        {sortDir === "asc" ? (
+                                          <ArrowUpwardOutlined className="!w-4 !h-4 ml-1 text-gray-500" />
+                                        ) : (
+                                          <ArrowDownwardOutlined className="!w-4 !h-4 ml-1 text-gray-500" />
+                                        )}
+                                      </span>
                                     </TableCell>
                                     <TableCell className={leaveTableHeaderCellClassName}>
                                       Name
@@ -748,7 +791,7 @@ export default function AdminHolidayCalendarsPage() {
           </IconButton>
         </div>
         <DialogContent className="!p-4">
-          <div className="grid grid-cols-2 gap-5 mt-3">
+          <div className="grid grid-cols-2 gap-5 mt-2">
             <TextField
               label="Name"
               value={calendarForm.calendarName ?? ""}
@@ -783,7 +826,7 @@ export default function AdminHolidayCalendarsPage() {
               />
             </LocalizationProvider>
 
-            <div className="col-span-2">
+            {/* <div className="col-span-2">
               <FormControl fullWidth required>
                 <InputLabel>Select Branches</InputLabel>
                 <Select
@@ -815,7 +858,7 @@ export default function AdminHolidayCalendarsPage() {
                   ))}
                 </Select>
               </FormControl>
-            </div>
+            </div> */}
             <div className="col-span-2">
               <FormControlLabel
                 control={
@@ -893,8 +936,19 @@ export default function AdminHolidayCalendarsPage() {
                       <TableCell className={leaveTableHeaderCellClassName}>
                         S No
                       </TableCell>
-                      <TableCell className={leaveTableHeaderCellClassName}>
-                        Date
+                      <TableCell
+                        className={leaveTableHeaderCellClassName}
+                        onClick={toggleSortDir}
+                        sx={{ cursor: "pointer", userSelect: "none" }}
+                      >
+                        <span className="inline-flex items-center">
+                          Date
+                          {sortDir === "asc" ? (
+                            <ArrowUpwardOutlined className="!w-4 !h-4 ml-1 text-gray-500" />
+                          ) : (
+                            <ArrowDownwardOutlined className="!w-4 !h-4 ml-1 text-gray-500" />
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell className={leaveTableHeaderCellClassName}>
                         Name
@@ -973,8 +1027,19 @@ export default function AdminHolidayCalendarsPage() {
                       <TableCell className={leaveTableHeaderCellClassName}>
                         S No
                       </TableCell>
-                      <TableCell className={leaveTableHeaderCellClassName}>
-                        Date
+                      <TableCell
+                        className={leaveTableHeaderCellClassName}
+                        onClick={toggleSortDir}
+                        sx={{ cursor: "pointer", userSelect: "none" }}
+                      >
+                        <span className="inline-flex items-center">
+                          Date
+                          {sortDir === "asc" ? (
+                            <ArrowUpwardOutlined className="!w-4 !h-4 ml-1 text-gray-500" />
+                          ) : (
+                            <ArrowDownwardOutlined className="!w-4 !h-4 ml-1 text-gray-500" />
+                          )}
+                        </span>
                       </TableCell>
                       <TableCell className={leaveTableHeaderCellClassName}>
                         Name

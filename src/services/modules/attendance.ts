@@ -36,6 +36,7 @@ import type {
   ApiResponse,
   ProcessStatusData,
   ExportDailyParams,
+  BulkDecisionPayload,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -199,7 +200,7 @@ export const attendanceService = {
   },
 
   async getProcessAttendanceStatus(params: ProcessStatusParams) {
-    return apiService.get<ApiResponse<ProcessStatusData>>(API_ENDPOINTS.ATTENDANCE.PROCESS_STATUS, {params});
+    return apiService.get<ApiResponse<ProcessStatusData>>(API_ENDPOINTS.ATTENDANCE.PROCESS_STATUS, { params });
   },
 
   async bulkProcess(payload: BulkProcessPayload) {
@@ -361,7 +362,7 @@ export const attendanceService = {
     }>(API_ENDPOINTS.ATTENDANCE.EXPORT_MONTHLY, { params });
   },
 
-   async exportDaily(params: ExportDailyParams) {
+  async exportDaily(params: ExportDailyParams) {
     return apiService.get<{
       success: boolean;
       message: string;
@@ -420,8 +421,8 @@ export const attendanceService = {
     if (params.format) formData.append("format", params.format);
     if (params.source) formData.append("source", params.source);
     if (params.type) formData.append("type", params.type);
-    if (params.startDate) formData.append("startDate", params.startDate);
-    if (params.endDate) formData.append("endDate", params.endDate);
+    // if (params.startDate) formData.append("startDate", params.startDate);
+    // if (params.endDate) formData.append("endDate", params.endDate);
     return apiService.post(API_ENDPOINTS.ATTENDANCE.IMPORT_FILE, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -496,4 +497,23 @@ export const attendanceService = {
   async toogleOtApprovalReq(data: any) {
     return apiService.put(API_ENDPOINTS.ATTENDANCE.OT_APPROVAL_REQUIRED, data);
   },
+
+  async bulkRequestCorrection(payload: {
+    requests: Array<{
+      employeeId: string;
+      attendanceDate: string;
+      currentCheckIn: string | null;
+      currentCheckOut: string | null;
+      requestedCheckIn: string;
+      requestedCheckOut: string;
+      reason: string;
+      supportingDocument?: string;
+    }>;
+  }) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.BULK_CORRECTION_REQ, payload);
+  },
+
+  async bulkApproveCorrections(payload: BulkDecisionPayload) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.BULK_CORRECTION_APPROVE, payload);
+  }
 };

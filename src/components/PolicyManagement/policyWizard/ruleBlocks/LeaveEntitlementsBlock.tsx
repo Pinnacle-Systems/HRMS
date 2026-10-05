@@ -14,11 +14,12 @@ interface LeaveEntitlementsBlockProps extends RuleBlockProps {
 }
 
 export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ localConfig, set, leaveType }) => {
-  
+
   // localConfig.entitlements = localConfig.entitlements && localConfig.entitlements.length ? localConfig.entitlements : localConfig.leaveTypes;
 
   const handleLeaveTypeChange = (index: number, field: keyof EntitlementConfig, value: any) => {
     const updated = [...(localConfig.entitlements || [])];
+
     if (field === 'leaveType') {
       const selectedLeave = leaveType.find((lt) => lt.code === value);
       updated[index] = {
@@ -26,9 +27,24 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
         leaveType: value,
         name: selectedLeave ? selectedLeave.name : ''
       };
+    } else if (field === 'encashable') {
+      // Turning encashable ON → force carry forward OFF
+      updated[index] = {
+        ...updated[index],
+        encashable: value,
+        carryForwardUnused: value ? false : updated[index].carryForwardUnused,
+      };
+    } else if (field === 'carryForwardUnused') {
+      // Turning carry forward ON → force encashable OFF
+      updated[index] = {
+        ...updated[index],
+        carryForwardUnused: value,
+        encashable: value ? false : updated[index].encashable,
+      };
     } else {
       updated[index] = { ...updated[index], [field]: value };
     }
+
     set('entitlements', updated);
   };
 
@@ -78,7 +94,7 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
-                <TextField fullWidth  disabled className='!dark:text-gray-100' value={leave.name} onChange={(e) => handleLeaveTypeChange(index, 'name', e.target.value)} />
+                <TextField fullWidth disabled className='!dark:text-gray-100' value={leave.name} onChange={(e) => handleLeaveTypeChange(index, 'name', e.target.value)} />
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
                 <TextField fullWidth type="number" label="Annual Days" value={leave.annualEntitlement} onChange={(e) => handleLeaveTypeChange(index, 'annualEntitlement', parseInt(e.target.value) || 0)} />
@@ -98,21 +114,21 @@ export const LeaveEntitlementsBlock: React.FC<LeaveEntitlementsBlockProps> = ({ 
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid size={{ xs: 12, md: 2 }}>
-                <TextField fullWidth type="number" label="Accrual (Days)" value={leave?.maxAccrual || ''} onChange={(e) => handleLeaveTypeChange(index,'maxAccrual', parseInt(e.target.value) || undefined)} />
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField fullWidth type="number" label="Accrual (Days)" value={leave?.maxAccrual || ''} onChange={(e) => handleLeaveTypeChange(index, 'maxAccrual', parseInt(e.target.value) || undefined)} />
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
                 <FormControlLabel control={<Switch checked={!!leave.allowedDuringProbation} onChange={(e) => handleLeaveTypeChange(index, 'allowedDuringProbation', e.target.checked)} />} label="During Probation" />
               </Grid>
               <Grid size={{ xs: 12, md: 2 }}>
-                <FormControlLabel control={<Switch checked={!!leave.encashable} onChange={(e) => handleLeaveTypeChange(index, 'encashable', e.target.checked)} />} label="Encashable" />
+                <FormControlLabel control={<Switch checked={!!leave.encashable} disabled={!!leave.carryForwardUnused} onChange={(e) => handleLeaveTypeChange(index, 'encashable', e.target.checked)} />} label="Encashable" />
               </Grid>
-              <Grid size={{ xs: 12, md: 7 }}>
+               <Grid size={{ xs: 12, md: 3 }}>
+                <FormControlLabel control={<Switch checked={!!leave.carryForwardUnused} disabled={!!leave.encashable} onChange={(e) => handleLeaveTypeChange(index, 'carryForwardUnused', e.target.checked)} />} label="Carry Forward Unused Leave" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 5 }}>
                 <FormControlLabel control={<Switch checked={!!leave.enableProRata} onChange={(e) => handleLeaveTypeChange(index, 'enableProRata', e.target.checked)} />} label="Enable Pro-rata Accrual" />
-                <span className='text-blue-500 text-[10px]'>(Leave accrual proportional to joining date (as per Indian Labour Laws))</span>
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <FormControlLabel control={<Switch checked={!!leave.carryForwardUnused} onChange={(e) => handleLeaveTypeChange(index, 'carryForwardUnused', e.target.checked)} />} label="Carry Forward Unused Leave" />
+                <span className='text-blue-500 text-[10px]'>(Leave accrual proportional to joining date)</span>
               </Grid>
             </Grid>
           </CardContent>

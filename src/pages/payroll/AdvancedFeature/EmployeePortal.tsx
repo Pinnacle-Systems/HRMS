@@ -51,7 +51,7 @@ import { getRowColor } from "../../const";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { salaryViewService } from "../../../services/modules/payrollServices/salaryView";
 import { apiService } from "../../../services";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { Department } from "../../employees/type";
 
 const formatDate = (dateString: string) => {
@@ -70,12 +70,14 @@ export default function EmployeePortal() {
   const { session } = useAuth();
   const { showSpinner, hideSpinner, showSnackbar } = useUI();
   const navigate = useNavigate();
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const tabPaths = ["employees", "self-service", "payslips", "tax-summary"] as const;
 
   // User role checks
   const userRoles = session?.user?.roles || [];
   const isAdmin = userRoles.includes('ADMIN') || userRoles.includes('HR');
 
-  const [tabValue, setTabValue] = useState(0);
+  const tabValue = Math.max(tabPaths.findIndex((path) => path === activeTabPath), 0);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
@@ -250,7 +252,7 @@ export default function EmployeePortal() {
   };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    navigate(`/payroll/employee-portal/${tabPaths[newValue]}`);
   };
 
   const handleViewPayslip = (runItemId: string) => {

@@ -52,6 +52,7 @@ import { EmailConfigurations } from "./emailConfiguration";
 import { EMPTY_FORM, type EmailConfig, type SMSConfig, type User, type WhatsAppConfig } from "./const";
 import { dialogSx } from "../../const";
 import PermissionSettings from "./permissionsettings";
+import { useNavigate, useParams } from "react-router-dom";
 
 export default function UserManagement() {
     const [loading, setLoading] = useState(false);
@@ -61,9 +62,10 @@ export default function UserManagement() {
     const [form, setForm] = useState(EMPTY_FORM);
     const { showSnackbar, showConfirmDialog } = useUI();
     const { session } = useAuth();
+    const navigate = useNavigate();
 
     const [selectedUser, setSelectedUser] = useState<any>('');
-    const [selectedTab, setSelectedTab] = useState(0);
+    const { tab: selectedTabPath } = useParams<{ tab?: string }>();
 
     // Configuration States
     const [emailConfig, _setEmailConfig] = useState<EmailConfig>({
@@ -345,10 +347,11 @@ export default function UserManagement() {
     // Tabs
     const tabs = [
         // { label: "Users", icon: <PersonIcon /> },
-        { label: "Role Mapping", icon: <SecurityIcon className="!w-4" /> },
-        { label: "Configurations", icon: <SettingsIcon className="!w-4" /> },
-        { label: "Permission Settings", icon: <SettingsAccessibilityOutlined className="!w-4" /> },
+        { path: "role-mapping", label: "Role Mapping", icon: <SecurityIcon className="!w-4" /> },
+        { path: "configurations", label: "Configurations", icon: <SettingsIcon className="!w-4" /> },
+        { path: "permissions", label: "Permission Settings", icon: <SettingsAccessibilityOutlined className="!w-4" /> },
     ];
+    const selectedTab = Math.max(tabs.findIndex((tab) => tab.path === selectedTabPath), 0);
 
     return (
         <div className="space-y-4">
@@ -384,7 +387,7 @@ export default function UserManagement() {
             <Paper className="border border-gray-200 bg-white-50">
                 <Tabs
                     value={selectedTab}
-                    onChange={(_, newValue) => setSelectedTab(newValue)}
+                    onChange={(_, newValue) => navigate(`/user-management/${tabs[newValue].path}`)}
                     className="border-b border-gray-200"
                     sx={{
                         "& .MuiTabs-indicator": {

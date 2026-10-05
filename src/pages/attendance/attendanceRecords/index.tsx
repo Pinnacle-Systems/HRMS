@@ -11,7 +11,7 @@ import { AttendanceDetailed } from "./AttendanceDetailed";
 import { AttendanceMuster } from "./AttendanceMuster";
 import { DailyRegister } from "./DailyRegister";
 import { EmployeeView } from "./EmployeeView";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { attendanceService } from "../../../services/modules/attendance";
 import type { ProcessStatusData } from "../../../services/modules/attendanceTypes";
 
@@ -27,21 +27,25 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 
 const TABS = [
   {
+    path: "daily-register",
     label: "Daily Register",
     icon: <HowToRegOutlined className="!w-4" />,
     component: <DailyRegister />,
   },
   {
+    path: "detailed",
     label: "Detailed View",
     icon: <FormatListBulletedOutlined className="!w-4" />,
     component: <AttendanceDetailed />,
   },
   {
+    path: "muster-register",
     label: "Muster Register",
     icon: <TableChartOutlined className="!w-4" />,
     component: <AttendanceMuster />,
   },
   {
+    path: "employee-view",
     label: "Employee View",
     icon: <PersonSearchOutlined className="!w-4" />,
     component: <EmployeeView />,
@@ -50,7 +54,11 @@ const TABS = [
 
 export default function AttendanceRecords() {
   const [searchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") === "detailed" ? 1 : 0);
+  const { tab: activeTabPath } = useParams<{ tab?: string }>();
+  const activeTab = Math.max(
+    TABS.findIndex((tab) => tab.path === (activeTabPath ?? (searchParams.get("tab") === "detailed" ? "detailed" : "daily-register"))),
+    0,
+  );
   const [, setDateVersion] = useState(0);
   const navigate = useNavigate();
 
@@ -66,6 +74,13 @@ export default function AttendanceRecords() {
 
   const navigateToProcess = () => {
     navigate(`/attendance/process?fromDate=${encodeURIComponent(processFromDate)}&toDate=${encodeURIComponent(processToDate)}`);
+  };
+
+  const navigateToTab = (tabPath: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete("tab");
+    const search = nextSearchParams.toString();
+    navigate(`/attendance/records/${tabPath}${search ? `?${search}` : ""}`);
   };
 
   useEffect(() => {
@@ -111,7 +126,7 @@ export default function AttendanceRecords() {
               return (
                 <button
                   key={index}
-                  onClick={() => setActiveTab(index)}
+                  onClick={() => navigateToTab(tab.path)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200 whitespace-nowrap
                     ${active
                       ? "bg-primary-50 text-primary shadow-sm"

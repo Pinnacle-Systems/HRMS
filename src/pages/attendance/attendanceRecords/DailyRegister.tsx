@@ -45,7 +45,6 @@ import {
   ErrorOutlined,
   WarningAmberOutlined,
   PendingActionsOutlined,
-  AccessTimeOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -79,6 +78,7 @@ import { biometricService, type BiometricDevice } from "../../../services/module
 import { formatDateTime } from "../../../utils/dateFormatter";
 import { employeeService } from "../../../services/modules/employees";
 import { formatDate } from "../../leave/leaveFormatters";
+import { useNavigate } from "react-router-dom";
 
 function InlineDisplay({
   value,
@@ -99,15 +99,42 @@ function InlineDisplay({
           onClick();
         }
       }}
-      className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${disabled
-        ? ""
-        : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
-        } ${className}`}
+      className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${
+        disabled
+          ? ""
+          : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
+      } ${className}`}
     >
       {value || <span className="text-gray-400">{placeholder}</span>}
     </div>
   );
 }
+
+// Type for pending inline edits
+type PendingInlineEdit = {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  checkInDate?: string;
+  checkInTime?: string;
+  checkOutDate?: string;
+  checkOutTime?: string;
+  originalCheckIn: string | null;
+  originalCheckOut: string | null;
+};
+
+type EditableField =
+  | "checkInDate"
+  | "checkInTime"
+  | "checkOutDate"
+  | "checkOutTime";
+
+// const FIELD_ORDER: EditableField[] = [
+//   "checkInDate",
+//   "checkInTime",
+//   "checkOutDate",
+//   "checkOutTime",
+// ];
 
 export function DailyRegister() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -125,21 +152,36 @@ export function DailyRegister() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
   const { session } = useAuth();
+  const navigate = useNavigate();
 
   // Selection for bulk actions
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Inline edit tracking
-  const [inlineEditInProgress, setInlineEditInProgress] = useState<string | null>(null);
+  const [inlineEditInProgress, _setInlineEditInProgress] = useState<string | null>(null);
 
   // Which inline cell is currently open for editing.
-  // Key format: `${employeeId}:${field}` where field is
-  // 'checkInDate' | 'checkInTime' | 'checkOutDate' | 'checkOutTime'
   const [editingField, setEditingField] = useState<string | null>(null);
 
-  // Local draft value held while the picker is open. This is what makes the
-  // picker actually editable — we never bind the picker to the server value.
+  // Local draft value held while the picker is open.
   const [draftDateTime, setDraftDateTime] = useState<any | null>(null);
+
+  const [midNoWarningDialog, setMidNoWarningDialog] = useState(false);
+  const [employeesWithoutMidNo, setEmployeesWithoutMidNo] = useState<Employee[]>([]);
+  const [pendingFetchParams, setPendingFetchParams] = useState<{
+    fromDate: string;
+    toDate: string;
+    deviceIps: string[];
+    selectedDevicesData: BiometricDevice[];
+  } | null>(null);
+
+  // Pending inline edits accumulated (not yet submitted)
+  const [pendingInlineEdits, setPendingInlineEdits] = useState<Map<string, PendingInlineEdit>>(
+    new Map(),
+  );
+  const [bulkCorrectionDialogOpen, setBulkCorrectionDialogOpen] = useState(false);
+  const [bulkCorrectionReason, setBulkCorrectionReason] = useState("");
+  const [submittingBulkCorrection, setSubmittingBulkCorrection] = useState(false);
 
   const editKey = (employeeId: string, field: string) => `${employeeId}:${field}`;
   const isEditingField = (employeeId: string, field: string) =>
@@ -159,57 +201,222 @@ export function DailyRegister() {
     setDraftDateTime(null);
   };
 
-  function saveInlineField(
+  // Queue the edit into pendingInlineEdits (shared by commit helpers)
+  const queueInlineEdit = (
     emp: RegisterEmployee,
-    field: "checkInDate" | "checkInTime" | "checkOutDate" | "checkOutTime",
-  ) {
-    const selected = dayjs(draftDateTime);
-    if (!selected.isValid()) {
-      showSnackbar("Please enter a complete, valid date and time", "warning");
-      return;
-    }
+    field: EditableField,
+    value: dayjs.Dayjs,
+  ) => {
+    setPendingInlineEdits((prev) => {
+      const next = new Map(prev);
+      const existing: PendingInlineEdit = next.get(emp.employeeId) ?? {
+        employeeId: emp.employeeId,
+        employeeName: emp.employeeName,
+        employeeCode: emp.employeeCode,
+        originalCheckIn: emp.checkInTime ?? null,
+        originalCheckOut: emp.checkOutTime ?? null,
+      };
 
-    const value = field.endsWith("Time")
-      ? dayjs(
-          `${dayjs(
-            field === "checkInTime"
-              ? emp.checkInTime || emp.checkInDate || date
-              : emp.checkOutTime || emp.checkOutDate || date,
-          ).format("YYYY-MM-DD")}T${selected.format("HH:mm:ss")}`,
-        )
-      : selected;
+      if (field === "checkInDate" || field === "checkInTime") {
+        existing.checkInDate = value.format("YYYY-MM-DD");
+        existing.checkInTime = value.format("HH:mm:ss");
+      } else {
+        existing.checkOutDate = value.format("YYYY-MM-DD");
+        existing.checkOutTime = value.format("HH:mm:ss");
+      }
 
+      next.set(emp.employeeId, existing);
+      return next;
+    });
+  };
+
+  // Validate the current draft value
+  const validateDraft = (
+    emp: RegisterEmployee,
+    field: EditableField,
+    value: dayjs.Dayjs,
+    showToasts: boolean,
+  ): boolean => {
     if (value.isAfter(dayjs())) {
-      showSnackbar("Attendance time cannot be in the future", "warning");
-      return;
+      if (showToasts) showSnackbar("Attendance time cannot be in the future", "warning");
+      return false;
     }
     if (field.startsWith("checkOut")) {
       if (!emp.checkInTime) {
-        showSnackbar("Please mark check-in first", "warning");
-        return;
+        if (showToasts) showSnackbar("Please mark check-in first", "warning");
+        return false;
       }
       if (value.isBefore(dayjs(emp.checkInTime))) {
-        showSnackbar("Check-out cannot be before check-in", "warning");
-        return;
+        if (showToasts) showSnackbar("Check-out cannot be before check-in", "warning");
+        return false;
       }
+    }
+    return true;
+  };
+
+  // Build the final dayjs value for a field, merging date+time correctly
+  const buildFieldValue = (emp: RegisterEmployee, field: EditableField) => {
+    const selected = dayjs(draftDateTime);
+    if (!selected.isValid()) return null;
+    if (field.endsWith("Time")) {
+      const baseDate =
+        field === "checkInTime"
+          ? emp.checkInTime || emp.checkInDate || date
+          : emp.checkOutTime || emp.checkOutDate || date;
+      return dayjs(`${dayjs(baseDate).format("YYYY-MM-DD")}T${selected.format("HH:mm:ss")}`);
+    }
+    return selected;
+  };
+
+  // Initial value for a field when opening it programmatically
+  const getInitialForField = (
+    emp: RegisterEmployee,
+    field: EditableField,
+  ): dayjs.Dayjs | null => {
+    switch (field) {
+      case "checkInDate":
+        return dayjs(emp.checkInTime || emp.checkInDate || date);
+      case "checkInTime":
+        return emp.checkInTime ? dayjs(emp.checkInTime) : null;
+      case "checkOutDate":
+        return dayjs(emp.checkOutTime || emp.checkOutDate || date);
+      case "checkOutTime":
+        return emp.checkOutTime ? dayjs(emp.checkOutTime) : null;
+    }
+  };
+
+  // ── NEW: Determine which fields are editable for a given employee ───────────
+  const getEditableFieldsForEmployee = (emp: RegisterEmployee): EditableField[] => {
+    const fields: EditableField[] = [];
+    const hasCheckInDate = !!emp.checkInDate;
+    const hasCheckOutDate = !!emp.checkOutDate;
+    const hasCheckInTime = !!emp.checkInTime;
+
+    // checkInDate is editable only if not already set
+    if (!hasCheckInDate) fields.push("checkInDate");
+
+    // checkInTime is always editable (as long as employee not on leave)
+    fields.push("checkInTime");
+
+    // checkOutDate is editable only if check-in time exists and checkOutDate not set
+    if (hasCheckInTime && !hasCheckOutDate) fields.push("checkOutDate");
+
+    // checkOutTime is editable if check-in time exists
+    if (hasCheckInTime) fields.push("checkOutTime");
+
+    return fields;
+  };
+
+  // ── NEW: Pick the first editable field for an employee ─────────────────────
+  const getFirstEditableField = (emp: RegisterEmployee): EditableField | null => {
+    const fields = getEditableFieldsForEmployee(emp);
+    return fields[0] ?? null;
+  };
+
+  // ✅ FIX 1: Only commit on blur when focus actually leaves the picker UI.
+  const handleFieldBlur = (
+    e: React.FocusEvent<HTMLDivElement>,
+    emp: RegisterEmployee,
+    field: EditableField,
+  ) => {
+    const next = e.relatedTarget as HTMLElement | null;
+
+    // Ignore blur if focus moved into the picker popup / icon / dialog.
+    if (
+      next &&
+      (next.closest(".MuiPickersPopper-root") ||
+        next.closest(".MuiDialog-root") ||
+        next.closest(".MuiPickersInputBase-root") ||
+        next.closest(".MuiPickersSectionList-root") ||
+        next.getAttribute("role") === "dialog" ||
+        next.getAttribute("aria-label")?.toLowerCase().includes("choose"))
+    ) {
+      return;
+    }
+
+    // Also ignore when relatedTarget is null
+    if (!next) return;
+
+    commitOnBlur(emp, field);
+  };
+
+  // ── NEW: commitAndMoveNext — row-wise navigation ──────────────────────────
+  // Within a row: walk editable fields for this employee.
+  // When the row's editable fields are exhausted, jump to the NEXT employee's
+  // first editable field.
+  const commitAndMoveNext = (emp: RegisterEmployee, field: EditableField) => {
+    const value = buildFieldValue(emp, field);
+    if (value) {
+      if (!validateDraft(emp, field, value, true)) return;
+      queueInlineEdit(emp, field, value);
     }
 
     closeField();
-    if (field === "checkInDate" || field === "checkOutDate") {
-      const changeHandler =
-        field === "checkInDate"
-          ? handleInlineCheckInDateChange
-          : handleInlineCheckOutDateChange;
-      void changeHandler(
-        emp,
-        value.format("YYYY-MM-DD"),
-        value.format("HH:mm:ss"),
-      );
-    } else if (field === "checkInTime") {
-      void handleInlineCheckInTimeChange(emp, value.toISOString());
-    } else {
-      void handleInlineCheckOutTimeChange(emp, value.toISOString());
+
+    // Build the list of editable fields for THIS employee, in order.
+    const editableFields = getEditableFieldsForEmployee(emp);
+    const currentIndex = editableFields.indexOf(field);
+    const nextField = editableFields[currentIndex + 1];
+
+    // If there's still an editable field in this row, open it.
+    if (nextField) {
+      const nextInitial = getInitialForField(emp, nextField);
+      setTimeout(() => {
+        openField(emp.employeeId, nextField, nextInitial);
+      }, 30);
+      return;
     }
+
+    // Otherwise move to the NEXT employee's first editable field.
+    const currentRowIdx = employees.findIndex((e) => e.employeeId === emp.employeeId);
+    if (currentRowIdx === -1) return;
+
+    for (let i = currentRowIdx + 1; i < employees.length; i++) {
+      const nextEmp = employees[i];
+      if (!nextEmp || nextEmp.status === "leave") continue;
+
+      const targetField = getFirstEditableField(nextEmp);
+      if (!targetField) continue;
+
+      const nextInitial = getInitialForField(nextEmp, targetField);
+      setTimeout(() => {
+        openField(nextEmp.employeeId, targetField, nextInitial);
+      }, 30);
+      return;
+    }
+    // No more rows with editable fields — done.
+  };
+
+  // Save the open field when user clicks away (blur) — queue the edit
+  const commitOnBlur = (emp: RegisterEmployee, field: EditableField) => {
+    // Guard: block edits on date fields that already exist.
+    if (field === "checkInDate" && emp.checkInDate) {
+      closeField();
+      return;
+    }
+    if (field === "checkOutDate" && emp.checkOutDate) {
+      closeField();
+      return;
+    }
+
+    const value = buildFieldValue(emp, field);
+    if (!value) {
+      closeField();
+      return;
+    }
+
+    if (!validateDraft(emp, field, value, false)) {
+      closeField();
+      return;
+    }
+
+    queueInlineEdit(emp, field, value);
+    closeField();
+  };
+
+  function clearPendingEdits() {
+    setPendingInlineEdits(new Map());
+    showSnackbar("Pending changes cleared", "info");
   }
 
   // Correction dialog state
@@ -268,8 +475,8 @@ export function DailyRegister() {
   const [employeesToRem, setEmployeesToRem] = useState<any[]>([]);
   const [sendVia, setSendVia] = useState(["email"]);
   const [importSource, setImportSource] = useState("biometric");
-  const [importStartDate, setImportStartDate] = useState(dayjs().format("YYYY-MM-DD"));
-  const [importEndDate, setImportEndDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [importStartDate, _setImportStartDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [importEndDate, _setImportEndDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [importType, setImportType] = useState<"daywise" | "weekwise" | "monthwise">("daywise");
 
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
@@ -467,169 +674,23 @@ export function DailyRegister() {
   }
 
   // ── Inline Edit Helpers ───────────────────────────────────────────────────
-  function needsApproval(emp: RegisterEmployee): boolean {
-    return !!(emp.checkInTime && emp.checkOutTime);
-  }
+  // function needsApproval(emp: RegisterEmployee): boolean {
+  //   return !!(emp.checkInTime && emp.checkOutTime);
+  // }
 
-  async function handleInlineCheckInDateChange(
-    emp: RegisterEmployee,
-    newDate: string,
-    newTime: string,
-  ) {
-    if (inlineEditInProgress) return;
-    setInlineEditInProgress(emp.employeeId);
-    showSpinner();
-    try {
-      const newCheckInTime = dayjs(`${newDate}T${newTime}`).toISOString();
-      await attendanceService.checkIn({
-        employeeId: emp.employeeId,
-        checkInTime: newCheckInTime,
-        markedBy: session?.user?.userId,
-        remarks: "Inline check-in update",
-      });
-      showSnackbar(`Check-in updated for ${emp.employeeName}`, "success");
-      loadRegister();
-      loadTodaySummary();
-    } catch (err: any) {
-      showSnackbar(err?.response?.data?.message ?? "Failed to update check-in", "error");
-    } finally {
-      setInlineEditInProgress(null);
-      hideSpinner();
-    }
-  }
-
-  async function handleInlineCheckOutDateChange(
-    emp: RegisterEmployee,
-    newDate: string,
-    newTime: string,
-  ) {
-    if (inlineEditInProgress) return;
-    if (!emp.checkInTime) {
-      showSnackbar("Please mark check-in first", "warning");
-      return;
-    }
-    setInlineEditInProgress(emp.employeeId);
-    showSpinner();
-    try {
-      const newCheckOutTime = dayjs(`${newDate}T${newTime}`).toISOString();
-      if (dayjs(newCheckOutTime).isBefore(dayjs(emp.checkInTime))) {
-        showSnackbar("Check-out cannot be before check-in", "warning");
-        return;
-      }
-      await attendanceService.checkOut({
-        employeeId: emp.employeeId,
-        checkOutTime: newCheckOutTime,
-        markedBy: session?.user?.userId,
-        remarks: "Inline check-out update",
-      });
-      showSnackbar(`Check-out updated for ${emp.employeeName}`, "success");
-      loadRegister();
-      loadTodaySummary();
-    } catch (err: any) {
-      showSnackbar(err?.response?.data?.message ?? "Failed to update check-out", "error");
-    } finally {
-      setInlineEditInProgress(null);
-      hideSpinner();
-    }
-  }
-
-  async function handleInlineCheckInTimeChange(emp: RegisterEmployee, newCheckInTime: string) {
-    if (inlineEditInProgress) return;
-
-    if (dayjs(newCheckInTime).isAfter(dayjs())) {
-      showSnackbar("Check-in time cannot be in the future", "warning");
-      return;
-    }
-
-    if (needsApproval(emp)) {
-      requestCorrection(emp, { checkInTime: newCheckInTime });
-      return;
-    }
-
-    setInlineEditInProgress(emp.employeeId);
-    showSpinner();
-    try {
-      await attendanceService.checkIn({
-        employeeId: emp.employeeId,
-        checkInTime: newCheckInTime,
-        markedBy: session?.user?.userId,
-        remarks: "Inline check-in time update",
-      });
-
-      showSnackbar(`Check-in updated for ${emp.employeeName}`, "success");
-      loadRegister();
-      loadTodaySummary();
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to update check-in",
-        "error",
-      );
-    } finally {
-      setInlineEditInProgress(null);
-      hideSpinner();
-    }
-  }
-
-  async function handleInlineCheckOutTimeChange(emp: RegisterEmployee, newCheckOutTime: string) {
-    if (inlineEditInProgress) return;
-
-    if (dayjs(newCheckOutTime).isAfter(dayjs())) {
-      showSnackbar("Check-out time cannot be in the future", "warning");
-      return;
-    }
-
-    if (emp.checkInTime && dayjs(newCheckOutTime).isBefore(dayjs(emp.checkInTime))) {
-      showSnackbar("Check-out time cannot be before check-in time", "warning");
-      return;
-    }
-
-    if (!emp.checkInTime) {
-      showSnackbar("Please mark check-in first before marking check-out", "warning");
-      return;
-    }
-
-    if (needsApproval(emp)) {
-      requestCorrection(emp, { checkOutTime: newCheckOutTime });
-      return;
-    }
-
-    setInlineEditInProgress(emp.employeeId);
-    showSpinner();
-    try {
-      await attendanceService.checkOut({
-        employeeId: emp.employeeId,
-        checkOutTime: newCheckOutTime,
-        markedBy: session?.user?.userId,
-        remarks: "Inline check-out",
-      });
-
-      showSnackbar(`Check-out marked for ${emp.employeeName}`, "success");
-      loadRegister();
-      loadTodaySummary();
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to mark check-out",
-        "error",
-      );
-    } finally {
-      setInlineEditInProgress(null);
-      hideSpinner();
-    }
-  }
-
-  function requestCorrection(
-    emp: RegisterEmployee,
-    changes: Partial<{
-      checkInDate: string;
-      checkInTime: string;
-      checkOutDate: string;
-      checkOutTime: string;
-    }>,
-  ) {
-    setPendingCorrection({ employee: emp, changes });
-    setCorrectionReason("");
-    setCorrectionDialogOpen(true);
-  }
+  // function requestCorrection(
+  //   emp: RegisterEmployee,
+  //   changes: Partial<{
+  //     checkInDate: string;
+  //     checkInTime: string;
+  //     checkOutDate: string;
+  //     checkOutTime: string;
+  //   }>,
+  // ) {
+  //   setPendingCorrection({ employee: emp, changes });
+  //   setCorrectionReason("");
+  //   setCorrectionDialogOpen(true);
+  // }
 
   async function submitCorrection() {
     if (!pendingCorrection) return;
@@ -707,6 +768,163 @@ export function DailyRegister() {
       );
     } finally {
       setSubmittingCorrection(false);
+      hideSpinner();
+    }
+  }
+
+  // ── Bulk Inline Changes Submission ────────────────────────────────────────
+  async function submitBulkInlineChanges() {
+    if (pendingInlineEdits.size === 0) {
+      showSnackbar("No pending changes to submit", "warning");
+      return;
+    }
+
+    const requests: any[] = [];
+    const directUpdates: any[] = [];
+
+    pendingInlineEdits.forEach((edit) => {
+      const emp = employees.find((e) => e.employeeId === edit.employeeId);
+      if (!emp) return;
+
+      const hasBothPunches = !!(emp.checkInTime && emp.checkOutTime);
+
+      const requestedCheckIn =
+        edit.checkInDate && edit.checkInTime
+          ? dayjs(`${edit.checkInDate}T${edit.checkInTime}`).toISOString()
+          : null;
+
+      const requestedCheckOut =
+        edit.checkOutDate && edit.checkOutTime
+          ? dayjs(`${edit.checkOutDate}T${edit.checkOutTime}`).toISOString()
+          : null;
+
+      if (hasBothPunches) {
+        requests.push({
+          employeeId: edit.employeeId,
+          attendanceDate: date,
+          currentCheckIn: edit.originalCheckIn,
+          currentCheckOut: edit.originalCheckOut,
+          requestedCheckIn: requestedCheckIn || edit.originalCheckIn,
+          requestedCheckOut: requestedCheckOut || edit.originalCheckOut,
+          reason: bulkCorrectionReason || "Bulk inline update",
+          supportingDocument: null,
+        });
+      } else {
+        directUpdates.push({
+          employeeId: edit.employeeId,
+          checkInTime: requestedCheckIn,
+          checkOutTime: requestedCheckOut,
+          employeeName: edit.employeeName,
+          hasCheckIn: !!emp.checkInTime,
+          hasCheckOut: !!emp.checkOutTime,
+        });
+      }
+    });
+
+    // Validate that bulk correction requests have a reason
+    if (requests.length > 0 && !bulkCorrectionReason.trim()) {
+      showSnackbar(
+        "Please provide a reason for the correction requests",
+        "warning",
+      );
+      return;
+    }
+
+    setSubmittingBulkCorrection(true);
+    showSpinner();
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+
+    try {
+      // 1. Process direct updates
+      for (const update of directUpdates) {
+        try {
+          if (update.checkInTime && update.hasCheckIn) {
+            await attendanceService.checkIn({
+              employeeId: update.employeeId,
+              checkInTime: update.checkInTime,
+              markedBy: session?.user?.userId,
+              remarks: "Bulk inline check-in update",
+            });
+            successCount++;
+          }
+          if (update.checkOutTime && update.hasCheckOut) {
+            await attendanceService.checkOut({
+              employeeId: update.employeeId,
+              checkOutTime: update.checkOutTime,
+              markedBy: session?.user?.userId,
+              remarks: "Bulk inline check-out update",
+            });
+            successCount++;
+          }
+        } catch (err: any) {
+          failCount++;
+          errors.push(
+            `${update.employeeName}: ${err?.response?.data?.message ?? "Update failed"}`,
+          );
+        }
+      }
+
+      // 2. Submit bulk correction requests
+      if (requests.length > 0) {
+        try {
+          const response: any = await attendanceService.bulkRequestCorrection({
+            requests,
+          });
+          const data = response?.data?.data ?? response?.data;
+
+          if (data) {
+            successCount += data.successCount || 0;
+            failCount += data.failureCount || 0;
+
+            if (data.errors && Array.isArray(data.errors)) {
+              data.errors.forEach((err: any) => {
+                errors.push(
+                  `Row ${err.rowNumber}: ${err.errors?.join(", ") || "Unknown error"}`,
+                );
+              });
+            }
+          }
+        } catch (err: any) {
+          failCount += requests.length;
+          errors.push(
+            `Bulk correction request failed: ${err?.response?.data?.message ?? "Unknown error"}`,
+          );
+        }
+      }
+
+      if (failCount === 0) {
+        showSnackbar(
+          `Successfully updated ${successCount} attendance record(s)`,
+          "success",
+        );
+      } else if (successCount === 0) {
+        showSnackbar(`All ${failCount} updates failed`, "error");
+      } else {
+        showSnackbar(
+          `${successCount} updated, ${failCount} failed`,
+          "warning",
+        );
+      }
+
+      if (errors.length > 0) {
+        console.error("Bulk update errors:", errors);
+      }
+
+      setPendingInlineEdits(new Map());
+      setBulkCorrectionDialogOpen(false);
+      setBulkCorrectionReason("");
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to submit bulk changes",
+        "error",
+      );
+    } finally {
+      setSubmittingBulkCorrection(false);
       hideSpinner();
     }
   }
@@ -1084,8 +1302,6 @@ export function DailyRegister() {
         format: format,
         source: importSource,
         type: importType,
-        startDate: importStartDate,
-        endDate: importEndDate,
       };
       const res: any = await attendanceService.importAttendanceFile(params, fileToUpload);
       const data = res?.data?.data ?? res?.data;
@@ -1322,14 +1538,16 @@ export function DailyRegister() {
 
         showSnackbar(
           data?.message
-            ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
-            }`
+            ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${
+                fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
+              }`
             : `Imported ${data?.totalPunches || 0} punches and processed attendance`,
           data?.errors > 0 ? "warning" : "success",
         );
       } catch (processErr: any) {
         showSnackbar(
-          `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
+          `Punches imported, but processing failed: ${
+            processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
           }`,
           "warning",
         );
@@ -1351,15 +1569,15 @@ export function DailyRegister() {
 
   const statCards = todaySummary
     ? [
-      { label: "Total", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
-      { label: "Present", value: todaySummary.present, color: "text-green-600", border: "border-green-500" },
-      { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
-      { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
-      { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
-      { label: "Missed Punch", value: todaySummary.missedPunchCount, color: "text-cyan-600", border: "border-cyan-500" },
-      { label: "Irregular", value: todaySummary.irregular, color: "text-pink-600", border: "border-pink-500" },
-      { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
-    ]
+        { label: "Total", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
+        { label: "Present", value: todaySummary.present, color: "text-green-600", border: "border-green-500" },
+        { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
+        { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
+        { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
+        { label: "Missed Punch", value: todaySummary.missedPunchCount, color: "text-cyan-600", border: "border-cyan-500" },
+        { label: "Irregular", value: todaySummary.irregular, color: "text-pink-600", border: "border-pink-500" },
+        { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
+      ]
     : [];
 
   const handleEmployee = async (employee: any) => {
@@ -1424,16 +1642,45 @@ export function DailyRegister() {
       return;
     }
 
+    const selectedDevicesData = devices.filter((d) => selectedDeviceIds.includes(d.id));
+    const deviceIpsWithPorts = selectedDevicesData.map(
+      (device) => `${device.ipAddress}:${device.port || 4370}`,
+    );
+
+    let employeesToCheck = employeesData;
+    if (branchId) {
+      employeesToCheck = employeesData.filter(
+        (emp: any) => emp.branchId === branchId || emp.branch?.id === branchId
+      );
+    }
+
+    const employeesWithoutMid = employeesToCheck.filter(
+      (emp: any) => !emp.midNo || emp.midNo.trim() === ""
+    );
+
+    if (employeesWithoutMid.length > 0) {
+      setEmployeesWithoutMidNo(employeesWithoutMid);
+      setPendingFetchParams({
+        fromDate: punchImportFromDate,
+        toDate: punchImportToDate,
+        deviceIps: deviceIpsWithPorts,
+        selectedDevicesData,
+      });
+      setMidNoWarningDialog(true);
+      return;
+    }
+
+    await proceedWithFetch(deviceIpsWithPorts, selectedDevicesData);
+  };
+
+  const proceedWithFetch = async (
+    deviceIpsWithPorts: string[],
+    _selectedDevicesData: BiometricDevice[]
+  ) => {
     setDeviceImportLoading(true);
     showSpinner();
 
     try {
-      const selectedDevicesData = devices.filter((d) => selectedDeviceIds.includes(d.id));
-
-      const deviceIpsWithPorts = selectedDevicesData.map(
-        (device) => `${device.ipAddress}:${device.port || 4370}`,
-      );
-
       const result: any = await biometricService.fetchLogs({
         from_date: punchImportFromDate,
         to_date: punchImportToDate,
@@ -1481,6 +1728,7 @@ export function DailyRegister() {
     } finally {
       setDeviceImportLoading(false);
       hideSpinner();
+      setPendingFetchParams(null);
     }
   };
 
@@ -1659,6 +1907,36 @@ export function DailyRegister() {
         </div>
       </div>
 
+      {/* Pending Inline Edits Bar */}
+      {pendingInlineEdits.size > 0 && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 flex-wrap">
+          <WarningAmberOutlined fontSize="small" className="text-amber-600" />
+          <span className="text-[12px] text-amber-800 font-bold">
+            {pendingInlineEdits.size} pending change{pendingInlineEdits.size !== 1 ? "s" : ""} not yet saved
+          </span>
+          <div className="flex items-center gap-2 ml-2">
+            <Button
+              size="small"
+              variant="contained"
+              className="!bg-primary"
+              startIcon={<CheckCircleOutlined fontSize="small" />}
+              onClick={() => setBulkCorrectionDialogOpen(true)}
+            >
+              Submit Changes ({pendingInlineEdits.size})
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              className="!text-error !border-red-500"
+              startIcon={<CloseOutlined fontSize="small" />}
+              onClick={clearPendingEdits}
+            >
+              Discard
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 bg-primary/5 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
@@ -1719,12 +1997,13 @@ export function DailyRegister() {
       {/* Register Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <TableContainer
-          className={`${todayHoliday && selected.size > 0
-            ? "max-h-[calc(100vh-565px)]"
-            : selected.size > 0 || todayHoliday
-              ? "max-h-[calc(100vh-200px)]"
-              : "max-h-[calc(100vh-200px)]"
-            }`}
+          className={`${
+            todayHoliday && selected.size > 0
+              ? "max-h-[calc(100vh-565px)]"
+              : selected.size > 0 || todayHoliday
+                ? "max-h-[calc(100vh-200px)]"
+                : "max-h-[calc(100vh-200px)]"
+          }`}
         >
           <Table size="small" stickyHeader>
             <TableHead>
@@ -1746,6 +2025,7 @@ export function DailyRegister() {
                 </TableCell>
                 {[
                   "Emp Name",
+                  "Department",
                   "Shift",
                   "Check In Date",
                   "Check In Time",
@@ -1760,14 +2040,15 @@ export function DailyRegister() {
                 ].map((h, i) => (
                   <TableCell
                     key={h}
-                    className={`!font-bold ${i == 0
-                      ? "!sticky left-[68px] !z-40"
-                      : h == "Action"
-                        ? "!sticky right-0 !z-40"
-                        : h == "Status"
-                          ? "!sticky right-[69px] !z-40"
-                          : ""
-                      }`}
+                    className={`!font-bold ${
+                      i == 0
+                        ? "!sticky left-[68px] !z-40"
+                        : h == "Action"
+                          ? "!sticky right-0 !z-40"
+                          : h == "Status"
+                            ? "!sticky right-[69px] !z-40"
+                            : ""
+                    }`}
                   >
                     {h}
                   </TableCell>
@@ -1779,7 +2060,7 @@ export function DailyRegister() {
                 <TableRow>{/* Loading placeholder */}</TableRow>
               ) : employees.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} align="center" className="py-8">
+                  <TableCell colSpan={14} align="center" className="py-8">
                     <div className="text-[12px] text-gray-400 pt-7">
                       No records for {dayjs(date).format("DD MMM YYYY")}
                     </div>
@@ -1789,9 +2070,45 @@ export function DailyRegister() {
                 employees.map((emp, i) => {
                   const isLeave = emp.status === "leave";
                   const isEditing = inlineEditInProgress === emp.employeeId;
+                  const hasPendingEdit = pendingInlineEdits.has(emp.employeeId);
+                  const pendingEdit = pendingInlineEdits.get(emp.employeeId);
+
+                  // Pending values override display
+                  const displayCheckInDate = pendingEdit?.checkInDate
+                    ? dayjs(pendingEdit.checkInDate).format("DD MMM YYYY")
+                    : emp.checkInDate
+                      ? dayjs(emp.checkInDate).format("DD MMM YYYY")
+                      : null;
+
+                  const displayCheckInTime = pendingEdit?.checkInTime
+                    ? pendingEdit.checkInTime
+                    : emp.checkInTime
+                      ? dayjs(emp.checkInTime).format("HH:mm:ss")
+                      : null;
+
+                  const displayCheckOutDate = pendingEdit?.checkOutDate
+                    ? dayjs(pendingEdit.checkOutDate).format("DD MMM YYYY")
+                    : emp.checkOutDate
+                      ? dayjs(emp.checkOutDate).format("DD MMM YYYY")
+                      : null;
+
+                  const displayCheckOutTime = pendingEdit?.checkOutTime
+                    ? pendingEdit.checkOutTime
+                    : emp.checkOutTime
+                      ? dayjs(emp.checkOutTime).format("HH:mm:ss")
+                      : null;
+
+                  // Lock date edits when the date already exists.
+                  const lockCheckInDate = !!emp.checkInDate;
+                  const lockCheckOutDate = !!emp.checkOutDate;
 
                   return (
-                    <TableRow key={emp.employeeId || i} sx={getRowColor(i)}>
+                    <TableRow
+                      key={emp.employeeId || i}
+                      sx={{
+                        ...getRowColor(i),
+                      }}
+                    >
                       <TableCell className="!sticky left-0 !z-20 bg-inherit">
                         <Checkbox
                           size="small"
@@ -1803,12 +2120,24 @@ export function DailyRegister() {
                         />{" "}
                         <span>{i + 1}</span>
                       </TableCell>
-                      <TableCell className="whitespace-nowrap !sticky left-[68px] !z-20 bg-inherit">
-                        <div>
-                          {emp.employeeName} ({emp.employeeCode})
+                      <TableCell className="!sticky left-[68px] !z-20 bg-inherit ">
+                        <div className="flex items-center gap-1">
+                          <div>
+                            {emp.employeeName} ({emp.employeeCode})
+                          </div>
+                          {hasPendingEdit && (
+                            <Tooltip title="Has pending changes">
+                              <PendingActionsOutlined className="animate-blink !w-4 !h-4 text-red-500" />
+                            </Tooltip>
+                          )}
                         </div>
-                        <div className="text-blue-500">{emp.department || "-"}</div>
+                        <div className="text-blue-500">{emp.template || "-"}</div>
                       </TableCell>
+                      <TableCell>
+                        <div>{emp.department || "-"}</div>
+                        <div className="text-blue-500">{emp.designation || "-"}</div>
+                      </TableCell>
+
                       <TableCell className="text-gray-500">
                         <div>{emp.shiftCode || "-"}</div>
                         <div className="text-primary font-bold">
@@ -1816,8 +2145,8 @@ export function DailyRegister() {
                         </div>
                       </TableCell>
 
-                      {/* ─── CHECK-IN DATE (shows only date) ─── */}
-                      <TableCell>
+                      {/* ─── CHECK-IN DATE ─── */}
+                      <TableCell data-edit-cell="checkInDate">
                         <div className="flex items-center gap-1">
                           {isEditingField(emp.employeeId, "checkInDate") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
@@ -1831,6 +2160,16 @@ export function DailyRegister() {
                                 slotProps={{
                                   textField: {
                                     variant: "outlined",
+                                    autoFocus: true,
+                                    onKeyDown: (e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        commitAndMoveNext(emp, "checkInDate");
+                                      } else if (e.key === "Escape") {
+                                        closeField();
+                                      }
+                                    },
+                                    onBlur: (e) => handleFieldBlur(e, emp, "checkInDate"),
                                     sx: {
                                       ...inlineInputSx,
                                       width: "140px",
@@ -1842,39 +2181,30 @@ export function DailyRegister() {
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
-                              <Tooltip title="Save check-in date and time">
-                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkInDate")} disabled={isEditing}> */}
-                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkInDate")} className="!w-4 text-green-700 cursor-pointer" />
-                                {/* </IconButton> */}
-                              </Tooltip>
-                              <Tooltip title="Cancel edit">
-                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
-                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-700 cursor-pointer" />
-                                {/* </IconButton> */}
-                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
-                              value={emp.checkInDate ? dayjs(emp.checkInDate).format("DD MMM YYYY") : null}
+                              value={displayCheckInDate}
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
                                 !processStatus.locked &&
-                                !emp.checkInDate &&
+                                !lockCheckInDate &&
                                 openField(
                                   emp.employeeId,
                                   "checkInDate",
                                   dayjs(emp.checkInTime || emp.checkInDate || date),
                                 )
                               }
-                              disabled={isLeave || isEditing || !!emp.checkInDate}
+                              disabled={isLeave || isEditing || lockCheckInDate}
+                              className={pendingEdit?.checkInDate ? "text-red-600 font-semibold" : ""}
                             />
                           )}
                         </div>
                       </TableCell>
 
-                      {/* ─── CHECK-IN TIME (shows only time) ─── */}
-                      <TableCell>
+                      {/* ─── CHECK-IN TIME ─── */}
+                      <TableCell data-edit-cell="checkInTime">
                         <div className="flex items-center gap-1">
                           {isEditingField(emp.employeeId, "checkInTime") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -1884,11 +2214,20 @@ export function DailyRegister() {
                                 onChange={(newValue) => setDraftDateTime(newValue)}
                                 format="HH:mm:ss"
                                 disabled={isLeave || isEditing}
-                                slots={{ openPickerIcon: AccessTimeOutlined }}
                                 slotProps={{
                                   textField: {
                                     size: "small",
                                     variant: "outlined",
+                                    autoFocus: true,
+                                    onKeyDown: (e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        commitAndMoveNext(emp, "checkInTime");
+                                      } else if (e.key === "Escape") {
+                                        closeField();
+                                      }
+                                    },
+                                    onBlur: (e) => handleFieldBlur(e, emp, "checkInTime"),
                                     sx: {
                                       ...inlineInputSx,
                                       width: "80px",
@@ -1903,21 +2242,10 @@ export function DailyRegister() {
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
-                              <Tooltip title="Save check-in time">
-                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkInTime")} disabled={isEditing}> */}
-                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkInTime")}  
-                                  className="!w-4 text-green-700" />
-                                {/* </IconButton> */}
-                              </Tooltip>
-                              <Tooltip title="Cancel edit">
-                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
-                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-500" />
-                                {/* </IconButton> */}
-                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
-                              value={emp.checkInTime ? dayjs(emp.checkInTime).format("HH:mm:ss") : null}
+                              value={displayCheckInTime}
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
@@ -1929,14 +2257,20 @@ export function DailyRegister() {
                                 )
                               }
                               disabled={isLeave || isEditing}
-                              className={emp.checkInTime ? "text-green-700 font-semibold" : "text-red-500"}
+                              className={
+                                pendingEdit?.checkInTime
+                                  ? "text-red-600 font-semibold"
+                                  : emp.checkInTime
+                                    ? "text-green-700 font-semibold"
+                                    : "text-red-500"
+                              }
                             />
                           )}
                         </div>
                       </TableCell>
 
-                      {/* ─── CHECK-OUT DATE (shows only date) ─── */}
-                      <TableCell>
+                      {/* ─── CHECK-OUT DATE ─── */}
+                      <TableCell data-edit-cell="checkOutDate">
                         <div className="flex items-center gap-1">
                           {isEditingField(emp.employeeId, "checkOutDate") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
@@ -1952,6 +2286,16 @@ export function DailyRegister() {
                                   textField: {
                                     size: "small",
                                     variant: "outlined",
+                                    autoFocus: true,
+                                    onKeyDown: (e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        commitAndMoveNext(emp, "checkOutDate");
+                                      } else if (e.key === "Escape") {
+                                        closeField();
+                                      }
+                                    },
+                                    onBlur: (e) => handleFieldBlur(e, emp, "checkOutDate"),
                                     sx: {
                                       ...inlineInputSx,
                                       width: "140px",
@@ -1966,40 +2310,31 @@ export function DailyRegister() {
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
-                              <Tooltip title="Save check-out date and time">
-                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkOutDate")} disabled={isEditing}> */}
-                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkOutDate")} className="!w-4 text-green-700" />
-                                {/* </IconButton> */}
-                              </Tooltip>
-                              <Tooltip title="Cancel edit">
-                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
-                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-700" />
-                                {/* </IconButton> */}
-                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
-                              value={emp.checkOutDate ? dayjs(emp.checkOutDate).format("DD MMM YYYY") : null}
+                              value={displayCheckOutDate}
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
                                 !processStatus.locked &&
                                 emp.checkInTime &&
-                                !emp.checkOutDate &&
+                                !lockCheckOutDate &&
                                 openField(
                                   emp.employeeId,
                                   "checkOutDate",
                                   dayjs(emp.checkOutTime || emp.checkOutDate || date),
                                 )
                               }
-                              disabled={isLeave || isEditing || !emp.checkInTime || !!emp.checkOutDate}
+                              disabled={isLeave || isEditing || !emp.checkInTime || lockCheckOutDate}
+                              className={pendingEdit?.checkOutDate ? "text-red-600 font-semibold" : ""}
                             />
                           )}
                         </div>
                       </TableCell>
 
-                      {/* ─── CHECK-OUT TIME (shows only time) ─── */}
-                      <TableCell>
+                      {/* ─── CHECK-OUT TIME ─── */}
+                      <TableCell data-edit-cell="checkOutTime">
                         <div className="flex items-center gap-1">
                           {isEditingField(emp.employeeId, "checkOutTime") && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -2009,11 +2344,20 @@ export function DailyRegister() {
                                 onChange={(newValue) => setDraftDateTime(newValue)}
                                 format="HH:mm:ss"
                                 disabled={isLeave || isEditing || !emp.checkInTime}
-                                slots={{ openPickerIcon: AccessTimeOutlined }}
                                 slotProps={{
                                   textField: {
                                     size: "small",
                                     variant: "outlined",
+                                    autoFocus: true,
+                                    onKeyDown: (e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        commitAndMoveNext(emp, "checkOutTime");
+                                      } else if (e.key === "Escape") {
+                                        closeField();
+                                      }
+                                    },
+                                    onBlur: (e) => handleFieldBlur(e, emp, "checkOutTime"),
                                     sx: {
                                       ...inlineInputSx,
                                       width: "80px",
@@ -2028,20 +2372,10 @@ export function DailyRegister() {
                                   popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
                                 }}
                               />
-                              <Tooltip title="Save check-out time">
-                                {/* <IconButton size="small" onClick={() => saveInlineField(emp, "checkOutTime")} disabled={isEditing}> */}
-                                  <CheckCircleOutlined fontSize="small" onClick={() => saveInlineField(emp, "checkOutTime")} className="!w-4 text-green-700" />
-                                {/* </IconButton> */}
-                              </Tooltip>
-                              <Tooltip title="Cancel edit">
-                                {/* <IconButton size="small" onClick={closeField} disabled={isEditing}> */}
-                                  <CloseOutlined fontSize="small" onClick={closeField} className="!w-4 text-red-700" />
-                                {/* </IconButton> */}
-                              </Tooltip>
                             </LocalizationProvider>
                           ) : (
                             <InlineDisplay
-                              value={emp.checkOutTime ? dayjs(emp.checkOutTime).format("HH:mm:ss") : null}
+                              value={displayCheckOutTime}
                               onClick={() =>
                                 !isLeave &&
                                 !isEditing &&
@@ -2054,7 +2388,13 @@ export function DailyRegister() {
                                 )
                               }
                               disabled={isLeave || isEditing || !emp.checkInTime}
-                              className={emp.checkOutTime ? "text-blue-600 font-semibold" : "text-gray-400"}
+                              className={
+                                pendingEdit?.checkOutTime
+                                  ? "text-red-600 font-semibold"
+                                  : emp.checkOutTime
+                                    ? "text-blue-600 font-semibold"
+                                    : "text-gray-400"
+                              }
                             />
                           )}
                         </div>
@@ -2067,9 +2407,10 @@ export function DailyRegister() {
                       <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
                         <div className="flex items-center gap-1">
                           <span
-                            className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${ATTENDANCE_STATUS_BG[emp.status] ??
+                            className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
+                              ATTENDANCE_STATUS_BG[emp.status] ??
                               "bg-gray-100 text-gray-600"
-                              }`}
+                            }`}
                           >
                             {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
                           </span>
@@ -2236,7 +2577,7 @@ export function DailyRegister() {
         </DialogActions>
       </Dialog>
 
-      {/* Correction Request Dialog */}
+      {/* Correction Request Dialog (single) */}
       <Dialog
         open={correctionDialogOpen}
         onClose={() => {
@@ -2386,6 +2727,293 @@ export function DailyRegister() {
         </DialogActions>
       </Dialog>
 
+      {/* Bulk Inline Changes Confirmation Dialog */}
+      <Dialog
+        open={bulkCorrectionDialogOpen}
+        onClose={() => {
+          if (!submittingBulkCorrection) {
+            setBulkCorrectionDialogOpen(false);
+          }
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
+          <span className="!pl-4 flex items-center gap-2">
+            <PendingActionsOutlined className="text-amber-500" />
+            Submit Pending Changes ({pendingInlineEdits.size})
+          </span>
+          <IconButton
+            size="small"
+            onClick={() => setBulkCorrectionDialogOpen(false)}
+            disabled={submittingBulkCorrection}
+          >
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent className="!p-4">
+          <div className="space-y-4">
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              <span className="text-[12px]">
+                <strong>{pendingInlineEdits.size}</strong> employee
+                {pendingInlineEdits.size !== 1 ? "s" : ""} have pending attendance changes.
+                Records with both check-in and check-out will be sent as{" "}
+                <strong>correction requests</strong> requiring approval. Others will be updated
+                directly.
+              </span>
+            </Alert>
+
+            <div className="border border-gray-200 rounded-md overflow-hidden max-h-[400px] overflow-y-auto !mb-4">
+              <table className="w-full text-[12px]">
+                <thead className="bg-head sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-gray-600">Employee</th>
+                    <th className="px-3 py-2 text-left text-gray-600">Change</th>
+                    <th className="px-3 py-2 text-left text-gray-600">New Value</th>
+                    <th className="px-3 py-2 text-center text-gray-600">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(pendingInlineEdits.values()).map((edit) => {
+                    const emp = employees.find((e) => e.employeeId === edit.employeeId);
+                    const needsApproval = !!(emp?.checkInTime && emp?.checkOutTime);
+                    const changes: { field: string; value: string }[] = [];
+
+                    if (edit.checkInDate && edit.checkInTime) {
+                      changes.push({
+                        field: "Check-in",
+                        value: `${dayjs(edit.checkInDate).format("DD MMM YYYY")} ${edit.checkInTime}`,
+                      });
+                    }
+                    if (edit.checkOutDate && edit.checkOutTime) {
+                      changes.push({
+                        field: "Check-out",
+                        value: `${dayjs(edit.checkOutDate).format("DD MMM YYYY")} ${edit.checkOutTime}`,
+                      });
+                    }
+
+                    return changes.map((change, idx) => (
+                      <tr key={`${edit.employeeId}-${change.field}`} className="border-t border-gray-200">
+                        {idx === 0 && (
+                          <>
+                            <td className="px-3 py-1 align-top" rowSpan={changes.length}>
+                              <div className="text-gray-800 text-[12px]">
+                                {edit.employeeName}
+                              </div>
+                              <div className="text-gray-500">({edit.employeeCode})</div>
+                            </td>
+                            <td className="px-3 py-2" rowSpan={changes.length}>
+                              <div className="text-gray-600">{change.field}</div>
+                            </td>
+                            <td className="px-3 py-2" rowSpan={changes.length}>
+                              {change.value}
+                            </td>
+                            <td className="px-3 py-2 text-center" rowSpan={changes.length}>
+                              <Chip
+                                label={needsApproval ? "Correction" : "Direct"}
+                                size="small"
+                                className={
+                                  needsApproval
+                                    ? "!bg-amber-100 !text-amber-700"
+                                    : "!bg-green-100 !text-green-700"
+                                }
+                              />
+                            </td>
+                          </>
+                        )}
+                      </tr>
+                    ));
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {Array.from(pendingInlineEdits.values()).some((edit) => {
+              const emp = employees.find((e) => e.employeeId === edit.employeeId);
+              return !!(emp?.checkInTime && emp?.checkOutTime);
+            }) && (
+                <TextField
+                  label="Reason for Correction (required for approval-required changes)"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={bulkCorrectionReason}
+                  onChange={(e) => setBulkCorrectionReason(e.target.value)}
+                  placeholder="Please provide a reason for these corrections..."
+                  disabled={submittingBulkCorrection}
+                  required
+                />
+              )}
+          </div>
+        </DialogContent>
+
+        <DialogActions className="!p-4 !border-t !border-gray-200">
+          <Button
+            variant="outlined"
+            className="!text-gray-800 !border-gray-200"
+            onClick={() => setBulkCorrectionDialogOpen(false)}
+            disabled={submittingBulkCorrection}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            onClick={submitBulkInlineChanges}
+            disabled={submittingBulkCorrection}
+            startIcon={<CheckCircleOutlined />}
+          >
+            {submittingBulkCorrection
+              ? "Submitting..."
+              : `Submit ${pendingInlineEdits.size} Change${pendingInlineEdits.size !== 1 ? "s" : ""}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MID No Warning Dialog */}
+      <Dialog
+        open={midNoWarningDialog}
+        onClose={() => {
+          setMidNoWarningDialog(false);
+          setEmployeesWithoutMidNo([]);
+          setPendingFetchParams(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
+          <span className="!pl-4 flex items-center gap-2">
+            <WarningAmberOutlined className="text-amber-500" />
+            Employees Without MID Number
+          </span>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setMidNoWarningDialog(false);
+              setEmployeesWithoutMidNo([]);
+              setPendingFetchParams(null);
+            }}
+          >
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent className="!p-4">
+          <div className="space-y-4">
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              <span className="text-[12px]">
+                <strong>{employeesWithoutMidNo.length}</strong> employee
+                {employeesWithoutMidNo.length !== 1 ? "s" : ""} do not have a MID number
+                assigned. Their attendance logs will <strong>not</strong> be fetched from
+                the biometric machine.
+              </span>
+            </Alert>
+
+            <div className="border border-amber-200 rounded-lg overflow-hidden">
+              <div className="bg-amber-50 px-3 py-2 border-b border-amber-200">
+                <span className="text-[12px] font-medium text-amber-700">
+                  Employees Without MID Number ({employeesWithoutMidNo.length})
+                </span>
+              </div>
+              <div className="max-h-[200px] overflow-y-auto">
+                {employeesWithoutMidNo.map((emp: any, index: number) => (
+                  <div
+                    key={emp.id || emp.employeeId || index}
+                    className="flex items-center justify-between px-3 py-2 border-b border-gray-100 last:border-0"
+                  >
+                    <div>
+                      <div className="text-sm font-medium text-gray-800">
+                        {emp.name || emp.employeeName}
+                      </div>
+                      <div className="text-[12px] text-gray-500">
+                        {emp.employeeId || emp.employeeCode}
+                        {emp.department && ` • ${emp.department}`}
+                      </div>
+                    </div>
+                    <Chip
+                      label="No MID"
+                      size="small"
+                      className="!bg-amber-100 !text-amber-700"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              <div className="text-[12px]">
+                <strong>To fix this:</strong>
+                <ul className="list-disc ml-4 mt-1 space-y-0.5">
+                  <li>
+                    Go to the <strong>Employees list</strong> and update the MID number
+                    for each employee, or
+                  </li>
+                  <li>
+                    Use <strong>Bulk Mapping</strong> in Device Integration to assign
+                    MID numbers in bulk
+                  </li>
+                </ul>
+              </div>
+            </Alert>
+          </div>
+        </DialogContent>
+
+        <DialogActions className="!p-3 !border-t !border-gray-200 flex-wrap gap-2">
+          <Button
+            variant="outlined"
+            className="!border-gray-200 !text-gray-800"
+            onClick={() => {
+              setMidNoWarningDialog(false);
+              setEmployeesWithoutMidNo([]);
+              setPendingFetchParams(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="outlined"
+            className="!text-primary !border-primary"
+            startIcon={<GroupOutlined />}
+            onClick={() => {
+              setMidNoWarningDialog(false);
+              setPunchImportOpen(false);
+              navigate("/employees");
+            }}
+          >
+            Go to Employees
+          </Button>
+          <Button
+            variant="outlined"
+            className="!text-primary !border-primary"
+            startIcon={<PunchClockOutlined />}
+            onClick={() => {
+              setMidNoWarningDialog(false);
+              setPunchImportOpen(false);
+              navigate("/attendance/management/biometric");
+            }}
+          >
+            Bulk Mapping
+          </Button>
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            startIcon={<PunchClockOutlined />}
+            onClick={async () => {
+              setMidNoWarningDialog(false);
+              if (pendingFetchParams) {
+                await proceedWithFetch(
+                  pendingFetchParams.deviceIps,
+                  pendingFetchParams.selectedDevicesData
+                );
+              }
+            }}
+          >
+            Proceed Anyway
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Bulk Daily Status Dialog */}
       <Dialog
         open={bulkDialogOpen}
@@ -2469,14 +3097,14 @@ export function DailyRegister() {
         </DialogTitle>
         <DialogContent className="!p-4">
           <div className="space-y-6">
-            {/* Toggle between Check-in and Check-out */}
             <div className="flex justify-center gap-2">
               <Button
                 variant={bulkActionType === "checkIn" ? "contained" : "outlined"}
-                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${bulkActionType === "checkIn"
-                  ? "!bg-gradient-to-br !from-emerald-400 !to-emerald-500 !text-white shadow-lg shadow-emerald-200/50"
-                  : "!text-emerald-600 !border-emerald-500 hover:!bg-white/50 !backdrop-blur-sm"
-                  }`}
+                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${
+                  bulkActionType === "checkIn"
+                    ? "!bg-gradient-to-br !from-emerald-400 !to-emerald-500 !text-white shadow-lg shadow-emerald-200/50"
+                    : "!text-emerald-600 !border-emerald-500 hover:!bg-white/50 !backdrop-blur-sm"
+                }`}
                 onClick={() => setBulkActionType("checkIn")}
                 startIcon={<LoginOutlined className="!w-4 !h-4" />}
               >
@@ -2484,10 +3112,11 @@ export function DailyRegister() {
               </Button>
               <Button
                 variant={bulkActionType === "checkOut" ? "contained" : "outlined"}
-                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${bulkActionType === "checkOut"
-                  ? "!bg-gradient-to-br !from-blue-400 !to-blue-500 !text-white shadow-lg shadow-blue-200/50"
-                  : "!text-blue-600 !border-blue-500 hover:!bg-white/50 !backdrop-blur-sm"
-                  }`}
+                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${
+                  bulkActionType === "checkOut"
+                    ? "!bg-gradient-to-br !from-blue-400 !to-blue-500 !text-white shadow-lg shadow-blue-200/50"
+                    : "!text-blue-600 !border-blue-500 hover:!bg-white/50 !backdrop-blur-sm"
+                }`}
                 onClick={() => setBulkActionType("checkOut")}
                 startIcon={<LogoutOutlined className="!w-4 !h-4" />}
               >
@@ -2495,7 +3124,6 @@ export function DailyRegister() {
               </Button>
             </div>
 
-            {/* Show selected employees as chips */}
             {bulkCheckinEmployees.length > 0 && (
               <div className="border border-gray-200 rounded-lg p-2">
                 <div className="flex items-center justify-between mb-2">
@@ -2545,7 +3173,6 @@ export function DailyRegister() {
               </div>
             )}
 
-            {/* Employee Selection - Add more employees */}
             <div>
               <Autocomplete
                 multiple
@@ -2620,7 +3247,6 @@ export function DailyRegister() {
               />
             </div>
 
-            {/* Summary of selected employees */}
             {bulkCheckinEmployees.length > 0 && (
               <div className="bg-sky-200/50 p-3 rounded-md">
                 <div className="flex items-center justify-between w-full gap-4">
@@ -2656,18 +3282,17 @@ export function DailyRegister() {
                       }}
                     >
                       {bulkCheckinEmployees.length ===
-                        employees.filter((emp) => emp.status !== "leave").length
+                      employees.filter((emp) => emp.status !== "leave").length
                         ? "Deselect All"
                         : `Select All (${employees.filter((emp) => emp.status !== "leave")
-                          .length
-                        })`}
+                            .length
+                          })`}
                     </Button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Time Picker */}
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <DateTimePicker
                 label={
@@ -3019,36 +3644,6 @@ export function DailyRegister() {
         <DialogContent className="!p-4">
           <div className="space-y-4">
             <div className="grid grid-cols-2 mt-3 gap-3 gap-y-5">
-              <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-                <DatePicker
-                  label="Start Date"
-                  value={importStartDate ? dayjs(importStartDate) : null}
-                  onChange={(newValue) => {
-                    const formatted = newValue
-                      ? dayjs(newValue).format("YYYY-MM-DD")
-                      : "";
-                    setImportStartDate(formatted);
-                    setImportEndDate(formatted);
-                  }}
-                  maxDate={dayjs()}
-                  format="DD/MM/YYYY"
-                  slotProps={{ textField: { size: "small", fullWidth: true } }}
-                />
-                <DatePicker
-                  label="End Date"
-                  value={importEndDate ? dayjs(importEndDate) : null}
-                  onChange={(newValue) =>
-                    setImportEndDate(
-                      newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
-                    )
-                  }
-                  maxDate={dayjs()}
-                  format="DD/MM/YYYY"
-                  minDate={importStartDate ? dayjs(importStartDate) : undefined}
-                  slotProps={{ textField: { size: "small", fullWidth: true } }}
-                />
-              </LocalizationProvider>
-
               <FormControl fullWidth size="small">
                 <InputLabel>Period Type</InputLabel>
                 <Select
@@ -3150,12 +3745,13 @@ export function DailyRegister() {
 
             {importResult && !importing && (
               <div
-                className={`border rounded-lg p-3 ${importResult.failed > 0 && importResult.success === 0
-                  ? "border-red-200 bg-red-50"
-                  : importResult.failed > 0
-                    ? "border-orange-200 bg-orange-50"
-                    : "border-green-200 bg-green-50"
-                  }`}
+                className={`border rounded-lg p-3 ${
+                  importResult.failed > 0 && importResult.success === 0
+                    ? "border-red-200 bg-red-50"
+                    : importResult.failed > 0
+                      ? "border-orange-200 bg-orange-50"
+                      : "border-green-200 bg-green-50"
+                }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -3204,8 +3800,9 @@ export function DailyRegister() {
                         return (
                           <div
                             key={index}
-                            className={`text-[12px] py-0.5 ${isTimestampError ? "text-amber-600" : "text-red-600"
-                              }`}
+                            className={`text-[12px] py-0.5 ${
+                              isTimestampError ? "text-amber-600" : "text-red-600"
+                            }`}
                           >
                             • {error}
                           </div>
@@ -3570,7 +4167,7 @@ export function DailyRegister() {
               </div>
             )}
 
-            {punchSource === "biometric" && devices.length > 0 && (
+            {punchSource === "biometric" && devices.length > 0 ? (
               <div className="border border-gray-200 rounded overflow-hidden">
                 <div className="grid grid-cols-[30px_1fr_2fr_1fr_1fr_1fr] gap-2 bg-gray-50 border-b items-center border-gray-200">
                   <div className="flex items-center">
@@ -3631,8 +4228,9 @@ export function DailyRegister() {
                       </div>
                       <div className="flex items-center gap-1">
                         <span
-                          className={`w-2 h-2 rounded-full ${device.isActive ? "bg-green-500" : "bg-red-500"
-                            }`}
+                          className={`w-2 h-2 rounded-full ${
+                            device.isActive ? "bg-green-500" : "bg-red-500"
+                          }`}
                         ></span>
                         <span className="text-[10px] text-gray-500">
                           {device.isActive ? "Active" : "Inactive"}
@@ -3647,6 +4245,12 @@ export function DailyRegister() {
                   {selectedDeviceIds.length !== 1 ? "s" : ""}
                 </div>
               </div>
+            ) : (
+              punchSource === "biometric" && devices.length === 0 && (
+                <Button variant="outlined" className="!text-primary !border-primary" onClick={() => navigate("/attendance/management/biometric")}>
+                  Add Biometric Device
+                </Button>
+              )
             )}
 
             {punchSource === "biometric" && deviceFetchSummary.total > 0 && (
@@ -3880,18 +4484,21 @@ export function DailyRegister() {
                             <span
                               className={`
                         text-[12px] px-2 py-0.5 rounded-full
-                        ${result.status === "present"
-                                  ? "bg-emerald-100 text-emerald-700"
-                                  : ""
-                                }
-                        ${result.status === "absent"
-                                  ? "bg-red-100 text-red-700"
-                                  : ""
-                                }
-                        ${result.status === "late"
-                                  ? "bg-amber-100 text-amber-700"
-                                  : ""
-                                }
+                        ${
+                          result.status === "present"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : ""
+                        }
+                        ${
+                          result.status === "absent"
+                            ? "bg-red-100 text-red-700"
+                            : ""
+                        }
+                        ${
+                          result.status === "late"
+                            ? "bg-amber-100 text-amber-700"
+                            : ""
+                        }
                       `}
                             >
                               {result.status}

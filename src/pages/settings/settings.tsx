@@ -35,6 +35,9 @@ export default function Settings() {
   const isCategoryItemsPath = (path: string) =>
     path.startsWith("/settings/employee/category-items");
 
+  const matchesOptionPath = (currentPath: string, optionPath: string) =>
+    currentPath === optionPath || currentPath.startsWith(`${optionPath}/`);
+
   const routeTabId = useMemo(() => {
     const currentPath = location.pathname;
     if (isCategoryItemsPath(currentPath)) {
@@ -42,7 +45,7 @@ export default function Settings() {
     }
     for (const tab of tabs) {
       for (const option of tab.options) {
-        if (currentPath === option.path) {
+        if (matchesOptionPath(currentPath, option.path)) {
           return tab.id;
         }
       }
@@ -63,7 +66,7 @@ export default function Settings() {
       } else {
         for (const tab of filteredTabs) {
           for (const option of tab.options) {
-            if (currentPath === option.path) {
+            if (matchesOptionPath(currentPath, option.path)) {
               hasAccess = true;
               break;
             }
