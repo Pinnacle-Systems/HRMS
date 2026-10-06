@@ -129,13 +129,6 @@ type EditableField =
   | "checkOutDate"
   | "checkOutTime";
 
-// const FIELD_ORDER: EditableField[] = [
-//   "checkInDate",
-//   "checkInTime",
-//   "checkOutDate",
-//   "checkOutTime",
-// ];
-
 export function DailyRegister() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const getInitialRegisterDate = () =>
@@ -285,35 +278,28 @@ export function DailyRegister() {
     }
   };
 
-  // ── NEW: Determine which fields are editable for a given employee ───────────
+  // Determine which fields are editable for a given employee
   const getEditableFieldsForEmployee = (emp: RegisterEmployee): EditableField[] => {
     const fields: EditableField[] = [];
     const hasCheckInDate = !!emp.checkInDate;
     const hasCheckOutDate = !!emp.checkOutDate;
     const hasCheckInTime = !!emp.checkInTime;
 
-    // checkInDate is editable only if not already set
     if (!hasCheckInDate) fields.push("checkInDate");
-
-    // checkInTime is always editable (as long as employee not on leave)
     fields.push("checkInTime");
-
-    // checkOutDate is editable only if check-in time exists and checkOutDate not set
     if (hasCheckInTime && !hasCheckOutDate) fields.push("checkOutDate");
-
-    // checkOutTime is editable if check-in time exists
     if (hasCheckInTime) fields.push("checkOutTime");
 
     return fields;
   };
 
-  // ── NEW: Pick the first editable field for an employee ─────────────────────
+  // Pick the first editable field for an employee
   const getFirstEditableField = (emp: RegisterEmployee): EditableField | null => {
     const fields = getEditableFieldsForEmployee(emp);
     return fields[0] ?? null;
   };
 
-  // ✅ FIX 1: Only commit on blur when focus actually leaves the picker UI.
+  // Only commit on blur when focus actually leaves the picker UI.
   const handleFieldBlur = (
     e: React.FocusEvent<HTMLDivElement>,
     emp: RegisterEmployee,
@@ -321,7 +307,6 @@ export function DailyRegister() {
   ) => {
     const next = e.relatedTarget as HTMLElement | null;
 
-    // Ignore blur if focus moved into the picker popup / icon / dialog.
     if (
       next &&
       (next.closest(".MuiPickersPopper-root") ||
@@ -334,16 +319,12 @@ export function DailyRegister() {
       return;
     }
 
-    // Also ignore when relatedTarget is null
     if (!next) return;
 
     commitOnBlur(emp, field);
   };
 
-  // ── NEW: commitAndMoveNext — row-wise navigation ──────────────────────────
-  // Within a row: walk editable fields for this employee.
-  // When the row's editable fields are exhausted, jump to the NEXT employee's
-  // first editable field.
+  // commitAndMoveNext — row-wise navigation
   const commitAndMoveNext = (emp: RegisterEmployee, field: EditableField) => {
     const value = buildFieldValue(emp, field);
     if (value) {
@@ -353,12 +334,10 @@ export function DailyRegister() {
 
     closeField();
 
-    // Build the list of editable fields for THIS employee, in order.
     const editableFields = getEditableFieldsForEmployee(emp);
     const currentIndex = editableFields.indexOf(field);
     const nextField = editableFields[currentIndex + 1];
 
-    // If there's still an editable field in this row, open it.
     if (nextField) {
       const nextInitial = getInitialForField(emp, nextField);
       setTimeout(() => {
@@ -367,7 +346,6 @@ export function DailyRegister() {
       return;
     }
 
-    // Otherwise move to the NEXT employee's first editable field.
     const currentRowIdx = employees.findIndex((e) => e.employeeId === emp.employeeId);
     if (currentRowIdx === -1) return;
 
@@ -384,12 +362,10 @@ export function DailyRegister() {
       }, 30);
       return;
     }
-    // No more rows with editable fields — done.
   };
 
   // Save the open field when user clicks away (blur) — queue the edit
   const commitOnBlur = (emp: RegisterEmployee, field: EditableField) => {
-    // Guard: block edits on date fields that already exist.
     if (field === "checkInDate" && emp.checkInDate) {
       closeField();
       return;
@@ -673,25 +649,6 @@ export function DailyRegister() {
     }
   }
 
-  // ── Inline Edit Helpers ───────────────────────────────────────────────────
-  // function needsApproval(emp: RegisterEmployee): boolean {
-  //   return !!(emp.checkInTime && emp.checkOutTime);
-  // }
-
-  // function requestCorrection(
-  //   emp: RegisterEmployee,
-  //   changes: Partial<{
-  //     checkInDate: string;
-  //     checkInTime: string;
-  //     checkOutDate: string;
-  //     checkOutTime: string;
-  //   }>,
-  // ) {
-  //   setPendingCorrection({ employee: emp, changes });
-  //   setCorrectionReason("");
-  //   setCorrectionDialogOpen(true);
-  // }
-
   async function submitCorrection() {
     if (!pendingCorrection) return;
     if (!correctionReason.trim()) {
@@ -780,7 +737,8 @@ export function DailyRegister() {
     }
 
     const requests: any[] = [];
-    const directUpdates: any[] = [];
+    const directCheckIns: any[] = [];
+    const directCheckOuts: any[] = [];
 
     pendingInlineEdits.forEach((edit) => {
       const emp = employees.find((e) => e.employeeId === edit.employeeId);
@@ -799,6 +757,7 @@ export function DailyRegister() {
           : null;
 
       if (hasBothPunches) {
+        // Both punches already exist → correction request (requires approval)
         requests.push({
           employeeId: edit.employeeId,
           attendanceDate: date,
@@ -810,14 +769,25 @@ export function DailyRegister() {
           supportingDocument: null,
         });
       } else {
-        directUpdates.push({
-          employeeId: edit.employeeId,
-          checkInTime: requestedCheckIn,
-          checkOutTime: requestedCheckOut,
-          employeeName: edit.employeeName,
-          hasCheckIn: !!emp.checkInTime,
-          hasCheckOut: !!emp.checkOutTime,
-        });
+        // Direct update path — split into check-in and check-out bulks.
+        // Check-in direct: employee has no existing check-in.
+        if (requestedCheckIn && !emp.checkInTime) {
+          directCheckIns.push({
+            employeeId: edit.employeeId,
+            employeeName: edit.employeeName,
+            employeeCode: edit.employeeCode,
+            checkInTime: requestedCheckIn,
+          });
+        }
+        // Check-out direct: employee has check-in but no check-out.
+        if (requestedCheckOut && emp.checkInTime && !emp.checkOutTime) {
+          directCheckOuts.push({
+            employeeId: edit.employeeId,
+            employeeName: edit.employeeName,
+            employeeCode: edit.employeeCode,
+            checkOutTime: requestedCheckOut,
+          });
+        }
       }
     });
 
@@ -838,36 +808,88 @@ export function DailyRegister() {
     const errors: string[] = [];
 
     try {
-      // 1. Process direct updates
-      for (const update of directUpdates) {
-        try {
-          if (update.checkInTime && update.hasCheckIn) {
-            await attendanceService.checkIn({
-              employeeId: update.employeeId,
-              checkInTime: update.checkInTime,
-              markedBy: session?.user?.userId,
-              remarks: "Bulk inline check-in update",
+      // ── 1. Direct check-ins via bulk check-in endpoint ──────────────────
+      // Group by identical timestamp so the common-time bulk API preserves times.
+      if (directCheckIns.length > 0) {
+        const groupedCheckIns = new Map<string, typeof directCheckIns>();
+        directCheckIns.forEach((u) => {
+          if (!groupedCheckIns.has(u.checkInTime)) groupedCheckIns.set(u.checkInTime, []);
+          groupedCheckIns.get(u.checkInTime)!.push(u);
+        });
+
+        for (const [checkinTime, group] of groupedCheckIns) {
+          try {
+            const response: any = await attendanceService.bulkCheckin({
+              employeeIds: group.map((u) => u.employeeId),
+              checkinTime,
+              reason: "Bulk inline check-in update",
+              markedBy: session?.user?.userId || "system",
             });
-            successCount++;
+            const data = response?.data?.data ?? response?.data;
+            successCount += data?.checkedIn ?? group.length;
+            failCount += data?.errors ?? 0;
+
+            if (Array.isArray(data?.results)) {
+              data.results.forEach((r: any) => {
+                if (r.message && r.message !== "checked_in") {
+                  errors.push(
+                    `${r.employeeCode || r.employeeId}: ${r.message}`,
+                  );
+                }
+              });
+            }
+          } catch (err: any) {
+            failCount += group.length;
+            errors.push(
+              `Bulk check-in failed (${group.length}): ${
+                err?.response?.data?.message ?? "Unknown error"
+              }`,
+            );
           }
-          if (update.checkOutTime && update.hasCheckOut) {
-            await attendanceService.checkOut({
-              employeeId: update.employeeId,
-              checkOutTime: update.checkOutTime,
-              markedBy: session?.user?.userId,
-              remarks: "Bulk inline check-out update",
-            });
-            successCount++;
-          }
-        } catch (err: any) {
-          failCount++;
-          errors.push(
-            `${update.employeeName}: ${err?.response?.data?.message ?? "Update failed"}`,
-          );
         }
       }
 
-      // 2. Submit bulk correction requests
+      // ── 2. Direct check-outs via bulk check-out endpoint ────────────────
+      if (directCheckOuts.length > 0) {
+        const groupedCheckOuts = new Map<string, typeof directCheckOuts>();
+        directCheckOuts.forEach((u) => {
+          if (!groupedCheckOuts.has(u.checkOutTime)) groupedCheckOuts.set(u.checkOutTime, []);
+          groupedCheckOuts.get(u.checkOutTime)!.push(u);
+        });
+
+        for (const [checkoutTime, group] of groupedCheckOuts) {
+          try {
+            const response: any = await attendanceService.bulkCheckOut({
+              employeeIds: group.map((u) => u.employeeId),
+              checkoutTime,
+              reason: "Bulk inline check-out update",
+              markedBy: session?.user?.userId || "system",
+            });
+            const data = response?.data?.data ?? response?.data;
+            successCount += data?.checkedOut ?? group.length;
+            failCount += data?.errors ?? 0;
+
+            if (Array.isArray(data?.results)) {
+              data.results.forEach((r: any) => {
+                if (r.message && r.message !== "checked_out") {
+                  errors.push(
+                    `${r.employeeCode || r.employeeId}: ${r.message}`,
+                  );
+                }
+              });
+            }
+          } catch (err: any) {
+            failCount += group.length;
+            errors.push(
+              `Bulk check-out failed (${group.length}): ${
+                err?.response?.data?.message ?? "Unknown error"
+              }`,
+            );
+          }
+        }
+      }
+
+      // ── 3. Correction requests (both punches existed) ───────────────────
       if (requests.length > 0) {
         try {
           const response: any = await attendanceService.bulkRequestCorrection({
@@ -890,7 +912,9 @@ export function DailyRegister() {
         } catch (err: any) {
           failCount += requests.length;
           errors.push(
-            `Bulk correction request failed: ${err?.response?.data?.message ?? "Unknown error"}`,
+            `Bulk correction request failed: ${
+              err?.response?.data?.message ?? "Unknown error"
+            }`,
           );
         }
       }
@@ -903,10 +927,7 @@ export function DailyRegister() {
       } else if (successCount === 0) {
         showSnackbar(`All ${failCount} updates failed`, "error");
       } else {
-        showSnackbar(
-          `${successCount} updated, ${failCount} failed`,
-          "warning",
-        );
+        showSnackbar(`${successCount} updated, ${failCount} failed`, "warning");
       }
 
       if (errors.length > 0) {
@@ -2073,7 +2094,6 @@ export function DailyRegister() {
                   const hasPendingEdit = pendingInlineEdits.has(emp.employeeId);
                   const pendingEdit = pendingInlineEdits.get(emp.employeeId);
 
-                  // Pending values override display
                   const displayCheckInDate = pendingEdit?.checkInDate
                     ? dayjs(pendingEdit.checkInDate).format("DD MMM YYYY")
                     : emp.checkInDate
@@ -2098,7 +2118,6 @@ export function DailyRegister() {
                       ? dayjs(emp.checkOutTime).format("HH:mm:ss")
                       : null;
 
-                  // Lock date edits when the date already exists.
                   const lockCheckInDate = !!emp.checkInDate;
                   const lockCheckOutDate = !!emp.checkOutDate;
 
@@ -2760,7 +2779,7 @@ export function DailyRegister() {
                 {pendingInlineEdits.size !== 1 ? "s" : ""} have pending attendance changes.
                 Records with both check-in and check-out will be sent as{" "}
                 <strong>correction requests</strong> requiring approval. Others will be updated
-                directly.
+                directly via bulk check-in / bulk check-out.
               </span>
             </Alert>
 

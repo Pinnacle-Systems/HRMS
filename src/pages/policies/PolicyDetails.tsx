@@ -70,8 +70,15 @@ export default function PolicyDetails() {
         policyService.getPolicyVersions(id!),
         policyService.getPolicyAudit(id!),
       ]);
+      const cleanedVersions = (versionsData.data || []).map((v: any) => ({
+        ...v,
+        configJson: (() => {
+          const { leaveTypes, ...rest } = v.configJson || {};
+          return rest;
+        })(),
+      }));
       setPolicy(policyData.data || {});
-      setVersions(versionsData.data || []);
+      setVersions(cleanedVersions || []);
       setAuditLogs(auditData.data || []);
       if (versionsData.data.length > 0) {
         const assignmentsResults = await Promise.all(
@@ -359,9 +366,9 @@ export default function PolicyDetails() {
                                       : assignment.employmentType ? 'Employment Type'
                                         : assignment.templateName ? 'Template'
                                           : assignment.employeeId ? 'Specific Employee'
-                                          : assignment.employeeCategory ? 'Employee Category'
+                                            : assignment.employeeCategory ? 'Employee Category'
 
-                                            : 'All Employees'}
+                                              : 'All Employees'}
                               </TableCell>
                               <TableCell>
                                 {assignment.branchId ? assignment.branchName :
@@ -370,8 +377,8 @@ export default function PolicyDetails() {
                                       assignment.employmentType ? assignment.employmentTypeName :
                                         assignment.templateName ? assignment.templateName :
                                           assignment.employeeId ? assignment.employeeName :
-                                          assignment.employeeCategory ? assignment.employeeCategory :
-                                            'Company-wide'}
+                                            assignment.employeeCategory ? assignment.employeeCategory :
+                                              'Company-wide'}
                               </TableCell>
                               <TableCell>{assignment.priority}</TableCell>
                               <TableCell>
@@ -445,7 +452,7 @@ export default function PolicyDetails() {
               <Button
                 fullWidth
                 variant="outlined"
-                startIcon={<HistoryIcon className='!w-4'/>}
+                startIcon={<HistoryIcon className='!w-4' />}
                 onClick={() => navigate(`/policies/${id}/versions`)}
                 className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
               >
@@ -455,7 +462,7 @@ export default function PolicyDetails() {
               <Button
                 fullWidth
                 variant="outlined"
-                startIcon={<AssessmentOutlined className='!w-4'/>}
+                startIcon={<AssessmentOutlined className='!w-4' />}
                 onClick={() => navigate(`/policies/${id}/assignments`)}
                 className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
               >
@@ -465,7 +472,7 @@ export default function PolicyDetails() {
               <Button
                 fullWidth
                 variant="outlined"
-                startIcon={<TestIcon className='!w-4'/>}
+                startIcon={<TestIcon className='!w-4' />}
                 onClick={() => setTestDialogOpen(true)}
                 className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
               >
@@ -475,7 +482,7 @@ export default function PolicyDetails() {
               <Button
                 fullWidth
                 variant="outlined"
-                startIcon={<EditIcon className='!w-4'/>}
+                startIcon={<EditIcon className='!w-4' />}
                 onClick={() => navigate(`/policies/${id}/edit`)}
                 className="!text-gray-600 !border-gray-200 !bg-white hover:!border-primary hover:!text-primary !p-3 rounded-md normal-case"
               >
