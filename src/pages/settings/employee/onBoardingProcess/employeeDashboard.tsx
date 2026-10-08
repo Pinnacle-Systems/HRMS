@@ -84,7 +84,11 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 			const response: any = await onBoardService.getProgress(employeeId);
 			setOnboarding(response.data);
 		} catch (error: any) {
-			showSnackbar(error.message, "error");
+			if (error?.error === "NOT_FOUND" || error?.status === 404) {
+				setOnboarding(null);
+			} else {
+				showSnackbar(error.message, "error");
+			}
 		} finally {
 			fetchingRef.current = false;
 			if (!silent) hideSpinner();
@@ -101,7 +105,11 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 				const response: any = await onBoardService.getProgress(employeeId);
 				if (isMounted) setOnboarding(response.data);
 			} catch (error: any) {
-				if (isMounted) showSnackbar(error.message, "error");
+				if (error?.error === "NOT_FOUND" || error?.status === 404) {
+					if (isMounted) setOnboarding(null);
+				} else {
+					if (isMounted) showSnackbar(error.message, "error");
+				}
 			} finally {
 				if (isMounted) hideSpinner();
 			}
@@ -112,7 +120,6 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 		return () => {
 			isMounted = false;
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [employeeId]);
 
 	const handleCompleteTask = async (task: AssignedTaskDetail) => {
@@ -291,29 +298,49 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 	};
 
 	if (!onboarding) {
-		return (
-			<Box className="flex justify-center items-center h-[60vh]">
-				<Fade in timeout={600}>
-					<Box className="text-center">
-						<Box className="relative inline-block mb-5">
-							<Box className="absolute inset-0 flex items-center justify-center">
-								<AssignmentIcon className="text-gray-500 !w-8 !h-8" />
-							</Box>
-						</Box>
-						<Typography
-							variant="body1"
-							className="text-gray-500 mt-4 font-medium"
-						>
-							Onboarding tasks...
-						</Typography>
-						<Typography variant="caption" className="text-gray-400">
-							No Onboarding found for You!
-						</Typography>
-					</Box>
-				</Fade>
-			</Box>
-		);
-	}
+  return (
+    <Fade in timeout={500}>
+      <Box className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
+        {/* Icon cluster */}
+        <Box className="relative mb-5">
+          <Box className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center">
+            <AssignmentIcon className="!w-8 !h-8 text-gray-400" />
+          </Box>
+          <Box className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-100 border-2 border-white flex items-center justify-center">
+            <ScheduleIcon className="!w-3 h-3 text-amber-600" />
+          </Box>
+        </Box>
+
+        <Typography variant="subtitle1" className="font-semibold text-gray-700">
+          No onboarding assigned
+        </Typography>
+        <Typography variant="caption" className="text-gray-400 mt-1 max-w-xs">
+          You'll see your tasks here once HR assigns your plan.
+        </Typography>
+
+        <Box className="flex items-center gap-2 mt-5">
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => fetchOnboardingProgress()}
+            className="!normal-case !text-indigo-600 !font-medium"
+          >
+            Refresh
+          </Button>
+          <Box className="w-px h-4 bg-gray-200" />
+          <Button
+            size="small"
+            variant="text"
+            startIcon={<EmailOutlined className="!w-3.5 !h-3.5" />}
+            className="!normal-case !text-gray-500"
+          >
+            Contact HR
+          </Button>
+        </Box>
+      </Box>
+    </Fade>
+  );
+}
 
 	const allCompleted = isAllCompleted();
 
@@ -418,10 +445,10 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 									<Box className="flex flex-wrap items-center justify-end gap-2 w-full">
 										<Button
 											variant="contained"
-											
+
 											size="small"
 											startIcon={<DownloadIcon />}
-											// onClick={handleDownloadCertificate}
+										// onClick={handleDownloadCertificate}
 										>
 											Download Certificate
 										</Button>
@@ -626,33 +653,30 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 						return (
 							<Fade in timeout={400 + idx * 150} key={checklistId}>
 								<Card
-									className={`!rounded-xl !shadow-sm !bg-white-50 !border transition-all duration-300 overflow-hidden ${
-										isActive
-											? "!border-primary/40 !shadow-md ring-2 ring-primary"
-											: isCompleted
-												? "!border-green-500 !bg-green-50/20"
-												: "!border-gray-200 hover:!border-gray-300"
-									}`}
+									className={`!rounded-xl !shadow-sm !bg-white-50 !border transition-all duration-300 overflow-hidden ${isActive
+										? "!border-primary/40 !shadow-md ring-2 ring-primary"
+										: isCompleted
+											? "!border-green-500 !bg-green-50/20"
+											: "!border-gray-200 hover:!border-gray-300"
+										}`}
 								>
 									{/* ============ STEP HEADER ============ */}
 									<Box
-										className={`flex items-center gap-3 p-4 cursor-pointer transition-all duration-200 ${
-											isActive
-												? "bg-gradient-to-r from-primary/5 to-primary/10"
-												: ""
-										}`}
+										className={`flex items-center gap-3 p-4 cursor-pointer transition-all duration-200 ${isActive
+											? "bg-gradient-to-r from-primary/5 to-primary/10"
+											: ""
+											}`}
 										onClick={() => handleToggleChecklist(checklistId)}
 									>
 										{/* Step Number Badge */}
 										<Box className="flex-shrink-0">
 											<Box
-												className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
-													isCompleted
-														? "bg-green-500 text-white shadow-lg shadow-green-200"
-														: isActive
-															? "bg-primary text-white shadow-lg shadow-primary/30"
-															: "bg-gray-100 text-gray-500"
-												}`}
+												className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${isCompleted
+													? "bg-green-500 text-white shadow-lg shadow-green-200"
+													: isActive
+														? "bg-primary text-white shadow-lg shadow-primary/30"
+														: "bg-gray-100 text-gray-500"
+													}`}
 											>
 												{isCompleted ? (
 													<CheckCircleIcon className="!w-5 !h-5" />
@@ -696,11 +720,10 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 												<Chip
 													label={`${checklist.progressPercent}%`}
 													size="small"
-													className={`!h-5 !text-[9px] !rounded-full ${
-														isCompleted
-															? "!bg-green-100 !text-green-700"
-															: "!bg-primary-50 !text-primary"
-													}`}
+													className={`!h-5 !text-[9px] !rounded-full ${isCompleted
+														? "!bg-green-100 !text-green-700"
+														: "!bg-primary-50 !text-primary"
+														}`}
 												/>
 												<Chip
 													label={getStatusDisplay(checklist.status)}
@@ -735,11 +758,10 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 												/>
 											</Box>
 											<Box
-												className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-													isActive
-														? "bg-primary-50 text-primary"
-														: "bg-gray-100 text-gray-500"
-												}`}
+												className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isActive
+													? "bg-primary-50 text-primary"
+													: "bg-gray-100 text-gray-500"
+													}`}
 											>
 												{isActive ? (
 													<KeyboardArrowUp className="!w-5 !h-5" />
@@ -769,19 +791,17 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 																key={task.taskInstanceId || task.id}
 																onMouseEnter={() => setHoveredTask(task.id)}
 																onMouseLeave={() => setHoveredTask(null)}
-																className={`!rounded-xl transition-all duration-200 ${
-																	isTaskCompleted
-																		? "!bg-green-50/40 !border-green-200"
-																		: isTaskOverdue
-																			? "!bg-red-50/60 !border-red-200"
-																			: isTaskInProgress
-																				? "!bg-blue-50/60 !border-blue-200"
-																				: "bg-gray-200 !border-gray-200"
-																} ${
-																	isHovered
+																className={`!rounded-xl transition-all duration-200 ${isTaskCompleted
+																	? "!bg-green-50/40 !border-green-200"
+																	: isTaskOverdue
+																		? "!bg-red-50/60 !border-red-200"
+																		: isTaskInProgress
+																			? "!bg-blue-50/60 !border-blue-200"
+																			: "bg-gray-200 !border-gray-200"
+																	} ${isHovered
 																		? "!shadow-md !border-primary/30"
 																		: "!shadow-sm"
-																}`}
+																	}`}
 																elevation={0}
 																variant="outlined"
 															>
@@ -820,11 +840,10 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 																				<Box className="flex-1 min-w-0">
 																					<Typography
 																						variant="body2"
-																						className={`font-medium ${
-																							isTaskCompleted
-																								? "text-gray-500 line-through"
-																								: "text-gray-800"
-																						}`}
+																						className={`font-medium ${isTaskCompleted
+																							? "text-gray-500 line-through"
+																							: "text-gray-800"
+																							}`}
 																					>
 																						{task.title || task.taskName}
 																						{task.required && (
@@ -991,16 +1010,16 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 												{/* Empty State */}
 												{(!checklist.tasks ||
 													checklist.tasks.length === 0) && (
-													<Box className="text-center py-6 bg-white rounded-xl border border-dashed border-gray-200">
-														<DescriptionIcon className="text-gray-300 !w-10 !h-10 mb-2" />
-														<Typography
-															variant="body2"
-															className="text-gray-400"
-														>
-															No tasks in this step
-														</Typography>
-													</Box>
-												)}
+														<Box className="text-center py-6 bg-white rounded-xl border border-dashed border-gray-200">
+															<DescriptionIcon className="text-gray-300 !w-10 !h-10 mb-2" />
+															<Typography
+																variant="body2"
+																className="text-gray-400"
+															>
+																No tasks in this step
+															</Typography>
+														</Box>
+													)}
 											</Box>
 
 											{/* Step Completion Status */}
@@ -1158,11 +1177,10 @@ export const EmployeeDashboard = ({ employeeId }: EmployeeDashboardProps) => {
 								startIcon={
 									selectedFile ? <CheckCircleIcon /> : <DescriptionIcon />
 								}
-								className={`py-5 border-2 border-dashed !rounded-2xl transition-all ${
-									selectedFile
-										? "border-green-700 bg-green-50 text-green-700"
-										: "border-gray-300 hover:border-primary hover:bg-primary/5"
-								}`}
+								className={`py-5 border-2 border-dashed !rounded-2xl transition-all ${selectedFile
+									? "border-green-700 bg-green-50 text-green-700"
+									: "border-gray-300 hover:border-primary hover:bg-primary/5"
+									}`}
 							>
 								{selectedFile ? (
 									<span className="font-medium">{selectedFile.name}</span>

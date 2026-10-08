@@ -139,20 +139,22 @@ export default function AttendanceRecords() {
               );
             })}
           </div>
-          <div className="flex gap-2">
-            {!isLoadingStatus && !processStatus?.processed && !processStatus?.locked && (
-              <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Process Attendance</Button>
-            )}
-            {!isLoadingStatus && processStatus?.processed && !processStatus.locked && (
-              <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Re-Process</Button>
-            )}
-            {!isLoadingStatus && processStatus?.processed && !processStatus.locked && (
-              <Button variant="contained" className="!bg-amber-600 !text-white" onClick={navigateToProcess}>Close & Finalise</Button>
-            )}
-            {!isLoadingStatus && processStatus?.locked && (
-              <Button variant="contained" disabled className="!bg-green-800 !text-white">Closed & Finalized</Button>
-            )}
-          </div>
+          {!["muster-register", "employee-view"].includes(activeTabPath ?? "daily-register") && (
+            <div className="flex gap-2">
+              {!isLoadingStatus && !processStatus?.processed && !processStatus?.locked && (
+                <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Process Attendance</Button>
+              )}
+              {!isLoadingStatus && processStatus?.processed && !processStatus.locked && (
+                <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Re-Process</Button>
+              )}
+              {!isLoadingStatus && processStatus?.processed && !processStatus.locked && (
+                <Button variant="contained" className="!bg-amber-600 !text-white" onClick={navigateToProcess}>Close & Finalise</Button>
+              )}
+              {!isLoadingStatus && processStatus?.locked && (
+                <Button variant="contained" disabled className="!bg-green-800 !text-white">Closed & Finalized</Button>
+              )}
+            </div>)
+          }
         </div>
 
         {/* Tab Content */}

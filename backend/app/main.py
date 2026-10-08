@@ -292,6 +292,7 @@ async def fetch_logs(
                     "machineType": log.machine_type,
                     "machineInOutGridId": log.machine_in_out_grid_id,
                     "employeeId": log.employee_id,
+                    "status": log.status,
                 }
                 for log in all_logs_db
             ],

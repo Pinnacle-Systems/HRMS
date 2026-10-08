@@ -394,8 +394,8 @@ export default function EmployeePortal() {
                 <TableBody>
                   {payslipData?.payslips?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 6, color: "text.secondary" }}>
-                        No payslips found
+                      <TableCell colSpan={6} align="center">
+                        <div className="py-6 text-gray-800">No payslips found</div>
                       </TableCell>
                     </TableRow>
                   ) : (

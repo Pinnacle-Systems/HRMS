@@ -44,7 +44,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     title: "My Leave",
     description: "Employee leave balances, recent requests, and quick actions will appear here.",
     group: "employee",
-    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     isImplemented: true,
   },
   {
@@ -53,7 +53,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     label: "Apply Leave",
     description: "The leave application form shell will live here.",
     group: "employee",
-    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     isImplemented: true,
   },
   {
@@ -63,7 +63,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     title: "My Leave Requests",
     description: "A personal leave request list and status tracker will appear here.",
     group: "employee",
-    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     isImplemented: true,
   },
   {
@@ -72,7 +72,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     label: "Holiday Calendar",
     description: "Published holidays and calendar filters will appear here.",
     group: "employee",
-    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     isImplemented: true,
   },
   {
@@ -81,7 +81,7 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     label: "Comp Offs",
     description: "Comp-off balance and request placeholders will appear here.",
     group: "employee",
-    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
     isImplemented: true,
   },
   {

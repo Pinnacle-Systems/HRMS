@@ -497,4 +497,8 @@ export const biometricService = {
   //     throw error;
   //   }
   // }
+
+  async runAttendance(payload?: Record<string, unknown>) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.RUN_ATTENDANCE, payload);
+  }
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MaterialModule from "../../materialModule";
 import { employeeService } from "../../services/modules/employees";
@@ -96,6 +96,7 @@ import { useAuth } from "../../auth/authContext";
 import useUnsavedChanges from "../../hooks/useUnsavedChanges";
 import { ProfileCompletionProgress } from "./useProfileCompletion";
 import { attendanceService } from "../../services/modules/attendance";
+import type { EmployeeAttendanceInfo } from "../../services/modules/attendanceTypes";
 import { loadCompanyDetails } from "../../utils/companyDetails";
 import { salaryViewService, type SalaryViewResponse } from "../../services/modules/payrollServices/salaryView";
 import { formatCurrency } from "../payroll/const";
@@ -130,6 +131,13 @@ const getMidNo = (employeeData: any) => {
     return false;
   }
 }
+
+const formatAttendanceTime = (value?: string | null) => {
+  if (!value) return "--:--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
@@ -2543,6 +2551,8 @@ export default function EmployeeDetails() {
 
   const navigate = useNavigate();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const showSnackbarRef = useRef(showSnackbar);
+  showSnackbarRef.current = showSnackbar;
   const [employee, setEmployee] = useState<any>();
   const [categoryOptions, setCategoryOptions] = useState<Record<string, any[]>>(
     {},
@@ -2621,7 +2631,10 @@ export default function EmployeeDetails() {
 
   const [uanError, setUANError] = useState("");
   const [webcamOpen, setWebcamOpen] = useState(false);
-  const [checkIn, setCheckIn] = useState(false);
+  const [todayAttendance, setTodayAttendance] =
+    useState<Partial<EmployeeAttendanceInfo> | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceSaving, setAttendanceSaving] = useState(false);
 
   const tabs = [
     { path: "personal-info", label: "Personal Info", icon: <MaterialModule.Person2Outlined /> },
@@ -2657,26 +2670,39 @@ export default function EmployeeDetails() {
     }
   }, [apiId, tabValue]);
 
-  const fetchEmployeeAttendance = async (uid: any) => {
+  const fetchEmployeeAttendance = useCallback(async (uid: string) => {
+    setAttendanceLoading(true);
     try {
-      const res: any = await attendanceService.getEmployeeAttendance(uid, {
-        fromDate: dayjs().format('YYYY-MM-DD'),
-        toDate: dayjs().format('YYYY-MM-DD')
-      });
-      const data = res.data.length ? res.data[0] : "";
-      if (data.status == 'checked_in') {
-        setCheckIn(true);
-      }
-    } catch {
-      showSnackbar("Failed to load attendance records", "error");
-    }
-  };
-
-  useEffect(() => {
-    if (!isAdmin) {
-      fetchEmployeeAttendance(apiId);
+      const response: any = await attendanceService.getAttendanceInfo(uid);
+      const payload = response?.data?.data ?? response?.data ?? response;
+      setTodayAttendance(
+        payload && typeof payload === "object"
+          ? payload as Partial<EmployeeAttendanceInfo>
+          : null,
+      );
+    } catch (error: any) {
+      setTodayAttendance(null);
+      showSnackbarRef.current(
+        error?.message || "Failed to load attendance records",
+        "error",
+      );
+    } finally {
+      setAttendanceLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (apiId) {
+      void fetchEmployeeAttendance(String(apiId));
+    }
+  }, [apiId, fetchEmployeeAttendance]);
+
+  const hasCheckedIn = Boolean(
+    todayAttendance?.todayCheckIn || todayAttendance?.todayStatus === "checked_in",
+  );
+  const hasCheckedOut = Boolean(
+    todayAttendance?.todayCheckOut || todayAttendance?.todayStatus === "checked_out",
+  );
 
   const handleWebcamCapture = async (file: File) => {
     try {
@@ -3972,18 +3998,19 @@ export default function EmployeeDetails() {
   }
 
   const handleCheckIn = async () => {
+    setAttendanceSaving(true);
     try {
       const position = navigator.geolocation
         ? await new Promise<GeolocationPosition | null>((resolve) => {
-            navigator.geolocation.getCurrentPosition(
-              (geoPosition) => resolve(geoPosition),
-              () => resolve(null),
-              {
-                enableHighAccuracy: true,
-                timeout: 10000,
-              },
-            );
-          })
+          navigator.geolocation.getCurrentPosition(
+            (geoPosition) => resolve(geoPosition),
+            () => resolve(null),
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+            },
+          );
+        })
         : null;
 
       const checkInPayload = {
@@ -3991,9 +4018,9 @@ export default function EmployeeDetails() {
         checkInTime: new Date().toISOString(),
         ...(position
           ? {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            }
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }
           : {}),
         markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
       };
@@ -4054,8 +4081,8 @@ export default function EmployeeDetails() {
       ) {
         showSnackbar(
           responsePayload.message ||
-            res?.message ||
-            "Check-in was rejected by the server geofence validation.",
+          res?.message ||
+          "Check-in was rejected by the server geofence validation.",
           "error",
         );
         return;
@@ -4063,13 +4090,13 @@ export default function EmployeeDetails() {
 
       showSnackbar(
         responsePayload.message ||
-          res?.message ||
-          (position
-            ? "Check-in marked successfully."
-            : "Check-in submitted without location; geofence validation is handled by the server."),
+        res?.message ||
+        (position
+          ? "Check-in marked successfully."
+          : "Check-in submitted without location; geofence validation is handled by the server."),
         position ? "success" : "warning",
       );
-      setCheckIn(true);
+      await fetchEmployeeAttendance(String(apiId));
     } catch (error: any) {
       if (import.meta.env.DEV) {
         console.error("[Attendance geofence] Check-in request failed", {
@@ -4079,18 +4106,25 @@ export default function EmployeeDetails() {
         });
       }
       showSnackbar(error?.message || "Unable to check in.", "error");
+    } finally {
+      setAttendanceSaving(false);
     }
   }
 
   const handleCheckOut = async () => {
+    setAttendanceSaving(true);
     try {
       const res: any = await attendanceService.checkOut({
         employeeId: apiId || "",
         checkOutTime: new Date().toISOString(),
         markedBy: session?.user.employeeId ? session?.user.employeeId : session?.user.userId,
       });
-      showSnackbar(res.message, 'success');
+      showSnackbar(res?.message || "Check-out marked successfully.", 'success');
+      await fetchEmployeeAttendance(String(apiId));
     } catch (error: any) {
+      showSnackbar(error?.message || "Unable to check out.", "error");
+    } finally {
+      setAttendanceSaving(false);
     }
   }
 
@@ -4229,7 +4263,7 @@ export default function EmployeeDetails() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <div className="mr-2">
               <ProfileCompletionProgress
                 employee={employee}
@@ -4237,29 +4271,58 @@ export default function EmployeeDetails() {
                 showLabel={true}
               />
             </div>
-            {
-              isAdmin ? (
-                <div>
-                  <Button
-                    variant="outlined"
-                    className="!text-primary !border-primary"
-                    onClick={handleOpenAuditLog}
-                  >
-                    Audit Log
-                  </Button>
-                </div>
+            <div className="flex flex-col items-center gap-2">
+              {isAdmin ? (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={handleOpenAuditLog}
+                  className="!text-primary !text-[12px] !font-medium !normal-case !min-w-0 !px-2"
+                >
+                  Audit Log
+                </Button>
               ) : (
-                <div>
-                  <Button
-                    variant="contained"
-                    color={!checkIn ? 'success' : 'error'}
-                    onClick={!checkIn ? handleCheckIn : handleCheckOut}
-                  >
-                    {!checkIn ? 'Check In' : 'Check Out'}
-                  </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  disableElevation
+                  color={!hasCheckedIn ? 'success' : hasCheckedOut ? 'info' : 'error'}
+                  onClick={() => {
+                    if (attendanceSaving || attendanceLoading || hasCheckedOut) return;
+                    hasCheckedIn ? handleCheckOut() : handleCheckIn();
+                  }}
+                  className="!rounded-md !px-4 !py-1 !text-[12px] !font-medium !normal-case "
+                >
+                  {attendanceSaving
+                    ? "Processing…"
+                    : !hasCheckedIn
+                      ? 'Check In'
+                      : hasCheckedOut
+                        ? 'Done for today ✨'
+                        : 'Check Out'}
+                </Button>
+              )}
+
+              {attendanceLoading ? (
+                <span className="text-[11px] text-gray-400">Loading…</span>
+              ) : (
+                <div className="flex items-center text-[11px]" aria-live="polite">
+                  <div className="flex flex-col items-end pr-2.5">
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">In</span>
+                    <span className="text-emerald-700 font-semibold tabular-nums leading-tight mt-0.5">
+                      {formatAttendanceTime(todayAttendance?.todayCheckIn)}
+                    </span>
+                  </div>
+                  <div className="w-px h-6 bg-gray-200" />
+                  <div className="flex flex-col items-start pl-2.5">
+                    <span className="text-[9px] uppercase tracking-wider text-gray-400 leading-none">Out</span>
+                    <span className="text-red-500 font-semibold tabular-nums leading-tight mt-0.5">
+                      {formatAttendanceTime(todayAttendance?.todayCheckOut)}
+                    </span>
+                  </div>
                 </div>
-              )
-            }
+              )}
+            </div>
           </div>
         </MaterialModule.CardContent>
       </MaterialModule.Card>

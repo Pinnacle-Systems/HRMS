@@ -458,6 +458,12 @@ export const tabs = [
         roles: ["ADMIN"] as UserRole[],
       },
       {
+        id: "approval-workflow",
+        label: "Approval Workflow",
+        path: "/settings/general/approval-workflow",
+        roles: ["ADMIN"] as UserRole[],
+      },
+      {
         id: "audit-logs",
         label: "Audit Logs",
         path: "/settings/general/audit-logs",

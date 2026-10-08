@@ -191,6 +191,7 @@ export interface PolicyConfig {
   accrualRules?: AccrualRule;
   carryForward?: CarryForwardRule;
   approvalFlow?: ApprovalFlowConfig;
+  approvalFLowConfig?: approvalFLowConfig;
 
   // Expense domain
   expenseLimits?: Record<string, ExpenseLimit>;
@@ -353,12 +354,12 @@ export interface PolicyConfig {
   bonusRules?: {
     bonusTypes?: Array<{
       type:
-        | "ANNUAL"
-        | "PERFORMANCE"
-        | "FESTIVAL"
-        | "RETENTION"
-        | "REFERRAL"
-        | "JOINING";
+      | "ANNUAL"
+      | "PERFORMANCE"
+      | "FESTIVAL"
+      | "RETENTION"
+      | "REFERRAL"
+      | "JOINING";
       name: string;
       calculationBasis: "CTC" | "BASIC" | "GROSS";
       percentage?: number;
@@ -382,12 +383,12 @@ export interface PolicyConfig {
     // --- SECTION 1: SANCTIONING ---
     loanTypes?: Array<{
       type:
-        | "SALARY_ADVANCE"
-        | "PERSONAL_LOAN"
-        | "FESTIVAL_ADVANCE"
-        | "EDUCATION_LOAN"
-        | "MEDICAL_ADVANCE"
-        | "VEHICLE_LOAN";
+      | "SALARY_ADVANCE"
+      | "PERSONAL_LOAN"
+      | "FESTIVAL_ADVANCE"
+      | "EDUCATION_LOAN"
+      | "MEDICAL_ADVANCE"
+      | "VEHICLE_LOAN";
       name: string;
       maxAmount?: number;
       maxMonthlyMultiplier?: number;
@@ -411,9 +412,9 @@ export interface PolicyConfig {
         allowed: boolean;
         maxSkipsPerYear: number;
         skipReasons: [
-         | "MEDICAL_EMERGENCY",
-         | "SALARY_CREDIT_DELAY",
-         | "FAMILY_EVENT",
+          | "MEDICAL_EMERGENCY",
+          | "SALARY_CREDIT_DELAY",
+          | "FAMILY_EVENT",
         ];
         // CRITICAL: Configurable recovery method for the skipped month
         recoveryMethod: "TENOR_EXTENSION" | "CATCH_UP";
@@ -425,12 +426,12 @@ export interface PolicyConfig {
         processingFeePercentage: number; // 2% if you charge a fee
       };
     };
-     // --- SECTION 3: OVERLAPPING LOAN & PENDING ARREARS (NEW - Handles multiple loans) ---
+    // --- SECTION 3: OVERLAPPING LOAN & PENDING ARREARS (NEW - Handles multiple loans) ---
     overlappingLoanPolicy: {
       allowConcurrentLoans: boolean, // If false, blocks new loan until old one finishes
       maxTotalDeductionPercentage: number, // Combined EMIs cannot exceed 50% of salary      
       // CRITICAL: What to do with an old loan's pending balance when giving a new loan?
-      pendingArrearHandling: "REJECT" | "CONSOLIDATE" | "PARALLEL_WITH_ADJUSTED_TENURE" | "MANUAL_OVERRIDE", 
+      pendingArrearHandling: "REJECT" | "CONSOLIDATE" | "PARALLEL_WITH_ADJUSTED_TENURE" | "MANUAL_OVERRIDE",
       /* 
         Options:
         - "REJECT": Do not allow a new loan if any pending months exist.
@@ -683,15 +684,15 @@ export interface Allowance {
 export interface ApprovalCondition {
   field: string;
   operator:
-    | "eq"
-    | "neq"
-    | "gt"
-    | "gte"
-    | "lt"
-    | "lte"
-    | "in"
-    | "notIn"
-    | "between";
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "in"
+  | "notIn"
+  | "between";
   value: any;
 }
 
@@ -699,11 +700,11 @@ export interface ApprovalLevel {
   id?: string;
   level: number;
   approverType:
-    | "REPORTING_MANAGER"
-    | "HR"
-    | "DEPARTMENT_HEAD"
-    | "ADMIN"
-    | "SPECIFIC_USER";
+  | "REPORTING_MANAGER"
+  | "HR"
+  | "DEPARTMENT_HEAD"
+  | "ADMIN"
+  | "SPECIFIC_USER";
   approverId?: string;
   condition?: ApprovalCondition;
   timeoutDays?: number;
@@ -719,6 +720,10 @@ export interface ApprovalFlowConfig {
   notifyOnApproval?: boolean;
   parallelApproval?: boolean;
   rejectionRequiresReason?: boolean;
+}
+
+export interface approvalFLowConfig {
+  allowAutoApproval?: boolean;
 }
 
 // ============================================
@@ -738,15 +743,15 @@ export interface PolicyRule {
 export interface RuleCondition {
   field: string;
   operator:
-    | "eq"
-    | "neq"
-    | "gt"
-    | "gte"
-    | "lt"
-    | "lte"
-    | "in"
-    | "notIn"
-    | "between";
+  | "eq"
+  | "neq"
+  | "gt"
+  | "gte"
+  | "lt"
+  | "lte"
+  | "in"
+  | "notIn"
+  | "between";
   value: any;
   logicalOperator?: "and" | "or";
   conditions?: RuleCondition[];
@@ -754,11 +759,11 @@ export interface RuleCondition {
 
 export interface RuleAction {
   type:
-    | "ALLOW"
-    | "REJECT"
-    | "REQUIRE_APPROVAL"
-    | "REQUIRE_DOCUMENT"
-    | "CALCULATE";
+  | "ALLOW"
+  | "REJECT"
+  | "REQUIRE_APPROVAL"
+  | "REQUIRE_DOCUMENT"
+  | "CALCULATE";
   value?: any;
   message?: string;
 }

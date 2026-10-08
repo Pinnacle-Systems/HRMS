@@ -24,3 +24,4 @@ class PunchData(Base):
     machine_type = Column(String(50), nullable=True)
     machine_in_out_grid_id = Column(String, ForeignKey("biometric_devices.id"), nullable=True)
     employee_id = Column(String, ForeignKey("employees.id"), nullable=True)
+    status = Column(String(50), index=True)

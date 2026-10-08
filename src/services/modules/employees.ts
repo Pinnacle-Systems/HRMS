@@ -357,6 +357,10 @@ export const employeeService = {
     return apiService.delete(API_ENDPOINTS.EMPLOYEE.DELETE(id), { data });
   },
 
+  async hardDeleteEmployee(id: string) {
+    return apiService.delete(API_ENDPOINTS.EMPLOYEE.HARD_DELETE(id));
+},
+
   async reactivateEmployee(id: string): Promise<EmployeeSummaryResponse> {
     const response: any = await apiService.patch(
       API_ENDPOINTS.EMPLOYEE.REACTIVATE(id),

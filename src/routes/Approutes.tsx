@@ -24,6 +24,7 @@ import EditRevision from "../pages/payroll/Operations/EditRevision.tsx";
 const Employees = lazy(() => import("../pages/employees/employeeManagement"));
 const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword/ForgotPassword"));
 const Home = lazy(() => import("../pages/home/home"));
+const EmployeeHome = lazy(() => import("../pages/home/employeeHome"));
 const BIWorkspacePage = lazy(() => import("../pages/home/BiWorkspacePage.tsx"));
 const ApplyLeavePage = lazy(() => import("../pages/leave/EmployeeComponents/ApplyLeavePage"));
 const CompOffsPage = lazy(() => import("../pages/leave/EmployeeComponents/CompOffsPage"));
@@ -55,6 +56,7 @@ const TenantSelectPage = lazy(() => import("../pages/auth/TenantSelectPage"));
 const UnauthorizedPage = lazy(() => import("../pages/UnauthorizedPage"));
 const VerifyOTP = lazy(() => import("../pages/auth/VerifyOTP/otp"));
 const PasswordConfig = lazy(() => import("../pages/settings/general/passwordConfig"));
+const ApprovalWorkflowSettings = lazy(() => import("../pages/settings/general/approvalWorkflow"));
 const CompanySettings = lazy(() => import("../pages/settings/general/companySettings"));
 const Profile = lazy(() => import("../pages/myProfile/myprofile"));
 const BranchSettings = lazy(() => import("../pages/settings/general/branchSettings"));
@@ -495,7 +497,7 @@ const routeConfigs: RouteConfig[] = [
   },
   {
     path: "employee/dashboard",
-    element: <Home />,
+    element: <EmployeeHome />,
     allowedRoles: ["EMPLOYEE", "ESS"],
     requiredPermissions: [PERMISSIONS.PROFILE_READ],
     requiresWorkspace: true,
@@ -770,6 +772,7 @@ function AppRoutesContent() {
                       <Route path="general/branch-settings" element={<BranchSettings />} />
                       <Route path="general/shift-settings" element={<ShiftSettings />} />
                       <Route path="general/password-config" element={<PasswordConfig />} />
+                      <Route path="general/approval-workflow" element={<ApprovalWorkflowSettings />} />
                     </Route>
 
                     {/* Audit Logs - Admin, HR, Manager with REPORT_READ */}

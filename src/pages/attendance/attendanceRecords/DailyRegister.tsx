@@ -45,6 +45,7 @@ import {
   ErrorOutlined,
   WarningAmberOutlined,
   PendingActionsOutlined,
+  PlayArrowOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -99,11 +100,10 @@ function InlineDisplay({
           onClick();
         }
       }}
-      className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${
-        disabled
-          ? ""
-          : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
-      } ${className}`}
+      className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${disabled
+        ? ""
+        : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
+        } ${className}`}
     >
       {value || <span className="text-gray-400">{placeholder}</span>}
     </div>
@@ -841,8 +841,7 @@ export function DailyRegister() {
           } catch (err: any) {
             failCount += group.length;
             errors.push(
-              `Bulk check-in failed (${group.length}): ${
-                err?.response?.data?.message ?? "Unknown error"
+              `Bulk check-in failed (${group.length}): ${err?.response?.data?.message ?? "Unknown error"
               }`,
             );
           }
@@ -881,8 +880,7 @@ export function DailyRegister() {
           } catch (err: any) {
             failCount += group.length;
             errors.push(
-              `Bulk check-out failed (${group.length}): ${
-                err?.response?.data?.message ?? "Unknown error"
+              `Bulk check-out failed (${group.length}): ${err?.response?.data?.message ?? "Unknown error"
               }`,
             );
           }
@@ -912,8 +910,7 @@ export function DailyRegister() {
         } catch (err: any) {
           failCount += requests.length;
           errors.push(
-            `Bulk correction request failed: ${
-              err?.response?.data?.message ?? "Unknown error"
+            `Bulk correction request failed: ${err?.response?.data?.message ?? "Unknown error"
             }`,
           );
         }
@@ -1559,16 +1556,14 @@ export function DailyRegister() {
 
         showSnackbar(
           data?.message
-            ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${
-                fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
-              }`
+            ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
+            }`
             : `Imported ${data?.totalPunches || 0} punches and processed attendance`,
           data?.errors > 0 ? "warning" : "success",
         );
       } catch (processErr: any) {
         showSnackbar(
-          `Punches imported, but processing failed: ${
-            processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
+          `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
           }`,
           "warning",
         );
@@ -1590,15 +1585,15 @@ export function DailyRegister() {
 
   const statCards = todaySummary
     ? [
-        { label: "Total", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
-        { label: "Present", value: todaySummary.present, color: "text-green-600", border: "border-green-500" },
-        { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
-        { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
-        { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
-        { label: "Missed Punch", value: todaySummary.missedPunchCount, color: "text-cyan-600", border: "border-cyan-500" },
-        { label: "Irregular", value: todaySummary.irregular, color: "text-pink-600", border: "border-pink-500" },
-        { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
-      ]
+      { label: "Total", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
+      { label: "Present", value: todaySummary.present, color: "text-green-600", border: "border-green-500" },
+      { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
+      { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
+      { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
+      { label: "Missed Punch", value: todaySummary.missedPunchCount, color: "text-cyan-600", border: "border-cyan-500" },
+      { label: "Irregular", value: todaySummary.irregular, color: "text-pink-600", border: "border-pink-500" },
+      { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
+    ]
     : [];
 
   const handleEmployee = async (employee: any) => {
@@ -1773,6 +1768,17 @@ export function DailyRegister() {
 
   const selectableEmployees = employees.filter((e) => e.status !== "leave");
 
+  const runAttendance = async () => {
+    showSpinner();
+    try {
+      await biometricService.runAttendance();
+    } catch (error: any) {
+      showSnackbar("Failed to run attendance", "error")
+    } finally {
+      hideSpinner();
+    }
+  }
+
   return (
     <div className="p-4 space-y-3">
       {/* Summary cards */}
@@ -1806,6 +1812,15 @@ export function DailyRegister() {
             onClick={handleOpenReminderDialog}
           >
             Send Reminders {selected.size > 0 && `(${selected.size})`}
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<PlayArrowOutlined className="!w-4" />}
+            onClick={runAttendance}
+          >
+            Run Attendance
           </Button>
         </div>
       </div>
@@ -2018,13 +2033,12 @@ export function DailyRegister() {
       {/* Register Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <TableContainer
-          className={`${
-            todayHoliday && selected.size > 0
-              ? "max-h-[calc(100vh-565px)]"
-              : selected.size > 0 || todayHoliday
-                ? "max-h-[calc(100vh-200px)]"
-                : "max-h-[calc(100vh-200px)]"
-          }`}
+          className={`${todayHoliday && selected.size > 0
+            ? "max-h-[calc(100vh-565px)]"
+            : selected.size > 0 || todayHoliday
+              ? "max-h-[calc(100vh-200px)]"
+              : "max-h-[calc(100vh-200px)]"
+            }`}
         >
           <Table size="small" stickyHeader>
             <TableHead>
@@ -2061,15 +2075,14 @@ export function DailyRegister() {
                 ].map((h, i) => (
                   <TableCell
                     key={h}
-                    className={`!font-bold ${
-                      i == 0
-                        ? "!sticky left-[68px] !z-40"
-                        : h == "Action"
-                          ? "!sticky right-0 !z-40"
-                          : h == "Status"
-                            ? "!sticky right-[69px] !z-40"
-                            : ""
-                    }`}
+                    className={`!font-bold ${i == 0
+                      ? "!sticky left-[68px] !z-40"
+                      : h == "Action"
+                        ? "!sticky right-0 !z-40"
+                        : h == "Status"
+                          ? "!sticky right-[69px] !z-40"
+                          : ""
+                      }`}
                   >
                     {h}
                   </TableCell>
@@ -2426,10 +2439,9 @@ export function DailyRegister() {
                       <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
                         <div className="flex items-center gap-1">
                           <span
-                            className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${
-                              ATTENDANCE_STATUS_BG[emp.status] ??
+                            className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${ATTENDANCE_STATUS_BG[emp.status] ??
                               "bg-gray-100 text-gray-600"
-                            }`}
+                              }`}
                           >
                             {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
                           </span>
@@ -3119,11 +3131,10 @@ export function DailyRegister() {
             <div className="flex justify-center gap-2">
               <Button
                 variant={bulkActionType === "checkIn" ? "contained" : "outlined"}
-                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${
-                  bulkActionType === "checkIn"
-                    ? "!bg-gradient-to-br !from-emerald-400 !to-emerald-500 !text-white shadow-lg shadow-emerald-200/50"
-                    : "!text-emerald-600 !border-emerald-500 hover:!bg-white/50 !backdrop-blur-sm"
-                }`}
+                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${bulkActionType === "checkIn"
+                  ? "!bg-gradient-to-br !from-emerald-400 !to-emerald-500 !text-white shadow-lg shadow-emerald-200/50"
+                  : "!text-emerald-600 !border-emerald-500 hover:!bg-white/50 !backdrop-blur-sm"
+                  }`}
                 onClick={() => setBulkActionType("checkIn")}
                 startIcon={<LoginOutlined className="!w-4 !h-4" />}
               >
@@ -3131,11 +3142,10 @@ export function DailyRegister() {
               </Button>
               <Button
                 variant={bulkActionType === "checkOut" ? "contained" : "outlined"}
-                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${
-                  bulkActionType === "checkOut"
-                    ? "!bg-gradient-to-br !from-blue-400 !to-blue-500 !text-white shadow-lg shadow-blue-200/50"
-                    : "!text-blue-600 !border-blue-500 hover:!bg-white/50 !backdrop-blur-sm"
-                }`}
+                className={`flex-1 rounded-lg py-2.5 px-4 transition-all duration-300 backdrop-blur-sm w-max ${bulkActionType === "checkOut"
+                  ? "!bg-gradient-to-br !from-blue-400 !to-blue-500 !text-white shadow-lg shadow-blue-200/50"
+                  : "!text-blue-600 !border-blue-500 hover:!bg-white/50 !backdrop-blur-sm"
+                  }`}
                 onClick={() => setBulkActionType("checkOut")}
                 startIcon={<LogoutOutlined className="!w-4 !h-4" />}
               >
@@ -3301,11 +3311,11 @@ export function DailyRegister() {
                       }}
                     >
                       {bulkCheckinEmployees.length ===
-                      employees.filter((emp) => emp.status !== "leave").length
+                        employees.filter((emp) => emp.status !== "leave").length
                         ? "Deselect All"
                         : `Select All (${employees.filter((emp) => emp.status !== "leave")
-                            .length
-                          })`}
+                          .length
+                        })`}
                     </Button>
                   </div>
                 </div>
@@ -3764,13 +3774,12 @@ export function DailyRegister() {
 
             {importResult && !importing && (
               <div
-                className={`border rounded-lg p-3 ${
-                  importResult.failed > 0 && importResult.success === 0
-                    ? "border-red-200 bg-red-50"
-                    : importResult.failed > 0
-                      ? "border-orange-200 bg-orange-50"
-                      : "border-green-200 bg-green-50"
-                }`}
+                className={`border rounded-lg p-3 ${importResult.failed > 0 && importResult.success === 0
+                  ? "border-red-200 bg-red-50"
+                  : importResult.failed > 0
+                    ? "border-orange-200 bg-orange-50"
+                    : "border-green-200 bg-green-50"
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -3819,9 +3828,8 @@ export function DailyRegister() {
                         return (
                           <div
                             key={index}
-                            className={`text-[12px] py-0.5 ${
-                              isTimestampError ? "text-amber-600" : "text-red-600"
-                            }`}
+                            className={`text-[12px] py-0.5 ${isTimestampError ? "text-amber-600" : "text-red-600"
+                              }`}
                           >
                             • {error}
                           </div>
@@ -4247,9 +4255,8 @@ export function DailyRegister() {
                       </div>
                       <div className="flex items-center gap-1">
                         <span
-                          className={`w-2 h-2 rounded-full ${
-                            device.isActive ? "bg-green-500" : "bg-red-500"
-                          }`}
+                          className={`w-2 h-2 rounded-full ${device.isActive ? "bg-green-500" : "bg-red-500"
+                            }`}
                         ></span>
                         <span className="text-[10px] text-gray-500">
                           {device.isActive ? "Active" : "Inactive"}
@@ -4503,21 +4510,18 @@ export function DailyRegister() {
                             <span
                               className={`
                         text-[12px] px-2 py-0.5 rounded-full
-                        ${
-                          result.status === "present"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : ""
-                        }
-                        ${
-                          result.status === "absent"
-                            ? "bg-red-100 text-red-700"
-                            : ""
-                        }
-                        ${
-                          result.status === "late"
-                            ? "bg-amber-100 text-amber-700"
-                            : ""
-                        }
+                        ${result.status === "present"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : ""
+                                }
+                        ${result.status === "absent"
+                                  ? "bg-red-100 text-red-700"
+                                  : ""
+                                }
+                        ${result.status === "late"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : ""
+                                }
                       `}
                             >
                               {result.status}

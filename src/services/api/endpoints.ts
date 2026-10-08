@@ -35,6 +35,13 @@ export const API_ENDPOINTS = {
     BASE: "/password-policy",
   },
 
+  APPROVAL_WORKFLOW: {
+    SETTINGS: "/approval-workflows/settings",
+    REQUESTS: "/approval-workflows/requests",
+    DECIDE: (requestId: string) =>
+      `/approval-workflows/requests/${requestId}/decision`,
+  },
+
   BRANCH: {
     BASE: "/org/branches",
     GET_BY_ID: (id: string) => `/org/branches/${id}`,
@@ -103,6 +110,7 @@ export const API_ENDPOINTS = {
 
   EMPLOYEE: {
     DELETE: (id: string) => `/employees/${id}`,
+    HARD_DELETE: (id: string) => `/employees/${id}/hard`,
     REACTIVATE: (id: string) => `/employees/${id}/reactivate`,
     DELETE_TRAINING: (id: string, tid: string) =>
       `/employees/${id}/training-details/${tid}`,
@@ -859,6 +867,7 @@ export const API_ENDPOINTS = {
       POST_MAP: "/integration/biometric/map",
       POST_DEVICE: "/integration/biometric/devices",
       UPDATE_DEVICE: (id: string) => `/integration/biometric/devices/${id}`,
+      RUN_ATTENDANCE: "/integration/biometric/punches/run-attendance"
     },
 
     DATA_INTEGRITY: {

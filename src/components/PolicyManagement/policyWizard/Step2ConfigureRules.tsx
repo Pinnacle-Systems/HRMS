@@ -42,6 +42,7 @@ import {
   BonusRulesBlock,
   LoanAdvanceRulesBlock,
 } from './ruleBlocks';
+import { ApprovalWorkflowRulesBlock } from './ruleBlocks/ApprovalWorkflowRulesBlock';
 
 // This component is now a thin orchestrator: it owns the shared config state,
 // the deep-path `set` setter, and the debounced validate+save logic. The
@@ -295,6 +296,12 @@ export const Step2ConfigureRules: React.FC<Step2ConfigureRulesProps> = ({
       case 'ALLOWANCE_RULES': return <AllowanceRulesBlock localConfig={localConfig} set={set} />;
       case 'BONUS_RULES': return <BonusRulesBlock localConfig={localConfig} set={set} />;
       case 'LOAN_ADVANCE_RULES': return <LoanAdvanceRulesBlock localConfig={localConfig} set={set} />;
+      case 'APPROVAL_FLOW': {
+        if (domainName !== 'Leave') {
+          return <Alert severity="info">Configuration for {block.ruleBlockName} coming soon.</Alert>;
+        }
+        return <ApprovalWorkflowRulesBlock localConfig={localConfig} set={set} />;
+      }
       default:
         return <Alert severity="info">Configuration for {block.ruleBlockName} coming soon.</Alert>;
     }

@@ -54,8 +54,10 @@ import {
   CheckCircleOutlined,
   CloseOutlined,
   CloudUploadOutlined,
+  Delete,
   DownloadOutlined,
   Edit,
+  ErrorOutlineOutlined,
   ExpandLessOutlined,
   ExpandMoreOutlined,
   FileDownloadOutlined,
@@ -199,6 +201,10 @@ export default function EmployeeManagement() {
   const [expandedResignedEmployeeId, setExpandedResignedEmployeeId] = useState<string | null>(null);
   const [resignedEmployeeDetails, setResignedEmployeeDetails] = useState<Record<string, any>>({});
   const [resignedDetailsLoading, setResignedDetailsLoading] = useState<string | null>(null);
+
+  const [hardDeleteErrorDialogOpen, setHardDeleteErrorDialogOpen] = useState(false);
+  const [hardDeleteErrorEmployee, setHardDeleteErrorEmployee] = useState<Employee | null>(null);
+  const [hardDeleteErrorMessage, setHardDeleteErrorMessage] = useState<string>("");
 
   const filterFields = useMemo(
     () =>
@@ -799,6 +805,46 @@ export default function EmployeeManagement() {
     });
   };
 
+  const handleHardDeleteEmployee = async (employee: Employee) => {
+    showConfirmDialog({
+      title: "Permanently Delete Employee",
+      message: `Permanently delete "${employee.name}"? This action is IRREVERSIBLE and removes the employee row entirely. It will fail if the employee has attendance logs — deactivate instead in that case.`,
+      confirmText: "Delete Permanently",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const res: any = await employeeService.hardDeleteEmployee(employee.id);
+          const payload = res?.data ?? res;
+          showSnackbar(
+            payload?.message || `"${employee.name}" has been permanently deleted.`,
+            "success",
+          );
+          getEmployees();
+        } catch (error: any) {
+          const status =
+            error?.response?.status ?? error?.status ?? error?.statusCode;
+
+          const message =
+            error?.response?.data?.message ||
+            error?.response?.data?.error ||
+            error?.message ||
+            "Failed to permanently delete employee.";
+
+          if (status === 409) {
+            setHardDeleteErrorEmployee(employee);
+            setHardDeleteErrorMessage(message);
+            setHardDeleteErrorDialogOpen(true);
+          } else {
+            showSnackbar(message, "error");
+          }
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
   const handleReactivateEmployee = async (id: string, name: string) => {
     showConfirmDialog({
       title: "Reactivate Employee",
@@ -826,6 +872,21 @@ export default function EmployeeManagement() {
         }
       },
     });
+  };
+
+  const openDeactivateDialog = (employee: Employee) => {
+    setRelievingDialogEmployee(employee);
+    const proposed = dayjs().format("YYYY-MM-DD");
+    const generated = dayjs(proposed)
+      .add(Number(employee.noticePeriod || 0), "day")
+      .format("YYYY-MM-DD");
+    setRelievingDate(generated);
+    setProposedRelievedDate(proposed);
+    setSystemGeneratedRelievedDate(generated);
+    setResignationType("");
+    setAdminRemarks("");
+    setEligibleForRehire(true);
+    setRelievingDialogOpen(true);
   };
 
   const BULK_UPLOAD_ACCEPTED = [".csv", ".xlsx"];
@@ -1585,20 +1646,7 @@ export default function EmployeeManagement() {
                       <Tooltip title="Deactivate">
                         <IconButton
                           size="small"
-                          onClick={() => {
-                            setRelievingDialogEmployee(employee);
-                            const proposed = dayjs().format("YYYY-MM-DD");
-                            const generated = dayjs(proposed)
-                              .add(Number(employee.noticePeriod || 0), "day")
-                              .format("YYYY-MM-DD");
-                            setRelievingDate(generated);
-                            setProposedRelievedDate(proposed);
-                            setSystemGeneratedRelievedDate(generated);
-                            setResignationType("");
-                            setAdminRemarks("");
-                            setEligibleForRehire(true);
-                            setRelievingDialogOpen(true);
-                          }}
+                          onClick={() => openDeactivateDialog(employee)}
                         >
                           <NoAccountsOutlined
                             className="!w-4"
@@ -2187,6 +2235,18 @@ export default function EmployeeManagement() {
           />
           Export Employee
         </MenuItem>
+        <MenuItem
+          className="!text-[12px] !text-red-600"
+          onClick={() => {
+            if (actionMenuEmployee) {
+              handleHardDeleteEmployee(actionMenuEmployee);
+            }
+            closeActionMenu();
+          }}
+        >
+          <Delete className="!w-4 mr-2" color="error" />
+          Delete Permanently
+        </MenuItem>
       </Menu>
 
       {/* Relieving Date Dialog */}
@@ -2749,6 +2809,94 @@ export default function EmployeeManagement() {
             className={!uploadFile ? "!bg-gray-300" : "!bg-primary"}
           >
             Upload & Send Emails
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Hard Delete Conflict Error Dialog */}
+      <Dialog
+        open={hardDeleteErrorDialogOpen}
+        onClose={() => setHardDeleteErrorDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <div className="flex items-center justify-between border-b border-gray-300 p-2">
+          <div className="text-gray-800 text-[13px] ml-4 font-semibold flex items-center gap-2">
+            <ErrorOutlineOutlined sx={{ color: "#dc2626" }} fontSize="small" />
+            Cannot Permanently Delete Employee
+          </div>
+          <IconButton onClick={() => setHardDeleteErrorDialogOpen(false)}>
+            <CloseOutlined className="!text-gray-800" />
+          </IconButton>
+        </div>
+
+        <DialogContent>
+          <Alert severity="error" className="mb-4">
+            {hardDeleteErrorMessage}
+          </Alert>
+
+          <div className="text-[12px] text-gray-700 space-y-2">
+            <div>
+              <span className="font-medium">Employee:</span>{" "}
+              {hardDeleteErrorEmployee?.name}
+              {hardDeleteErrorEmployee?.employeeId
+                ? ` (${hardDeleteErrorEmployee.employeeId})`
+                : ""}
+            </div>
+
+            <div className="pt-1 text-gray-600">
+              To proceed, you can either:
+            </div>
+            <ul className="list-disc ml-5 text-gray-600 space-y-1">
+              <li>
+                <strong>Deactivate</strong> the employee instead — history is
+                preserved and they can be reactivated later.
+              </li>
+              <li>
+                <strong>Clear the attendance history</strong> for this employee
+                first, then retry the permanent delete.
+              </li>
+            </ul>
+          </div>
+        </DialogContent>
+
+        <DialogActions className="!p-4 border-t !border-gray-300">
+          <Button
+            onClick={() => {
+              setHardDeleteErrorDialogOpen(false);
+              setHardDeleteErrorEmployee(null);
+              setHardDeleteErrorMessage("");
+            }}
+            variant="outlined"
+            className="!border-gray-300 !text-gray-800"
+          >
+            Cancel
+          </Button>
+          {/* <Button
+            onClick={() => {
+              setHardDeleteErrorDialogOpen(false);
+              // optionally jump to attendance for this employee
+              // navigate(`/attendance/employee/${...}`);
+            }}
+            variant="contained"
+            className="!bg-primary"
+          >
+            Go to Attendance
+          </Button> */}
+          <Button
+            onClick={() => {
+              const emp = hardDeleteErrorEmployee;
+              setHardDeleteErrorDialogOpen(false);
+              setHardDeleteErrorEmployee(null);
+              setHardDeleteErrorMessage("");
+              if (emp) openDeactivateDialog(emp);
+            }}
+            variant="contained"
+            sx={{ bgcolor: "#ef4444", "&:hover": { bgcolor: "#dc2626" } }}
+            startIcon={<NoAccountsOutlined />}
+            disabled={!hardDeleteErrorEmployee}
+          >
+            Deactivate Instead
           </Button>
         </DialogActions>
       </Dialog>
