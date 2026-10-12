@@ -36,10 +36,28 @@ export const API_ENDPOINTS = {
   },
 
   APPROVAL_WORKFLOW: {
-    SETTINGS: "/approval-workflows/settings",
-    REQUESTS: "/approval-workflows/requests",
-    DECIDE: (requestId: string) =>
-      `/approval-workflows/requests/${requestId}/decision`,
+    // Modules
+    MODULES: "/approval/modules",
+    MODULE_BY_ID: (id: string) => `/approval/modules/${id}`,
+    MODULE_TOGGLE_ACTIVE: (id: string) => `/approval/modules/${id}/toggle-active`,
+    MODULE_BY_DBFIELDS: (id: string) => `/approval/modules/${id}/db-fields`,
+
+    // Operators
+    OPERATORS: "/approval/operators",
+    OPERATOR_BY_ID: (id: string) => `/approval/operators/${id}`,
+
+    // Fields (Field Dictionary)
+    FIELDS: "/approval/fields",
+    FIELD_BY_ID: (id: string) => `/approval/fields/${id}`,
+
+    // Configurations (Workflows)
+    CONFIGURATIONS: "/approval/configurations",
+    CONFIGURATION_BY_ID: (id: string) => `/approval/configurations/${id}`,
+    CONFIGURATION_TOGGLE_ACTIVE: (id: string) =>
+      `/approval/configurations/${id}/toggle-active`,
+
+    // Evaluate (Dry-run)
+    EVALUATE: "/approval/evaluate",
   },
 
   BRANCH: {
@@ -1347,7 +1365,7 @@ export const API_ENDPOINTS = {
     DELETE: (id: string) => `/v1/payroll/revision-templates/${id}`,
     DROPDOWN: "/v1/payroll/revision-templates/dropdown",
   },
-  
+
   SALARY_HISTORY: {
     BY_EMPLOYEE: (employeeId: string) => `/v1/employees/${employeeId}/salary-history`,
     GET_BY_ID: (id: string) => `/v1/salary-history/${id}`,

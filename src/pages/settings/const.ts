@@ -457,12 +457,12 @@ export const tabs = [
         path: "/settings/general/password-config",
         roles: ["ADMIN"] as UserRole[],
       },
-      {
-        id: "approval-workflow",
-        label: "Approval Workflow",
-        path: "/settings/general/approval-workflow",
-        roles: ["ADMIN"] as UserRole[],
-      },
+      // {
+      //   id: "approval-workflow",
+      //   label: "Approval Workflow",
+      //   path: "/settings/general/approval-workflow",
+      //   roles: ["ADMIN"] as UserRole[],
+      // },
       {
         id: "audit-logs",
         label: "Audit Logs",
@@ -590,14 +590,14 @@ export const tabs = [
     ],
   },
   {
-    id: "income-tax",
-    label: "Income Tax",
+    id: "approval-workflow",
+    label: "Approval Workflow",
     roles: ["ADMIN"] as UserRole[],
     options: [
-      {
-        id: "income-tax-settings",
-        label: "Income Tax Settings",
-        path: "/settings/income-tax/income-tax-settings",
+       {
+        id: "approval-workflow",
+        label: "Approval-Workflow Configuration",
+        path: "/settings/general/approval-workflow",
         roles: ["ADMIN"] as UserRole[],
       },
     ],

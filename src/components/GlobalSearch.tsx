@@ -438,6 +438,15 @@ const ALL_ITEMS: SearchItem[] = [
     roles: ["ADMIN", "HR"],
   },
   {
+    label: "Approval Workflow Configuration",
+    description: "Configure approval workflows and approval rules",
+    path: "/settings/general/approval-workflow",
+    category: "Settings",
+    icon: <SettingsOutlinedIcon fontSize="small" />,
+    keywords: ["approval", "workflow", "configuration", "rules", "approvals"],
+    roles: ["ADMIN", "HR"],
+  },
+  {
     label: "My Profile",
     description: "View and update your profile",
     path: "/profile",

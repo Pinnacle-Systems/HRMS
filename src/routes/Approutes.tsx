@@ -56,7 +56,7 @@ const TenantSelectPage = lazy(() => import("../pages/auth/TenantSelectPage"));
 const UnauthorizedPage = lazy(() => import("../pages/UnauthorizedPage"));
 const VerifyOTP = lazy(() => import("../pages/auth/VerifyOTP/otp"));
 const PasswordConfig = lazy(() => import("../pages/settings/general/passwordConfig"));
-const ApprovalWorkflowSettings = lazy(() => import("../pages/settings/general/approvalWorkflow"));
+const ApprovalWorkflowSettings = lazy(() => import("../pages/settings/general/approvalWorkflow/approvalWorkflowHome"));
 const CompanySettings = lazy(() => import("../pages/settings/general/companySettings"));
 const Profile = lazy(() => import("../pages/myProfile/myprofile"));
 const BranchSettings = lazy(() => import("../pages/settings/general/branchSettings"));

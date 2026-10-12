@@ -4305,7 +4305,7 @@ export function DailyRegister() {
                   {punchEntries.map((entry, index) => (
                     <div
                       key={entry.id || index}
-                      className="grid grid-cols-[30px_1fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200"
+                      className="grid grid-cols-[30px_2fr_2fr_2fr_1fr] gap-2 px-3 py-2 border-b border-gray-200"
                     >
                       <div className="text-[12px] text-gray-400">{index + 1}</div>
                       <div className="text-[12px]">

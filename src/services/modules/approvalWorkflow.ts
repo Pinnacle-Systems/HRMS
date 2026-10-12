@@ -1,214 +1,279 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
-export const APPROVAL_ACTIONS = [
-  { id: "CREATE", label: "Create" },
-  { id: "UPDATE", label: "Update" },
-  { id: "DELETE", label: "Delete" },
-  { id: "STATUS_CHANGE", label: "Status change" },
-] as const;
+// --- Types based on API Documentation ---
 
-export type ApprovalAction = (typeof APPROVAL_ACTIONS)[number]["id"];
-export type ApprovalCondition = "ANY" | "ALL";
-export type ApprovalRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
-
-export const APPROVAL_MODULES = [
-  { id: "employees", label: "Employees" },
-  { id: "organization", label: "Organization" },
-  { id: "attendance", label: "Attendance" },
-  { id: "leave", label: "Leave" },
-  { id: "payroll", label: "Payroll" },
-  { id: "policies", label: "Policies" },
-  { id: "onboarding", label: "Onboarding" },
-  { id: "system", label: "System settings" },
-] as const;
-
-export type ApprovalModule = (typeof APPROVAL_MODULES)[number]["id"];
-
-export interface ApprovalLevel {
+export interface ApprovalModule {
   id: string;
-  levelTitle: string;
-  condition: ApprovalCondition;
-  approvers: string[];
+  moduleName: string;
+  description: string;
+  tableNames: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface ApprovalWorkflow {
+export interface ApprovalOperator {
+  id: string;
+  symbol: string;
+  label: string;
+  active: boolean;
+}
+
+export interface ApprovalField {
+  id: string;
+  moduleId: string;
+  moduleName: string;
+  parentRelation: string;
+  nestedPath: string;
+  dbVariableName: string;
+  uiLabel: string;
+  dataType: string;
+  allowedOperatorIds: string[];
+  active: boolean;
+}
+
+export interface ApprovalRule {
+  id?: string; // Optional for creation
+  seqNo?: number;
+  fieldId: string;
+  fieldLabel?: string; // Returned in GET
+  operatorId: string;
+  operatorSymbol?: string; // Returned in GET
+  operatorLabel?: string; // Returned in GET
+  valueType: "static" | "field"; // Assuming "static" or "field" based on UI
+  value: string;
+}
+
+export interface ApprovalLevel {
+  id?: string; // Optional for creation
+  seqNo?: number;
+  levelTitle: string;
+  approvalCondition: "any" | "all";
+  approvers: {
+    employeeId: string;
+    employeeCode: string;
+    employeeName: string;
+  }[];
+  // For creation payload
+  approverEmployeeIds?: string[];
+}
+
+export interface ApprovalConfiguration {
   id: string;
   workflowName: string;
-  module: ApprovalModule;
-  action: ApprovalAction;
+  moduleId: string;
+  moduleName: string;
   priorityWeight: number;
-  approvalRequired: boolean;
-  status: boolean;
+  noRulesRequired: boolean;
+  active: boolean;
+  rules: ApprovalRule[];
   levels: ApprovalLevel[];
 }
 
-export interface ApprovalSettings {
-  enabled: boolean;
-  workflows: ApprovalWorkflow[];
-  updatedAt?: string;
+// Payload for creating/updating a configuration
+export interface ApprovalConfigurationPayload {
+  workflowName: string;
+  moduleId: string;
+  priorityWeight: number;
+  noRulesRequired: boolean;
+  active: boolean;
+  rules: {
+    fieldId: string;
+    operatorId: string;
+    valueType: "static" | "field";
+    value: string;
+  }[];
+  levels: {
+    levelTitle: string;
+    approvalCondition: "any" | "all";
+    approverEmployeeIds: string[];
+  }[];
 }
 
-export interface ApprovalRequest {
-  id: string;
-  module: ApprovalModule;
-  action: ApprovalAction;
-  summary: string;
-  entityType: string;
-  entityId: string;
-  status: ApprovalRequestStatus;
-  requestedBy: {
-    id: string;
-    name: string;
-  };
-  requestedAt: string;
+// Response for evaluate endpoint
+export interface ApprovalEvaluationResult {
+  approvalRequired: boolean;
+  configurationId: string;
+  workflowName: string;
+  matchReason: string;
+  levels: ApprovalLevel[];
 }
 
-export interface ApprovalDecision {
-  decision: "APPROVE" | "REJECT";
-  comments?: string;
+export interface DbFields {
+  tableName: string;
+  columnName: string;
+  dataType: string;
 }
 
-export interface ApprovalDecisionResult {
-  request: ApprovalRequest;
-  changeApplied: boolean;
+// Generic API Response wrapper
+interface ApiResponse<T> {
+  success: boolean;
   message: string;
+  data: T;
+  timestamp: string;
 }
 
-export const USE_MOCK_APPROVAL_WORKFLOW =
-  import.meta.env.VITE_USE_MOCK_APPROVAL_WORKFLOW !== "false";
+// Paginated response for modules
+interface PaginatedModules {
+  totalElements: number;
+  totalPages: number;
+  content: ApprovalModule[];
+}
 
-const clone = <T,>(value: T): T => structuredClone(value);
-
-const defaultLevels = (): ApprovalLevel[] => [
-  {
-    id: "level-1",
-    levelTitle: "Level 1 Approval",
-    condition: "ANY",
-    approvers: ["admin"],
-  },
-];
-
-const createWorkflow = (
-  module: ApprovalModule,
-  action: ApprovalAction,
-): ApprovalWorkflow => {
-  const moduleName =
-    APPROVAL_MODULES.find((item) => item.id === module)?.label ?? module;
-  const actionName =
-    APPROVAL_ACTIONS.find((item) => item.id === action)?.label ?? action;
-  const approvalRequired =
-    (module === "employees" && action === "DELETE") ||
-    (module === "payroll" && action === "UPDATE");
-
-  return {
-    id: `${module}:${action}`,
-    workflowName: `${moduleName} ${actionName} Approval`,
-    module,
-    action,
-    priorityWeight: 1,
-    approvalRequired,
-    status: true,
-    levels: approvalRequired ? defaultLevels() : [],
-  };
-};
-
-const makeDefaultSettings = (): ApprovalSettings => ({
-  enabled: true,
-  workflows: APPROVAL_MODULES.flatMap(({ id: module }) =>
-    APPROVAL_ACTIONS.map(({ id: action }) => createWorkflow(module, action)),
-  ),
-  updatedAt: "2026-10-06T09:00:00Z",
-});
-
-let mockSettings = makeDefaultSettings();
-let mockRequests: ApprovalRequest[] = [
-  {
-    id: "APR-2026-0001",
-    module: "employees",
-    action: "DELETE",
-    summary: "Delete employee E-1024 — Priya Sharma",
-    entityType: "Employee",
-    entityId: "E-1024",
-    status: "PENDING",
-    requestedBy: { id: "USR-HR-001", name: "Anita HR" },
-    requestedAt: "2026-10-06T08:30:00Z",
-  },
-  {
-    id: "APR-2026-0002",
-    module: "payroll",
-    action: "UPDATE",
-    summary: "Update salary for employee E-2048",
-    entityType: "EmployeeSalary",
-    entityId: "E-2048",
-    status: "PENDING",
-    requestedBy: { id: "USR-HR-002", name: "Rahul HR" },
-    requestedAt: "2026-10-06T09:15:00Z",
-  },
-];
+// --- Service Implementation ---
 
 export const approvalWorkflowService = {
-  getSettings() {
-    if (USE_MOCK_APPROVAL_WORKFLOW) return Promise.resolve(clone(mockSettings));
-    return apiService.get<ApprovalSettings>(
-      API_ENDPOINTS.APPROVAL_WORKFLOW.SETTINGS,
+  // ================= MODULES =================
+  async getModules(params?: {
+    search?: string;
+    active?: boolean;
+    page?: number;
+    size?: number;
+  }): Promise<ApiResponse<PaginatedModules>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.MODULES, { params });
+  },
+
+  async getModuleById(id: string): Promise<ApiResponse<ApprovalModule>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_BY_ID(id));
+  },
+
+  async createModule(
+    data: Omit<ApprovalModule, "id" | "createdAt" | "updatedAt">
+  ): Promise<ApiResponse<ApprovalModule>> {
+    return apiService.post(API_ENDPOINTS.APPROVAL_WORKFLOW.MODULES, data);
+  },
+
+  async updateModule(
+    id: string,
+    data: Partial<ApprovalModule>
+  ): Promise<ApiResponse<ApprovalModule>> {
+    return apiService.put(API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_BY_ID(id), data);
+  },
+
+  async deleteModule(id: string): Promise<ApiResponse<void>> {
+    return apiService.delete(API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_BY_ID(id));
+  },
+
+  async toggleModuleActive(id: string): Promise<ApiResponse<ApprovalModule>> {
+    return apiService.patch(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_TOGGLE_ACTIVE(id)
     );
   },
 
-  updateSettings(settings: ApprovalSettings) {
-    if (USE_MOCK_APPROVAL_WORKFLOW) {
-      mockSettings = { ...clone(settings), updatedAt: new Date().toISOString() };
-      return Promise.resolve(clone(mockSettings));
-    }
-    return apiService.put<ApprovalSettings>(
-      API_ENDPOINTS.APPROVAL_WORKFLOW.SETTINGS,
-      settings,
+   async getDbFieldsByModule(id: string): Promise<ApiResponse<DbFields[]>> {
+    return apiService.get(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_BY_DBFIELDS(id)
     );
   },
 
-  getPendingRequests() {
-    if (USE_MOCK_APPROVAL_WORKFLOW) {
-      return Promise.resolve(
-        clone(mockRequests.filter((request) => request.status === "PENDING")),
-      );
-    }
-    return apiService.get<ApprovalRequest[]>(
-      API_ENDPOINTS.APPROVAL_WORKFLOW.REQUESTS,
-      { params: { status: "PENDING" } },
+  // ================= OPERATORS =================
+  async getOperators(params?: {
+    activeOnly?: boolean;
+  }): Promise<ApiResponse<ApprovalOperator[]>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.OPERATORS, { params });
+  },
+
+  async createOperator(
+    data: Omit<ApprovalOperator, "id">
+  ): Promise<ApiResponse<ApprovalOperator>> {
+    return apiService.post(API_ENDPOINTS.APPROVAL_WORKFLOW.OPERATORS, data);
+  },
+
+  async updateOperator(
+    id: string,
+    data: Partial<ApprovalOperator>
+  ): Promise<ApiResponse<ApprovalOperator>> {
+    return apiService.put(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.OPERATOR_BY_ID(id),
+      data
     );
   },
 
-  decideRequest(requestId: string, decision: ApprovalDecision) {
-    if (USE_MOCK_APPROVAL_WORKFLOW) {
-      const requestIndex = mockRequests.findIndex(
-        (request) => request.id === requestId,
-      );
-      if (requestIndex < 0) {
-        return Promise.reject(
-          new Error(`Approval request ${requestId} was not found.`),
-        );
-      }
-      const status: ApprovalRequestStatus =
-        decision.decision === "APPROVE" ? "APPROVED" : "REJECTED";
-      const request: ApprovalRequest = {
-        ...mockRequests[requestIndex],
-        status,
-      };
-      mockRequests = mockRequests.map((item, index) =>
-        index === requestIndex ? request : item,
-      );
-      return Promise.resolve({
-        request: clone(request),
-        changeApplied: decision.decision === "APPROVE",
-        message:
-          decision.decision === "APPROVE"
-            ? "Request approved and the change was applied."
-            : "Request rejected. The change was not applied.",
-      });
-    }
-    return apiService.post<ApprovalDecisionResult>(
-      API_ENDPOINTS.APPROVAL_WORKFLOW.DECIDE(requestId),
-      decision,
+  async deleteOperator(id: string): Promise<ApiResponse<void>> {
+    return apiService.delete(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.OPERATOR_BY_ID(id)
     );
+  },
+
+  // ================= FIELDS (Field Dictionary) =================
+  async getFields(params?: {
+    moduleId?: string;
+  }): Promise<ApiResponse<ApprovalField[]>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.FIELDS, { params });
+  },
+
+  async createField(
+    data: Omit<ApprovalField, "id" | "moduleName">
+  ): Promise<ApiResponse<ApprovalField>> {
+    return apiService.post(API_ENDPOINTS.APPROVAL_WORKFLOW.FIELDS, data);
+  },
+
+  async updateField(
+    id: string,
+    data: Partial<ApprovalField>
+  ): Promise<ApiResponse<ApprovalField>> {
+    return apiService.put(API_ENDPOINTS.APPROVAL_WORKFLOW.FIELD_BY_ID(id), data);
+  },
+
+  async deleteField(id: string): Promise<ApiResponse<void>> {
+    return apiService.delete(API_ENDPOINTS.APPROVAL_WORKFLOW.FIELD_BY_ID(id));
+  },
+
+  // ================= CONFIGURATIONS (Workflows) =================
+  async getConfigurations(params?: {
+    moduleId?: string;
+    page?: number;
+    size?: number;
+  }): Promise<ApiResponse<{ content: ApprovalConfiguration[] }>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.CONFIGURATIONS, {
+      params,
+    });
+  },
+
+  async getConfigurationById(
+    id: string
+  ): Promise<ApiResponse<ApprovalConfiguration>> {
+    return apiService.get(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.CONFIGURATION_BY_ID(id)
+    );
+  },
+
+  async createConfiguration(
+    data: ApprovalConfigurationPayload
+  ): Promise<ApiResponse<ApprovalConfiguration>> {
+    return apiService.post(API_ENDPOINTS.APPROVAL_WORKFLOW.CONFIGURATIONS, data);
+  },
+
+  async updateConfiguration(
+    id: string,
+    data: ApprovalConfigurationPayload
+  ): Promise<ApiResponse<ApprovalConfiguration>> {
+    return apiService.put(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.CONFIGURATION_BY_ID(id),
+      data
+    );
+  },
+
+  async deleteConfiguration(id: string): Promise<ApiResponse<void>> {
+    return apiService.delete(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.CONFIGURATION_BY_ID(id)
+    );
+  },
+
+  async toggleConfigurationActive(
+    id: string
+  ): Promise<ApiResponse<ApprovalConfiguration>> {
+    return apiService.patch(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.CONFIGURATION_TOGGLE_ACTIVE(id)
+    );
+  },
+
+  // ================= EVALUATE (Dry-run) =================
+  async evaluateConfiguration(data: {
+    moduleName: string;
+    fieldValues: Record<string, any>;
+  }): Promise<ApiResponse<ApprovalEvaluationResult>> {
+    return apiService.post(API_ENDPOINTS.APPROVAL_WORKFLOW.EVALUATE, data);
   },
 };
