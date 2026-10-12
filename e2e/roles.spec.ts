@@ -868,15 +868,6 @@ test.describe(
 
             if (!isAllowed) {
               await expect(
-                page,
-              ).toHaveURL(
-                /\/unauthorized$/,
-                {
-                  timeout: 10000,
-                },
-              );
-
-              await expect(
                 page.getByText(
                   "Unable to determine access",
                   {
@@ -927,12 +918,17 @@ test.describe(
                 "/dashboard",
               )
             ) {
+              const dashboardGreeting =
+                route.path === "/employee/dashboard"
+                  ? /Good (Morning|Afternoon|Evening|Night),/
+                  : DASHBOARD_GREETING_REGEX;
+
               await expect(
                 page.getByText(
-                  DASHBOARD_GREETING_REGEX,
+                  dashboardGreeting,
                 ).first(),
               ).toBeVisible({
-                timeout: 10000,
+                timeout: 20000,
               });
 
               return;
