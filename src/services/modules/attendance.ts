@@ -421,9 +421,16 @@ export const attendanceService = {
     if (params.format) formData.append("format", params.format);
     if (params.source) formData.append("source", params.source);
     if (params.type) formData.append("type", params.type);
-    // if (params.startDate) formData.append("startDate", params.startDate);
-    // if (params.endDate) formData.append("endDate", params.endDate);
     return apiService.post(API_ENDPOINTS.ATTENDANCE.IMPORT_FILE, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  async stageAttendanceFile(params: ImportFileParams, file: File) {
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.STAGE_FILE, formData, {
+      params,
       headers: { "Content-Type": "multipart/form-data" },
     });
   },

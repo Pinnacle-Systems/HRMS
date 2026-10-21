@@ -52,7 +52,7 @@ import { attendanceService } from "../../../services/modules/attendance";
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
-  formatTimewithSec,
+  // formatTimewithSec,
   type InlineDisplayProps,
   type RegisterEmployee,
   type TodaySummary,
@@ -75,10 +75,10 @@ import { useAuth } from "../../../auth/authContext";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { NotificationsActiveOutlined } from "@mui/icons-material";
 import { readExcelFile } from "../../../utils/timeStampFormatter";
-import { biometricService, type BiometricDevice } from "../../../services/modules/biometricDevice";
+import { biometricService, type BiometricDevice, type StagedPunch } from "../../../services/modules/biometricDevice";
 import { formatDateTime } from "../../../utils/dateFormatter";
 import { employeeService } from "../../../services/modules/employees";
-import { formatDate } from "../../leave/leaveFormatters";
+// import { formatDate } from "../../leave/leaveFormatters";
 import { useNavigate } from "react-router-dom";
 
 function InlineDisplay({
@@ -100,7 +100,7 @@ function InlineDisplay({
           onClick();
         }
       }}
-      className={`min-w-[70px] text-[12px] px-1 py-0.5 rounded transition-colors ${disabled
+      className={`min-w-[70px] text-[12px] p-1.5 text-center rounded-sm transition-colors ${disabled
         ? ""
         : "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
         } ${className}`}
@@ -109,19 +109,6 @@ function InlineDisplay({
     </div>
   );
 }
-
-// Type for pending inline edits
-type PendingInlineEdit = {
-  employeeId: string;
-  employeeName: string;
-  employeeCode: string;
-  checkInDate?: string;
-  checkInTime?: string;
-  checkOutDate?: string;
-  checkOutTime?: string;
-  originalCheckIn: string | null;
-  originalCheckOut: string | null;
-};
 
 type EditableField =
   | "checkInDate"
@@ -168,13 +155,16 @@ export function DailyRegister() {
     selectedDevicesData: BiometricDevice[];
   } | null>(null);
 
-  // Pending inline edits accumulated (not yet submitted)
-  const [pendingInlineEdits, setPendingInlineEdits] = useState<Map<string, PendingInlineEdit>>(
-    new Map(),
-  );
-  const [bulkCorrectionDialogOpen, setBulkCorrectionDialogOpen] = useState(false);
-  const [bulkCorrectionReason, setBulkCorrectionReason] = useState("");
-  const [submittingBulkCorrection, setSubmittingBulkCorrection] = useState(false);
+  // Staged punches state
+  const [stagedPunches, setStagedPunches] = useState<StagedPunch[]>([]);
+  const [hasStagedPunches, setHasStagedPunches] = useState(false);
+  const [loadingStagedPunches, setLoadingStagedPunches] = useState(true);
+  const [stagedPunchCheckFailed, setStagedPunchCheckFailed] = useState(false);
+  const [stagingPunches, setStagingPunches] = useState(false);
+  const canEditPunchTimes =
+    hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed;
+  const canProcessAttendance =
+    !hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed;
 
   const editKey = (employeeId: string, field: string) => `${employeeId}:${field}`;
   const isEditingField = (employeeId: string, field: string) =>
@@ -185,6 +175,7 @@ export function DailyRegister() {
     field: string,
     initial?: dayjs.Dayjs | null,
   ) => {
+    if (!canEditPunchTimes) return;
     setEditingField(editKey(employeeId, field));
     setDraftDateTime(initial ?? null);
   };
@@ -194,33 +185,73 @@ export function DailyRegister() {
     setDraftDateTime(null);
   };
 
-  // Queue the edit into pendingInlineEdits (shared by commit helpers)
-  const queueInlineEdit = (
+  // ── Directly update staged punch via API ──────────────────────────────────
+  const updateStagedPunchAPI = async (
     emp: RegisterEmployee,
     field: EditableField,
     value: dayjs.Dayjs,
   ) => {
-    setPendingInlineEdits((prev) => {
-      const next = new Map(prev);
-      const existing: PendingInlineEdit = next.get(emp.employeeId) ?? {
-        employeeId: emp.employeeId,
-        employeeName: emp.employeeName,
-        employeeCode: emp.employeeCode,
-        originalCheckIn: emp.checkInTime ?? null,
-        originalCheckOut: emp.checkOutTime ?? null,
-      };
+    if (!canEditPunchTimes) {
+      showSnackbar("Punch details can only be edited while staged punches exist", "warning");
+      return;
+    }
 
-      if (field === "checkInDate" || field === "checkInTime") {
-        existing.checkInDate = value.format("YYYY-MM-DD");
-        existing.checkInTime = value.format("HH:mm:ss");
-      } else {
-        existing.checkOutDate = value.format("YYYY-MM-DD");
-        existing.checkOutTime = value.format("HH:mm:ss");
-      }
+    // Format as wall-clock digits without timezone offset
+    const formattedValue = value.format("YYYY-MM-DDTHH:mm:ss");
 
-      next.set(emp.employeeId, existing);
-      return next;
-    });
+    let checkInTime: string | null | undefined = undefined;
+    let checkOutTime: string | null | undefined = undefined;
+
+    if (field === "checkInDate" || field === "checkInTime") {
+      checkInTime = formattedValue;
+    } else {
+      checkOutTime = formattedValue;
+    }
+
+    showSpinner();
+    try {
+      const updated = await biometricService.updateStagedPunch(
+        emp.employeeId,
+        dayjs(emp.checkInDate || emp.checkOutDate || date).format("YYYY-MM-DD"),
+        {
+          checkInTime: checkInTime ?? null,
+          checkOutTime: checkOutTime ?? null,
+          remarks: null,
+        },
+      );
+
+      // Update local state with server response
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.employeeId === emp.employeeId
+            ? {
+              ...e,
+              checkInTime: updated.checkInTime ?? e.checkInTime,
+              checkOutTime: updated.checkOutTime ?? e.checkOutTime,
+              checkInDate: updated.checkInTime
+                ? dayjs(updated.checkInTime).format("YYYY-MM-DD")
+                : e.checkInDate,
+              checkOutDate: updated.checkOutTime
+                ? dayjs(updated.checkOutTime).format("YYYY-MM-DD")
+                : e.checkOutDate,
+              status: updated.status as any,
+              workedMinutes: updated.workedMinutes,
+              lateMinutes: updated.lateMinutes,
+              earlyOutMinutes: updated.earlyOutMinutes,
+              overtimeMinutes: updated.overtimeMinutes,
+            }
+            : e,
+        ),
+      );
+      showSnackbar("Punch updated", "success");
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? err?.message ?? "Failed to update staged punch",
+        "error",
+      );
+    } finally {
+      hideSpinner();
+    }
   };
 
   // Validate the current draft value
@@ -329,7 +360,7 @@ export function DailyRegister() {
     const value = buildFieldValue(emp, field);
     if (value) {
       if (!validateDraft(emp, field, value, true)) return;
-      queueInlineEdit(emp, field, value);
+      updateStagedPunchAPI(emp, field, value);
     }
 
     closeField();
@@ -364,7 +395,7 @@ export function DailyRegister() {
     }
   };
 
-  // Save the open field when user clicks away (blur) — queue the edit
+  // Save the open field when user clicks away (blur)
   const commitOnBlur = (emp: RegisterEmployee, field: EditableField) => {
     if (field === "checkInDate" && emp.checkInDate) {
       closeField();
@@ -386,28 +417,9 @@ export function DailyRegister() {
       return;
     }
 
-    queueInlineEdit(emp, field, value);
+    updateStagedPunchAPI(emp, field, value);
     closeField();
   };
-
-  function clearPendingEdits() {
-    setPendingInlineEdits(new Map());
-    showSnackbar("Pending changes cleared", "info");
-  }
-
-  // Correction dialog state
-  const [correctionDialogOpen, setCorrectionDialogOpen] = useState(false);
-  const [pendingCorrection, setPendingCorrection] = useState<{
-    employee: RegisterEmployee;
-    changes: Partial<{
-      checkInDate: string;
-      checkInTime: string;
-      checkOutDate: string;
-      checkOutTime: string;
-    }>;
-  } | null>(null);
-  const [correctionReason, setCorrectionReason] = useState("");
-  const [submittingCorrection, setSubmittingCorrection] = useState(false);
 
   // Check-in / Check-out dialog
   const [punchDialogOpen, setPunchDialogOpen] = useState(false);
@@ -451,8 +463,6 @@ export function DailyRegister() {
   const [employeesToRem, setEmployeesToRem] = useState<any[]>([]);
   const [sendVia, setSendVia] = useState(["email"]);
   const [importSource, setImportSource] = useState("biometric");
-  const [importStartDate, _setImportStartDate] = useState(dayjs().format("YYYY-MM-DD"));
-  const [importEndDate, _setImportEndDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [importType, setImportType] = useState<"daywise" | "weekwise" | "monthwise">("daywise");
 
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
@@ -485,26 +495,86 @@ export function DailyRegister() {
     fetchProcessStatus();
   }, [date, departmentId]);
 
+  // Load staged punches from Redis
+  const loadStagedPunches = useCallback(async () => {
+    setLoadingStagedPunches(true);
+    setStagedPunchCheckFailed(false);
+    try {
+      const data = await biometricService.getStagedPunches({
+        from: date,
+        to: date,
+      });
+      const list = Array.isArray(data) ? data : [];
+      setStagedPunches(list);
+      setHasStagedPunches(list.length > 0);
+      return list;
+    } catch {
+      setStagedPunches([]);
+      setHasStagedPunches(false);
+      setStagedPunchCheckFailed(true);
+      return null;
+    } finally {
+      setLoadingStagedPunches(false);
+    }
+  }, [date]);
+
+  // Load register — checks staged punches first
   const loadRegister = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await attendanceService.getRegister({
-        startDate: date,
-        endDate: date,
-        departmentId: departmentId === "All" ? undefined : departmentId,
-        branchId: branchId || undefined,
-        status: statusFilter || undefined,
-      });
-      const data = res?.data?.data ?? res?.data;
-      const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
-      setEmployees(employeesData);
-      setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
+      // 1. Check staged punches first
+      const staged = await loadStagedPunches();
+      if (staged === null) {
+        setEmployees([]);
+        setTotal(0);
+        return;
+      }
+
+      // 2. If no staged data, fall back to register API
+      if (staged.length === 0) {
+        const res: any = await attendanceService.getRegister({
+          startDate: date,
+          endDate: date,
+          departmentId: departmentId === "All" ? undefined : departmentId,
+          branchId: branchId || undefined,
+          status: statusFilter || undefined,
+        });
+        const data = res?.data?.data ?? res?.data;
+        const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
+        setEmployees(employeesData);
+        setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
+      } else {
+        // 3. If staged data exists, use it directly
+        const mapped: RegisterEmployee[] = staged.map((s) => ({
+          employeeId: s.employeeId,
+          employeeName: s.employeeName,
+          employeeCode: s.employeeCode,
+          department: s.department ?? "",
+          designation: s.designation ?? "",
+          template: s.template ?? "",
+          checkInTime: s.checkInTime ?? null,
+          checkOutTime: s.checkOutTime ?? null,
+          checkInDate: s.checkInTime ? dayjs(s.checkInTime).format("YYYY-MM-DD") : null,
+          checkOutDate: s.checkOutTime ? dayjs(s.checkOutTime).format("YYYY-MM-DD") : null,
+          shiftCode: s.shiftCode,
+          shiftStart: s.shiftStart ?? "",
+          shiftEnd: s.shiftEnd ?? "",
+          status: s.status as any,
+          workedMinutes: s.workedMinutes,
+          lateMinutes: s.lateMinutes,
+          earlyOutMinutes: s.earlyOutMinutes,
+          overtimeMinutes: s.overtimeMinutes,
+          correctionPending: false,
+        } as any));
+        setEmployees(mapped);
+        setTotal(mapped.length);
+      }
     } catch {
       showSnackbar("Failed to load daily register", "error");
     } finally {
       setLoading(false);
     }
-  }, [date, departmentId, branchId, statusFilter]);
+  }, [date, departmentId, branchId, statusFilter, loadStagedPunches]);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -519,7 +589,7 @@ export function DailyRegister() {
   const [punchImportOpen, setPunchImportOpen] = useState(false);
   const [punchSource, setPunchSource] = useState("manual");
   const [punchEntries, setPunchEntries] = useState<any[]>([]);
-  const [punchImporting, setPunchImporting] = useState(false);
+  const [punchImporting, _setPunchImporting] = useState(false);
   const [punchImportResult, setPunchImportResult] = useState<any>(null);
   const [deviceFetchSummary, setDeviceFetchSummary] = useState({
     total: 0,
@@ -601,6 +671,10 @@ export function DailyRegister() {
 
   // ── Punch dialog ──────────────────────────────────────────────────────────
   function openPunch(emp: RegisterEmployee, type: "checkIn" | "checkOut") {
+    if (!canEditPunchTimes) {
+      showSnackbar("Punch details can only be edited while staged punches exist", "warning");
+      return;
+    }
     setPunchEmployee(emp);
     setPunchType(type);
     setPunchTime(dayjs(`${date}T00:00:00`).toISOString());
@@ -609,6 +683,11 @@ export function DailyRegister() {
   }
 
   async function submitPunch() {
+    if (!canEditPunchTimes) {
+      showSnackbar("Punch details can only be edited while staged punches exist", "warning");
+      setPunchDialogOpen(false);
+      return;
+    }
     if (!punchEmployee || !punchTime) return;
     if (!isValidPunchTime(punchTime)) {
       showSnackbar("Please select a valid time before confirming", "warning");
@@ -646,304 +725,6 @@ export function DailyRegister() {
       );
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function submitCorrection() {
-    if (!pendingCorrection) return;
-    if (!correctionReason.trim()) {
-      showSnackbar("Please provide a reason for the correction", "warning");
-      return;
-    }
-
-    const { employee: emp, changes } = pendingCorrection;
-
-    const buildDateTime = (
-      datePart: string | undefined,
-      timePart: string | undefined,
-      fallbackDate: string | undefined,
-      fallbackTime: string | null,
-    ): string => {
-      if (timePart && timePart.includes("T") && dayjs(timePart).isValid()) {
-        return dayjs(timePart).toISOString();
-      }
-      const effectiveDate = datePart ?? fallbackDate;
-      if (!effectiveDate) return "";
-      const effectiveTime = timePart
-        ? dayjs(timePart).format("HH:mm:ss")
-        : fallbackTime
-          ? dayjs(fallbackTime).format("HH:mm:ss")
-          : "00:00:00";
-      return dayjs(`${effectiveDate}T${effectiveTime}`).toISOString();
-    };
-
-    const requestedCheckIn =
-      buildDateTime(
-        changes.checkInDate,
-        changes.checkInTime,
-        emp.checkInDate,
-        emp.checkInTime,
-      ) || (emp.checkInTime ?? "");
-
-    const requestedCheckOut =
-      buildDateTime(
-        changes.checkOutDate,
-        changes.checkOutTime,
-        emp.checkOutDate,
-        emp.checkOutTime,
-      ) || (emp.checkOutTime ?? "");
-
-    const payload = {
-      employeeId: emp.employeeId,
-      attendanceDate: date,
-      currentCheckIn: emp.checkInTime ?? null,
-      currentCheckOut: emp.checkOutTime ?? null,
-      requestedCheckIn,
-      requestedCheckOut,
-      reason: correctionReason.trim(),
-      supportingDocument: undefined,
-    };
-
-    setSubmittingCorrection(true);
-    showSpinner();
-    try {
-      await attendanceService.requestCorrection(payload);
-
-      showSnackbar(
-        `Correction request submitted for ${emp.employeeName}. Pending approval.`,
-        "success",
-      );
-
-      setCorrectionDialogOpen(false);
-      setPendingCorrection(null);
-      setCorrectionReason("");
-      loadRegister();
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to submit correction request",
-        "error",
-      );
-    } finally {
-      setSubmittingCorrection(false);
-      hideSpinner();
-    }
-  }
-
-  // ── Bulk Inline Changes Submission ────────────────────────────────────────
-  async function submitBulkInlineChanges() {
-    if (pendingInlineEdits.size === 0) {
-      showSnackbar("No pending changes to submit", "warning");
-      return;
-    }
-
-    const requests: any[] = [];
-    const directCheckIns: any[] = [];
-    const directCheckOuts: any[] = [];
-
-    pendingInlineEdits.forEach((edit) => {
-      const emp = employees.find((e) => e.employeeId === edit.employeeId);
-      if (!emp) return;
-
-      const hasBothPunches = !!(emp.checkInTime && emp.checkOutTime);
-
-      const requestedCheckIn =
-        edit.checkInDate && edit.checkInTime
-          ? dayjs(`${edit.checkInDate}T${edit.checkInTime}`).toISOString()
-          : null;
-
-      const requestedCheckOut =
-        edit.checkOutDate && edit.checkOutTime
-          ? dayjs(`${edit.checkOutDate}T${edit.checkOutTime}`).toISOString()
-          : null;
-
-      if (hasBothPunches) {
-        // Both punches already exist → correction request (requires approval)
-        requests.push({
-          employeeId: edit.employeeId,
-          attendanceDate: date,
-          currentCheckIn: edit.originalCheckIn,
-          currentCheckOut: edit.originalCheckOut,
-          requestedCheckIn: requestedCheckIn || edit.originalCheckIn,
-          requestedCheckOut: requestedCheckOut || edit.originalCheckOut,
-          reason: bulkCorrectionReason || "Bulk inline update",
-          supportingDocument: null,
-        });
-      } else {
-        // Direct update path — split into check-in and check-out bulks.
-        // Check-in direct: employee has no existing check-in.
-        if (requestedCheckIn && !emp.checkInTime) {
-          directCheckIns.push({
-            employeeId: edit.employeeId,
-            employeeName: edit.employeeName,
-            employeeCode: edit.employeeCode,
-            checkInTime: requestedCheckIn,
-          });
-        }
-        // Check-out direct: employee has check-in but no check-out.
-        if (requestedCheckOut && emp.checkInTime && !emp.checkOutTime) {
-          directCheckOuts.push({
-            employeeId: edit.employeeId,
-            employeeName: edit.employeeName,
-            employeeCode: edit.employeeCode,
-            checkOutTime: requestedCheckOut,
-          });
-        }
-      }
-    });
-
-    // Validate that bulk correction requests have a reason
-    if (requests.length > 0 && !bulkCorrectionReason.trim()) {
-      showSnackbar(
-        "Please provide a reason for the correction requests",
-        "warning",
-      );
-      return;
-    }
-
-    setSubmittingBulkCorrection(true);
-    showSpinner();
-
-    let successCount = 0;
-    let failCount = 0;
-    const errors: string[] = [];
-
-    try {
-      // ── 1. Direct check-ins via bulk check-in endpoint ──────────────────
-      // Group by identical timestamp so the common-time bulk API preserves times.
-      if (directCheckIns.length > 0) {
-        const groupedCheckIns = new Map<string, typeof directCheckIns>();
-        directCheckIns.forEach((u) => {
-          if (!groupedCheckIns.has(u.checkInTime)) groupedCheckIns.set(u.checkInTime, []);
-          groupedCheckIns.get(u.checkInTime)!.push(u);
-        });
-
-        for (const [checkinTime, group] of groupedCheckIns) {
-          try {
-            const response: any = await attendanceService.bulkCheckin({
-              employeeIds: group.map((u) => u.employeeId),
-              checkinTime,
-              reason: "Bulk inline check-in update",
-              markedBy: session?.user?.userId || "system",
-            });
-            const data = response?.data?.data ?? response?.data;
-            successCount += data?.checkedIn ?? group.length;
-            failCount += data?.errors ?? 0;
-
-            if (Array.isArray(data?.results)) {
-              data.results.forEach((r: any) => {
-                if (r.message && r.message !== "checked_in") {
-                  errors.push(
-                    `${r.employeeCode || r.employeeId}: ${r.message}`,
-                  );
-                }
-              });
-            }
-          } catch (err: any) {
-            failCount += group.length;
-            errors.push(
-              `Bulk check-in failed (${group.length}): ${err?.response?.data?.message ?? "Unknown error"
-              }`,
-            );
-          }
-        }
-      }
-
-      // ── 2. Direct check-outs via bulk check-out endpoint ────────────────
-      if (directCheckOuts.length > 0) {
-        const groupedCheckOuts = new Map<string, typeof directCheckOuts>();
-        directCheckOuts.forEach((u) => {
-          if (!groupedCheckOuts.has(u.checkOutTime)) groupedCheckOuts.set(u.checkOutTime, []);
-          groupedCheckOuts.get(u.checkOutTime)!.push(u);
-        });
-
-        for (const [checkoutTime, group] of groupedCheckOuts) {
-          try {
-            const response: any = await attendanceService.bulkCheckOut({
-              employeeIds: group.map((u) => u.employeeId),
-              checkoutTime,
-              reason: "Bulk inline check-out update",
-              markedBy: session?.user?.userId || "system",
-            });
-            const data = response?.data?.data ?? response?.data;
-            successCount += data?.checkedOut ?? group.length;
-            failCount += data?.errors ?? 0;
-
-            if (Array.isArray(data?.results)) {
-              data.results.forEach((r: any) => {
-                if (r.message && r.message !== "checked_out") {
-                  errors.push(
-                    `${r.employeeCode || r.employeeId}: ${r.message}`,
-                  );
-                }
-              });
-            }
-          } catch (err: any) {
-            failCount += group.length;
-            errors.push(
-              `Bulk check-out failed (${group.length}): ${err?.response?.data?.message ?? "Unknown error"
-              }`,
-            );
-          }
-        }
-      }
-
-      // ── 3. Correction requests (both punches existed) ───────────────────
-      if (requests.length > 0) {
-        try {
-          const response: any = await attendanceService.bulkRequestCorrection({
-            requests,
-          });
-          const data = response?.data?.data ?? response?.data;
-
-          if (data) {
-            successCount += data.successCount || 0;
-            failCount += data.failureCount || 0;
-
-            if (data.errors && Array.isArray(data.errors)) {
-              data.errors.forEach((err: any) => {
-                errors.push(
-                  `Row ${err.rowNumber}: ${err.errors?.join(", ") || "Unknown error"}`,
-                );
-              });
-            }
-          }
-        } catch (err: any) {
-          failCount += requests.length;
-          errors.push(
-            `Bulk correction request failed: ${err?.response?.data?.message ?? "Unknown error"
-            }`,
-          );
-        }
-      }
-
-      if (failCount === 0) {
-        showSnackbar(
-          `Successfully updated ${successCount} attendance record(s)`,
-          "success",
-        );
-      } else if (successCount === 0) {
-        showSnackbar(`All ${failCount} updates failed`, "error");
-      } else {
-        showSnackbar(`${successCount} updated, ${failCount} failed`, "warning");
-      }
-
-      if (errors.length > 0) {
-        console.error("Bulk update errors:", errors);
-      }
-
-      setPendingInlineEdits(new Map());
-      setBulkCorrectionDialogOpen(false);
-      setBulkCorrectionReason("");
-      loadRegister();
-      loadTodaySummary();
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to submit bulk changes",
-        "error",
-      );
-    } finally {
-      setSubmittingBulkCorrection(false);
-      hideSpinner();
     }
   }
 
@@ -1177,14 +958,6 @@ export function DailyRegister() {
       showSnackbar("Please select a file to import", "warning");
       return;
     }
-    if (!importStartDate || !importEndDate) {
-      showSnackbar("Please select date range", "warning");
-      return;
-    }
-    if (dayjs(importEndDate).isBefore(dayjs(importStartDate))) {
-      showSnackbar("End date must be after start date", "warning");
-      return;
-    }
     setImporting(true);
     setImportResult(null);
     showSpinner();
@@ -1196,180 +969,60 @@ export function DailyRegister() {
       } else if (extension === "txt" || extension === "csv") {
         format = "csv";
       }
-      let fileToUpload = importFile;
-      if (format === "excel") {
-        try {
-          const excelData = await readExcelFile(importFile);
-          if (!excelData || excelData.length === 0) {
-            showSnackbar("No data found in the Excel file", "warning");
-            return;
-          }
-          const headers = Object.keys(excelData[0]);
-          const employeeCodeKey =
-            headers.find((h) =>
-              [
-                "employee code",
-                "employeecode",
-                "employee",
-                "emp code",
-                "empcode",
-                "code",
-                "employee id",
-                "employeeid",
-                "empid",
-                "id",
-              ].some(
-                (key) =>
-                  h.toLowerCase().replace(/\s/g, "") === key.replace(/\s/g, "") ||
-                  h.toLowerCase().includes(key.toLowerCase()),
-              ),
-            ) || headers[0];
-          const timestampKey =
-            headers.find((h) =>
-              [
-                "timestamp",
-                "time",
-                "date",
-                "datetime",
-                "punch time",
-                "punchtime",
-                "checkin time",
-                "checkintime",
-              ].some(
-                (key) =>
-                  h.toLowerCase().replace(/\s/g, "") === key.replace(/\s/g, "") ||
-                  h.toLowerCase().includes(key.toLowerCase()),
-              ),
-            ) || headers[1];
-          const rows: any[] = [];
-          let errorCount = 0;
-          for (const row of excelData) {
-            let employeeCode = row[employeeCodeKey] || "";
-            let timestamp = row[timestampKey] || "";
-            if (!employeeCode && !timestamp) continue;
-            let formattedTimestamp = "";
-            if (timestamp) {
-              let parsed = dayjs(timestamp);
-              if (typeof timestamp === "number" && !parsed.isValid()) {
-                const excelEpoch = dayjs("1899-12-30");
-                parsed = excelEpoch.add(timestamp, "day");
-              }
-              if (parsed.isValid()) {
-                formattedTimestamp = parsed.utc().toISOString();
-              } else {
-                const formats = [
-                  "YYYY-MM-DD HH:mm:ss",
-                  "YYYY-MM-DD HH:mm",
-                  "YYYY-MM-DD",
-                  "DD/MM/YYYY HH:mm:ss",
-                  "DD/MM/YYYY HH:mm",
-                  "DD/MM/YYYY",
-                  "MM/DD/YYYY HH:mm:ss",
-                  "MM/DD/YYYY HH:mm",
-                  "MM/DD/YYYY",
-                ];
-                let found = false;
-                for (const fmt of formats) {
-                  const parsed2 = dayjs(timestamp, fmt);
-                  if (parsed2.isValid()) {
-                    formattedTimestamp = parsed2.utc().toISOString();
-                    found = true;
-                    break;
-                  }
-                }
-                if (!found) {
-                  errorCount++;
-                  continue;
-                }
-              }
-            }
-
-            if (employeeCode && formattedTimestamp) {
-              rows.push({
-                employeeCode: employeeCode.toString().trim(),
-                timestamp: formattedTimestamp,
-              });
-            }
-          }
-          if (rows.length === 0) {
-            showSnackbar("No valid records found in the Excel file", "warning");
-            return;
-          }
-
-          const csvHeader = "employeeCode,timestamp";
-          const csvRows = rows.map((row) => `${row.employeeCode},${row.timestamp}`);
-          const csvContent = [csvHeader, ...csvRows].join("\n");
-
-          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-          fileToUpload = new File([blob], `import_${dayjs().format("YYYY-MM-DD")}.csv`, {
-            type: "text/csv",
-            lastModified: new Date().getTime(),
-          });
-
-          format = "csv";
-        } catch (error) {
-          showSnackbar(
-            "Failed to read Excel file. Please ensure it's a valid Excel file.",
-            "error",
-          );
-          return;
-        }
-      }
 
       const params = {
         format: format,
         source: importSource,
         type: importType,
       };
-      const res: any = await attendanceService.importAttendanceFile(params, fileToUpload);
+      const res: any = await attendanceService.stageAttendanceFile(params, importFile);
       const data = res?.data?.data ?? res?.data;
 
-      if (data) {
-        const totalPunches = data.totalPunches || 0;
-        const errorCount = data.errors || 0;
-        const successCount = totalPunches - errorCount;
-
-        const errorMessages: string[] = [];
-        if (data.rows && Array.isArray(data.rows)) {
-          data.rows.forEach((row: any) => {
-            if (row.message && row.message !== "imported" && row.message !== "success") {
-              const errorMsg = row.employeeCode
-                ? `${row.employeeCode}: ${row.message}`
-                : row.message;
-              errorMessages.push(errorMsg);
-            }
-          });
-        }
-
-        if (errorCount > 0 && successCount === 0) {
-          showSnackbar(
-            `All ${totalPunches} records failed to import. Please check the format.`,
-            "error",
-          );
-        } else if (errorCount > 0) {
-          showSnackbar(
-            `Imported with ${errorCount} error(s). ${successCount} successful.`,
-            "warning",
-          );
-        } else {
-          showSnackbar(
-            `Successfully imported ${totalPunches} attendance records`,
-            "success",
-          );
-        }
-
-        setImportResult({
-          success: successCount,
-          failed: errorCount,
-          errors: errorMessages,
-          rows: data.rows || [],
-        });
-
-        if (successCount > 0) {
-          loadRegister();
-          loadTodaySummary();
-        }
+      if (!data) {
+        throw new Error("The server did not return an attendance import result");
       }
+
+      const totalPunches = data.totalPunches || 0;
+      const errorCount = data.errors || 0;
+      const successCount = totalPunches - errorCount;
+
+      const errorMessages: string[] = [];
+      if (data.rows && Array.isArray(data.rows)) {
+        data.rows.forEach((row: any) => {
+          if (row.message && row.message !== "imported" && row.message !== "success") {
+            const errorMsg = row.employeeCode
+              ? `${row.employeeCode}: ${row.message}`
+              : row.message;
+            errorMessages.push(errorMsg);
+          }
+        });
+      }
+
+      if (errorCount > 0 && successCount === 0) {
+        showSnackbar(
+          `All ${totalPunches} records failed to stage. Please check the format.`,
+          "error",
+        );
+      } else if (errorCount > 0) {
+        showSnackbar(
+          `Staged with ${errorCount} error(s). ${successCount} punches ready for review.`,
+          "warning",
+        );
+      } else {
+        showSnackbar(
+          `Successfully staged ${totalPunches} punches. Review them before running attendance.`,
+          "success",
+        );
+      }
+
+      setImportResult({
+        success: successCount,
+        failed: errorCount,
+        errors: errorMessages,
+        rows: data.rows || [],
+      });
+
+      await loadRegister();
     } catch (err: any) {
       const errorMessage =
         err?.response?.data?.message || err?.message || "Failed to import attendance";
@@ -1508,80 +1161,80 @@ export function DailyRegister() {
     setDeviceFetchSummary({ total: 0, matched: 0, unknown: 0 });
   }
 
-  async function handleBatchPunchImport() {
-    const validEntries = punchEntries.filter((e) => e.employeeId && e.timestamp);
+  // async function handleBatchPunchImport() {
+  //   const validEntries = punchEntries.filter((e) => e.employeeId && e.timestamp);
 
-    if (validEntries.length === 0) {
-      showSnackbar("Please add at least one valid punch entry", "warning");
-      return;
-    }
+  //   if (validEntries.length === 0) {
+  //     showSnackbar("Please add at least one valid punch entry", "warning");
+  //     return;
+  //   }
 
-    setPunchImporting(true);
-    showSpinner();
+  //   setPunchImporting(true);
+  //   showSpinner();
 
-    try {
-      const payload = {
-        source: punchSource,
-        punches: validEntries.map((e) => ({
-          employeeId: e.employeeId,
-          employeeCode: e.employeeCode || "",
-          timestamp: e.timestamp,
-          punchType: e.punchType,
-          deviceId: e.deviceId || e.machineInOutGridId || "",
-        })),
-      };
-      const res: any = await attendanceService.importAttendance(payload);
-      const data = res?.data?.data ?? res?.data;
-      setPunchImportResult(data);
-      const punchDates = validEntries
-        .map((e) => dayjs(e.timestamp))
-        .filter((d) => d.isValid());
+  //   try {
+  //     const payload = {
+  //       source: punchSource,
+  //       punches: validEntries.map((e) => ({
+  //         employeeId: e.employeeId,
+  //         employeeCode: e.employeeCode || "",
+  //         timestamp: e.timestamp,
+  //         punchType: e.punchType,
+  //         deviceId: e.deviceId || e.machineInOutGridId || "",
+  //       })),
+  //     };
+  //     const res: any = await attendanceService.importAttendance(payload);
+  //     const data = res?.data?.data ?? res?.data;
+  //     setPunchImportResult(data);
+  //     const punchDates = validEntries
+  //       .map((e) => dayjs(e.timestamp))
+  //       .filter((d) => d.isValid());
 
-      const fromDate = punchDates.length
-        ? punchDates.reduce((min, d) => (d.isBefore(min) ? d : min)).format("YYYY-MM-DD")
-        : dayjs().format("YYYY-MM-DD");
+  //     const fromDate = punchDates.length
+  //       ? punchDates.reduce((min, d) => (d.isBefore(min) ? d : min)).format("YYYY-MM-DD")
+  //       : dayjs().format("YYYY-MM-DD");
 
-      const toDate = punchDates.length
-        ? punchDates.reduce((max, d) => (d.isAfter(max) ? d : max)).format("YYYY-MM-DD")
-        : dayjs().format("YYYY-MM-DD");
-      try {
-        await attendanceService.processAttendance({
-          fromDate,
-          toDate,
-          departmentId: departmentId && departmentId !== "All" ? departmentId : undefined,
-          employeeIds: undefined,
-          workerType: "Both",
-          reprocess: true,
-        });
+  //     const toDate = punchDates.length
+  //       ? punchDates.reduce((max, d) => (d.isAfter(max) ? d : max)).format("YYYY-MM-DD")
+  //       : dayjs().format("YYYY-MM-DD");
+  //     try {
+  //       await attendanceService.processAttendance({
+  //         fromDate,
+  //         toDate,
+  //         departmentId: departmentId && departmentId !== "All" ? departmentId : undefined,
+  //         employeeIds: undefined,
+  //         workerType: "Both",
+  //         reprocess: true,
+  //       });
 
-        showSnackbar(
-          data?.message
-            ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
-            }`
-            : `Imported ${data?.totalPunches || 0} punches and processed attendance`,
-          data?.errors > 0 ? "warning" : "success",
-        );
-      } catch (processErr: any) {
-        showSnackbar(
-          `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
-          }`,
-          "warning",
-        );
-      }
-      loadRegister();
-      loadTodaySummary();
-      setPunchImportOpen(false);
-      setPunchEntries([]);
-    } catch (err: any) {
-      showSnackbar(
-        err?.response?.data?.message ?? "Failed to import punches",
-        "error",
-      );
-    } finally {
-      setPunchImporting(false);
-      hideSpinner();
-    }
-  }
+  //       showSnackbar(
+  //         data?.message
+  //           ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
+  //           }`
+  //           : `Imported ${data?.totalPunches || 0} punches and processed attendance`,
+  //         data?.errors > 0 ? "warning" : "success",
+  //       );
+  //     } catch (processErr: any) {
+  //       showSnackbar(
+  //         `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
+  //         }`,
+  //         "warning",
+  //       );
+  //     }
+  //     loadRegister();
+  //     loadTodaySummary();
+  //     setPunchImportOpen(false);
+  //     setPunchEntries([]);
+  //   } catch (err: any) {
+  //     showSnackbar(
+  //       err?.response?.data?.message ?? "Failed to import punches",
+  //       "error",
+  //     );
+  //   } finally {
+  //     setPunchImporting(false);
+  //     hideSpinner();
+  //   }
+  // }
 
   const statCards = todaySummary
     ? [
@@ -1694,6 +1347,7 @@ export function DailyRegister() {
     _selectedDevicesData: BiometricDevice[]
   ) => {
     setDeviceImportLoading(true);
+    setStagingPunches(true);
     showSpinner();
 
     try {
@@ -1732,10 +1386,24 @@ export function DailyRegister() {
       }));
 
       setPunchEntries((prev) => [...prev, ...newPunchEntries]);
-      showSnackbar(
-        `Fetched ${punchesData.length} logs: ${newPunchEntries.length} matched, ${unknownCount} unknown`,
-        "success",
-      );
+
+      // ── Stage punches into Redis ────────────────────────────────────
+      try {
+        await biometricService.stagePunches({
+          from: punchImportFromDate,
+          to: punchImportToDate,
+        });
+        await loadRegister();
+        showSnackbar(
+          `Fetched ${punchesData.length} logs: ${newPunchEntries.length} matched, ${unknownCount} unknown — staged successfully`,
+          "success",
+        );
+      } catch (stageErr: any) {
+        showSnackbar(
+          `Fetched ${punchesData.length} logs but staging failed: ${stageErr?.message ?? "Unknown error"}`,
+          "warning",
+        );
+      }
     } catch (err: any) {
       showSnackbar(
         err?.message || "Failed to fetch punch logs from devices",
@@ -1743,6 +1411,7 @@ export function DailyRegister() {
       );
     } finally {
       setDeviceImportLoading(false);
+      setStagingPunches(false);
       hideSpinner();
       setPendingFetchParams(null);
     }
@@ -1768,19 +1437,75 @@ export function DailyRegister() {
 
   const selectableEmployees = employees.filter((e) => e.status !== "leave");
 
+  // ── Run Attendance (commits staged Redis → attendance_records) ──────────
   const runAttendance = async () => {
     showSpinner();
     try {
       await biometricService.runAttendance();
+      showSnackbar("Attendance committed successfully", "success");
+      const response: any = await attendanceService.getRegister({
+        startDate: date,
+        endDate: date,
+        departmentId: departmentId === "All" ? undefined : departmentId || undefined,
+        branchId: branchId || undefined,
+        status: statusFilter || undefined,
+      });
+      const data = response?.data?.data ?? response?.data;
+      const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
+      setEmployees(employeesData);
+      setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
+      await loadStagedPunches();
+      await loadTodaySummary();
     } catch (error: any) {
-      showSnackbar("Failed to run attendance", "error")
+      showSnackbar(error?.response?.data?.message ?? error?.message ?? "Failed to run attendance", "error");
     } finally {
       hideSpinner();
     }
   }
 
+  // ── Process Attendance (fallback when no staged punches) ────────────────
+  const handleProcessAttendance = async () => {
+    if (!canProcessAttendance) {
+      showSnackbar(
+        stagedPunchCheckFailed
+          ? "Unable to verify staged punches. Please refresh and try again."
+          : "Process attendance is unavailable while staged punches exist",
+        "warning",
+      );
+      return;
+    }
+
+    showSpinner();
+    try {
+      await attendanceService.processAttendance({
+        fromDate: date,
+        toDate: date,
+        departmentId: departmentId && departmentId !== "All" ? departmentId : undefined,
+        employeeIds: undefined,
+        workerType: "Both",
+        reprocess: true,
+      });
+      showSnackbar("Attendance processed", "success");
+      loadRegister();
+      loadTodaySummary();
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? "Failed to process attendance",
+        "error",
+      );
+    } finally {
+      hideSpinner();
+    }
+  };
+
   return (
     <div className="p-4 space-y-3">
+      {stagedPunchCheckFailed && (
+        <Alert severity="error">
+          Staged punches could not be checked. Punch editing and attendance processing are disabled until the check succeeds.
+        </Alert>
+      )}
+
       {/* Summary cards */}
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-bold text-gray-500">{getSummaryHeader()}</div>
@@ -1813,15 +1538,29 @@ export function DailyRegister() {
           >
             Send Reminders {selected.size > 0 && `(${selected.size})`}
           </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="success"
-            startIcon={<PlayArrowOutlined className="!w-4" />}
-            onClick={runAttendance}
-          >
-            Run Attendance
-          </Button>
+
+          {hasStagedPunches ? (
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<PlayArrowOutlined className="!w-4" />}
+              onClick={runAttendance}
+            >
+              Run Attendance ({stagedPunches.length})
+            </Button>
+          ) : (
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<PlayArrowOutlined className="!w-4" />}
+              onClick={handleProcessAttendance}
+              disabled={!canProcessAttendance}
+            >
+              Process Attendance
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1942,36 +1681,6 @@ export function DailyRegister() {
           </Tooltip>
         </div>
       </div>
-
-      {/* Pending Inline Edits Bar */}
-      {pendingInlineEdits.size > 0 && (
-        <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 flex-wrap">
-          <WarningAmberOutlined fontSize="small" className="text-amber-600" />
-          <span className="text-[12px] text-amber-800 font-bold">
-            {pendingInlineEdits.size} pending change{pendingInlineEdits.size !== 1 ? "s" : ""} not yet saved
-          </span>
-          <div className="flex items-center gap-2 ml-2">
-            <Button
-              size="small"
-              variant="contained"
-              className="!bg-primary"
-              startIcon={<CheckCircleOutlined fontSize="small" />}
-              onClick={() => setBulkCorrectionDialogOpen(true)}
-            >
-              Submit Changes ({pendingInlineEdits.size})
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              className="!text-error !border-red-500"
-              startIcon={<CloseOutlined fontSize="small" />}
-              onClick={clearPendingEdits}
-            >
-              Discard
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
@@ -2104,32 +1813,22 @@ export function DailyRegister() {
                 employees.map((emp, i) => {
                   const isLeave = emp.status === "leave";
                   const isEditing = inlineEditInProgress === emp.employeeId;
-                  const hasPendingEdit = pendingInlineEdits.has(emp.employeeId);
-                  const pendingEdit = pendingInlineEdits.get(emp.employeeId);
 
-                  const displayCheckInDate = pendingEdit?.checkInDate
-                    ? dayjs(pendingEdit.checkInDate).format("DD MMM YYYY")
-                    : emp.checkInDate
-                      ? dayjs(emp.checkInDate).format("DD MMM YYYY")
-                      : null;
+                  const displayCheckInDate = emp.checkInDate
+                    ? dayjs(emp.checkInDate).format("DD MMM YYYY")
+                    : null;
 
-                  const displayCheckInTime = pendingEdit?.checkInTime
-                    ? pendingEdit.checkInTime
-                    : emp.checkInTime
-                      ? dayjs(emp.checkInTime).format("HH:mm:ss")
-                      : null;
+                  const displayCheckInTime = emp.checkInTime
+                    ? dayjs(emp.checkInTime).format("HH:mm:ss")
+                    : null;
 
-                  const displayCheckOutDate = pendingEdit?.checkOutDate
-                    ? dayjs(pendingEdit.checkOutDate).format("DD MMM YYYY")
-                    : emp.checkOutDate
-                      ? dayjs(emp.checkOutDate).format("DD MMM YYYY")
-                      : null;
+                  const displayCheckOutDate = emp.checkOutDate
+                    ? dayjs(emp.checkOutDate).format("DD MMM YYYY")
+                    : null;
 
-                  const displayCheckOutTime = pendingEdit?.checkOutTime
-                    ? pendingEdit.checkOutTime
-                    : emp.checkOutTime
-                      ? dayjs(emp.checkOutTime).format("HH:mm:ss")
-                      : null;
+                  const displayCheckOutTime = emp.checkOutTime
+                    ? dayjs(emp.checkOutTime).format("HH:mm:ss")
+                    : null;
 
                   const lockCheckInDate = !!emp.checkInDate;
                   const lockCheckOutDate = !!emp.checkOutDate;
@@ -2157,11 +1856,6 @@ export function DailyRegister() {
                           <div>
                             {emp.employeeName} ({emp.employeeCode})
                           </div>
-                          {hasPendingEdit && (
-                            <Tooltip title="Has pending changes">
-                              <PendingActionsOutlined className="animate-blink !w-4 !h-4 text-red-500" />
-                            </Tooltip>
-                          )}
                         </div>
                         <div className="text-blue-500">{emp.template || "-"}</div>
                       </TableCell>
@@ -2180,7 +1874,7 @@ export function DailyRegister() {
                       {/* ─── CHECK-IN DATE ─── */}
                       <TableCell data-edit-cell="checkInDate">
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkInDate") && !processStatus.locked ? (
+                          {isEditingField(emp.employeeId, "checkInDate") && canEditPunchTimes && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                               <DateTimePicker
                                 value={draftDateTime}
@@ -2188,7 +1882,7 @@ export function DailyRegister() {
                                 format="DD/MM/YYYY HH:mm:ss"
                                 ampm={false}
                                 maxDateTime={dayjs()}
-                                disabled={isLeave || isEditing}
+                                disabled={isLeave || isEditing || !canEditPunchTimes}
                                 slotProps={{
                                   textField: {
                                     variant: "outlined",
@@ -2219,6 +1913,7 @@ export function DailyRegister() {
                               value={displayCheckInDate}
                               onClick={() =>
                                 !isLeave &&
+                                canEditPunchTimes &&
                                 !isEditing &&
                                 !processStatus.locked &&
                                 !lockCheckInDate &&
@@ -2228,8 +1923,7 @@ export function DailyRegister() {
                                   dayjs(emp.checkInTime || emp.checkInDate || date),
                                 )
                               }
-                              disabled={isLeave || isEditing || lockCheckInDate}
-                              className={pendingEdit?.checkInDate ? "text-red-600 font-semibold" : ""}
+                              disabled={isLeave || isEditing || lockCheckInDate || !canEditPunchTimes}
                             />
                           )}
                         </div>
@@ -2238,14 +1932,14 @@ export function DailyRegister() {
                       {/* ─── CHECK-IN TIME ─── */}
                       <TableCell data-edit-cell="checkInTime">
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkInTime") && !processStatus.locked ? (
+                          {isEditingField(emp.employeeId, "checkInTime") && canEditPunchTimes && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                               <TimePicker
                                 ampm={false}
                                 value={draftDateTime}
                                 onChange={(newValue) => setDraftDateTime(newValue)}
                                 format="HH:mm:ss"
-                                disabled={isLeave || isEditing}
+                                disabled={isLeave || isEditing || !canEditPunchTimes}
                                 slotProps={{
                                   textField: {
                                     size: "small",
@@ -2267,7 +1961,7 @@ export function DailyRegister() {
                                         color: emp.checkInTime ? "#15803d" : "#ef4444",
                                       },
                                       ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 5px !important",
+                                        padding: "5px !important",
                                       },
                                     },
                                   },
@@ -2280,6 +1974,7 @@ export function DailyRegister() {
                               value={displayCheckInTime}
                               onClick={() =>
                                 !isLeave &&
+                                canEditPunchTimes &&
                                 !isEditing &&
                                 !processStatus.locked &&
                                 openField(
@@ -2288,13 +1983,11 @@ export function DailyRegister() {
                                   emp.checkInTime ? dayjs(emp.checkInTime) : null,
                                 )
                               }
-                              disabled={isLeave || isEditing}
+                              disabled={isLeave || isEditing || !canEditPunchTimes}
                               className={
-                                pendingEdit?.checkInTime
-                                  ? "text-red-600 font-semibold"
-                                  : emp.checkInTime
-                                    ? "text-green-700 font-semibold"
-                                    : "text-red-500"
+                                emp.checkInTime
+                                  ? "text-green-700 font-semibold"
+                                  : "text-red-500"
                               }
                             />
                           )}
@@ -2304,7 +1997,7 @@ export function DailyRegister() {
                       {/* ─── CHECK-OUT DATE ─── */}
                       <TableCell data-edit-cell="checkOutDate">
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkOutDate") && !processStatus.locked ? (
+                          {isEditingField(emp.employeeId, "checkOutDate") && canEditPunchTimes && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                               <DateTimePicker
                                 value={draftDateTime}
@@ -2313,7 +2006,7 @@ export function DailyRegister() {
                                 ampm={false}
                                 maxDateTime={dayjs()}
                                 minDateTime={emp.checkInTime ? dayjs(emp.checkInTime) : undefined}
-                                disabled={isLeave || isEditing || !emp.checkInTime}
+                                disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
                                 slotProps={{
                                   textField: {
                                     size: "small",
@@ -2348,6 +2041,7 @@ export function DailyRegister() {
                               value={displayCheckOutDate}
                               onClick={() =>
                                 !isLeave &&
+                                canEditPunchTimes &&
                                 !isEditing &&
                                 !processStatus.locked &&
                                 emp.checkInTime &&
@@ -2358,8 +2052,7 @@ export function DailyRegister() {
                                   dayjs(emp.checkOutTime || emp.checkOutDate || date),
                                 )
                               }
-                              disabled={isLeave || isEditing || !emp.checkInTime || lockCheckOutDate}
-                              className={pendingEdit?.checkOutDate ? "text-red-600 font-semibold" : ""}
+                              disabled={isLeave || isEditing || !emp.checkInTime || lockCheckOutDate || !canEditPunchTimes}
                             />
                           )}
                         </div>
@@ -2368,14 +2061,14 @@ export function DailyRegister() {
                       {/* ─── CHECK-OUT TIME ─── */}
                       <TableCell data-edit-cell="checkOutTime">
                         <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkOutTime") && !processStatus.locked ? (
+                          {isEditingField(emp.employeeId, "checkOutTime") && canEditPunchTimes && !processStatus.locked ? (
                             <LocalizationProvider dateAdapter={AdapterDayjs}>
                               <TimePicker
                                 ampm={false}
                                 value={draftDateTime}
                                 onChange={(newValue) => setDraftDateTime(newValue)}
                                 format="HH:mm:ss"
-                                disabled={isLeave || isEditing || !emp.checkInTime}
+                                disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
                                 slotProps={{
                                   textField: {
                                     size: "small",
@@ -2397,7 +2090,7 @@ export function DailyRegister() {
                                         color: emp.checkOutTime ? "#2563eb !important" : "#9ca3af",
                                       },
                                       ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 5px !important",
+                                        padding: "5px !important",
                                       },
                                     },
                                   },
@@ -2410,6 +2103,7 @@ export function DailyRegister() {
                               value={displayCheckOutTime}
                               onClick={() =>
                                 !isLeave &&
+                                canEditPunchTimes &&
                                 !isEditing &&
                                 !processStatus.locked &&
                                 emp.checkInTime &&
@@ -2419,13 +2113,11 @@ export function DailyRegister() {
                                   emp.checkOutTime ? dayjs(emp.checkOutTime) : null,
                                 )
                               }
-                              disabled={isLeave || isEditing || !emp.checkInTime}
+                              disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
                               className={
-                                pendingEdit?.checkOutTime
-                                  ? "text-red-600 font-semibold"
-                                  : emp.checkOutTime
-                                    ? "text-blue-600 font-semibold"
-                                    : "text-gray-400"
+                                emp.checkOutTime
+                                  ? "text-blue-600 font-semibold"
+                                  : "text-gray-400"
                               }
                             />
                           )}
@@ -2460,6 +2152,7 @@ export function DailyRegister() {
                                 <IconButton
                                   size="small"
                                   onClick={() => openPunch(emp, "checkIn")}
+                                  disabled={!canEditPunchTimes}
                                   className="!text-green-700"
                                 >
                                   <LoginOutlined fontSize="small" />
@@ -2471,6 +2164,7 @@ export function DailyRegister() {
                                 <IconButton
                                   size="small"
                                   onClick={() => openPunch(emp, "checkOut")}
+                                  disabled={!canEditPunchTimes}
                                   className="!text-blue-600"
                                 >
                                   <LogoutOutlined fontSize="small" />
@@ -2604,300 +2298,6 @@ export function DailyRegister() {
               : punchType === "checkIn"
                 ? "Confirm Check-in"
                 : "Confirm Check-out"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Correction Request Dialog (single) */}
-      <Dialog
-        open={correctionDialogOpen}
-        onClose={() => {
-          if (!submittingCorrection) {
-            setCorrectionDialogOpen(false);
-            setPendingCorrection(null);
-            setCorrectionReason("");
-          }
-        }}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
-          <span className="!pl-4 flex items-center gap-2">
-            <PendingActionsOutlined className="text-amber-500" />
-            Request Attendance Correction
-          </span>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setCorrectionDialogOpen(false);
-              setPendingCorrection(null);
-              setCorrectionReason("");
-            }}
-            disabled={submittingCorrection}
-          >
-            <CloseOutlined fontSize="small" className="text-gray-800" />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent className="!p-4">
-          {pendingCorrection && (
-            <div className="space-y-4">
-              <Alert severity="warning" sx={{ py: 0.5 }}>
-                <span className="text-[12px]">
-                  Both check-in and check-out already exist for{" "}
-                  <strong>{pendingCorrection.employee.employeeName}</strong>.
-                  Changes require approval.
-                </span>
-              </Alert>
-
-              <div className="bg-gray-50 rounded-lg p-3 text-[12px] space-y-2">
-                <div className="font-medium text-gray-700 mb-2">Proposed Changes:</div>
-
-                {pendingCorrection.changes.checkInDate && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Check-in Date:</span>
-                    <span>
-                      <span className="line-through text-gray-400 mr-2">
-                        {pendingCorrection.employee.checkInDate
-                          ? formatDate(pendingCorrection.employee.checkInDate)
-                          : "-"}
-                      </span>
-                      <span className="text-green-600 font-medium">
-                        → {formatDate(pendingCorrection.changes.checkInDate)}
-                      </span>
-                    </span>
-                  </div>
-                )}
-
-                {pendingCorrection.changes.checkInTime && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Check-in Time:</span>
-                    <span>
-                      <span className="line-through text-gray-400 mr-2">
-                        {pendingCorrection.employee.checkInTime
-                          ? formatTimewithSec(pendingCorrection.employee.checkInTime)
-                          : "-"}
-                      </span>
-                      <span className="text-green-600 font-medium">
-                        → {formatTimewithSec(pendingCorrection.changes.checkInTime)}
-                      </span>
-                    </span>
-                  </div>
-                )}
-
-                {pendingCorrection.changes.checkOutDate && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Check-out Date:</span>
-                    <span>
-                      <span className="line-through text-gray-400 mr-2">
-                        {pendingCorrection.employee.checkOutDate
-                          ? formatDate(pendingCorrection.employee.checkOutDate)
-                          : "-"}
-                      </span>
-                      <span className="text-blue-600 font-medium">
-                        → {formatDate(pendingCorrection.changes.checkOutDate)}
-                      </span>
-                    </span>
-                  </div>
-                )}
-
-                {pendingCorrection.changes.checkOutTime && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-500">Check-out Time:</span>
-                    <span>
-                      <span className="line-through text-gray-400 mr-2">
-                        {pendingCorrection.employee.checkOutTime
-                          ? formatTimewithSec(pendingCorrection.employee.checkOutTime)
-                          : "-"}
-                      </span>
-                      <span className="text-blue-600 font-medium">
-                        → {formatTimewithSec(pendingCorrection.changes.checkOutTime)}
-                      </span>
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <TextField
-                label="Reason for Correction *"
-                fullWidth
-                multiline
-                rows={3}
-                size="small"
-                value={correctionReason}
-                onChange={(e) => setCorrectionReason(e.target.value)}
-                placeholder="Please provide a reason for this correction..."
-                disabled={submittingCorrection}
-              />
-            </div>
-          )}
-        </DialogContent>
-
-        <DialogActions className="!p-4 !border-t !border-gray-200">
-          <Button
-            variant="outlined"
-            className="!text-gray-800 !border-gray-200"
-            onClick={() => {
-              setCorrectionDialogOpen(false);
-              setPendingCorrection(null);
-              setCorrectionReason("");
-            }}
-            disabled={submittingCorrection}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            className="!bg-primary"
-            onClick={submitCorrection}
-            disabled={submittingCorrection || !correctionReason.trim()}
-            startIcon={<PendingActionsOutlined />}
-          >
-            {submittingCorrection ? "Submitting..." : "Submit for Approval"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Bulk Inline Changes Confirmation Dialog */}
-      <Dialog
-        open={bulkCorrectionDialogOpen}
-        onClose={() => {
-          if (!submittingBulkCorrection) {
-            setBulkCorrectionDialogOpen(false);
-          }
-        }}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
-          <span className="!pl-4 flex items-center gap-2">
-            <PendingActionsOutlined className="text-amber-500" />
-            Submit Pending Changes ({pendingInlineEdits.size})
-          </span>
-          <IconButton
-            size="small"
-            onClick={() => setBulkCorrectionDialogOpen(false)}
-            disabled={submittingBulkCorrection}
-          >
-            <CloseOutlined fontSize="small" className="text-gray-800" />
-          </IconButton>
-        </DialogTitle>
-
-        <DialogContent className="!p-4">
-          <div className="space-y-4">
-            <Alert severity="info" sx={{ py: 0.5 }}>
-              <span className="text-[12px]">
-                <strong>{pendingInlineEdits.size}</strong> employee
-                {pendingInlineEdits.size !== 1 ? "s" : ""} have pending attendance changes.
-                Records with both check-in and check-out will be sent as{" "}
-                <strong>correction requests</strong> requiring approval. Others will be updated
-                directly via bulk check-in / bulk check-out.
-              </span>
-            </Alert>
-
-            <div className="border border-gray-200 rounded-md overflow-hidden max-h-[400px] overflow-y-auto !mb-4">
-              <table className="w-full text-[12px]">
-                <thead className="bg-head sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-gray-600">Employee</th>
-                    <th className="px-3 py-2 text-left text-gray-600">Change</th>
-                    <th className="px-3 py-2 text-left text-gray-600">New Value</th>
-                    <th className="px-3 py-2 text-center text-gray-600">Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Array.from(pendingInlineEdits.values()).map((edit) => {
-                    const emp = employees.find((e) => e.employeeId === edit.employeeId);
-                    const needsApproval = !!(emp?.checkInTime && emp?.checkOutTime);
-                    const changes: { field: string; value: string }[] = [];
-
-                    if (edit.checkInDate && edit.checkInTime) {
-                      changes.push({
-                        field: "Check-in",
-                        value: `${dayjs(edit.checkInDate).format("DD MMM YYYY")} ${edit.checkInTime}`,
-                      });
-                    }
-                    if (edit.checkOutDate && edit.checkOutTime) {
-                      changes.push({
-                        field: "Check-out",
-                        value: `${dayjs(edit.checkOutDate).format("DD MMM YYYY")} ${edit.checkOutTime}`,
-                      });
-                    }
-
-                    return changes.map((change, idx) => (
-                      <tr key={`${edit.employeeId}-${change.field}`} className="border-t border-gray-200">
-                        {idx === 0 && (
-                          <>
-                            <td className="px-3 py-1 align-top" rowSpan={changes.length}>
-                              <div className="text-gray-800 text-[12px]">
-                                {edit.employeeName}
-                              </div>
-                              <div className="text-gray-500">({edit.employeeCode})</div>
-                            </td>
-                            <td className="px-3 py-2" rowSpan={changes.length}>
-                              <div className="text-gray-600">{change.field}</div>
-                            </td>
-                            <td className="px-3 py-2" rowSpan={changes.length}>
-                              {change.value}
-                            </td>
-                            <td className="px-3 py-2 text-center" rowSpan={changes.length}>
-                              <Chip
-                                label={needsApproval ? "Correction" : "Direct"}
-                                size="small"
-                                className={
-                                  needsApproval
-                                    ? "!bg-amber-100 !text-amber-700"
-                                    : "!bg-green-100 !text-green-700"
-                                }
-                              />
-                            </td>
-                          </>
-                        )}
-                      </tr>
-                    ));
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {Array.from(pendingInlineEdits.values()).some((edit) => {
-              const emp = employees.find((e) => e.employeeId === edit.employeeId);
-              return !!(emp?.checkInTime && emp?.checkOutTime);
-            }) && (
-                <TextField
-                  label="Reason for Correction (required for approval-required changes)"
-                  fullWidth
-                  multiline
-                  rows={3}
-                  value={bulkCorrectionReason}
-                  onChange={(e) => setBulkCorrectionReason(e.target.value)}
-                  placeholder="Please provide a reason for these corrections..."
-                  disabled={submittingBulkCorrection}
-                  required
-                />
-              )}
-          </div>
-        </DialogContent>
-
-        <DialogActions className="!p-4 !border-t !border-gray-200">
-          <Button
-            variant="outlined"
-            className="!text-gray-800 !border-gray-200"
-            onClick={() => setBulkCorrectionDialogOpen(false)}
-            disabled={submittingBulkCorrection}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            className="!bg-primary"
-            onClick={submitBulkInlineChanges}
-            disabled={submittingBulkCorrection}
-            startIcon={<CheckCircleOutlined />}
-          >
-            {submittingBulkCorrection
-              ? "Submitting..."
-              : `Submit ${pendingInlineEdits.size} Change${pendingInlineEdits.size !== 1 ? "s" : ""}`}
           </Button>
         </DialogActions>
       </Dialog>
@@ -3767,7 +3167,7 @@ export function DailyRegister() {
               <div className="space-y-1">
                 <LinearProgress />
                 <div className="text-[12px] text-gray-500 text-center">
-                  Importing attendance records...
+                  Uploading and staging attendance punches...
                 </div>
               </div>
             )}
@@ -3806,7 +3206,7 @@ export function DailyRegister() {
                   </div>
                   <span className="text-sm">
                     <span className="text-green-600">{importResult.success}</span>{" "}
-                    <span className="text-black">successful</span>
+                    <span className="text-black">staged</span>
                     {importResult.failed > 0 && (
                       <span className="text-red-600 ml-2">
                         {importResult.failed} failed
@@ -3852,7 +3252,7 @@ export function DailyRegister() {
                 <ul className="list-disc ml-4 mt-1 space-y-0.5">
                   <li>Required columns: Employee Code, Timestamp</li>
                   <li>Optional columns: Punch Type (IN/OUT), Device ID</li>
-                  <li>Date range filters will be applied automatically</li>
+                  <li>The selected register date is used for the file date span</li>
                 </ul>
               </div>
             </Alert>
@@ -4366,7 +3766,7 @@ export function DailyRegister() {
               </Alert>
             )}
 
-            {(punchImporting || deviceImportLoading) && <LinearProgress />}
+            {(punchImporting || deviceImportLoading || stagingPunches) && <LinearProgress />}
           </div>
         </DialogContent>
 
@@ -4382,7 +3782,7 @@ export function DailyRegister() {
           >
             Cancel
           </Button>
-          <Button
+          {/* <Button
             variant="contained"
             className="!bg-primary"
             onClick={handleBatchPunchImport}
@@ -4392,7 +3792,7 @@ export function DailyRegister() {
             {punchImporting
               ? "Importing..."
               : `Import ${punchEntries.length} Punches`}
-          </Button>
+          </Button> */}
         </DialogActions>
       </Dialog>
 

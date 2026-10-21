@@ -67,6 +67,7 @@ import {
   HowToRegOutlined,
   GroupOutlined,
   RequestQuoteOutlined,
+  BadgeOutlined,
   RuleOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
@@ -711,6 +712,12 @@ export default function Layout() {
           ? [{ text: "Leave Settings", path: "/leaves/admin/leave-types" }]
           : []),
       ],
+    },
+    {
+      text: "Permission Requests",
+      icon: <BadgeOutlined />,
+      path: "/permission-requests",
+      roles: ["EMPLOYEE", "ESS", "MANAGER", "HR", "ADMIN"],
     },
     {
       text: "Attendance",

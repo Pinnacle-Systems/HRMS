@@ -1,76 +1,90 @@
-// import { describe, expect, it } from "vitest";
-// import {
-//   APPROVAL_ACTIONS,
-//   APPROVAL_MODULES,
-//   approvalWorkflowService,
-//   USE_MOCK_APPROVAL_WORKFLOW,
-//   type ApprovalSettings,
-// } from "../../../src/services/modules/approvalWorkflow";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { apiService } from "../../../src/services/api/api.config";
+import { approvalWorkflowService } from "../../../src/services/modules/approvalWorkflow";
 
-// const createSettings = (): ApprovalSettings => ({
-//   enabled: true,
-//   workflows: APPROVAL_MODULES.flatMap(({ id: module }) =>
-//     APPROVAL_ACTIONS.map(({ id: action }) => ({
-//       id: `${module}:${action}`,
-//       workflowName: `${module} ${action} approval`,
-//       module,
-//       action,
-//       priorityWeight: 1,
-//       approvalRequired: module === "employees" && action === "DELETE",
-//       status: true,
-//       levels:
-//         module === "employees" && action === "DELETE"
-//           ? [
-//               {
-//                 id: "level-1",
-//                 levelTitle: "Level 1 Approval",
-//                 condition: "ANY" as const,
-//                 approvers: ["admin"],
-//               },
-//             ]
-//           : [],
-//     })),
-//   ),
-// });
+describe("approvalWorkflowService", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
-// describe.runIf(USE_MOCK_APPROVAL_WORKFLOW)("approval workflow demo data", () => {
-//   it("loads seeded workflows and pending requests", async () => {
-//     const settings = await approvalWorkflowService.getSettings();
-//     const requests = await approvalWorkflowService.getPendingRequests();
+  it("fetches workflow modules with pagination parameters", async () => {
+    const getSpy = vi.spyOn(apiService, "get").mockResolvedValue({
+      success: true,
+      message: "ok",
+      data: { content: [] },
+    } as any);
 
-//     expect(settings.workflows).toHaveLength(
-//       APPROVAL_MODULES.length * APPROVAL_ACTIONS.length,
-//     );
-//     expect(
-//       settings.workflows.find(({ id }) => id === "employees:DELETE"),
-//     ).toMatchObject({ approvalRequired: true, status: true });
-//     expect(requests.length).toBeGreaterThanOrEqual(1);
-//     expect(requests[0]).toMatchObject({
-//       module: expect.any(String),
-//       action: expect.any(String),
-//       status: "PENDING",
-//     });
-//   });
+    await approvalWorkflowService.getModules({
+      search: "employee",
+      active: true,
+      page: 1,
+      size: 25,
+    });
 
-//   it("saves workflow levels and removes an approved request from pending", async () => {
-//     const settings = createSettings();
-//     await approvalWorkflowService.updateSettings(settings);
-//     const [request] = await approvalWorkflowService.getPendingRequests();
+    expect(getSpy).toHaveBeenCalledWith("/approval/modules", {
+      params: {
+        search: "employee",
+        active: true,
+        page: 1,
+        size: 25,
+      },
+    });
+  });
 
-//     const result = await approvalWorkflowService.decideRequest(request.id, {
-//       decision: "APPROVE",
-//       comments: "Confirmed by admin.",
-//     });
+  it("creates a configuration using the approval workflow endpoint", async () => {
+    const payload = {
+      workflowName: "Employee change approval",
+      moduleId: "employees",
+      priorityWeight: 1,
+      noRulesRequired: false,
+      active: true,
+      rules: [
+        {
+          fieldId: "employeeId",
+          operatorId: "eq",
+          valueType: "static" as const,
+          value: "123",
+        },
+      ],
+      levels: [
+        {
+          levelTitle: "Manager review",
+          approvalCondition: "any" as const,
+          approverType: "user" as const,
+          approverEmployeeIds: ["emp-1"],
+          approverRoles: [],
+        },
+      ],
+    };
 
-//     expect(result).toMatchObject({
-//       request: { id: request.id, status: "APPROVED" },
-//       changeApplied: true,
-//     });
-//     expect(
-//       (await approvalWorkflowService.getPendingRequests()).map(({ id }) => id),
-//     ).not.toContain(request.id);
-//     expect((await approvalWorkflowService.getSettings()).workflows).toEqual(
-//       settings.workflows,
-//     );
-//   });
-// });
+    const postSpy = vi.spyOn(apiService, "post").mockResolvedValue({
+      success: true,
+      message: "created",
+      data: { id: "config-1" },
+    } as any);
+
+    await approvalWorkflowService.createConfiguration(payload);
+
+    expect(postSpy).toHaveBeenCalledWith("/approval/configurations", payload);
+  });
+
+  it("loads pending approvals for the current user", async () => {
+    const getSpy = vi.spyOn(apiService, "get").mockResolvedValue({
+      success: true,
+      message: "ok",
+      data: [],
+    } as any);
+
+    await approvalWorkflowService.getPendingApprovalsForMe({
+      userId: "u-1",
+      active: true,
+    });
+
+    expect(getSpy).toHaveBeenCalledWith("/approval/requests/pending-for-me", {
+      params: {
+        userId: "u-1",
+        active: true,
+      },
+    });
+  });
+});

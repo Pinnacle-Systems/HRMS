@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LinearProgress, Alert,
   InputLabel,
@@ -30,6 +30,7 @@ import { useAuth } from "../../../auth/authContext";
 import { useSearchParams } from "react-router-dom";
 import { apiService } from "../../../services";
 import { formatDate } from "../../leave/leaveFormatters";
+import { biometricService } from "../../../services/modules/biometricDevice";
 
 interface PreCheckIssue {
   employeeId: string;
@@ -124,6 +125,8 @@ function buildPreCheck(employees: any[]): PreCheckState {
 
 export function ProcessAttendance() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const showSnackbarRef = useRef(showSnackbar);
+  showSnackbarRef.current = showSnackbar;
   const [searchParams] = useSearchParams();
   const initialFromDate = searchParams.get("fromDate") ||
     sessionStorage.getItem("attendanceDetailedFromDate") ||
@@ -153,6 +156,11 @@ export function ProcessAttendance() {
     recommendedAction?: string;
   } | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [hasStagedPunches, setHasStagedPunches] = useState(false);
+  const [isCheckingStagedPunches, setIsCheckingStagedPunches] = useState(true);
+  const [stagedPunchCheckFailed, setStagedPunchCheckFailed] = useState(false);
+  const canProcessAttendance =
+    !hasStagedPunches && !isCheckingStagedPunches && !stagedPunchCheckFailed;
   const { session } = useAuth();
 
   const [validationResult, setValidationResult] = useState<ProcessResult | null>(null);
@@ -162,6 +170,36 @@ export function ProcessAttendance() {
   const [preCheck, setPreCheck] = useState<PreCheckState | null>(null);
   const [preCheckOpen, setPreCheckOpen] = useState(false);
   const [preCheckConfirmed, setPreCheckConfirmed] = useState(false);
+
+  const checkForStagedPunches = useCallback(async () => {
+    setIsCheckingStagedPunches(true);
+    try {
+      const stagedPunches = await biometricService.getStagedPunches({
+        from: fromDate,
+        to: toDate,
+      });
+      const hasStaged = stagedPunches.length > 0;
+      setHasStagedPunches(hasStaged);
+      setStagedPunchCheckFailed(false);
+      if (hasStaged) {
+        showSnackbarRef.current("Process, validate, and finalize are unavailable while staged punches exist", "warning");
+      }
+      return !hasStaged;
+    } catch (err: any) {
+      setStagedPunchCheckFailed(true);
+      showSnackbarRef.current(
+        err?.response?.data?.message ?? err?.message ?? "Failed to check staged punches",
+        "error",
+      );
+      return false;
+    } finally {
+      setIsCheckingStagedPunches(false);
+    }
+  }, [fromDate, toDate]);
+
+  useEffect(() => {
+    void checkForStagedPunches();
+  }, [checkForStagedPunches]);
 
   // Fetch departments
   useEffect(() => {
@@ -232,6 +270,7 @@ export function ProcessAttendance() {
   };
 
   async function handleValidate() {
+    if (!(await checkForStagedPunches())) return;
     if (processStatus?.locked) {
       showSnackbar("This attendance date is closed and finalized", "warning");
       return;
@@ -300,6 +339,7 @@ export function ProcessAttendance() {
   }
 
   async function handleProcess() {
+    if (!(await checkForStagedPunches())) return;
     if (processStatus?.locked) {
       showSnackbar("This attendance date is closed and finalized", "warning");
       return;
@@ -414,6 +454,7 @@ export function ProcessAttendance() {
  
   // Execute process function
   async function executeProcess(reprocessOverride = reprocess) {
+    if (!(await checkForStagedPunches())) return;
     setProcessing(true);
     setResult(null);
     setError(null);
@@ -491,7 +532,8 @@ export function ProcessAttendance() {
   /* ------------------------------------------------------------------ */
   /* Close & Finalize — now goes through the pre-check dialog            */
   /* ------------------------------------------------------------------ */
-  function handleCloseAndFinalize() {
+  async function handleCloseAndFinalize() {
+    if (!(await checkForStagedPunches())) return;
     if ((!result || result.processed === 0) &&
         (!processStatus || processStatus.recordCount === 0)) {
       showSnackbar("No processed records to close", "warning");
@@ -527,6 +569,7 @@ export function ProcessAttendance() {
       confirmText: "Close & Finalize",
       cancelText: "Cancel",
       onConfirm: async () => {
+        if (!(await checkForStagedPunches())) return;
         setProcessing(true);
         showSpinner();
         try {
@@ -589,6 +632,7 @@ export function ProcessAttendance() {
 
   // Manual Close function
   async function handleManualClose() {
+    if (!(await checkForStagedPunches())) return;
     if (!result || result.processed === 0) {
       showSnackbar("No processed records to close", "warning");
       return;
@@ -611,6 +655,7 @@ export function ProcessAttendance() {
       confirmText: "Close",
       cancelText: "Cancel",
       onConfirm: async () => {
+        if (!(await checkForStagedPunches())) return;
         setProcessing(true);
         showSpinner();
         try {
@@ -781,7 +826,7 @@ export function ProcessAttendance() {
             {!processStatus?.locked && (
               <button
                 onClick={handleValidate}
-                disabled={isValidating || processing || isLoadingStatus || !workerType}
+                disabled={isValidating || processing || isLoadingStatus || !workerType || !canProcessAttendance}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded text-[12px] font-medium hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <InfoOutlined fontSize="small" />
@@ -791,7 +836,7 @@ export function ProcessAttendance() {
             {!processStatus?.processed && !processStatus?.locked && (
               <button
                 onClick={handleProcess}
-                disabled={processing || isValidating || isLoadingStatus || !workerType}
+                disabled={processing || isValidating || isLoadingStatus || !workerType || !canProcessAttendance}
                 className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-white rounded text-[12px] font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <PlayArrowOutlined fontSize="small" />
@@ -801,7 +846,7 @@ export function ProcessAttendance() {
             {processStatus?.processed && !processStatus.locked && (
               <button
                 onClick={handleReprocess}
-                disabled={processing || isValidating || isLoadingStatus || !workerType}
+                disabled={processing || isValidating || isLoadingStatus || !workerType || !canProcessAttendance}
                 className="flex items-center justify-center gap-2 px-5 py-2 bg-primary text-white rounded text-[12px] font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <PlayArrowOutlined fontSize="small" />
@@ -810,6 +855,17 @@ export function ProcessAttendance() {
             )}
           </div>
         </div>
+
+        {hasStagedPunches && (
+          <Alert severity="warning" sx={{ py: 0.5, mt: 2 }}>
+            Staged biometric punches must be run before attendance can be processed, validated, or finalized.
+          </Alert>
+        )}
+        {stagedPunchCheckFailed && (
+          <Alert severity="error" sx={{ py: 0.5, mt: 2 }}>
+            Staged punches could not be checked. Processing actions are disabled until the check succeeds.
+          </Alert>
+        )}
 
         {reprocess && !processStatus?.locked && (
           <Alert severity="warning" icon={<WarningAmberOutlined fontSize="small" />} sx={{ py: 0.5, mt: 2 }}>
@@ -837,7 +893,7 @@ export function ProcessAttendance() {
       )}
 
       {/* Close Option Banner */}
-      {showCloseOption && !isClosed && !processStatus?.locked && (
+      {showCloseOption && canProcessAttendance && !isClosed && !processStatus?.locked && (
         <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
           <div className="flex items-center gap-2">
             <InfoOutlined className="text-amber-600" />
@@ -966,7 +1022,7 @@ export function ProcessAttendance() {
           )}
 
           {/* Manual Close Button */}
-          {!result.locked && !processStatus?.locked && result.processed > 0 && !showCloseOption && (
+          {canProcessAttendance && !result.locked && !processStatus?.locked && result.processed > 0 && !showCloseOption && (
             <div className="flex justify-end">
               <button
                 onClick={handleManualClose}
@@ -1331,7 +1387,7 @@ export function ProcessAttendance() {
               setPreCheckOpen(false);
               confirmAndClose(true);
             }}
-            disabled={!preCheckConfirmed || processing}
+            disabled={!preCheckConfirmed || processing || !canProcessAttendance}
             variant="contained"
             color="success"
           >

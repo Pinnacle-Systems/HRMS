@@ -3,6 +3,8 @@ import { Box, Tab, Tabs } from "@mui/material";
 import ApprovalWorkflowConfig from "./approvalWorkflow";
 import ApprovalOperatorManagement from "./approvalOperatorManagement";
 import ApprovalModuleManagement from "./approvalModuleManagement";
+import PendingApprovals from "./pendingApprovals";
+import ApprovalFieldManagement from "./approvalFieldManagement";
 
 export default function ApprovalWorkflowHome() {
   const [tab, setTab] = useState(0);
@@ -29,17 +31,17 @@ export default function ApprovalWorkflowHome() {
         >
           <Tab label="Configurations" className="!text-gray-800"/>
           <Tab label="Modules" className="!text-gray-800"/>
-          {/* <Tab label="Fields" className="!text-gray-800" /> */}
           <Tab label="Operators" className="!text-gray-800"/>
+          <Tab label="Fields" className="!text-gray-800" />
           <Tab label="Pending approvals"  className="!text-gray-800"/>
         </Tabs>
       </div>
 
       {tab === 0 && <ApprovalWorkflowConfig />}
-      {/* {tab === 1 && <ApprovalModuleManagement />} */}
       {tab === 1 && <ApprovalModuleManagement />}
-      {/* {tab === 3 && <ApprovalFieldManagement />} */}
       {tab === 2 && <ApprovalOperatorManagement />}
+      {tab === 3 && <ApprovalFieldManagement />}
+      {tab === 4 && <PendingApprovals />}
     </Box>
   );
 }

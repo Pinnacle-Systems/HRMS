@@ -49,6 +49,7 @@ export const API_ENDPOINTS = {
     // Fields (Field Dictionary)
     FIELDS: "/approval/fields",
     FIELD_BY_ID: (id: string) => `/approval/fields/${id}`,
+    FIELD_BY_VALUES: (id: string) => `/approval/fields/${id}/values`,
 
     // Configurations (Workflows)
     CONFIGURATIONS: "/approval/configurations",
@@ -58,6 +59,11 @@ export const API_ENDPOINTS = {
 
     // Evaluate (Dry-run)
     EVALUATE: "/approval/evaluate",
+
+    APPROVAL_REQUESTS: {
+      REQUEST_BY_ID: (id: string) => `/approval/requests/${id}`,
+      PENDING_FOR_ME: "/approval/requests/pending-for-me",
+    },
   },
 
   BRANCH: {
@@ -868,6 +874,7 @@ export const API_ENDPOINTS = {
     IMPORT_FILE: "/attendance/import/file",
     BULK_CHECKIN: "/attendance/bulk-checkin",
     BULK_CHECKOUT: "/attendance/bulk-checkout",
+    STAGE_FILE: "/attendance/import/file/stage",
 
     DOWNLOAD_TEMP: "/attendance/import/template",
     AUTO_ASSIGN_SHIFT: "/attendance/policy/auto-assign-shift",
@@ -885,7 +892,11 @@ export const API_ENDPOINTS = {
       POST_MAP: "/integration/biometric/map",
       POST_DEVICE: "/integration/biometric/devices",
       UPDATE_DEVICE: (id: string) => `/integration/biometric/devices/${id}`,
-      RUN_ATTENDANCE: "/integration/biometric/punches/run-attendance"
+      RUN_ATTENDANCE: "/integration/biometric/punches/run-attendance",
+      STAGE_PUNCHES: "/integration/biometric/punches/stage",
+      GET_STAGED_PUNCHES: "/integration/biometric/punches/staged",
+      UPDATE_STAGED_PUNCH: (employeeId: string, date: string) =>
+        `/integration/biometric/punches/staged/${employeeId}/${date}`,
     },
 
     DATA_INTEGRITY: {

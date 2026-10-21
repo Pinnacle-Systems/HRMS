@@ -27,6 +27,7 @@ const Home = lazy(() => import("../pages/home/home"));
 const EmployeeHome = lazy(() => import("../pages/home/employeeHome"));
 const BIWorkspacePage = lazy(() => import("../pages/home/BiWorkspacePage.tsx"));
 const ApplyLeavePage = lazy(() => import("../pages/leave/EmployeeComponents/ApplyLeavePage"));
+const PermissionRequestPage = lazy(() => import("../pages/permission/PermissionRequestPage"));
 const CompOffsPage = lazy(() => import("../pages/leave/EmployeeComponents/CompOffsPage"));
 const HolidayCalendarPage = lazy(() => import("../pages/leave/EmployeeComponents/HolidayCalendarPage"));
 const LeavePlaceholderPage = lazy(() => import("../pages/leave/LeavePlaceholderPage"));
@@ -131,6 +132,12 @@ interface RouteConfig {
 const routeConfigs: RouteConfig[] = [
   // ===================== BASIC ACCESS ROUTES =====================
   // Routes accessible to all authenticated users with basic permissions
+  {
+    path: "permission-requests",
+    element: <PermissionRequestPage />,
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
+    requiresWorkspace: true,
+  },
   {
     path: "home",
     element: <Home />,

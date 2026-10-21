@@ -1,141 +1,87 @@
-// import "@testing-library/jest-dom/vitest";
-// import { screen, waitFor, within } from "@testing-library/react";
-// import userEvent from "@testing-library/user-event";
-// import { beforeEach, describe, expect, it, vi } from "vitest";
-// import ApprovalWorkflowConfig from "../../../src/pages/settings/general/approvalWorkflow";
-// import {
-//   APPROVAL_ACTIONS,
-//   APPROVAL_MODULES,
-//   type ApprovalRequest,
-//   type ApprovalSettings,
-// } from "../../../src/services/modules/approvalWorkflow";
-// import { renderWithProviders } from "../../helpers/render";
+import "@testing-library/jest-dom/vitest";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import ApprovalWorkflowHome from "../../../src/pages/settings/general/approvalWorkflow/approvalWorkflowHome";
+import { renderWithProviders } from "../../helpers/render";
 
-// const { getSettings, updateSettings, getPendingRequests, decideRequest } = vi.hoisted(
-//   () => ({
-//     getSettings: vi.fn(),
-//     updateSettings: vi.fn(),
-//     getPendingRequests: vi.fn(),
-//     decideRequest: vi.fn(),
-//   }),
-// );
+const getModules = vi.fn();
+const getOperators = vi.fn();
+const getPendingApprovalsForMe = vi.fn();
+const getEmployees = vi.fn();
 
-// vi.mock("../../../src/services/modules/approvalWorkflow", async (importOriginal) => {
-//   const original =
-//     await importOriginal<typeof import("../../../src/services/modules/approvalWorkflow")>();
-//   return {
-//     ...original,
-//     approvalWorkflowService: {
-//       getSettings,
-//       updateSettings,
-//       getPendingRequests,
-//       decideRequest,
-//     },
-//   };
-// });
+vi.mock("../../../src/services/modules/approvalWorkflow", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../src/services/modules/approvalWorkflow")>();
 
-// const makeSettings = (): ApprovalSettings => ({
-//   enabled: false,
-//   workflows: APPROVAL_MODULES.flatMap(({ id: module }) =>
-//     APPROVAL_ACTIONS.map(({ id: action }) => ({
-//       id: `${module}:${action}`,
-//       workflowName: `${module} ${action}`,
-//       module,
-//       action,
-//       priorityWeight: 1,
-//       approvalRequired: false,
-//       status: true,
-//       levels:
-//         module === "employees" && action === "DELETE"
-//           ? [
-//               {
-//                 id: "level-1",
-//                 levelTitle: "Level 1 Approval",
-//                 condition: "ANY",
-//                 approvers: ["admin"],
-//               },
-//             ]
-//           : [],
-//     })),
-//   ),
-// });
+  return {
+    ...actual,
+    approvalWorkflowService: {
+      ...actual.approvalWorkflowService,
+      getModules,
+      getOperators,
+      getFields: vi.fn(),
+      getConfigurations: vi.fn(),
+      getPendingApprovalsForMe,
+      getApprovalRequestById: vi.fn(),
+    },
+  };
+});
 
-// const mockRequest: ApprovalRequest = {
-//   id: "request-1",
-//   module: "employees",
-//   action: "DELETE",
-//   summary: "Delete employee E-102",
-//   entityType: "Employee",
-//   entityId: "E-102",
-//   status: "PENDING",
-//   requestedBy: { id: "hr-1", name: "HR User" },
-//   requestedAt: "2026-10-06T09:00:00Z",
-// };
+vi.mock("../../../src/services/modules/employees", () => ({
+  employeeService: {
+    getEmployees,
+  },
+}));
 
-// describe("ApprovalWorkflowConfig", () => {
-//   beforeEach(() => {
-//     getSettings.mockReset().mockResolvedValue(makeSettings());
-//     updateSettings
-//       .mockReset()
-//       .mockImplementation((settings) => Promise.resolve(settings));
-//     getPendingRequests.mockReset().mockResolvedValue([mockRequest]);
-//     decideRequest.mockReset().mockResolvedValue({
-//       request: { ...mockRequest, status: "APPROVED" },
-//       changeApplied: true,
-//       message: "Request approved and the change was applied.",
-//     });
-//   });
+describe("ApprovalWorkflowHome", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
 
-//   it("edits and saves a per-form workflow with approval levels", async () => {
-//     const user = userEvent.setup();
-//     renderWithProviders(<ApprovalWorkflowConfig />);
+    getModules.mockResolvedValue({
+      data: { content: [] },
+    });
+    getOperators.mockResolvedValue({
+      data: [],
+    });
+    getPendingApprovalsForMe.mockResolvedValue({
+      data: [],
+    });
+    getEmployees.mockResolvedValue({
+      data: { content: [] },
+    });
+  });
 
-//     await screen.findByRole("combobox", { name: /form \/ action/i });
-//     await user.click(screen.getByRole("combobox", { name: /form \/ action/i }));
-//     await user.click(screen.getByRole("option", { name: "Employees — Delete" }));
-//     await user.click(
-//       screen.getByRole("checkbox", {
-//         name: /approval required for all matching actions/i,
-//       }),
-//     );
-//     await user.click(screen.getByRole("button", { name: /save configuration/i }));
+  it("renders the workflow administration tabs", async () => {
+    renderWithProviders(<ApprovalWorkflowHome />);
 
-//     await waitFor(() => expect(updateSettings).toHaveBeenCalledTimes(1));
-//     const saved = updateSettings.mock.calls[0][0] as ApprovalSettings;
-//     expect(saved.enabled).toBe(false);
-//     expect(saved.workflows.find(({ id }) => id === "employees:DELETE")).toMatchObject({
-//       approvalRequired: true,
-//       levels: [
-//         expect.objectContaining({
-//           levelTitle: "Level 1 Approval",
-//           condition: "ANY",
-//           approvers: ["admin"],
-//         }),
-//       ],
-//     });
-//   });
+    expect(await screen.findByRole("tab", { name: /configurations/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /modules/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /operators/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /pending approvals/i })).toBeInTheDocument();
+  });
 
-//   it("allows an administrator to approve a pending request", async () => {
-//     const user = userEvent.setup();
-//     renderWithProviders(<ApprovalWorkflowConfig />);
+  it("loads the initial module and operator data on mount", async () => {
+    renderWithProviders(<ApprovalWorkflowHome />);
 
-//     await screen.findByRole("tab", { name: /workflow configuration/i });
-//     await user.click(screen.getByRole("tab", { name: /pending approvals/i }));
-//     const requestRow = await screen.findByText("Delete employee E-102").then((cell) =>
-//       cell.closest("tr"),
-//     );
-//     expect(requestRow).not.toBeNull();
-//     await user.click(
-//       within(requestRow as HTMLTableRowElement).getByRole("button", {
-//         name: /approve/i,
-//       }),
-//     );
-//     await user.click(screen.getByRole("button", { name: /^approve$/i }));
+    await waitFor(() => {
+      expect(getModules).toHaveBeenCalledWith({ size: 100 });
+      expect(getOperators).toHaveBeenCalledWith({ activeOnly: true });
+      expect(getEmployees).toHaveBeenCalledWith({
+        size: 500,
+        includeInactive: true,
+      });
+    });
+  });
 
-//     await waitFor(() => {
-//       expect(decideRequest).toHaveBeenCalledWith("request-1", {
-//         decision: "APPROVE",
-//       });
-//     });
-//   });
-// });
+  it("switches to the pending approvals tab when selected", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ApprovalWorkflowHome />);
+
+    await user.click(screen.getByRole("tab", { name: /pending approvals/i }));
+
+    await waitFor(() => {
+      expect(getPendingApprovalsForMe).toHaveBeenCalledTimes(1);
+    });
+  });
+});

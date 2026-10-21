@@ -34,28 +34,31 @@ export interface ApprovalField {
 }
 
 export interface ApprovalRule {
-  id?: string; // Optional for creation
+  id?: string;
   seqNo?: number;
   fieldId: string;
-  fieldLabel?: string; // Returned in GET
+  fieldLabel?: string;
   operatorId: string;
-  operatorSymbol?: string; // Returned in GET
-  operatorLabel?: string; // Returned in GET
-  valueType: "static" | "field"; // Assuming "static" or "field" based on UI
+  operatorSymbol?: string;
+  operatorLabel?: string;
+  valueType: "static" | "field" | "dynamic";
   value: string;
 }
 
+export type ApprovalApproverType = "user" | "role";
+
 export interface ApprovalLevel {
-  id?: string; // Optional for creation
+  id?: string;
   seqNo?: number;
   levelTitle: string;
   approvalCondition: "any" | "all";
+  approverType: ApprovalApproverType;
   approvers: {
     employeeId: string;
     employeeCode: string;
     employeeName: string;
   }[];
-  // For creation payload
+  approverRoles: string[];
   approverEmployeeIds?: string[];
 }
 
@@ -81,13 +84,15 @@ export interface ApprovalConfigurationPayload {
   rules: {
     fieldId: string;
     operatorId: string;
-    valueType: "static" | "field";
+    valueType: "static" | "field" | "dynamic";
     value: string;
   }[];
   levels: {
     levelTitle: string;
     approvalCondition: "any" | "all";
+    approverType: ApprovalApproverType;
     approverEmployeeIds: string[];
+    approverRoles: string[];
   }[];
 }
 
@@ -121,7 +126,44 @@ interface PaginatedModules {
   content: ApprovalModule[];
 }
 
-// --- Service Implementation ---
+export interface ApprovalApprover {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+}
+
+export interface ApprovalDecision {
+  approverEmployeeId: string;
+  approverName: string;
+  decision: "approved" | "rejected" | string;
+  comments: string;
+  decidedAt: string;
+}
+
+export interface ApprovalRequestLevel {
+  seqNo: number;
+  levelTitle: string;
+  current: boolean;
+  cleared: boolean;
+  approvers: ApprovalApprover[];
+  decisions: ApprovalDecision[];
+}
+
+export interface ApprovalRequest {
+  id: string;
+  moduleId: string;
+  moduleName: string;
+  configurationId: string;
+  workflowName: string;
+  recordId: string;
+  status: "pending" | "approved" | "rejected" | string;
+  currentLevelSeq: number;
+  submittedBy: string;
+  submittedByName: string;
+  submittedAt: string;
+  decidedAt: string;
+  levels: ApprovalRequestLevel[];
+}
 
 export const approvalWorkflowService = {
   // ================= MODULES =================
@@ -161,7 +203,7 @@ export const approvalWorkflowService = {
     );
   },
 
-   async getDbFieldsByModule(id: string): Promise<ApiResponse<DbFields[]>> {
+  async getDbFieldsByModule(id: string): Promise<ApiResponse<DbFields[]>> {
     return apiService.get(
       API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_BY_DBFIELDS(id)
     );
@@ -220,6 +262,10 @@ export const approvalWorkflowService = {
     return apiService.delete(API_ENDPOINTS.APPROVAL_WORKFLOW.FIELD_BY_ID(id));
   },
 
+  async getValuesByField(id: string): Promise<ApiResponse<void>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.FIELD_BY_VALUES(id));
+  },
+
   // ================= CONFIGURATIONS (Workflows) =================
   async getConfigurations(params?: {
     moduleId?: string;
@@ -275,5 +321,21 @@ export const approvalWorkflowService = {
     fieldValues: Record<string, any>;
   }): Promise<ApiResponse<ApprovalEvaluationResult>> {
     return apiService.post(API_ENDPOINTS.APPROVAL_WORKFLOW.EVALUATE, data);
+  },
+
+  async getApprovalRequestById(id: string): Promise<ApiResponse<ApprovalRequest>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.APPROVAL_REQUESTS.REQUEST_BY_ID(id));
+  },
+
+  async getPendingApprovalsForMe(params?: {
+    userId?: string;
+    tenantId?: string;
+    email?: string;
+    password?: string;
+    active?: boolean;
+    roles?: string[];
+    permissions?: string[];
+  }): Promise<ApiResponse<ApprovalRequest[]>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.APPROVAL_REQUESTS.PENDING_FOR_ME, { params });
   },
 };

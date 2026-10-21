@@ -192,6 +192,39 @@ export interface FetchLogQuery {
   deviceIps: string[];
 }
 
+export interface StagedPunch {
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  department?: string;
+  designation?: string;
+  template?: string;
+  attendanceDate: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  shiftCode: string;
+  shiftStart?: string;
+  shiftEnd?: string;
+  status: string;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyOutMinutes: number;
+  overtimeMinutes: number;
+  remarks: string;
+}
+
+export interface StagePunchesRequest {
+  from: string; // YYYY-MM-DD
+  to: string;   // YYYY-MM-DD
+}
+
+export interface UpdateStagedPunchRequest {
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  remarks?: string | null;
+}
+
+
 // function getTenantDatabaseName(): string {
 //   const subdomain = loadSession()?.user.subdomain?.trim().toLowerCase();
 
@@ -500,5 +533,33 @@ export const biometricService = {
 
   async runAttendance(payload?: Record<string, unknown>) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.RUN_ATTENDANCE, payload);
-  }
+  },
+
+  async stagePunches(data: StagePunchesRequest): Promise<{ success: boolean; message: string }> {
+    const response: any = await apiService.post(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.STAGE_PUNCHES,
+      data,
+    );
+    return unwrapApiData<{ success: boolean; message: string }>(response);
+  },
+
+  async getStagedPunches(params?: { from?: string; to?: string }): Promise<StagedPunch[]> {
+    const response: any = await apiService.get(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
+      { params },
+    );
+    return unwrapApiData<StagedPunch[]>(response) ?? [];
+  },
+
+  async updateStagedPunch(
+    employeeId: string,
+    date: string,
+    data: UpdateStagedPunchRequest,
+  ): Promise<StagedPunch> {
+    const response: any = await apiService.put(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.UPDATE_STAGED_PUNCH(employeeId, date),
+      data,
+    );
+    return unwrapApiData<StagedPunch>(response);
+  },
 };
