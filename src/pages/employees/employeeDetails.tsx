@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import MaterialModule from "../../materialModule";
 import { employeeService } from "../../services/modules/employees";
@@ -77,6 +77,7 @@ import {
 } from "@mui/icons-material";
 import { shiftService, type Shift } from "../../services/modules/shifts";
 import { auditLogService } from "../../services/modules/auditLogs";
+
 import {
   Accordion,
   AccordionDetails,
@@ -139,6 +140,18 @@ const formatAttendanceTime = (value?: string | null) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
+const EmployeeEditAccessContext = createContext(true);
+
+const isEmployeeActive = (employeeData: any): boolean => {
+  const status = String(employeeData?.employeeStatus ?? "").toUpperCase();
+  return (
+    employeeData?.isActive !== false &&
+    String(employeeData?.isActive).toLowerCase() !== "false" &&
+    !["INACTIVE", "RESIGNED", "TERMINATED"].includes(status) &&
+    !employeeData?.deactivatedAt
+  );
+};
+
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
@@ -173,7 +186,12 @@ const EditableGroup = ({
   onDeactivate,
   onReactivate,
 }: any) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const canEdit = useContext(EmployeeEditAccessContext);
+  const [isEditingState, setIsEditingState] = useState(false);
+  const isEditing = isEditingState && canEdit;
+  const setIsEditing = (value: boolean) => {
+    if (canEdit || !value) setIsEditingState(value);
+  };
   const [editData, setEditData] = useState(() => withMidNoFallback(data));
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
   const [department, setDepartments] = useState<Department[]>([]);
@@ -197,6 +215,13 @@ const EditableGroup = ({
   const apiId = isAdmin ? id : userId;
 
   const hasUnsavedChanges = isEditing && !isEqual(editData, data);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setIsEditingState(false);
+      setEditData(withMidNoFallback(data));
+    }
+  }, [canEdit, data]);
 
   useEffect(() => {
     onUnsavedChange?.(hasUnsavedChanges);
@@ -490,13 +515,13 @@ const EditableGroup = ({
                 </a>
               ))}
             </div>
-            {title == "Aadhaar Details" && isAdmin &&
+            {canEdit && title == "Aadhaar Details" && isAdmin &&
               <div className="text-[10px] underline text-sky-500 cursor-pointer" onClick={() => getAadhaar(editData.aadhaarNumber)}>Fetch Aadhaar Details</div>
             }
           </div>
           {!isEditing ? (
             <div className="flex items-center gap-1">
-              {document && (
+              {canEdit && document && (
                 <MaterialModule.Tooltip title="Add Attachments">
                   <MaterialModule.IconButton
                     size="small"
@@ -510,7 +535,7 @@ const EditableGroup = ({
                 </MaterialModule.Tooltip>
               )}
               {
-                (isAdmin || (!isAdmin && title === "Basic Information")) && (
+                canEdit && (isAdmin || (!isAdmin && title === "Basic Information")) && (
                   <MaterialModule.Tooltip title="Edit">
                     <MaterialModule.IconButton
                       size="small"
@@ -527,7 +552,7 @@ const EditableGroup = ({
             </div>
           ) : (
             <div className="flex gap-1">
-              {document && (
+              {canEdit && document && (
                 <MaterialModule.Tooltip title="Add Attachments">
                   <MaterialModule.IconButton
                     size="small"
@@ -1096,7 +1121,12 @@ const EditableTableGroup = ({
   setIsSaving,
   onUnsavedChange,
 }: any) => {
-  const [isEditing, setIsEditing] = useState(false);
+  const canEdit = useContext(EmployeeEditAccessContext);
+  const [isEditingState, setIsEditingState] = useState(false);
+  const isEditing = isEditingState && canEdit;
+  const setIsEditing = (value: boolean) => {
+    if (canEdit || !value) setIsEditingState(value);
+  };
   const [editData, setEditData] = useState(data);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newItemData, setNewItemData] = useState<any>({});
@@ -1116,6 +1146,13 @@ const EditableTableGroup = ({
 
   const hasUnsavedChanges = isEditing && !isEqual(editData, data);
   const isEditingRef = useRef(false);
+
+  useEffect(() => {
+    if (!canEdit) {
+      setIsEditingState(false);
+      setEditData(data);
+    }
+  }, [canEdit, data]);
 
   useEffect(() => {
     if (!isEditing || !hasUnsavedChanges) {
@@ -1489,7 +1526,7 @@ const EditableTableGroup = ({
                   <span className="text-[12px] bg-red-100 p-1 rounded-md text-red-500">{error}</span>
                 }
               </div>
-              {(isAdmin || (!isAdmin && title !== "Training Details" && title !== "PF Details")) && (
+              {canEdit && (isAdmin || (!isAdmin && title !== "Training Details" && title !== "PF Details")) && (
                 <MaterialModule.Button
                   startIcon={
                     <MaterialModule.AddIcon
@@ -1530,7 +1567,7 @@ const EditableTableGroup = ({
               }
             </div>
             <div className="flex gap-1">
-              {!isEditing ? (
+              {!isEditing ? canEdit ? (
                 <>
                   <div className="flex items-center gap-1 border border-gray-300 rounded">
                     {document && (
@@ -1581,7 +1618,7 @@ const EditableTableGroup = ({
                     )}
                   </div>
                 </>
-              ) : (
+              ) : null : (
                 <>
                   {document && (
                     <MaterialModule.Tooltip title="Add Attachments">
@@ -1648,7 +1685,7 @@ const EditableTableGroup = ({
                         {col.label}
                       </MaterialModule.TableCell>
                     ))}
-                    {(isEditing || title == "Attachments") && (
+                    {(isEditing || (title == "Attachments" && canEdit)) && (
                       <MaterialModule.TableCell
                         sx={{
                           ...stickyHeaderRightSx,
@@ -1905,7 +1942,7 @@ const EditableTableGroup = ({
                           </MaterialModule.IconButton>
                         </MaterialModule.TableCell>
                       ) : null}
-                      {title == "Attachments" && (
+                      {title == "Attachments" && canEdit && (
                         <MaterialModule.TableCell
                           sx={{
                             ...tablesx,
@@ -1941,7 +1978,7 @@ const EditableTableGroup = ({
       )}
 
       <MaterialModule.Dialog
-        open={addDialogOpen}
+        open={addDialogOpen && canEdit}
         onClose={() => {
           setAddDialogOpen(false);
           setSelectedFile(null);
@@ -3997,6 +4034,8 @@ export default function EmployeeDetails() {
     return null;
   }
 
+  const employeeIsActive = isEmployeeActive(employee);
+
   const handleCheckIn = async () => {
     setAttendanceSaving(true);
     try {
@@ -4153,7 +4192,8 @@ export default function EmployeeDetails() {
   };
 
   return (
-    <div className="">
+    <EmployeeEditAccessContext.Provider value={employeeIsActive}>
+      <div className="">
       {/* Header */}
       <div className="flex items-center gap-4 mb-4">
         {!isUser &&
@@ -4207,28 +4247,30 @@ export default function EmployeeDetails() {
               </MaterialModule.Avatar>
 
               {/* Hover Overlay with multiple options */}
-              <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 cursor-pointer">
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                  }}
-                  className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                  title="Upload from device"
-                >
-                  <MaterialModule.CameraAlt className="!text-white !w-4 !h-4" />
+              {employeeIsActive && (
+                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 cursor-pointer">
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                    title="Upload from device"
+                  >
+                    <MaterialModule.CameraAlt className="!text-white !w-4 !h-4" />
+                  </div>
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setWebcamOpen(true);
+                    }}
+                    className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                    title="Capture with webcam"
+                  >
+                    <PhotoCameraOutlined className="!text-white !w-4 !h-4" />
+                  </div>
                 </div>
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setWebcamOpen(true);
-                  }}
-                  className="p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
-                  title="Capture with webcam"
-                >
-                  <PhotoCameraOutlined className="!text-white !w-4 !h-4" />
-                </div>
-              </div>
+              )}
 
               {/* Hidden File Input */}
               <input
@@ -4272,7 +4314,7 @@ export default function EmployeeDetails() {
               />
             </div>
             <div className="flex flex-col items-center gap-2">
-              {isAdmin ? (
+              {employeeIsActive && (isAdmin ? (
                 <Button
                   variant="text"
                   size="small"
@@ -4301,7 +4343,7 @@ export default function EmployeeDetails() {
                         ? 'Done for today ✨'
                         : 'Check Out'}
                 </Button>
-              )}
+              ))}
 
               {attendanceLoading ? (
                 <span className="text-[11px] text-gray-400">Loading…</span>
@@ -4328,7 +4370,7 @@ export default function EmployeeDetails() {
       </MaterialModule.Card>
 
       <WebcamCapture
-        open={webcamOpen}
+        open={webcamOpen && employeeIsActive}
         onClose={() => setWebcamOpen(false)}
         onCapture={handleWebcamCapture}
         title="Capture Profile Photo"
@@ -5618,6 +5660,7 @@ export default function EmployeeDetails() {
           </Button>
         </MaterialModule.DialogActions>
       </MaterialModule.Dialog>
-    </div>
+      </div>
+    </EmployeeEditAccessContext.Provider>
   );
 }

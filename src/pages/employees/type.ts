@@ -22,6 +22,13 @@ export interface Employee {
   employeeStatusId?: string;
   isActive?: boolean;
   deactivatedAt?: string;
+  hasAttendanceRecords?: boolean;
+  hasAttendanceRecord?: boolean;
+  hasAttendance?: boolean;
+  attendanceRecordCount?: number;
+  attendanceRecordsCount?: number;
+  attendanceCount?: number;
+  attendanceRecords?: unknown[];
   relievedDate: string;
   proposedRelievedDate?: string;
   systemGeneratedRelievedDate?: string;

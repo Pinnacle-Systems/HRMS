@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import {
   employeeService,
   normalizeEmployeePageResponse,
@@ -10,6 +10,7 @@ import {
 } from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
+import { attendanceService } from "../../services/modules/attendance";
 import { useUI } from "../../context/Snackbar";
 import { GlobalPagination } from "../../components/GlobalPagination";
 import FilterPopup from "../../components/FilterPopup.tsx";
@@ -113,12 +114,64 @@ const isEmployeeInactive = (employee: Employee): boolean => {
     !!employee.deactivatedAt;
 };
 
+const getKnownAttendanceRecordState = (
+  employee: Employee,
+): boolean | null => {
+  const recordFlag =
+    employee.hasAttendanceRecords ??
+    employee.hasAttendanceRecord ??
+    employee.hasAttendance;
+  if (typeof recordFlag === "boolean") return recordFlag;
+
+  const recordCount =
+    employee.attendanceRecordCount ??
+    employee.attendanceRecordsCount ??
+    employee.attendanceCount;
+  if (recordCount !== undefined && recordCount !== null) {
+    const count = Number(recordCount);
+    if (Number.isFinite(count)) return count > 0;
+  }
+
+  if (Array.isArray(employee.attendanceRecords)) {
+    return employee.attendanceRecords.length > 0;
+  }
+
+  return null;
+};
+
+// const readAttendanceRecordState = (response: any): boolean => {
+//   const payload = response?.data?.data ?? response?.data ?? response;
+//   if (payload == null) return false;
+//   if (Array.isArray(payload)) return payload.length > 0;
+//   if (Array.isArray(payload.content)) return payload.content.length > 0;
+//   if (typeof payload.totalElements === "number") return payload.totalElements > 0;
+//   if (typeof payload.totalRecords === "number") return payload.totalRecords > 0;
+//   if (Array.isArray(payload.records)) return payload.records.length > 0;
+//   if (Array.isArray(payload.attendanceRecords)) {
+//     return payload.attendanceRecords.length > 0;
+//   }
+//   if (
+//     payload.attendanceDate ||
+//     payload.checkInTime ||
+//     payload.checkOutTime ||
+//     payload.status
+//   ) {
+//     return true;
+//   }
+//   throw new Error("Attendance response did not include a recognizable record list.");
+// };
+
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const navigate = useNavigate();
   const { session } = useAuth();
+  const showSnackbarRef = useRef(showSnackbar);
+  showSnackbarRef.current = showSnackbar;
   // State for employees
   const [employees, setEmployees] = useState<Employee[]>([]);
+  // const [attendanceRecordState, setAttendanceRecordState] = useState<
+  //   Record<string, boolean>
+  // >({});
   const [employeeStats, setEmployeeStats] = useState<EmployeeStatsSummary | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -205,6 +258,61 @@ export default function EmployeeManagement() {
   const [hardDeleteErrorDialogOpen, setHardDeleteErrorDialogOpen] = useState(false);
   const [hardDeleteErrorEmployee, setHardDeleteErrorEmployee] = useState<Employee | null>(null);
   const [hardDeleteErrorMessage, setHardDeleteErrorMessage] = useState<string>("");
+
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   setAttendanceRecordState({});
+
+  //   const employeesToCheck = employees.filter(
+  //     (employee) => getKnownAttendanceRecordState(employee) === null,
+  //   );
+  //   const knownStates: Record<string, boolean> = {};
+  //   employees.forEach((employee) => {
+  //     const state = getKnownAttendanceRecordState(employee);
+  //     if (state !== null) knownStates[employee.id] = state;
+  //   });
+  //   setAttendanceRecordState(knownStates);
+
+  //   if (employeesToCheck.length === 0) {
+  //     return () => {
+  //       cancelled = true;
+  //     };
+  //   }
+
+  //   void Promise.allSettled(
+  //     employeesToCheck.map(async (employee) => [
+  //       employee.id,
+  //       readAttendanceRecordState(
+  //         await attendanceService.getEmployeeAttendance(employee.id),
+  //       ),
+  //     ] as const),
+  //   ).then((results) => {
+  //     if (cancelled) return;
+
+  //     const verifiedStates = { ...knownStates };
+  //     let verificationFailed = false;
+  //     results.forEach((result) => {
+  //       if (result.status === "fulfilled") {
+  //         const [employeeId, hasRecords] = result.value;
+  //         verifiedStates[employeeId] = hasRecords;
+  //       } else {
+  //         verificationFailed = true;
+  //       }
+  //     });
+  //     setAttendanceRecordState(verifiedStates);
+
+  //     if (verificationFailed) {
+  //       showSnackbarRef.current(
+  //         "Could not verify attendance records for some employees. Permanent deletion is hidden until verification succeeds.",
+  //         "error",
+  //       );
+  //     }
+  //   });
+
+  //   return () => {
+  //     cancelled = true;
+  //   };
+  // }, [employees]);
 
   const filterFields = useMemo(
     () =>
@@ -1587,6 +1695,7 @@ export default function EmployeeManagement() {
                   }}
                 >
                   <div className="flex items-center justify-center">
+                    {/* {!isEmployeeInactive(employee) && ( */}
                     <Tooltip title="More Actions">
                       <IconButton
                         size="small"
@@ -1595,39 +1704,44 @@ export default function EmployeeManagement() {
                         <MoreVertOutlined className="!w-4 text-gray-800" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          if (employee) handleOpenEditDialog(employee);
-                        }}
+                    {/* )} */}
+                    {!isEmployeeInactive(employee) && (
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            if (employee) handleOpenEditDialog(employee);
+                          }}
+                        >
+                          <Edit className="!w-3" color="info" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {!isEmployeeInactive(employee) && (
+                      <Tooltip
+                        title={
+                          employee.annualCtc && employee.annualCtc > 0
+                            ? "Click to Re-assign Salary"
+                            : "Click to Assign Salary"
+                        }
                       >
-                        <Edit className="!w-3" color="info" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip
-                      title={
-                        employee.annualCtc && employee.annualCtc > 0
-                          ? "Click to Re-assign Salary"
-                          : "Click to Assign Salary"
-                      }
-                    >
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          navigate(`/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`);
-                        }}
-                        sx={{
-                          cursor: "pointer",
-                        }}
-                      >
-                        {employee.annualCtc && employee.annualCtc > 0 ? (
-                          <PaidOutlined className="!w-4 text-green-600" />
-                        ) : (
-                          <MoneyOffCsred className="!w-4 text-red-500" />
-                        )}
-                      </IconButton>
-                    </Tooltip>
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            navigate(`/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`);
+                          }}
+                          sx={{
+                            cursor: "pointer",
+                          }}
+                        >
+                          {employee.annualCtc && employee.annualCtc > 0 ? (
+                            <PaidOutlined className="!w-4 text-green-600" />
+                          ) : (
+                            <MoneyOffCsred className="!w-4 text-red-500" />
+                          )}
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     {isEmployeeInactive(employee) ? (
                       <Tooltip title="Reactivate">
                         <IconButton
@@ -2198,55 +2312,57 @@ export default function EmployeeManagement() {
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        <MenuItem
-          className="!text-[12px]"
-          onClick={() => {
-            if (actionMenuEmployee)
-              navigate(`/employees/${actionMenuEmployee.id}`);
-            closeActionMenu();
-          }}
-        >
-          <VisibilityOutlined
-            className="!w-4 mr-2"
-            sx={{ color: "var(--color-primary)" }}
-          />
-          View Details
-        </MenuItem>
-        {/* <MenuItem
-          className="!text-[12px]"
-          onClick={() => {
-            if (actionMenuEmployee) handleOpenEditDialog(actionMenuEmployee);
-            closeActionMenu();
-          }}
-        >
-          <EditOutlined className="!w-4 mr-2" color="info" />
-          Edit Employee
-        </MenuItem> */}
-        <MenuItem
-          className="!text-[12px]"
-          onClick={(e) => {
-            if (actionMenuEmployee) openExportMenu(e, actionMenuEmployee.id);
-            // closeActionMenu();
-          }}
-        >
-          <FileDownloadOutlined
-            className="!w-4 mr-2"
-            color="primary"
-          />
-          Export Employee
-        </MenuItem>
-        <MenuItem
-          className="!text-[12px] !text-red-600"
-          onClick={() => {
-            if (actionMenuEmployee) {
-              handleHardDeleteEmployee(actionMenuEmployee);
-            }
-            closeActionMenu();
-          }}
-        >
-          <Delete className="!w-4 mr-2" color="error" />
-          Delete Permanently
-        </MenuItem>
+        {actionMenuEmployee && !isEmployeeInactive(actionMenuEmployee) &&
+          (
+            <MenuItem
+              className="!text-[12px]"
+              onClick={() => {
+                if (actionMenuEmployee)
+                  navigate(`/employees/${actionMenuEmployee.id}`);
+                closeActionMenu();
+              }}
+            >
+              <VisibilityOutlined
+                className="!w-4 mr-2"
+                sx={{ color: "var(--color-primary)" }}
+              />
+              View Details
+            </MenuItem>
+          )
+        }
+
+        {actionMenuEmployee && !isEmployeeInactive(actionMenuEmployee) &&
+          (
+            <MenuItem
+              className="!text-[12px]"
+              onClick={(e) => {
+                if (actionMenuEmployee) openExportMenu(e, actionMenuEmployee.id);
+                // closeActionMenu();
+              }}
+            >
+              <FileDownloadOutlined
+                className="!w-4 mr-2"
+                color="primary"
+              />
+              Export Employee
+            </MenuItem>
+          )
+        }
+
+        {actionMenuEmployee && isEmployeeInactive(actionMenuEmployee) &&
+          // attendanceRecordState[actionMenuEmployee.id] === false &&
+          (
+            <MenuItem
+              className="!text-[12px] !text-red-600"
+              onClick={() => {
+                handleHardDeleteEmployee(actionMenuEmployee);
+                closeActionMenu();
+              }}
+            >
+              <Delete className="!w-4 mr-2" color="error" />
+              Delete Permanently
+            </MenuItem>
+          )}
       </Menu>
 
       {/* Relieving Date Dialog */}

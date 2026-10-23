@@ -126,6 +126,10 @@ export default function Login() {
         showSnackbar(errMsg, "error");
         setError(errMsg);
       }
+      if (err.message.includes(409)) {
+        const errMsg = "This account is already logged in on another session.";        showSnackbar(errMsg, "error");
+        setError(errMsg);
+      }
     } finally {
       hideSpinner();
     }

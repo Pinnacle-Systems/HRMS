@@ -41,7 +41,7 @@ async function loadAndSaveCompanyDetails(session: AuthSession): Promise<void> {
       (session.user.roles.includes("EMPLOYEE")) && !(session.user.roles.includes("ADMIN")) &&
       !(session.user.roles.includes("MANAGER")) && !(session.user.roles.includes("HR"))
     )) {
-      saveCompanyDetails({ stateId: "", cityId: "", companyAddress: "", gstNo: "", cityName: "", phone: "", stateName: "",pincode: "" });
+      saveCompanyDetails({ stateId: "", cityId: "", companyAddress: "", gstNo: "", cityName: "", phone: "", stateName: "", pincode: "" });
       return;
     }
 
@@ -59,7 +59,7 @@ async function loadAndSaveCompanyDetails(session: AuthSession): Promise<void> {
       pincode: company?.pincode ?? ""
     });
   } catch (error) {
-    saveCompanyDetails({ stateId: "", cityId: "", companyAddress: "", gstNo: "", cityName: "", phone: "", stateName: "",pincode: "" });
+    saveCompanyDetails({ stateId: "", cityId: "", companyAddress: "", gstNo: "", cityName: "", phone: "", stateName: "", pincode: "" });
   }
 }
 
@@ -71,7 +71,7 @@ export function buildLoginRequest(params: {
   tenantId?: string;
 }): LoginRequest {
   const request: LoginRequest = {};
-
+  request.forceLogin = true;
   if (params.tenantId) {
     request.tenantId = params.tenantId;
   }

@@ -17,6 +17,19 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+vi.mock("../../../src/auth/authContext", () => ({
+  useAuth: () => ({
+    session: {
+      user: {
+        roles: ["ADMIN"],
+        userId: "admin-1",
+        employeeId: "admin-1",
+        email: "admin@example.com",
+      },
+    },
+  }),
+}));
+
 // --------------- service mocks ---------------
 vi.mock("../../../src/services/modules/employees", () => ({
   employeeService: {
@@ -61,6 +74,7 @@ vi.mock("../../../src/services/modules/category", () => ({
   categoryService: {
     getCategories: vi.fn(),
     getCategoryItems: vi.fn(),
+    getActiveCategoryItem: vi.fn(),
   },
 }));
 
@@ -79,6 +93,12 @@ vi.mock("../../../src/services/modules/branch", () => ({
 vi.mock("../../../src/services/modules/payrollServices/salaryView", () => ({
   salaryViewService: {
     getEmployeeSalaryView: vi.fn(),
+  },
+}));
+
+vi.mock("../../../src/services/modules/attendance", () => ({
+  attendanceService: {
+    getAttendanceInfo: vi.fn().mockResolvedValue({ data: {} }),
   },
 }));
 
@@ -168,6 +188,9 @@ async function setupMocks() {
   vi.mocked(categoryService.getCategoryItems).mockResolvedValue({
     data: { content: [] },
   } as any);
+  vi.mocked(categoryService.getActiveCategoryItem).mockResolvedValue({
+    data: { content: [] },
+  } as any);
   const { salaryViewService } = await import(
     "../../../src/services/modules/payrollServices/salaryView"
   );
@@ -224,6 +247,21 @@ describe("EmployeeDetails — rendering", () => {
     renderWithProviders(<EmployeeDetails />);
     const matches = await screen.findAllByText(/alice@example\.com/i);
     expect(matches.length).toBeGreaterThan(0);
+  });
+
+  it("shows inactive employee details without edit or action buttons", async () => {
+    const { employeeService } = await import(
+      "../../../src/services/modules/employees"
+    );
+    vi.mocked(employeeService.getEmployeeById).mockResolvedValue({
+      data: { ...mockEmployee, isActive: false, employeeStatus: "INACTIVE" },
+    } as any);
+
+    renderWithProviders(<EmployeeDetails />);
+
+    expect((await screen.findAllByText("Alice Johnson")).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("EditIcon")).not.toBeInTheDocument();
+    expect(screen.queryByText("Audit Log")).not.toBeInTheDocument();
   });
 });
 

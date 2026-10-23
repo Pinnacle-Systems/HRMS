@@ -835,6 +835,7 @@ export const API_ENDPOINTS = {
     POST_PROCESS: "/attendance/process",
     VALIDATE: "/attendance/process/validate",
     PROCESS_AND_CLOSE: "/attendance/process-and-close",
+    PROCESS_AND_FINALISE: "/attendance/process-and-finalise",
     PROCESS_STATUS: "/attendance/process/status",
 
     GET_LOCKS: "/attendance/locks",
@@ -1086,6 +1087,7 @@ export const API_ENDPOINTS = {
       GET_PERIOD_DETAILS: "/payroll-runs/period-details",
       CREATE: "/payroll-runs",
       CANCEL: (id: string) => `/payroll-runs/${id}/cancel`,
+      REVERSE: (id: string) => `/payroll-runs/${id}/reverse`,
       PREVIEW: "/payroll-runs/preview",
     },
     GENERATE: {
@@ -1332,6 +1334,16 @@ export const API_ENDPOINTS = {
     GET: "/admin/permissions",
     UPDATE_ROLE_PERMISSIONS: (role: string) =>
       `/admin/roles/${role}/permissions`,
+  },
+
+  PERMISSION_REQUESTS: {
+    BASE: "/permission-requests",
+    MY: "/permission-requests/my",
+    BY_ID: (id: string) => `/permission-requests/${id}`,
+    SLIP: (id: string) => `/permission-requests/${id}/slip`,
+    QR: (id: string) => `/permission-requests/${id}/qr`,
+    VALIDATE_QR: (qrToken: string) =>
+      `/permission-requests/validate/${encodeURIComponent(qrToken)}`,
   },
 
   MOBILE_ATTENDANCE: {

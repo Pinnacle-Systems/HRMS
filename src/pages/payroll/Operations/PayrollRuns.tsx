@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Box,
     Card,
@@ -27,7 +27,9 @@ import {
     AccessTime as ClockIcon,
     Cancel as XCircleIcon,
     Warning as AlertCircleIcon,
+    ReplayOutlined as ReverseIcon,
 } from "@mui/icons-material";
+import { Tooltip } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { PermissionGuard } from "../../../auth/PermissionGuard";
 import { PERMISSIONS } from "../../../auth/Permissions";
@@ -76,6 +78,12 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
         bgColor: "#f3f4f6",
         icon: XCircleIcon,
     },
+    reversed: {
+        label: "Reversed",
+        color: "#6b7280",
+        bgColor: "#f3f4f6",
+        icon: XCircleIcon,
+    },
     completed_with_errors: {
         label: "COMPLETED_WITH_ERRORS",
         color: "#f59e0b",
@@ -86,22 +94,19 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
 
 export default function PayrollRuns() {
     const navigate = useNavigate();
-    const { showSpinner, hideSpinner, showSnackbar } = useUI();
+    const { showSpinner, hideSpinner, showSnackbar, showConfirmDialog } = useUI();
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [payrollRuns, setPayrollRuns] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [reversingRunId, setReversingRunId] = useState<string | null>(null);
 
     // Pagination state (0-based page for API)
     const [page, setPage] = useState(0);
     const [limit, setLimit] = useState(10);
     const [total, setTotal] = useState(0);
 
-    useEffect(() => {
-        loadPayrollRuns();
-    }, [page, limit, search, statusFilter]);
-
-    const loadPayrollRuns = async () => {
+    const loadPayrollRuns = useCallback(async () => {
         setLoading(true);
         showSpinner();
         try {
@@ -129,13 +134,17 @@ export default function PayrollRuns() {
 
             setPayrollRuns(runs);
             setTotal(data.totalElements || data.total || data.totalCount || runs.length);
-        } catch (error) {
+        } catch {
             showSnackbar("Failed to load payroll runs", "error");
         } finally {
             setLoading(false);
             hideSpinner();
         }
-    };
+    }, [page, limit, statusFilter, showSnackbar, showSpinner, hideSpinner]);
+
+    useEffect(() => {
+        void loadPayrollRuns();
+    }, [loadPayrollRuns, search]);
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage - 1); // Convert from 1-based (UI) to 0-based (API)
@@ -154,6 +163,45 @@ export default function PayrollRuns() {
     const handleStatusChange = (value: string) => {
         setStatusFilter(value);
         setPage(0); // Reset to first page when filtering
+    };
+
+    const handleReverseRun = (run: { id: string; period: string }) => {
+        showConfirmDialog({
+            title: "Reverse Completed Payroll Run",
+            message:
+                `Reverse the completed payroll run for ${run.period}? This keeps the run for audit, voids its processed payslips, ` +
+                "reopens the period's attendance locks, and reopens its finalisation record if present. Attendance records will not be deleted.",
+            confirmText: "Reverse Run",
+            cancelText: "Cancel",
+            variant: "danger",
+            onConfirm: async () => {
+                setReversingRunId(run.id);
+                showSpinner();
+                try {
+                    const response = await payrollRunsService.reversePayrollRun(run.id);
+                    const data = response.data;
+                    const reversedItems = data?.itemsReversed;
+                    const reopenedLocks = data?.attendanceLocksReopened;
+                    const detail = [
+                        typeof reversedItems === "number" ? `${reversedItems} payslip(s) voided` : null,
+                        typeof reopenedLocks === "number" ? `${reopenedLocks} attendance lock(s) reopened` : null,
+                    ].filter(Boolean).join("; ");
+                    showSnackbar(
+                        detail ? `Payroll run reversed successfully: ${detail}.` : "Payroll run reversed successfully",
+                        "success",
+                    );
+                    await loadPayrollRuns();
+                } catch (error: any) {
+                    showSnackbar(
+                        error?.response?.data?.message ?? error?.message ?? "Failed to reverse payroll run",
+                        "error",
+                    );
+                } finally {
+                    setReversingRunId(null);
+                    hideSpinner();
+                }
+            },
+        });
     };
 
     // Calculate totals from all data (not just current page)
@@ -230,6 +278,7 @@ export default function PayrollRuns() {
                         <MenuItem value="draft">Draft</MenuItem>
                         <MenuItem value="failed">Failed</MenuItem>
                         <MenuItem value="cancelled">Cancelled</MenuItem>
+                        <MenuItem value="reversed">Reversed</MenuItem>
                     </Select>
                 </FormControl>
             </Box>
@@ -340,6 +389,22 @@ export default function PayrollRuns() {
                                                 >
                                                     <EyeIcon fontSize="small" className="text-primary" />
                                                 </IconButton>
+                                                {run.status === "completed" && (
+                                                    <PermissionGuard permissions={PERMISSIONS.PAYROLL_WRITE}>
+                                                        <Tooltip title="Reverse completed payroll run">
+                                                            <span>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    disabled={reversingRunId === run.id}
+                                                                    onClick={() => handleReverseRun(run)}
+                                                                    sx={{ "&:hover": { color: "error.main" } }}
+                                                                >
+                                                                    <ReverseIcon fontSize="small" color="error" />
+                                                                </IconButton>
+                                                            </span>
+                                                        </Tooltip>
+                                                    </PermissionGuard>
+                                                )}
                                             </Stack>
                                         </TableCell>
                                     </TableRow>

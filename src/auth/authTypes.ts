@@ -81,6 +81,7 @@ export type LoginRequest = {
   mobileNumber?: string;
   mobileOtp?: string;
   tenantId?: string;
+  forceLogin?: boolean;
 };
 
 export type SelectTenantRequest = {

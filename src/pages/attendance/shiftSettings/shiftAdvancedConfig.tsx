@@ -401,7 +401,7 @@ const SingleBreakDisplay = ({
   }
 
   return (
-    <Box sx={{ mt: 1, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+    <Box sx={{ mt: 1, p: 2 }} className="bg-white-50 border border-gray-200 rounded-md">
       <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
         <ScheduleOutlined fontSize="small" />
         Auto-calculated Break Schedule

@@ -22,11 +22,17 @@ describe("authSession", () => {
 
   it("clears the stored session", () => {
     saveSession(createMockAuthSession());
+    localStorage.setItem("hrms-page-history-user-1", "history");
+    localStorage.setItem("hrms-page-history-user-2", "history");
+    localStorage.setItem("unrelated-setting", "preserved");
 
     clearSession();
 
     expect(loadSession()).toBeNull();
     expect(localStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem("hrms-page-history-user-1")).toBeNull();
+    expect(localStorage.getItem("hrms-page-history-user-2")).toBeNull();
+    expect(localStorage.getItem("unrelated-setting")).toBe("preserved");
   });
 
   it("removes invalid JSON and returns null", () => {

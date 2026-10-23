@@ -58,6 +58,76 @@ export interface LogsSummary {
   };
 }
 
+export interface StagePunchesResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface RunAttendanceRow {
+  employeeCode: string;
+  employeeId: string;
+  date: string;
+  status: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  message: string;
+  checkInDate: string | null;
+  checkInTimeOnly: { hour: number; minute: number; second: number; nano: number } | null;
+  checkOutDate: string | null;
+  checkOutTimeOnly: { hour: number; minute: number; second: number; nano: number } | null;
+}
+
+export interface RunAttendanceResponse {
+  source: string;
+  importType: string;
+  periodStart: string;
+  periodEnd: string;
+  totalPunches: number;
+  daysImported: number;
+  skipped: number;
+  errors: number;
+  rows: RunAttendanceRow[];
+}
+
+// Expanded staged punch
+export interface StagedPunch {
+  id: string;
+  employeeId: string;
+  employeeCode: string;
+  employeeName: string;
+  department?: string;
+  designation?: string;
+  template?: string;
+  attendanceDate: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  movement?: Record<string, unknown>[];
+  shiftCode: string;
+  shiftStart?: string;
+  shiftEnd?: string;
+  status: string;
+  category?: string;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyOutMinutes: number;
+  overtimeMinutes: number;
+  checkInWithinGeofence?: boolean;
+  checkOutWithinGeofence?: boolean;
+  checkInDistanceMeters?: number;
+  geofenceWarning?: string;
+  checkInPhotoUrl?: string;
+  checkOutPhotoUrl?: string;
+  // remarks?: string;
+  checkinType?: string;
+  clientName?: string;
+  purpose?: string;
+  remoteApprovalStatus?: string;
+  checkInDate?: string;
+  checkInTimeOnly?: { hour: number; minute: number; second: number; nano: number };
+  checkOutDate?: string;
+  checkOutTimeOnly?: { hour: number; minute: number; second: number; nano: number };
+}
+
 interface ApiEnvelope<T> {
   success?: boolean;
   message?: string;
@@ -192,26 +262,26 @@ export interface FetchLogQuery {
   deviceIps: string[];
 }
 
-export interface StagedPunch {
-  employeeId: string;
-  employeeCode: string;
-  employeeName: string;
-  department?: string;
-  designation?: string;
-  template?: string;
-  attendanceDate: string;
-  checkInTime: string | null;
-  checkOutTime: string | null;
-  shiftCode: string;
-  shiftStart?: string;
-  shiftEnd?: string;
-  status: string;
-  workedMinutes: number;
-  lateMinutes: number;
-  earlyOutMinutes: number;
-  overtimeMinutes: number;
-  remarks: string;
-}
+// export interface StagedPunch {
+//   employeeId: string;
+//   employeeCode: string;
+//   employeeName: string;
+//   department?: string;
+//   designation?: string;
+//   template?: string;
+//   attendanceDate: string;
+//   checkInTime: string | null;
+//   checkOutTime: string | null;
+//   shiftCode: string;
+//   shiftStart?: string;
+//   shiftEnd?: string;
+//   status: string;
+//   workedMinutes: number;
+//   lateMinutes: number;
+//   earlyOutMinutes: number;
+//   overtimeMinutes: number;
+//   remarks: string;
+// }
 
 export interface StagePunchesRequest {
   from: string; // YYYY-MM-DD
@@ -531,25 +601,33 @@ export const biometricService = {
   //   }
   // }
 
-  async runAttendance(payload?: Record<string, unknown>) {
-    return apiService.post(API_ENDPOINTS.ATTENDANCE.BIOMETRIC.RUN_ATTENDANCE, payload);
-  },
+  async runAttendance(payload?: { from?: string; to?: string }): Promise<RunAttendanceResponse> {
+  const response: any = await apiService.post(
+    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.RUN_ATTENDANCE,
+    payload,
+  );
+  return unwrapApiData<RunAttendanceResponse>(response);
+},
 
-  async stagePunches(data: StagePunchesRequest): Promise<{ success: boolean; message: string }> {
-    const response: any = await apiService.post(
-      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.STAGE_PUNCHES,
-      data,
-    );
-    return unwrapApiData<{ success: boolean; message: string }>(response);
-  },
+async stagePunches(data: StagePunchesRequest): Promise<StagePunchesResponse> {
+  const response: any = await apiService.post(
+    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.STAGE_PUNCHES,
+    data,
+  );
+  // stage's data is `{}` — return the envelope message instead of unwrapping
+  return {
+    success: response?.success ?? true,
+    message: response?.message ?? "",
+  };
+},
 
-  async getStagedPunches(params?: { from?: string; to?: string }): Promise<StagedPunch[]> {
-    const response: any = await apiService.get(
-      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
-      { params },
-    );
-    return unwrapApiData<StagedPunch[]>(response) ?? [];
-  },
+async getStagedPunches(params?: { from?: string; to?: string; status?: string }): Promise<StagedPunch[]> {
+  const response: any = await apiService.get(
+    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
+    { params },
+  );
+  return unwrapApiData<StagedPunch[]>(response) ?? [];
+},
 
   async updateStagedPunch(
     employeeId: string,

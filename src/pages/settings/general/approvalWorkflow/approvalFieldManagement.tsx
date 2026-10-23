@@ -54,7 +54,7 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return error instanceof Error ? error.message : fallback;
 };
 
-const DATA_TYPES = ["STRING", "NUMBER", "BOOLEAN", "DATE", "DATETIME"];
+const DATA_TYPES = ["string", "number", "boolean", "date", "datetime"];
 
 interface FormState {
   id?: string;
@@ -80,8 +80,8 @@ const EMPTY_FORM: FormState = {
 };
 
 export default function ApprovalFieldManagement() {
-  const { showSnackbar } = useUI();
-  const [loading, setLoading] = useState(true);
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  // const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [modules, setModules] = useState<ApprovalModule[]>([]);
   const [operators, setOperators] = useState<ApprovalOperator[]>([]);
@@ -90,7 +90,6 @@ export default function ApprovalFieldManagement() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  // Load modules + operators once
   useEffect(() => {
     const init = async () => {
       try {
@@ -108,7 +107,7 @@ export default function ApprovalFieldManagement() {
   }, [showSnackbar]);
 
   const loadFields = async () => {
-    setLoading(true);
+    showSpinner();
     try {
       const res = await approvalWorkflowService.getFields({
         moduleId: filterModuleId || undefined,
@@ -117,7 +116,7 @@ export default function ApprovalFieldManagement() {
     } catch (error) {
       showSnackbar(getErrorMessage(error, "Failed to load fields."), "error");
     } finally {
-      setLoading(false);
+      hideSpinner();
     }
   };
 
@@ -180,14 +179,24 @@ export default function ApprovalFieldManagement() {
   };
 
   const handleDelete = async (f: ApprovalField) => {
-    if (!window.confirm(`Delete field "${f.uiLabel}"? This cannot be undone.`)) return;
-    try {
-      await approvalWorkflowService.deleteField(f.id);
-      showSnackbar("Field deleted.", "success");
-      await loadFields();
-    } catch (error) {
-      showSnackbar(getErrorMessage(error, "Failed to delete field."), "error");
-    }
+    showConfirmDialog({
+      title: "Delete Module",
+      message: `Delete field "${f.uiLabel}"? This cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await approvalWorkflowService.deleteField(f.id);
+          showSnackbar("Field deleted.", "success");
+          await loadFields();
+        } catch (error) {
+          showSnackbar(getErrorMessage(error, "Failed to delete module."), "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   const moduleNameById = useMemo(() => {
@@ -222,105 +231,101 @@ export default function ApprovalFieldManagement() {
           </Button>
           <Tooltip title="Refresh">
             <IconButton onClick={loadFields}>
-              <RefreshIcon className="!w-4 text-gray-800"/>
+              <RefreshIcon className="!w-4 text-gray-800" />
             </IconButton>
           </Tooltip>
         </Box>
       </div>
 
       <div className="">
-        {loading ? (
-          <Alert severity="info">Loading fields...</Alert>
-        ) : (
-          <TableContainer className="border border-gray-200 max-h-[calc(100vh-320px)] overflow-auto">
-            <Table size="small" stickyHeader>
-              <TableHead>
-                <TableRow>
-                  <TableCell className="!font-bold" width="50px">#</TableCell>
-                  <TableCell className="!font-bold">Moduile</TableCell>
-                  <TableCell className="!font-bold">UI Label</TableCell>
-                  <TableCell className="!font-bold">DB Variable</TableCell>
-                  <TableCell className="!font-bold">Data Type</TableCell>
-                  <TableCell className="!font-bold">Parent / Path</TableCell>
-                  <TableCell className="!font-bold">Allowed Operators</TableCell>
-                  <TableCell width="100px" className="!font-bold">Status</TableCell>
-                  <TableCell width="120px" align="right" className="!font-bold">Actions</TableCell>
+        <TableContainer className="border border-gray-200 max-h-[calc(100vh-320px)] overflow-auto">
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell className="!font-bold" width="50px">#</TableCell>
+                <TableCell className="!font-bold">Moduile</TableCell>
+                <TableCell className="!font-bold">UI Label</TableCell>
+                <TableCell className="!font-bold">DB Variable</TableCell>
+                <TableCell className="!font-bold">Data Type</TableCell>
+                <TableCell className="!font-bold">Parent / Path</TableCell>
+                <TableCell className="!font-bold">Allowed Operators</TableCell>
+                <TableCell width="100px" className="!font-bold">Status</TableCell>
+                <TableCell width="120px" align="right" className="!font-bold">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {fields.map((f, idx) => (
+                <TableRow key={f.id} sx={getRowColor(idx)}>
+                  <TableCell>{idx + 1}</TableCell>
+                  <TableCell>{f.moduleName || moduleNameById[f.moduleId] || "—"}</TableCell>
+                  <TableCell className="!font-medium">{f.uiLabel}</TableCell>
+                  <TableCell>
+                    <code className="rounded bg-gray-100 px-1 text-xs">{f.dbVariableName}</code>
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={f.dataType} size="small" variant="outlined" className="!text-gray-800" />
+                  </TableCell>
+                  <TableCell>
+                    {f.parentRelation ? (
+                      <span className="text-xs text-gray-600">
+                        {f.parentRelation}
+                        {f.nestedPath ? `.${f.nestedPath}` : ""}
+                      </span>
+                    ) : "-"}
+                  </TableCell>
+                  <TableCell>
+                    <Box className="flex flex-wrap gap-1">
+                      {(f.allowedOperatorIds || []).slice(0, 3).map((opId) => {
+                        const op = operators.find((o) => o.id === opId);
+                        return op ? (
+                          <Chip key={opId} label={op.symbol} size="small" className="!text-primary !border-primary" variant="outlined" />
+                        ) : null;
+                      })}
+                      {(f.allowedOperatorIds || []).length > 3 && (
+                        <Chip
+                          label={`+${f.allowedOperatorIds.length - 3}`}
+                          size="small"
+                          variant="outlined"
+                          className="!text-gray-800"
+                        />
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={f.active ? "Active" : "Inactive"}
+                      size="small"
+                      color={f.active ? "success" : "default"}
+                    />
+                  </TableCell>
+                  <TableCell align="right">
+                    <IconButton size="small" onClick={() => openEdit(f)}>
+                      <EditIcon fontSize="small" className="!w-4 text-blue-500" />
+                    </IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDelete(f)}>
+                      <DeleteIcon fontSize="small" className="!w-4" />
+                    </IconButton>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {fields.map((f, idx) => (
-                  <TableRow key={f.id} sx={getRowColor(idx)}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell>{f.moduleName || moduleNameById[f.moduleId] || "—"}</TableCell>
-                    <TableCell className="!font-medium">{f.uiLabel}</TableCell>
-                    <TableCell>
-                      <code className="rounded bg-gray-100 px-1 text-xs">{f.dbVariableName}</code>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={f.dataType} size="small" variant="outlined" className="!text-gray-800"/>
-                    </TableCell>
-                    <TableCell>
-                      {f.parentRelation ? (
-                        <span className="text-xs text-gray-600">
-                          {f.parentRelation}
-                          {f.nestedPath ? `.${f.nestedPath}` : ""}
-                        </span>
-                      ) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Box className="flex flex-wrap gap-1">
-                        {(f.allowedOperatorIds || []).slice(0, 3).map((opId) => {
-                          const op = operators.find((o) => o.id === opId);
-                          return op ? (
-                            <Chip key={opId} label={op.symbol} size="small" className="!text-primary !border-primary" variant="outlined" />
-                          ) : null;
-                        })}
-                        {(f.allowedOperatorIds || []).length > 3 && (
-                          <Chip
-                            label={`+${f.allowedOperatorIds.length - 3}`}
-                            size="small"
-                            variant="outlined"
-                            className="!text-gray-800"
-                          />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={f.active ? "Active" : "Inactive"}
-                        size="small"
-                        color={f.active ? "success" : "default"}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => openEdit(f)}>
-                        <EditIcon fontSize="small" className="!w-4 text-blue-500"/>
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(f)}>
-                        <DeleteIcon fontSize="small" className="!w-4"/>
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {fields.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                      No fields configured{filterModuleId ? " for this module" : ""}.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+              ))}
+              {fields.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                     <div className="py-6 text-gray-500"> No fields configured{filterModuleId ? " for this module" : ""}.</div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </div>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle className="flex items-center justify-between !p-2 border-b border-gray-200">
-            <div className="!ml-4">{form.id ? "Edit Field" : "New Field"}</div>
-            <IconButton>
-                <CloseOutlined className="!w-4"/>
-            </IconButton>
+          <div className="!ml-4">{form.id ? "Edit Field" : "New Field"}</div>
+          <IconButton>
+            <CloseOutlined className="!w-4" />
+          </IconButton>
         </DialogTitle>
         <DialogContent className="!p-5">
           <Box className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -398,7 +403,7 @@ export default function ApprovalFieldManagement() {
                 >
                   {operators.map((o) => (
                     <MenuItem key={o.id} value={o.id}>
-                      {o.symbol} — {o.label}
+                      {o.symbol}
                     </MenuItem>
                   ))}
                 </Select>

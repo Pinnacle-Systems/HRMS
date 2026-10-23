@@ -6,17 +6,32 @@ import { renderWithProviders } from "../../helpers/render";
 import EmployeeManagement from "../../../src/pages/employees/employeeManagement";
 
 // --------------- service mocks ---------------
+vi.mock("../../../src/auth/authContext", () => ({
+  useAuth: () => ({
+    session: {
+      user: {
+        roles: ["ADMIN"],
+        userId: "admin-1",
+        employeeId: "admin-1",
+        email: "admin@example.com",
+      },
+    },
+  }),
+}));
+
 vi.mock("../../../src/services/modules/employees", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../src/services/modules/employees")>();
   return {
     ...actual,
     employeeService: {
       getEmployees: vi.fn(),
+      getSummary: vi.fn(),
       createEmployee: vi.fn(),
       updateEmployee: vi.fn(),
       deleteEmployee: vi.fn(),
       deactivateEmployee: vi.fn(),
       reactivateEmployee: vi.fn(),
+      hardDeleteEmployee: vi.fn(),
       bulkUploadEmployees: vi.fn(),
       getEmployeeId: vi.fn().mockResolvedValue({}),
       previewEmployeeId: vi.fn().mockResolvedValue({ previewId: "EMP001" }),
@@ -31,9 +46,16 @@ vi.mock("../../../src/services/modules/department", () => ({
   },
 }));
 
+vi.mock("../../../src/services/modules/attendance", () => ({
+  attendanceService: {
+    getEmployeeAttendance: vi.fn(),
+  },
+}));
+
 vi.mock("../../../src/services/modules/category", () => ({
   categoryService: {
     getCategoryItems: vi.fn(),
+    getActiveCategoryItem: vi.fn(),
   },
 }));
 
@@ -119,17 +141,37 @@ async function setupMocks() {
   vi.mocked(employeeService.getEmployees).mockResolvedValue({
     data: { content: mockEmployees, totalElements: 2 },
   } as any);
+  vi.mocked(employeeService.getSummary).mockResolvedValue({
+    data: {
+      totalEmployees: 2,
+      totalActiveEmployees: 2,
+      totalInactiveEmployees: 0,
+      onboardingAssigned: 0,
+      onboardingQueue: 0,
+      onboardingInProgress: 0,
+      onboardingCompleted: 0,
+    },
+  } as any);
   vi.mocked(departmentService.getDepartments).mockResolvedValue({
     data: { content: mockDepartments },
   } as any);
   vi.mocked(categoryService.getCategoryItems).mockResolvedValue({
     data: { content: mockDesignations },
   } as any);
+  vi.mocked(categoryService.getActiveCategoryItem).mockResolvedValue({
+    data: [],
+  } as any);
   vi.mocked(branchService.getBranches).mockResolvedValue({
     data: { content: mockBranches },
   } as any);
   vi.mocked(employeeService.createEmployee).mockResolvedValue({
     data: { id: "3", employeeId: "EMP003" },
+  } as any);
+  const { attendanceService } = await import(
+    "../../../src/services/modules/attendance"
+  );
+  vi.mocked(attendanceService.getEmployeeAttendance).mockResolvedValue({
+    data: [],
   } as any);
   // vi.mocked(employeeService.deleteEmployee).mockResolvedValue({} as any);
 }
@@ -288,13 +330,42 @@ describe("EmployeeManagement — delete employee", () => {
     await setupMocks();
   });
 
-  it("shows delete action buttons in the employee rows", async () => {
+  it("shows the permanent delete action when the employee has no attendance", async () => {
+    const user = userEvent.setup();
     renderWithProviders(<EmployeeManagement />);
     await screen.findByText("Alice Johnson");
+    await user.click(screen.getAllByRole("button", { name: /more actions/i })[0]);
 
-    // MUI renders NoAccountsIcon (deactivate) with data-testid="NoAccountsIcon"
-    const deactivateIcons = screen.getAllByTestId("NoAccountsIcon");
-    expect(deactivateIcons.length).toBeGreaterThan(0);
+    expect(
+      await screen.findByRole("menuitem", { name: /delete permanently/i }),
+    ).toBeInTheDocument();
+
+  });
+
+  it("hides permanent delete when the employee has attendance records", async () => {
+    const user = userEvent.setup();
+    const { employeeService } = await import(
+      "../../../src/services/modules/employees"
+    );
+    vi.mocked(employeeService.getEmployees).mockResolvedValue({
+      data: {
+        content: [
+          { ...mockEmployees[0], hasAttendanceRecords: true },
+          mockEmployees[1],
+        ],
+        totalElements: 2,
+      },
+    } as any);
+
+    renderWithProviders(<EmployeeManagement />);
+    await screen.findByText("Alice Johnson");
+    await user.click(screen.getAllByRole("button", { name: /more actions/i })[0]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("menuitem", { name: /delete permanently/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 });
 

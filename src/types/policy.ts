@@ -229,6 +229,10 @@ export interface PolicyConfig {
     wfhAllowed?: boolean;
     regularizationAllowedPerMonth?: number;
     overtimeAutoCalculate?: boolean;
+    permissionAllowedHoursPerMonth?: number;
+    lateCheckinDaysThreshold?: number;
+    salaryDeductionDays?: number;
+    salaryDeductionEnabled?: boolean;
   };
 
   penalties?: {

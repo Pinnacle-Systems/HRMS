@@ -107,6 +107,67 @@ export function PeriodFinalisation() {
     });
   }
 
+  async function handleProcessAndFinalise() {
+    if (!allChecked) {
+      showSnackbar("Please confirm all checklist items before finalising", "warning");
+      return;
+    }
+
+    showConfirmDialog({
+      title: "Process & Finalise Month",
+      message:
+        `Process attendance for ${MONTHS[month - 1]} ${year}, then create its finalisation record directly in locked status? ` +
+        "This recalculates the full month and prevents further attendance edits.",
+      confirmText: "Process & Finalise",
+      cancelText: "Cancel",
+      variant: "warning",
+      onConfirm: async () => {
+        setFinalising(true);
+        showSpinner();
+        try {
+          const startDate = dayjs(`${year}-${month}-01`).startOf("month");
+          const response = await attendanceService.processAndFinaliseAttendance({
+            fromDate: startDate.format("YYYY-MM-DD"),
+            toDate: startDate.endOf("month").format("YYYY-MM-DD"),
+            month,
+            year,
+            workerType: "Both",
+            reprocess: false,
+            lockReason: `Monthly finalisation - ${MONTHS[month - 1]} ${year}`,
+            lockedBy: session?.user.userId || "System",
+            preCheckDone: true,
+            preCheckDoneBy: session?.user.email,
+            preCheckDoneDateTime: new Date().toISOString(),
+            remarks,
+            approvedBy: session?.user.userId,
+          });
+          const data = response.data;
+          const processResult = data.processResult;
+          const processed = processResult.processed ?? processResult.summary?.employeesProcessed;
+          const message = data.message || "Attendance processed and finalised successfully";
+
+          showSnackbar(
+            typeof processed === "number"
+              ? `${message} (${processed} employees processed)`
+              : message,
+            "success",
+          );
+          setChecklist(CHECKLIST.map(() => false));
+          setRemarks("");
+          await loadPeriods();
+        } catch (error: any) {
+          showSnackbar(
+            error?.response?.data?.message ?? error?.message ?? "Failed to process and finalise period",
+            "error",
+          );
+        } finally {
+          setFinalising(false);
+          hideSpinner();
+        }
+      },
+    });
+  }
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'lock' | 'unlock'>('unlock');
   const [selectedPeriod, setSelectedPeriod] = useState<FinalisedPeriod | null>(null);
@@ -290,7 +351,7 @@ export function PeriodFinalisation() {
               <span className="text-xs">This period is finalised and locked.</span>
             </Alert>
           ) : (
-            !currentPeriod?.status &&
+            !isLocked &&
             <>
               {/* Checklist */}
               <div className="space-y-2">
@@ -338,6 +399,14 @@ export function PeriodFinalisation() {
               >
                 <LockOutlined fontSize="small" />
                 {finalising ? "Finalising..." : `Finalise ${MONTHS[month - 1]} ${year}`}
+              </button>
+              <button
+                onClick={handleProcessAndFinalise}
+                disabled={finalising || !allChecked}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-primary text-primary rounded text-sm font-medium hover:bg-primary/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <LockOutlined fontSize="small" />
+                {finalising ? "Processing..." : `Process & Finalise ${MONTHS[month - 1]} ${year}`}
               </button>
               {finalising && <LinearProgress color="primary" />}
             </>

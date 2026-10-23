@@ -312,9 +312,8 @@ export default function ApprovalModuleManagement() {
                     <TableCell
                       colSpan={7}
                       align="center"
-                      sx={{ py: 4, color: "text.secondary" }}
                     >
-                      No modules found. Create your first module to begin.
+                      <div className="py-6 text-gray-600">No modules found. Create your first module to begin.</div>
                     </TableCell>
                   </TableRow>
                 )}

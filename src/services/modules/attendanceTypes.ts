@@ -14,6 +14,8 @@ export type AttendanceStatus =
   | "missed_punch"
   | "missed_out"
   | "night_duty"
+  | "lateinearlyout"
+  | "earlyout"
   | "irregular";
 
 export type AttendanceCategory = "regular" | "irregular" | "on_duty" | "leave";
@@ -305,6 +307,30 @@ export interface ProcessAttendancePayload {
   preCheckDone?: boolean;
   preCheckDoneBy?: string;
   preCheckDoneDateTime?: string;
+}
+
+export interface ProcessAndFinalisePayload extends ProcessAttendancePayload {
+  month: number;
+  year: number;
+  remarks?: string;
+  approvedBy?: string;
+}
+
+export interface ProcessAndFinaliseResponse {
+  processResult: {
+    fromDate: string;
+    toDate: string;
+    totalEmployees: number;
+    processed: number;
+    skipped: number;
+    errors: number;
+    locked: boolean;
+    summary?: {
+      employeesProcessed?: number;
+    };
+  };
+  finalisedPeriod: FinalisedPeriod;
+  message: string;
 }
 
 export interface BulkProcessPayload {

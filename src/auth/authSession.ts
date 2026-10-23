@@ -3,6 +3,7 @@ import { logger } from "../utils/logger";
 
 const AUTH_STORAGE_KEY = "hrms.auth.session";
 const AUTH_COMPANY_KEY = "hrms.company.details";
+const PAGE_HISTORY_KEY_PREFIX = "hrms-page-history-";
 
 export function saveSession(session: AuthSession): void {
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -62,7 +63,18 @@ export function shouldRefreshSession(session: AuthSession | null): boolean {
 export function clearSession(): void {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   localStorage.removeItem(AUTH_COMPANY_KEY);
+  clearPageHistories();
   logger.debug("Cleared auth session");
+}
+
+export function clearPageHistories(): void {
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(PAGE_HISTORY_KEY_PREFIX))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch {
+    // Session cleanup should still complete if page-history storage is unavailable.
+  }
 }
 
 export function getAccessToken(): string | null {

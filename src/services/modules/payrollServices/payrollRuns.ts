@@ -33,6 +33,27 @@ export interface PayrollRun {
   createdAt: string;
 }
 
+export interface PayrollRunReverseResponse {
+  run: PayrollRun;
+  itemsReversed: number;
+  attendanceLocksReopened: number;
+  finalisationReopened?: {
+    id: string;
+    month: number;
+    year: number;
+    periodLabel: string;
+    status: string;
+  } | null;
+  message: string;
+}
+
+export interface PayrollRunReverseApiResponse {
+  success: boolean;
+  message: string;
+  data: PayrollRunReverseResponse;
+  timestamp: string;
+}
+
 export interface PayrollRunItem {
   id: string;
   employeeId: string;
@@ -143,6 +164,12 @@ export const payrollRunsService = {
 
   async cancelPayrollRun(id: string) {
     return apiService.post(API_ENDPOINTS.PAYROLL.PAYROLLRUNS.CANCEL(id));
+  },
+
+  async reversePayrollRun(id: string) {
+    return apiService.post<PayrollRunReverseApiResponse>(
+      API_ENDPOINTS.PAYROLL.PAYROLLRUNS.REVERSE(id),
+    );
   },
 
   async previewPayrollRun(payload: PayrollRunPreviewPayload) {

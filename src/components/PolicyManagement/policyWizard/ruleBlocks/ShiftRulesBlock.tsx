@@ -17,6 +17,18 @@ export const ShiftRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) 
     <Grid size={{ xs: 12, md: 4 }}>
       <TextField fullWidth size="small" type="number" label="Full Day Threshold (min)" value={localConfig.shiftConfig?.fullDayMinutes ?? 480} onChange={(e) => set('shiftConfig.fullDayMinutes', parseInt(e.target.value) || 0)} helperText="Min hours for full day" sx={helperSx} />
     </Grid>
+     <Grid size={{ xs: 12, md: 3 }}>
+      <TextField fullWidth size="small" type="number" label="Permission Allowed Per Month (hrs)" value={localConfig.shiftConfig?.permissionAllowedHoursPerMonth ?? 180} onChange={(e) => set('shiftConfig.permissionAllowedHoursPerMonth', parseInt(e.target.value) || 0)} helperText="Min hours for Permission" sx={helperSx} />
+    </Grid>
+     <Grid size={{ xs: 12, md: 3 }}>
+      <TextField fullWidth size="small" type="number" label="Late Checkin Days Threshold" value={localConfig.shiftConfig?.lateCheckinDaysThreshold ?? 3} onChange={(e) => set('shiftConfig.lateCheckinDaysThreshold', parseInt(e.target.value) || 0)} helperText="Min hours for Permission" sx={helperSx} />
+    </Grid>
+     <Grid size={{ xs: 12, md: 3 }}>
+      <TextField fullWidth size="small" type="number" label="Salary Deduction Days" value={localConfig.shiftConfig?.salaryDeductionDays ?? 1} onChange={(e) => set('shiftConfig.salaryDeductionDays', parseInt(e.target.value) || 0)} helperText="Min hours for Permission" sx={helperSx} />
+    </Grid>
+    <Grid size={{ xs: 12, md: 3 }}>
+      <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.salaryDeductionEnabled} onChange={(e) => set('shiftConfig.salaryDeductionEnabled', e.target.checked)} />} label="Salary Deduction Enabled" />
+    </Grid>
 
     <Grid size={{ xs: 12 }}><Divider /><Typography variant="subtitle2" color="info" sx={{ my: 1 }} >Check-in Settings</Typography></Grid>
     <Grid size={{ xs: 12, md: 3 }}>

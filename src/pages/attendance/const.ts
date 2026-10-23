@@ -1,6 +1,7 @@
 import type { AttendanceStatus } from "../../services/modules/attendanceTypes";
+import type { RawMovement } from "./movement";
 
-export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, any> = {
   checked_in: "Checked In",
   checked_out: "Checked Out",
   absent: "Absent",
@@ -15,7 +16,10 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   irregular: "Irregular",
   missed_punch: "Missed Punch",
   missed_out: "Missed Punch",
-  night_duty: "Night Duty"
+  night_duty: "Night Duty",
+  lateinearlyout: "Late & Early Out",
+  earlyout: "Early Out",
+
 };
 
 export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
@@ -30,10 +34,12 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   permission: "#f97316",
   holiday: "#64748b",
   weekly_off: "#94a3b8",
-  irregular: "#ec4899",
+  irregular: "#f11e1e",
   missed_punch: "#ec4899",
   missed_out: "#ec4899",
-  night_duty: "#047857"
+  night_duty: "#047857",
+  earlyout:"",
+  lateinearlyout: ""
 };
 
 export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
@@ -48,10 +54,12 @@ export const ATTENDANCE_STATUS_BG: Record<AttendanceStatus, string> = {
   permission: "bg-orange-100 text-orange-700",
   holiday: "bg-slate-100 text-slate-600",
   weekly_off: "bg-gray-100 text-gray-500",
-  irregular: "bg-pink-100 text-pink-700",
+  irregular: "bg-red-100 text-red-700",
   missed_punch: "bg-pink-100 text-pink-700",
   missed_out: "bg-pink-100 text-pink-700",
-  night_duty: "bg-emerald-100 text-emerald-700"
+  night_duty: "bg-emerald-100 text-emerald-700",
+  lateinearlyout: "bg-orange-100 text-orange-700",
+  earlyout: "bg-amber-100 text-amber-700",
 };
 
 export const MUSTER_STATUS_CELL: Record<string, string> = {
@@ -66,7 +74,7 @@ export const MUSTER_STATUS_CELL: Record<string, string> = {
   permission: "bg-orange-500 text-white",
   holiday: "bg-slate-300 text-slate-700",
   weekly_off: "bg-gray-200 text-gray-500",
-  irregular: "bg-pink-500 text-white",
+  irregular: "bg-red-500 text-white",
   missed_punch: "bg-pink-500 text-white",
 };
 
@@ -235,6 +243,7 @@ export interface RegisterEmployee {
   overtimeMinutes: number;
   correctionPending?: boolean;
   template?: string;
+  movement?: RawMovement[];
 }
 
 export interface TodaySummary {
@@ -266,3 +275,26 @@ export interface InlineDisplayProps {
   onClick: () => void;
   disabled?: boolean;
 }
+
+export const punchTimeColor = (
+  emp: RegisterEmployee,
+  field: "checkInTime" | "checkOutTime",
+): string => {
+  const s = (emp.status ?? "").toString().toLowerCase();
+  const isProblem =
+    s === "irregular" ||
+    s === "missed_punch" ||
+    s === "missedpunch" ||
+    s === "missed" ||
+    s === "checked_in" ||
+    s === "checkedin" ||
+    s === "checked-in" ||
+    s === "incomplete";
+
+  if (isProblem) return "text-red-600 !font-bold";
+
+  if (field === "checkInTime") {
+    return emp.checkInTime ? "text-green-700 font-semibold" : "text-red-500";
+  }
+  return emp.checkOutTime ? "text-green-700 font-semibold" : "text-gray-400";
+};

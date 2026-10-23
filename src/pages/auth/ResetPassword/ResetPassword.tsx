@@ -18,7 +18,7 @@ export default function ResetPassword() {
   const tokenFromUrl = searchParams.get("token");
   // const emailFromUrl = searchParams.get("email");
   const tenantIdFromUrl = searchParams.get("tenantId");
-  
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [visible1, setVisible1] = useState(false);
@@ -27,7 +27,7 @@ export default function ResetPassword() {
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicyResponse>(
     FALLBACK_PASSWORD_POLICY,
   );
-  
+
   const token = tokenFromUrl || localStorage.getItem("resetToken");
   // const email = emailFromUrl || localStorage.getItem("resetEmail");
   const { showSnackbar, showSpinner, hideSpinner } = useUI();
@@ -71,7 +71,7 @@ export default function ResetPassword() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!token) {
       showSnackbar("Reset token is missing. Please use the password reset link from your email.", "warning");
       return;
@@ -81,14 +81,14 @@ export default function ResetPassword() {
       showSnackbar("Please meet all password requirements", "warning");
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       showSnackbar("Passwords do not match", "warning");
       return;
     }
 
     showSpinner();
-    
+
     try {
       const response = await authService.resetPassword({
         resetToken: token,
@@ -96,18 +96,18 @@ export default function ResetPassword() {
         confirmPassword,
         tenantId: tenantIdFromUrl || undefined,
       });
-      
+
       if (response.success) {
         showSnackbar(response.message || "Password updated successfully!", "success");
         setSubmitted(true);
-        
+
         // Clear stored reset data
         localStorage.removeItem("resetToken");
         localStorage.removeItem("resetEmail");
-        
+
         // Redirect to login after 3 seconds
         setTimeout(() => {
-          navigate("/login", { 
+          navigate("/login", {
             replace: true,
             state: { passwordReset: true }
           });
@@ -116,7 +116,12 @@ export default function ResetPassword() {
         showSnackbar(response.message || "Failed to reset password. Please try again.", "error");
       }
     } catch (err: any) {
-      showSnackbar(err.message || 'An error occurred while resetting password', "error");
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        'An error occurred while resetting password';
+      showSnackbar(errorMessage, "error");
     } finally {
       hideSpinner();
     }
@@ -242,13 +247,12 @@ export default function ResetPassword() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
-                    className={`w-full bg-white text-sm px-4 py-2 border ${
-                      newPassword && !allRequirementsMet
+                    className={`w-full bg-white text-sm px-4 py-2 border ${newPassword && !allRequirementsMet
                         ? 'border-red-500'
                         : newPassword && allRequirementsMet
                           ? 'border-green-500'
                           : 'border-gray-300'
-                    } rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition`}
+                      } rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition`}
                     required
                   />
                   <div className="absolute top-[38px] right-[0]">
@@ -271,9 +275,8 @@ export default function ResetPassword() {
                       {requirements.map((req, index) => (
                         <p
                           key={index}
-                          className={`flex items-center gap-2 ${
-                            req.isValid ? 'text-green-600' : 'text-gray-500'
-                          }`}
+                          className={`flex items-center gap-2 ${req.isValid ? 'text-green-600' : 'text-gray-500'
+                            }`}
                         >
                           <span className="text-[14px]">
                             {req.isValid ? '✓' : '○'}
@@ -300,13 +303,12 @@ export default function ResetPassword() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    className={`w-full bg-white text-sm px-4 py-2 border ${
-                      confirmPassword && !passwordMatch
+                    className={`w-full bg-white text-sm px-4 py-2 border ${confirmPassword && !passwordMatch
                         ? 'border-red-500'
                         : confirmPassword && passwordMatch
                           ? 'border-green-500'
                           : 'border-gray-300'
-                    } rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition`}
+                      } rounded-sm focus:ring-2 focus:ring-primary-light focus:border-transparent outline-none transition`}
                     required
                   />
                   <div className="absolute top-[38px] right-[0]">
@@ -331,11 +333,10 @@ export default function ResetPassword() {
 
                 <button
                   type="submit"
-                  className={`w-full mt-4 text-sm text-white py-3 rounded-sm font-semibold cursor-pointer ${
-                    allRequirementsMet && passwordMatch 
+                  className={`w-full mt-4 text-sm text-white py-3 rounded-sm font-semibold cursor-pointer ${allRequirementsMet && passwordMatch
                       ? 'bg-primary hover:bg-primary-dark'
                       : 'bg-gray-400 cursor-not-allowed'
-                  }`}
+                    }`}
                   disabled={!allRequirementsMet || !passwordMatch}
                 >
                   Reset Password
@@ -354,7 +355,7 @@ export default function ResetPassword() {
             </>
           ) : (
             // Success State
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}

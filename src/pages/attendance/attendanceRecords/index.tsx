@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { Box, Button } from "@mui/material";
+import { Box } from "@mui/material";
 import {
   FormatListBulletedOutlined, TableChartOutlined,
 
@@ -12,10 +11,6 @@ import { AttendanceMuster } from "./AttendanceMuster";
 import { DailyRegister } from "./DailyRegister";
 import { EmployeeView } from "./EmployeeView";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { attendanceService } from "../../../services/modules/attendance";
-import type { ProcessStatusData } from "../../../services/modules/attendanceTypes";
-import { biometricService } from "../../../services/modules/biometricDevice";
-import { useUI } from "../../../context/Snackbar";
 
 
 
@@ -61,28 +56,7 @@ export default function AttendanceRecords() {
     TABS.findIndex((tab) => tab.path === (activeTabPath ?? (searchParams.get("tab") === "detailed" ? "detailed" : "daily-register"))),
     0,
   );
-  const [, setDateVersion] = useState(0);
   const navigate = useNavigate();
-  const { showSnackbar } = useUI();
-  const showSnackbarRef = useRef(showSnackbar);
-  showSnackbarRef.current = showSnackbar;
-
-  const [date] = useState(() => sessionStorage.getItem("dailyRegisterDate") ?? new Date().toISOString().slice(0, 10));
-  const [processStatus, setProcessStatus] = useState<ProcessStatusData | null>(null);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-  const [hasStagedPunches, setHasStagedPunches] = useState(false);
-  const [isLoadingStagedPunches, setIsLoadingStagedPunches] = useState(true);
-  const [stagedPunchCheckFailed, setStagedPunchCheckFailed] = useState(false);
-  const processFromDate = activeTab === 1
-    ? sessionStorage.getItem("attendanceDetailedFromDate") ?? date
-    : sessionStorage.getItem("dailyRegisterDate") ?? date;
-  const processToDate = activeTab === 1
-    ? sessionStorage.getItem("attendanceDetailedToDate") ?? processFromDate
-    : processFromDate;
-
-  const navigateToProcess = () => {
-    navigate(`/attendance/process?fromDate=${encodeURIComponent(processFromDate)}&toDate=${encodeURIComponent(processToDate)}`);
-  };
 
   const navigateToTab = (tabPath: string) => {
     const nextSearchParams = new URLSearchParams(searchParams);
@@ -90,55 +64,6 @@ export default function AttendanceRecords() {
     const search = nextSearchParams.toString();
     navigate(`/attendance/records/${tabPath}${search ? `?${search}` : ""}`);
   };
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchStatus = async () => {
-      setIsLoadingStatus(true);
-      try {
-        const res = await attendanceService.getProcessAttendanceStatus({ date: processFromDate });
-        const data = res.data;
-        if (!cancelled) setProcessStatus(data);
-      } catch (err) {
-        if (!cancelled) setProcessStatus(null);
-      } finally {
-        if (!cancelled) setIsLoadingStatus(false);
-      }
-    };
-
-    fetchStatus();
-  }, [processFromDate, activeTab]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const fetchStagedPunches = async () => {
-      setIsLoadingStagedPunches(true);
-      setStagedPunchCheckFailed(false);
-      try {
-        const stagedPunches = await biometricService.getStagedPunches({
-          from: processFromDate,
-          to: processToDate,
-        });
-        if (!cancelled) setHasStagedPunches(stagedPunches.length > 0);
-      } catch {
-        if (!cancelled) {
-          setStagedPunchCheckFailed(true);
-          showSnackbarRef.current("Failed to check staged punches", "error");
-        }
-      } finally {
-        if (!cancelled) setIsLoadingStagedPunches(false);
-      }
-    };
-
-    fetchStagedPunches();
-    return () => { cancelled = true; };
-  }, [processFromDate, processToDate]);
-
-  useEffect(() => {
-    const handleDateChange = () => setDateVersion((version) => version + 1);
-    window.addEventListener("attendance-date-changed", handleDateChange);
-    return () => window.removeEventListener("attendance-date-changed", handleDateChange);
-  }, []);
 
   return (
     <div className="w-full">
@@ -172,22 +97,6 @@ export default function AttendanceRecords() {
               );
             })}
           </div>
-          {!["muster-register", "employee-view"].includes(activeTabPath ?? "daily-register") && (
-            <div className="flex gap-2">
-              {!isLoadingStatus && !isLoadingStagedPunches && !stagedPunchCheckFailed && !hasStagedPunches && !processStatus?.processed && !processStatus?.locked && (
-                <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Process Attendance</Button>
-              )}
-              {!isLoadingStatus && !isLoadingStagedPunches && !stagedPunchCheckFailed && !hasStagedPunches && processStatus?.processed && !processStatus.locked && (
-                <Button variant="contained" className="!bg-primary" onClick={navigateToProcess}>Re-Process</Button>
-              )}
-              {!isLoadingStatus && !isLoadingStagedPunches && !stagedPunchCheckFailed && !hasStagedPunches && processStatus?.processed && !processStatus.locked && (
-                <Button variant="contained" className="!bg-amber-600 !text-white" onClick={navigateToProcess}>Close & Finalise</Button>
-              )}
-              {!isLoadingStatus && processStatus?.locked && (
-                <Button variant="contained" disabled className="!bg-green-800 !text-white">Closed & Finalized</Button>
-              )}
-            </div>)
-          }
         </div>
 
         {/* Tab Content */}

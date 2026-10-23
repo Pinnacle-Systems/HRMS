@@ -25,6 +25,9 @@ import {
   LinearProgress,
   Autocomplete,
   CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup,
+  Menu,
 } from "@mui/material";
 import {
   LoginOutlined,
@@ -46,6 +49,8 @@ import {
   WarningAmberOutlined,
   PendingActionsOutlined,
   PlayArrowOutlined,
+  ViewColumnOutlined,
+  SwapHorizOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -59,6 +64,7 @@ import {
   type Holiday,
   STATUS_CHIP_OPTIONS,
   inlineInputSx,
+  punchTimeColor,
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import { branchService } from "../../../services/modules/branch";
@@ -74,12 +80,13 @@ import { DateTimePicker } from "@mui/x-date-pickers";
 import { useAuth } from "../../../auth/authContext";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { NotificationsActiveOutlined } from "@mui/icons-material";
-import { readExcelFile } from "../../../utils/timeStampFormatter";
 import { biometricService, type BiometricDevice, type StagedPunch } from "../../../services/modules/biometricDevice";
-import { formatDateTime } from "../../../utils/dateFormatter";
+import { formatDateTime, formatMinutes } from "../../../utils/dateFormatter";
 import { employeeService } from "../../../services/modules/employees";
-// import { formatDate } from "../../leave/leaveFormatters";
 import { useNavigate } from "react-router-dom";
+import { shiftService } from "../../../services/modules/shifts";
+import { pairMovements, type PairedMovement } from "../movement";
+import { permissionRequestService } from "../../../services/modules/permissionRequests";
 
 function InlineDisplay({
   value,
@@ -115,6 +122,54 @@ type EditableField =
   | "checkInTime"
   | "checkOutDate"
   | "checkOutTime";
+
+// ── Column visibility config ──────────────────────────────────────────────
+type ColumnKey =
+  | "department"
+  | "shift"
+  | "checkInDate"
+  | "checkInTime"
+  | "checkOutDate"
+  | "checkOutTime"
+  | "earlyOut"
+  | "late"
+  | "overtime"
+  | "worked"
+  | "status"
+  | "movement";
+
+const COLUMN_CONFIG: { key: ColumnKey; label: string }[] = [
+  { key: "department", label: "Department" },
+  { key: "shift", label: "Shift" },
+  { key: "checkInDate", label: "Check In Date" },
+  { key: "checkInTime", label: "Check In Time" },
+  { key: "checkOutDate", label: "Check Out Date" },
+  { key: "checkOutTime", label: "Check Out Time" },
+  { key: "earlyOut", label: "Early Out (min)" },
+  { key: "late", label: "Late (min)" },
+  { key: "overtime", label: "Overtime (min)" },
+  { key: "worked", label: "Worked (min)" },
+  { key: "status", label: "Status" },
+  { key: "movement", label: "Movement" },
+];
+
+const COLUMN_STORAGE_KEY = "dailyRegisterVisibleColumns";
+
+const DEFAULT_VISIBLE_COLUMNS: Record<ColumnKey, boolean> = COLUMN_CONFIG.reduce(
+  (acc, c) => ({ ...acc, [c.key]: true }),
+  {} as Record<ColumnKey, boolean>,
+);
+
+const loadVisibleColumns = (): Record<ColumnKey, boolean> => {
+  try {
+    const raw = localStorage.getItem(COLUMN_STORAGE_KEY);
+    if (!raw) return DEFAULT_VISIBLE_COLUMNS;
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_VISIBLE_COLUMNS, ...parsed };
+  } catch {
+    return DEFAULT_VISIBLE_COLUMNS;
+  }
+};
 
 export function DailyRegister() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -163,8 +218,50 @@ export function DailyRegister() {
   const [stagingPunches, setStagingPunches] = useState(false);
   const canEditPunchTimes =
     hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed;
-  const canProcessAttendance =
-    !hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed;
+  const [shiftColorMap, setShiftColorMap] = useState<Record<string, string>>({});
+
+
+  // ── Column visibility ───────────────────────────────────────────────────
+  const [visibleColumns, setVisibleColumns] =
+    useState<Record<ColumnKey, boolean>>(loadVisibleColumns);
+  const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
+
+  const [movementDialogOpen, setMovementDialogOpen] = useState(false);
+  const [movementEmployee, setMovementEmployee] = useState<RegisterEmployee | null>(null);
+  const [movementRows, setMovementRows] = useState<PairedMovement[]>([]);
+  const [movementSavingIdx, setMovementSavingIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(visibleColumns));
+    } catch {
+      // ignore storage errors (quota / private mode)
+    }
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    shiftService
+      .getShifts({ page: 0, size: 1000, sort: "shiftCode,ASC" })
+      .then((res: any) => {
+        const list = res?.content ?? res?.data?.content ?? res?.data ?? [];
+        const map: Record<string, string> = {};
+        (Array.isArray(list) ? list : []).forEach((s: any) => {
+          if (s.shiftCode) {
+            map[s.shiftCode] = s.color || "#3b82f6"; // fallback color
+          }
+        });
+        setShiftColorMap(map);
+      })
+      .catch(() => {
+        // non-blocking — shift colors are cosmetic
+      });
+  }, []);
+
+  const toggleColumn = (key: ColumnKey) => {
+    setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const showColumn = (key: ColumnKey) => visibleColumns[key] !== false;
 
   const editKey = (employeeId: string, field: string) => `${employeeId}:${field}`;
   const isEditingField = (employeeId: string, field: string) =>
@@ -443,7 +540,6 @@ export function DailyRegister() {
   const [bulkCheckoutTime, setBulkCheckoutTime] = useState(dayjs().toISOString());
   const [bulkCheckoutRemarks, setBulkCheckoutRemarks] = useState("");
   const [bulkCheckoutSubmitting, setBulkCheckoutSubmitting] = useState(false);
-  const [previewData, setPreviewData] = useState<any[]>([]);
 
   const [bulkActionResult, setBulkActionResult] = useState<{
     open: boolean;
@@ -503,6 +599,7 @@ export function DailyRegister() {
       const data = await biometricService.getStagedPunches({
         from: date,
         to: date,
+        status: statusFilter == "missed_out" ? "checked_in" : statusFilter || undefined
       });
       const list = Array.isArray(data) ? data : [];
       setStagedPunches(list);
@@ -516,11 +613,11 @@ export function DailyRegister() {
     } finally {
       setLoadingStagedPunches(false);
     }
-  }, [date]);
+  }, [date, statusFilter]);
 
-  // Load register — checks staged punches first
   const loadRegister = useCallback(async () => {
     setLoading(true);
+    showSpinner();
     try {
       // 1. Check staged punches first
       const staged = await loadStagedPunches();
@@ -559,12 +656,14 @@ export function DailyRegister() {
           shiftCode: s.shiftCode,
           shiftStart: s.shiftStart ?? "",
           shiftEnd: s.shiftEnd ?? "",
-          status: s.status as any,
+          status: s.status == "checked_in" ? "missed_punch" : s.status,
           workedMinutes: s.workedMinutes,
           lateMinutes: s.lateMinutes,
           earlyOutMinutes: s.earlyOutMinutes,
           overtimeMinutes: s.overtimeMinutes,
           correctionPending: false,
+          movement: s.movement ?? [],
+
         } as any));
         setEmployees(mapped);
         setTotal(mapped.length);
@@ -573,6 +672,7 @@ export function DailyRegister() {
       showSnackbar("Failed to load daily register", "error");
     } finally {
       setLoading(false);
+      hideSpinner();
     }
   }, [date, departmentId, branchId, statusFilter, loadStagedPunches]);
 
@@ -584,6 +684,13 @@ export function DailyRegister() {
     failed: number;
     errors: string[] | any[];
     rows: any[];
+    source?: string | null;
+    importType?: string | null;
+    periodStart?: string | null;
+    periodEnd?: string | null;
+    totalPunches?: number;
+    daysImported?: number;
+    skipped?: number;
   } | null>(null);
 
   const [punchImportOpen, setPunchImportOpen] = useState(false);
@@ -598,6 +705,13 @@ export function DailyRegister() {
   });
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [employeesData, setEmployeesData] = useState<Employee[]>([]);
+  const [timeUnit, setTimeUnit] = useState<"min" | "hrs">(
+    (sessionStorage.getItem("dailyRegisterTimeUnit") as "min" | "hrs") ?? "min",
+  );
+
+  useEffect(() => {
+    sessionStorage.setItem("dailyRegisterTimeUnit", timeUnit);
+  }, [timeUnit]);
 
   const loadTodaySummary = useCallback(async () => {
     try {
@@ -953,6 +1067,13 @@ export function DailyRegister() {
     setSendVia(value);
   };
 
+  const SUCCESS_ROW_MESSAGES = new Set([
+    "imported",
+    "success",
+    "staged to punch_data",
+    "staged",
+  ]);
+
   async function handleImportFile() {
     if (!importFile) {
       showSnackbar("Please select a file to import", "warning");
@@ -962,160 +1083,145 @@ export function DailyRegister() {
     setImportResult(null);
     showSpinner();
     try {
-      const extension = importFile.name.split(".").pop()?.toLowerCase();
-      let format = "csv";
-      if (extension === "xlsx" || extension === "xls") {
-        format = "excel";
-      } else if (extension === "txt" || extension === "csv") {
-        format = "csv";
-      }
+      const ext = importFile.name.split(".").pop()?.toLowerCase();
+      const format = ext === "xlsx" || ext === "xls" ? "excel" : "csv";
 
-      const params = {
-        format: format,
-        source: importSource,
-        type: importType,
-      };
-      const res: any = await attendanceService.stageAttendanceFile(params, importFile);
+      const res: any = await attendanceService.stageAttendanceFile(
+        { format, source: importSource, type: importType },
+        importFile,
+      );
       const data = res?.data?.data ?? res?.data;
+      if (!data) throw new Error("The server did not return an attendance import result");
 
-      if (!data) {
-        throw new Error("The server did not return an attendance import result");
-      }
+      const totalPunches = Number(data.totalPunches ?? 0);
+      const failed = Number(data.errors ?? 0);
+      const success = Math.max(totalPunches - failed, 0);
 
-      const totalPunches = data.totalPunches || 0;
-      const errorCount = data.errors || 0;
-      const successCount = totalPunches - errorCount;
+      // Treat known success messages as success; only others become "errors".
+      const errors: string[] = Array.isArray(data.rows)
+        ? data.rows
+          .filter((r: any) => {
+            const m = String(r?.message ?? "").toLowerCase();
+            return m && !SUCCESS_ROW_MESSAGES.has(m);
+          })
+          .map((r: any) =>
+            r.employeeCode ? `${r.employeeCode}: ${r.message}` : String(r.message),
+          )
+        : [];
 
-      const errorMessages: string[] = [];
-      if (data.rows && Array.isArray(data.rows)) {
-        data.rows.forEach((row: any) => {
-          if (row.message && row.message !== "imported" && row.message !== "success") {
-            const errorMsg = row.employeeCode
-              ? `${row.employeeCode}: ${row.message}`
-              : row.message;
-            errorMessages.push(errorMsg);
-          }
-        });
-      }
-
-      if (errorCount > 0 && successCount === 0) {
-        showSnackbar(
-          `All ${totalPunches} records failed to stage. Please check the format.`,
-          "error",
-        );
-      } else if (errorCount > 0) {
-        showSnackbar(
-          `Staged with ${errorCount} error(s). ${successCount} punches ready for review.`,
-          "warning",
-        );
-      } else {
-        showSnackbar(
-          `Successfully staged ${totalPunches} punches. Review them before running attendance.`,
-          "success",
-        );
-      }
+      showSnackbar(
+        failed === 0
+          ? `Staged ${totalPunches} punches`
+          : failed === totalPunches
+            ? `All ${totalPunches} records failed`
+            : `Staged ${success} / ${totalPunches} (${failed} failed)`,
+        failed === 0 ? "success" : failed === totalPunches ? "error" : "warning",
+      );
 
       setImportResult({
-        success: successCount,
-        failed: errorCount,
-        errors: errorMessages,
+        success,
+        failed,
+        errors,
         rows: data.rows || [],
+        source: data.source ?? null,
+        importType: data.importType ?? null,
+        periodStart: data.periodStart ?? null,
+        periodEnd: data.periodEnd ?? null,
+        totalPunches,
+        daysImported: Number(data.daysImported ?? 0),
+        skipped: Number(data.skipped ?? 0),
       });
 
       await loadRegister();
     } catch (err: any) {
-      const errorMessage =
+      const msg =
         err?.response?.data?.message || err?.message || "Failed to import attendance";
-      showSnackbar(errorMessage, "error");
-      setImportResult({
-        success: 0,
-        failed: 1,
-        errors: [errorMessage],
-        rows: [],
-      });
+      showSnackbar(msg, "error");
+      setImportResult({ success: 0, failed: 1, errors: [msg], rows: [] });
     } finally {
       setImporting(false);
       hideSpinner();
     }
   }
 
-  async function handlePreviewFile() {
-    if (!importFile) {
-      showSnackbar("Please select a file first", "warning");
-      return;
-    }
-    try {
-      const extension = importFile.name.split(".").pop()?.toLowerCase();
-      let preview: any = [];
+  // async function handlePreviewFile() {
+  //   if (!importFile) {
+  //     showSnackbar("Please select a file first", "warning");
+  //     return;
+  //   }
+  //   try {
+  //     const extension = importFile.name.split(".").pop()?.toLowerCase();
+  //     let preview: any = [];
 
-      if (extension === "xlsx" || extension === "xls") {
-        const excelData = await readExcelFile(importFile);
-        if (excelData && excelData.length > 0) {
-          const headers = Object.keys(excelData[0]);
-          const employeeCodeKey =
-            headers.find(
-              (h) =>
-                h.toLowerCase().includes("employee") ||
-                h.toLowerCase().includes("emp") ||
-                h.toLowerCase().includes("code"),
-            ) || headers[0];
-          const timestampKey =
-            headers.find(
-              (h) =>
-                h.toLowerCase().includes("timestamp") ||
-                h.toLowerCase().includes("time") ||
-                h.toLowerCase().includes("date"),
-            ) || headers[1];
+  //     if (extension === "xlsx" || extension === "xls") {
+  //       const excelData = await readExcelFile(importFile);
+  //       if (excelData && excelData.length > 0) {
+  //         const headers = Object.keys(excelData[0]);
+  //         const employeeCodeKey =
+  //           headers.find(
+  //             (h) =>
+  //               h.toLowerCase().includes("employee") ||
+  //               h.toLowerCase().includes("emp") ||
+  //               h.toLowerCase().includes("code"),
+  //           ) || headers[0];
+  //         const timestampKey =
+  //           headers.find(
+  //             (h) =>
+  //               h.toLowerCase().includes("timestamp") ||
+  //               h.toLowerCase().includes("time") ||
+  //               h.toLowerCase().includes("date"),
+  //           ) || headers[1];
 
-          preview = excelData.slice(0, 5).map((row: any) => {
-            const employeeCode = row[employeeCodeKey] || "N/A";
-            const originalTimestamp = row[timestampKey] || "N/A";
+  //         preview = excelData.slice(0, 5).map((row: any) => {
+  //           const employeeCode = row[employeeCodeKey] || "N/A";
+  //           const originalTimestamp = row[timestampKey] || "N/A";
 
-            let formattedTimestamp = "N/A";
-            let isValid = false;
+  //           let formattedTimestamp = "N/A";
+  //           let isValid = false;
 
-            if (originalTimestamp !== "N/A" && originalTimestamp) {
-              const parsed = dayjs(originalTimestamp);
-              if (parsed.isValid()) {
-                formattedTimestamp = parsed.toISOString();
-                isValid = true;
-              } else {
-                const parsed2 = dayjs(originalTimestamp, [
-                  "YYYY-MM-DD HH:mm:ss",
-                  "YYYY-MM-DD HH:mm",
-                  "YYYY-MM-DD",
-                ]);
-                if (parsed2.isValid()) {
-                  formattedTimestamp = parsed2.toISOString();
-                  isValid = true;
-                } else {
-                  formattedTimestamp = `Invalid format: ${originalTimestamp}`;
-                }
-              }
-            }
+  //           if (originalTimestamp !== "N/A" && originalTimestamp) {
+  //             const parsed = dayjs(originalTimestamp);
+  //             if (parsed.isValid()) {
+  //               formattedTimestamp = parsed.toISOString();
+  //               isValid = true;
+  //             } else {
+  //               const parsed2 = dayjs(originalTimestamp, [
+  //                 "YYYY-MM-DD HH:mm:ss",
+  //                 "YYYY-MM-DD HH:mm",
+  //                 "YYYY-MM-DD",
+  //               ]);
+  //               if (parsed2.isValid()) {
+  //                 formattedTimestamp = parsed2.toISOString();
+  //                 isValid = true;
+  //               } else {
+  //                 formattedTimestamp = `Invalid format: ${originalTimestamp}`;
+  //               }
+  //             }
+  //           }
 
-            return {
-              employeeCode: String(employeeCode),
-              originalTimestamp: String(originalTimestamp),
-              formattedTimestamp,
-              isValid,
-            };
-          });
-        }
-      }
+  //           return {
+  //             employeeCode: String(employeeCode),
+  //             originalTimestamp: String(originalTimestamp),
+  //             formattedTimestamp,
+  //             isValid,
+  //           };
+  //         });
+  //       }
+  //     }
 
-      setPreviewData(preview);
-      if (preview.length === 0) {
-        showSnackbar("No valid data rows found in the file", "warning");
-      } else {
-        showSnackbar(`Preview loaded with ${preview.length} rows`, "success");
-      }
-    } catch (error) {
-      showSnackbar("Failed to preview file. Please check the file format.", "error");
-    }
-  }
+  //     setPreviewData(preview);
+  //     if (preview.length === 0) {
+  //       showSnackbar("No valid data rows found in the file", "warning");
+  //     } else {
+  //       showSnackbar(`Preview loaded with ${preview.length} rows`, "success");
+  //     }
+  //   } catch (error) {
+  //     showSnackbar("Failed to preview file. Please check the file format.", "error");
+  //   }
+  // }
 
   // ── Punch Import Handlers ────────────────────────────────────────────────
+
   function addPunchEntry() {
     setPunchEntries([
       ...punchEntries,
@@ -1160,81 +1266,6 @@ export function DailyRegister() {
     setPunchImportResult(null);
     setDeviceFetchSummary({ total: 0, matched: 0, unknown: 0 });
   }
-
-  // async function handleBatchPunchImport() {
-  //   const validEntries = punchEntries.filter((e) => e.employeeId && e.timestamp);
-
-  //   if (validEntries.length === 0) {
-  //     showSnackbar("Please add at least one valid punch entry", "warning");
-  //     return;
-  //   }
-
-  //   setPunchImporting(true);
-  //   showSpinner();
-
-  //   try {
-  //     const payload = {
-  //       source: punchSource,
-  //       punches: validEntries.map((e) => ({
-  //         employeeId: e.employeeId,
-  //         employeeCode: e.employeeCode || "",
-  //         timestamp: e.timestamp,
-  //         punchType: e.punchType,
-  //         deviceId: e.deviceId || e.machineInOutGridId || "",
-  //       })),
-  //     };
-  //     const res: any = await attendanceService.importAttendance(payload);
-  //     const data = res?.data?.data ?? res?.data;
-  //     setPunchImportResult(data);
-  //     const punchDates = validEntries
-  //       .map((e) => dayjs(e.timestamp))
-  //       .filter((d) => d.isValid());
-
-  //     const fromDate = punchDates.length
-  //       ? punchDates.reduce((min, d) => (d.isBefore(min) ? d : min)).format("YYYY-MM-DD")
-  //       : dayjs().format("YYYY-MM-DD");
-
-  //     const toDate = punchDates.length
-  //       ? punchDates.reduce((max, d) => (d.isAfter(max) ? d : max)).format("YYYY-MM-DD")
-  //       : dayjs().format("YYYY-MM-DD");
-  //     try {
-  //       await attendanceService.processAttendance({
-  //         fromDate,
-  //         toDate,
-  //         departmentId: departmentId && departmentId !== "All" ? departmentId : undefined,
-  //         employeeIds: undefined,
-  //         workerType: "Both",
-  //         reprocess: true,
-  //       });
-
-  //       showSnackbar(
-  //         data?.message
-  //           ? `${data.message} • Attendance processed for ${dayjs(fromDate).format("DD MMM")}${fromDate !== toDate ? ` – ${dayjs(toDate).format("DD MMM")}` : ""
-  //           }`
-  //           : `Imported ${data?.totalPunches || 0} punches and processed attendance`,
-  //         data?.errors > 0 ? "warning" : "success",
-  //       );
-  //     } catch (processErr: any) {
-  //       showSnackbar(
-  //         `Punches imported, but processing failed: ${processErr?.response?.data?.message ?? processErr?.message ?? "Unknown error"
-  //         }`,
-  //         "warning",
-  //       );
-  //     }
-  //     loadRegister();
-  //     loadTodaySummary();
-  //     setPunchImportOpen(false);
-  //     setPunchEntries([]);
-  //   } catch (err: any) {
-  //     showSnackbar(
-  //       err?.response?.data?.message ?? "Failed to import punches",
-  //       "error",
-  //     );
-  //   } finally {
-  //     setPunchImporting(false);
-  //     hideSpinner();
-  //   }
-  // }
 
   const statCards = todaySummary
     ? [
@@ -1437,12 +1468,24 @@ export function DailyRegister() {
 
   const selectableEmployees = employees.filter((e) => e.status !== "leave");
 
+  const visibleColumnCount =
+    2 /* selection + name */ +
+    COLUMN_CONFIG.filter((c) => showColumn(c.key)).length +
+    1 /* action */;
+
   // ── Run Attendance (commits staged Redis → attendance_records) ──────────
   const runAttendance = async () => {
     showSpinner();
     try {
-      await biometricService.runAttendance();
-      showSnackbar("Attendance committed successfully", "success");
+      // await biometricService.runAttendance();
+      // showSnackbar("Attendance committed successfully", "success");
+      const result = await biometricService.runAttendance({ from: date, to: date });
+      showSnackbar(
+        `Attendance committed: ${result.daysImported} day(s), ${result.totalPunches} punches` +
+        (result.skipped ? `, ${result.skipped} skipped` : "") +
+        (result.errors ? `, ${result.errors} errors` : ""),
+        result.errors > 0 ? "warning" : "success",
+      );
       const response: any = await attendanceService.getRegister({
         startDate: date,
         endDate: date,
@@ -1463,38 +1506,96 @@ export function DailyRegister() {
     }
   }
 
-  // ── Process Attendance (fallback when no staged punches) ────────────────
-  const handleProcessAttendance = async () => {
-    if (!canProcessAttendance) {
-      showSnackbar(
-        stagedPunchCheckFailed
-          ? "Unable to verify staged punches. Please refresh and try again."
-          : "Process attendance is unavailable while staged punches exist",
-        "warning",
-      );
-      return;
+  const getDisplayStatus = (emp: RegisterEmployee): string => {
+    const rawStatus = (emp.status ?? "").toString().toLowerCase();
+
+    if (rawStatus === "irregular") {
+      const earlyOut = Number(emp.earlyOutMinutes ?? 0);
+      const late = Number(emp.lateMinutes ?? 0);
+
+      if (earlyOut > 0 && late > 0) return "lateinearlyout";
+      if (earlyOut > 0 && late === 0) return "earlyout";
     }
 
-    showSpinner();
+    return rawStatus;
+  };
+
+  // const hasIrregular = employees.some(
+  //   (emp) => ATTENDANCE_STATUS_LABELS[emp.status]?.toLowerCase() === "irregular",
+  // );
+  const hasIrregular = employees.some(
+    (emp) => getDisplayStatus(emp) === "irregular",
+  );
+
+  const hasMissedPunch = employees.some(
+    (emp) => ATTENDANCE_STATUS_LABELS[emp.status]?.toLowerCase() === "checked_in",
+  );
+
+  const openMovements = (emp: RegisterEmployee) => {
+    setMovementEmployee(emp);
+    setMovementRows(pairMovements(emp.movement ?? []));
+    setMovementDialogOpen(true);
+  };
+
+
+  const handleMovementClassify = async (
+    row: PairedMovement,
+    value: "official" | "personal" | "break",
+  ) => {
+    if (!movementEmployee) return;
+
+    setMovementRows((prev) =>
+      prev.map((r) =>
+        r.index === row.index ? { ...r, classification: value, saving: true } : r,
+      ),
+    );
+    setMovementSavingIdx(row.index);
+
     try {
-      await attendanceService.processAttendance({
-        fromDate: date,
-        toDate: date,
-        departmentId: departmentId && departmentId !== "All" ? departmentId : undefined,
-        employeeIds: undefined,
-        workerType: "Both",
-        reprocess: true,
-      });
-      showSnackbar("Attendance processed", "success");
-      loadRegister();
-      loadTodaySummary();
-    } catch (err: any) {
+      let permissionRequestId: string | null = null;
+
+      if (value === "official" || value === "personal") {
+        const created = await permissionRequestService.createPermission({
+          employeeId: movementEmployee.employeeId,
+          permissionType: value === "official" ? "official_work" : "personal_work",
+          date: dayjs(movementEmployee.checkInDate ?? date).format("YYYY-MM-DD"),
+          departureTime: dayjs(row.outTime).format("HH:mm:ss"),
+          expectedReturnTime: dayjs(
+            row.inTime ?? movementEmployee.checkOutTime ?? new Date()
+          ).format("HH:mm:ss"),
+          destination: "Biometric Movement",
+          reason: value,
+          generateGatePassSlip: true,
+        });
+        permissionRequestId = created?.id ?? null;
+      }
+
+      setMovementRows((prev) =>
+        prev.map((r) =>
+          r.index === row.index
+            ? { ...r, classification: value, permissionRequestId, saving: false }
+            : r,
+        ),
+      );
+
       showSnackbar(
-        err?.response?.data?.message ?? "Failed to process attendance",
+        value === "break"
+          ? `Movement #${row.index} marked as break`
+          : `Permission request (${value}) created for movement #${row.index}`,
+        "success",
+      );
+    } catch (err: any) {
+      setMovementRows((prev) =>
+        prev.map((r) =>
+          r.index === row.index ? { ...r, classification: null, saving: false } : r,
+        ),
+      );
+      showSnackbar(
+        err?.response?.data?.message ?? err?.message ?? "Failed to classify movement",
         "error",
       );
     } finally {
-      hideSpinner();
+      setMovementSavingIdx(null);
     }
   };
 
@@ -1539,7 +1640,7 @@ export function DailyRegister() {
             Send Reminders {selected.size > 0 && `(${selected.size})`}
           </Button>
 
-          {hasStagedPunches ? (
+          {hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed ? (
             <Button
               size="small"
               variant="contained"
@@ -1549,18 +1650,21 @@ export function DailyRegister() {
             >
               Run Attendance ({stagedPunches.length})
             </Button>
-          ) : (
+          ) : !loadingStagedPunches &&
+            !stagedPunchCheckFailed &&
+            !loading &&
+            employees.length > 0 &&
+            !processStatus?.locked ? (
             <Button
               size="small"
               variant="contained"
               color="success"
               startIcon={<PlayArrowOutlined className="!w-4" />}
-              onClick={handleProcessAttendance}
-              disabled={!canProcessAttendance}
+              onClick={() => navigate(`/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}`)}
             >
-              Process Attendance
+              {processStatus?.processed ? "Re-process Attendance" : "Process Attendance"}
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -1638,29 +1742,47 @@ export function DailyRegister() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={timeUnit}
+            onChange={(_, val) => val && setTimeUnit(val)}
+            aria-label="time display unit"
+          >
+            <ToggleButton value="min" className="text-gray-800" sx={{ px: 1.5, py: 0.25, textTransform: "none", fontSize: 12 }}>
+              min
+            </ToggleButton>
+            <ToggleButton value="hrs" className="text-gray-800" sx={{ px: 1.5, py: 0.25, textTransform: "none", fontSize: 12 }}>
+              hrs
+            </ToggleButton>
+          </ToggleButtonGroup>
           <div className="flex items-center gap-1 flex-wrap">
-            {STATUS_CHIP_OPTIONS.map((o) => (
-              <Chip
-                key={o.value}
-                label={o.label}
-                size="small"
-                variant={statusFilter === o.value ? "filled" : "outlined"}
-                color={statusFilter === o.value ? "primary" : "default"}
-                onClick={() => setStatusFilter(o.value)}
-                className="cursor-pointer text-gray-800"
-                sx={{
-                  borderRadius: "8px",
-                  fontWeight: statusFilter === o.value ? 600 : 400,
-                  ...(statusFilter === o.value && {
-                    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                    color: "white",
-                    "&:hover": {
-                      background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                    },
-                  }),
-                }}
-              />
-            ))}
+            {STATUS_CHIP_OPTIONS.map((o) => {
+              const isIrregularOption = o.value === "irregular" || o.value === "missed_out";
+              const shouldBlink = isIrregularOption && (hasIrregular || hasMissedPunch) && statusFilter !== o.value;
+              return (
+                <Chip
+                  key={o.value}
+                  label={o.label}
+                  size="small"
+                  variant={statusFilter === o.value ? "filled" : "outlined"}
+                  color={statusFilter === o.value ? "primary" : "default"}
+                  onClick={() => setStatusFilter(o.value)}
+                  className={`cursor-pointer text-gray-800 ${shouldBlink && stagedPunches.length > 0 ? "!bg-red-500 !text-white animate-blink" : ""}`}
+                  sx={{
+                    borderRadius: "8px",
+                    fontWeight: statusFilter === o.value ? 600 : 400,
+                    ...(statusFilter === o.value && {
+                      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      color: "white",
+                      "&:hover": {
+                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                      },
+                    }),
+                  }}
+                />
+              )
+            })}
           </div>
 
           <Tooltip title="Refresh data" arrow>
@@ -1741,459 +1863,624 @@ export function DailyRegister() {
 
       {/* Register Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
-        <TableContainer
-          className={`${todayHoliday && selected.size > 0
-            ? "max-h-[calc(100vh-565px)]"
-            : selected.size > 0 || todayHoliday
-              ? "max-h-[calc(100vh-200px)]"
-              : "max-h-[calc(100vh-200px)]"
-            }`}
-        >
-          <Table size="small" stickyHeader>
-            <TableHead>
-              <TableRow>
-                <TableCell className="!sticky left-0 !z-40">
-                  <Checkbox
-                    size="small"
-                    color="primary"
-                    className="text-gray-800"
-                    indeterminate={
-                      selected.size > 0 && selected.size < selectableEmployees.length
-                    }
-                    checked={
-                      selectableEmployees.length > 0 &&
-                      selected.size === selectableEmployees.length
-                    }
-                    onChange={toggleSelectAll}
-                  />
-                </TableCell>
-                {[
-                  "Emp Name",
-                  "Department",
-                  "Shift",
-                  "Check In Date",
-                  "Check In Time",
-                  "Check Out Date",
-                  "Check Out Time",
-                  "Early Out (min)",
-                  "Late (min)",
-                  "Overtime (min)",
-                  "Worked (min)",
-                  "Status",
-                  "Action",
-                ].map((h, i) => (
-                  <TableCell
-                    key={h}
-                    className={`!font-bold ${i == 0
-                      ? "!sticky left-[68px] !z-40"
-                      : h == "Action"
-                        ? "!sticky right-0 !z-40"
-                        : h == "Status"
-                          ? "!sticky right-[69px] !z-40"
-                          : ""
-                      }`}
-                  >
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>{/* Loading placeholder */}</TableRow>
-              ) : employees.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={14} align="center" className="py-8">
-                    <div className="text-[12px] text-gray-400 pt-7">
-                      No records for {dayjs(date).format("DD MMM YYYY")}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                employees.map((emp, i) => {
-                  const isLeave = emp.status === "leave";
-                  const isEditing = inlineEditInProgress === emp.employeeId;
-
-                  const displayCheckInDate = emp.checkInDate
-                    ? dayjs(emp.checkInDate).format("DD MMM YYYY")
-                    : null;
-
-                  const displayCheckInTime = emp.checkInTime
-                    ? dayjs(emp.checkInTime).format("HH:mm:ss")
-                    : null;
-
-                  const displayCheckOutDate = emp.checkOutDate
-                    ? dayjs(emp.checkOutDate).format("DD MMM YYYY")
-                    : null;
-
-                  const displayCheckOutTime = emp.checkOutTime
-                    ? dayjs(emp.checkOutTime).format("HH:mm:ss")
-                    : null;
-
-                  const lockCheckInDate = !!emp.checkInDate;
-                  const lockCheckOutDate = !!emp.checkOutDate;
-
-                  return (
-                    <TableRow
-                      key={emp.employeeId || i}
-                      sx={{
-                        ...getRowColor(i),
-                      }}
-                    >
-                      <TableCell className="!sticky left-0 !z-20 bg-inherit">
-                        <Checkbox
-                          size="small"
-                          color="primary"
-                          className="!border-red-500 text-gray-800"
-                          checked={selected.has(emp.employeeId)}
-                          onChange={() => toggleSelect(emp.employeeId)}
-                          disabled={isLeave}
-                        />{" "}
-                        <span>{i + 1}</span>
+        <div className="flex">
+          {/* ── Table ── */}
+          <div className="flex-1 min-w-0">
+            <TableContainer
+              className={`${todayHoliday && selected.size > 0
+                ? "max-h-[calc(100vh-565px)]"
+                : selected.size > 0 || todayHoliday
+                  ? "max-h-[calc(100vh-200px)]"
+                  : "max-h-[calc(100vh-200px)]"
+                }`}
+            >
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell className="!sticky left-0 !z-40">
+                      <Checkbox
+                        size="small"
+                        color="primary"
+                        className="text-gray-800"
+                        indeterminate={
+                          selected.size > 0 && selected.size < selectableEmployees.length
+                        }
+                        checked={
+                          selectableEmployees.length > 0 &&
+                          selected.size === selectableEmployees.length
+                        }
+                        onChange={toggleSelectAll}
+                      />
+                    </TableCell>
+                    <TableCell className="!font-bold !sticky left-[68px] !z-40">
+                      Emp Name
+                    </TableCell>
+                    {showColumn("department") && (
+                      <TableCell className="!font-bold">Department</TableCell>
+                    )}
+                    {showColumn("shift") && (
+                      <TableCell className="!font-bold">Shift</TableCell>
+                    )}
+                    {showColumn("checkInDate") && (
+                      <TableCell className="!font-bold">Check In Date</TableCell>
+                    )}
+                    {showColumn("checkInTime") && (
+                      <TableCell className="!font-bold">Check In Time</TableCell>
+                    )}
+                    {showColumn("checkOutDate") && (
+                      <TableCell className="!font-bold">Check Out Date</TableCell>
+                    )}
+                    {showColumn("checkOutTime") && (
+                      <TableCell className="!font-bold">Check Out Time</TableCell>
+                    )}
+                    {showColumn("earlyOut") && (
+                      <TableCell className="!font-bold">Early Out ({timeUnit})</TableCell>
+                    )}
+                    {showColumn("late") && (
+                      <TableCell className="!font-bold">Late ({timeUnit})</TableCell>
+                    )}
+                    {showColumn("overtime") && (
+                      <TableCell className="!font-bold">Overtime ({timeUnit})</TableCell>
+                    )}
+                    {showColumn("worked") && (
+                      <TableCell className="!font-bold">Worked ({timeUnit})</TableCell>
+                    )}
+                    {showColumn("movement") && (
+                      <TableCell className="!font-bold !sticky right-[99px] !z-40">Movement</TableCell>
+                    )}
+                    {showColumn("status") && (
+                      <TableCell className="!font-bold !sticky right-[69px] !z-40">
+                        Status
                       </TableCell>
-                      <TableCell className="!sticky left-[68px] !z-20 bg-inherit ">
-                        <div className="flex items-center gap-1">
-                          <div>
-                            {emp.employeeName} ({emp.employeeCode})
-                          </div>
-                        </div>
-                        <div className="text-blue-500">{emp.template || "-"}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div>{emp.department || "-"}</div>
-                        <div className="text-blue-500">{emp.designation || "-"}</div>
-                      </TableCell>
-
-                      <TableCell className="text-gray-500">
-                        <div>{emp.shiftCode || "-"}</div>
-                        <div className="text-primary font-bold">
-                          {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
+                    )}
+                    <TableCell className="!font-bold !sticky right-0 !z-40">
+                      Action
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>{/* Loading placeholder */}</TableRow>
+                  ) : employees.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={visibleColumnCount} align="center" className="py-8">
+                        <div className="text-[12px] text-gray-400 pt-7">
+                          No records for {dayjs(date).format("DD MMM YYYY")}
                         </div>
                       </TableCell>
+                    </TableRow>
+                  ) : (
+                    employees.map((emp, i) => {
+                      const isLeave = emp.status === "leave";
+                      const isEditing = inlineEditInProgress === emp.employeeId;
 
-                      {/* ─── CHECK-IN DATE ─── */}
-                      <TableCell data-edit-cell="checkInDate">
-                        <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkInDate") && canEditPunchTimes && !processStatus.locked ? (
-                            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-                              <DateTimePicker
-                                value={draftDateTime}
-                                onChange={(newValue) => setDraftDateTime(newValue)}
-                                format="DD/MM/YYYY HH:mm:ss"
-                                ampm={false}
-                                maxDateTime={dayjs()}
-                                disabled={isLeave || isEditing || !canEditPunchTimes}
-                                slotProps={{
-                                  textField: {
-                                    variant: "outlined",
-                                    autoFocus: true,
-                                    onKeyDown: (e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        commitAndMoveNext(emp, "checkInDate");
-                                      } else if (e.key === "Escape") {
-                                        closeField();
-                                      }
-                                    },
-                                    onBlur: (e) => handleFieldBlur(e, emp, "checkInDate"),
-                                    sx: {
-                                      ...inlineInputSx,
-                                      width: "140px",
-                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 5px !important",
-                                      },
-                                    },
-                                  },
-                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
-                                }}
-                              />
-                            </LocalizationProvider>
-                          ) : (
-                            <InlineDisplay
-                              value={displayCheckInDate}
-                              onClick={() =>
-                                !isLeave &&
-                                canEditPunchTimes &&
-                                !isEditing &&
-                                !processStatus.locked &&
-                                !lockCheckInDate &&
-                                openField(
-                                  emp.employeeId,
-                                  "checkInDate",
-                                  dayjs(emp.checkInTime || emp.checkInDate || date),
-                                )
-                              }
-                              disabled={isLeave || isEditing || lockCheckInDate || !canEditPunchTimes}
-                            />
+                      const displayCheckInDate = emp.checkInDate
+                        ? dayjs(emp.checkInDate).format("DD MMM YYYY")
+                        : null;
+
+                      const displayCheckInTime = emp.checkInTime
+                        ? dayjs(emp.checkInTime).format("HH:mm:ss")
+                        : null;
+
+                      const displayCheckOutDate = emp.checkOutDate
+                        ? dayjs(emp.checkOutDate).format("DD MMM YYYY")
+                        : null;
+
+                      const displayCheckOutTime = emp.checkOutTime
+                        ? dayjs(emp.checkOutTime).format("HH:mm:ss")
+                        : null;
+
+                      const lockCheckInDate = !!emp.checkInDate;
+                      const lockCheckOutDate = !!emp.checkOutDate;
+
+                      return (
+                        <TableRow
+                          key={emp.employeeId || i}
+                          sx={{
+                            ...getRowColor(i),
+                          }}
+                        >
+                          <TableCell className="!sticky left-0 !z-20 bg-inherit">
+                            <Checkbox
+                              size="small"
+                              color="primary"
+                              className="!border-red-500 text-gray-800"
+                              checked={selected.has(emp.employeeId)}
+                              onChange={() => toggleSelect(emp.employeeId)}
+                              disabled={isLeave}
+                            />{" "}
+                            <span>{i + 1}</span>
+                          </TableCell>
+                          <TableCell className="!sticky left-[68px] !z-20 bg-inherit ">
+                            <div className="flex items-center gap-1">
+                              <div>
+                                {emp.employeeName} ({emp.employeeCode})
+                              </div>
+                            </div>
+                            <div className="text-blue-500">{emp.template || "-"}</div>
+                          </TableCell>
+
+                          {showColumn("department") && (
+                            <TableCell>
+                              <div>{emp.department || "-"}</div>
+                              <div className="text-blue-500">{emp.designation || "-"}</div>
+                            </TableCell>
                           )}
-                        </div>
-                      </TableCell>
 
-                      {/* ─── CHECK-IN TIME ─── */}
-                      <TableCell data-edit-cell="checkInTime">
-                        <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkInTime") && canEditPunchTimes && !processStatus.locked ? (
-                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                              <TimePicker
-                                ampm={false}
-                                value={draftDateTime}
-                                onChange={(newValue) => setDraftDateTime(newValue)}
-                                format="HH:mm:ss"
-                                disabled={isLeave || isEditing || !canEditPunchTimes}
-                                slotProps={{
-                                  textField: {
-                                    size: "small",
-                                    variant: "outlined",
-                                    autoFocus: true,
-                                    onKeyDown: (e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        commitAndMoveNext(emp, "checkInTime");
-                                      } else if (e.key === "Escape") {
-                                        closeField();
-                                      }
-                                    },
-                                    onBlur: (e) => handleFieldBlur(e, emp, "checkInTime"),
-                                    sx: {
-                                      ...inlineInputSx,
-                                      width: "80px",
-                                      "& .MuiInputBase-input": {
-                                        color: emp.checkInTime ? "#15803d" : "#ef4444",
-                                      },
-                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "5px !important",
-                                      },
-                                    },
-                                  },
-                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
-                                }}
-                              />
-                            </LocalizationProvider>
-                          ) : (
-                            <InlineDisplay
-                              value={displayCheckInTime}
-                              onClick={() =>
-                                !isLeave &&
-                                canEditPunchTimes &&
-                                !isEditing &&
-                                !processStatus.locked &&
-                                openField(
-                                  emp.employeeId,
-                                  "checkInTime",
-                                  emp.checkInTime ? dayjs(emp.checkInTime) : null,
-                                )
-                              }
-                              disabled={isLeave || isEditing || !canEditPunchTimes}
-                              className={
-                                emp.checkInTime
-                                  ? "text-green-700 font-semibold"
-                                  : "text-red-500"
-                              }
-                            />
+                          {showColumn("shift") && (
+                            <TableCell className="text-gray-500">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full border border-gray-300 shrink-0"
+                                  style={{
+                                    backgroundColor: shiftColorMap[emp.shiftCode] || "#9ca3af",
+                                  }}
+                                  title={emp.shiftCode ? `Shift ${emp.shiftCode}` : "No shift"}
+                                />
+                                <div>{emp.shiftCode || "-"}</div>
+                              </div>
+                              <div className="text-primary font-bold">
+                                {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
+                              </div>
+                            </TableCell>
                           )}
-                        </div>
-                      </TableCell>
 
-                      {/* ─── CHECK-OUT DATE ─── */}
-                      <TableCell data-edit-cell="checkOutDate">
-                        <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkOutDate") && canEditPunchTimes && !processStatus.locked ? (
-                            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-                              <DateTimePicker
-                                value={draftDateTime}
-                                onChange={(newValue) => setDraftDateTime(newValue)}
-                                format="DD/MM/YYYY HH:mm:ss"
-                                ampm={false}
-                                maxDateTime={dayjs()}
-                                minDateTime={emp.checkInTime ? dayjs(emp.checkInTime) : undefined}
-                                disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
-                                slotProps={{
-                                  textField: {
-                                    size: "small",
-                                    variant: "outlined",
-                                    autoFocus: true,
-                                    onKeyDown: (e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        commitAndMoveNext(emp, "checkOutDate");
-                                      } else if (e.key === "Escape") {
-                                        closeField();
-                                      }
-                                    },
-                                    onBlur: (e) => handleFieldBlur(e, emp, "checkOutDate"),
-                                    sx: {
-                                      ...inlineInputSx,
-                                      width: "140px",
-                                      "& .MuiInputBase-input": {
-                                        color: emp.checkOutDate ? "#1f2937" : "#9ca3af",
-                                      },
-                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "0 2px 0 5px !important",
-                                      },
-                                    },
-                                  },
-                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
-                                }}
-                              />
-                            </LocalizationProvider>
-                          ) : (
-                            <InlineDisplay
-                              value={displayCheckOutDate}
-                              onClick={() =>
-                                !isLeave &&
-                                canEditPunchTimes &&
-                                !isEditing &&
-                                !processStatus.locked &&
-                                emp.checkInTime &&
-                                !lockCheckOutDate &&
-                                openField(
-                                  emp.employeeId,
-                                  "checkOutDate",
-                                  dayjs(emp.checkOutTime || emp.checkOutDate || date),
-                                )
-                              }
-                              disabled={isLeave || isEditing || !emp.checkInTime || lockCheckOutDate || !canEditPunchTimes}
-                            />
+                          {/* ─── CHECK-IN DATE ─── */}
+                          {showColumn("checkInDate") && (
+                            <TableCell data-edit-cell="checkInDate">
+                              <div className="flex items-center gap-1">
+                                {isEditingField(emp.employeeId, "checkInDate") && canEditPunchTimes && !processStatus.locked ? (
+                                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                                    <DateTimePicker
+                                      value={draftDateTime}
+                                      onChange={(newValue) => setDraftDateTime(newValue)}
+                                      format="DD/MM/YYYY HH:mm:ss"
+                                      ampm={false}
+                                      maxDateTime={dayjs()}
+                                      disabled={isLeave || isEditing || !canEditPunchTimes}
+                                      slotProps={{
+                                        textField: {
+                                          variant: "outlined",
+                                          autoFocus: true,
+                                          onKeyDown: (e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              commitAndMoveNext(emp, "checkInDate");
+                                            } else if (e.key === "Escape") {
+                                              closeField();
+                                            }
+                                          },
+                                          onBlur: (e) => handleFieldBlur(e, emp, "checkInDate"),
+                                          sx: {
+                                            ...inlineInputSx,
+                                            width: "140px",
+                                            ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                              padding: "0 2px 0 5px !important",
+                                            },
+                                          },
+                                        },
+                                        popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                      }}
+                                    />
+                                  </LocalizationProvider>
+                                ) : (
+                                  <InlineDisplay
+                                    value={displayCheckInDate}
+                                    onClick={() =>
+                                      !isLeave &&
+                                      canEditPunchTimes &&
+                                      !isEditing &&
+                                      !processStatus.locked &&
+                                      !lockCheckInDate &&
+                                      openField(
+                                        emp.employeeId,
+                                        "checkInDate",
+                                        dayjs(emp.checkInTime || emp.checkInDate || date),
+                                      )
+                                    }
+                                    disabled={isLeave || isEditing || lockCheckInDate || !canEditPunchTimes}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
                           )}
-                        </div>
-                      </TableCell>
 
-                      {/* ─── CHECK-OUT TIME ─── */}
-                      <TableCell data-edit-cell="checkOutTime">
-                        <div className="flex items-center gap-1">
-                          {isEditingField(emp.employeeId, "checkOutTime") && canEditPunchTimes && !processStatus.locked ? (
-                            <LocalizationProvider dateAdapter={AdapterDayjs}>
-                              <TimePicker
-                                ampm={false}
-                                value={draftDateTime}
-                                onChange={(newValue) => setDraftDateTime(newValue)}
-                                format="HH:mm:ss"
-                                disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
-                                slotProps={{
-                                  textField: {
-                                    size: "small",
-                                    variant: "outlined",
-                                    autoFocus: true,
-                                    onKeyDown: (e) => {
-                                      if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        commitAndMoveNext(emp, "checkOutTime");
-                                      } else if (e.key === "Escape") {
-                                        closeField();
-                                      }
-                                    },
-                                    onBlur: (e) => handleFieldBlur(e, emp, "checkOutTime"),
-                                    sx: {
-                                      ...inlineInputSx,
-                                      width: "80px",
-                                      "& .MuiInputBase-input": {
-                                        color: emp.checkOutTime ? "#2563eb !important" : "#9ca3af",
-                                      },
-                                      ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
-                                        padding: "5px !important",
-                                      },
-                                    },
-                                  },
-                                  popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
-                                }}
-                              />
-                            </LocalizationProvider>
-                          ) : (
-                            <InlineDisplay
-                              value={displayCheckOutTime}
-                              onClick={() =>
-                                !isLeave &&
-                                canEditPunchTimes &&
-                                !isEditing &&
-                                !processStatus.locked &&
-                                emp.checkInTime &&
-                                openField(
-                                  emp.employeeId,
-                                  "checkOutTime",
-                                  emp.checkOutTime ? dayjs(emp.checkOutTime) : null,
-                                )
-                              }
-                              disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
-                              className={
-                                emp.checkOutTime
-                                  ? "text-blue-600 font-semibold"
-                                  : "text-gray-400"
-                              }
-                            />
+                          {/* ─── CHECK-IN TIME ─── */}
+                          {showColumn("checkInTime") && (
+                            <TableCell data-edit-cell="checkInTime">
+                              <div className="flex items-center gap-1">
+                                {isEditingField(emp.employeeId, "checkInTime") && canEditPunchTimes && !processStatus.locked ? (
+                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <TimePicker
+                                      ampm={false}
+                                      value={draftDateTime}
+                                      onChange={(newValue) => setDraftDateTime(newValue)}
+                                      format="HH:mm:ss"
+                                      disabled={isLeave || isEditing || !canEditPunchTimes}
+                                      slotProps={{
+                                        textField: {
+                                          size: "small",
+                                          variant: "outlined",
+                                          autoFocus: true,
+                                          onKeyDown: (e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              commitAndMoveNext(emp, "checkInTime");
+                                            } else if (e.key === "Escape") {
+                                              closeField();
+                                            }
+                                          },
+                                          onBlur: (e) => handleFieldBlur(e, emp, "checkInTime"),
+                                          sx: {
+                                            ...inlineInputSx,
+                                            width: "80px",
+                                            "& .MuiInputBase-input": {
+                                              color:
+                                                (emp.status ?? "").toString().toLowerCase().match(/irregular|missed|checked_?in/)
+                                                  ? "#dc2626" // red-600 when problem status
+                                                  : emp.checkInTime
+                                                    ? "#15803d"
+                                                    : "#ef4444",
+                                            },
+                                            ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                              padding: "5px !important",
+                                            },
+                                          },
+                                        },
+                                        popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                      }}
+                                    />
+                                  </LocalizationProvider>
+                                ) : (
+                                  <InlineDisplay
+                                    value={displayCheckInTime}
+                                    onClick={() =>
+                                      !isLeave &&
+                                      canEditPunchTimes &&
+                                      !isEditing &&
+                                      !processStatus.locked &&
+                                      openField(
+                                        emp.employeeId,
+                                        "checkInTime",
+                                        emp.checkInTime ? dayjs(emp.checkInTime) : null,
+                                      )
+                                    }
+                                    disabled={isLeave || isEditing || !canEditPunchTimes}
+                                    className={punchTimeColor(emp, "checkInTime")}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
                           )}
-                        </div>
-                      </TableCell>
 
-                      <TableCell>{emp.earlyOutMinutes || 0}</TableCell>
-                      <TableCell>{emp.lateMinutes || 0}</TableCell>
-                      <TableCell>{emp.overtimeMinutes || 0}</TableCell>
-                      <TableCell>{emp.workedMinutes || 0}</TableCell>
-                      <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
-                        <div className="flex items-center gap-1">
-                          <span
-                            className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${ATTENDANCE_STATUS_BG[emp.status] ??
-                              "bg-gray-100 text-gray-600"
-                              }`}
-                          >
-                            {ATTENDANCE_STATUS_LABELS[emp.status] ?? emp.status}
-                          </span>
-                          {emp.correctionPending && (
-                            <Tooltip title="Correction pending approval">
-                              <PendingActionsOutlined className="!w-4 !h-4 text-amber-500" />
-                            </Tooltip>
+                          {/* ─── CHECK-OUT DATE ─── */}
+                          {showColumn("checkOutDate") && (
+                            <TableCell data-edit-cell="checkOutDate">
+                              <div className="flex items-center gap-1">
+                                {isEditingField(emp.employeeId, "checkOutDate") && canEditPunchTimes && !processStatus.locked ? (
+                                  <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                                    <DateTimePicker
+                                      value={draftDateTime}
+                                      onChange={(newValue) => setDraftDateTime(newValue)}
+                                      format="DD/MM/YYYY HH:mm:ss"
+                                      ampm={false}
+                                      maxDateTime={dayjs()}
+                                      minDateTime={emp.checkInTime ? dayjs(emp.checkInTime) : undefined}
+                                      disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
+                                      slotProps={{
+                                        textField: {
+                                          size: "small",
+                                          variant: "outlined",
+                                          autoFocus: true,
+                                          onKeyDown: (e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              commitAndMoveNext(emp, "checkOutDate");
+                                            } else if (e.key === "Escape") {
+                                              closeField();
+                                            }
+                                          },
+                                          onBlur: (e) => handleFieldBlur(e, emp, "checkOutDate"),
+                                          sx: {
+                                            ...inlineInputSx,
+                                            width: "140px",
+                                            "& .MuiInputBase-input": {
+                                              color: emp.checkOutDate ? "#1f2937" : "#9ca3af",
+                                            },
+                                            ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                              padding: "0 2px 0 5px !important",
+                                            },
+                                          },
+                                        },
+                                        popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                      }}
+                                    />
+                                  </LocalizationProvider>
+                                ) : (
+                                  <InlineDisplay
+                                    value={displayCheckOutDate}
+                                    onClick={() =>
+                                      !isLeave &&
+                                      canEditPunchTimes &&
+                                      !isEditing &&
+                                      !processStatus.locked &&
+                                      emp.checkInTime &&
+                                      !lockCheckOutDate &&
+                                      openField(
+                                        emp.employeeId,
+                                        "checkOutDate",
+                                        dayjs(emp.checkOutTime || emp.checkOutDate || date),
+                                      )
+                                    }
+                                    disabled={isLeave || isEditing || !emp.checkInTime || lockCheckOutDate || !canEditPunchTimes}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="!sticky right-0 !z-20 !bg-inherit">
-                        {!isLeave ? (
-                          <div className="flex items-center gap-1">
-                            {!emp.checkInTime && (
-                              <Tooltip title="Mark Check-in">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => openPunch(emp, "checkIn")}
-                                  disabled={!canEditPunchTimes}
-                                  className="!text-green-700"
+
+                          {/* ─── CHECK-OUT TIME ─── */}
+                          {showColumn("checkOutTime") && (
+                            <TableCell data-edit-cell="checkOutTime">
+                              <div className="flex items-center gap-1">
+                                {isEditingField(emp.employeeId, "checkOutTime") && canEditPunchTimes && !processStatus.locked ? (
+                                  <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                    <TimePicker
+                                      ampm={false}
+                                      value={draftDateTime}
+                                      onChange={(newValue) => setDraftDateTime(newValue)}
+                                      format="HH:mm:ss"
+                                      disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
+                                      slotProps={{
+                                        textField: {
+                                          size: "small",
+                                          variant: "outlined",
+                                          autoFocus: true,
+                                          onKeyDown: (e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              commitAndMoveNext(emp, "checkOutTime");
+                                            } else if (e.key === "Escape") {
+                                              closeField();
+                                            }
+                                          },
+                                          onBlur: (e) => handleFieldBlur(e, emp, "checkOutTime"),
+                                          sx: {
+                                            ...inlineInputSx,
+                                            width: "80px",
+                                            "& .MuiInputBase-input": {
+                                              color:
+                                                (emp.status ?? "").toString().toLowerCase().match(/irregular|missed|checked_?in/)
+                                                  ? "#dc2626"
+                                                  : emp.checkOutTime
+                                                    ? "#2563eb"
+                                                    : "#9ca3af",
+                                            },
+                                            ".MuiPickersInputBase-root.MuiPickersOutlinedInput-root": {
+                                              padding: "5px !important",
+                                            },
+                                          },
+                                        },
+                                        popper: { sx: { zIndex: (theme) => theme.zIndex.modal + 10 } },
+                                      }}
+                                    />
+                                  </LocalizationProvider>
+                                ) : (
+                                  <InlineDisplay
+                                    value={displayCheckOutTime}
+                                    onClick={() =>
+                                      !isLeave &&
+                                      canEditPunchTimes &&
+                                      !isEditing &&
+                                      !processStatus.locked &&
+                                      emp.checkInTime &&
+                                      openField(
+                                        emp.employeeId,
+                                        "checkOutTime",
+                                        emp.checkOutTime ? dayjs(emp.checkOutTime) : null,
+                                      )
+                                    }
+                                    disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
+                                    className={punchTimeColor(emp, "checkOutTime")}
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
+                          )}
+
+                          {showColumn("earlyOut") && (
+                            <TableCell>{formatMinutes(timeUnit, emp.earlyOutMinutes)}</TableCell>
+                          )}
+                          {showColumn("late") && (
+                            <TableCell>{formatMinutes(timeUnit, emp.lateMinutes)}</TableCell>
+                          )}
+                          {showColumn("overtime") && (
+                            <TableCell>{formatMinutes(timeUnit, emp.overtimeMinutes)}</TableCell>
+                          )}
+                          {showColumn("worked") && (
+                            <TableCell>{formatMinutes(timeUnit, emp.workedMinutes)}</TableCell>
+                          )}
+
+                          {showColumn("movement") && (
+                            <TableCell className="!sticky right-[99px] !z-20 bg-inherit">
+                              {emp.movement && emp.movement.length > 0 ? (
+                                <Tooltip
+                                  title={`${pairMovements(emp.movement).length} movement(s) — click to review`}
                                 >
-                                  <LoginOutlined fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {emp.checkInTime && !emp.checkOutTime && (
-                              <Tooltip title="Mark Check-out">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => openPunch(emp, "checkOut")}
-                                  disabled={!canEditPunchTimes}
-                                  className="!text-blue-600"
-                                >
-                                  <LogoutOutlined fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {emp.checkInTime && emp.checkOutTime && (
-                              <Tooltip title="Marked">
-                                <IconButton size="small" className="!text-primary">
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    className="!text-primary !border-primary !text-[11px] !py-0 !px-2 !min-w-0"
+                                    startIcon={<SwapHorizOutlined className="!w-3.5 !h-3.5" />}
+                                    onClick={() => openMovements(emp)}
+                                  >
+                                    {pairMovements(emp.movement).length}
+                                  </Button>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-gray-400 text-[12px]">-</span>
+                              )}
+                            </TableCell>
+                          )}
+
+                          {showColumn("status") && (
+                            <TableCell className="!sticky right-[69px] !z-20 !bg-inherit">
+                              {(() => {
+                                const displayStatus = getDisplayStatus(emp);
+                                const label =
+                                  ATTENDANCE_STATUS_LABELS[displayStatus as keyof typeof ATTENDANCE_STATUS_LABELS] ??
+                                  ATTENDANCE_STATUS_LABELS[emp.status] ??
+                                  displayStatus;
+                                const bg =
+                                  ATTENDANCE_STATUS_BG[displayStatus as keyof typeof ATTENDANCE_STATUS_BG] ??
+                                  ATTENDANCE_STATUS_BG[emp.status] ??
+                                  "bg-gray-100 text-gray-600";
+
+                                return (
+                                  <div className="flex items-center gap-1">
+                                    <span className={`px-2 py-0.5 rounded-full font-medium whitespace-nowrap ${bg}`}>
+                                      {label}
+                                    </span>
+                                    {emp.correctionPending && (
+                                      <Tooltip title="Correction pending approval">
+                                        <PendingActionsOutlined className="!w-4 !h-4 text-amber-500" />
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </TableCell>
+                          )}
+
+                          <TableCell className="!sticky right-0 !z-20 !bg-inherit">
+                            {!isLeave ? (
+                              <div className="flex items-center gap-1">
+                                {!emp.checkInTime && (
+                                  <Tooltip title="Mark Check-in">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => openPunch(emp, "checkIn")}
+                                      disabled={!canEditPunchTimes}
+                                      className="!text-green-700"
+                                    >
+                                      <LoginOutlined fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                                {emp.checkInTime && !emp.checkOutTime && (
+                                  <Tooltip title="Mark Check-out">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => openPunch(emp, "checkOut")}
+                                      disabled={!canEditPunchTimes}
+                                      className="!text-blue-600"
+                                    >
+                                      <LogoutOutlined fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                                {emp.checkInTime && emp.checkOutTime && (
+                                  <Tooltip title="Marked">
+                                    <IconButton size="small" className="!text-primary">
+                                      <CheckCircleOutlined fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            ) : (
+                              <Tooltip title="On Leave">
+                                <IconButton size="small" className="!text-violet-700">
                                   <CheckCircleOutlined fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
-                          </div>
-                        ) : (
-                          <Tooltip title="On Leave">
-                            <IconButton size="small" className="!text-violet-700">
-                              <CheckCircleOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </div>
+
+          {/* ── Vertical column filter ── */}
+          <div className="border-l border-gray-200 flex items-start pt-2 px-1">
+            <Tooltip title="Show / hide columns" placement="left" arrow>
+              <button
+                type="button"
+                onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
+                className="flex flex-col items-center gap-1 px-1.5 py-2 rounded hover:bg-gray-100 text-gray-600"
+                aria-label="Column settings"
+              >
+                <ViewColumnOutlined fontSize="small" />
+                <span
+                  className="text-[10px] font-medium tracking-wide"
+                  style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                >
+                  Columns
+                </span>
+              </button>
+            </Tooltip>
+
+            <Menu
+              anchorEl={columnMenuAnchor}
+              open={Boolean(columnMenuAnchor)}
+              onClose={() => setColumnMenuAnchor(null)}
+              anchorOrigin={{ vertical: "top", horizontal: "left" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+            // PaperProps={{ sx: { minWidth: 210, maxHeight: 400 } }}
+            >
+              <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+                <span className="text-[12px] font-semibold text-gray-700">Columns</span>
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    className="text-[11px] text-primary hover:underline"
+                    onClick={() => setVisibleColumns({ ...DEFAULT_VISIBLE_COLUMNS })}
+                  >
+                    All
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    className="text-[11px] text-primary hover:underline"
+                    onClick={() =>
+                      setVisibleColumns(
+                        COLUMN_CONFIG.reduce(
+                          (acc, c) => ({ ...acc, [c.key]: false }),
+                          {} as Record<ColumnKey, boolean>,
+                        ),
+                      )
+                    }
+                  >
+                    None
+                  </button>
+                </div>
+              </div>
+
+              {COLUMN_CONFIG.map((col) => (
+                <MenuItem
+                  key={col.key}
+                  dense
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleColumn(col.key);
+                  }}
+                  className="!py-0.5"
+                >
+                  <Checkbox
+                    size="small"
+                    checked={showColumn(col.key)}
+                    className="!py-0.5 !pr-1 text-gray-800"
+                  />
+                  <span className="text-[12px] text-gray-700">{col.label}</span>
+                </MenuItem>
+              ))}
+            </Menu>
+          </div>
+        </div>
+
         <div className="text-end text-gray-500 p-2 text-[12px]">
           Showing {total} records
         </div>
@@ -3077,6 +3364,7 @@ export function DailyRegister() {
                 <InputLabel>Period Type</InputLabel>
                 <Select
                   value={importType}
+                  label="Period Type"
                   onChange={(e) => setImportType(e.target.value as any)}
                   disabled={importing}
                 >
@@ -3172,75 +3460,110 @@ export function DailyRegister() {
               </div>
             )}
 
+            {/* ── Staged response summary ── */}
             {importResult && !importing && (
               <div
-                className={`border rounded-lg p-3 ${importResult.failed > 0 && importResult.success === 0
+                className={`border rounded-lg p-3 bg-white-50 space-y-2 ${importResult.failed > 0 && importResult.success === 0
                   ? "border-red-200 bg-red-50"
                   : importResult.failed > 0
                     ? "border-orange-200 bg-orange-50"
                     : "border-green-200 bg-green-50"
                   }`}
               >
+                {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {importResult.failed > 0 && importResult.success === 0 ? (
                       <ErrorOutlined className="text-red-500" fontSize="small" />
                     ) : importResult.failed > 0 ? (
-                      <WarningAmberOutlined
-                        className="text-orange-500"
-                        fontSize="small"
-                      />
+                      <WarningAmberOutlined className="text-orange-500" fontSize="small" />
                     ) : (
-                      <CheckCircleOutlined
-                        className="text-green-500"
-                        fontSize="small"
-                      />
+                      <CheckCircleOutlined className="text-green-500" fontSize="small" />
                     )}
-                    <span className="text-sm font-medium text-black">
-                      {importResult.failed > 0 && importResult.success === 0
-                        ? "Import Failed"
-                        : importResult.failed > 0
-                          ? "Partial Success"
-                          : "Success"}
+                    <span className="text-sm font-medium text-gray-800">
+                      Import Result
                     </span>
                   </div>
-                  <span className="text-sm">
-                    <span className="text-green-600">{importResult.success}</span>{" "}
-                    <span className="text-black">staged</span>
+                  <span className="text-[12px]">
+                    <span className="text-green-600 font-semibold">{importResult.success}</span>{" "}
+                    staged
+                    {importResult.skipped ? (
+                      <span className="text-amber-600 ml-2">{importResult.skipped} skipped</span>
+                    ) : null}
                     {importResult.failed > 0 && (
-                      <span className="text-red-600 ml-2">
-                        {importResult.failed} failed
-                      </span>
+                      <span className="text-red-600 ml-2">{importResult.failed} failed</span>
                     )}
                   </span>
                 </div>
 
+                {/* Meta — one compact line */}
+                <div className="text-[11px] text-gray-600">
+                  {importResult.source && (
+                    <span className="capitalize">{importResult.source}</span>
+                  )}
+                  {importResult.importType && (
+                    <>
+                      {" · "}
+                      <span className="capitalize">{importResult.importType.toLowerCase()}</span>
+                    </>
+                  )}
+                  {importResult.periodStart && importResult.periodEnd && (
+                    <>
+                      {" · "}
+                      {dayjs(importResult.periodStart).format("DD MMM")} →{" "}
+                      {dayjs(importResult.periodEnd).format("DD MMM YYYY")}
+                    </>
+                  )}
+                  {" · "}
+                  {importResult.totalPunches ?? 0} punches
+                  {/* {importResult.daysImported ? ` · ${importResult.daysImported} days` : ""} */}
+                </div>
+
+                {/* Rows */}
+                {importResult.rows.length > 0 && (
+                  <div className="max-h-[180px] overflow-y-auto bg-white-50 rounded border border-gray-200">
+                    <table className="w-full text-[12px]">
+                      <tbody>
+                        {importResult.rows.map((row: any, idx: number) => {
+                          const msg = String(row?.message ?? "");
+                          const ok = SUCCESS_ROW_MESSAGES.has(msg.toLowerCase());
+                          return (
+                            <tr key={idx} className="border-b border-gray-200 last:border-0">
+                              <td className="px-2 py-1 font-mono text-gray-800 w-[70px]">
+                                {row.employeeCode || "-"}
+                              </td>
+                              <td className="px-2 py-1 text-gray-500 w-[100px]">
+                                {row.date ? dayjs(row.date).format("DD MMM") : "-"}
+                              </td>
+                              <td className={`px-2 py-1 ${ok ? "text-green-700" : "text-red-600"}`}>
+                                {msg || "-"}
+                              </td>
+                              <td className="px-2 py-1 text-center w-[28px]">
+                                {ok ? (
+                                  <CheckCircleOutlined className="text-green-500 !w-3.5 !h-3.5" />
+                                ) : (
+                                  <ErrorOutlined className="text-red-500 !w-3.5 !h-3.5" />
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Errors (only real ones) */}
                 {importResult.errors.length > 0 && (
-                  <div className="mt-2">
-                    <div className="text-[12px] font-medium text-gray-700 mb-1">
-                      Error Details:
-                    </div>
-                    <div className="max-h-[120px] overflow-y-auto bg-white/50 rounded p-2">
-                      {importResult.errors.slice(0, 5).map((error, index) => {
-                        const isTimestampError =
-                          error.toLowerCase().includes("timestamp") ||
-                          error.toLowerCase().includes("unparseable");
-                        return (
-                          <div
-                            key={index}
-                            className={`text-[12px] py-0.5 ${isTimestampError ? "text-amber-600" : "text-red-600"
-                              }`}
-                          >
-                            • {error}
-                          </div>
-                        );
-                      })}
-                      {importResult.errors.length > 5 && (
-                        <div className="text-[12px] text-gray-500 mt-1">
-                          + {importResult.errors.length - 5} more errors
-                        </div>
-                      )}
-                    </div>
+                  <div className="max-h-[90px] overflow-y-auto bg-white/50 rounded p-2">
+                    {importResult.errors.slice(0, 5).map((e, i) => (
+                      <div key={i} className="text-[12px] text-red-600 py-0.5">• {e}</div>
+                    ))}
+                    {importResult.errors.length > 5 && (
+                      <div className="text-[11px] text-gray-500 mt-1">
+                        + {importResult.errors.length - 5} more
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -3257,7 +3580,7 @@ export function DailyRegister() {
               </div>
             </Alert>
 
-            <div className="flex gap-2">
+            {/* <div className="flex gap-2">
               <Button
                 variant="outlined"
                 size="small"
@@ -3267,9 +3590,9 @@ export function DailyRegister() {
               >
                 Preview Data
               </Button>
-            </div>
+            </div> */}
 
-            {previewData.length > 0 && (
+            {/* {previewData.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
                   <span className="text-[12px] font-medium text-gray-600">
@@ -3280,26 +3603,16 @@ export function DailyRegister() {
                   <table className="w-full text-[12px]">
                     <thead className="bg-gray-50 sticky top-0">
                       <tr>
-                        <th className="px-3 py-1.5 text-left text-gray-600">
-                          Employee
-                        </th>
-                        <th className="px-3 py-1.5 text-left text-gray-600">
-                          Original Timestamp
-                        </th>
-                        <th className="px-3 py-1.5 text-left text-gray-600">
-                          Formatted
-                        </th>
-                        <th className="px-3 py-1.5 text-center text-gray-600">
-                          Status
-                        </th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">Employee</th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">Original Timestamp</th>
+                        <th className="px-3 py-1.5 text-left text-gray-600">Formatted</th>
+                        <th className="px-3 py-1.5 text-center text-gray-600">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {previewData.map((row, index) => (
                         <tr key={index} className="border-t border-gray-100">
-                          <td className="px-3 py-1.5 font-mono">
-                            {row.employeeCode}
-                          </td>
+                          <td className="px-3 py-1.5 font-mono">{row.employeeCode}</td>
                           <td className="px-3 py-1.5 text-gray-500">
                             {row.originalTimestamp}
                           </td>
@@ -3319,7 +3632,7 @@ export function DailyRegister() {
                   </table>
                 </div>
               </div>
-            )}
+            )} */}
           </div>
         </DialogContent>
 
@@ -3686,7 +3999,7 @@ export function DailyRegister() {
                     <div>
                       Fetched from Devices ({deviceFetchSummary.total} total logs)
                     </div>
-                    <div className="mt-0.5 text-[11px] font-normal text-gray-600">
+                    <div className="mt-0.5 text-[11px] text-black">
                       Matched: {deviceFetchSummary.matched} | Unknown:{" "}
                       {deviceFetchSummary.unknown} | Showing: {punchEntries.length}
                     </div>
@@ -3782,17 +4095,6 @@ export function DailyRegister() {
           >
             Cancel
           </Button>
-          {/* <Button
-            variant="contained"
-            className="!bg-primary"
-            onClick={handleBatchPunchImport}
-            disabled={punchImporting || punchEntries.length === 0}
-            startIcon={<PunchClockOutlined />}
-          >
-            {punchImporting
-              ? "Importing..."
-              : `Import ${punchEntries.length} Punches`}
-          </Button> */}
         </DialogActions>
       </Dialog>
 
@@ -3947,6 +4249,198 @@ export function DailyRegister() {
             variant="contained"
             className="!bg-primary"
             onClick={() => setBulkActionResult(null)}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Movements Dialog ─────────────────────────────────────────────── */}
+      <Dialog
+        open={movementDialogOpen}
+        onClose={() => {
+          setMovementDialogOpen(false);
+          setMovementEmployee(null);
+          setMovementRows([]);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
+          <span className="!pl-4 flex items-center gap-2">
+            <SwapHorizOutlined className="text-primary" />
+            Movements
+            {movementEmployee && (
+              <span className="text-[12px] font-normal text-gray-500">
+                ({movementEmployee.employeeName} ({movementEmployee.employeeCode}) ·{" "}
+                {dayjs(date).format("DD MMM YYYY")})
+              </span>
+            )}
+          </span>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setMovementDialogOpen(false);
+              setMovementEmployee(null);
+              setMovementRows([]);
+            }}
+          >
+            <CloseOutlined fontSize="small" className="text-gray-800" />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent className="!p-4">
+          {movementRows.length === 0 ? (
+            <Alert severity="info" sx={{ py: 0.5 }}>
+              <span className="text-[12px]">No movements recorded for this employee.</span>
+            </Alert>
+          ) : (
+            <div className="space-y-2">
+              {movementEmployee && (
+                <div className="grid grid-cols-3 items-center justify-center gap-2 text-[12px] bg-gray-50 border border-gray-200 rounded p-2">
+                  <div>
+                    <span className="text-gray-500">Check-in:</span>{" "}
+                    <b className="text-green-600">
+                      {movementEmployee.checkInTime
+                        ? dayjs(movementEmployee.checkInTime).format("HH:mm:ss")
+                        : "-"}
+                    </b>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Movements:</span>{" "}
+                    <b className="text-blue-500">{movementRows.length}</b>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Check-out:</span>{" "}
+                    <b className="text-green-600">
+                      {movementEmployee.checkOutTime
+                        ? dayjs(movementEmployee.checkOutTime).format("HH:mm:ss")
+                        : "-"}
+                    </b>
+                  </div>
+                </div>
+              )}
+
+              <div className="border border-gray-200 rounded overflow-hidden">
+                <div className="grid grid-cols-[36px_1fr_1fr_90px_180px_150px] gap-2 bg-gray-50 px-3 py-2 border-b border-gray-200 text-[12px] font-medium text-gray-800">
+                  <div className="!font-bold">#</div>
+                  <div className="!font-bold">OUT</div>
+                  <div className="!font-bold">IN</div>
+                  <div className="!font-bold">Duration</div>
+                  <div className="!font-bold">Classification</div>
+                  <div className="!font-bold">Permission Req.</div>
+                </div>
+
+                <div className="max-h-[360px] overflow-y-auto">
+                  {movementRows.map((row) => (
+                    <div
+                      key={row.index}
+                      className="grid grid-cols-[36px_1fr_1fr_90px_180px_150px] gap-2 px-3 py-2 border-b border-gray-200 last:border-0 items-center"
+                    >
+                      <div className="text-[12px] text-gray-400">{row.index}</div>
+
+                      <div className="text-[12px]">
+                        {dayjs(row.outTime).format("DD MMM HH:mm:ss")}
+                      </div>
+
+                      <div className="text-[12px]">
+                        {row.inTime ? (
+                          dayjs(row.inTime).format("DD MMM HH:mm:ss")
+                        ) : (
+                          <span className="text-amber-600">Still out</span>
+                        )}
+                      </div>
+
+                      <div className="text-[12px] text-gray-700">
+                        {row.durationMinutes != null
+                          ? formatMinutes(timeUnit, row.durationMinutes)
+                          : "-"}
+                      </div>
+
+                      <div>
+                        <ToggleButtonGroup
+                          size="small"
+                          exclusive
+                          value={row.classification}
+                          onChange={(_, val) => {
+                            if (!val) return;
+                            handleMovementClassify(row, val);
+                          }}
+                          disabled={row.saving || movementSavingIdx === row.index}
+                          className="text-gray-800"
+                        >
+                          <ToggleButton
+                            value="official"
+                            className="text-gray-800 border-gray-200"
+                            sx={{ px: 1, py: 0.25, textTransform: "none", fontSize: 11 }}
+                          >
+                            Official
+                          </ToggleButton>
+                          <ToggleButton
+                            value="personal"
+                            className="text-gray-800 border-gray-200"
+                            sx={{ px: 1, py: 0.25, textTransform: "none", fontSize: 11 }}
+                          >
+                            Personal
+                          </ToggleButton>
+                          <ToggleButton
+                            value="break"
+                            className="text-gray-800 border-gray-200"
+                            sx={{ px: 1, py: 0.25, textTransform: "none", fontSize: 11 }}
+                          >
+                            Break
+                          </ToggleButton>
+                        </ToggleButtonGroup>
+                      </div>
+
+                      <div className="text-[12px]">
+                        {row.classification === "break" ? (
+                          <Chip
+                            size="small"
+                            label="No request (break)"
+                            className="!bg-amber-100 !text-amber-700"
+                          />
+                        ) : row.classification ? (
+                          row.saving ? (
+                            <span className="text-gray-500">Creating…</span>
+                          ) : row.permissionRequestId ? (
+                            <Chip
+                              size="small"
+                              label={`Request created (${row.classification})`}
+                              className={
+                                row.classification === "official"
+                                  ? "!bg-blue-100 !text-blue-700"
+                                  : "!bg-emerald-100 !text-emerald-700"
+                              }
+                            />
+                          ) : (
+                            <Chip
+                              size="small"
+                              label="No request"
+                              className="!bg-gray-100 !text-gray-600"
+                            />
+                          )
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+
+        <DialogActions className="!p-3 !border-t !border-gray-200">
+          <Button
+            variant="contained"
+            className="!bg-primary"
+            onClick={() => {
+              setMovementDialogOpen(false);
+              setMovementEmployee(null);
+              setMovementRows([]);
+            }}
           >
             Close
           </Button>

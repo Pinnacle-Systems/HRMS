@@ -32,6 +32,7 @@ import ContrastOutlinedIcon from "@mui/icons-material/ContrastOutlined";
 import HelpOutlineTwoTone from "@mui/icons-material/HelpOutlineTwoTone";
 import { ThemeSwitcher } from "../components/ThemeSwitcher";
 import { useAuth } from "../auth/authContext";
+import { clearPageHistories } from "../auth/authSession";
 import GlobalSearch from "./GlobalSearch";
 import {
   canShowNavItem,
@@ -87,7 +88,6 @@ import type { EventData } from "react-joyride";
 
 const drawerWidth = 220;
 const guidedTourStorageKey = "hrms-guided-tour-completed";
-const pageHistoryKeyPrefix = "hrms-page-history-";
 
 interface Notification {
   id: string;
@@ -345,16 +345,6 @@ const getTabRouteLabel = (pathname: string, search: string, isAdmin: boolean) =>
   return null;
 };
 
-const clearAllPageHistories = () => {
-  try {
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith(pageHistoryKeyPrefix))
-      .forEach((key) => localStorage.removeItem(key));
-  } catch {
-    /* noop */
-  }
-};
-
 export default function Layout() {
   const [open, setOpen] = useState(false);
   const [tourKey, setTourKey] = useState(0);
@@ -371,7 +361,7 @@ export default function Layout() {
   const { session, logout } = useAuth();
   const user = session?.user;
   const userPermissions = user?.permissions || [];
-  const pageHistoryStorageKey = `${pageHistoryKeyPrefix}${user?.userId || "guest"}`;
+  const pageHistoryStorageKey = `hrms-page-history-${user?.userId || "guest"}`;
 
   // Refs used to coordinate logout vs. history persistence
   const closingPagePathRef = useRef<string | null>(null);
@@ -444,7 +434,7 @@ export default function Layout() {
       await logout();
     } catch {
     } finally {
-      clearAllPageHistories();
+      clearPageHistories();
       try {
         localStorage.removeItem(guidedTourStorageKey);
       } catch {

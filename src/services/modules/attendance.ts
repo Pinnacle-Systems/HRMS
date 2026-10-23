@@ -10,6 +10,8 @@ import type {
   CorrectionRequestPayload,
   CorrectionApprovePayload,
   ProcessAttendancePayload,
+  ProcessAndFinalisePayload,
+  ProcessAndFinaliseResponse,
   BulkProcessPayload,
   FinalisePayload,
   UnlockPayload,
@@ -197,6 +199,13 @@ export const attendanceService = {
 
   async processAndCloseAttendance(payload: ProcessAttendancePayload) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.PROCESS_AND_CLOSE, payload);
+  },
+
+  async processAndFinaliseAttendance(payload: ProcessAndFinalisePayload) {
+    return apiService.post<ApiResponse<ProcessAndFinaliseResponse>>(
+      API_ENDPOINTS.ATTENDANCE.PROCESS_AND_FINALISE,
+      payload,
+    );
   },
 
   async getProcessAttendanceStatus(params: ProcessStatusParams) {

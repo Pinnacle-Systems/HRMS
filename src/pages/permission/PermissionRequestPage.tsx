@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Alert,
   Box,
@@ -28,7 +28,6 @@ import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutli
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
-import { toDataURL } from "qrcode";
 import dayjs from "dayjs";
 import type { } from "@mui/x-date-pickers/AdapterDayjs";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -43,15 +42,22 @@ import { GlobalPagination } from "../../components/GlobalPagination";
 import type { EmployeeSummaryResponse } from "../../services/modules/employees";
 import { useUI } from "../../context/Snackbar";
 import { getRowColor } from "../const";
+import {
+  permissionRequestService,
+  type PermissionQrValidation,
+  type PermissionRequestDto,
+  type PermissionType,
+} from "../../services/modules/permissionRequests";
+import { formatApiTime } from "../../utils/dateFormatter";
 
-type PermissionType = "PERSONAL" | "OFFICIAL";
 
 type PermissionRequest = {
   id: string;
-  employeeId?: string;
+  requestNumber?: string;
+  employeeId: string;
+  employeeCode?: string;
   employeeName?: string;
-  submittedById?: string;
-  submittedByName?: string;
+  department?: string;
   type: PermissionType;
   requestDate: string;
   fromTime: string;
@@ -61,11 +67,20 @@ type PermissionRequest = {
   requestedAt: string;
   gatePassEnabled: boolean;
   gatePassQr?: string;
+  qrToken?: string;
+  qrGeneratedAt?: string;
 };
 
 type PermissionForm = Omit<
   PermissionRequest,
-  "id" | "submittedById" | "submittedByName" | "requestedAt" | "gatePassQr"
+  | "id"
+  | "requestNumber"
+  | "requestedAt"
+  | "gatePassQr"
+  | "qrToken"
+  | "qrGeneratedAt"
+  | "employeeCode"
+  | "department"
 >;
 
 const emptyForm = (
@@ -92,27 +107,31 @@ const getToday = () => {
   return `${year}-${month}-${day}`;
 };
 
-const isPermissionRequest = (value: unknown): value is PermissionRequest => {
-  if (typeof value !== "object" || value === null) return false;
-  const request = value as Partial<PermissionRequest>;
-  return (
-    typeof request.id === "string" &&
-    (request.employeeId === undefined || typeof request.employeeId === "string") &&
-    (request.employeeName === undefined || typeof request.employeeName === "string") &&
-    (request.submittedById === undefined || typeof request.submittedById === "string") &&
-    (request.submittedByName === undefined || typeof request.submittedByName === "string") &&
-    (request.type === "PERSONAL" || request.type === "OFFICIAL") &&
-    typeof request.requestDate === "string" &&
-    typeof request.fromTime === "string" &&
-    typeof request.toTime === "string" &&
-    typeof request.destination === "string" &&
-    typeof request.reason === "string" &&
-    typeof request.requestedAt === "string" &&
-    typeof request.gatePassEnabled === "boolean" &&
-    (!request.gatePassEnabled ||
-      (typeof request.gatePassQr === "string" &&
-        request.gatePassQr.startsWith("data:image/png;base64,")))
-  );
+const mapPermissionRequest = (request: PermissionRequestDto): PermissionRequest => {
+  const qrImage = request.qrCodeImageBase64;
+  return {
+    id: request.id,
+    requestNumber: request.requestNumber,
+    employeeId: request.employeeId,
+    employeeCode: request.employeeCode,
+    employeeName: request.employeeName,
+    department: request.department,
+    type: request.permissionType === "personal_work" ? "PERSONAL" : "OFFICIAL",
+    requestDate: request.date,
+    fromTime: formatApiTime(request.departureTime),
+    toTime: formatApiTime(request.expectedReturnTime),
+    destination: request.destination,
+    reason: request.reason,
+    requestedAt: request.createdAt,
+    gatePassEnabled: request.gatePassSlipGenerated,
+    gatePassQr: qrImage
+      ? qrImage.startsWith("data:image/")
+        ? qrImage
+        : `data:image/png;base64,${qrImage}`
+      : undefined,
+    qrToken: request.qrToken,
+    qrGeneratedAt: request.qrGeneratedAt,
+  };
 };
 
 const formatDate = (value: string) =>
@@ -158,7 +177,8 @@ export default function PermissionRequestPage() {
   const managerOnly =
     user?.roles.includes("MANAGER") &&
     !user.roles.some((role) => role === "HR" || role === "ADMIN");
-  const storageKey = `hrms-permission-requests:${user?.tenantId ?? "tenant"}:${user?.userId ?? "user"}`;
+  const canViewAllRequests =
+    user?.roles.some((role) => ["HR", "ADMIN"].includes(role)) ?? false;
 
   // ---- Inline tab state (same pattern as ApprovalWorkflowHome) ----
   const [tab, setTab] = useState(0);
@@ -173,38 +193,49 @@ export default function PermissionRequestPage() {
   const [selectedEmployee, setSelectedEmployee] =
     useState<EmployeeSummaryResponse | null>(null);
   const [requests, setRequests] = useState<PermissionRequest[]>([]);
+  const [totalRequests, setTotalRequests] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
   const [selectedRequest, setSelectedRequest] =
     useState<PermissionRequest | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [storageError, setStorageError] = useState("");
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [requestError, setRequestError] = useState("");
+  // const [qrTokenInput, setQrTokenInput] = useState("");
+  // const [qrValidation, setQrValidation] = useState<PermissionQrValidation | null>(null);
+  // const [validatingQr, setValidatingQr] = useState(false);
+  const [downloadingSlip, setDownloadingSlip] = useState(false);
 
-  useEffect(() => {
-    setPage(0);
+  const loadRequests = useCallback(async (requestPage = page, requestSize = limit) => {
+    setLoadingRequests(true);
+    setRequestError("");
     try {
-      const storedRequests = window.localStorage.getItem(storageKey);
-      if (!storedRequests) {
-        setRequests([]);
-        setStorageError("");
-        return;
-      }
-
-      const parsed: unknown = JSON.parse(storedRequests);
-      if (!Array.isArray(parsed) || !parsed.every(isPermissionRequest)) {
-        throw new Error("Saved permission requests are not in a valid format.");
-      }
-      setRequests(parsed);
-      setStorageError("");
+      const query = {
+        page: requestPage,
+        size: requestSize,
+        sort: ["createdAt,desc"],
+      };
+      const response = canViewAllRequests
+        ? await permissionRequestService.permissionReqList(query)
+        : await permissionRequestService.permissionListMine(query);
+      setRequests(response.content.map(mapPermissionRequest));
+      setTotalRequests(response.totalElements);
     } catch (error) {
-      setStorageError(
+      setRequestError(
         error instanceof Error
-          ? `Could not load saved permission requests: ${error.message}`
-          : "Could not load saved permission requests.",
+          ? `Could not load permission requests: ${error.message}`
+          : "Could not load permission requests.",
       );
       setRequests([]);
+      setTotalRequests(0);
+    } finally {
+      setLoadingRequests(false);
     }
-  }, [storageKey]);
+  }, [canViewAllRequests, limit, page]);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
 
   const updateForm = <K extends keyof PermissionForm>(
     field: K,
@@ -213,7 +244,67 @@ export default function PermissionRequestPage() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const paginatedRequests = requests.slice(page * limit, (page + 1) * limit);
+  const paginatedRequests = requests;
+
+  const openRequestSlip = async (request: PermissionRequest) => {
+    try {
+      let details = await permissionRequestService.getPerRequestById(request.id);
+      if (details.gatePassSlipGenerated && !details.qrCodeImageBase64) {
+        details = await permissionRequestService.getQr(request.id);
+      }
+      setSelectedRequest(mapPermissionRequest(details));
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error
+          ? `Could not load permission request: ${error.message}`
+          : "Could not load permission request.",
+        "error",
+      );
+    }
+  };
+
+  const downloadSlip = async (request: PermissionRequest) => {
+    setDownloadingSlip(true);
+    try {
+      const reference = request.requestNumber || request.id;
+      await permissionRequestService.downloadSlip(
+        request.id,
+        `GatePass_${reference}.pdf`,
+      );
+      showSnackbar("Gate-pass slip downloaded.", "success");
+    } catch (error) {
+      showSnackbar(
+        error instanceof Error
+          ? `Could not download the gate-pass slip: ${error.message}`
+          : "Could not download the gate-pass slip.",
+        "error",
+      );
+    } finally {
+      setDownloadingSlip(false);
+    }
+  };
+
+  // const validateQrToken = async (event: FormEvent<HTMLFormElement>) => {
+  //   event.preventDefault();
+  //   const token = qrTokenInput.trim();
+  //   if (!token) return;
+
+  //   setValidatingQr(true);
+  //   setQrValidation(null);
+  //   try {
+  //     const result = await permissionRequestService.validateQr(token);
+  //     setQrValidation(result);
+  //   } catch (error) {
+  //     showSnackbar(
+  //       error instanceof Error
+  //         ? `Could not validate the QR reference: ${error.message}`
+  //         : "Could not validate the QR reference.",
+  //       "error",
+  //     );
+  //   } finally {
+  //     setValidatingQr(false);
+  //   }
+  // };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -231,35 +322,17 @@ export default function PermissionRequestPage() {
 
     setSubmitting(true);
     try {
-      const requestId = `PERM-${Date.now().toString(36).toUpperCase()}`;
-      let gatePassQr: string | undefined;
-
-      if (form.gatePassEnabled) {
-        const qrPayload = JSON.stringify({
-          type: "GATE_PASS_REQUEST",
-          reference: requestId,
-          employeeId: form.employeeId,
-          date: form.requestDate,
-        });
-        gatePassQr = await toDataURL(qrPayload, {
-          width: 240,
-          margin: 2,
-          errorCorrectionLevel: "M",
-        });
-      }
-
-      const request: PermissionRequest = {
-        ...form,
-        id: requestId,
-        submittedById: user?.userId,
-        submittedByName: employeeName,
-        requestedAt: new Date().toISOString(),
-        gatePassQr,
-      };
-      const nextRequests = [request, ...requests];
-      window.localStorage.setItem(storageKey, JSON.stringify(nextRequests));
-      setRequests(nextRequests);
-      setPage(0);
+      const created = await permissionRequestService.createPermission({
+        employeeId: form.employeeId,
+        permissionType: form.type === "PERSONAL" ? "personal_work" : "official_work",
+        date: form.requestDate,
+        departureTime: `${form.fromTime}:00`,
+        expectedReturnTime: `${form.toTime}:00`,
+        destination: form.destination.trim(),
+        reason: form.reason.trim(),
+        generateGatePassSlip: form.gatePassEnabled,
+      });
+      const request = mapPermissionRequest(created);
       setForm(
         emptyForm(
           today,
@@ -268,16 +341,19 @@ export default function PermissionRequestPage() {
         ),
       );
       setSelectedEmployee(null);
+      // Reset to first page; the loadRequests effect fires on page/limit change.
+      // Only call explicitly if we're already on page 0 (no state change).
+      if (page === 0) {
+        await loadRequests(0, limit);
+      } else {
+        setPage(0);
+      }
       if (request.gatePassEnabled) {
         setSelectedRequest(request);
-        showSnackbar(
-          "Permission request saved and gate-pass slip generated.",
-          "success",
-        );
+        showSnackbar("Permission request submitted and gate-pass slip generated.", "success");
       } else {
-        showSnackbar("Permission request saved.", "success");
+        showSnackbar("Permission request submitted.", "success");
       }
-      // Jump to the list tab so the user sees the new entry.
       setTab(1);
     } catch (error) {
       showSnackbar(
@@ -303,7 +379,7 @@ export default function PermissionRequestPage() {
       <!doctype html>
       <html>
         <head>
-          <title>Gate pass ${escapeHtml(request.id)}</title>
+          <title>Gate pass ${escapeHtml(request.requestNumber || request.id)}</title>
           <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
             body { margin: 0; padding: 32px; color: #172033; font-family: Arial, sans-serif; }
@@ -324,7 +400,7 @@ export default function PermissionRequestPage() {
             <p>This slip is a request reference, not an approved gate pass.</p>
             <dl>
               <dt>Employee</dt><dd>${escapeHtml(request.employeeName || employeeName)}</dd>
-              <dt>Employee ID</dt><dd>${escapeHtml(request.employeeId || employeeId)}</dd>
+              <dt>Employee ID</dt><dd>${escapeHtml(request.employeeCode || request.employeeId || employeeId)}</dd>
               <dt>Date</dt><dd>${escapeHtml(formatDate(request.requestDate))}</dd>
               <dt>Departure</dt><dd>${escapeHtml(formatTime(request.fromTime))}</dd>
               <dt>Return</dt><dd>${escapeHtml(formatTime(request.toTime))}</dd>
@@ -333,7 +409,7 @@ export default function PermissionRequestPage() {
             </dl>
             <img src="${escapeHtml(request.gatePassQr)}" alt="Gate pass request QR code">
             <div class="status">Request reference only</div>
-            <div class="ref">${escapeHtml(request.id)}</div>
+            <div class="ref">${escapeHtml(request.requestNumber || request.id)}</div>
           </main>
           <script>window.onload = () => window.print();</script>
         </body>
@@ -345,16 +421,16 @@ export default function PermissionRequestPage() {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <main className="mx-auto w-full space-y-5">
+      <main className="mx-auto w-full">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="font-semibold tracking-tight text-gray-800">
+            <div className="font-semibold text-gray-800">
               Permission request
             </div>
-            <p className="mt-1 max-w-2xl text-[12px] text-gray-500">
-              Request time away from the workplace. Add a gate-pass slip if you
-              need a QR code for the exit gate.
-            </p>
+            <div className="mt-1 text-[12px] text-gray-500">
+              Request time away from the workplace. A generated QR code is a
+              request reference for staff to review, not a gate authorization.
+            </div>
           </div>
           <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-[12px] text-gray-700 shadow-sm">
             <BadgeOutlinedIcon className="!text-indigo-600" fontSize="small" />
@@ -362,11 +438,11 @@ export default function PermissionRequestPage() {
           </div>
         </header>
 
-        {storageError && <Alert severity="error">{storageError}</Alert>}
+        {requestError && tab === 0 && <Alert severity="error">{requestError}</Alert>}
 
         {/* ---- Inline tab header (same style as ApprovalWorkflowHome) ---- */}
         <Box>
-          <div className="rounded-xl p-2">
+          <div className="rounded-xl p-">
             <Tabs
               value={tab}
               onChange={(_, v) => setTab(v)}
@@ -374,7 +450,7 @@ export default function PermissionRequestPage() {
               scrollButtons="auto"
               indicatorColor="primary"
               textColor="primary"
-              className="!border-b !border-gray-300"
+              className="!border-b !border-gray-200"
               sx={{
                 "& .MuiTabs-indicator": {
                   backgroundColor: "var(--color-primary)",
@@ -385,7 +461,7 @@ export default function PermissionRequestPage() {
             >
               <Tab label="New request" className="!text-gray-800" />
               <Tab
-                label={`Request list (${requests.length})`}
+                label={`Request list (${totalRequests})`}
                 className="!text-gray-800"
               />
             </Tabs>
@@ -406,12 +482,12 @@ export default function PermissionRequestPage() {
                   <AddCircleOutlineOutlinedIcon />
                 </span>
                 <div>
-                  <h2 className="font-semibold text-gray-800">
+                  <div className="font-semibold text-gray-800">
                     New permission request
-                  </h2>
-                  <p className="mt-1 text-[12px] text-gray-500">
+                  </div>
+                  <div className="mt-1 text-[12px] text-gray-500">
                     Required fields are marked with an asterisk.
-                  </p>
+                  </div>
                 </div>
               </div>
 
@@ -423,7 +499,7 @@ export default function PermissionRequestPage() {
                       selectedEmployee={selectedEmployee}
                       onChange={(_selectedId, employee) => {
                         const targetId =
-                          employee?.employeeId || employee?.id || "";
+                          employee?.id || "";
                         const targetName = employee
                           ? employee.name ||
                           employee.fullName ||
@@ -498,7 +574,7 @@ export default function PermissionRequestPage() {
                       newValue ? newValue.format("HH:mm") : "",
                     );
                   }}
-                  ampm
+                  ampm={false}
                   slotProps={{
                     textField: {
                       required: true,
@@ -518,7 +594,7 @@ export default function PermissionRequestPage() {
                       newValue ? newValue.format("HH:mm") : "",
                     );
                   }}
-                  ampm
+                  ampm={false}
                   slotProps={{
                     textField: {
                       required: true,
@@ -655,9 +731,8 @@ export default function PermissionRequestPage() {
                 </div>
               </div>
               <Alert severity="info" className="!mt-5 !text-[12px]">
-                Requests are currently stored in this browser only; they are not
-                sent to an approval workflow or shared with the selected
-                employee.
+                Requests are submitted to HRMS. A generated QR code is only a
+                request reference and does not authorize gate entry.
               </Alert>
             </Paper>
           </section>
@@ -666,6 +741,9 @@ export default function PermissionRequestPage() {
         {/* ==================== TAB 1: Request list ==================== */}
         {tab === 1 && (
           <section aria-labelledby="request-history-title" className="!m-2">
+            {/* QR validation panel (kept, commented in original) */}
+
+            {requestError && <Alert severity="error" className="!mb-4">{requestError}</Alert>}
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <div
@@ -675,16 +753,24 @@ export default function PermissionRequestPage() {
                   Recent permission requests
                 </div>
                 <p className="text-[12px] text-gray-500">
-                  Requests you created are listed here, including requests for
-                  other employees.
+                  {canViewAllRequests
+                    ? "Permission requests across employees."
+                    : "Your permission requests."}
                 </p>
               </div>
               <span className="text-[12px] text-gray-500">
-                {requests.length} total
+                {totalRequests} total
               </span>
             </div>
 
-            {requests.length === 0 ? (
+            {loadingRequests ? (
+              <Paper
+                elevation={0}
+                className="rounded-xl !border !border-gray-200 !bg-white !p-8 text-center text-[12px] text-gray-500"
+              >
+                Loading permission requests...
+              </Paper>
+            ) : requests.length === 0 ? (
               <Paper
                 elevation={0}
                 className="flex flex-col items-center rounded-xl !border !border-dashed !border-gray-200 !bg-white !px-5 !py-10 text-center"
@@ -716,9 +802,7 @@ export default function PermissionRequestPage() {
                 <TableContainer sx={{ maxHeight: 560 }}>
                   <Table stickyHeader size="small" aria-label="Permission requests">
                     <TableHead>
-                      <TableRow
-                       
-                      >
+                      <TableRow>
                         <TableCell className="!font-bold">S No</TableCell>
                         <TableCell className="!font-bold">Reference</TableCell>
                         <TableCell className="!font-bold">Employee</TableCell>
@@ -732,103 +816,97 @@ export default function PermissionRequestPage() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {paginatedRequests.map((request, i) => {
-                        const isOtherEmployee =
-                          request.submittedById &&
-                          request.submittedById !==
-                          (request.employeeId || employeeId);
-                        return (
-                          <TableRow
-                            key={request.id}
-                            sx={getRowColor(i)}
-                          >
-                            <TableCell>{page * limit + i + 1}</TableCell>
-                            <TableCell
-                             
-                            >
-                              {request.id}
-                            </TableCell>
+                      {paginatedRequests.map((request, i) => (
+                        <TableRow
+                          key={request.id}
+                          sx={getRowColor(i)}
+                        >
+                          <TableCell>{page * limit + i + 1}</TableCell>
+                          <TableCell>
+                            {request.requestNumber || request.id}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium text-gray-800">
+                              {request.employeeName || "—"}
+                            </div>
+                            <div className="text-[11px] text-gray-500">
+                              {request.employeeCode || request.employeeId || "—"}
+                            </div>
+                          </TableCell>
 
-                            <TableCell>
-                              <div className="font-medium text-gray-800">
-                                {request.employeeName || employeeName}
-                              </div>
-                              <div className="text-[11px] text-gray-500">
-                                {request.employeeId || employeeId}
-                                {isOtherEmployee && (
-                                  <>
-                                    {" · by "}
-                                    {request.submittedByName || employeeName}
-                                  </>
-                                )}
-                              </div>
-                            </TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {formatDate(request.requestDate)}
+                          </TableCell>
 
-                            <TableCell sx={{ whiteSpace: "nowrap" }}>
-                              {formatDate(request.requestDate)}
-                            </TableCell>
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {formatTime(request.fromTime)} –{" "}
+                            {formatTime(request.toTime)}
+                          </TableCell>
 
-                            <TableCell sx={{ whiteSpace: "nowrap" }}>
-                              {formatTime(request.fromTime)} –{" "}
-                              {formatTime(request.toTime)}
-                            </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              label={
+                                request.type === "PERSONAL" ? "Personal" : "Official"
+                              }
+                              color={
+                                request.type === "PERSONAL" ? "warning" : "info"
+                              }
+                              sx={{ fontSize: 11, height: 22 }}
+                            />
+                          </TableCell>
 
-                            <TableCell>
-                              <Chip
+                          <TableCell sx={{ maxWidth: 180 }}>
+                            <span className="line-clamp-2">{request.destination}</span>
+                          </TableCell>
+
+                          <TableCell sx={{ maxWidth: 240 }}>
+                            <span className="line-clamp-2">{request.reason}</span>
+                          </TableCell>
+
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              color={request.gatePassEnabled ? "success" : "error"}
+                              variant="outlined"
+                              label={request.gatePassEnabled ? "Yes" : "No"}
+                              sx={{ fontSize: 11, height: 22 }}
+                            />
+                          </TableCell>
+
+                          <TableCell align="center">
+                            <div className="flex justify-center gap-1">
+                              <Button
                                 size="small"
                                 variant="outlined"
-                                label={
-                                  request.type === "PERSONAL" ? "Personal" : "Official"
-                                }
-                                color={
-                                  request.type === "PERSONAL" ? "warning" : "info"
-                                }
-                                sx={{ fontSize: 11, height: 22 }}
-                              />
-                            </TableCell>
-
-                            <TableCell sx={{ maxWidth: 180 }}>
-                              <span className="line-clamp-2">{request.destination}</span>
-                            </TableCell>
-
-                            <TableCell sx={{ maxWidth: 240 }}>
-                              <span className="line-clamp-2">{request.reason}</span>
-                            </TableCell>
-
-                            <TableCell>
-                                <Chip
-                                  size="small"
-                                  color={request.gatePassEnabled ? "success" : "error"}
-                                  variant="outlined"
-                                  label={request.gatePassEnabled ? "Yes" : "No"}
-                                  sx={{ fontSize: 11, height: 22 }}
-                                />
-                            </TableCell>
-
-                            <TableCell align="center">
-                              {request.gatePassEnabled ? (
+                                onClick={() => void openRequestSlip(request)}
+                                className="!text-primary !border-primary"
+                                sx={{ fontSize: 11, py: 0.25 }}
+                              >
+                                {request.gatePassEnabled ? "View slip" : "Details"}
+                              </Button>
+                              {request.gatePassEnabled && (
                                 <Button
                                   size="small"
-                                  variant="outlined"
-                                  onClick={() => setSelectedRequest(request)}
-                                  className="!text-primary !border-primary"
-                                  sx={{ fontSize: 11, py: 0.25 }}
+                                  aria-label={`Download gate-pass slip ${request.requestNumber || request.id}`}
+                                  onClick={() => void downloadSlip(request)}
+                                  disabled={downloadingSlip}
+                                  sx={{ minWidth: 32, px: 0.5 }}
                                 >
-                                  View slip
+                                  <DownloadOutlinedIcon fontSize="small" />
                                 </Button>
-                              ) : (
-                                <span className="text-gray-800">-</span>
                               )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                   </Table>
                 </TableContainer>
-                {requests.length > 0 && (
+                {totalRequests > 0 && (
                   <GlobalPagination
-                    total={requests.length}
+                    total={totalRequests}
                     page={page + 1}
                     limit={limit}
                     onPageChange={(newPage) => setPage(newPage - 1)}
@@ -850,8 +928,10 @@ export default function PermissionRequestPage() {
           fullWidth
           maxWidth="sm"
         >
-          <DialogTitle className="!flex !items-center !justify-between !border-b !border-gray-100">
-            Gate-pass slip
+          <DialogTitle className="!flex !items-center !justify-between !border-b !border-gray-200 !p-2">
+            <div className="!ml-4">
+              {selectedRequest?.gatePassEnabled ? "Gate-pass slip" : "Permission request"}
+            </div>
             <Button
               aria-label="Close gate-pass slip"
               onClick={() => setSelectedRequest(null)}
@@ -862,56 +942,87 @@ export default function PermissionRequestPage() {
             </Button>
           </DialogTitle>
           <DialogContent className="!pt-5">
-            {selectedRequest?.gatePassQr && (
+            {selectedRequest && (
               <div className="mx-auto max-w-sm rounded-xl border border-gray-200 p-5 text-center">
-                <p className="text-[12px] font-semibold uppercase tracking-widest text-indigo-600">
-                  Gate pass request
-                </p>
+                {selectedRequest.gatePassEnabled && (
+                  <p className="text-[12px] font-semibold uppercase tracking-widest text-indigo-600">
+                    Gate pass request
+                  </p>
+                )}
                 <h3 className="mt-2 text-lg font-semibold text-gray-800">
-                  {selectedRequest.employeeName || employeeName}
+                  {selectedRequest.employeeName || "—"}
                 </h3>
                 <p className="mt-1 text-[12px] text-gray-500">
-                  ID {selectedRequest.employeeId || employeeId} ·{" "}
+                  ID {selectedRequest.employeeCode || selectedRequest.employeeId || "—"}
+                  {selectedRequest.department && ` · ${selectedRequest.department}`}
+                  {" · "}
                   {formatDate(selectedRequest.requestDate)}
                 </p>
-                <div className="my-4 flex justify-center">
-                  <img
-                    src={selectedRequest.gatePassQr}
-                    alt="Gate pass request QR code"
-                    width={180}
-                    height={180}
-                    aria-label="Gate pass request QR code"
-                  />
-                </div>
-                <p className="text-[12px] font-medium text-amber-700">
-                  Request reference only
-                </p>
+                {selectedRequest.gatePassQr ? (
+                  <div className="my-4 flex justify-center">
+                    <img
+                      src={selectedRequest.gatePassQr}
+                      alt="Gate pass request QR code"
+                      width={180}
+                      height={180}
+                      aria-label="Gate pass request QR code"
+                    />
+                  </div>
+                ) : selectedRequest.qrToken ? (
+                  <div className="my-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500">
+                      QR reference token
+                    </p>
+                    <p className="mt-1 break-all font-mono text-[12px] font-semibold text-gray-800">
+                      {selectedRequest.qrToken}
+                    </p>
+                  </div>
+                ) : null}
+                {selectedRequest.gatePassEnabled && (
+                  <p className="text-[12px] font-medium text-amber-700">
+                    Request reference only
+                  </p>
+                )}
                 <p className="mt-1 text-[12px] text-gray-500">
                   {formatTime(selectedRequest.fromTime)}–
                   {formatTime(selectedRequest.toTime)} ·{" "}
                   {selectedRequest.destination}
                 </p>
                 <p className="mt-2 text-[11px] text-gray-400">
-                  Reference: {selectedRequest.id}
+                  Reference: {selectedRequest.requestNumber || selectedRequest.id}
+                </p>
+                <p className="mt-3 border-t border-gray-100 pt-3 text-left text-[12px] text-gray-600">
+                  {selectedRequest.reason}
                 </p>
               </div>
             )}
           </DialogContent>
-          <DialogActions className="!border-t !border-gray-100 !px-6 !py-4">
+          <DialogActions className="!border-t !border-gray-200 !px-6 !py-4">
             <Button
               onClick={() => setSelectedRequest(null)}
-              className="!normal-case"
+              className="!text-gray-800 !border-gray-200"
+              variant="outlined"
             >
               Close
             </Button>
-            {selectedRequest && (
+            {selectedRequest?.gatePassEnabled && (
               <Button
                 variant="contained"
                 startIcon={<DownloadOutlinedIcon />}
-                onClick={() => printSlip(selectedRequest)}
-                className="!normal-case"
+                onClick={() => void downloadSlip(selectedRequest)}
+                disabled={downloadingSlip}
+                className="!bg-primary"
               >
-                Print slip
+                Download slip
+              </Button>
+            )}
+            {selectedRequest?.gatePassQr && (
+              <Button
+                variant="outlined"
+                onClick={() => printSlip(selectedRequest)}
+                className="!text-gray-800"
+              >
+                Print
               </Button>
             )}
           </DialogActions>

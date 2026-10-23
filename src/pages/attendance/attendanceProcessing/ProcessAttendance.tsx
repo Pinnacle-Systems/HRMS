@@ -139,7 +139,7 @@ export function ProcessAttendance() {
 
   // State
   const [fromDate, setFromDate] = useState(initialFromDate);
-  const [toDate, setToDate] = useState(initialToDate);
+  const [toDate, setToDate] = useState(initialFromDate ? initialFromDate : initialToDate);
   const [departmentId, setDepartmentId] = useState("");
   const [workerType, setWorkerType] = useState<WorkerType>("Both");
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -159,6 +159,9 @@ export function ProcessAttendance() {
   const [hasStagedPunches, setHasStagedPunches] = useState(false);
   const [isCheckingStagedPunches, setIsCheckingStagedPunches] = useState(true);
   const [stagedPunchCheckFailed, setStagedPunchCheckFailed] = useState(false);
+  const [hasRegisterData, setHasRegisterData] = useState(false);
+  const [isCheckingRegister, setIsCheckingRegister] = useState(true);
+  const [registerCheckFailed, setRegisterCheckFailed] = useState(false);
   const canProcessAttendance =
     !hasStagedPunches && !isCheckingStagedPunches && !stagedPunchCheckFailed;
   const { session } = useAuth();
@@ -200,6 +203,45 @@ export function ProcessAttendance() {
   useEffect(() => {
     void checkForStagedPunches();
   }, [checkForStagedPunches]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkRegisterData = async () => {
+      setIsCheckingRegister(true);
+      setRegisterCheckFailed(false);
+      try {
+        const response: any = await attendanceService.getRegister({
+          startDate: fromDate,
+          endDate: toDate,
+          departmentId: departmentId || undefined,
+        });
+        const data = response?.data?.data ?? response?.data;
+        const employees = Array.isArray(data)
+          ? data
+          : data?.content ?? [];
+        const total = Array.isArray(data)
+          ? data.length
+          : data?.totalElements ?? employees.length;
+
+        if (!cancelled) setHasRegisterData(total > 0);
+      } catch (err: any) {
+        if (!cancelled) {
+          setHasRegisterData(false);
+          setRegisterCheckFailed(true);
+          showSnackbarRef.current(
+            err?.response?.data?.message ?? err?.message ?? "Failed to check attendance register",
+            "error",
+          );
+        }
+      } finally {
+        if (!cancelled) setIsCheckingRegister(false);
+      }
+    };
+
+    void checkRegisterData();
+    return () => { cancelled = true; };
+  }, [fromDate, toDate, departmentId]);
 
   // Fetch departments
   useEffect(() => {
@@ -714,7 +756,7 @@ export function ProcessAttendance() {
             />
             <DatePicker
               label="To Date"
-              value={toDate ? dayjs(toDate) : null}
+              value={toDate ? dayjs(toDate) : fromDate ? dayjs(fromDate) : null}
               onChange={handleToDateChange}
               format="DD/MM/YYYY"
               maxDate={dayjs()}
@@ -823,7 +865,7 @@ export function ProcessAttendance() {
           )}
 
           <div className="ml-auto flex gap-2">
-            {!processStatus?.locked && (
+            {!processStatus?.locked && canProcessAttendance && (
               <button
                 onClick={handleValidate}
                 disabled={isValidating || processing || isLoadingStatus || !workerType || !canProcessAttendance}
@@ -833,7 +875,12 @@ export function ProcessAttendance() {
                 {isValidating ? "Validating..." : "Validate"}
               </button>
             )}
-            {!processStatus?.processed && !processStatus?.locked && (
+            {!processStatus?.processed &&
+              !processStatus?.locked &&
+              canProcessAttendance &&
+              hasRegisterData &&
+              !isCheckingRegister &&
+              !registerCheckFailed && (
               <button
                 onClick={handleProcess}
                 disabled={processing || isValidating || isLoadingStatus || !workerType || !canProcessAttendance}
@@ -843,7 +890,9 @@ export function ProcessAttendance() {
                 {processing || isLoadingStatus ? "Processing..." : "Process Attendance"}
               </button>
             )}
-            {processStatus?.processed && !processStatus.locked && (
+            {processStatus?.processed &&
+              !processStatus.locked &&
+              canProcessAttendance && (
               <button
                 onClick={handleReprocess}
                 disabled={processing || isValidating || isLoadingStatus || !workerType || !canProcessAttendance}
