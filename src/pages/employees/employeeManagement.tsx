@@ -10,7 +10,6 @@ import {
 } from "../../services/modules/employees";
 import { departmentService } from "../../services/modules/department";
 import { categoryService } from "../../services/modules/category";
-import { attendanceService } from "../../services/modules/attendance";
 import { useUI } from "../../context/Snackbar";
 import { GlobalPagination } from "../../components/GlobalPagination";
 import FilterPopup from "../../components/FilterPopup.tsx";
@@ -114,30 +113,30 @@ const isEmployeeInactive = (employee: Employee): boolean => {
     !!employee.deactivatedAt;
 };
 
-const getKnownAttendanceRecordState = (
-  employee: Employee,
-): boolean | null => {
-  const recordFlag =
-    employee.hasAttendanceRecords ??
-    employee.hasAttendanceRecord ??
-    employee.hasAttendance;
-  if (typeof recordFlag === "boolean") return recordFlag;
+// const getKnownAttendanceRecordState = (
+//   employee: Employee,
+// ): boolean | null => {
+//   const recordFlag =
+//     employee.hasAttendanceRecords ??
+//     employee.hasAttendanceRecord ??
+//     employee.hasAttendance;
+//   if (typeof recordFlag === "boolean") return recordFlag;
 
-  const recordCount =
-    employee.attendanceRecordCount ??
-    employee.attendanceRecordsCount ??
-    employee.attendanceCount;
-  if (recordCount !== undefined && recordCount !== null) {
-    const count = Number(recordCount);
-    if (Number.isFinite(count)) return count > 0;
-  }
+//   const recordCount =
+//     employee.attendanceRecordCount ??
+//     employee.attendanceRecordsCount ??
+//     employee.attendanceCount;
+//   if (recordCount !== undefined && recordCount !== null) {
+//     const count = Number(recordCount);
+//     if (Number.isFinite(count)) return count > 0;
+//   }
 
-  if (Array.isArray(employee.attendanceRecords)) {
-    return employee.attendanceRecords.length > 0;
-  }
+//   if (Array.isArray(employee.attendanceRecords)) {
+//     return employee.attendanceRecords.length > 0;
+//   }
 
-  return null;
-};
+//   return null;
+// };
 
 // const readAttendanceRecordState = (response: any): boolean => {
 //   const payload = response?.data?.data ?? response?.data ?? response;

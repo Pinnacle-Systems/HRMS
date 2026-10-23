@@ -44,7 +44,6 @@ import { useUI } from "../../context/Snackbar";
 import { getRowColor } from "../const";
 import {
   permissionRequestService,
-  type PermissionQrValidation,
   type PermissionRequestDto,
   type PermissionType,
 } from "../../services/modules/permissionRequests";
