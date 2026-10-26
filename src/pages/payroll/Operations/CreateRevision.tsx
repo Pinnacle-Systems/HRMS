@@ -124,7 +124,7 @@ export default function CreateRevision({
     useEffect(() => {
         setEmployeesLoading(true);
         employeeService
-            .getEmployees({ page: 0, includeInactive: false, sort: ["employeeId,asc"] })
+            .getEmployees({ page: 0, includeActive: true, sort: ["employeeId,asc"] })
             .then((res: any) => {
                 const payload = res?.data;
                 const rows = Array.isArray(payload)

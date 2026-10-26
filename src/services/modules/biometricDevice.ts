@@ -103,8 +103,8 @@ export interface StagedPunch {
   checkOutTime: string | null;
   movement?: Record<string, unknown>[];
   shiftCode: string;
-  shiftStart?: string;
-  shiftEnd?: string;
+  shiftStart: number;
+  shiftEnd: number;
   status: string;
   category?: string;
   workedMinutes: number;
@@ -621,7 +621,7 @@ async stagePunches(data: StagePunchesRequest): Promise<StagePunchesResponse> {
   };
 },
 
-async getStagedPunches(params?: { from?: string; to?: string; status?: string }): Promise<StagedPunch[]> {
+async getStagedPunches(params?: { from?: string; to?: string; status?: any, unit?: string, groupByDepartment?: boolean }): Promise<StagedPunch[]> {
   const response: any = await apiService.get(
     API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
     { params },

@@ -163,7 +163,7 @@ export default function GeneratePayroll() {
     const fetchEmployees = async () => {
         try {
             const res: any = await employeeService.getEmployees({
-                includeInactive: false,
+                includeActive: true,
                 // size: 1000
             });
             setEmployees(res.data?.content || []);

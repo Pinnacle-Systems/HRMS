@@ -258,6 +258,11 @@ export default function EmployeeManagement() {
   const [hardDeleteErrorEmployee, setHardDeleteErrorEmployee] = useState<Employee | null>(null);
   const [hardDeleteErrorMessage, setHardDeleteErrorMessage] = useState<string>("");
 
+  const [previouslyWorked, setPreviouslyWorked] = useState(false);
+  const [previousEmployeeId, setPreviousEmployeeId] = useState("");
+  const [inactiveEmployees, setInactiveEmployees] = useState<EmployeeSummaryResponse[]>([]);
+  const [inactiveEmployeesLoading, setInactiveEmployeesLoading] = useState(false);
+
   // useEffect(() => {
   //   let cancelled = false;
   //   setAttendanceRecordState({});
@@ -466,13 +471,10 @@ export default function EmployeeManagement() {
 
       if (searchTerm) params.search = searchTerm;
       if (employeeView === "active") {
-        params.includeInactive = false;
+        params.includeActive = true;
       } else if (employeeView === "inactive") {
         params.includeInactive = true;
-      } else {
-        params.includeInactive = true;
-      }
-
+      } 
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);
       const employeeData = employeePage.content as Employee[];
@@ -602,6 +604,37 @@ export default function EmployeeManagement() {
     getMasterData();
   }, []);
 
+  // Add this effect after loadEmployeeIdConfig effect
+  useEffect(() => {
+    if (!previouslyWorked || isEditing) return;
+    if (inactiveEmployees.length > 0) return;
+
+    let cancelled = false;
+    setInactiveEmployeesLoading(true);
+    (async () => {
+      try {
+        const res = await employeeService.getEmployees({
+          page: 0,
+          sort: "name,asc",
+          includeActive: true,
+        });
+        const pageData = normalizeEmployeePageResponse(res);
+        const inactive = (pageData.content as Employee[]).filter(isEmployeeInactive);
+        if (!cancelled) setInactiveEmployees(inactive);
+      } catch (error: any) {
+        if (!cancelled) {
+          showSnackbar(error.message || "Failed to load previous employees", "error");
+        }
+      } finally {
+        if (!cancelled) setInactiveEmployeesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previouslyWorked, isEditing]);
+
   const getSortIcon = (column: string) => {
     const sortCriterion = sortCriteria.find(s => s.field === column);
     if (!sortCriterion) return null;
@@ -704,11 +737,15 @@ export default function EmployeeManagement() {
     setManualEmployeeId("");
     setSelectedEmployee(null);
     setEmpGenerationFlow(employeeIdConfig?.configured ? "continue" : "new");
+    setPreviouslyWorked(false);
+    setPreviousEmployeeId("");
   };
 
   const handleOpenAddDialog = () => {
     setIsEditing(false);
     resetForm();
+    setPreviouslyWorked(false);
+    setPreviousEmployeeId("");
     setEmployeeDialogOpen(true);
     loadEmployeeIdConfig();
   };
@@ -795,12 +832,19 @@ export default function EmployeeManagement() {
           adminRemarks: selectedEmployee?.adminRemarks,
           idCardNo: selectedEmployee?.idCardNo,
           midNo: selectedEmployee?.midNo,
-          oldIdNo: selectedEmployee?.oldIdNo,
+          oldIdNo: selectedEmployee?.oldIdNo || selectedEmployee?.employeeId,
         });
         showSnackbar("Employee updated successfully!", "success");
       } else {
         const employeeId = await getEmployeeIdForCreation();
-        const payload = {
+        if (previouslyWorked && !previousEmployeeId) {
+          showSnackbar(
+            "Please select the previous employee record (old inactive employee) for the rejoin.",
+            "error",
+          );
+          return;
+        }
+        const payload: any = {
           firstName: formData.name,
           emailAddress: formData.emailAddress,
           joiningDate: formData.joiningDate,
@@ -813,7 +857,11 @@ export default function EmployeeManagement() {
           employeeGroupId: formData.employeeGroupId,
           template: formData.templateId,
           midNo: employeeId,
+          previouslyWorked: Boolean(previouslyWorked),
         };
+        if (previouslyWorked) {
+          payload.previousEmployeeId = previousEmployeeId;
+        }
         await employeeService.createEmployee(payload);
         showSnackbar(
           `Employee Created! ID: ${employeeId}. Welcome email sent to ${formData.emailAddress}`,
@@ -952,34 +1000,34 @@ export default function EmployeeManagement() {
     });
   };
 
-  const handleReactivateEmployee = async (id: string, name: string) => {
-    showConfirmDialog({
-      title: "Reactivate Employee",
-      message: `Reactivate "${name}"? The employee will be restored to active status.`,
-      confirmText: "Reactivate",
-      cancelText: "Cancel",
-      onConfirm: async () => {
-        showSpinner();
-        try {
-          const updated: EmployeeSummaryResponse =
-            await employeeService.reactivateEmployee(id);
-          showSnackbar(
-            `"${updated?.name ?? name}" has been reactivated.`,
-            "success",
-          );
-          await employeeService.updateAdminInfo(id, { relievedDate: "" });
-          getEmployees();
-        } catch (error: any) {
-          showSnackbar(
-            error.message || "Failed to reactivate employee.",
-            "error",
-          );
-        } finally {
-          hideSpinner();
-        }
-      },
-    });
-  };
+  // const handleReactivateEmployee = async (id: string, name: string) => {
+  //   showConfirmDialog({
+  //     title: "Reactivate Employee",
+  //     message: `Reactivate "${name}"? The employee will be restored to active status.`,
+  //     confirmText: "Reactivate",
+  //     cancelText: "Cancel",
+  //     onConfirm: async () => {
+  //       showSpinner();
+  //       try {
+  //         const updated: EmployeeSummaryResponse =
+  //           await employeeService.reactivateEmployee(id);
+  //         showSnackbar(
+  //           `"${updated?.name ?? name}" has been reactivated.`,
+  //           "success",
+  //         );
+  //         await employeeService.updateAdminInfo(id, { relievedDate: "" });
+  //         getEmployees();
+  //       } catch (error: any) {
+  //         showSnackbar(
+  //           error.message || "Failed to reactivate employee.",
+  //           "error",
+  //         );
+  //       } finally {
+  //         hideSpinner();
+  //       }
+  //     },
+  //   });
+  // };
 
   const openDeactivateDialog = (employee: Employee) => {
     setRelievingDialogEmployee(employee);
@@ -1741,21 +1789,7 @@ export default function EmployeeManagement() {
                         </IconButton>
                       </Tooltip>
                     )}
-                    {isEmployeeInactive(employee) ? (
-                      <Tooltip title="Reactivate">
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            handleReactivateEmployee(employee.id, employee.name)
-                          }
-                        >
-                          <HowToRegOutlined
-                            className="!w-4"
-                            sx={{ color: "#16a34a" }}
-                          />
-                        </IconButton>
-                      </Tooltip>
-                    ) : (
+                    {!isEmployeeInactive(employee) && (
                       <Tooltip title="Deactivate">
                         <IconButton
                           size="small"
@@ -1767,6 +1801,20 @@ export default function EmployeeManagement() {
                           />
                         </IconButton>
                       </Tooltip>
+                    // ) : (
+                    //   <Tooltip title="Reactivate">
+                    //     <IconButton
+                    //       size="small"
+                    //       onClick={() =>
+                    //         handleReactivateEmployee(employee.id, employee.name)
+                    //       }
+                    //     >
+                    //       <HowToRegOutlined
+                    //         className="!w-4"
+                    //         sx={{ color: "#16a34a" }}
+                    //       />
+                    //     </IconButton>
+                    //   </Tooltip>
                     )}
                   </div>
                 </TableCell>
@@ -2003,7 +2051,55 @@ export default function EmployeeManagement() {
                     setFormData({ ...formData, mobileNumber: e.target.value })
                   }
                 />
-
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={previouslyWorked}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setPreviouslyWorked(checked);
+                        if (!checked) setPreviousEmployeeId("");
+                      }}
+                    />
+                  }
+                  label="Previously worked here (rejoining employee)"
+                />
+                {previouslyWorked && (
+                  <Autocomplete
+                    fullWidth
+                    loading={inactiveEmployeesLoading}
+                    options={inactiveEmployees}
+                    getOptionLabel={(option) =>
+                      `${option.name ?? ""} (${option.employeeId ?? ""})`
+                    }
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    value={
+                      inactiveEmployees.find((emp) => emp.id === previousEmployeeId) || null
+                    }
+                    onChange={(_, newValue) => {
+                      setPreviousEmployeeId(newValue?.id || "");
+                      // Optionally prefill some basic info for the rejoin
+                      if (newValue) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          name: prev.name || newValue.name || "",
+                          emailAddress: prev.emailAddress || newValue.emailAddress || "",
+                        }));
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Previous Employee ID (old, inactive record)"
+                        variant="outlined"
+                        required
+                        className="!text-[12px]"
+                        helperText="The rejoin is created as a new employee with a new ID. The old record is left untouched."
+                      />
+                    )}
+                    sx={masterSx}
+                  />
+                )}
               </>
             )}
             <Autocomplete

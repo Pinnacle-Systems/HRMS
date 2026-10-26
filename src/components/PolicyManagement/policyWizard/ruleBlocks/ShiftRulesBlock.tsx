@@ -4,7 +4,7 @@ import { helperSx } from '../../const';
 import type { RuleBlockProps } from './types';
 
 export const ShiftRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) => (
-  <Grid container spacing={2}>
+  <Grid container spacing={4}>
     <Grid size={{ xs: 12 }}>
       <Typography variant="subtitle2" color="info" className='!mb-1'>Timing Thresholds</Typography>
     </Grid>
@@ -12,20 +12,26 @@ export const ShiftRulesBlock: React.FC<RuleBlockProps> = ({ localConfig, set }) 
       <TextField fullWidth size="small" type="number" label="Late Penalty After (min)" value={localConfig.shiftConfig?.latePenaltyAfterMinutes ?? 30} onChange={(e) => set('shiftConfig.latePenaltyAfterMinutes', parseInt(e.target.value) || 0)} />
     </Grid>
     <Grid size={{ xs: 12, md: 4 }}>
-      <TextField fullWidth size="small" type="number" label="Half Day Threshold (min)" value={localConfig.shiftConfig?.halfDayMinutes ?? 240} onChange={(e) => set('shiftConfig.halfDayMinutes', parseInt(e.target.value) || 0)} helperText="Min hours for half day" sx={helperSx} />
+      <TextField fullWidth size="small" type="number" label="Half Day Threshold (min)" value={localConfig.shiftConfig?.halfDayMinutes ?? 240} onChange={(e) => set('shiftConfig.halfDayMinutes', parseInt(e.target.value) || 0)} sx={helperSx} />
     </Grid>
     <Grid size={{ xs: 12, md: 4 }}>
-      <TextField fullWidth size="small" type="number" label="Full Day Threshold (min)" value={localConfig.shiftConfig?.fullDayMinutes ?? 480} onChange={(e) => set('shiftConfig.fullDayMinutes', parseInt(e.target.value) || 0)} helperText="Min hours for full day" sx={helperSx} />
+      <TextField fullWidth size="small" type="number" label="Full Day Threshold (min)" value={localConfig.shiftConfig?.fullDayMinutes ?? 480} onChange={(e) => set('shiftConfig.fullDayMinutes', parseInt(e.target.value) || 0)} sx={helperSx} />
     </Grid>
-     <Grid size={{ xs: 12, md: 3 }}>
-      <TextField fullWidth size="small" type="number" label="Permission Allowed Per Month (hrs)" value={localConfig.shiftConfig?.permissionAllowedHoursPerMonth ?? 180} onChange={(e) => set('shiftConfig.permissionAllowedHoursPerMonth', parseInt(e.target.value) || 0)} helperText="Min hours for Permission" sx={helperSx} />
+    <Grid size={{ xs: 12, md: 3 }}>
+      <TextField fullWidth size="small" type="number" label="Permission Allowed Per Month (hrs)" value={localConfig.shiftConfig?.permissionAllowedHoursPerMonth ?? 180} onChange={(e) => set('shiftConfig.permissionAllowedHoursPerMonth', parseInt(e.target.value) || 0)} sx={helperSx} />
     </Grid>
-     <Grid size={{ xs: 12, md: 3 }}>
-      <TextField fullWidth size="small" type="number" label="Late Checkin Days Threshold" value={localConfig.shiftConfig?.lateCheckinDaysThreshold ?? 3} onChange={(e) => set('shiftConfig.lateCheckinDaysThreshold', parseInt(e.target.value) || 0)} helperText="Min hours for Permission" sx={helperSx} />
-    </Grid>
-     <Grid size={{ xs: 12, md: 3 }}>
-      <TextField fullWidth size="small" type="number" label="Salary Deduction Days" value={localConfig.shiftConfig?.salaryDeductionDays ?? 1} onChange={(e) => set('shiftConfig.salaryDeductionDays', parseInt(e.target.value) || 0)} helperText="Min hours for Permission" sx={helperSx} />
-    </Grid>
+    {
+      !!localConfig.shiftConfig?.salaryDeductionEnabled && (
+        <>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <TextField fullWidth size="small" type="number" label="Late Checkin Days Threshold" value={localConfig.shiftConfig?.lateCheckinDaysThreshold ?? 3} onChange={(e) => set('shiftConfig.lateCheckinDaysThreshold', parseInt(e.target.value) || 0)} sx={helperSx} />
+          </Grid>
+          <Grid size={{ xs: 12, md: 3 }}>
+            <TextField fullWidth size="small" type="number" label="Salary Deduction Days" value={localConfig.shiftConfig?.salaryDeductionDays ?? 1} onChange={(e) => set('shiftConfig.salaryDeductionDays', parseInt(e.target.value) || 0)} sx={helperSx} />
+          </Grid>
+        </>
+      )
+    }
     <Grid size={{ xs: 12, md: 3 }}>
       <FormControlLabel control={<Switch checked={!!localConfig.shiftConfig?.salaryDeductionEnabled} onChange={(e) => set('shiftConfig.salaryDeductionEnabled', e.target.checked)} />} label="Salary Deduction Enabled" />
     </Grid>

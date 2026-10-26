@@ -65,10 +65,10 @@ import {
   STATUS_CHIP_OPTIONS,
   inlineInputSx,
   punchTimeColor,
+  expandStatusFilter,
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
-import { branchService } from "../../../services/modules/branch";
-import type { Department, Branches, Employee } from "../../employees/type";
+import type { Department, Employee } from "../../employees/type";
 import dayjs from "dayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -87,6 +87,26 @@ import { useNavigate } from "react-router-dom";
 import { shiftService } from "../../../services/modules/shifts";
 import { pairMovements, type PairedMovement } from "../movement";
 import { permissionRequestService } from "../../../services/modules/permissionRequests";
+
+const buildStatusParam = (statusFilter: string): string[] | undefined => {
+  if (!statusFilter) return undefined;
+  const expanded = expandStatusFilter(statusFilter);
+  if (expanded == null || expanded === "") return undefined;
+  const arr = Array.isArray(expanded)
+    ? (expanded as string[])
+    : String(expanded)
+      .split(",")
+      .map((s) => s.trim());
+  const cleaned = arr.filter(Boolean);
+  return cleaned.length > 0 ? cleaned : undefined;
+};
+
+const unitParam = (timeUnit: "min" | "hrs"): "minutes" | "hours" =>
+  timeUnit === "hrs" ? "hours" : "minutes";
+
+const displayUnitValue = (
+  value: number | null | undefined,
+): string | number => (value == null || (value as any) === "" ? "-" : value);
 
 function InlineDisplay({
   value,
@@ -177,7 +197,7 @@ export function DailyRegister() {
     sessionStorage.getItem("dailyRegisterDate") ?? dayjs().format("YYYY-MM-DD");
   const [date, setDate] = useState(getInitialRegisterDate);
   const [departmentId, setDepartmentId] = useState("");
-  const [branchId, setBranchId] = useState("");
+  // const [branchId, setBranchId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [employees, setEmployees] = useState<RegisterEmployee[]>([]);
   const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
@@ -185,20 +205,18 @@ export function DailyRegister() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [branches, setBranches] = useState<Branches[]>([]);
+  // const [branches, setBranches] = useState<Branches[]>([]);
   const { session } = useAuth();
   const navigate = useNavigate();
-
-  // Selection for bulk actions
+  const [timeUnit, setTimeUnit] = useState<"min" | "hrs">(
+    (sessionStorage.getItem("dailyRegisterTimeUnit") as "min" | "hrs") ?? "min",
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Inline edit tracking
   const [inlineEditInProgress, _setInlineEditInProgress] = useState<string | null>(null);
 
-  // Which inline cell is currently open for editing.
   const [editingField, setEditingField] = useState<string | null>(null);
 
-  // Local draft value held while the picker is open.
   const [draftDateTime, setDraftDateTime] = useState<any | null>(null);
 
   const [midNoWarningDialog, setMidNoWarningDialog] = useState(false);
@@ -231,11 +249,18 @@ export function DailyRegister() {
   const [movementRows, setMovementRows] = useState<PairedMovement[]>([]);
   const [movementSavingIdx, setMovementSavingIdx] = useState<number | null>(null);
 
+  const [groupByDepartment, setGroupByDepartment] = useState<boolean>(
+    () => sessionStorage.getItem("dailyRegisterGroupByDept") === "true",
+  );
+
+  useEffect(() => {
+    sessionStorage.setItem("dailyRegisterGroupByDept", String(groupByDepartment));
+  }, [groupByDepartment]);
+
   useEffect(() => {
     try {
       localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(visibleColumns));
     } catch {
-      // ignore storage errors (quota / private mode)
     }
   }, [visibleColumns]);
 
@@ -247,13 +272,12 @@ export function DailyRegister() {
         const map: Record<string, string> = {};
         (Array.isArray(list) ? list : []).forEach((s: any) => {
           if (s.shiftCode) {
-            map[s.shiftCode] = s.color || "#3b82f6"; // fallback color
+            map[s.shiftCode] = s.color || "#3b82f6";
           }
         });
         setShiftColorMap(map);
       })
       .catch(() => {
-        // non-blocking — shift colors are cosmetic
       });
   }, []);
 
@@ -293,7 +317,6 @@ export function DailyRegister() {
       return;
     }
 
-    // Format as wall-clock digits without timezone offset
     const formattedValue = value.format("YYYY-MM-DDTHH:mm:ss");
 
     let checkInTime: string | null | undefined = undefined;
@@ -307,7 +330,7 @@ export function DailyRegister() {
 
     showSpinner();
     try {
-      const updated = await biometricService.updateStagedPunch(
+      const res: any = await biometricService.updateStagedPunch(
         emp.employeeId,
         dayjs(emp.checkInDate || emp.checkOutDate || date).format("YYYY-MM-DD"),
         {
@@ -317,29 +340,60 @@ export function DailyRegister() {
         },
       );
 
-      // Update local state with server response
+      // Server responds { success, message, data: {...}, timestamp }
+      const updated = res?.data?.data ?? res?.data ?? res;
+
       setEmployees((prev) =>
-        prev.map((e) =>
-          e.employeeId === emp.employeeId
-            ? {
-              ...e,
-              checkInTime: updated.checkInTime ?? e.checkInTime,
-              checkOutTime: updated.checkOutTime ?? e.checkOutTime,
-              checkInDate: updated.checkInTime
+        prev.map((e): RegisterEmployee => {
+          if (e.employeeId !== emp.employeeId) return e;
+
+          return {
+            ...e,
+
+            // ── Punch times ──────────────────────────────────────────
+            checkInTime: updated.checkInTime ?? e.checkInTime ?? null,
+            checkOutTime: updated.checkOutTime ?? e.checkOutTime ?? null,
+
+            // ── Punch dates (server sends checkInDate / checkOutDate) ─
+            checkInDate:
+              updated.checkInDate ??
+              (updated.checkInTime
                 ? dayjs(updated.checkInTime).format("YYYY-MM-DD")
-                : e.checkInDate,
-              checkOutDate: updated.checkOutTime
+                : e.checkInDate),
+            checkOutDate:
+              updated.checkOutDate ??
+              (updated.checkOutTime
                 ? dayjs(updated.checkOutTime).format("YYYY-MM-DD")
-                : e.checkOutDate,
-              status: updated.status as any,
-              workedMinutes: updated.workedMinutes,
-              lateMinutes: updated.lateMinutes,
-              earlyOutMinutes: updated.earlyOutMinutes,
-              overtimeMinutes: updated.overtimeMinutes,
-            }
-            : e,
-        ),
+                : e.checkOutDate),
+
+            // ── Descriptive fields (may have changed server-side) ────
+            employeeName: updated.employeeName ?? e.employeeName,
+            employeeCode: updated.employeeCode ?? e.employeeCode,
+            department: updated.department ?? e.department,
+            designation: updated.designation ?? e.designation,
+            template: updated.template ?? e.template,
+
+            // ── Shift ────────────────────────────────────────────────
+            shiftCode: updated.shiftCode ?? e.shiftCode,
+            shiftStart: updated.shiftStart ?? e.shiftStart,
+            shiftEnd: updated.shiftEnd ?? e.shiftEnd,
+
+            // ── Status ───────────────────────────────────────────────
+            status: (updated.status ?? e.status) as any,
+
+            // ── Computed minutes ─────────────────────────────────────
+            workedMinutes: updated.workedMinutes ?? e.workedMinutes,
+            lateMinutes: updated.lateMinutes ?? e.lateMinutes,
+            earlyOutMinutes: updated.earlyOutMinutes ?? e.earlyOutMinutes,
+            overtimeMinutes: updated.overtimeMinutes ?? e.overtimeMinutes,
+
+            // ── Movement ─────────────────────────────────────────────
+            movement: updated.movement ?? e.movement,
+            // remarks: updated.remarks ?? e.remarks,
+          };
+        }),
       );
+
       showSnackbar("Punch updated", "success");
     } catch (err: any) {
       showSnackbar(
@@ -591,6 +645,18 @@ export function DailyRegister() {
     fetchProcessStatus();
   }, [date, departmentId]);
 
+  const flattenGroupedStagedPunches = (data: any): StagedPunch[] => {
+    const root = data?.data ?? data;
+    if (!Array.isArray(root)) return [];
+
+    const looksGrouped = root.length > 0 && root[0]?.records !== undefined;
+    if (!looksGrouped) return root as StagedPunch[];
+
+    return root.flatMap((group: any) =>
+      Array.isArray(group?.records) ? group.records : [],
+    );
+  };
+
   // Load staged punches from Redis
   const loadStagedPunches = useCallback(async () => {
     setLoadingStagedPunches(true);
@@ -599,9 +665,15 @@ export function DailyRegister() {
       const data = await biometricService.getStagedPunches({
         from: date,
         to: date,
-        status: statusFilter == "missed_out" ? "checked_in" : statusFilter || undefined
+        // status: statusFilter == "missed_out" ? "checked_in" : statusFilter || undefined
+        status: buildStatusParam(statusFilter),
+        unit: unitParam(timeUnit),
+        groupByDepartment
       });
-      const list = Array.isArray(data) ? data : [];
+      // const list = Array.isArray(data) ? data : [];
+      const list = groupByDepartment
+        ? flattenGroupedStagedPunches(data)
+        : (Array.isArray(data) ? data : []);
       setStagedPunches(list);
       setHasStagedPunches(list.length > 0);
       return list;
@@ -613,7 +685,7 @@ export function DailyRegister() {
     } finally {
       setLoadingStagedPunches(false);
     }
-  }, [date, statusFilter]);
+  }, [date, statusFilter, timeUnit, groupByDepartment]);
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
@@ -633,11 +705,19 @@ export function DailyRegister() {
           startDate: date,
           endDate: date,
           departmentId: departmentId === "All" ? undefined : departmentId,
-          branchId: branchId || undefined,
-          status: statusFilter || undefined,
+          // branchId: branchId || undefined,
+          status: buildStatusParam(statusFilter),
+          unit: unitParam(timeUnit),
+          groupByDepartment
         });
         const data = res?.data?.data ?? res?.data;
-        const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
+        // const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
+        let employeesData: RegisterEmployee[];
+        if (groupByDepartment && Array.isArray(data) && data[0]?.records !== undefined) {
+          employeesData = data.flatMap((g: any) => g.records ?? []);
+        } else {
+          employeesData = Array.isArray(data) ? data : (data?.content ?? []);
+        }
         setEmployees(employeesData);
         setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
       } else {
@@ -663,7 +743,6 @@ export function DailyRegister() {
           overtimeMinutes: s.overtimeMinutes,
           correctionPending: false,
           movement: s.movement ?? [],
-
         } as any));
         setEmployees(mapped);
         setTotal(mapped.length);
@@ -674,7 +753,7 @@ export function DailyRegister() {
       setLoading(false);
       hideSpinner();
     }
-  }, [date, departmentId, branchId, statusFilter, loadStagedPunches]);
+  }, [date, departmentId, statusFilter, loadStagedPunches, timeUnit, groupByDepartment]);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -705,9 +784,7 @@ export function DailyRegister() {
   });
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [employeesData, setEmployeesData] = useState<Employee[]>([]);
-  const [timeUnit, setTimeUnit] = useState<"min" | "hrs">(
-    (sessionStorage.getItem("dailyRegisterTimeUnit") as "min" | "hrs") ?? "min",
-  );
+
 
   useEffect(() => {
     sessionStorage.setItem("dailyRegisterTimeUnit", timeUnit);
@@ -752,21 +829,21 @@ export function DailyRegister() {
   useEffect(() => {
     Promise.all([
       departmentService.getActiveDepartments(),
-      branchService.getActiveBranches(),
+      // branchService.getActiveBranches(),
       biometricService.getAllDevices(),
-      employeeService.getEmployees({ includeInactive: true }),
+      employeeService.getEmployees({ includeActive: true }),
     ])
-      .then(([depRes, branRes, devRes, empRes]: any[]) => {
+      .then(([depRes, devRes, empRes]: any[]) => {
         setDepartments(
           Array.isArray(depRes.data?.content || depRes.data)
             ? depRes.data?.content || depRes.data
             : [],
         );
-        setBranches(
-          Array.isArray(branRes.data?.content || branRes.data)
-            ? branRes.data?.content || branRes.data
-            : [],
-        );
+        // setBranches(
+        //   Array.isArray(branRes.data?.content || branRes.data)
+        //     ? branRes.data?.content || branRes.data
+        //     : [],
+        // );
         setDevices(
           Array.isArray(devRes.data?.content || devRes.data || devRes)
             ? devRes.data?.content || devRes.data || devRes
@@ -1269,13 +1346,13 @@ export function DailyRegister() {
 
   const statCards = todaySummary
     ? [
-      { label: "Total", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
+      { label: "Total Employees", value: todaySummary.totalEmployees, color: "text-blue-600", border: "border-blue-500" },
       { label: "Present", value: todaySummary.present, color: "text-green-600", border: "border-green-500" },
       { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
       { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
       { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
-      { label: "Missed Punch", value: todaySummary.missedPunchCount, color: "text-cyan-600", border: "border-cyan-500" },
-      { label: "Irregular", value: todaySummary.irregular, color: "text-pink-600", border: "border-pink-500" },
+      // { label: "Missed Punch", value: todaySummary.missedPunchCount || todaySummary.checkedIn, color: "text-cyan-600", border: "border-cyan-500" },
+      { label: "Irregular", value: todaySummary.irregular || todaySummary.missedPunchCount, color: "text-pink-600", border: "border-pink-500" },
       { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
     ]
     : [];
@@ -1348,11 +1425,11 @@ export function DailyRegister() {
     );
 
     let employeesToCheck = employeesData;
-    if (branchId) {
-      employeesToCheck = employeesData.filter(
-        (emp: any) => emp.branchId === branchId || emp.branch?.id === branchId
-      );
-    }
+    // if (branchId) {
+    //   employeesToCheck = employeesData.filter(
+    //     (emp: any) => emp.branchId === branchId || emp.branch?.id === branchId
+    //   );
+    // }
 
     const employeesWithoutMid = employeesToCheck.filter(
       (emp: any) => !emp.midNo || emp.midNo.trim() === ""
@@ -1490,8 +1567,9 @@ export function DailyRegister() {
         startDate: date,
         endDate: date,
         departmentId: departmentId === "All" ? undefined : departmentId || undefined,
-        branchId: branchId || undefined,
-        status: statusFilter || undefined,
+        // branchId: branchId || undefined,
+        status: buildStatusParam(statusFilter),
+        unit: unitParam(timeUnit),
       });
       const data = response?.data?.data ?? response?.data;
       const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
@@ -1520,16 +1598,18 @@ export function DailyRegister() {
     return rawStatus;
   };
 
-  // const hasIrregular = employees.some(
-  //   (emp) => ATTENDANCE_STATUS_LABELS[emp.status]?.toLowerCase() === "irregular",
-  // );
-  const hasIrregular = employees.some(
-    (emp) => getDisplayStatus(emp) === "irregular",
-  );
-
-  const hasMissedPunch = employees.some(
-    (emp) => ATTENDANCE_STATUS_LABELS[emp.status]?.toLowerCase() === "checked_in",
-  );
+  const hasIrregular = employees.some((emp) => {
+    const raw = (emp.status ?? "").toString().toLowerCase();
+    const display = getDisplayStatus(emp);
+    return (
+      raw === "irregular" ||
+      raw === "missed_punch" ||
+      raw === "checked_in" ||
+      display === "irregular" ||
+      display === "lateinearlyout" ||
+      display === "earlyout"
+    );
+  });
 
   const openMovements = (emp: RegisterEmployee) => {
     setMovementEmployee(emp);
@@ -1566,6 +1646,7 @@ export function DailyRegister() {
           destination: "Biometric Movement",
           reason: value,
           generateGatePassSlip: true,
+          hours: ""
         });
         permissionRequestId = created?.id ?? null;
       }
@@ -1669,7 +1750,7 @@ export function DailyRegister() {
       </div>
 
       {statCards.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-8 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
           {statCards.map(({ label, value, color, border }) => (
             <div key={label} className={`border ${border} rounded-lg p-1 text-center`}>
               <div className={`text-[16px] font-bold ${color}`}>{value ? value : 0}</div>
@@ -1686,8 +1767,11 @@ export function DailyRegister() {
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
               value={date ? dayjs(date) : null}
-              onChange={(newValue) => {
-                setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+              onChange={(newValue, context) => {
+                // setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+                if (context.validationError == null) {
+                  setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+                }
               }}
               format="DD/MM/YYYY"
               maxDate={dayjs()}
@@ -1710,7 +1794,7 @@ export function DailyRegister() {
             </Select>
           </FormControl>
 
-          <FormControl sx={{ minWidth: 150 }}>
+          {/* <FormControl sx={{ minWidth: 150 }}>
             <InputLabel>Branch</InputLabel>
             <Select
               value={branchId}
@@ -1725,7 +1809,7 @@ export function DailyRegister() {
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
+          </FormControl> */}
 
           {todayHoliday && (
             <div className="bg-primary-100 !whitespace-nowrap !px-2 !py-2 rounded-md">
@@ -1749,17 +1833,27 @@ export function DailyRegister() {
             onChange={(_, val) => val && setTimeUnit(val)}
             aria-label="time display unit"
           >
-            <ToggleButton value="min" className="text-gray-800" sx={{ px: 1.5, py: 0.25, textTransform: "none", fontSize: 12 }}>
+            <ToggleButton value="min" className="text-gray-800 " sx={{
+              px: 1.5, py: 0.25, textTransform: "none", fontSize: 12, "&.Mui-selected": {
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color: "#fff",
+              },
+            }}>
               min
             </ToggleButton>
-            <ToggleButton value="hrs" className="text-gray-800" sx={{ px: 1.5, py: 0.25, textTransform: "none", fontSize: 12 }}>
+            <ToggleButton value="hrs" className="text-gray-800" sx={{
+              px: 1.5, py: 0.25, textTransform: "none", fontSize: 12, "&.Mui-selected": {
+                background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                color: "#fff",
+              },
+            }}>
               hrs
             </ToggleButton>
           </ToggleButtonGroup>
           <div className="flex items-center gap-1 flex-wrap">
             {STATUS_CHIP_OPTIONS.map((o) => {
               const isIrregularOption = o.value === "irregular" || o.value === "missed_out";
-              const shouldBlink = isIrregularOption && (hasIrregular || hasMissedPunch) && statusFilter !== o.value;
+              const shouldBlink = isIrregularOption && (hasIrregular) && statusFilter !== o.value;
               return (
                 <Chip
                   key={o.value}
@@ -2289,16 +2383,16 @@ export function DailyRegister() {
                           )}
 
                           {showColumn("earlyOut") && (
-                            <TableCell>{formatMinutes(timeUnit, emp.earlyOutMinutes)}</TableCell>
+                            <TableCell>{displayUnitValue(emp.earlyOutMinutes)}</TableCell>
                           )}
                           {showColumn("late") && (
-                            <TableCell>{formatMinutes(timeUnit, emp.lateMinutes)}</TableCell>
+                            <TableCell>{displayUnitValue(emp.lateMinutes)}</TableCell>
                           )}
                           {showColumn("overtime") && (
-                            <TableCell>{formatMinutes(timeUnit, emp.overtimeMinutes)}</TableCell>
+                            <TableCell>{displayUnitValue(emp.overtimeMinutes)}</TableCell>
                           )}
                           {showColumn("worked") && (
-                            <TableCell>{formatMinutes(timeUnit, emp.workedMinutes)}</TableCell>
+                            <TableCell>{displayUnitValue(emp.workedMinutes)}</TableCell>
                           )}
 
                           {showColumn("movement") && (
@@ -2406,22 +2500,48 @@ export function DailyRegister() {
 
           {/* ── Vertical column filter ── */}
           <div className="border-l border-gray-200 flex items-start pt-2 px-1">
-            <Tooltip title="Show / hide columns" placement="left" arrow>
-              <button
-                type="button"
-                onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
-                className="flex flex-col items-center gap-1 px-1.5 py-2 rounded hover:bg-gray-100 text-gray-600"
-                aria-label="Column settings"
-              >
-                <ViewColumnOutlined fontSize="small" />
-                <span
-                  className="text-[10px] font-medium tracking-wide"
-                  style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+            <div className="flex flex-col items-center gap-2">
+              <Tooltip title="Show / hide columns" placement="left" arrow>
+                <button
+                  type="button"
+                  onClick={(e) => setColumnMenuAnchor(e.currentTarget)}
+                  className="flex flex-col items-center gap-1 px-1.5 py-2 rounded hover:bg-gray-100 text-gray-600"
+                  aria-label="Column settings"
                 >
-                  Columns
-                </span>
-              </button>
-            </Tooltip>
+                  <ViewColumnOutlined fontSize="small" />
+                  <span
+                    className="text-[10px] font-medium tracking-wide"
+                    style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                  >
+                    Columns
+                  </span>
+                </button>
+              </Tooltip>
+              <Tooltip
+                title={groupByDepartment ? "Ungroup by department" : "Group by department"}
+                placement="left"
+                arrow
+              >
+                <button
+                  type="button"
+                  onClick={() => setGroupByDepartment((v) => !v)}
+                  className={`flex flex-col items-center gap-1 px-1.5 py-2 rounded transition-colors ${groupByDepartment
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-gray-100 text-gray-600"
+                    }`}
+                  aria-label="Toggle group by department"
+                  aria-pressed={groupByDepartment}
+                >
+                  <GroupOutlined fontSize="small" />
+                  <span
+                    className="text-[10px] font-medium tracking-wide"
+                    style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}
+                  >
+                    Group by Dept
+                  </span>
+                </button>
+              </Tooltip>
+            </div>
 
             <Menu
               anchorEl={columnMenuAnchor}

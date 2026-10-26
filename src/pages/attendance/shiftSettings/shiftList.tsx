@@ -275,10 +275,8 @@ export const ShiftList = () => {
       };
 
       await shiftService.createShiftAdvancedConfig(shiftId, configData);
-      console.log(`Advanced config created for ${templateType}`);
     } catch (error: any) {
       console.error('Failed to create advanced config:', error);
-      // Don't block the main flow, just log the error
     }
   };
 
@@ -311,10 +309,8 @@ export const ShiftList = () => {
             ...config,
             advancedConfigs: updatedConfigs
           });
-          console.log(`Advanced config added for ${templateType}`);
         }
       } else {
-        // No config exists, create one
         await createAdvancedConfigForShift(shiftId, templateType);
       }
     } catch (error: any) {

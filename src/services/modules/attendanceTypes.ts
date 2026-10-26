@@ -377,6 +377,8 @@ export interface MusterQuery {
   year: number;
   departmentId?: string;
   branchId?: string;
+  sortBy?: string;
+  sortDir?: string;
 }
 
 export interface SummaryQuery {
@@ -692,6 +694,8 @@ export interface ExportMonthlyParams {
   departmentId?: string;
   branchId?: string;
   exportFormat?: string;
+  sortBy?: string;
+  sortDir?: string;
 }
 
 export interface ExportDailyParams {

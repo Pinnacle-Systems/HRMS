@@ -40,6 +40,7 @@ export interface EmployeeAsyncComboboxProps {
   size?: "small" | "medium";
   filters?: Partial<EmployeeListQuery>;
   includeInactive?: boolean;
+  includeActive?: boolean;
   pageSize?: number;
   selectedEmployee?: EmployeeSummaryResponse | null;
   getOptionDisabled?: (employee: EmployeeSummaryResponse) => boolean;
@@ -91,7 +92,7 @@ export const EmployeeAsyncCombobox = ({
   helperText,
   size = "medium",
   filters,
-  includeInactive = false,
+  includeActive = true,
   pageSize = 20,
   selectedEmployee,
   getOptionDisabled,
@@ -144,7 +145,7 @@ export const EmployeeAsyncCombobox = ({
           size: pageSize,
           sort: "name,ASC",
           search,
-          includeInactive,
+          includeActive,
           ...filters,
         });
         const employeePage = normalizeEmployeePageResponse(response);
@@ -169,7 +170,7 @@ export const EmployeeAsyncCombobox = ({
         setLoading(false);
       }
     },
-    [filters, includeInactive, pageSize],
+    [filters, includeActive, pageSize],
   );
 
   useLayoutEffect(() => {

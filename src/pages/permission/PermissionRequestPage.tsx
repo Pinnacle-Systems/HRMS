@@ -47,8 +47,7 @@ import {
   type PermissionRequestDto,
   type PermissionType,
 } from "../../services/modules/permissionRequests";
-import { formatApiTime } from "../../utils/dateFormatter";
-
+import { formatDateTime } from "../../utils/dateFormatter";
 
 type PermissionRequest = {
   id: string;
@@ -68,6 +67,9 @@ type PermissionRequest = {
   gatePassQr?: string;
   qrToken?: string;
   qrGeneratedAt?: string;
+  hours?: string;
+  exceededMonthlyCap?: boolean;
+  autoPosted?: boolean;
 };
 
 type PermissionForm = Omit<
@@ -80,7 +82,12 @@ type PermissionForm = Omit<
   | "qrGeneratedAt"
   | "employeeCode"
   | "department"
+  | "exceededMonthlyCap"
+  | "autoPosted"
 >;
+
+/** Mirrors the API's TimeOfDay shape. */
+type ApiTime = { hour: number; minute: number; second: number; nano: number };
 
 const emptyForm = (
   requestDate: string,
@@ -94,6 +101,7 @@ const emptyForm = (
   fromTime: "",
   toTime: "",
   destination: "",
+  hours: "",
   reason: "",
   gatePassEnabled: false,
 });
@@ -104,6 +112,37 @@ const getToday = () => {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+/** Converts a "HH:mm" string into the API's TimeOfDay object. */
+const toApiTime = (value: string): ApiTime | undefined => {
+  if (!value) return undefined;
+  const [rawHour, rawMinute] = value.split(":");
+  const hour = Number(rawHour);
+  const minute = Number(rawMinute);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return undefined;
+  return { hour, minute, second: 0, nano: 0 };
+};
+
+/**
+ * Normalises whatever the API returns for a time field. The spec shows
+ * objects ({hour, minute, second, nano}), but some endpoints return
+ * strings — handle both.
+ */
+const normaliseApiTime = (value: unknown): string => {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const [h, m] = value.split(":");
+    if (h === undefined || m === undefined) return value;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  if (typeof value === "object") {
+    const obj = value as Partial<ApiTime>;
+    if (typeof obj.hour === "number" && typeof obj.minute === "number") {
+      return `${String(obj.hour).padStart(2, "0")}:${String(obj.minute).padStart(2, "0")}`;
+    }
+  }
+  return "";
 };
 
 const mapPermissionRequest = (request: PermissionRequestDto): PermissionRequest => {
@@ -117,8 +156,8 @@ const mapPermissionRequest = (request: PermissionRequestDto): PermissionRequest 
     department: request.department,
     type: request.permissionType === "personal_work" ? "PERSONAL" : "OFFICIAL",
     requestDate: request.date,
-    fromTime: formatApiTime(request.departureTime),
-    toTime: formatApiTime(request.expectedReturnTime),
+    fromTime: normaliseApiTime(request.departureTime),
+    toTime: normaliseApiTime(request.expectedReturnTime),
     destination: request.destination,
     reason: request.reason,
     requestedAt: request.createdAt,
@@ -130,6 +169,9 @@ const mapPermissionRequest = (request: PermissionRequestDto): PermissionRequest 
       : undefined,
     qrToken: request.qrToken,
     qrGeneratedAt: request.qrGeneratedAt,
+    hours: request.hours != null ? String(request.hours) : undefined,
+    exceededMonthlyCap: (request as any).exceededMonthlyCap,
+    autoPosted: (request as any).autoPosted,
   };
 };
 
@@ -151,6 +193,22 @@ const formatTime = (value: string) => {
   return parsed.isValid() ? parsed.format("hh:mm A") : value;
 };
 
+/**
+ * Computes the duration between two "HH:mm" strings.
+ * Returns an empty string if either value is missing/invalid or the
+ * return time is not after the departure time.
+ * Format: "X.XX" hours (2 decimals) — e.g. "1.50" for 1h 30m.
+ */
+const computeHrs = (from: string, to: string) => {
+  if (!from || !to) return "";
+  const start = dayjs(`1970-01-01T${from}`);
+  const end = dayjs(`1970-01-01T${to}`);
+  if (!start.isValid() || !end.isValid()) return "";
+  const minutes = end.diff(start, "minute");
+  if (minutes <= 0) return "";
+  return (minutes / 60).toFixed(2);
+};
+
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (character) => {
     const entities: Record<string, string> = {
@@ -162,6 +220,23 @@ const escapeHtml = (value: string) =>
     };
     return entities[character];
   });
+
+/** Extracts a user-facing error message from an unknown thrown value. */
+const extractErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === "object" && error !== null) {
+    const anyErr = error as any;
+    const apiMessage =
+      anyErr?.response?.data?.message ||
+      anyErr?.response?.data?.error ||
+      anyErr?.data?.message;
+    if (typeof apiMessage === "string" && apiMessage.trim()) return apiMessage;
+    if (typeof anyErr?.message === "string" && anyErr.message.trim()) {
+      return anyErr.message;
+    }
+  }
+  if (error instanceof Error) return error.message;
+  return fallback;
+};
 
 export default function PermissionRequestPage() {
   const { session } = useAuth();
@@ -200,9 +275,6 @@ export default function PermissionRequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestError, setRequestError] = useState("");
-  // const [qrTokenInput, setQrTokenInput] = useState("");
-  // const [qrValidation, setQrValidation] = useState<PermissionQrValidation | null>(null);
-  // const [validatingQr, setValidatingQr] = useState(false);
   const [downloadingSlip, setDownloadingSlip] = useState(false);
 
   const loadRequests = useCallback(async (requestPage = page, requestSize = limit) => {
@@ -221,9 +293,10 @@ export default function PermissionRequestPage() {
       setTotalRequests(response.totalElements);
     } catch (error) {
       setRequestError(
-        error instanceof Error
-          ? `Could not load permission requests: ${error.message}`
-          : "Could not load permission requests.",
+        `Could not load permission requests: ${extractErrorMessage(
+          error,
+          "Unknown error",
+        )}`,
       );
       setRequests([]);
       setTotalRequests(0);
@@ -254,9 +327,10 @@ export default function PermissionRequestPage() {
       setSelectedRequest(mapPermissionRequest(details));
     } catch (error) {
       showSnackbar(
-        error instanceof Error
-          ? `Could not load permission request: ${error.message}`
-          : "Could not load permission request.",
+        `Could not load permission request: ${extractErrorMessage(
+          error,
+          "Unknown error",
+        )}`,
         "error",
       );
     }
@@ -273,9 +347,10 @@ export default function PermissionRequestPage() {
       showSnackbar("Gate-pass slip downloaded.", "success");
     } catch (error) {
       showSnackbar(
-        error instanceof Error
-          ? `Could not download the gate-pass slip: ${error.message}`
-          : "Could not download the gate-pass slip.",
+        `Could not download the gate-pass slip: ${extractErrorMessage(
+          error,
+          "Unknown error",
+        )}`,
         "error",
       );
     } finally {
@@ -283,27 +358,20 @@ export default function PermissionRequestPage() {
     }
   };
 
-  // const validateQrToken = async (event: FormEvent<HTMLFormElement>) => {
-  //   event.preventDefault();
-  //   const token = qrTokenInput.trim();
-  //   if (!token) return;
-
-  //   setValidatingQr(true);
-  //   setQrValidation(null);
-  //   try {
-  //     const result = await permissionRequestService.validateQr(token);
-  //     setQrValidation(result);
-  //   } catch (error) {
-  //     showSnackbar(
-  //       error instanceof Error
-  //         ? `Could not validate the QR reference: ${error.message}`
-  //         : "Could not validate the QR reference.",
-  //       "error",
-  //     );
-  //   } finally {
-  //     setValidatingQr(false);
-  //   }
-  // };
+  /** Client-side overlap check against already-loaded requests. */
+  const findOverlap = (candidate: PermissionForm): PermissionRequest | undefined => {
+    if (!candidate.employeeId || !candidate.requestDate) return undefined;
+    if (!candidate.fromTime || !candidate.toTime) return undefined;
+    return requests.find(
+      (r) =>
+        r.employeeId === candidate.employeeId &&
+        r.requestDate === candidate.requestDate &&
+        r.fromTime &&
+        r.toTime &&
+        r.fromTime < candidate.toTime &&
+        r.toTime > candidate.fromTime,
+    );
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -314,8 +382,30 @@ export default function PermissionRequestPage() {
       );
       return;
     }
-    if (form.toTime <= form.fromTime) {
+    if (!form.requestDate) {
+      showSnackbar("Select the date of the permission request.", "error");
+      return;
+    }
+
+    // Times are optional. If both are provided, the return must be after departure.
+    if (form.fromTime && form.toTime && form.toTime <= form.fromTime) {
       showSnackbar("Return time must be later than departure time.", "error");
+      return;
+    }
+
+    // Client-side early warning; the server enforces this authoritatively.
+    const overlap = findOverlap(form);
+    if (overlap) {
+      showSnackbar(
+        `This time window overlaps an existing request (${overlap.requestNumber || overlap.id}) for that employee on that date.`,
+        "error",
+      );
+      return;
+    }
+
+    const hoursNumber = form.hours ? Number(form.hours) : undefined;
+    if (hoursNumber !== undefined && (!Number.isFinite(hoursNumber) || hoursNumber <= 0)) {
+      showSnackbar("Hrs must be a positive number.", "error");
       return;
     }
 
@@ -323,13 +413,15 @@ export default function PermissionRequestPage() {
     try {
       const created = await permissionRequestService.createPermission({
         employeeId: form.employeeId,
-        permissionType: form.type === "PERSONAL" ? "personal_work" : "official_work",
+        permissionType:
+          form.type === "PERSONAL" ? "personal_work" : "official_work",
         date: form.requestDate,
-        departureTime: `${form.fromTime}:00`,
-        expectedReturnTime: `${form.toTime}:00`,
+        departureTime: form.fromTime ? toApiTime(form.fromTime) : undefined,
+        expectedReturnTime: form.toTime ? toApiTime(form.toTime) : undefined,
         destination: form.destination.trim(),
         reason: form.reason.trim(),
         generateGatePassSlip: form.gatePassEnabled,
+        hours: hoursNumber,
       });
       const request = mapPermissionRequest(created);
       setForm(
@@ -347,18 +439,29 @@ export default function PermissionRequestPage() {
       } else {
         setPage(0);
       }
-      if (request.gatePassEnabled) {
-        setSelectedRequest(request);
-        showSnackbar("Permission request submitted and gate-pass slip generated.", "success");
+
+      if (request.exceededMonthlyCap) {
+        showSnackbar(
+          "Request submitted, but it exceeds the monthly permission allowance. HR will review it.",
+          "warning",
+        );
+      } else if (request.gatePassEnabled) {
+        showSnackbar(
+          "Permission request submitted and gate-pass slip generated.",
+          "success",
+        );
       } else {
         showSnackbar("Permission request submitted.", "success");
       }
+
+      if (request.gatePassEnabled) {
+        setSelectedRequest(request);
+      }
       setTab(1);
     } catch (error) {
+      // The API returns 400 with a specific message for overlap / cap failures.
       showSnackbar(
-        error instanceof Error
-          ? `Could not save the permission request: ${error.message}`
-          : "Could not save the permission request.",
+        extractErrorMessage(error, "Could not save the permission request."),
         "error",
       );
     } finally {
@@ -401,14 +504,15 @@ export default function PermissionRequestPage() {
               <dt>Employee</dt><dd>${escapeHtml(request.employeeName || employeeName)}</dd>
               <dt>Employee ID</dt><dd>${escapeHtml(request.employeeCode || request.employeeId || employeeId)}</dd>
               <dt>Date</dt><dd>${escapeHtml(formatDate(request.requestDate))}</dd>
-              <dt>Departure</dt><dd>${escapeHtml(formatTime(request.fromTime))}</dd>
-              <dt>Return</dt><dd>${escapeHtml(formatTime(request.toTime))}</dd>
+              <dt>Departure</dt><dd>${escapeHtml(formatTime(request.fromTime) || "—")}</dd>
+              <dt>Return</dt><dd>${escapeHtml(formatTime(request.toTime) || "—")}</dd>
+              <dt>Duration</dt><dd>${escapeHtml(request.hours || computeHrs(request.fromTime, request.toTime) || "—")} hrs</dd>
               <dt>Destination</dt><dd>${escapeHtml(request.destination)}</dd>
               <dt>Reason</dt><dd>${escapeHtml(request.reason)}</dd>
             </dl>
             <img src="${escapeHtml(request.gatePassQr)}" alt="Gate pass request QR code">
             <div class="status">Request reference only</div>
-            <div class="ref">${escapeHtml(request.requestNumber || request.id)}</div>
+            <div className="ref">${escapeHtml(request.requestNumber || request.id)}</div>
           </main>
           <script>window.onload = () => window.print();</script>
         </body>
@@ -497,8 +601,7 @@ export default function PermissionRequestPage() {
                       value={form.employeeId || null}
                       selectedEmployee={selectedEmployee}
                       onChange={(_selectedId, employee) => {
-                        const targetId =
-                          employee?.id || "";
+                        const targetId = employee?.id || "";
                         const targetName = employee
                           ? employee.name ||
                           employee.fullName ||
@@ -554,52 +657,63 @@ export default function PermissionRequestPage() {
                   minDate={dayjs(today)}
                   slotProps={{
                     textField: {
-                      required: true,
                       fullWidth: true,
                     },
                   }}
                 />
 
                 <TimePicker
-                  label="Departure time"
+                  label="Departure time (optional)"
                   value={
                     form.fromTime
                       ? dayjs(`1970-01-01T${form.fromTime}`)
                       : null
                   }
                   onChange={(newValue: any) => {
-                    updateForm(
-                      "fromTime",
-                      newValue ? newValue.format("HH:mm") : "",
-                    );
+                    const nextFrom = newValue ? newValue.format("HH:mm") : "";
+                    setForm((current) => ({
+                      ...current,
+                      fromTime: nextFrom,
+                      hours: computeHrs(nextFrom, current.toTime),
+                    }));
                   }}
                   ampm={false}
                   slotProps={{
                     textField: {
-                      required: true,
                       fullWidth: true,
                     },
                   }}
                 />
 
                 <TimePicker
-                  label="Expected return time"
+                  label="Expected return time (optional)"
                   value={
                     form.toTime ? dayjs(`1970-01-01T${form.toTime}`) : null
                   }
                   onChange={(newValue: any) => {
-                    updateForm(
-                      "toTime",
-                      newValue ? newValue.format("HH:mm") : "",
-                    );
+                    const nextTo = newValue ? newValue.format("HH:mm") : "";
+                    setForm((current) => ({
+                      ...current,
+                      toTime: nextTo,
+                      hours: computeHrs(current.fromTime, nextTo),
+                    }));
                   }}
                   ampm={false}
                   slotProps={{
                     textField: {
-                      required: true,
                       fullWidth: true,
                     },
                   }}
+                />
+
+                <TextField
+                  label="Hrs"
+                  value={form.hours}
+                  placeholder="Auto-calculated"
+                  onChange={(event) =>
+                    updateForm("hours", event.target.value)
+                  }
+                  helperText="Calculated from departure and return time when both are set."
                 />
 
                 <TextField
@@ -621,11 +735,8 @@ export default function PermissionRequestPage() {
                     updateForm("reason", event.target.value)
                   }
                   placeholder="Briefly explain why you need permission"
-                  slotProps={{ htmlInput: { maxLength: 500 } }}
                   required
-                  multiline
-                  minRows={3}
-                  className="sm:col-span-3"
+                  className="sm:col-span-2"
                 />
               </div>
 
@@ -707,7 +818,7 @@ export default function PermissionRequestPage() {
                     1
                   </span>
                   <p className="pt-1 text-[12px] leading-5 text-gray-600">
-                    Enter your destination and the time you expect to return.
+                    Enter your destination and, if known, the time you expect to return.
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -740,8 +851,6 @@ export default function PermissionRequestPage() {
         {/* ==================== TAB 1: Request list ==================== */}
         {tab === 1 && (
           <section aria-labelledby="request-history-title" className="!m-2">
-            {/* QR validation panel (kept, commented in original) */}
-
             {requestError && <Alert severity="error" className="!mb-4">{requestError}</Alert>}
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -805,12 +914,13 @@ export default function PermissionRequestPage() {
                         <TableCell className="!font-bold">S No</TableCell>
                         <TableCell className="!font-bold">Reference</TableCell>
                         <TableCell className="!font-bold">Employee</TableCell>
-                        <TableCell className="!font-bold">Date</TableCell>
                         <TableCell className="!font-bold">Time</TableCell>
+                        <TableCell className="!font-bold">Hrs</TableCell>
                         <TableCell className="!font-bold">Type</TableCell>
                         <TableCell className="!font-bold">Destination</TableCell>
                         <TableCell className="!font-bold">Reason</TableCell>
                         <TableCell className="!font-bold">Gate pass</TableCell>
+                        <TableCell className="!font-bold">Requested Date</TableCell>
                         <TableCell className="!font-bold" align="center">Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -826,7 +936,7 @@ export default function PermissionRequestPage() {
                           </TableCell>
                           <TableCell>
                             <div className="font-medium text-gray-800">
-                              {request.employeeName || "—"}
+                              {request.employeeName || "-"}
                             </div>
                             <div className="text-[11px] text-gray-500">
                               {request.employeeCode || request.employeeId || "—"}
@@ -834,12 +944,15 @@ export default function PermissionRequestPage() {
                           </TableCell>
 
                           <TableCell sx={{ whiteSpace: "nowrap" }}>
-                            {formatDate(request.requestDate)}
+                            {request.fromTime || request.toTime
+                              ? `${formatTime(request.fromTime) || "-"} – ${formatTime(request.toTime) || "-"}`
+                              : "-"}
                           </TableCell>
 
                           <TableCell sx={{ whiteSpace: "nowrap" }}>
-                            {formatTime(request.fromTime)} –{" "}
-                            {formatTime(request.toTime)}
+                            {request.hours ||
+                              computeHrs(request.fromTime, request.toTime) ||
+                              "-"}
                           </TableCell>
 
                           <TableCell>
@@ -872,6 +985,10 @@ export default function PermissionRequestPage() {
                               label={request.gatePassEnabled ? "Yes" : "No"}
                               sx={{ fontSize: 11, height: 22 }}
                             />
+                          </TableCell>
+
+                          <TableCell sx={{ whiteSpace: "nowrap" }}>
+                            {formatDateTime(request.requestDate)}
                           </TableCell>
 
                           <TableCell align="center">
@@ -937,7 +1054,7 @@ export default function PermissionRequestPage() {
               color="inherit"
               className="!min-w-0"
             >
-              <CloseOutlinedIcon />
+              <CloseOutlinedIcon className="text-gray-800"/>
             </Button>
           </DialogTitle>
           <DialogContent className="!pt-5">
@@ -983,9 +1100,17 @@ export default function PermissionRequestPage() {
                   </p>
                 )}
                 <p className="mt-1 text-[12px] text-gray-500">
-                  {formatTime(selectedRequest.fromTime)}–
-                  {formatTime(selectedRequest.toTime)} ·{" "}
-                  {selectedRequest.destination}
+                  {selectedRequest.fromTime || selectedRequest.toTime
+                    ? `${formatTime(selectedRequest.fromTime) || "—"} – ${formatTime(selectedRequest.toTime) || "—"}`
+                    : "Time not specified"}{" "}
+                  · {selectedRequest.destination}
+                </p>
+                <p className="mt-1 text-[12px] text-gray-500">
+                  Duration:{" "}
+                  {selectedRequest.hours ||
+                    computeHrs(selectedRequest.fromTime, selectedRequest.toTime) ||
+                    "—"}{" "}
+                  hrs
                 </p>
                 <p className="mt-2 text-[11px] text-gray-400">
                   Reference: {selectedRequest.requestNumber || selectedRequest.id}

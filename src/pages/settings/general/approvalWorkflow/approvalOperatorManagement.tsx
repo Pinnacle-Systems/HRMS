@@ -221,7 +221,7 @@ export default function ApprovalOperatorManagement() {
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="xs">
                 <DialogTitle className="flex items-center justify-between !p-2 !border-b border-gray-200">
                     <div className="ml-4">{form.id ? "Edit Operator" : "New Operator"}</div>
-                    <IconButton>
+                    <IconButton onClick={() => setDialogOpen(false)}>
                         <CloseOutlined className="!w-4 !text-gray-800" />
                     </IconButton>
                 </DialogTitle>

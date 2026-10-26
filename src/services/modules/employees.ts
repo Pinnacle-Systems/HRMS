@@ -17,6 +17,7 @@ export interface EmployeeListQuery {
   joinedFrom?: string;
   joinedTo?: string;
   includeInactive?: boolean;
+  includeActive?: boolean;
   assignedHrId?: string;
 }
 
@@ -219,6 +220,7 @@ export const buildEmployeeListParams = (
     "joinedFrom",
     "joinedTo",
     "includeInactive",
+    "includeActive",
     "assignedHrId"
   ];
 

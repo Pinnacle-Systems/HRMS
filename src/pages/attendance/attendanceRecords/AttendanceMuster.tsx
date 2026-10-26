@@ -5,15 +5,14 @@ import {
 } from "@mui/material";
 import {
   FileDownloadOutlined, PrintOutlined, ChevronLeftOutlined, ChevronRightOutlined,
-  TableChartOutlined, ViewListOutlined,
+  TableChartOutlined, ViewListOutlined, ArrowUpward, ArrowDownward,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
 import { attendanceService } from "../../../services/modules/attendance";
 import { MONTHS, getDaysInMonth, getCurrentMonthYear, formatTime } from "../const";
-import type { Branches, Department } from "../../employees/type";
+import type { Department } from "../../employees/type";
 import { departmentService } from "../../../services/modules/department";
-import { branchService } from "../../../services/modules/branch";
 import { selectSx } from "../../../const";
 import { getRowColor } from "../../const";
 import type { MusterRow } from "../../../services/modules/attendanceTypes";
@@ -84,13 +83,11 @@ const REGISTER_FIELD_ALIASES: Record<string, string[]> = {
   holiday: ["holidayDays", "totalHoliday", "holiday", "holidays"],
   worked_hours: ["workedHours", "totalWorkedHours", "worked_hours"],
   ot_hours: ["otHours", "totalOtHours", "otHours"],
-  // ot_minutes: ["otMinutes", "totalOtMinutes", "otMinutes"],
   night_duty: ["nightDutyDays", "totalNightDuty", "nightDuty"],
   wfh: ["wfhDays", "totalWfh", "wfh"],
   comp_off: ["compOffDays", "totalCompOff", "compOff"],
 };
 
-/** Full-form header labels for register columns */
 const REGISTER_HEADER_LABELS: Record<string, string> = {
   present: "Present",
   absent: "Absent",
@@ -109,11 +106,9 @@ const REGISTER_HEADER_LABELS: Record<string, string> = {
   lop: "Lop",
   worked_hours: "Worked(h)",
   ot_hours: "OT (h)",
-  // ot_minutes: "OT (m)",
   att: "Att %",
 };
 
-/** Extra (non-legend) columns for the Monthly Register, placed before OT columns. */
 const REGISTER_EXTRA_COLUMNS: SummaryColumn[] = [
   {
     key: "lop",
@@ -193,7 +188,6 @@ function buildMusterSummaryColumns(legend: any[]): SummaryColumn[] {
 function buildRegisterColumns(legend: any[]): SummaryColumn[] {
   const cols: SummaryColumn[] = [];
 
-  // 1. All legend statuses (in legend order), excluding ones we explicitly skip
   legend.forEach((item) => {
     if (REGISTER_EXCLUDED_STATUSES.includes(item.status)) return;
     cols.push({
@@ -205,13 +199,11 @@ function buildRegisterColumns(legend: any[]): SummaryColumn[] {
     });
   });
 
-  // 2. Extra non-legend columns (Lop, Worked(h))
   REGISTER_EXTRA_COLUMNS.forEach((extra) => {
     if (cols.find((c) => c.key === extra.key)) return;
     cols.push(extra);
   });
 
-  // 3. OT columns (scrollable, right after Worked(h))
   cols.push({
     key: "ot_hours",
     abbr: REGISTER_HEADER_LABELS.ot_hours,
@@ -219,15 +211,7 @@ function buildRegisterColumns(legend: any[]): SummaryColumn[] {
     label: "Overtime (hours)",
     field: "otHours",
   });
-  // cols.push({
-  //   key: "ot_minutes",
-  //   abbr: REGISTER_HEADER_LABELS.ot_minutes,
-  //   color: "#EA580C",
-  //   label: "Overtime (minutes)",
-  //   field: "otMinutes",
-  // });
 
-  // 4. Att% (only pinned-right column)
   cols.push({
     key: "att",
     abbr: REGISTER_HEADER_LABELS.att,
@@ -264,11 +248,10 @@ function getSolidRowBg(rowStyle: any): string {
   return c;
 }
 
-// ——— Attendance percentage color helper ———
 function getAttendanceColor(pct: number): string {
-  if (pct < 30) return "#dc2626"; // red
-  if (pct < 70) return "#d19d02"; // amber
-  return "#039208"; // green
+  if (pct < 30) return "#dc2626";
+  if (pct < 70) return "#d19d02";
+  return "#039208";
 }
 
 const getAttendanceStatus = (cell: any): {
@@ -362,14 +345,14 @@ export function AttendanceMuster() {
   const [month, setMonth] = useState(curMonth);
   const [year, setYear] = useState(curYear);
   const [departmentId, setDepartmentId] = useState("");
-  const [branchId, setBranchId] = useState("");
+  // const [branchId, setBranchId] = useState("");
   const [employees, setEmployees] = useState<MusterRow[]>([]);
   const [holidays, setHolidays] = useState<string[]>([]);
   const [weeklyOffs, setWeeklyOffs] = useState<string[]>([]);
   const [workingDays, setWorkingDays] = useState(0);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [branches, setBranches] = useState<Branches[]>([]);
+  // const [branches, setBranches] = useState<Branches[]>([]);
   const [viewMode, setViewMode] = useState<"muster" | "register">("muster");
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -377,6 +360,10 @@ export function AttendanceMuster() {
   const [registerLimit, setRegisterLimit] = useState(20);
   const [musterPage, setMusterPage] = useState(1);
   const [musterLimit, setMusterLimit] = useState(20);
+
+  // Sorting state
+  const [sortBy, setSortBy] = useState<string>("employeeCode");
+  const [sortDir, setSortDir] = useState<string>("asc");
 
   // Dynamic legend & mappings from API
   const [legend, setLegend] = useState<any[]>([]);
@@ -387,15 +374,12 @@ export function AttendanceMuster() {
   const daysInMonth = getDaysInMonth(year, month);
   const dayNumbers = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-  // Split register columns: scrollable (middle) vs pinned-right (only Att%)
   const registerScrollableColumns = registerColumns.filter((c) => !c.pinned);
   const registerPinnedColumns = registerColumns.filter((c) => c.pinned);
 
-  // Compute right offset for a pinned-right register column at index `idx`
   const getRegisterPinRightOffset = (idx: number) =>
     `${(registerPinnedColumns.length - 1 - idx) * REGISTER_PINNED_WIDTH}px`;
 
-  // Compute right offset for a muster summary column at index `idx`
   const getMusterRightOffset = (idx: number) =>
     `${(musterColumns.length - 1 - idx) * SUMMARY_COL_WIDTH}px`;
 
@@ -422,7 +406,9 @@ export function AttendanceMuster() {
         month,
         year,
         departmentId: departmentId !== "All" ? departmentId : undefined,
-        branchId: branchId || undefined,
+        // branchId: branchId || undefined,
+        sortBy,
+        sortDir,
       });
       const data = res?.data?.data ?? res?.data;
       setEmployees(data?.employees ?? []);
@@ -441,16 +427,16 @@ export function AttendanceMuster() {
       setLoading(false);
       hideSpinner();
     }
-  }, [month, year, departmentId, branchId]);
+  }, [month, year, departmentId, sortBy, sortDir]);
 
   const fetchMasterData = async () => {
     try {
       const depRes: any = await departmentService.getActiveDepartments();
       const depData = depRes.data?.content || depRes.data || [];
       setDepartments(depData);
-      const branRes: any = await branchService.getActiveBranches();
-      const branData = branRes.data?.content || branRes.data || [];
-      setBranches(branData);
+      // const branRes: any = await branchService.getActiveBranches();
+      // const branData = branRes.data?.content || branRes.data || [];
+      // setBranches(branData);
     } catch (error: any) {
       console.error("Failed to fetch master data:", error);
     }
@@ -463,7 +449,9 @@ export function AttendanceMuster() {
         month,
         year,
         departmentId: departmentId !== "All" ? departmentId : undefined,
-        branchId: branchId || undefined,
+        // branchId: branchId || undefined,
+        sortBy,
+        sortDir,
       });
       const employees = res?.data?.employees ?? res?.data;
       const data = (Array.isArray(employees)
@@ -480,7 +468,7 @@ export function AttendanceMuster() {
     } finally {
       setRegisterLoading(false);
     }
-  }, [month, year, departmentId, branchId]);
+  }, [month, year, departmentId, sortBy, sortDir]);
 
   useEffect(() => {
     loadMuster();
@@ -522,7 +510,9 @@ export function AttendanceMuster() {
         month,
         year,
         departmentId: departmentId || undefined,
-        branchId: branchId || undefined,
+        // branchId: branchId || undefined,
+        sortBy,
+        sortDir,
         exportFormat: "excel",
       });
       await apiService.downloadFromPath(res.data.fileUrl, `attendance_${month}_${year}.xlsx`);
@@ -534,7 +524,6 @@ export function AttendanceMuster() {
     }
   }
 
-  // Render a colored badge using dynamic color from API legend
   const renderStatusBadge = (statusKey: string | null, fallback = "—") => {
     if (!statusKey || !statusMappings[statusKey]) {
       return (
@@ -555,6 +544,25 @@ export function AttendanceMuster() {
       >
         {info.abbr}
       </span>
+    );
+  };
+
+  // ---------- SORT HANDLER ----------
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortDir("asc");
+    }
+  };
+
+  const SortArrow = ({ field }: { field: string }) => {
+    if (sortBy !== field) return null;
+    return sortDir === "asc" ? (
+      <ArrowUpward className="!ml-2 !w-3 !h-3"/>
+    ) : (
+      <ArrowDownward className="!ml-2 !w-3 !h-3" />
     );
   };
 
@@ -609,7 +617,7 @@ export function AttendanceMuster() {
               ))}
             </Select>
           </FormControl>
-          <FormControl className="!w-[180px]">
+          {/* <FormControl className="!w-[180px]">
             <InputLabel>Branch</InputLabel>
             <Select value={branchId} onChange={(e) => setBranchId(e.target.value)} label="Branch" sx={selectSx}>
               <MenuItem value="">All Branches</MenuItem>
@@ -617,7 +625,7 @@ export function AttendanceMuster() {
                 <MenuItem key={b.id} value={b.id}>{b.branchName}</MenuItem>
               ))}
             </Select>
-          </FormControl>
+          </FormControl> */}
           <div className="flex border border-gray-300 rounded overflow-hidden">
             <Tooltip title="Muster Matrix">
               <button
@@ -662,7 +670,7 @@ export function AttendanceMuster() {
         ))}
       </div>
 
-      {/* Monthly Register — only Att% is right-sticky */}
+      {/* Monthly Register */}
       {viewMode === "register" && (
         <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
           {registerLoading ? (
@@ -691,7 +699,8 @@ export function AttendanceMuster() {
                       </TableCell>
 
                       <TableCell
-                        className="!font-bold whitespace-nowrap"
+                        className="!font-bold whitespace-nowrap !cursor-pointer select-none"
+                        onClick={() => handleSort("employeeCode")}
                         sx={{
                           position: "sticky",
                           left: `${REGISTER_OFFSETS.name}px`,
@@ -702,11 +711,15 @@ export function AttendanceMuster() {
                           minWidth: REGISTER_COL_WIDTHS.name,
                         }}
                       >
-                        Name
+                        <span className="inline-flex items-center">
+                          Name
+                          <SortArrow field="employeeName" />
+                        </span>
                       </TableCell>
 
                       <TableCell
-                        className="!font-bold whitespace-nowrap"
+                        className="!font-bold whitespace-nowrap !cursor-pointer select-none"
+                        onClick={() => handleSort("designation")}
                         sx={{
                           position: "sticky",
                           left: `${REGISTER_OFFSETS.designation}px`,
@@ -718,14 +731,17 @@ export function AttendanceMuster() {
                           borderRight: "1px solid #e5e7eb",
                         }}
                       >
-                        Designation
+                        <span className="inline-flex items-center">
+                          Designation
+                          <SortArrow field="designation" />
+                        </span>
                       </TableCell>
 
                       {registerScrollableColumns.map((col) => (
                         <TableCell
                           key={col.key}
                           className="!font-bold !text-[11px] !text-center"
-                          style={{ color: col.color}}
+                          style={{ color: col.color }}
                         >
                           {col.abbr}
                         </TableCell>
@@ -880,11 +896,23 @@ export function AttendanceMuster() {
                 <table className="text-xs border-collapse min-w-full">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="sticky left-0 top-0 z-40 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px]">
-                        Code
+                      <th
+                        onClick={() => handleSort("employeeCode")}
+                        className="sticky left-0 top-0 z-40 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px] cursor-pointer select-none"
+                      >
+                        <span className="inline-flex items-center">
+                          Code
+                          <SortArrow field="employeeCode" />
+                        </span>
                       </th>
-                      <th className="sticky left-[53px] top-0 z-[41] bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px]">
-                        Employee
+                      <th
+                        onClick={() => handleSort("employeeName")}
+                        className="sticky left-[53px] top-0 z-[41] bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px] cursor-pointer select-none"
+                      >
+                        <span className="inline-flex items-center">
+                          Employee
+                          <SortArrow field="employeeName" />
+                        </span>
                       </th>
 
                       {dayNumbers.map((d) => (

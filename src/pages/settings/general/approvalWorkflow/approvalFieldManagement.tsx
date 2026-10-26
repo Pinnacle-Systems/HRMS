@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -45,7 +46,12 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     const response = error.response;
     if (typeof response === "object" && response !== null && "data" in response) {
       const data = response.data;
-      if (typeof data === "object" && data !== null && "message" in data && typeof data.message === "string") {
+      if (
+        typeof data === "object" &&
+        data !== null &&
+        "message" in data &&
+        typeof data.message === "string"
+      ) {
         return data.message;
       }
     }
@@ -54,6 +60,19 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 const DATA_TYPES = ["string", "number", "boolean", "date", "datetime"];
+
+type DbColumn = {
+  tableName: string;
+  columnName: string;
+  dataType: string;
+};
+
+const prettify = (col: string) =>
+  col
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
 interface FormState {
   id?: string;
@@ -73,7 +92,7 @@ const EMPTY_FORM: FormState = {
   nestedPath: "",
   dbVariableName: "",
   uiLabel: "",
-  dataType: "STRING",
+  dataType: "string",
   allowedOperatorIds: [],
   active: true,
 };
@@ -88,6 +107,8 @@ export default function ApprovalFieldManagement() {
   const [filterModuleId, setFilterModuleId] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [dbColumns, setDbColumns] = useState<DbColumn[]>([]);
+  const [dbColumnsLoading, setDbColumnsLoading] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -123,6 +144,50 @@ export default function ApprovalFieldManagement() {
     void loadFields();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterModuleId]);
+
+  // ---- Load DB columns for the dialog's selected module ----
+  useEffect(() => {
+    if (!dialogOpen || !form.moduleId) {
+      setDbColumns([]);
+      return;
+    }
+    let cancelled = false;
+    setDbColumnsLoading(true);
+    approvalWorkflowService
+      .getDbFieldsByModule(form.moduleId)
+      .then((res) => {
+        if (cancelled) return;
+        const raw: any[] = res.data ?? [];
+        const normalized: DbColumn[] = raw
+          .filter(
+            (c) =>
+              c &&
+              typeof c.tableName === "string" &&
+              typeof c.columnName === "string" &&
+              typeof c.dataType === "string"
+          )
+          .map((c) => ({
+            tableName: c.tableName,
+            columnName: c.columnName,
+            dataType: c.dataType,
+          }));
+        setDbColumns(normalized);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setDbColumns([]);
+        showSnackbar(
+          getErrorMessage(error, "Failed to load DB columns."),
+          "error"
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setDbColumnsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dialogOpen, form.moduleId, showSnackbar]);
 
   const openCreate = () => {
     setForm({ ...EMPTY_FORM, moduleId: filterModuleId || "" });
@@ -179,7 +244,7 @@ export default function ApprovalFieldManagement() {
 
   const handleDelete = async (f: ApprovalField) => {
     showConfirmDialog({
-      title: "Delete Module",
+      title: "Delete Field",
       message: `Delete field "${f.uiLabel}"? This cannot be undone.`,
       confirmText: "Delete",
       cancelText: "Cancel",
@@ -190,7 +255,7 @@ export default function ApprovalFieldManagement() {
           showSnackbar("Field deleted.", "success");
           await loadFields();
         } catch (error) {
-          showSnackbar(getErrorMessage(error, "Failed to delete module."), "error");
+          showSnackbar(getErrorMessage(error, "Failed to delete field."), "error");
         } finally {
           hideSpinner();
         }
@@ -242,7 +307,7 @@ export default function ApprovalFieldManagement() {
             <TableHead>
               <TableRow>
                 <TableCell className="!font-bold" width="50px">#</TableCell>
-                <TableCell className="!font-bold">Moduile</TableCell>
+                <TableCell className="!font-bold">Module</TableCell>
                 <TableCell className="!font-bold">UI Label</TableCell>
                 <TableCell className="!font-bold">DB Variable</TableCell>
                 <TableCell className="!font-bold">Data Type</TableCell>
@@ -322,8 +387,8 @@ export default function ApprovalFieldManagement() {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle className="flex items-center justify-between !p-2 border-b border-gray-200">
           <div className="!ml-4">{form.id ? "Edit Field" : "New Field"}</div>
-          <IconButton>
-            <CloseOutlined className="!w-4" />
+          <IconButton onClick={() => setDialogOpen(false)}>
+            <CloseOutlined className="!w-4 !text-gray-800" />
           </IconButton>
         </DialogTitle>
         <DialogContent className="!p-5">
@@ -333,7 +398,14 @@ export default function ApprovalFieldManagement() {
               <Select
                 value={form.moduleId}
                 label="Module"
-                onChange={(e) => setForm({ ...form, moduleId: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    moduleId: e.target.value,
+                    // Clear DB variable when the module changes (its columns change)
+                    dbVariableName: "",
+                  })
+                }
               >
                 {modules.map((m) => (
                   <MenuItem key={m.id} value={m.id}>{m.moduleName}</MenuItem>
@@ -349,13 +421,78 @@ export default function ApprovalFieldManagement() {
               onChange={(e) => setForm({ ...form, uiLabel: e.target.value })}
             />
 
-            <TextField
-              label="DB Variable Name"
-              required
-              fullWidth
-              value={form.dbVariableName}
-              onChange={(e) => setForm({ ...form, dbVariableName: e.target.value })}
-            />
+            <Box className="md:col-span-2">
+              <Autocomplete<DbColumn, false, false, true>
+                freeSolo
+                fullWidth
+                options={dbColumns}
+                loading={dbColumnsLoading}
+                disabled={!form.moduleId}
+                getOptionLabel={(opt) =>
+                  typeof opt === "string" ? opt : `${opt.tableName}.${opt.columnName}`
+                }
+                isOptionEqualToValue={(opt, val) =>
+                  typeof opt !== "string" &&
+                  typeof val !== "string" &&
+                  opt.tableName === val.tableName &&
+                  opt.columnName === val.columnName
+                }
+                value={form.dbVariableName}
+                onChange={(_e, newVal) => {
+                  if (typeof newVal === "string") {
+                    setForm({ ...form, dbVariableName: newVal });
+                  } else if (newVal) {
+                    setForm((prev) => ({
+                      ...prev,
+                      dbVariableName: newVal.columnName,
+                      dataType: prev.dataType || newVal.dataType,
+                      uiLabel: prev.uiLabel || prettify(newVal.columnName),
+                    }));
+                  } else {
+                    setForm({ ...form, dbVariableName: "" });
+                  }
+                }}
+                onInputChange={(_e, newInput, reason) => {
+                  if (reason === "input") {
+                    setForm((prev) => ({ ...prev, dbVariableName: newInput }));
+                  }
+                }}
+                renderOption={(props, opt) => (
+                  <li {...props} key={`${opt.tableName}.${opt.columnName}`}>
+                    <Box className="flex w-full flex-col">
+                      <span className="text-xs font-medium">{opt.columnName}</span>
+                      <span className="text-[10px] text-gray-500">
+                        {opt.tableName}.{opt.columnName} · {opt.dataType}
+                      </span>
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="DB Variable Name"
+                    required
+                    placeholder={
+                      form.moduleId ? "Pick a column or type..." : "Select a module first"
+                    }
+                    helperText={
+                      form.moduleId
+                        ? dbColumns.length === 0 && !dbColumnsLoading
+                          ? "No DB columns found — this module has no table_names configured."
+                          : "Pick a column from the selected module's tables, or type a custom name."
+                        : "Select a module to load its columns."
+                    }
+                  />
+                )}
+                noOptionsText={
+                  dbColumnsLoading
+                    ? "Loading columns..."
+                    : form.moduleId
+                    ? "No columns — type a custom name"
+                    : "Select a module first"
+                }
+              />
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>Data Type</InputLabel>

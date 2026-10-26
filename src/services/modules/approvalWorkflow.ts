@@ -78,7 +78,7 @@ export interface ApprovalConfiguration {
 export interface ApprovalConfigurationPayload {
   workflowName: string;
   moduleId: string;
-  priorityWeight: number;
+  priorityWeight?: number;
   noRulesRequired: boolean;
   active: boolean;
   rules: {

@@ -187,9 +187,9 @@ export const STATUS_CHIP_OPTIONS: { value: string; label: string }[] = [
   { value: "absent", label: "Absent" },
   { value: "late", label: "Late" },
   { value: "irregular", label: "Irregular" },
-  { value: "missed_out", label: "Missed Punch" },
-  { value: "night_duty", label: "Night Duty" },
-  { value: "leave", label: "On Leave" },
+  // { value: "missed_out", label: "Missed Punch" },
+  // { value: "night_duty", label: "Night Duty" },
+  // { value: "leave", label: "On Leave" },
 ];
 
 export const inlineInputSx = {
@@ -230,8 +230,8 @@ export interface RegisterEmployee {
   department: string;
   designation: string;
   shiftCode: string;
-  shiftStart: string;
-  shiftEnd: string;
+  shiftStart: number;
+  shiftEnd: number;
   checkInTime: string | null;
   checkOutTime: string | null;
   status: AttendanceStatus;
@@ -244,6 +244,7 @@ export interface RegisterEmployee {
   correctionPending?: boolean;
   template?: string;
   movement?: RawMovement[];
+  
 }
 
 export interface TodaySummary {
@@ -297,4 +298,17 @@ export const punchTimeColor = (
     return emp.checkInTime ? "text-green-700 font-semibold" : "text-red-500";
   }
   return emp.checkOutTime ? "text-green-700 font-semibold" : "text-gray-400";
+};
+
+export const STATUS_FILTER_MAP: Record<string, string[]> = {
+  present: ["present", "night_duty"],
+  absent: ["absent", "on_leave"],
+  irregular: ["irregular", "early_out", "lateinearlyout", "checked_in"],
+  late: ["late"],
+};
+
+export const expandStatusFilter = (filter: string): string | undefined => {
+  if (!filter) return undefined;
+  const mapped = STATUS_FILTER_MAP[filter];
+  return mapped ? mapped.join(",") : filter;
 };

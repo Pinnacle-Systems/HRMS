@@ -7,6 +7,8 @@ export type ApiTime = string | {
   hour?: number;
   minute?: number;
   second?: number;
+    nano: number;
+
 };
 
 export type PermissionRequestDto = {
@@ -18,8 +20,8 @@ export type PermissionRequestDto = {
   department?: string;
   permissionType: PermissionRequestType;
   date: string;
-  departureTime: ApiTime;
-  expectedReturnTime: ApiTime;
+  departureTime?: ApiTime;
+  expectedReturnTime?: ApiTime;
   destination: string;
   reason: string;
   gatePassSlipGenerated: boolean;
@@ -28,6 +30,7 @@ export type PermissionRequestDto = {
   qrCodeImageBase64?: string;
   slipDownloadUrl?: string;
   createdAt: string;
+  hours?: any;
 };
 
 export type PermissionRequestPage = {
@@ -52,11 +55,12 @@ export type CreatePermissionRequestPayload = {
   employeeId: string;
   permissionType: PermissionRequestType;
   date: string;
-  departureTime: string;
-  expectedReturnTime: string;
+  departureTime?: ApiTime;
+  expectedReturnTime?: ApiTime;
   destination: string;
   reason: string;
   generateGatePassSlip: boolean;
+  hours: any;
 };
 
 export type PermissionQrValidation = {

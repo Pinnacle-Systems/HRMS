@@ -45,7 +45,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
     isFetchingRef.current = true;
     try {
       const response = await employeeService.getEmployees({
-        includeInactive: false,
+        includeActive: true,
         page: currentPage,
         size: pageSize,
         search: searchTermRef.current || undefined,

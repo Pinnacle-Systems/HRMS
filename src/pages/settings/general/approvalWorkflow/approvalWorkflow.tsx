@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Autocomplete,
   Box,
   Button,
@@ -34,17 +33,14 @@ import {
   Delete as DeleteIcon,
   Save as SaveIcon,
   CheckCircle as CheckCircleIcon,
-  PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
   Rule as RuleIcon,
   AccountTree as AccountTreeIcon,
-  Science as ScienceIcon,
 } from "@mui/icons-material";
 import {
   approvalWorkflowService,
   type ApprovalConfiguration,
   type ApprovalConfigurationPayload,
-  type ApprovalEvaluationResult,
   type ApprovalField,
   type ApprovalModule,
   type ApprovalOperator,
@@ -142,13 +138,14 @@ const SectionHeader = ({
 );
 
 export default function ApprovalWorkflowConfig() {
-  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
 
-  // Guard so init only runs once even if context fns are unstable
   const initRanRef = useRef(false);
+  const prevModuleIdRef = useRef<string>("");
+  const skipNextDetailLoadRef = useRef<string | null>(null);
 
   const [saving, setSaving] = useState(false);
-  const [evaluating, setEvaluating] = useState(false);
+  // const [evaluating, setEvaluating] = useState(false);
 
   const [modules, setModules] = useState<ApprovalModule[]>([]);
   const [fields, setFields] = useState<ApprovalField[]>([]);
@@ -159,28 +156,34 @@ export default function ApprovalWorkflowConfig() {
   const [selectedConfigId, setSelectedConfigId] = useState<string>("");
   const [workflowName, setWorkflowName] = useState("");
   const [moduleId, setModuleId] = useState("");
-  const [priorityWeight, setPriorityWeight] = useState(1);
+  // const [priorityWeight, setPriorityWeight] = useState(1);
   const [noRulesRequired, setNoRulesRequired] = useState(false);
   const [active, setActive] = useState(true);
   const [rules, setRules] = useState<ApprovalRule[]>([]);
   const [levels, setLevels] = useState<ApprovalLevel[]>([]);
 
-  const [evalFieldValues, setEvalFieldValues] = useState<Record<string, string>>({});
-  const [evalResult, setEvalResult] = useState<ApprovalEvaluationResult | null>(null);
+  // const [evalFieldValues, setEvalFieldValues] = useState<Record<string, string>>({});
+  // const [evalResult, setEvalResult] = useState<ApprovalEvaluationResult | null>(null);
 
   const [dbFields, setDbFields] = useState<DbFieldOption[]>([]);
 
-  // Stable reset handler
+  // Distinct live values per rule-row index (dynamic value picker)
+  const [valueOptionsByRule, setValueOptionsByRule] = useState<
+    Record<number, string[]>
+  >({});
+
+  // Stable reset handler — called ONLY on explicit user actions
   const handleResetForm = useCallback(() => {
     setSelectedConfigId("");
     setWorkflowName("");
-    setPriorityWeight(1);
+    // setPriorityWeight(1);
     setNoRulesRequired(false);
     setActive(true);
     setRules([]);
     setLevels([]);
-    setEvalResult(null);
-    setEvalFieldValues({});
+    // setEvalResult(null);
+    // setEvalFieldValues({});
+    setValueOptionsByRule({});
   }, []);
 
   // ---- Initial load (modules, operators, employees) ----
@@ -194,7 +197,7 @@ export default function ApprovalWorkflowConfig() {
         const [modRes, opRes, empRes] = await Promise.all([
           approvalWorkflowService.getModules({ size: 100 }),
           approvalWorkflowService.getOperators({ activeOnly: true }),
-          employeeService.getEmployees({ size: 500, includeInactive: true }),
+          employeeService.getEmployees({ includeActive: true }),
         ]);
         setModules(modRes.data.content);
         setOperators(opRes.data);
@@ -207,8 +210,8 @@ export default function ApprovalWorkflowConfig() {
           id: e.id,
           name: e.employeeName ?? e.name ?? e.fullName ?? "",
           code: e.employeeId ?? e.code ?? "",
-          desg: e.designation ?? ""
-        }));        
+          desg: e.designation ?? "",
+        }));
         setApprovers(employeeList);
       } catch (error) {
         showSnackbar(getErrorMessage(error, "Failed to load initial data."), "error");
@@ -244,7 +247,6 @@ export default function ApprovalWorkflowConfig() {
     if (!moduleId) {
       setConfigurations([]);
       setSelectedConfigId("");
-      handleResetForm();
       return;
     }
     let cancelled = false;
@@ -255,11 +257,12 @@ export default function ApprovalWorkflowConfig() {
         setConfigurations(res.data.content);
         if (res.data.content.length > 0) {
           setSelectedConfigId((prev) => {
-            const stillValid = prev && res.data.content.some((c: ApprovalConfiguration) => c.id === prev);
+            const stillValid =
+              prev && res.data.content.some((c: ApprovalConfiguration) => c.id === prev);
             return stillValid ? prev : res.data.content[0].id;
           });
         } else {
-          handleResetForm();
+          setSelectedConfigId("");
         }
       })
       .catch((err) => {
@@ -269,11 +272,17 @@ export default function ApprovalWorkflowConfig() {
     return () => {
       cancelled = true;
     };
-  }, [moduleId, showSnackbar, handleResetForm]);
+  }, [moduleId, showSnackbar]);
 
   // ---- Load configuration details when selection changes ----
   useEffect(() => {
     if (!selectedConfigId) return;
+
+    if (skipNextDetailLoadRef.current === selectedConfigId) {
+      skipNextDetailLoadRef.current = null;
+      return;
+    }
+
     let cancelled = false;
     approvalWorkflowService
       .getConfigurationById(selectedConfigId)
@@ -281,7 +290,7 @@ export default function ApprovalWorkflowConfig() {
         if (cancelled) return;
         const data = res.data;
         setWorkflowName(data.workflowName);
-        setPriorityWeight(data.priorityWeight);
+        // setPriorityWeight(data.priorityWeight ?? 1);
         setNoRulesRequired(data.noRulesRequired);
         setActive(data.active);
         setRules(data.rules || []);
@@ -293,7 +302,8 @@ export default function ApprovalWorkflowConfig() {
             approverRoles: level.approverRoles ?? [],
           }))
         );
-        setEvalResult(null);
+        // setEvalResult(null);
+        setValueOptionsByRule({});
       })
       .catch((err) => {
         if (!cancelled)
@@ -304,7 +314,7 @@ export default function ApprovalWorkflowConfig() {
     };
   }, [selectedConfigId, showSnackbar]);
 
-  // ---- Load DB fields when module changes ----
+  // ---- Load DB fields when module changes (only for "Compare Field" picker) ----
   useEffect(() => {
     if (!moduleId) {
       setDbFields([]);
@@ -341,25 +351,76 @@ export default function ApprovalWorkflowConfig() {
     };
   }, [moduleId, showSnackbar]);
 
+  // ---- Clear builder ONLY when the module actually changes ----
+  useEffect(() => {
+    if (prevModuleIdRef.current !== moduleId) {
+      prevModuleIdRef.current = moduleId;
+      setWorkflowName("");
+      setNoRulesRequired(false);
+      setActive(true);
+      setRules([]);
+      setLevels([]);
+      // setEvalResult(null);
+      // setEvalFieldValues({});
+      setValueOptionsByRule({});
+      // Keep selectedConfigId — the configurations effect sets it.
+    }
+  }, [moduleId]);
+
   const addRule = () => {
     setRules([...rules, { fieldId: "", operatorId: "", valueType: "static", value: "" }]);
   };
 
-  const updateRule = async (index: number, field: keyof ApprovalRule, value: any, fieldValue?: any) => {
-    const updated = [...rules];
-    updated[index] = { ...updated[index], [field]: value };
-    setRules(updated);
+  // Synchronous rule setter — never fires network calls
+  const updateRule = (
+    index: number,
+    field: keyof ApprovalRule,
+    value: any
+  ) => {
+    setRules((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      if (field === "fieldId") {
+        next[index].value = "";
+      }
+      if (field === "valueType") {
+        next[index].value = "";
+      }
+      return next;
+    });
+  };
+
+  // Dynamic value picker loader — called ONLY when a Field is picked
+  const loadRuleValueOptions = async (
+    index: number,
+    field: ApprovalField | null
+  ) => {
+    if (!field?.dbVariableName) {
+      setValueOptionsByRule((prev) => ({ ...prev, [index]: [] }));
+      return;
+    }
     try {
-      const res = await approvalWorkflowService.getValuesByField(fieldValue.columnName);
-      console.log(res);
-
-    } catch (error) {
-
+      const res = await approvalWorkflowService.getValuesByField(
+        field.dbVariableName,
+        // moduleId || undefined
+      );
+      setValueOptionsByRule((prev) => ({ ...prev, [index]: res.data ?? [] }));
+    } catch {
+      setValueOptionsByRule((prev) => ({ ...prev, [index]: [] }));
     }
   };
 
   const removeRule = (index: number) => {
-    setRules(rules.filter((_, i) => i !== index));
+    setRules((prev) => prev.filter((_, i) => i !== index));
+    setValueOptionsByRule((prev) => {
+      const next: Record<number, string[]> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const n = Number(k);
+        if (n < index) next[n] = v;
+        else if (n > index) next[n - 1] = v;
+      });
+      return next;
+    });
   };
 
   const addLevel = () => {
@@ -408,10 +469,32 @@ export default function ApprovalWorkflowConfig() {
     setLevels(updated);
   };
 
+  // const selectedModuleName = useMemo(
+  //   () => modules.find((m) => m.id === moduleId)?.moduleName || "",
+  //   [modules, moduleId]
+  // );
+
   const handleSave = async () => {
     if (!moduleId || !workflowName) {
       showSnackbar("Please fill in all required fields.", "warning");
       return;
+    }
+
+    // Validate rule completeness when rules are required
+    if (!noRulesRequired) {
+      const incomplete = rules.find(
+        (r) =>
+          !r.fieldId ||
+          !r.operatorId ||
+          (r.valueType === "static" && !String(r.value ?? "").trim())
+      );
+      if (incomplete) {
+        showSnackbar(
+          "Complete every rule (field, operator, value) before saving.",
+          "warning"
+        );
+        return;
+      }
     }
 
     const missingApprover = levels.find((level) =>
@@ -445,15 +528,17 @@ export default function ApprovalWorkflowConfig() {
     const payload: ApprovalConfigurationPayload = {
       workflowName,
       moduleId,
-      priorityWeight,
       noRulesRequired,
       active,
-      rules: noRulesRequired ? [] : rules.map((r) => ({
-        fieldId: r.fieldId,
-        operatorId: r.operatorId,
-        valueType: r.valueType,
-        value: r.value,
-      })),
+      priorityWeight: 1,
+      rules: noRulesRequired
+        ? []
+        : rules.map((r) => ({
+          fieldId: r.fieldId,
+          operatorId: r.operatorId,
+          valueType: r.valueType,
+          value: r.value,
+        })),
       levels: levels.map((l) => ({
         levelTitle: l.levelTitle,
         approvalCondition: l.approvalCondition,
@@ -464,18 +549,37 @@ export default function ApprovalWorkflowConfig() {
       })),
     };
 
+    // Capture current form BEFORE save so we can re-seed from it after.
+    const savedWorkflowName = workflowName;
+    const savedRules = rules;
+    const savedLevels = levels;
+
     setSaving(true);
     try {
+      let savedId = selectedConfigId;
+
       if (selectedConfigId) {
         await approvalWorkflowService.updateConfiguration(selectedConfigId, payload);
         showSnackbar("Configuration updated successfully.", "success");
       } else {
         const res = await approvalWorkflowService.createConfiguration(payload);
-        setSelectedConfigId(res.data.id);
+        savedId = res.data.id;
         showSnackbar("Configuration created successfully.", "success");
       }
-      const res = await approvalWorkflowService.getConfigurations({ moduleId });
-      setConfigurations(res.data.content);
+
+      // 1. Refresh the list only (not the details) so the selector updates.
+      const listRes = await approvalWorkflowService.getConfigurations({ moduleId });
+      setConfigurations(listRes.data.content);
+
+      // 2. Re-seed the form from what we just saved — no refetch race.
+      //    Also mark this id to be skipped by the detail-load effect.
+      skipNextDetailLoadRef.current = savedId;
+      setSelectedConfigId(savedId);
+      setWorkflowName(savedWorkflowName);
+      setRules(savedRules);
+      setLevels(savedLevels);
+      setNoRulesRequired(payload.noRulesRequired);
+      setActive(payload.active);
     } catch (error) {
       showSnackbar(getErrorMessage(error, "Failed to save configuration."), "error");
     } finally {
@@ -484,20 +588,31 @@ export default function ApprovalWorkflowConfig() {
   };
 
   const handleDeleteConfiguration = async (id: string) => {
-    if (!window.confirm("Delete this configuration? This cannot be undone.")) return;
-    try {
-      await approvalWorkflowService.deleteConfiguration(id);
-      showSnackbar("Configuration deleted.", "success");
-      const res = await approvalWorkflowService.getConfigurations({ moduleId });
-      setConfigurations(res.data.content);
-      if (res.data.content.length > 0) {
-        setSelectedConfigId(res.data.content[0].id);
-      } else {
-        handleResetForm();
-      }
-    } catch (error) {
-      showSnackbar(getErrorMessage(error, "Failed to delete configuration."), "error");
-    }
+    showConfirmDialog({
+      title: "Delete Configuration",
+      message: `Delete this configuration? This cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await approvalWorkflowService.deleteConfiguration(id);
+          showSnackbar("Configuration deleted.", "success");
+          const res = await approvalWorkflowService.getConfigurations({ moduleId });
+          setConfigurations(res.data.content);
+          if (res.data.content.length > 0) {
+            skipNextDetailLoadRef.current = null;
+            setSelectedConfigId(res.data.content[0].id);
+          } else {
+            handleResetForm();
+          }
+        } catch (error) {
+          showSnackbar(getErrorMessage(error, "Failed to delete configuration."), "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   };
 
   const handleToggleActive = async (id: string) => {
@@ -517,36 +632,60 @@ export default function ApprovalWorkflowConfig() {
     }
   };
 
-  const handleEvaluate = async () => {
-    if (!moduleId) {
-      showSnackbar("Select a module first.", "warning");
+  const handleReload = () => {
+    if (!selectedConfigId) {
+      handleResetForm();
       return;
     }
-    setEvaluating(true);
-    try {
-      const res = await approvalWorkflowService.evaluateConfiguration({
-        moduleName: modules.find((m) => m.id === moduleId)?.moduleName || "",
-        fieldValues: evalFieldValues,
-      });
-      setEvalResult(res.data);
-      showSnackbar(
-        res.data.approvalRequired
-          ? `Approval required via "${res.data.workflowName}".`
-          : "No approval required for these values.",
-        res.data.approvalRequired ? "success" : "info"
+    approvalWorkflowService
+      .getConfigurationById(selectedConfigId)
+      .then((res) => {
+        const data = res.data;
+        setWorkflowName(data.workflowName);
+        // setPriorityWeight(data.priorityWeight ?? 1);
+        setNoRulesRequired(data.noRulesRequired);
+        setActive(data.active);
+        setRules(data.rules || []);
+        setLevels(
+          (data.levels || []).map((level) => ({
+            ...level,
+            approverType: level.approverType ?? "user",
+            approvers: level.approvers ?? [],
+            approverRoles: level.approverRoles ?? [],
+          }))
+        );
+        setValueOptionsByRule({});
+      })
+      .catch((err) =>
+        showSnackbar(getErrorMessage(err, "Failed to reload."), "error")
       );
-    } catch (error) {
-      showSnackbar(getErrorMessage(error, "Evaluation failed."), "error");
-      setEvalResult(null);
-    } finally {
-      setEvaluating(false);
-    }
   };
 
-  const selectedModuleName = useMemo(
-    () => modules.find((m) => m.id === moduleId)?.moduleName || "",
-    [modules, moduleId]
-  );
+  // const handleEvaluate = async () => {
+  //   if (!moduleId) {
+  //     showSnackbar("Select a module first.", "warning");
+  //     return;
+  //   }
+  //   setEvaluating(true);
+  //   try {
+  //     const res = await approvalWorkflowService.evaluateConfiguration({
+  //       moduleName: selectedModuleName,
+  //       fieldValues: evalFieldValues,
+  //     });
+  //     setEvalResult(res.data);
+  //     showSnackbar(
+  //       res.data.approvalRequired
+  //         ? `Approval required via "${res.data.workflowName}".`
+  //         : "No approval required for these values.",
+  //       res.data.approvalRequired ? "success" : "info"
+  //     );
+  //   } catch (error) {
+  //     showSnackbar(getErrorMessage(error, "Evaluation failed."), "error");
+  //     setEvalResult(null);
+  //   } finally {
+  //     setEvaluating(false);
+  //   }
+  // };
 
   const isNewConfig = !selectedConfigId;
 
@@ -568,7 +707,7 @@ export default function ApprovalWorkflowConfig() {
         <div className="bg-white border border-gray-200 rounded-md p-2">
           <Grid container spacing={2} className="items-center">
             {/* Workflow Name */}
-            <Grid size={{ xs: 6, md: 4 }}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <TextField
                 label="Workflow Name"
                 required
@@ -602,7 +741,7 @@ export default function ApprovalWorkflowConfig() {
             </Grid>
 
             {/* Toggles */}
-            <Grid size={{ xs: 6, md: 3 }}>
+            <Grid size={{ xs: 6, md: 2 }}>
               <div className="flex items-center justify-start h-full">
                 <FormControlLabel
                   control={
@@ -652,7 +791,10 @@ export default function ApprovalWorkflowConfig() {
                   <FormControl sx={{ minWidth: 280 }} size="small">
                     <Select
                       value={selectedConfigId}
-                      onChange={(e) => setSelectedConfigId(e.target.value)}
+                      onChange={(e) => {
+                        skipNextDetailLoadRef.current = null;
+                        setSelectedConfigId(e.target.value);
+                      }}
                       displayEmpty
                       sx={{ height: 28 }}
                       renderValue={(selected) => {
@@ -724,484 +866,523 @@ export default function ApprovalWorkflowConfig() {
         </div>
 
         {/* ============ BUILDER SECTION ============ */}
-       <Grid container spacing={0}>
-  {/* Rule Builder */}
-  <Grid size={{ xs: 12, md: 6 }}>
-    <Paper
-      elevation={0}
-      className="!bg-white border border-gray-200"
-      sx={{
-        p: 2,
-        height: "100%",
-        borderRadius: 0,
-        border: "1px solid",
-        borderColor: "divider",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <SectionHeader
-        icon={<RuleIcon fontSize="small" className="!w-3" />}
-        title="Rule Builder"
-        subtitle="Conditions that trigger this workflow"
-        action={
-          <Button
-            startIcon={<AddIcon />}
-            variant="contained"
-            size="small"
-            disableElevation
-            onClick={addRule}
-            disabled={noRulesRequired}
-            className="!bg-primary"
-          >
-            Add Rule
-          </Button>
-        }
-      />
+        <Grid container spacing={1}>
+          {/* Rule Builder */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Paper
+              elevation={0}
+              className="!bg-white border border-gray-200"
+              sx={{
+                p: 2,
+                height: "100%",
+                borderRadius: 0,
+                border: "1px solid",
+                borderColor: "divider",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <SectionHeader
+                icon={<RuleIcon fontSize="small" className="!w-3" />}
+                title="Rule Builder"
+                subtitle="Conditions that trigger this workflow"
+                action={
+                  <Button
+                    startIcon={<AddIcon />}
+                    variant="contained"
+                    size="small"
+                    disableElevation
+                    onClick={addRule}
+                    disabled={noRulesRequired}
+                    className="!bg-primary"
+                  >
+                    Add Rule
+                  </Button>
+                }
+              />
 
-      {noRulesRequired ? (
-        <Box
-          className="flex flex-1 min-h-[200px] flex-col items-center justify-center rounded-lg border-2 border-gray-200 border-dashed p-6 text-center"
-          sx={{
-            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03),
-          }}
-        >
-          <CheckCircleIcon color="primary" sx={{ fontSize: 44, mb: 1.5, opacity: 0.7 }} />
-          <Typography variant="subtitle2" color="primary" className="!font-semibold">
-            No trigger rules required
-          </Typography>
-          <Typography variant="body2" className="!mt-1 max-w-xs text-gray-500">
-            All records submitted for this module will automatically enter the approval workflow.
-          </Typography>
-        </Box>
-      ) : (
-        <TableContainer
-          className="rounded-lg bg-white-50"
-          sx={{
-            "& .MuiTableCell-root": {
-              py: 0.75,
-              px: 1,
-              border: "1px solid",
-              borderColor: "var(--border-color)",
-            },
-          }}
-        >
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell className="!font-semibold" sx={{ width: 48 }}>
-                  #
-                </TableCell>
-                <TableCell className="!font-semibold" sx={{ minWidth: 180 }}>
-                  Field
-                </TableCell>
-                <TableCell className="!font-semibold" sx={{ minWidth: 100 }}>
-                  Operator
-                </TableCell>
-                <TableCell className="!font-semibold" sx={{ minWidth: 130 }}>
-                  Value Type
-                </TableCell>
-                <TableCell className="!font-semibold" sx={{ minWidth: 200 }}>
-                  Value
-                </TableCell>
-                <TableCell width={40} />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rules.map((rule, idx) => (
-                <TableRow key={idx} sx={getRowColor(idx)}>
-                  <TableCell>
-                    <Typography variant="caption" color="text.secondary" className="!font-medium">
-                      {idx + 1}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Autocomplete
-                      size="small"
-                      options={dbFields}
-                      getOptionLabel={(opt) => prettify(opt.columnName)}
-                      isOptionEqualToValue={(opt, val) =>
-                        opt.tableName === val.tableName &&
-                        opt.columnName === val.columnName
-                      }
-                      value={dbFields.find((f) => dbFieldKey(f) === rule.fieldId) || null}
-                      onChange={(_e, newVal) =>
-                        updateRule(idx, "fieldId", newVal ? dbFieldKey(newVal) : "", newVal)
-                      }
-                      renderOption={(props, opt) => (
-                        <li {...props} key={dbFieldKey(opt)}>
-                          <Box className="flex w-full flex-col">
-                            <span className="text-xs font-medium">
-                              {prettify(opt.columnName)}
-                            </span>
-                          </Box>
-                        </li>
+              {noRulesRequired ? (
+                <Box
+                  className="flex flex-1 min-h-[200px] flex-col items-center justify-center rounded-lg border-2 border-gray-200 border-dashed p-6 text-center"
+                  sx={{
+                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.03),
+                  }}
+                >
+                  <CheckCircleIcon color="primary" sx={{ fontSize: 44, mb: 1.5, opacity: 0.7 }} />
+                  <Typography variant="subtitle2" color="primary" className="!font-semibold">
+                    No trigger rules required
+                  </Typography>
+                  <Typography variant="body2" className="!mt-1 max-w-xs text-gray-500">
+                    All records submitted for this module will automatically enter the approval workflow.
+                  </Typography>
+                </Box>
+              ) : (
+                <TableContainer
+                  className="rounded-lg bg-white-50"
+                  sx={{
+                    "& .MuiTableCell-root": {
+                      py: 0.75,
+                      px: 1,
+                      border: "1px solid",
+                      borderColor: "var(--border-color)",
+                    },
+                  }}
+                >
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell className="!font-semibold" sx={{ width: 48 }}>
+                          #
+                        </TableCell>
+                        <TableCell className="!font-semibold" sx={{ minWidth: 180 }}>
+                          Field
+                        </TableCell>
+                        <TableCell className="!font-semibold" sx={{ minWidth: 100 }}>
+                          Operator
+                        </TableCell>
+                        <TableCell className="!font-semibold" sx={{ minWidth: 130 }}>
+                          Value Type
+                        </TableCell>
+                        <TableCell className="!font-semibold" sx={{ minWidth: 200 }}>
+                          Value
+                        </TableCell>
+                        <TableCell width={40} />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {rules.map((rule, idx) => (
+                        <TableRow key={idx} sx={getRowColor(idx)}>
+                          <TableCell>
+                            <Typography variant="caption" color="text.secondary" className="!font-medium">
+                              {idx + 1}
+                            </Typography>
+                          </TableCell>
+
+                          {/* Field — sourced from Field Dictionary for this module */}
+                          <TableCell>
+                            <Autocomplete
+                              size="small"
+                              options={fields}
+                              getOptionLabel={(opt) =>
+                                opt.uiLabel || opt.dbVariableName
+                              }
+                              isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                              value={fields.find((f) => f.id === rule.fieldId) || null}
+                              onChange={(_e, newVal) => {
+                                updateRule(idx, "fieldId", newVal ? newVal.id : "");
+                                void loadRuleValueOptions(idx, newVal);
+                              }}
+                              renderOption={(props, opt) => (
+                                <li {...props} key={opt.id}>
+                                  <Box className="flex w-full flex-col">
+                                    <span className="text-xs font-medium">
+                                      {opt.uiLabel || opt.dbVariableName}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500">
+                                      {opt.dbVariableName} · {opt.dataType}
+                                      {opt.parentRelation
+                                        ? ` · ${opt.parentRelation}${opt.nestedPath ? `.${opt.nestedPath}` : ""}`
+                                        : ""}
+                                    </span>
+                                  </Box>
+                                </li>
+                              )}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  placeholder="Search fields..."
+                                  sx={compactInputSx}
+                                />
+                              )}
+                              noOptionsText={
+                                fields.length === 0
+                                  ? "No fields configured for this module"
+                                  : "No matching fields"
+                              }
+                              sx={{ minWidth: 160 }}
+                            />
+                          </TableCell>
+
+                          {/* Operator */}
+                          <TableCell>
+                            <FormControl fullWidth size="small">
+                              <Select
+                                value={rule.operatorId}
+                                onChange={(e) => updateRule(idx, "operatorId", e.target.value)}
+                                displayEmpty
+                                sx={{
+                                  fontSize: "0.8rem",
+                                  height: 26,
+                                  borderRadius: 1.5,
+                                  "& .MuiSelect-select": { padding: "6px 10px" },
+                                }}
+                              >
+                                <MenuItem value="" disabled>
+                                  <Typography variant="body2" color="text.disabled">
+                                    Select
+                                  </Typography>
+                                </MenuItem>
+                                {operators.map((o) => (
+                                  <MenuItem key={o.id} value={o.id}>
+                                    <span className="capitalize">{o.symbol}</span>
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          </TableCell>
+
+                          {/* Value Type */}
+                          <TableCell>
+                            <FormControl fullWidth size="small">
+                              <Select
+                                value={rule.valueType}
+                                onChange={(e) =>
+                                  updateRule(idx, "valueType", e.target.value)
+                                }
+                                sx={{
+                                  fontSize: "0.8rem",
+                                  height: 26,
+                                  borderRadius: 1.5,
+                                  "& .MuiSelect-select": { padding: "6px 10px" },
+                                }}
+                              >
+                                <MenuItem value="static">Static</MenuItem>
+                                <MenuItem value="field">Compare Field</MenuItem>
+                              </Select>
+                            </FormControl>
+                          </TableCell>
+
+                          {/* Value */}
+                          <TableCell>
+                            {rule.valueType === "field" ? (
+                              <Autocomplete
+                                size="small"
+                                options={dbFields}
+                                getOptionLabel={(opt) =>
+                                  `${prettify(opt.columnName)} (${opt.tableName}.${opt.columnName})`
+                                }
+                                isOptionEqualToValue={(opt, val) =>
+                                  opt.tableName === val.tableName &&
+                                  opt.columnName === val.columnName
+                                }
+                                value={dbFields.find((f) => dbFieldKey(f) === rule.value) || null}
+                                onChange={(_e, newVal) =>
+                                  updateRule(idx, "value", newVal ? dbFieldKey(newVal) : "")
+                                }
+                                renderOption={(props, opt) => (
+                                  <li {...props} key={dbFieldKey(opt)}>
+                                    <Box className="flex w-full flex-col">
+                                      <span className="text-xs font-medium">
+                                        {prettify(opt.columnName)}
+                                      </span>
+                                      <span className="text-[10px] text-gray-500">
+                                        {opt.tableName}.{opt.columnName} · {opt.dataType}
+                                      </span>
+                                    </Box>
+                                  </li>
+                                )}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    placeholder="Search..."
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                                noOptionsText="No matching fields"
+                                sx={{ minWidth: 160 }}
+                              />
+                            ) : (
+                              <Autocomplete
+                                freeSolo
+                                size="small"
+                                options={valueOptionsByRule[idx] ?? []}
+                                value={rule.value}
+                                onChange={(_e, newVal) =>
+                                  updateRule(
+                                    idx,
+                                    "value",
+                                    typeof newVal === "string" ? newVal : newVal ?? ""
+                                  )
+                                }
+                                onInputChange={(_e, newInput, reason) => {
+                                  if (reason === "input")
+                                    updateRule(idx, "value", newInput);
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    placeholder="Select or type a value..."
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                                noOptionsText="Type a value or pick from the list"
+                                sx={{ minWidth: 160 }}
+                              />
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            <Tooltip title="Remove rule">
+                              <IconButton color="error" size="small" onClick={() => removeRule(idx)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {rules.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} align="center">
+                            <div className="py-6 text-[12px] text-gray-500">
+                              No rules defined. Add a rule to begin.
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       )}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          variant="outlined"
-                          placeholder="Search..."
-                          sx={compactInputSx}
-                        />
-                      )}
-                      noOptionsText="No matching fields"
-                      sx={{ minWidth: 160 }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={rule.operatorId}
-                        onChange={(e) => updateRule(idx, "operatorId", e.target.value)}
-                        displayEmpty
-                        sx={{
-                          fontSize: "0.8rem",
-                          height: 26,
-                          borderRadius: 1.5,
-                          "& .MuiSelect-select": { padding: "6px 10px" },
-                        }}
-                      >
-                        <MenuItem value="" disabled>
-                          <Typography variant="body2" color="text.disabled">
-                            Select
-                          </Typography>
-                        </MenuItem>
-                        {operators.map((o) => (
-                          <MenuItem key={o.id} value={o.id}>
-                            <span className="capitalize">{o.symbol}</span>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </TableCell>
-                  <TableCell>
-                    <FormControl fullWidth size="small">
-                      <Select
-                        value={rule.valueType}
-                        onChange={(e) => updateRule(idx, "valueType", e.target.value)}
-                        sx={{
-                          fontSize: "0.8rem",
-                          height: 26,
-                          borderRadius: 1.5,
-                          "& .MuiSelect-select": { padding: "6px 10px" },
-                        }}
-                      >
-                        <MenuItem value="static">Static</MenuItem>
-                        <MenuItem value="field">Compare Field</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </TableCell>
-                  <TableCell>
-                    {rule.valueType === "field" ? (
-                      <Autocomplete
-                        size="small"
-                        options={dbFields}
-                        getOptionLabel={(opt) =>
-                          `${prettify(opt.columnName)} (${opt.tableName}.${opt.columnName})`
-                        }
-                        isOptionEqualToValue={(opt, val) =>
-                          opt.tableName === val.tableName &&
-                          opt.columnName === val.columnName
-                        }
-                        value={dbFields.find((f) => dbFieldKey(f) === rule.value) || null}
-                        onChange={(_e, newVal) =>
-                          updateRule(idx, "value", newVal ? dbFieldKey(newVal) : "")
-                        }
-                        renderOption={(props, opt) => (
-                          <li {...props} key={dbFieldKey(opt)}>
-                            <Box className="flex w-full flex-col">
-                              <span className="text-xs font-medium">
-                                {prettify(opt.columnName)}
-                              </span>
-                              <span className="text-[10px] text-gray-500">
-                                {opt.tableName}.{opt.columnName} · {opt.dataType}
-                              </span>
-                            </Box>
-                          </li>
-                        )}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Paper>
+          </Grid>
+
+          {/* Approval Levels */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Paper
+              elevation={0}
+              className="!bg-white border border-gray-200"
+              sx={{
+                p: 2,
+                height: "100%",
+                borderRadius: 0,
+                border: "1px solid",
+                borderColor: "divider",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              <SectionHeader
+                icon={<AccountTreeIcon fontSize="small" className="!w-3" />}
+                title="Approval Levels"
+                subtitle="Sequential approval stages"
+                action={
+                  <Button
+                    startIcon={<AddIcon />}
+                    variant="contained"
+                    size="small"
+                    disableElevation
+                    className="!bg-primary"
+                    onClick={addLevel}
+                  >
+                    Add Level
+                  </Button>
+                }
+              />
+              <TableContainer
+                className="rounded-lg bg-white-50"
+                sx={{
+                  "& .MuiTableCell-root": {
+                    py: 0.75,
+                    px: 1,
+                    border: "1px solid",
+                    borderColor: "var(--border-color)",
+                  },
+                }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell className="!font-semibold" sx={{ width: 48 }}>
+                        #
+                      </TableCell>
+                      <TableCell className="!font-semibold" sx={{ minWidth: 180 }}>
+                        Level Title
+                      </TableCell>
+                      <TableCell className="!font-semibold" sx={{ minWidth: 120 }}>
+                        Condition
+                      </TableCell>
+                      <TableCell className="!font-semibold" sx={{ minWidth: 120 }}>
+                        Approver Type
+                      </TableCell>
+                      <TableCell className="!font-semibold" sx={{ minWidth: 220 }}>
+                        Approvers
+                      </TableCell>
+                      <TableCell width={40} />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {levels.map((level, idx) => (
+                      <TableRow key={idx} sx={getRowColor(idx)}>
+                        <TableCell>
+                          <Chip
+                            label={idx + 1}
+                            size="small"
                             variant="outlined"
-                            placeholder="Search..."
+                            className="!text-gray-800"
+                            sx={{ height: 20, minWidth: 24, fontSize: "0.7rem" }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            fullWidth
+                            variant="outlined"
+                            size="small"
+                            value={level.levelTitle}
+                            onChange={(e) => updateLevel(idx, "levelTitle", e.target.value)}
                             sx={compactInputSx}
                           />
-                        )}
-                        noOptionsText="No matching fields"
-                        sx={{ minWidth: 160 }}
-                      />
-                    ) : (
-                      <TextField
-                        fullWidth
-                        variant="outlined"
-                        size="small"
-                        placeholder="Enter value..."
-                        value={rule.value}
-                        onChange={(e) => updateRule(idx, "value", e.target.value)}
-                        sx={compactInputSx}
-                      />
+                        </TableCell>
+                        <TableCell>
+                          <FormControl fullWidth size="small">
+                            <Select
+                              value={level.approvalCondition}
+                              onChange={(e) =>
+                                updateLevel(idx, "approvalCondition", e.target.value)
+                              }
+                              sx={{
+                                fontSize: "0.8rem",
+                                height: 26,
+                                borderRadius: 1.5,
+                                "& .MuiSelect-select": { padding: "6px 10px" },
+                              }}
+                            >
+                              <MenuItem value="any">OR (Any)</MenuItem>
+                              <MenuItem value="all">AND (All)</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <FormControl fullWidth size="small">
+                            <Select
+                              value={level.approverType}
+                              onChange={(e) =>
+                                handleApproverTypeChange(
+                                  idx,
+                                  e.target.value as ApprovalApproverType
+                                )
+                              }
+                              sx={{
+                                fontSize: "0.8rem",
+                                height: 26,
+                                borderRadius: 1.5,
+                                "& .MuiSelect-select": { padding: "6px 10px" },
+                              }}
+                            >
+                              <MenuItem value="user">User</MenuItem>
+                              <MenuItem value="role">Role</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <FormControl fullWidth size="small">
+                            <Select
+                              multiple
+                              value={
+                                level.approverType === "user"
+                                  ? level.approvers.map((a) => a.employeeId)
+                                  : level.approverRoles
+                              }
+                              onChange={(e) => {
+                                const selectedValues = e.target.value as string[];
+                                if (level.approverType === "user") {
+                                  handleApproversChange(idx, selectedValues);
+                                } else {
+                                  updateLevel(idx, "approverRoles", selectedValues);
+                                }
+                              }}
+                              renderValue={(selected) => (
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                                  {selected.map((value) => {
+                                    const label =
+                                      level.approverType === "user"
+                                        ? approvers.find((a) => a.id === value)?.name || value
+                                        : value;
+                                    return (
+                                      <Chip
+                                        key={value}
+                                        label={label}
+                                        size="small"
+                                        sx={{ height: 20, fontSize: "0.7rem" }}
+                                        className="!bg-gray-300 !text-gray-800"
+                                      />
+                                    );
+                                  })}
+                                </Box>
+                              )}
+                              displayEmpty
+                              sx={{
+                                fontSize: "0.8rem",
+                                minHeight: 26,
+                                borderRadius: 1.5,
+                                "& .MuiSelect-select": { padding: "4px 8px" },
+                              }}
+                            >
+                              {level.approverType === "user"
+                                ? approvers.length === 0 ? (
+                                  <MenuItem value="" disabled>
+                                    No employees available
+                                  </MenuItem>
+                                ) : (
+                                  approvers.map((approver) => (
+                                    <MenuItem key={approver.id} value={approver.id} className="!p-0">
+                                      <Checkbox
+                                        size="small"
+                                        className="text-gray-800"
+                                        checked={level.approvers.some(
+                                          (a) => a.employeeId === approver.id
+                                        )}
+                                      />
+                                      <Typography variant="body2">
+                                        {approver.name}
+                                        {approver.code ? `- (${approver.code})` : ""}
+                                        <div className="text-[10px] text-primary">{approver.desg}</div>
+                                      </Typography>
+                                    </MenuItem>
+                                  ))
+                                )
+                                : APPROVER_ROLES.map((role) => (
+                                  <MenuItem key={role} value={role} className="!p-0">
+                                    <Checkbox
+                                      size="small"
+                                      className="text-gray-800"
+                                      checked={level.approverRoles.includes(role)}
+                                    />
+                                    <Typography variant="body2">{role}</Typography>
+                                  </MenuItem>
+                                ))}
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip title="Remove level">
+                            <IconButton color="error" size="small" onClick={() => removeLevel(idx)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {levels.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center">
+                          <div className="py-6 text-[12px] text-gray-500">
+                            No approval levels defined. Add a level to begin.
+                          </div>
+                        </TableCell>
+                      </TableRow>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip title="Remove rule">
-                      <IconButton color="error" size="small" onClick={() => removeRule(idx)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {rules.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <div className="py-6 text-[12px] text-gray-500">
-                      No rules defined. Add a rule to begin.
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-    </Paper>
-  </Grid>
-
-  {/* Approval Levels */}
-  <Grid size={{ xs: 12, md: 6 }}>
-    <Paper
-      elevation={0}
-      className="!bg-white border border-gray-200"
-      sx={{
-        p: 2,
-        height: "100%",
-        borderRadius: 0,
-        border: "1px solid",
-        borderColor: "divider",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <SectionHeader
-        icon={<AccountTreeIcon fontSize="small" className="!w-3" />}
-        title="Approval Levels"
-        subtitle="Sequential approval stages"
-        action={
-          <Button
-            startIcon={<AddIcon />}
-            variant="contained"
-            size="small"
-            disableElevation
-            className="!bg-primary"
-            onClick={addLevel}
-          >
-            Add Level
-          </Button>
-        }
-      />
-      <TableContainer
-        className="rounded-lg bg-white-50"
-        sx={{
-          "& .MuiTableCell-root": {
-            py: 0.75,
-            px: 1,
-            border: "1px solid",
-            borderColor: "var(--border-color)",
-          },
-        }}
-      >
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell className="!font-semibold" sx={{ width: 48 }}>
-                #
-              </TableCell>
-              <TableCell className="!font-semibold" sx={{ minWidth: 180 }}>
-                Level Title
-              </TableCell>
-              <TableCell className="!font-semibold" sx={{ minWidth: 120 }}>
-                Condition
-              </TableCell>
-              <TableCell className="!font-semibold" sx={{ minWidth: 120 }}>
-                Approver Type
-              </TableCell>
-              <TableCell className="!font-semibold" sx={{ minWidth: 220 }}>
-                Approvers
-              </TableCell>
-              <TableCell width={40} />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {levels.map((level, idx) => (
-              <TableRow key={idx} sx={getRowColor(idx)}>
-                <TableCell>
-                  <Chip
-                    label={idx + 1}
-                    size="small"
-                    variant="outlined"
-                    className="!text-gray-800"
-                    sx={{ height: 20, minWidth: 24, fontSize: "0.7rem" }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    fullWidth
-                    variant="outlined"
-                    size="small"
-                    value={level.levelTitle}
-                    onChange={(e) => updateLevel(idx, "levelTitle", e.target.value)}
-                    sx={compactInputSx}
-                  />
-                </TableCell>
-                <TableCell>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={level.approvalCondition}
-                      onChange={(e) =>
-                        updateLevel(idx, "approvalCondition", e.target.value)
-                      }
-                      sx={{
-                        fontSize: "0.8rem",
-                        height: 26,
-                        borderRadius: 1.5,
-                        "& .MuiSelect-select": { padding: "6px 10px" },
-                      }}
-                    >
-                      <MenuItem value="any">OR (Any)</MenuItem>
-                      <MenuItem value="all">AND (All)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </TableCell>
-                <TableCell>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={level.approverType}
-                      onChange={(e) =>
-                        handleApproverTypeChange(
-                          idx,
-                          e.target.value as ApprovalApproverType
-                        )
-                      }
-                      sx={{
-                        fontSize: "0.8rem",
-                        height: 26,
-                        borderRadius: 1.5,
-                        "& .MuiSelect-select": { padding: "6px 10px" },
-                      }}
-                    >
-                      <MenuItem value="user">User</MenuItem>
-                      <MenuItem value="role">Role</MenuItem>
-                    </Select>
-                  </FormControl>
-                </TableCell>
-                <TableCell>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      multiple
-                      value={
-                        level.approverType === "user"
-                          ? level.approvers.map((a) => a.employeeId)
-                          : level.approverRoles
-                      }
-                      onChange={(e) => {
-                        const selectedValues = e.target.value as string[];
-                        if (level.approverType === "user") {
-                          handleApproversChange(idx, selectedValues);
-                        } else {
-                          updateLevel(idx, "approverRoles", selectedValues);
-                        }
-                      }}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                          {selected.map((value) => {
-                            const label =
-                              level.approverType === "user"
-                                ? approvers.find((a) => a.id === value)?.name || value
-                                : value;
-                            return (
-                              <Chip
-                                key={value}
-                                label={label}
-                                size="small"
-                                sx={{ height: 20, fontSize: "0.7rem" }}
-                                className="!bg-gray-300 !text-gray-800"
-                              />
-                            );
-                          })}
-                        </Box>
-                      )}
-                      displayEmpty
-                      sx={{
-                        fontSize: "0.8rem",
-                        minHeight: 26,
-                        borderRadius: 1.5,
-                        "& .MuiSelect-select": { padding: "4px 8px" },
-                      }}
-                    >
-                      {level.approverType === "user"
-                        ? approvers.length === 0 ? (
-                            <MenuItem value="" disabled>
-                              No employees available
-                            </MenuItem>
-                          ) : (
-                            approvers.map((approver) => (
-                              <MenuItem key={approver.id} value={approver.id} className="!p-0">
-                                <Checkbox
-                                  size="small"
-                                  className="text-gray-800"
-                                  checked={level.approvers.some(
-                                    (a) => a.employeeId === approver.id
-                                  )}
-                                />
-                                <Typography variant="body2">
-                                  {approver.name} 
-                                  {approver.code ? `- (${approver.code})` : ""}
-                                  <div className="text-[10px] text-primary">{approver.desg}</div>
-                                </Typography>
-                              </MenuItem>
-                            ))
-                          )
-                        : APPROVER_ROLES.map((role) => (
-                            <MenuItem key={role} value={role} className="!p-0">
-                              <Checkbox
-                                size="small"
-                                className="text-gray-800"
-                                checked={level.approverRoles.includes(role)}
-                              />
-                              <Typography variant="body2">{role}</Typography>
-                            </MenuItem>
-                          ))}
-                    </Select>
-                  </FormControl>
-                </TableCell>
-                <TableCell>
-                  <Tooltip title="Remove level">
-                    <IconButton color="error" size="small" onClick={() => removeLevel(idx)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-            {levels.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <div className="py-6 text-[12px] text-gray-500">
-                    No approval levels defined. Add a level to begin.
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Paper>
-  </Grid>
-</Grid>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+        </Grid>
 
         {/* ============ EVALUATION PANEL ============ */}
-        <Paper
+        {/* <Paper
           elevation={0}
           className="bg-white border border-gray-200"
           sx={{ p: 2, borderRadius: 2 }}
@@ -1289,7 +1470,7 @@ export default function ApprovalWorkflowConfig() {
               )}
             </Alert>
           )}
-        </Paper>
+        </Paper> */}
       </div>
 
       {/* ============ ACTION BAR (sticky) ============ */}
@@ -1333,33 +1514,7 @@ export default function ApprovalWorkflowConfig() {
             className="!text-primary !border-primary"
             startIcon={<RefreshIcon />}
             size="small"
-            onClick={() => {
-              if (selectedConfigId) {
-                approvalWorkflowService
-                  .getConfigurationById(selectedConfigId)
-                  .then((res) => {
-                    const data = res.data;
-                    setWorkflowName(data.workflowName);
-                    setPriorityWeight(data.priorityWeight);
-                    setNoRulesRequired(data.noRulesRequired);
-                    setActive(data.active);
-                    setRules(data.rules || []);
-                    setLevels(
-                      (data.levels || []).map((level) => ({
-                        ...level,
-                        approverType: level.approverType ?? "user",
-                        approvers: level.approvers ?? [],
-                        approverRoles: level.approverRoles ?? [],
-                      }))
-                    );
-                  })
-                  .catch((err) =>
-                    showSnackbar(getErrorMessage(err, "Failed to reload."), "error")
-                  );
-              } else {
-                handleResetForm();
-              }
-            }}
+            onClick={handleReload}
             disabled={saving}
           >
             Reload

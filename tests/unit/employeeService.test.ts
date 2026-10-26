@@ -42,7 +42,7 @@ describe("employeeService", () => {
       managerId: "manager-1",
       joinedFrom: "2026-01-01",
       joinedTo: "2026-05-21",
-      includeInactive: false,
+      includeActive: true,
       limit: 100,
       sortBy: "name",
     } as any);

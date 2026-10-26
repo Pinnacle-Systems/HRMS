@@ -145,7 +145,7 @@ export default function PendingApprovals() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     <div className="py-10 text-[12px] text-gray-500">
                       No pending approvals for you.
                     </div>
@@ -161,7 +161,7 @@ export default function PendingApprovals() {
                       className="!cursor-pointer"
                       onClick={() => openDetail(r)}
                     >
-                      <TableCell>{idx +11 }</TableCell>
+                      <TableCell>{idx + 1 }</TableCell>
                       <TableCell>{r.workflowName}</TableCell>
                       <TableCell>{r.moduleName}</TableCell>
                       <TableCell>{r.submittedByName || "—"}</TableCell>

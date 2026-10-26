@@ -974,7 +974,7 @@ export const DeviceManagement: React.FC = () => {
                             onClick={() => removeBulkMappingRow(mapping.id)}
                             disabled={mapping.status === 'success' || bulkMappingLoading}
                           >
-                            <CloseOutlined fontSize="small" />
+                            <CloseOutlined fontSize="small" className="text-gray-800"/>
                           </IconButton>
                         </Tooltip>
                       </div>

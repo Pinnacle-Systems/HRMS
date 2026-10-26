@@ -389,7 +389,7 @@ export const AssignOnboarding = () => {
         await Promise.allSettled([
           onBoardService.getChecklists(),
           onBoardService.getAssignments(params),
-          employeeService.getEmployees({ includeInactive: true }),
+          employeeService.getEmployees({ includeActive: true }),
         ]);
 
       if (checklistsResult.status === "fulfilled") {
