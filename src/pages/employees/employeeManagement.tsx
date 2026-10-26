@@ -466,6 +466,7 @@ export default function EmployeeManagement() {
         page,
         size: limit,
         sort: sortParams,
+        branch: session?.branchId || undefined,
         ...buildEmployeeServerFilterParams(activeFilters),
       };
 
@@ -573,6 +574,7 @@ export default function EmployeeManagement() {
         // size: 1000,
         sort: 'name,asc',
         includeInactive: true,
+        branch: session?.branchId || undefined,
       });
       setFilterEmployees(normalizeEmployeePageResponse(employeeOptionsResponse).content);
 
@@ -617,6 +619,7 @@ export default function EmployeeManagement() {
           page: 0,
           sort: "name,asc",
           includeActive: true,
+          branch: session?.branchId || undefined,
         });
         const pageData = normalizeEmployeePageResponse(res);
         const inactive = (pageData.content as Employee[]).filter(isEmployeeInactive);

@@ -143,8 +143,8 @@ export default function PayrollRuns() {
     }, [page, limit, statusFilter, showSnackbar, showSpinner, hideSpinner]);
 
     useEffect(() => {
-        void loadPayrollRuns();
-    }, [loadPayrollRuns, search]);
+        loadPayrollRuns();
+    }, []);
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage - 1); // Convert from 1-based (UI) to 0-based (API)

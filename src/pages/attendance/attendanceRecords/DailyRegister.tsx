@@ -706,6 +706,7 @@ export function DailyRegister() {
           endDate: date,
           departmentId: departmentId === "All" ? undefined : departmentId,
           // branchId: branchId || undefined,
+          branchId: session?.branchId || undefined,
           status: buildStatusParam(statusFilter),
           unit: unitParam(timeUnit),
           groupByDepartment
@@ -831,7 +832,7 @@ export function DailyRegister() {
       departmentService.getActiveDepartments(),
       // branchService.getActiveBranches(),
       biometricService.getAllDevices(),
-      employeeService.getEmployees({ includeActive: true }),
+      employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, }),
     ])
       .then(([depRes, devRes, empRes]: any[]) => {
         setDepartments(
@@ -1425,11 +1426,11 @@ export function DailyRegister() {
     );
 
     let employeesToCheck = employeesData;
-    // if (branchId) {
-    //   employeesToCheck = employeesData.filter(
-    //     (emp: any) => emp.branchId === branchId || emp.branch?.id === branchId
-    //   );
-    // }
+    if (session?.branchId) {
+      employeesToCheck = employeesData.filter(
+        (emp: any) => emp.branchId === session?.branchId || emp.branch?.id === session.branchId
+      );
+    }
 
     const employeesWithoutMid = employeesToCheck.filter(
       (emp: any) => !emp.midNo || emp.midNo.trim() === ""
@@ -1568,6 +1569,7 @@ export function DailyRegister() {
         endDate: date,
         departmentId: departmentId === "All" ? undefined : departmentId || undefined,
         // branchId: branchId || undefined,
+        branchId: session?.branchId || undefined,
         status: buildStatusParam(statusFilter),
         unit: unitParam(timeUnit),
       });

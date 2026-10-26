@@ -11,6 +11,7 @@ import {
 import type { Employee } from '../../../types/policy';
 import { employeeService } from '../../../services/modules/employees';
 import type { EmployeeSelectorProps } from '../types';
+import { useAuth } from '../../../auth/authContext';
 
 export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
   value,
@@ -31,6 +32,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const isFetchingRef = useRef(false);
   const searchTermRef = useRef('');
+  const { session } = useAuth();
 
   // Fetch employees function
   const fetchEmployees = useCallback(async (currentPage: number, append = false) => {
@@ -49,6 +51,7 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
         page: currentPage,
         size: pageSize,
         search: searchTermRef.current || undefined,
+        branch: session?.branchId || undefined,
         assignedHrId: hrId
       });
       let list: any = response.data.content || [];

@@ -68,6 +68,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { getRowColor } from "../../const";
 import { formatDate } from "../../leave/leaveFormatters";
 import { attendanceService } from "../../../services/modules/attendance";
+import { useAuth } from "../../../auth/authContext";
 
 const STEPS = [
     { id: 1, label: "Select Period", icon: CalendarIcon },
@@ -100,6 +101,7 @@ export default function GeneratePayroll() {
     const [periodDetails, setPeriodDetails] = useState<Period | null>(null);
     const [previewData, setPreviewData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const { session } = useAuth();
     // const [failedEmployees, setFailedEmployees] = useState<any[]>([]);
     const periodKey = (month: number, year: number) => `${year}-${month}`;
 
@@ -164,7 +166,7 @@ export default function GeneratePayroll() {
         try {
             const res: any = await employeeService.getEmployees({
                 includeActive: true,
-                // size: 1000
+                branch: session?.branchId || undefined,
             });
             setEmployees(res.data?.content || []);
         } catch (error) {

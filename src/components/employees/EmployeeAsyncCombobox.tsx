@@ -20,6 +20,7 @@ import {
   type EmployeeListQuery,
   type EmployeeSummaryResponse,
 } from "../../services/modules/employees";
+import { useAuth } from "../../auth/authContext";
 
 type EmployeeOption =
   | EmployeeSummaryResponse
@@ -107,6 +108,7 @@ export const EmployeeAsyncCombobox = ({
   const [fetchError, setFetchError] = useState("");
   const listboxRef = useRef<HTMLElement | null>(null);
   const pendingScrollTopRef = useRef<number | null>(null);
+  const { session } = useAuth();
 
   const selectedFallback = useMemo<EmployeeSummaryResponse | null>(() => {
     if (!value) return null;
@@ -146,6 +148,7 @@ export const EmployeeAsyncCombobox = ({
           sort: "name,ASC",
           search,
           includeActive,
+          branch: session?.branchId || undefined,
           ...filters,
         });
         const employeePage = normalizeEmployeePageResponse(response);

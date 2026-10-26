@@ -21,11 +21,11 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { departmentService } from "../../../services/modules/department";
-import type { Branches, Department } from "../../employees/type";
-import { branchService } from "../../../services/modules/branch";
+import type { Department } from "../../employees/type";
 import { getRowColor } from "../../const";
 import { selectSx } from "../../../const";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../auth/authContext";
 
 interface StatCardProps {
   label: string;
@@ -90,9 +90,10 @@ export function AttendanceSummary() {
   const [deptData, setDeptData] = useState<DepartmentWiseSummary[]>([]);
   const [selectedDate, setSelectedDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [departmentId, setDepartmentId] = useState("");
-  const [branchId, setBranchId] = useState("");
+  // const [branchId, setBranchId] = useState("");
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [branches, setBranches] = useState<Branches[]>([]);
+  // const [branches, setBranches] = useState<Branches[]>([]);
+  const { session } = useAuth();
 
   const openDetailedView = (status?: string) => {
     const params = new URLSearchParams({ date: selectedDate });
@@ -106,7 +107,8 @@ export function AttendanceSummary() {
       const res: any = await attendanceService.getSummary({
         date: selectedDate,
         departmentId: departmentId === 'All' ? undefined : departmentId || undefined,
-        branchId: branchId === 'All' ? undefined : branchId || undefined,
+        // branchId: branchId === 'All' ? undefined : branchId || undefined,
+        branchId: session?.branchId || undefined
       });
       const data = res?.data?.data ?? res?.data;
       setSummary(data?.summary ?? data ?? null);
@@ -116,7 +118,7 @@ export function AttendanceSummary() {
     } finally {
       hideSpinner();
     }
-  }, [selectedDate, departmentId, branchId]);
+  }, [selectedDate, departmentId]);
 
   // const getRegisterContent = async (params: Record<string, any>) => {
   //   const res: any = await attendanceService.getRegister(params);
@@ -129,7 +131,8 @@ export function AttendanceSummary() {
         startDate: params.startDate || selectedDate,
         endDate: params.endDate || selectedDate,
         departmentId: params.departmentId === 'All' ? undefined : params.departmentId || undefined,
-        branchId: params.branchId === 'All' ? undefined : params.branchId || undefined,
+        // branchId: params.branchId === 'All' ? undefined : params.branchId || undefined,
+        branchId: session?.branchId || undefined
       });
       const data = res?.data?.data ?? res?.data;
       return (Array.isArray(data) ? data : data?.content ?? []) as {
@@ -158,7 +161,8 @@ export function AttendanceSummary() {
           startDate: d,
           endDate: d,
           departmentId: departmentId === 'All' ? undefined : departmentId || undefined,
-          branchId: branchId === 'All' ? undefined : branchId || undefined,
+          // branchId: branchId === 'All' ? undefined : branchId || undefined,
+          branchId: session?.branchId || undefined
         };
 
         try {
@@ -191,7 +195,7 @@ export function AttendanceSummary() {
       console.error('Error loading trends:', error);
       setTrends([]);
     }
-  }, [selectedDate, departmentId, branchId]);
+  }, [selectedDate, departmentId]);
 
   const loadDepartmentWise = useCallback(async () => {
     if (departments.length === 0) {
@@ -202,7 +206,8 @@ export function AttendanceSummary() {
       const content = await getRegisterContent({
         startDate: selectedDate, endDate: selectedDate,
         departmentId: departmentId === 'All' ? undefined : departmentId || undefined,
-        branchId: branchId === 'All' ? undefined : branchId || undefined,
+        // branchId: branchId === 'All' ? undefined : branchId || undefined,
+        branchId: session?.branchId || undefined
       });
       let filteredContent = content;
       if (departmentId) {
@@ -233,16 +238,16 @@ export function AttendanceSummary() {
     } catch {
       setDeptData([]);
     }
-  }, [selectedDate, departments, departmentId, branchId,]);
+  }, [selectedDate, departments, departmentId]);
 
   const fetchMasterData = useCallback(async () => {
     try {
       const depRes: any = await departmentService.getActiveDepartments();
       const depData = depRes.data?.content || depRes.data || [];
       setDepartments(Array.isArray(depData) ? depData : []);
-      const branRes: any = await branchService.getActiveBranches();
-      const branData = branRes.data?.content || branRes.data || [];
-      setBranches(Array.isArray(branData) ? branData : []);
+      // const branRes: any = await branchService.getActiveBranches();
+      // const branData = branRes.data?.content || branRes.data || [];
+      // setBranches(Array.isArray(branData) ? branData : []);
     } catch (error: any) {
       console.error('Failed to fetch master data:', error);
     }
@@ -257,7 +262,7 @@ export function AttendanceSummary() {
       ]);
     };
     loadAllData();
-  }, [selectedDate, departmentId, branchId]);
+  }, [selectedDate, departmentId]);
 
   useEffect(() => {
     fetchMasterData();
@@ -318,7 +323,7 @@ export function AttendanceSummary() {
                       ))}
                     </Select>
                   </FormControl>
-                  <FormControl>
+                  {/* <FormControl>
                     <InputLabel>Branch</InputLabel>
                     <Select value={branchId} onChange={(e) => setBranchId(e.target.value)} label="Branch" sx={selectSx}>
                       <MenuItem value="All">All Branches</MenuItem>
@@ -326,7 +331,7 @@ export function AttendanceSummary() {
                         <MenuItem key={b.id} value={b.id}>{b.branchName}</MenuItem>
                       ))}
                     </Select>
-                  </FormControl>
+                  </FormControl> */}
                 </div>
 
                 {/* <Button

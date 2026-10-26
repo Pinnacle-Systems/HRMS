@@ -37,6 +37,7 @@ import { useUI } from "../../../context/Snackbar";
 import { employeeService } from "../../../services/modules/employees";
 import { formatName } from "../../../const";
 import { RefreshOutlined } from "@mui/icons-material";
+import { useAuth } from "../../../auth/authContext";
 
 // Constants
 const REASONS: RevisionReason[] = [
@@ -93,6 +94,7 @@ export default function CreateRevision({
     // Tracks the last templateId we've "seen" so we can distinguish
     // a user-initiated template change from the initial set (mount/prefill).
     const prevTemplateIdRef = useRef<string>("");
+    const { session } = useAuth();
 
     // ────────────────────────────────────────────────────────
     // Load templates
@@ -124,7 +126,7 @@ export default function CreateRevision({
     useEffect(() => {
         setEmployeesLoading(true);
         employeeService
-            .getEmployees({ page: 0, includeActive: true, sort: ["employeeId,asc"] })
+            .getEmployees({ page: 0, includeActive: true, sort: ["employeeId,asc"], branch: session?.branchId || undefined, })
             .then((res: any) => {
                 const payload = res?.data;
                 const rows = Array.isArray(payload)

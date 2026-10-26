@@ -111,7 +111,7 @@ export function ReportLayout({
             className="!bg-primary !p-2 !px-5"
             startIcon={generating
               ? <><CircularProgress size={14} /> </>
-              : <><RefreshOutlined  className="text-gray-800"/> </>
+              : <><RefreshOutlined  className=""/> </>
             }
           >
             {generating ? 'Generating...':'Generate'}

@@ -58,6 +58,7 @@ import type { OnboardingAssignment, OnboardingDetail } from "./type";
 import { useSearchParams } from "react-router-dom";
 import { employeeService } from "../../../../services/modules/employees";
 import { formatDateTime } from "../../../../utils/dateFormatter";
+import { useAuth } from "../../../../auth/authContext";
 
 // Constants
 const STATUS_MAP = {
@@ -313,6 +314,7 @@ export const AssignOnboarding = () => {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const { session } = useAuth();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkAssignDialogOpen, setIsBulkAssignDialogOpen] = useState(false);
@@ -389,7 +391,7 @@ export const AssignOnboarding = () => {
         await Promise.allSettled([
           onBoardService.getChecklists(),
           onBoardService.getAssignments(params),
-          employeeService.getEmployees({ includeActive: true }),
+          employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, }),
         ]);
 
       if (checklistsResult.status === "fulfilled") {

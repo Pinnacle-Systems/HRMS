@@ -52,6 +52,7 @@ import {
 import { useUI } from "../../../../context/Snackbar";
 import { getRowColor } from "../../../const";
 import { employeeService } from "../../../../services/modules/employees";
+import { useAuth } from "../../../../auth/authContext";
 
 type ApproverOption = {
   id: string;
@@ -161,6 +162,7 @@ export default function ApprovalWorkflowConfig() {
   const [active, setActive] = useState(true);
   const [rules, setRules] = useState<ApprovalRule[]>([]);
   const [levels, setLevels] = useState<ApprovalLevel[]>([]);
+  const { session } = useAuth();
 
   // const [evalFieldValues, setEvalFieldValues] = useState<Record<string, string>>({});
   // const [evalResult, setEvalResult] = useState<ApprovalEvaluationResult | null>(null);
@@ -197,7 +199,7 @@ export default function ApprovalWorkflowConfig() {
         const [modRes, opRes, empRes] = await Promise.all([
           approvalWorkflowService.getModules({ size: 100 }),
           approvalWorkflowService.getOperators({ activeOnly: true }),
-          employeeService.getEmployees({ includeActive: true }),
+          employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, }),
         ]);
         setModules(modRes.data.content);
         setOperators(opRes.data);

@@ -40,6 +40,7 @@ import dayjs from 'dayjs';
 import { employeeService } from '../../../services/modules/employees';
 import type { RotationFormData } from './types';
 import { selectSx } from '../../../const';
+import { useAuth } from '../../../auth/authContext';
 
 export const ShiftRotation = () => {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -50,6 +51,7 @@ export const ShiftRotation = () => {
   const [editingRotation, setEditingRotation] = useState<ShiftRotationData | null>(null);
   const [selectedRotation, setSelectedRotation] = useState<ShiftRotationData | null>(null);
   const [employees, setEmployees] = useState<any[]>([]);
+  const {session } = useAuth();
 
   const [applyData, setApplyData] = useState({
     startDate: '',
@@ -71,7 +73,7 @@ export const ShiftRotation = () => {
       const [rotationsRes, shiftsRes, employeesRes] = await Promise.all([
         shiftService.getRotations(),
         shiftService.getActiveShifts(),
-        employeeService.getEmployees({ includeActive: true })
+        employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, })
 
       ]);
 
