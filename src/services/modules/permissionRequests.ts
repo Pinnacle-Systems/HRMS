@@ -7,7 +7,7 @@ export type ApiTime = string | {
   hour?: number;
   minute?: number;
   second?: number;
-    nano: number;
+  nano: number;
 
 };
 
@@ -77,6 +77,17 @@ export type PermissionQrValidation = {
   reason?: string;
   submittedAt?: string;
   message?: string;
+};
+
+export type UpdatePermissionRequestPayload = {
+  permissionType: PermissionRequestType;
+  date: string;
+  departureTime?: ApiTime;
+  expectedReturnTime?: ApiTime;
+  destination: string;
+  reason: string;
+  generateGatePassSlip: boolean;
+  hours?: number | string;
 };
 
 type ApiEnvelope<T> = {
@@ -150,5 +161,25 @@ export const permissionRequestService = {
 
   async downloadSlip(id: string, filename: string): Promise<void> {
     await apiService.download(API_ENDPOINTS.PERMISSION_REQUESTS.SLIP(id), filename);
+  },
+
+  async updatePermission(
+    id: string,
+    payload: UpdatePermissionRequestPayload,
+  ): Promise<PermissionRequestDto> {
+    const response = await apiService.put<ApiEnvelope<PermissionRequestDto>>(
+      API_ENDPOINTS.PERMISSION_REQUESTS.BY_ID(id),
+      payload,
+    );
+    return unwrap(response);
+  },
+
+  async deletePermission(id: string): Promise<void> {
+    const response = await apiService.delete<ApiEnvelope<unknown>>(
+      API_ENDPOINTS.PERMISSION_REQUESTS.BY_ID(id),
+    );
+    if (!response.success) {
+      throw new Error(response.message || "Could not delete permission request.");
+    }
   },
 };

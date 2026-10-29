@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Alert,
   Box,
@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   MenuItem,
   Paper,
   Switch,
@@ -21,6 +22,7 @@ import {
   TableRow,
   Tabs,
   TextField,
+  Tooltip,
 } from "@mui/material";
 import AddCircleOutlineOutlinedIcon from "@mui/icons-material/AddCircleOutlineOutlined";
 import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
@@ -28,8 +30,9 @@ import CheckCircleOutlineOutlinedIcon from "@mui/icons-material/CheckCircleOutli
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
 import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import ScheduleOutlinedIcon from "@mui/icons-material/ScheduleOutlined";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import dayjs from "dayjs";
-import type { } from "@mui/x-date-pickers/AdapterDayjs";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import {
   DatePicker,
@@ -47,7 +50,7 @@ import {
   type PermissionRequestDto,
   type PermissionType,
 } from "../../services/modules/permissionRequests";
-import { formatDateTime } from "../../utils/dateFormatter";
+import { formatDate } from "../../utils/dateFormatter";
 
 type PermissionRequest = {
   id: string;
@@ -86,8 +89,50 @@ type PermissionForm = Omit<
   | "autoPosted"
 >;
 
-/** Mirrors the API's TimeOfDay shape. */
 type ApiTime = { hour: number; minute: number; second: number; nano: number };
+
+const COL_WIDTHS = {
+  sno: 56,
+  reference: 150,
+  employee: 190,
+  actions: 200,
+} as const;
+
+const stickyHeadLeft = (left: number) => ({
+  position: "sticky" as const,
+  left,
+  zIndex: 4,
+  backgroundColor: "#fff",
+  boxShadow: "2px 0 4px -2px rgba(16,24,40,0.08)",
+});
+
+const stickyHeadRight = {
+  position: "sticky" as const,
+  right: 0,
+  zIndex: 4,
+  backgroundColor: "#fff",
+  boxShadow: "-2px 0 4px -2px rgba(16,24,40,0.08)",
+};
+
+const stickyCellLeft = (left: number, bg: string) => ({
+  position: "sticky" as const,
+  left,
+  zIndex: 2,
+  backgroundColor: bg,
+});
+
+const stickyCellRight = (bg: string) => ({
+  position: "sticky" as const,
+  right: 0,
+  zIndex: 2,
+  backgroundColor: bg,
+  boxShadow: "-2px 0 4px -2px rgba(16,24,40,0.08)",
+});
+
+const rowBackground = (i: number): string => {
+  const style = getRowColor(i) as any;
+  return style?.bgcolor || style?.backgroundColor || "#fff";
+};
 
 const emptyForm = (
   requestDate: string,
@@ -114,7 +159,6 @@ const getToday = () => {
   return `${year}-${month}-${day}`;
 };
 
-/** Converts a "HH:mm" string into the API's TimeOfDay object. */
 const toApiTime = (value: string): ApiTime | undefined => {
   if (!value) return undefined;
   const [rawHour, rawMinute] = value.split(":");
@@ -124,15 +168,12 @@ const toApiTime = (value: string): ApiTime | undefined => {
   return { hour, minute, second: 0, nano: 0 };
 };
 
-/**
- * Normalises whatever the API returns for a time field. The spec shows
- * objects ({hour, minute, second, nano}), but some endpoints return
- * strings — handle both.
- */
 const normaliseApiTime = (value: unknown): string => {
   if (!value) return "";
   if (typeof value === "string") {
-    const [h, m] = value.split(":");
+    const parts = value.split(":");
+    const h = parts[0];
+    const m = parts[1];
     if (h === undefined || m === undefined) return value;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
@@ -175,30 +216,12 @@ const mapPermissionRequest = (request: PermissionRequestDto): PermissionRequest 
   };
 };
 
-const formatDate = (value: string) =>
-  new Date(`${value}T00:00:00`).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-
-/**
- * Formats a 24-hour "HH:mm" string for display using the user's locale.
- * Falls back to the raw value if it cannot be parsed.
- */
 const formatTime = (value: string) => {
   if (!value) return "";
   const parsed = dayjs(`1970-01-01T${value}`);
   return parsed.isValid() ? parsed.format("hh:mm A") : value;
 };
 
-/**
- * Computes the duration between two "HH:mm" strings.
- * Returns an empty string if either value is missing/invalid or the
- * return time is not after the departure time.
- * Format: "X.XX" hours (2 decimals) — e.g. "1.50" for 1h 30m.
- */
 const computeHrs = (from: string, to: string) => {
   if (!from || !to) return "";
   const start = dayjs(`1970-01-01T${from}`);
@@ -221,7 +244,6 @@ const escapeHtml = (value: string) =>
     return entities[character];
   });
 
-/** Extracts a user-facing error message from an unknown thrown value. */
 const extractErrorMessage = (error: unknown, fallback: string): string => {
   if (typeof error === "object" && error !== null) {
     const anyErr = error as any;
@@ -240,7 +262,7 @@ const extractErrorMessage = (error: unknown, fallback: string): string => {
 
 export default function PermissionRequestPage() {
   const { session } = useAuth();
-  const { showSnackbar } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const today = useMemo(() => getToday(), []);
   const user = session?.user;
   const employeeId = user?.employeeId || user?.userId || "";
@@ -249,12 +271,12 @@ export default function PermissionRequestPage() {
     user?.roles.some((role) => ["MANAGER", "HR", "ADMIN"].includes(role)) ??
     false;
   const managerOnly =
-    user?.roles.includes("MANAGER") &&
-    !user.roles.some((role) => role === "HR" || role === "ADMIN");
+    (user?.roles.includes("MANAGER") &&
+      !user.roles.some((role) => role === "HR" || role === "ADMIN")) ??
+    false;
   const canViewAllRequests =
     user?.roles.some((role) => ["HR", "ADMIN"].includes(role)) ?? false;
 
-  // ---- Inline tab state (same pattern as ApprovalWorkflowHome) ----
   const [tab, setTab] = useState(0);
 
   const [form, setForm] = useState<PermissionForm>(() =>
@@ -272,42 +294,66 @@ export default function PermissionRequestPage() {
   const [limit, setLimit] = useState(10);
   const [selectedRequest, setSelectedRequest] =
     useState<PermissionRequest | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestError, setRequestError] = useState("");
-  const [downloadingSlip, setDownloadingSlip] = useState(false);
+  const [editingRequest, setEditingRequest] =
+    useState<PermissionRequest | null>(null);
+  const [editForm, setEditForm] = useState<PermissionForm | null>(null);
 
-  const loadRequests = useCallback(async (requestPage = page, requestSize = limit) => {
-    setLoadingRequests(true);
-    setRequestError("");
-    try {
-      const query = {
-        page: requestPage,
-        size: requestSize,
-        sort: ["createdAt,desc"],
-      };
-      const response = canViewAllRequests
-        ? await permissionRequestService.permissionReqList(query)
-        : await permissionRequestService.permissionListMine(query);
-      setRequests(response.content.map(mapPermissionRequest));
-      setTotalRequests(response.totalElements);
-    } catch (error) {
-      setRequestError(
-        `Could not load permission requests: ${extractErrorMessage(
-          error,
-          "Unknown error",
-        )}`,
-      );
-      setRequests([]);
-      setTotalRequests(0);
-    } finally {
-      setLoadingRequests(false);
-    }
-  }, [canViewAllRequests, limit, page]);
+  // ------------------------------------------------------------------
+  // ✅ Stable refs for UI helpers — prevents identity churn in useCallback
+  // ------------------------------------------------------------------
+  const uiRef = useRef({ showSpinner, hideSpinner, showSnackbar, showConfirmDialog });
+  uiRef.current = { showSpinner, hideSpinner, showSnackbar, showConfirmDialog };
+
+  const loadingRef = useRef(false);
+  const lastFetchedRef = useRef<string>("");
+
+  // ------------------------------------------------------------------
+  // ✅ loadRequests: stable identity, no showSpinner/hideSpinner deps
+  // ------------------------------------------------------------------
+  const loadRequests = useCallback(
+    async (requestPage: number, requestSize: number, force = false) => {
+      const key = `${canViewAllRequests ? "all" : "mine"}:${requestPage}:${requestSize}`;
+      if (!force && loadingRef.current) return;
+      if (!force && lastFetchedRef.current === key) return;
+
+      loadingRef.current = true;
+      lastFetchedRef.current = key;
+
+      uiRef.current.showSpinner();
+      setRequestError("");
+      try {
+        const query = {
+          page: requestPage,
+          size: requestSize,
+          sort: ["createdAt,desc"],
+        };
+        const response = canViewAllRequests
+          ? await permissionRequestService.permissionReqList(query)
+          : await permissionRequestService.permissionListMine(query);
+        setRequests(response.content.map(mapPermissionRequest));
+        setTotalRequests(response.totalElements);
+      } catch (error) {
+        setRequestError(
+          `Could not load permission requests: ${extractErrorMessage(
+            error,
+            "Unknown error",
+          )}`,
+        );
+        setRequests([]);
+        setTotalRequests(0);
+        lastFetchedRef.current = "";
+      } finally {
+        loadingRef.current = false;
+        uiRef.current.hideSpinner();
+      }
+    },
+    [canViewAllRequests],
+  );
 
   useEffect(() => {
-    void loadRequests();
-  }, [loadRequests]);
+    void loadRequests(page, limit);
+  }, [loadRequests, page, limit]);
 
   const updateForm = <K extends keyof PermissionForm>(
     field: K,
@@ -316,7 +362,16 @@ export default function PermissionRequestPage() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
-  const paginatedRequests = requests;
+  const resetForm = () => {
+    setForm(
+      emptyForm(
+        today,
+        canApplyForOthers ? "" : employeeId,
+        canApplyForOthers ? "" : employeeName,
+      ),
+    );
+    setSelectedEmployee(null);
+  };
 
   const openRequestSlip = async (request: PermissionRequest) => {
     try {
@@ -326,7 +381,7 @@ export default function PermissionRequestPage() {
       }
       setSelectedRequest(mapPermissionRequest(details));
     } catch (error) {
-      showSnackbar(
+      uiRef.current.showSnackbar(
         `Could not load permission request: ${extractErrorMessage(
           error,
           "Unknown error",
@@ -337,16 +392,16 @@ export default function PermissionRequestPage() {
   };
 
   const downloadSlip = async (request: PermissionRequest) => {
-    setDownloadingSlip(true);
+    uiRef.current.showSpinner();
     try {
       const reference = request.requestNumber || request.id;
       await permissionRequestService.downloadSlip(
         request.id,
         `GatePass_${reference}.pdf`,
       );
-      showSnackbar("Gate-pass slip downloaded.", "success");
+      uiRef.current.showSnackbar("Gate-pass slip downloaded.", "success");
     } catch (error) {
-      showSnackbar(
+      uiRef.current.showSnackbar(
         `Could not download the gate-pass slip: ${extractErrorMessage(
           error,
           "Unknown error",
@@ -354,11 +409,33 @@ export default function PermissionRequestPage() {
         "error",
       );
     } finally {
-      setDownloadingSlip(false);
+      uiRef.current.hideSpinner();
     }
   };
 
-  /** Client-side overlap check against already-loaded requests. */
+  const openEdit = (request: PermissionRequest) => {
+    if (request.autoPosted) {
+      uiRef.current.showSnackbar(
+        "Requests created automatically by attendance can't be edited.",
+        "error",
+      );
+      return;
+    }
+    setEditingRequest(request);
+    setEditForm({
+      employeeId: request.employeeId,
+      employeeName: request.employeeName || "",
+      type: request.type,
+      requestDate: request.requestDate,
+      fromTime: request.fromTime,
+      toTime: request.toTime,
+      destination: request.destination,
+      reason: request.reason,
+      hours: request.hours || "",
+      gatePassEnabled: request.gatePassEnabled,
+    });
+  };
+
   const findOverlap = (candidate: PermissionForm): PermissionRequest | undefined => {
     if (!candidate.employeeId || !candidate.requestDate) return undefined;
     if (!candidate.fromTime || !candidate.toTime) return undefined;
@@ -376,27 +453,31 @@ export default function PermissionRequestPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!form.employeeId || !form.employeeName) {
-      showSnackbar(
+      uiRef.current.showSnackbar(
         "Select the employee this permission request is for.",
         "error",
       );
       return;
     }
     if (!form.requestDate) {
-      showSnackbar("Select the date of the permission request.", "error");
+      uiRef.current.showSnackbar(
+        "Select the date of the permission request.",
+        "error",
+      );
       return;
     }
 
-    // Times are optional. If both are provided, the return must be after departure.
     if (form.fromTime && form.toTime && form.toTime <= form.fromTime) {
-      showSnackbar("Return time must be later than departure time.", "error");
+      uiRef.current.showSnackbar(
+        "Return time must be later than departure time.",
+        "error",
+      );
       return;
     }
 
-    // Client-side early warning; the server enforces this authoritatively.
     const overlap = findOverlap(form);
     if (overlap) {
-      showSnackbar(
+      uiRef.current.showSnackbar(
         `This time window overlaps an existing request (${overlap.requestNumber || overlap.id}) for that employee on that date.`,
         "error",
       );
@@ -404,12 +485,15 @@ export default function PermissionRequestPage() {
     }
 
     const hoursNumber = form.hours ? Number(form.hours) : undefined;
-    if (hoursNumber !== undefined && (!Number.isFinite(hoursNumber) || hoursNumber <= 0)) {
-      showSnackbar("Hrs must be a positive number.", "error");
+    if (
+      hoursNumber !== undefined &&
+      (!Number.isFinite(hoursNumber) || hoursNumber <= 0)
+    ) {
+      uiRef.current.showSnackbar("Hrs must be a positive number.", "error");
       return;
     }
 
-    setSubmitting(true);
+    uiRef.current.showSpinner();
     try {
       const created = await permissionRequestService.createPermission({
         employeeId: form.employeeId,
@@ -424,34 +508,26 @@ export default function PermissionRequestPage() {
         hours: hoursNumber,
       });
       const request = mapPermissionRequest(created);
-      setForm(
-        emptyForm(
-          today,
-          canApplyForOthers ? "" : employeeId,
-          canApplyForOthers ? "" : employeeName,
-        ),
-      );
-      setSelectedEmployee(null);
-      // Reset to first page; the loadRequests effect fires on page/limit change.
-      // Only call explicitly if we're already on page 0 (no state change).
+      resetForm();
+
       if (page === 0) {
-        await loadRequests(0, limit);
+        await loadRequests(0, limit, true);
       } else {
         setPage(0);
       }
 
       if (request.exceededMonthlyCap) {
-        showSnackbar(
+        uiRef.current.showSnackbar(
           "Request submitted, but it exceeds the monthly permission allowance. HR will review it.",
           "warning",
         );
       } else if (request.gatePassEnabled) {
-        showSnackbar(
+        uiRef.current.showSnackbar(
           "Permission request submitted and gate-pass slip generated.",
           "success",
         );
       } else {
-        showSnackbar("Permission request submitted.", "success");
+        uiRef.current.showSnackbar("Permission request submitted.", "success");
       }
 
       if (request.gatePassEnabled) {
@@ -459,21 +535,121 @@ export default function PermissionRequestPage() {
       }
       setTab(1);
     } catch (error) {
-      // The API returns 400 with a specific message for overlap / cap failures.
-      showSnackbar(
+      uiRef.current.showSnackbar(
         extractErrorMessage(error, "Could not save the permission request."),
         "error",
       );
     } finally {
-      setSubmitting(false);
+      uiRef.current.hideSpinner();
     }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingRequest || !editForm) return;
+    if (!editForm.requestDate) {
+      uiRef.current.showSnackbar(
+        "Select the date of the permission request.",
+        "error",
+      );
+      return;
+    }
+    if (
+      editForm.fromTime &&
+      editForm.toTime &&
+      editForm.toTime <= editForm.fromTime
+    ) {
+      uiRef.current.showSnackbar(
+        "Return time must be later than departure time.",
+        "error",
+      );
+      return;
+    }
+    const hoursNumber = editForm.hours ? Number(editForm.hours) : undefined;
+    if (
+      hoursNumber !== undefined &&
+      (!Number.isFinite(hoursNumber) || hoursNumber <= 0)
+    ) {
+      uiRef.current.showSnackbar("Hrs must be a positive number.", "error");
+      return;
+    }
+
+    uiRef.current.showSpinner();
+    try {
+      await permissionRequestService.updatePermission(editingRequest.id, {
+        permissionType:
+          editForm.type === "PERSONAL" ? "personal_work" : "official_work",
+        date: editForm.requestDate,
+        departureTime: editForm.fromTime
+          ? toApiTime(editForm.fromTime)
+          : undefined,
+        expectedReturnTime: editForm.toTime
+          ? toApiTime(editForm.toTime)
+          : undefined,
+        destination: editForm.destination.trim(),
+        reason: editForm.reason.trim(),
+        generateGatePassSlip: editForm.gatePassEnabled,
+        hours: hoursNumber,
+      });
+      setEditingRequest(null);
+      setEditForm(null);
+      await loadRequests(page, limit, true);
+      uiRef.current.showSnackbar("Permission request updated.", "success");
+    } catch (error) {
+      uiRef.current.showSnackbar(
+        extractErrorMessage(error, "Could not update the permission request."),
+        "error",
+      );
+    } finally {
+      uiRef.current.hideSpinner();
+    }
+  };
+
+  const handleDelete = async (request: PermissionRequest) => {
+    if (request.autoPosted) {
+      uiRef.current.showSnackbar(
+        "Requests created automatically by attendance can't be deleted.",
+        "error",
+      );
+      return;
+    }
+    uiRef.current.showConfirmDialog({
+      title: "Delete Request",
+      message: `Delete permission request ${request.requestNumber || request.id}? This cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        uiRef.current.showSpinner();
+        try {
+          await permissionRequestService.deletePermission(request.id);
+          uiRef.current.showSnackbar("Permission request deleted.", "success");
+          if (requests.length === 1 && page > 0) {
+            setPage((p) => p - 1);
+          } else {
+            await loadRequests(page, limit, true);
+          }
+        } catch (error) {
+          uiRef.current.showSnackbar(
+            extractErrorMessage(
+              error,
+              "Could not delete the permission request.",
+            ),
+            "error",
+          );
+        } finally {
+          uiRef.current.hideSpinner();
+        }
+      },
+    });
   };
 
   const printSlip = (request: PermissionRequest) => {
     if (!request.gatePassQr) return;
     const printWindow = window.open("", "_blank", "width=720,height=800");
     if (!printWindow) {
-      showSnackbar("Allow pop-ups to print the gate-pass slip.", "error");
+      uiRef.current.showSnackbar(
+        "Allow pop-ups to print the gate-pass slip.",
+        "error",
+      );
       return;
     }
 
@@ -510,9 +686,9 @@ export default function PermissionRequestPage() {
               <dt>Destination</dt><dd>${escapeHtml(request.destination)}</dd>
               <dt>Reason</dt><dd>${escapeHtml(request.reason)}</dd>
             </dl>
-            <img src="${escapeHtml(request.gatePassQr)}" alt="Gate pass request QR code">
+            <img src="${request.gatePassQr}" alt="Gate pass request QR code">
             <div class="status">Request reference only</div>
-            <div className="ref">${escapeHtml(request.requestNumber || request.id)}</div>
+            <div class="ref">${escapeHtml(request.requestNumber || request.id)}</div>
           </main>
           <script>window.onload = () => window.print();</script>
         </body>
@@ -541,11 +717,12 @@ export default function PermissionRequestPage() {
           </div>
         </header>
 
-        {requestError && tab === 0 && <Alert severity="error">{requestError}</Alert>}
+        {requestError && tab === 0 && (
+          <Alert severity="error">{requestError}</Alert>
+        )}
 
-        {/* ---- Inline tab header (same style as ApprovalWorkflowHome) ---- */}
         <Box>
-          <div className="rounded-xl p-">
+          <div className="rounded-xl">
             <Tabs
               value={tab}
               onChange={(_, v) => setTab(v)}
@@ -596,7 +773,7 @@ export default function PermissionRequestPage() {
 
               <div className="grid gap-4 gap-y-6 mt-2 sm:grid-cols-3">
                 {canApplyForOthers && (
-                  <div className="">
+                  <div>
                     <EmployeeAsyncCombobox
                       value={form.employeeId || null}
                       selectedEmployee={selectedEmployee}
@@ -604,9 +781,9 @@ export default function PermissionRequestPage() {
                         const targetId = employee?.id || "";
                         const targetName = employee
                           ? employee.name ||
-                          employee.fullName ||
-                          employee.employeeName ||
-                          "Employee"
+                            employee.fullName ||
+                            employee.employeeName ||
+                            "Employee"
                           : "";
                         setSelectedEmployee(employee ?? null);
                         setForm((current) => ({
@@ -654,20 +831,17 @@ export default function PermissionRequestPage() {
                       newValue ? newValue.format("YYYY-MM-DD") : "",
                     );
                   }}
-                  minDate={dayjs(today)}
+                  // minDate={dayjs(today)}
+                  minDate={dayjs().subtract(1, "day")}
                   slotProps={{
-                    textField: {
-                      fullWidth: true,
-                    },
+                    textField: { fullWidth: true, size: "small" },
                   }}
                 />
 
                 <TimePicker
                   label="Departure time (optional)"
                   value={
-                    form.fromTime
-                      ? dayjs(`1970-01-01T${form.fromTime}`)
-                      : null
+                    form.fromTime ? dayjs(`1970-01-01T${form.fromTime}`) : null
                   }
                   onChange={(newValue: any) => {
                     const nextFrom = newValue ? newValue.format("HH:mm") : "";
@@ -679,9 +853,7 @@ export default function PermissionRequestPage() {
                   }}
                   ampm={false}
                   slotProps={{
-                    textField: {
-                      fullWidth: true,
-                    },
+                    textField: { fullWidth: true },
                   }}
                 />
 
@@ -700,9 +872,7 @@ export default function PermissionRequestPage() {
                   }}
                   ampm={false}
                   slotProps={{
-                    textField: {
-                      fullWidth: true,
-                    },
+                    textField: { fullWidth: true },
                   }}
                 />
 
@@ -710,9 +880,7 @@ export default function PermissionRequestPage() {
                   label="Hrs"
                   value={form.hours}
                   placeholder="Auto-calculated"
-                  onChange={(event) =>
-                    updateForm("hours", event.target.value)
-                  }
+                  onChange={(event) => updateForm("hours", event.target.value)}
                   helperText="Calculated from departure and return time when both are set."
                 />
 
@@ -725,15 +893,12 @@ export default function PermissionRequestPage() {
                   placeholder="Where will you be going?"
                   slotProps={{ htmlInput: { maxLength: 120 } }}
                   required
-                  className=""
                 />
 
                 <TextField
                   label="Reason"
                   value={form.reason}
-                  onChange={(event) =>
-                    updateForm("reason", event.target.value)
-                  }
+                  onChange={(event) => updateForm("reason", event.target.value)}
                   placeholder="Briefly explain why you need permission"
                   required
                   className="sm:col-span-2"
@@ -778,17 +943,7 @@ export default function PermissionRequestPage() {
                 <Button
                   type="button"
                   variant="outlined"
-                  onClick={() => {
-                    setForm(
-                      emptyForm(
-                        today,
-                        canApplyForOthers ? "" : employeeId,
-                        canApplyForOthers ? "" : employeeName,
-                      ),
-                    );
-                    setSelectedEmployee(null);
-                  }}
-                  disabled={submitting}
+                  onClick={resetForm}
                   className="!border-gray-200 !text-gray-800"
                 >
                   Clear form
@@ -796,11 +951,10 @@ export default function PermissionRequestPage() {
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={submitting}
                   startIcon={<CheckCircleOutlineOutlinedIcon />}
                   className="!bg-primary"
                 >
-                  {submitting ? "Submitting..." : "Submit request"}
+                  Submit request
                 </Button>
               </div>
             </Paper>
@@ -818,7 +972,8 @@ export default function PermissionRequestPage() {
                     1
                   </span>
                   <p className="pt-1 text-[12px] leading-5 text-gray-600">
-                    Enter your destination and, if known, the time you expect to return.
+                    Enter your destination and, if known, the time you expect
+                    to return.
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -851,7 +1006,11 @@ export default function PermissionRequestPage() {
         {/* ==================== TAB 1: Request list ==================== */}
         {tab === 1 && (
           <section aria-labelledby="request-history-title" className="!m-2">
-            {requestError && <Alert severity="error" className="!mb-4">{requestError}</Alert>}
+            {requestError && (
+              <Alert severity="error" className="!mb-4">
+                {requestError}
+              </Alert>
+            )}
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <div
@@ -871,14 +1030,7 @@ export default function PermissionRequestPage() {
               </span>
             </div>
 
-            {loadingRequests ? (
-              <Paper
-                elevation={0}
-                className="rounded-xl !border !border-gray-200 !bg-white !p-8 text-center text-[12px] text-gray-500"
-              >
-                Loading permission requests...
-              </Paper>
-            ) : requests.length === 0 ? (
+            {requests.length === 0 ? (
               <Paper
                 elevation={0}
                 className="flex flex-col items-center rounded-xl !border !border-dashed !border-gray-200 !bg-white !px-5 !py-10 text-center"
@@ -908,115 +1060,292 @@ export default function PermissionRequestPage() {
                 className="overflow-hidden rounded-xl !border !border-gray-200 !bg-white"
               >
                 <TableContainer sx={{ maxHeight: 560 }}>
-                  <Table stickyHeader size="small" aria-label="Permission requests">
+                  <Table
+                    stickyHeader
+                    size="small"
+                    aria-label="Permission requests"
+                    sx={{ minWidth: 1200 }}
+                  >
                     <TableHead>
                       <TableRow>
-                        <TableCell className="!font-bold">S No</TableCell>
-                        <TableCell className="!font-bold">Reference</TableCell>
-                        <TableCell className="!font-bold">Employee</TableCell>
-                        <TableCell className="!font-bold">Time</TableCell>
-                        <TableCell className="!font-bold">Hrs</TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          sx={{
+                            ...stickyHeadLeft(0),
+                            width: COL_WIDTHS.sno,
+                            minWidth: COL_WIDTHS.sno,
+                          }}
+                        >
+                          S No
+                        </TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          sx={{
+                            ...stickyHeadLeft(COL_WIDTHS.sno),
+                            width: COL_WIDTHS.reference,
+                            minWidth: COL_WIDTHS.reference,
+                          }}
+                        >
+                          Reference
+                        </TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          sx={{
+                            ...stickyHeadLeft(
+                              COL_WIDTHS.sno + COL_WIDTHS.reference,
+                            ),
+                            width: COL_WIDTHS.employee,
+                            minWidth: COL_WIDTHS.employee,
+                          }}
+                        >
+                          Employee
+                        </TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          sx={{ whiteSpace: "nowrap" }}
+                        >
+                          Time
+                        </TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          sx={{ whiteSpace: "nowrap" }}
+                        >
+                          Hrs
+                        </TableCell>
                         <TableCell className="!font-bold">Type</TableCell>
-                        <TableCell className="!font-bold">Destination</TableCell>
+                        <TableCell className="!font-bold">
+                          Destination
+                        </TableCell>
                         <TableCell className="!font-bold">Reason</TableCell>
                         <TableCell className="!font-bold">Gate pass</TableCell>
-                        <TableCell className="!font-bold">Requested Date</TableCell>
-                        <TableCell className="!font-bold" align="center">Actions</TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          sx={{ whiteSpace: "nowrap" }}
+                        >
+                          Requested Date
+                        </TableCell>
+                        <TableCell
+                          className="!font-bold"
+                          align="center"
+                          sx={{
+                            ...stickyHeadRight,
+                            width: COL_WIDTHS.actions,
+                            minWidth: COL_WIDTHS.actions,
+                          }}
+                        >
+                          Actions
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {paginatedRequests.map((request, i) => (
-                        <TableRow
-                          key={request.id}
-                          sx={getRowColor(i)}
-                        >
-                          <TableCell>{page * limit + i + 1}</TableCell>
-                          <TableCell>
-                            {request.requestNumber || request.id}
-                          </TableCell>
-                          <TableCell>
-                            <div className="font-medium text-gray-800">
-                              {request.employeeName || "-"}
-                            </div>
-                            <div className="text-[11px] text-gray-500">
-                              {request.employeeCode || request.employeeId || "—"}
-                            </div>
-                          </TableCell>
+                      {requests.map((request, i) => {
+                        const bg = rowBackground(i);
+                        return (
+                          <TableRow key={request.id} sx={getRowColor(i)}>
+                            <TableCell
+                              sx={{
+                                ...stickyCellLeft(0, bg),
+                                width: COL_WIDTHS.sno,
+                                minWidth: COL_WIDTHS.sno,
+                              }}
+                            >
+                              {page * limit + i + 1}
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                ...stickyCellLeft(COL_WIDTHS.sno, bg),
+                                width: COL_WIDTHS.reference,
+                                minWidth: COL_WIDTHS.reference,
+                                maxWidth: COL_WIDTHS.reference,
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                            >
+                              {request.requestNumber || request.id}
+                            </TableCell>
+                            <TableCell
+                              sx={{
+                                ...stickyCellLeft(
+                                  COL_WIDTHS.sno + COL_WIDTHS.reference,
+                                  bg,
+                                ),
+                                width: COL_WIDTHS.employee,
+                                minWidth: COL_WIDTHS.employee,
+                              }}
+                            >
+                              <div className="font-medium text-gray-800">
+                                {request.employeeName || "-"}
+                              </div>
+                              <div className="text-[11px] text-gray-500">
+                                {request.employeeCode ||
+                                  request.employeeId ||
+                                  "—"}
+                              </div>
+                            </TableCell>
 
-                          <TableCell sx={{ whiteSpace: "nowrap" }}>
-                            {request.fromTime || request.toTime
-                              ? `${formatTime(request.fromTime) || "-"} – ${formatTime(request.toTime) || "-"}`
-                              : "-"}
-                          </TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>
+                              {request.fromTime || request.toTime
+                                ? `${formatTime(request.fromTime) || "-"} – ${
+                                    formatTime(request.toTime) || "-"
+                                  }`
+                                : "-"}
+                            </TableCell>
 
-                          <TableCell sx={{ whiteSpace: "nowrap" }}>
-                            {request.hours ||
-                              computeHrs(request.fromTime, request.toTime) ||
-                              "-"}
-                          </TableCell>
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>
+                              {request.hours ||
+                                computeHrs(request.fromTime, request.toTime) ||
+                                "-"}
+                            </TableCell>
 
-                          <TableCell>
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              label={
-                                request.type === "PERSONAL" ? "Personal" : "Official"
-                              }
-                              color={
-                                request.type === "PERSONAL" ? "warning" : "info"
-                              }
-                              sx={{ fontSize: 11, height: 22 }}
-                            />
-                          </TableCell>
-
-                          <TableCell sx={{ maxWidth: 180 }}>
-                            <span className="line-clamp-2">{request.destination}</span>
-                          </TableCell>
-
-                          <TableCell sx={{ maxWidth: 240 }}>
-                            <span className="line-clamp-2">{request.reason}</span>
-                          </TableCell>
-
-                          <TableCell>
-                            <Chip
-                              size="small"
-                              color={request.gatePassEnabled ? "success" : "error"}
-                              variant="outlined"
-                              label={request.gatePassEnabled ? "Yes" : "No"}
-                              sx={{ fontSize: 11, height: 22 }}
-                            />
-                          </TableCell>
-
-                          <TableCell sx={{ whiteSpace: "nowrap" }}>
-                            {formatDateTime(request.requestDate)}
-                          </TableCell>
-
-                          <TableCell align="center">
-                            <div className="flex justify-center gap-1">
-                              <Button
+                            <TableCell>
+                              <Chip
                                 size="small"
                                 variant="outlined"
-                                onClick={() => void openRequestSlip(request)}
-                                className="!text-primary !border-primary"
-                                sx={{ fontSize: 11, py: 0.25 }}
-                              >
-                                {request.gatePassEnabled ? "View slip" : "Details"}
-                              </Button>
-                              {request.gatePassEnabled && (
+                                label={
+                                  request.type === "PERSONAL"
+                                    ? "Personal"
+                                    : "Official"
+                                }
+                                color={
+                                  request.type === "PERSONAL"
+                                    ? "warning"
+                                    : "info"
+                                }
+                                sx={{ fontSize: 11, height: 22 }}
+                              />
+                            </TableCell>
+
+                            <TableCell sx={{ maxWidth: 180 }}>
+                              <span className="line-clamp-2">
+                                {request.destination}
+                              </span>
+                            </TableCell>
+
+                            <TableCell sx={{ maxWidth: 240 }}>
+                              <span className="line-clamp-2">
+                                {request.reason}
+                              </span>
+                            </TableCell>
+
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                color={
+                                  request.gatePassEnabled ? "success" : "error"
+                                }
+                                variant="outlined"
+                                label={request.gatePassEnabled ? "Yes" : "No"}
+                                sx={{ fontSize: 11, height: 22 }}
+                              />
+                            </TableCell>
+
+                            <TableCell sx={{ whiteSpace: "nowrap" }}>
+                              {formatDate(request.requestDate)}
+                            </TableCell>
+
+                            <TableCell
+                              align="center"
+                              sx={{
+                                ...stickyCellRight(bg),
+                                width: COL_WIDTHS.actions,
+                                minWidth: COL_WIDTHS.actions,
+                                py: 0.5,
+                              }}
+                            >
+                              <div className="flex items-center justify-center gap-0.5">
                                 <Button
                                   size="small"
-                                  aria-label={`Download gate-pass slip ${request.requestNumber || request.id}`}
-                                  onClick={() => void downloadSlip(request)}
-                                  disabled={downloadingSlip}
-                                  sx={{ minWidth: 32, px: 0.5 }}
+                                  variant="outlined"
+                                  onClick={() => void openRequestSlip(request)}
+                                  className="!text-primary !border-primary"
+                                  sx={{
+                                    fontSize: 11,
+                                    py: 0.25,
+                                    px: 1,
+                                    minWidth: "auto",
+                                    whiteSpace: "nowrap",
+                                  }}
                                 >
-                                  <DownloadOutlinedIcon fontSize="small" />
+                                  {request.gatePassEnabled
+                                    ? "View slip"
+                                    : "Details"}
                                 </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+
+                                {request.gatePassEnabled && (
+                                  <Tooltip title="Download gate-pass slip">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`Download gate-pass slip ${
+                                          request.requestNumber || request.id
+                                        }`}
+                                        onClick={() => void downloadSlip(request)}
+                                        sx={{ p: 0.5 }}
+                                      >
+                                        <DownloadOutlinedIcon fontSize="small" />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                )}
+
+                                <Tooltip
+                                  title={
+                                    request.autoPosted
+                                      ? "Auto-posted requests can't be edited"
+                                      : "Edit request"
+                                  }
+                                >
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      aria-label={`Edit permission request ${
+                                        request.requestNumber || request.id
+                                      }`}
+                                      disabled={request.autoPosted}
+                                      onClick={() => openEdit(request)}
+                                      sx={{ p: 0.5, color: "primary.main" }}
+                                    >
+                                      <EditIcon
+                                        fontSize="small"
+                                        sx={{ width: 16, height: 16, ml: 1 }}
+                                      />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+
+                                <Tooltip
+                                  title={
+                                    request.autoPosted
+                                      ? "Auto-posted requests can't be deleted"
+                                      : "Delete request"
+                                  }
+                                >
+                                  <span>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      aria-label={`Delete permission request ${
+                                        request.requestNumber || request.id
+                                      }`}
+                                      disabled={request.autoPosted}
+                                      onClick={() =>
+                                        void handleDelete(request)
+                                      }
+                                      sx={{ p: 0.5 }}
+                                    >
+                                      <DeleteIcon
+                                        fontSize="small"
+                                        sx={{ width: 16, height: 16 }}
+                                      />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -1046,7 +1375,9 @@ export default function PermissionRequestPage() {
         >
           <DialogTitle className="!flex !items-center !justify-between !border-b !border-gray-200 !p-2">
             <div className="!ml-4">
-              {selectedRequest?.gatePassEnabled ? "Gate-pass slip" : "Permission request"}
+              {selectedRequest?.gatePassEnabled
+                ? "Gate-pass slip"
+                : "Permission request"}
             </div>
             <Button
               aria-label="Close gate-pass slip"
@@ -1054,7 +1385,7 @@ export default function PermissionRequestPage() {
               color="inherit"
               className="!min-w-0"
             >
-              <CloseOutlinedIcon className="text-gray-800"/>
+              <CloseOutlinedIcon className="text-gray-800" />
             </Button>
           </DialogTitle>
           <DialogContent className="!pt-5">
@@ -1069,8 +1400,12 @@ export default function PermissionRequestPage() {
                   {selectedRequest.employeeName || "—"}
                 </h3>
                 <p className="mt-1 text-[12px] text-gray-500">
-                  ID {selectedRequest.employeeCode || selectedRequest.employeeId || "—"}
-                  {selectedRequest.department && ` · ${selectedRequest.department}`}
+                  ID{" "}
+                  {selectedRequest.employeeCode ||
+                    selectedRequest.employeeId ||
+                    "—"}
+                  {selectedRequest.department &&
+                    ` · ${selectedRequest.department}`}
                   {" · "}
                   {formatDate(selectedRequest.requestDate)}
                 </p>
@@ -1101,19 +1436,25 @@ export default function PermissionRequestPage() {
                 )}
                 <p className="mt-1 text-[12px] text-gray-500">
                   {selectedRequest.fromTime || selectedRequest.toTime
-                    ? `${formatTime(selectedRequest.fromTime) || "—"} – ${formatTime(selectedRequest.toTime) || "—"}`
+                    ? `${formatTime(selectedRequest.fromTime) || "—"} – ${
+                        formatTime(selectedRequest.toTime) || "—"
+                      }`
                     : "Time not specified"}{" "}
                   · {selectedRequest.destination}
                 </p>
                 <p className="mt-1 text-[12px] text-gray-500">
                   Duration:{" "}
                   {selectedRequest.hours ||
-                    computeHrs(selectedRequest.fromTime, selectedRequest.toTime) ||
+                    computeHrs(
+                      selectedRequest.fromTime,
+                      selectedRequest.toTime,
+                    ) ||
                     "—"}{" "}
                   hrs
                 </p>
                 <p className="mt-2 text-[11px] text-gray-400">
-                  Reference: {selectedRequest.requestNumber || selectedRequest.id}
+                  Reference:{" "}
+                  {selectedRequest.requestNumber || selectedRequest.id}
                 </p>
                 <p className="mt-3 border-t border-gray-100 pt-3 text-left text-[12px] text-gray-600">
                   {selectedRequest.reason}
@@ -1134,7 +1475,6 @@ export default function PermissionRequestPage() {
                 variant="contained"
                 startIcon={<DownloadOutlinedIcon />}
                 onClick={() => void downloadSlip(selectedRequest)}
-                disabled={downloadingSlip}
                 className="!bg-primary"
               >
                 Download slip
@@ -1149,6 +1489,164 @@ export default function PermissionRequestPage() {
                 Print
               </Button>
             )}
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(editingRequest && editForm)}
+          onClose={() => {
+            setEditingRequest(null);
+            setEditForm(null);
+          }}
+          fullWidth
+          maxWidth="sm"
+        >
+          <DialogTitle className="!border-b !border-gray-200">
+            Edit permission request
+          </DialogTitle>
+          <DialogContent className="!pt-5">
+            {editForm && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField
+                  label="Employee"
+                  value={editForm.employeeName}
+                  disabled
+                  size="small"
+                  helperText="The employee can't be changed on an existing request."
+                  className="sm:col-span-2"
+                />
+                <TextField
+                  select
+                  label="Permission type"
+                  value={editForm.type}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      type: e.target.value as PermissionType,
+                    })
+                  }
+                  required
+                  size="small"
+                >
+                  <MenuItem value="PERSONAL">Personal</MenuItem>
+                  <MenuItem value="OFFICIAL">Official work</MenuItem>
+                </TextField>
+                <DatePicker
+                  label="Date"
+                  value={
+                    editForm.requestDate ? dayjs(editForm.requestDate) : null
+                  }
+                  onChange={(v: any) =>
+                    setEditForm({
+                      ...editForm,
+                      requestDate: v ? v.format("YYYY-MM-DD") : "",
+                    })
+                  }
+                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                />
+                <TimePicker
+                  label="Departure time (optional)"
+                  value={
+                    editForm.fromTime
+                      ? dayjs(`1970-01-01T${editForm.fromTime}`)
+                      : null
+                  }
+                  onChange={(v: any) => {
+                    const nextFrom = v ? v.format("HH:mm") : "";
+                    setEditForm({
+                      ...editForm,
+                      fromTime: nextFrom,
+                      hours: computeHrs(nextFrom, editForm.toTime),
+                    });
+                  }}
+                  ampm={false}
+                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                />
+                <TimePicker
+                  label="Expected return time (optional)"
+                  value={
+                    editForm.toTime
+                      ? dayjs(`1970-01-01T${editForm.toTime}`)
+                      : null
+                  }
+                  onChange={(v: any) => {
+                    const nextTo = v ? v.format("HH:mm") : "";
+                    setEditForm({
+                      ...editForm,
+                      toTime: nextTo,
+                      hours: computeHrs(editForm.fromTime, nextTo),
+                    });
+                  }}
+                  ampm={false}
+                  slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                />
+                <TextField
+                  label="Hrs"
+                  size="small"
+                  value={editForm.hours}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, hours: e.target.value })
+                  }
+                  helperText="Send both times, or hours."
+                  className="sm:col-span-2"
+                />
+                <TextField
+                  label="Destination"
+                  size="small"
+                  value={editForm.destination}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, destination: e.target.value })
+                  }
+                  required
+                  className="sm:col-span-2"
+                  slotProps={{ htmlInput: { maxLength: 120 } }}
+                />
+                <TextField
+                  label="Reason"
+                  size="small"
+                  value={editForm.reason}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, reason: e.target.value })
+                  }
+                  required
+                  className="sm:col-span-2"
+                />
+                <FormControlLabel
+                  className="sm:col-span-2"
+                  control={
+                    <Switch
+                      checked={editForm.gatePassEnabled}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          gatePassEnabled: e.target.checked,
+                        })
+                      }
+                    />
+                  }
+                  label="Generate gate-pass slip (re-issued with same QR reference)"
+                />
+              </div>
+            )}
+          </DialogContent>
+          <DialogActions className="!border-t !border-gray-200 !px-6 !py-4">
+            <Button
+              onClick={() => {
+                setEditingRequest(null);
+                setEditForm(null);
+              }}
+              variant="outlined"
+              className="!text-gray-800 !border-gray-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleUpdate()}
+              variant="contained"
+              className="!bg-primary"
+            >
+              Save changes
+            </Button>
           </DialogActions>
         </Dialog>
       </main>

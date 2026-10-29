@@ -115,6 +115,9 @@ export interface DepartmentWiseSummary {
   present: number;
   absent: number;
   attendancePercentage: number;
+  late: number,
+  irregular: number,
+  onLeave: number,
 }
 
 export interface MusterCell {
@@ -231,7 +234,7 @@ export interface ProcessResult {
     missedPunches: number,
     overtimeHours: number,
     errors: number
-}
+  }
 }
 
 export interface DailyStatusEmployee {
@@ -808,7 +811,7 @@ export interface PunchData {
 export interface ImportFileParams {
   format: string;
   source: string;
-  type:string;
+  type: string;
   startDate?: string;
   endDate?: string;
 }

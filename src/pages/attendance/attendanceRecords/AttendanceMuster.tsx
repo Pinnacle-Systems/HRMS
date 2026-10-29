@@ -38,6 +38,19 @@ const FALLBACK_LEGEND = [
 const SUMMARY_COL_WIDTH = 46;
 const REGISTER_PINNED_WIDTH = 85;
 
+// Muster matrix sticky column widths (must match header + body + footer)
+const MUSTER_COL_WIDTHS = {
+  sNo: 50,
+  code: 90,
+  name: 160,
+};
+
+const MUSTER_OFFSETS = {
+  sNo: 0,
+  code: MUSTER_COL_WIDTHS.sNo,                              // 50
+  name: MUSTER_COL_WIDTHS.sNo + MUSTER_COL_WIDTHS.code,     // 140
+};
+
 type StatusMap = Record<string, { abbr: string; color: string; label: string }>;
 
 type SummaryColumn = {
@@ -535,7 +548,7 @@ export function AttendanceMuster() {
     const info = statusMappings[statusKey];
     return (
       <span
-        className="inline-flex items-center justify-center px-2 py-1 text-[8px] font-bold border"
+        className="inline-flex items-center justify-center px-2 text-[8px] font-bold border"
         style={{
           backgroundColor: hexToRgba(info.color, 0.15),
           borderColor: info.color,
@@ -587,6 +600,16 @@ export function AttendanceMuster() {
     bodyLeft2: 21,
     bodyLeft3: 22,
     bodyRightBase: 25,
+  };
+
+  const MZ = {
+    headerLeft1: 44,
+    headerLeft2: 43,
+    headerLeft3: 42,
+    bodyLeft1: 24, 
+    bodyLeft2: 23,
+    bodyLeft3: 22,  
+    footerLeft: 44,
   };
 
   return (
@@ -896,18 +919,46 @@ export function AttendanceMuster() {
                 <table className="text-xs border-collapse min-w-full">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
+                      {/* S No — sticky left 0 */}
+                      <th
+                        className="sticky top-0 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold cursor-pointer select-none"
+                        style={{
+                          left: MUSTER_OFFSETS.sNo,
+                          zIndex: MZ.headerLeft1,
+                          width: MUSTER_COL_WIDTHS.sNo,
+                          minWidth: MUSTER_COL_WIDTHS.sNo,
+                        }}
+                      >
+                        S No
+                      </th>
+
+                      {/* Code — sticky left 50 */}
                       <th
                         onClick={() => handleSort("employeeCode")}
-                        className="sticky left-0 top-0 z-40 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[50px] cursor-pointer select-none"
+                        className="sticky top-0 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold cursor-pointer select-none"
+                        style={{
+                          left: MUSTER_OFFSETS.code,
+                          zIndex: MZ.headerLeft2,
+                          width: MUSTER_COL_WIDTHS.code,
+                          minWidth: MUSTER_COL_WIDTHS.code,
+                        }}
                       >
                         <span className="inline-flex items-center">
                           Code
                           <SortArrow field="employeeCode" />
                         </span>
                       </th>
+
+                      {/* Employee — sticky left 140 */}
                       <th
                         onClick={() => handleSort("employeeName")}
-                        className="sticky left-[53px] top-0 z-[41] bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold min-w-[150px] cursor-pointer select-none"
+                        className="sticky top-0 bg-gray-50 border-r border-gray-200 px-3 py-2 text-left text-gray-600 font-semibold cursor-pointer select-none"
+                        style={{
+                          left: MUSTER_OFFSETS.name,
+                          zIndex: MZ.headerLeft3,
+                          width: MUSTER_COL_WIDTHS.name,
+                          minWidth: MUSTER_COL_WIDTHS.name,
+                        }}
                       >
                         <span className="inline-flex items-center">
                           Employee
@@ -952,15 +1003,44 @@ export function AttendanceMuster() {
                       const rowBg = getSolidRowBg(rowStyle);
                       return (
                         <tr key={emp.employeeId} style={rowStyle}>
+                          {/* S No */}
                           <td
-                            className="sticky left-0 z-20 whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono"
-                            style={{ backgroundColor: rowBg }}
+                            className="sticky whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono text-center"
+                            style={{
+                              left: MUSTER_OFFSETS.sNo,
+                              zIndex: MZ.bodyLeft1,
+                              backgroundColor: rowBg,
+                              width: MUSTER_COL_WIDTHS.sNo,
+                              minWidth: MUSTER_COL_WIDTHS.sNo,
+                            }}
+                          >
+                            {(musterPage - 1) * musterLimit + ri + 1}
+                          </td>
+
+                          {/* Code */}
+                          <td
+                            className="sticky whitespace-nowrap border-r border-gray-200 px-3 py-1.5 text-gray-600 font-mono"
+                            style={{
+                              left: MUSTER_OFFSETS.code,
+                              zIndex: MZ.bodyLeft2,
+                              backgroundColor: rowBg,
+                              width: MUSTER_COL_WIDTHS.code,
+                              minWidth: MUSTER_COL_WIDTHS.code,
+                            }}
                           >
                             {emp.employeeCode}
                           </td>
+
+                          {/* Employee */}
                           <td
-                            className="sticky left-[53px] z-[21] border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap"
-                            style={{ backgroundColor: rowBg }}
+                            className="sticky border-r border-gray-200 px-3 py-1.5 text-gray-800 font-medium whitespace-nowrap"
+                            style={{
+                              left: MUSTER_OFFSETS.name,
+                              zIndex: MZ.bodyLeft3,
+                              backgroundColor: rowBg,
+                              width: MUSTER_COL_WIDTHS.name,
+                              minWidth: MUSTER_COL_WIDTHS.name,
+                            }}
                           >
                             {emp.employeeName}
                           </td>
@@ -987,7 +1067,7 @@ export function AttendanceMuster() {
                                   </div>
                                 }
                               >
-                                <td className="px-0.5 py-1 text-center border-r border-gray-100">
+                                <td className="px-0.5 py-0.5 text-center border-r border-gray-100">
                                   {cell ? (
                                     <div>
                                       {amInfo?.abbr === pmInfo?.abbr ? (
@@ -1067,11 +1147,17 @@ export function AttendanceMuster() {
                   <tfoot className="sticky bottom-0 z-30">
                     <tr className="bg-gray-100 border-t-2 border-gray-300">
                       <td
-                        colSpan={2}
-                        className="sticky left-0 z-40 bg-gray-100 px-3 py-2 font-semibold text-gray-700 border-r border-gray-200"
+                        colSpan={3}
+                        className="sticky bg-gray-100 px-3 py-2 font-semibold text-gray-700 border-r border-gray-200"
+                        style={{
+                          left: 0,
+                          zIndex: MZ.footerLeft,
+                          minWidth: MUSTER_OFFSETS.name + MUSTER_COL_WIDTHS.name,
+                        }}
                       >
                         Day Total
                       </td>
+
                       {dayNumbers.map((d) => {
                         const presentCount = employees.filter((emp) => {
                           const cell = getCellForDay(emp, d);
@@ -1087,6 +1173,7 @@ export function AttendanceMuster() {
                           </td>
                         );
                       })}
+
                       <td
                         colSpan={musterColumns.length}
                         style={{

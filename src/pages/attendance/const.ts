@@ -230,8 +230,8 @@ export interface RegisterEmployee {
   department: string;
   designation: string;
   shiftCode: string;
-  shiftStart: number;
-  shiftEnd: number;
+  shiftStart: string | null;
+  shiftEnd: string | null;
   checkInTime: string | null;
   checkOutTime: string | null;
   status: AttendanceStatus;
@@ -303,7 +303,7 @@ export const punchTimeColor = (
 export const STATUS_FILTER_MAP: Record<string, string[]> = {
   present: ["present", "night_duty"],
   absent: ["absent", "on_leave"],
-  irregular: ["irregular", "early_out", "lateinearlyout", "checked_in"],
+  irregular: ["irregular", "early_out", "lateinearlyout", "checked_in","missed_out"],
   late: ["late"],
 };
 
@@ -312,3 +312,20 @@ export const expandStatusFilter = (filter: string): string | undefined => {
   const mapped = STATUS_FILTER_MAP[filter];
   return mapped ? mapped.join(",") : filter;
 };
+
+export function dedupeMovements(movements: any[]): any[] {
+  const seen = new Map<string, any>();
+  for (const m of movements) {
+    const key = `${m.time}|${m.type}`;
+    const existing = seen.get(key);
+    if (
+      !existing ||
+      (m.source === "PERMISSION" && existing.source !== "PERMISSION")
+    ) {
+      seen.set(key, m);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) =>
+    String(a.time).localeCompare(String(b.time)),
+  );
+}

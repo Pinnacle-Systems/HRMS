@@ -2943,6 +2943,8 @@ export default function EmployeeDetails() {
         esiRelievingDate: updatedData.esiRelievingDate,
         templateId: updatedData.templateId,
         employeeGroupId: updatedData.employeeGroupId,
+        // previouslyWorked: Boolean(updatedData.previouslyWorked),
+        // previousEmployeeId: updatedData.previousEmployeeId ?? null,
       };
       if (!payload.aadhaarNumber) {
         payload['dateOfBirth'] = updatedData.dateOfBirth,

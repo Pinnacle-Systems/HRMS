@@ -143,7 +143,6 @@ export default function ApprovalOperatorManagement() {
                 }
             },
         });
-
     };
 
     return (

@@ -16,6 +16,7 @@ export interface PairedMovement {
   durationMinutes: number | null;
   classification: "official" | "personal" | "break" | null;
   permissionRequestId?: string | null;
+  permissionType?: string;
   saving?: boolean;
 }
 

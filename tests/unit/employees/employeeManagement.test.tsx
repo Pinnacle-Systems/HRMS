@@ -25,6 +25,8 @@ vi.mock("../../../src/services/modules/employees", async (importOriginal) => {
     ...actual,
     employeeService: {
       getEmployees: vi.fn(),
+      getDeactivatedEmployees: vi.fn(),
+      getEmployeeById: vi.fn(),
       getSummary: vi.fn(),
       createEmployee: vi.fn(),
       updateEmployee: vi.fn(),
@@ -141,6 +143,9 @@ async function setupMocks() {
   vi.mocked(employeeService.getEmployees).mockResolvedValue({
     data: { content: mockEmployees, totalElements: 2 },
   } as any);
+  vi.mocked(employeeService.getDeactivatedEmployees).mockResolvedValue({
+    data: { content: [], totalElements: 0, totalPages: 0 },
+  } as any);
   vi.mocked(employeeService.getSummary).mockResolvedValue({
     data: {
       totalEmployees: 2,
@@ -166,6 +171,9 @@ async function setupMocks() {
   } as any);
   vi.mocked(employeeService.createEmployee).mockResolvedValue({
     data: { id: "3", employeeId: "EMP003" },
+  } as any);
+  vi.mocked(employeeService.getEmployeeById).mockResolvedValue({
+    data: {},
   } as any);
   const { attendanceService } = await import(
     "../../../src/services/modules/attendance"
@@ -291,6 +299,67 @@ describe("EmployeeManagement — Add employee dialog", () => {
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+  });
+
+  it("loads every page of previous employees and fetches the selected employee details", async () => {
+    const user = userEvent.setup();
+    const previousEmployee = {
+      id: "former-1",
+      employeeId: "EMP010",
+      name: "Former Employee",
+      emailAddress: "former@example.com",
+      mobileNumber: "9876543210",
+      employeeStatus: "INACTIVE",
+      isActive: false,
+    };
+    const { employeeService } = await import(
+      "../../../src/services/modules/employees"
+    );
+    vi.mocked(employeeService.getDeactivatedEmployees).mockImplementation(
+      async (query) =>
+        ({
+          data: {
+            content: query?.page === 0 ? [previousEmployee] : [],
+            totalElements: 1,
+            totalPages: 2,
+            number: query?.page,
+            last: query?.page === 1,
+          },
+        }) as any,
+    );
+    vi.mocked(employeeService.getEmployeeById).mockResolvedValue({
+      data: previousEmployee,
+    } as any);
+
+    renderWithProviders(<EmployeeManagement />);
+    await screen.findByText("Alice Johnson");
+    await user.click(screen.getByRole("button", { name: /add employee/i }));
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: /previously worked here/i,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(employeeService.getDeactivatedEmployees).toHaveBeenCalledTimes(2);
+    });
+
+    const previousEmployeeInput = screen.getByRole("combobox", {
+      name: /previous employee id/i,
+    });
+    await user.click(previousEmployeeInput);
+    await user.click(
+      await screen.findByRole("option", { name: /former employee/i }),
+    );
+
+    await waitFor(() => {
+      expect(employeeService.getEmployeeById).toHaveBeenCalledWith("former-1");
+    });
+    expect(
+      screen.getByRole("checkbox", {
+        name: /fetch and apply all previous employee data/i,
+      }),
+    ).toBeEnabled();
   });
 });
 

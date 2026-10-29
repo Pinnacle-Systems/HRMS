@@ -135,7 +135,7 @@ export function LopReport({ onBack }: Props) {
     >
       {/* LOP Summary Banner */}
       {rows.length > 0 && (
-        <div className="flex flex-wrap gap-6 p-3 bg-red-50 border-b border-gray-200">
+        <div className="flex flex-wrap gap-6 p-3 bg-red-100 dark:bg-red-900 border-b border-gray-200">
           <div className="text-[12px]">
             <span className="text-gray-500">Total Employees: </span>
             <span className="font-bold text-gray-800">{totalEmployees}</span>

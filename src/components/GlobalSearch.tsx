@@ -21,7 +21,7 @@ import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import TrackChangesOutlined from "@mui/icons-material/TrackChanges";
 import PolicyOutlined from "@mui/icons-material/PolicyOutlined";
 import KeyboardReturnOutlined from "@mui/icons-material/KeyboardReturnOutlined";
-import { AdjustOutlined, BalanceOutlined, BarChartOutlined, CalendarMonthOutlined, CalendarTodayOutlined, CalendarViewDayOutlined, CategoryOutlined, EditDocument, EventOutlined, FingerprintOutlined, MonetizationOnOutlined, PasswordOutlined, ReceiptLong, RemoveCircleOutlined, ReportOutlined, RequestQuoteOutlined, ReviewsOutlined, SummarizeOutlined } from "@mui/icons-material";
+import { AdjustOutlined, BalanceOutlined, BarChartOutlined, CalendarMonthOutlined, CalendarTodayOutlined, CalendarViewDayOutlined, CategoryOutlined, EditDocument, EventBusyOutlined, EventOutlined, FingerprintOutlined, MonetizationOnOutlined, PasswordOutlined, ReceiptLong, RemoveCircleOutlined, ReportOutlined, RequestQuoteOutlined, ReviewsOutlined, SummarizeOutlined } from "@mui/icons-material";
 import { useAuth } from "../auth/authContext";
 import {
   RequestPageOutlined as RequestPageOutlinedIcon,
@@ -716,6 +716,26 @@ const ALL_ITEMS: SearchItem[] = [
   //   ],
   //   roles: ["ADMIN", "HR"],
   // },
+  {
+    label: "Permission Requests",
+    description: "Request time away from the workplace and generate gate-pass slips",
+    path: "/permission-requests",
+    category: "Attendance",
+    icon: <EventBusyOutlined fontSize="small" />,
+    keywords: [
+      "permission",
+      "permission request",
+      "gate pass",
+      "gatepass",
+      "time away",
+      "official work",
+      "personal work",
+      "out of office",
+      "slip",
+      "qr",
+    ],
+    roles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE"],
+  },
 ];
 
 const CATEGORY_COLORS: Record<string, string> = {

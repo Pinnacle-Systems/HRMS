@@ -5,14 +5,14 @@ import {
   AccessTimeOutlined,
   MoneyOffCsredOutlined,
   FingerprintOutlined,
-  OfflinePinOutlined,
+  // OfflinePinOutlined,
 } from "@mui/icons-material";
 import type { TabPanelProps } from "../types";
 import { CorrectionsView } from "./CorrectionsView";
 import { OvertimeManagement } from "./OvertimeManagement";
 import { RemoteCheckins } from "./RemoteCheckins";
 import { LopManagement } from "./LopManagement";
-import OfflineSyncManagement from "./offlineSync";
+// import OfflineSyncManagement from "./offlineSync";
 import DeviceManagement from "./BiometricDevice";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -33,12 +33,6 @@ const TABS = [
     component: <CorrectionsView />,
   },
   {
-    path: "remote-checkins",
-    label: "Remote Check-ins",
-    icon: <LocationOnOutlined className="!w-4" />,
-    component: <RemoteCheckins />,
-  },
-  {
     path: "overtime",
     label: "Overtime",
     icon: <AccessTimeOutlined className="!w-4" />,
@@ -57,11 +51,17 @@ const TABS = [
     component: <DeviceManagement />,
   },
   {
-    path: "offline-sync",
-    label: "Offline Sync",
-    icon: <OfflinePinOutlined className="!w-4" />,
-    component: <OfflineSyncManagement />,
+    path: "remote-checkins",
+    label: "Remote Check-ins",
+    icon: <LocationOnOutlined className="!w-4" />,
+    component: <RemoteCheckins />,
   },
+  // {
+  //   path: "offline-sync",
+  //   label: "Offline Sync",
+  //   icon: <OfflinePinOutlined className="!w-4" />,
+  //   component: <OfflineSyncManagement />,
+  // },
 ];
 
 export default function AttendanceManagement() {
@@ -85,15 +85,17 @@ export default function AttendanceManagement() {
           <div className="flex flex-nowrap gap-2">
             {TABS.map((tab, index) => {
               const active = activeTab === index;
+              const disabled = index == 4;
               return (
                 <button
                   key={index}
                   onClick={() => navigate(`/attendance/management/${tab.path}`)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-md text-sm transition-all duration-200 whitespace-nowrap
                     ${active
-                      ? "bg-primary-50 text-primary shadow-sm"
-                      : "bg-white text-gray-600 hover:bg-primary-50 hover:text-primary"
+                      ? "bg-primary-50 text-primary shadow-sm" : disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-white text-gray-600 hover:bg-primary-50 hover:text-primary"
                     }`}
+                  disabled={disabled}
                 >
                   {tab.icon}
                   <span className="text-[12px]">{tab.label}</span>

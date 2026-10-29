@@ -51,13 +51,14 @@ import {
   PlayArrowOutlined,
   ViewColumnOutlined,
   SwapHorizOutlined,
+  DeleteOutlined,
+  OpenInNewOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
-  // formatTimewithSec,
   type InlineDisplayProps,
   type RegisterEmployee,
   type TodaySummary,
@@ -66,6 +67,7 @@ import {
   inlineInputSx,
   punchTimeColor,
   expandStatusFilter,
+  dedupeMovements,
 } from "../const";
 import { departmentService } from "../../../services/modules/department";
 import type { Department, Employee } from "../../employees/type";
@@ -88,6 +90,10 @@ import { shiftService } from "../../../services/modules/shifts";
 import { pairMovements, type PairedMovement } from "../movement";
 import { permissionRequestService } from "../../../services/modules/permissionRequests";
 
+// ── Module-scope helpers ─────────────────────────────────────────────────
+type ShiftOption = { code: string; start: string; end: string; color?: string };
+const SHIFT_MASTER_ROUTE = "/attendance/shifts";
+
 const buildStatusParam = (statusFilter: string): string[] | undefined => {
   if (!statusFilter) return undefined;
   const expanded = expandStatusFilter(statusFilter);
@@ -107,6 +113,46 @@ const unitParam = (timeUnit: "min" | "hrs"): "minutes" | "hours" =>
 const displayUnitValue = (
   value: number | null | undefined,
 ): string | number => (value == null || (value as any) === "" ? "-" : value);
+
+/** Normalize any shift-time value (string "09:00", ISO datetime, Date, number) to "HH:mm". */
+const toHHmm = (v: unknown): string => {
+  if (v == null || v === "") return "";
+  const s = String(v);
+  const d = dayjs(s, "HH:mm");
+  if (d.isValid()) return d.format("HH:mm");
+  const d2 = dayjs(s);
+  return d2.isValid() ? d2.format("HH:mm") : s;
+};
+
+const isShiftMissing = (emp: RegisterEmployee): boolean => {
+  const hasPunch = !!(emp.checkInTime || emp.checkOutTime);
+  const hasShiftCode = !!emp.shiftCode && String(emp.shiftCode).trim() !== "";
+  const hasStart =
+    !!emp.shiftStart &&
+    String(emp.shiftStart).trim() !== "" &&
+    String(emp.shiftStart) !== "-";
+  const hasEnd =
+    !!emp.shiftEnd &&
+    String(emp.shiftEnd).trim() !== "" &&
+    String(emp.shiftEnd) !== "-";
+  return hasPunch && !(hasShiftCode && hasStart && hasEnd);
+};
+
+const REAL_MOVEMENT_PERMISSIONS = new Set(["OFFICIAL_WORK", "PERSONAL_WORK"]);
+
+const getMovementPermissionType = (row: PairedMovement): string | null => {
+  const candidates = [
+    (row as any).permissionType,
+    (row as any).outMovement?.permissionType,
+    (row as any).inMovement?.permissionType,
+  ];
+  for (const pt of candidates) {
+    if (!pt) continue;
+    const upper = String(pt).toUpperCase();
+    if (REAL_MOVEMENT_PERMISSIONS.has(upper)) return upper;
+  }
+  return null;
+};
 
 function InlineDisplay({
   value,
@@ -141,7 +187,10 @@ type EditableField =
   | "checkInDate"
   | "checkInTime"
   | "checkOutDate"
-  | "checkOutTime";
+  | "checkOutTime"
+  | "shiftCode"
+  | "shiftStart"
+  | "shiftEnd";
 
 // ── Column visibility config ──────────────────────────────────────────────
 type ColumnKey =
@@ -197,7 +246,6 @@ export function DailyRegister() {
     sessionStorage.getItem("dailyRegisterDate") ?? dayjs().format("YYYY-MM-DD");
   const [date, setDate] = useState(getInitialRegisterDate);
   const [departmentId, setDepartmentId] = useState("");
-  // const [branchId, setBranchId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [employees, setEmployees] = useState<RegisterEmployee[]>([]);
   const [todaySummary, setTodaySummary] = useState<TodaySummary | null>(null);
@@ -205,7 +253,6 @@ export function DailyRegister() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
-  // const [branches, setBranches] = useState<Branches[]>([]);
   const { session } = useAuth();
   const navigate = useNavigate();
   const [timeUnit, setTimeUnit] = useState<"min" | "hrs">(
@@ -237,7 +284,8 @@ export function DailyRegister() {
   const canEditPunchTimes =
     hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed;
   const [shiftColorMap, setShiftColorMap] = useState<Record<string, string>>({});
-
+  const [shiftList, setShiftList] = useState<ShiftOption[]>([]);
+  const [draftShiftCode, setDraftShiftCode] = useState<string | null>(null);
 
   // ── Column visibility ───────────────────────────────────────────────────
   const [visibleColumns, setVisibleColumns] =
@@ -269,16 +317,24 @@ export function DailyRegister() {
       .getShifts({ page: 0, size: 1000, sort: "shiftCode,ASC" })
       .then((res: any) => {
         const list = res?.content ?? res?.data?.content ?? res?.data ?? [];
+        const arr = Array.isArray(list) ? list : [];
+
         const map: Record<string, string> = {};
-        (Array.isArray(list) ? list : []).forEach((s: any) => {
-          if (s.shiftCode) {
-            map[s.shiftCode] = s.color || "#3b82f6";
-          }
+        const opts: ShiftOption[] = [];
+        arr.forEach((s: any) => {
+          if (!s.shiftCode) return;
+          map[s.shiftCode] = s.color || "#3b82f6";
+          opts.push({
+            code: s.shiftCode,
+            start: toHHmm(s.startTime ?? s.shiftStart ?? ""),
+            end: toHHmm(s.endTime ?? s.shiftEnd ?? ""),
+            color: s.color,
+          });
         });
         setShiftColorMap(map);
+        setShiftList(opts);
       })
-      .catch(() => {
-      });
+      .catch(() => { });
   }, []);
 
   const toggleColumn = (key: ColumnKey) => {
@@ -294,19 +350,32 @@ export function DailyRegister() {
   const openField = (
     employeeId: string,
     field: string,
-    initial?: dayjs.Dayjs | null,
+    initial?: dayjs.Dayjs | string | null,
   ) => {
+    if (field === "shiftCode") {
+      if (processStatus.locked) return;
+      setEditingField(editKey(employeeId, field));
+      setDraftShiftCode(typeof initial === "string" ? initial : null);
+      setDraftDateTime(null);
+      return;
+    }
     if (!canEditPunchTimes) return;
     setEditingField(editKey(employeeId, field));
-    setDraftDateTime(initial ?? null);
+    setDraftDateTime(dayjs.isDayjs(initial) ? initial : null);
   };
 
   const closeField = () => {
     setEditingField(null);
     setDraftDateTime(null);
+    setDraftShiftCode(null);
   };
 
-  // ── Directly update staged punch via API ──────────────────────────────────
+  const goToShiftMaster = () => {
+    sessionStorage.setItem("dailyRegisterDate", date);
+    navigate(SHIFT_MASTER_ROUTE);
+  };
+
+  // ── Punch-only update ────────────────────────────────────────────────────
   const updateStagedPunchAPI = async (
     emp: RegisterEmployee,
     field: EditableField,
@@ -327,12 +396,11 @@ export function DailyRegister() {
     } else {
       checkOutTime = formattedValue;
     }
-
     showSpinner();
     try {
       const res: any = await biometricService.updateStagedPunch(
         emp.employeeId,
-        dayjs(emp.checkInDate || emp.checkOutDate || date).format("YYYY-MM-DD"),
+        dayjs(value).format("YYYY-MM-DD"),
         {
           checkInTime: checkInTime ?? null,
           checkOutTime: checkOutTime ?? null,
@@ -340,7 +408,6 @@ export function DailyRegister() {
         },
       );
 
-      // Server responds { success, message, data: {...}, timestamp }
       const updated = res?.data?.data ?? res?.data ?? res;
 
       setEmployees((prev) =>
@@ -350,11 +417,9 @@ export function DailyRegister() {
           return {
             ...e,
 
-            // ── Punch times ──────────────────────────────────────────
             checkInTime: updated.checkInTime ?? e.checkInTime ?? null,
             checkOutTime: updated.checkOutTime ?? e.checkOutTime ?? null,
 
-            // ── Punch dates (server sends checkInDate / checkOutDate) ─
             checkInDate:
               updated.checkInDate ??
               (updated.checkInTime
@@ -366,35 +431,30 @@ export function DailyRegister() {
                 ? dayjs(updated.checkOutTime).format("YYYY-MM-DD")
                 : e.checkOutDate),
 
-            // ── Descriptive fields (may have changed server-side) ────
             employeeName: updated.employeeName ?? e.employeeName,
             employeeCode: updated.employeeCode ?? e.employeeCode,
             department: updated.department ?? e.department,
             designation: updated.designation ?? e.designation,
             template: updated.template ?? e.template,
 
-            // ── Shift ────────────────────────────────────────────────
             shiftCode: updated.shiftCode ?? e.shiftCode,
-            shiftStart: updated.shiftStart ?? e.shiftStart,
-            shiftEnd: updated.shiftEnd ?? e.shiftEnd,
+            shiftStart: toHHmm(updated.shiftStart ?? e.shiftStart),
+            shiftEnd: toHHmm(updated.shiftEnd ?? e.shiftEnd),
 
-            // ── Status ───────────────────────────────────────────────
             status: (updated.status ?? e.status) as any,
 
-            // ── Computed minutes ─────────────────────────────────────
             workedMinutes: updated.workedMinutes ?? e.workedMinutes,
             lateMinutes: updated.lateMinutes ?? e.lateMinutes,
             earlyOutMinutes: updated.earlyOutMinutes ?? e.earlyOutMinutes,
             overtimeMinutes: updated.overtimeMinutes ?? e.overtimeMinutes,
 
-            // ── Movement ─────────────────────────────────────────────
             movement: updated.movement ?? e.movement,
-            // remarks: updated.remarks ?? e.remarks,
           };
         }),
       );
 
       showSnackbar("Punch updated", "success");
+      loadTodaySummary();
     } catch (err: any) {
       showSnackbar(
         err?.response?.data?.message ?? err?.message ?? "Failed to update staged punch",
@@ -403,6 +463,74 @@ export function DailyRegister() {
     } finally {
       hideSpinner();
     }
+  };
+
+  const updateShiftAPI = async (
+    emp: RegisterEmployee,
+    payload: { shiftCode: string; shiftStart: string; shiftEnd: string },
+  ) => {
+    if (processStatus.locked) {
+      showSnackbar("Attendance is locked for this date", "warning");
+      return;
+    }
+
+    showSpinner();
+    try {
+      const res: any = await biometricService.updateStagedPunch(
+        emp.employeeId,
+        dayjs(emp.checkInDate || emp.checkOutDate || date).format("YYYY-MM-DD"),
+        {
+          checkInTime: emp.checkInTime
+            ? dayjs(emp.checkInTime).format("YYYY-MM-DDTHH:mm:ss")
+            : null,
+          checkOutTime: emp.checkOutTime
+            ? dayjs(emp.checkOutTime).format("YYYY-MM-DDTHH:mm:ss")
+            : null,
+          remarks: null,
+          shiftCode: payload.shiftCode,
+          shiftStart: payload.shiftStart,
+          shiftEnd: payload.shiftEnd,
+        },
+      );
+
+      const updated = res?.data?.data ?? res?.data ?? res;
+
+      setEmployees((prev) =>
+        prev.map((e): RegisterEmployee => {
+          if (e.employeeId !== emp.employeeId) return e;
+          return {
+            ...e,
+            shiftCode: updated.shiftCode ?? payload.shiftCode,
+            shiftStart: toHHmm(updated.shiftStart ?? payload.shiftStart),
+            shiftEnd: toHHmm(updated.shiftEnd ?? payload.shiftEnd),
+            status: (updated.status ?? e.status) as any,
+            workedMinutes: updated.workedMinutes ?? e.workedMinutes,
+            lateMinutes: updated.lateMinutes ?? e.lateMinutes,
+            earlyOutMinutes: updated.earlyOutMinutes ?? e.earlyOutMinutes,
+            overtimeMinutes: updated.overtimeMinutes ?? e.overtimeMinutes,
+          };
+        }),
+      );
+
+      showSnackbar("Shift updated", "success");
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? err?.message ?? "Failed to update shift",
+        "error",
+      );
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const commitShiftCode = (emp: RegisterEmployee, code: string) => {
+    const shift = shiftList.find((s) => s.code === code);
+    closeField();
+    updateShiftAPI(emp, {
+      shiftCode: code,
+      shiftStart: shift?.start ?? "",
+      shiftEnd: shift?.end ?? "",
+    });
   };
 
   // Validate the current draft value
@@ -429,8 +557,15 @@ export function DailyRegister() {
     return true;
   };
 
-  // Build the final dayjs value for a field, merging date+time correctly
   const buildFieldValue = (emp: RegisterEmployee, field: EditableField) => {
+    if (
+      field !== "checkInDate" &&
+      field !== "checkInTime" &&
+      field !== "checkOutDate" &&
+      field !== "checkOutTime"
+    ) {
+      return null;
+    }
     const selected = dayjs(draftDateTime);
     if (!selected.isValid()) return null;
     if (field.endsWith("Time")) {
@@ -443,7 +578,6 @@ export function DailyRegister() {
     return selected;
   };
 
-  // Initial value for a field when opening it programmatically
   const getInitialForField = (
     emp: RegisterEmployee,
     field: EditableField,
@@ -457,10 +591,13 @@ export function DailyRegister() {
         return dayjs(emp.checkOutTime || emp.checkOutDate || date);
       case "checkOutTime":
         return emp.checkOutTime ? dayjs(emp.checkOutTime) : null;
+      case "shiftCode":
+      case "shiftStart":
+      case "shiftEnd":
+        return null;
     }
   };
 
-  // Determine which fields are editable for a given employee
   const getEditableFieldsForEmployee = (emp: RegisterEmployee): EditableField[] => {
     const fields: EditableField[] = [];
     const hasCheckInDate = !!emp.checkInDate;
@@ -475,13 +612,11 @@ export function DailyRegister() {
     return fields;
   };
 
-  // Pick the first editable field for an employee
   const getFirstEditableField = (emp: RegisterEmployee): EditableField | null => {
     const fields = getEditableFieldsForEmployee(emp);
     return fields[0] ?? null;
   };
 
-  // Only commit on blur when focus actually leaves the picker UI.
   const handleFieldBlur = (
     e: React.FocusEvent<HTMLDivElement>,
     emp: RegisterEmployee,
@@ -506,7 +641,6 @@ export function DailyRegister() {
     commitOnBlur(emp, field);
   };
 
-  // commitAndMoveNext — row-wise navigation
   const commitAndMoveNext = (emp: RegisterEmployee, field: EditableField) => {
     const value = buildFieldValue(emp, field);
     if (value) {
@@ -546,8 +680,12 @@ export function DailyRegister() {
     }
   };
 
-  // Save the open field when user clicks away (blur)
   const commitOnBlur = (emp: RegisterEmployee, field: EditableField) => {
+    if (field === "shiftCode" || field === "shiftStart" || field === "shiftEnd") {
+      closeField();
+      return;
+    }
+
     if (field === "checkInDate" && emp.checkInDate) {
       closeField();
       return;
@@ -657,7 +795,6 @@ export function DailyRegister() {
     );
   };
 
-  // Load staged punches from Redis
   const loadStagedPunches = useCallback(async () => {
     setLoadingStagedPunches(true);
     setStagedPunchCheckFailed(false);
@@ -665,17 +802,16 @@ export function DailyRegister() {
       const data = await biometricService.getStagedPunches({
         from: date,
         to: date,
-        // status: statusFilter == "missed_out" ? "checked_in" : statusFilter || undefined
         status: buildStatusParam(statusFilter),
         unit: unitParam(timeUnit),
         groupByDepartment
       });
-      // const list = Array.isArray(data) ? data : [];
       const list = groupByDepartment
         ? flattenGroupedStagedPunches(data)
         : (Array.isArray(data) ? data : []);
       setStagedPunches(list);
       setHasStagedPunches(list.length > 0);
+      loadTodaySummary();
       return list;
     } catch {
       setStagedPunches([]);
@@ -691,7 +827,6 @@ export function DailyRegister() {
     setLoading(true);
     showSpinner();
     try {
-      // 1. Check staged punches first
       const staged = await loadStagedPunches();
       if (staged === null) {
         setEmployees([]);
@@ -699,20 +834,17 @@ export function DailyRegister() {
         return;
       }
 
-      // 2. If no staged data, fall back to register API
       if (staged.length === 0) {
         const res: any = await attendanceService.getRegister({
           startDate: date,
           endDate: date,
           departmentId: departmentId === "All" ? undefined : departmentId,
-          // branchId: branchId || undefined,
           branchId: session?.branchId || undefined,
           status: buildStatusParam(statusFilter),
           unit: unitParam(timeUnit),
           groupByDepartment
         });
         const data = res?.data?.data ?? res?.data;
-        // const employeesData = Array.isArray(data) ? data : (data?.content ?? []);
         let employeesData: RegisterEmployee[];
         if (groupByDepartment && Array.isArray(data) && data[0]?.records !== undefined) {
           employeesData = data.flatMap((g: any) => g.records ?? []);
@@ -722,7 +854,6 @@ export function DailyRegister() {
         setEmployees(employeesData);
         setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
       } else {
-        // 3. If staged data exists, use it directly
         const mapped: RegisterEmployee[] = staged.map((s) => ({
           employeeId: s.employeeId,
           employeeName: s.employeeName,
@@ -735,8 +866,8 @@ export function DailyRegister() {
           checkInDate: s.checkInTime ? dayjs(s.checkInTime).format("YYYY-MM-DD") : null,
           checkOutDate: s.checkOutTime ? dayjs(s.checkOutTime).format("YYYY-MM-DD") : null,
           shiftCode: s.shiftCode,
-          shiftStart: s.shiftStart ?? "",
-          shiftEnd: s.shiftEnd ?? "",
+          shiftStart: toHHmm(s.shiftStart ?? ""),
+          shiftEnd: toHHmm(s.shiftEnd ?? ""),
           status: s.status == "checked_in" ? "missed_punch" : s.status,
           workedMinutes: s.workedMinutes,
           lateMinutes: s.lateMinutes,
@@ -770,7 +901,15 @@ export function DailyRegister() {
     periodEnd?: string | null;
     totalPunches?: number;
     daysImported?: number;
-    skipped?: number;
+    skipped?: any;
+    skippedEmployees?: {
+      employeeId: string;
+      employeeName: string;
+      source?: string;
+      skippedPunches?: number;
+      dates?: string[];
+      reason?: string;
+    }[];
   } | null>(null);
 
   const [punchImportOpen, setPunchImportOpen] = useState(false);
@@ -785,7 +924,6 @@ export function DailyRegister() {
   });
   const [devices, setDevices] = useState<BiometricDevice[]>([]);
   const [employeesData, setEmployeesData] = useState<Employee[]>([]);
-
 
   useEffect(() => {
     sessionStorage.setItem("dailyRegisterTimeUnit", timeUnit);
@@ -830,9 +968,8 @@ export function DailyRegister() {
   useEffect(() => {
     Promise.all([
       departmentService.getActiveDepartments(),
-      // branchService.getActiveBranches(),
       biometricService.getAllDevices(),
-      employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, }),
+      employeeService.getEmployees({ includeActive: true, branch: session?.branchId || undefined, }),
     ])
       .then(([depRes, devRes, empRes]: any[]) => {
         setDepartments(
@@ -840,11 +977,6 @@ export function DailyRegister() {
             ? depRes.data?.content || depRes.data
             : [],
         );
-        // setBranches(
-        //   Array.isArray(branRes.data?.content || branRes.data)
-        //     ? branRes.data?.content || branRes.data
-        //     : [],
-        // );
         setDevices(
           Array.isArray(devRes.data?.content || devRes.data || devRes)
             ? devRes.data?.content || devRes.data || devRes
@@ -861,7 +993,6 @@ export function DailyRegister() {
 
   const todayHoliday = holidays.find((h) => h.date === date);
 
-  // ── Punch dialog ──────────────────────────────────────────────────────────
   function openPunch(emp: RegisterEmployee, type: "checkIn" | "checkOut") {
     if (!canEditPunchTimes) {
       showSnackbar("Punch details can only be edited while staged punches exist", "warning");
@@ -920,7 +1051,6 @@ export function DailyRegister() {
     }
   }
 
-  // ── Bulk daily status ─────────────────────────────────────────────────────
   async function submitBulkStatus() {
     if (selected.size === 0) {
       showSnackbar("Select at least one employee", "warning");
@@ -948,7 +1078,6 @@ export function DailyRegister() {
     }
   }
 
-  // ── Bulk process ──────────────────────────────────────────────────────────
   async function handleBulkProcess() {
     if (selected.size === 0) {
       showSnackbar("Select at least one employee", "warning");
@@ -980,7 +1109,6 @@ export function DailyRegister() {
     });
   }
 
-  // ── Bulk Check-in ──────────────────────────────────────────────────────────
   async function submitBulkCheckin(employeesToCheckin = bulkCheckinEmployees) {
     if (employeesToCheckin.length === 0) {
       showSnackbar("Select at least one employee", "warning");
@@ -1076,7 +1204,6 @@ export function DailyRegister() {
     }
   }
 
-  // ── Selection Handlers ────────────────────────────────────────────────────
   function toggleSelect(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -1096,7 +1223,6 @@ export function DailyRegister() {
     }
   }
 
-  // ── Reminder Handlers ────────────────────────────────────────────────────
   async function handleSendReminders() {
     if (!reminderMessage.trim()) {
       showSnackbar("Please enter a reminder message", "warning");
@@ -1172,15 +1298,17 @@ export function DailyRegister() {
       if (!data) throw new Error("The server did not return an attendance import result");
 
       const totalPunches = Number(data.totalPunches ?? 0);
+      const daysImported = Number(data.daysImported ?? 0);
       const failed = Number(data.errors ?? 0);
-      const success = Math.max(totalPunches - failed, 0);
 
-      // Treat known success messages as success; only others become "errors".
+      const success =
+        daysImported > 0 ? daysImported : Math.max(totalPunches - failed, 0);
+
       const errors: string[] = Array.isArray(data.rows)
         ? data.rows
           .filter((r: any) => {
             const m = String(r?.message ?? "").toLowerCase();
-            return m && !SUCCESS_ROW_MESSAGES.has(m);
+            return m && !SUCCESS_ROW_MESSAGES.has(m) && !m.startsWith("skipped");
           })
           .map((r: any) =>
             r.employeeCode ? `${r.employeeCode}: ${r.message}` : String(r.message),
@@ -1189,7 +1317,7 @@ export function DailyRegister() {
 
       showSnackbar(
         failed === 0
-          ? `Staged ${totalPunches} punches`
+          ? `Staged ${success} records`
           : failed === totalPunches
             ? `All ${totalPunches} records failed`
             : `Staged ${success} / ${totalPunches} (${failed} failed)`,
@@ -1206,8 +1334,11 @@ export function DailyRegister() {
         periodStart: data.periodStart ?? null,
         periodEnd: data.periodEnd ?? null,
         totalPunches,
-        daysImported: Number(data.daysImported ?? 0),
+        daysImported,
         skipped: Number(data.skipped ?? 0),
+        skippedEmployees: Array.isArray(data.skippedEmployees)
+          ? data.skippedEmployees
+          : [],
       });
 
       await loadRegister();
@@ -1221,84 +1352,6 @@ export function DailyRegister() {
       hideSpinner();
     }
   }
-
-  // async function handlePreviewFile() {
-  //   if (!importFile) {
-  //     showSnackbar("Please select a file first", "warning");
-  //     return;
-  //   }
-  //   try {
-  //     const extension = importFile.name.split(".").pop()?.toLowerCase();
-  //     let preview: any = [];
-
-  //     if (extension === "xlsx" || extension === "xls") {
-  //       const excelData = await readExcelFile(importFile);
-  //       if (excelData && excelData.length > 0) {
-  //         const headers = Object.keys(excelData[0]);
-  //         const employeeCodeKey =
-  //           headers.find(
-  //             (h) =>
-  //               h.toLowerCase().includes("employee") ||
-  //               h.toLowerCase().includes("emp") ||
-  //               h.toLowerCase().includes("code"),
-  //           ) || headers[0];
-  //         const timestampKey =
-  //           headers.find(
-  //             (h) =>
-  //               h.toLowerCase().includes("timestamp") ||
-  //               h.toLowerCase().includes("time") ||
-  //               h.toLowerCase().includes("date"),
-  //           ) || headers[1];
-
-  //         preview = excelData.slice(0, 5).map((row: any) => {
-  //           const employeeCode = row[employeeCodeKey] || "N/A";
-  //           const originalTimestamp = row[timestampKey] || "N/A";
-
-  //           let formattedTimestamp = "N/A";
-  //           let isValid = false;
-
-  //           if (originalTimestamp !== "N/A" && originalTimestamp) {
-  //             const parsed = dayjs(originalTimestamp);
-  //             if (parsed.isValid()) {
-  //               formattedTimestamp = parsed.toISOString();
-  //               isValid = true;
-  //             } else {
-  //               const parsed2 = dayjs(originalTimestamp, [
-  //                 "YYYY-MM-DD HH:mm:ss",
-  //                 "YYYY-MM-DD HH:mm",
-  //                 "YYYY-MM-DD",
-  //               ]);
-  //               if (parsed2.isValid()) {
-  //                 formattedTimestamp = parsed2.toISOString();
-  //                 isValid = true;
-  //               } else {
-  //                 formattedTimestamp = `Invalid format: ${originalTimestamp}`;
-  //               }
-  //             }
-  //           }
-
-  //           return {
-  //             employeeCode: String(employeeCode),
-  //             originalTimestamp: String(originalTimestamp),
-  //             formattedTimestamp,
-  //             isValid,
-  //           };
-  //         });
-  //       }
-  //     }
-
-  //     setPreviewData(preview);
-  //     if (preview.length === 0) {
-  //       showSnackbar("No valid data rows found in the file", "warning");
-  //     } else {
-  //       showSnackbar(`Preview loaded with ${preview.length} rows`, "success");
-  //     }
-  //   } catch (error) {
-  //     showSnackbar("Failed to preview file. Please check the file format.", "error");
-  //   }
-  // }
-
-  // ── Punch Import Handlers ────────────────────────────────────────────────
 
   function addPunchEntry() {
     setPunchEntries([
@@ -1352,7 +1405,6 @@ export function DailyRegister() {
       { label: "Late", value: todaySummary.late, color: "text-amber-600", border: "border-amber-500" },
       { label: "Absent", value: todaySummary.absent, color: "text-red-500", border: "border-red-500" },
       { label: "On Leave", value: todaySummary.onLeave, color: "text-violet-600", border: "border-violet-500" },
-      // { label: "Missed Punch", value: todaySummary.missedPunchCount || todaySummary.checkedIn, color: "text-cyan-600", border: "border-cyan-500" },
       { label: "Irregular", value: todaySummary.irregular || todaySummary.missedPunchCount, color: "text-pink-600", border: "border-pink-500" },
       { label: "Attendance %", value: todaySummary.attendancePercentage, color: "text-emerald-600", border: "border-emerald-500" },
     ]
@@ -1496,7 +1548,6 @@ export function DailyRegister() {
 
       setPunchEntries((prev) => [...prev, ...newPunchEntries]);
 
-      // ── Stage punches into Redis ────────────────────────────────────
       try {
         await biometricService.stagePunches({
           from: punchImportFromDate,
@@ -1547,16 +1598,13 @@ export function DailyRegister() {
   const selectableEmployees = employees.filter((e) => e.status !== "leave");
 
   const visibleColumnCount =
-    2 /* selection + name */ +
+    2 +
     COLUMN_CONFIG.filter((c) => showColumn(c.key)).length +
-    1 /* action */;
+    1;
 
-  // ── Run Attendance (commits staged Redis → attendance_records) ──────────
   const runAttendance = async () => {
     showSpinner();
     try {
-      // await biometricService.runAttendance();
-      // showSnackbar("Attendance committed successfully", "success");
       const result = await biometricService.runAttendance({ from: date, to: date });
       showSnackbar(
         `Attendance committed: ${result.daysImported} day(s), ${result.totalPunches} punches` +
@@ -1568,7 +1616,6 @@ export function DailyRegister() {
         startDate: date,
         endDate: date,
         departmentId: departmentId === "All" ? undefined : departmentId || undefined,
-        // branchId: branchId || undefined,
         branchId: session?.branchId || undefined,
         status: buildStatusParam(statusFilter),
         unit: unitParam(timeUnit),
@@ -1613,22 +1660,55 @@ export function DailyRegister() {
     );
   });
 
+  const employeesMissingShift = employees.filter(
+    (emp) => emp.status !== "leave" && isShiftMissing(emp),
+  );
+  const hasMissingShift = employeesMissingShift.length > 0;
+
+  // ── OPEN MOVEMENTS (attach raw movements + permissionType onto paired rows) ─
   const openMovements = (emp: RegisterEmployee) => {
     setMovementEmployee(emp);
-    setMovementRows(pairMovements(emp.movement ?? []));
+    const rawMovements = dedupeMovements(emp.movement ?? []);
+    const paired = pairMovements(rawMovements).map((p) => {
+      const rawOut = rawMovements.find(
+        (m: any) =>
+          dayjs(m.time).isSame(dayjs(p.outTime)) &&
+          (m.type === "OUT" || m.type === "out"),
+      ) as any;
+      const rawIn = p.inTime
+        ? (rawMovements.find(
+          (m: any) =>
+            dayjs(m.time).isSame(dayjs(p.inTime)) &&
+            (m.type === "IN" || m.type === "in"),
+        ) as any)
+        : null;
+      const permissionType =
+        rawOut?.permissionType ?? rawIn?.permissionType ?? null;
+      return {
+        ...p,
+        permissionType,
+        outMovement: rawOut,
+        inMovement: rawIn,
+      } as PairedMovement;
+    });
+    setMovementRows(paired);
     setMovementDialogOpen(true);
   };
 
-
+  // ── CLASSIFY MOVEMENT ────────────────────────────────────────────────────
   const handleMovementClassify = async (
     row: PairedMovement,
     value: "official" | "personal" | "break",
   ) => {
     if (!movementEmployee) return;
+    if (movementSavingIdx != null) return;
+
+    const existingType = getMovementPermissionType(row);
+    if (existingType) return;
 
     setMovementRows((prev) =>
       prev.map((r) =>
-        r.index === row.index ? { ...r, classification: value, saving: true } : r,
+        r.index === row.index ? { ...r, saving: true } : r,
       ),
     );
     setMovementSavingIdx(row.index);
@@ -1637,28 +1717,75 @@ export function DailyRegister() {
       let permissionRequestId: string | null = null;
 
       if (value === "official" || value === "personal") {
-        const created = await permissionRequestService.createPermission({
+        const created: any = await permissionRequestService.createPermission({
           employeeId: movementEmployee.employeeId,
           permissionType: value === "official" ? "official_work" : "personal_work",
           date: dayjs(movementEmployee.checkInDate ?? date).format("YYYY-MM-DD"),
           departureTime: dayjs(row.outTime).format("HH:mm:ss"),
           expectedReturnTime: dayjs(
-            row.inTime ?? movementEmployee.checkOutTime ?? new Date()
+            row.inTime ?? movementEmployee.checkOutTime ?? new Date(),
           ).format("HH:mm:ss"),
           destination: "Biometric Movement",
           reason: value,
           generateGatePassSlip: true,
-          hours: ""
+          hours: "",
         });
-        permissionRequestId = created?.id ?? null;
+        permissionRequestId = created?.id ?? created?.data?.id ?? null;
       }
 
+      // ── Update the dialog's local rows ──────────────────────────────────
       setMovementRows((prev) =>
         prev.map((r) =>
           r.index === row.index
-            ? { ...r, classification: value, permissionRequestId, saving: false }
+            ? {
+              ...r,
+              classification: value,
+              permissionType:
+                value === "official"
+                  ? "OFFICIAL_WORK"
+                  : value === "personal"
+                    ? "PERSONAL_WORK"
+                    : r.permissionType,
+              permissionRequestId,
+              saving: false,
+            }
             : r,
         ),
+      );
+
+      // ── Update the parent `employees` state so the table reflects it ─────
+      setEmployees((prev) =>
+        prev.map((e) => {
+          if (e.employeeId !== movementEmployee.employeeId) return e;
+          const updatedMovements = (e.movement ?? []).map((m: any) => {
+            const sameOut =
+              dayjs(m.time).isSame(dayjs(row.outTime)) &&
+              (m.type === "OUT" || m.type === "out");
+            const sameIn =
+              row.inTime &&
+              dayjs(m.time).isSame(dayjs(row.inTime)) &&
+              (m.type === "IN" || m.type === "in");
+            if (!sameOut && !sameIn) return m;
+            if (value === "official") {
+              return {
+                ...m,
+                source: "PERMISSION",
+                permissionType: "OFFICIAL_WORK",
+                requestNumber: permissionRequestId ?? m.requestNumber,
+              };
+            }
+            if (value === "personal") {
+              return {
+                ...m,
+                source: "PERMISSION",
+                permissionType: "PERSONAL_WORK",
+                requestNumber: permissionRequestId ?? m.requestNumber,
+              };
+            }
+            return { ...m, classification: "break" };
+          });
+          return { ...e, movement: updatedMovements };
+        }),
       );
 
       showSnackbar(
@@ -1667,10 +1794,13 @@ export function DailyRegister() {
           : `Permission request (${value}) created for movement #${row.index}`,
         "success",
       );
+
+      // ── Refresh from the server so persistence is guaranteed ────────────
+      await loadStagedPunches();
     } catch (err: any) {
       setMovementRows((prev) =>
         prev.map((r) =>
-          r.index === row.index ? { ...r, classification: null, saving: false } : r,
+          r.index === row.index ? { ...r, saving: false } : r,
         ),
       );
       showSnackbar(
@@ -1682,6 +1812,45 @@ export function DailyRegister() {
     }
   };
 
+  const clearStagedPunches = () => {
+    showConfirmDialog({
+      title: "Clear Staged Punches",
+      message: `Delete all staged punches for ${dayjs(date).format("DD MMM YYYY")}? This only clears the Redis staging buffer — committed attendance records and raw device punches are not affected.`,
+      confirmText: "Clear",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const counts: any = await biometricService.deleteStagedPunches({
+            from: date,
+            to: date,
+          });
+          const removed =
+            counts?.removed ??
+            (typeof counts === "number" ? counts : 0);
+
+          showSnackbar(
+            removed > 0
+              ? `Cleared ${removed} staged punch${removed === 1 ? "" : "es"}`
+              : "No staged punches to clear",
+            "success",
+          );
+          await loadRegister();
+          await loadTodaySummary();
+        } catch (err: any) {
+          showSnackbar(
+            err?.response?.data?.message ?? err?.message ?? "Failed to clear staged punches",
+            "error",
+          );
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
+  const getRowPermissionType = (row: PairedMovement): string | null =>
+    getMovementPermissionType(row);
+
   return (
     <div className="p-4 space-y-3">
       {stagedPunchCheckFailed && (
@@ -1690,7 +1859,31 @@ export function DailyRegister() {
         </Alert>
       )}
 
-      {/* Summary cards */}
+      {hasMissingShift && (
+        <Alert
+          severity="warning"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              className="!text-[12px] !font-semibold"
+              startIcon={<OpenInNewOutlined className="!w-4" />}
+              onClick={goToShiftMaster}
+            >
+              Go to Shift Master
+            </Button>
+          }
+        >
+          <span className="text-[12px]">
+            <strong>{employeesMissingShift.length}</strong> staged record
+            {employeesMissingShift.length !== 1 ? "s have" : " has"} check-in/check-out
+            punches but <strong>no shift assigned</strong>. Either pick a shift from the
+            Shift column (click the cell) or add the shift timings in Shift Master, then
+            re-run attendance.
+          </span>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-bold text-gray-500">{getSummaryHeader()}</div>
 
@@ -1724,15 +1917,31 @@ export function DailyRegister() {
           </Button>
 
           {hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed ? (
-            <Button
-              size="small"
-              variant="contained"
-              color="success"
-              startIcon={<PlayArrowOutlined className="!w-4" />}
-              onClick={runAttendance}
-            >
-              Run Attendance ({stagedPunches.length})
-            </Button>
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                startIcon={<PlayArrowOutlined className="!w-4" />}
+                onClick={runAttendance}
+              >
+                Run Attendance ({stagedPunches.length})
+              </Button>
+              <Tooltip
+                title="Delete all staged punches for this date. Committed attendance and raw punches are kept."
+                arrow
+              >
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteOutlined className="!w-4" />}
+                  onClick={clearStagedPunches}
+                >
+                  Clear Staged
+                </Button>
+              </Tooltip>
+            </>
           ) : !loadingStagedPunches &&
             !stagedPunchCheckFailed &&
             !loading &&
@@ -1743,9 +1952,13 @@ export function DailyRegister() {
               variant="contained"
               color="success"
               startIcon={<PlayArrowOutlined className="!w-4" />}
-              onClick={() => navigate(`/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}`)}
+              onClick={() =>
+                navigate(
+                  `/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}`,
+                )
+              }
             >
-              {processStatus?.processed ? "Re-process Attendance" : "Process Attendance"}
+              Process Attendance
             </Button>
           ) : null}
         </div>
@@ -1762,7 +1975,6 @@ export function DailyRegister() {
         </div>
       )}
 
-      {/* Date + Filters */}
       <div className="flex items-center gap-3 border border-gray-200 p-2 rounded-md justify-between flex-wrap">
         <div className="flex items-center gap-2">
           <FilterListOutlined className="text-gray-600" fontSize="small" />
@@ -1770,7 +1982,6 @@ export function DailyRegister() {
             <DatePicker
               value={date ? dayjs(date) : null}
               onChange={(newValue, context) => {
-                // setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
                 if (context.validationError == null) {
                   setDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
                 }
@@ -1795,23 +2006,6 @@ export function DailyRegister() {
               ))}
             </Select>
           </FormControl>
-
-          {/* <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Branch</InputLabel>
-            <Select
-              value={branchId}
-              label="Branch"
-              onChange={(e) => setBranchId(e.target.value)}
-              sx={selectSx}
-            >
-              <MenuItem value="">All Branches</MenuItem>
-              {branches.map((b) => (
-                <MenuItem key={b.id} value={b.id}>
-                  {b.branchName}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl> */}
 
           {todayHoliday && (
             <div className="bg-primary-100 !whitespace-nowrap !px-2 !py-2 rounded-md">
@@ -1900,7 +2094,6 @@ export function DailyRegister() {
         </div>
       </div>
 
-      {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-2 bg-primary/5 border border-gray-200 rounded-lg px-3 py-2 flex-wrap">
           <GroupOutlined fontSize="small" className="text-gray-500" />
@@ -1957,10 +2150,8 @@ export function DailyRegister() {
         </div>
       )}
 
-      {/* Register Table */}
       <div className="bg-white border border-gray-200 rounded-sm overflow-hidden">
         <div className="flex">
-          {/* ── Table ── */}
           <div className="flex-1 min-w-0">
             <TableContainer
               className={`${todayHoliday && selected.size > 0
@@ -2069,6 +2260,9 @@ export function DailyRegister() {
                       const lockCheckInDate = !!emp.checkInDate;
                       const lockCheckOutDate = !!emp.checkOutDate;
 
+                      const canEditShift = !isLeave && !processStatus.locked;
+                      const shiftMissing = !isLeave && isShiftMissing(emp);
+
                       return (
                         <TableRow
                           key={emp.employeeId || i}
@@ -2104,18 +2298,136 @@ export function DailyRegister() {
                           )}
 
                           {showColumn("shift") && (
-                            <TableCell className="text-gray-500">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="w-2.5 h-2.5 rounded-full border border-gray-300 shrink-0"
-                                  style={{
-                                    backgroundColor: shiftColorMap[emp.shiftCode] || "#9ca3af",
+                            <TableCell data-edit-cell="shiftCode" sx={{ py: 0.25, px: 0.5 }}>
+                              {isEditingField(emp.employeeId, "shiftCode") && canEditShift ? (
+                                <Autocomplete<ShiftOption, false, false, false>
+                                  size="small"
+                                  autoFocus
+                                  options={shiftList}
+                                  getOptionLabel={(o) => o.code}
+                                  value={
+                                    shiftList.find(
+                                      (s) => s.code === (draftShiftCode ?? emp.shiftCode ?? ""),
+                                    ) ?? null
+                                  }
+                                  onChange={(_, val) => {
+                                    if (!val) return;
+                                    commitShiftCode(emp, val.code);
                                   }}
-                                  title={emp.shiftCode ? `Shift ${emp.shiftCode}` : "No shift"}
+                                  onBlur={closeField}
+                                  sx={{
+                                    width: "90px",
+                                    "& .MuiOutlinedInput-root": {
+                                      padding: "0 2px 0 5px !important",
+                                      fontSize: 12,
+                                      minHeight: "26px",
+                                      height: "26px",
+                                    },
+                                    "& .MuiAutocomplete-input": {
+                                      padding: "4px 0 4px 4px !important",
+                                      fontSize: 12,
+                                    },
+                                    "& .MuiAutocomplete-endAdornment": {
+                                      right: "2px !important",
+                                      "& .MuiIconButton-root": {
+                                        padding: "0 !important",
+                                        fontSize: 14,
+                                      },
+                                    },
+                                  }}
+                                  renderInput={(p) => (
+                                    <TextField
+                                      {...p}
+                                      size="small"
+                                      variant="outlined"
+                                      sx={{
+                                        ...inlineInputSx,
+                                        "& .MuiInputBase-input": { padding: "4px 4px !important" },
+                                      }}
+                                    />
+                                  )}
                                 />
-                                <div>{emp.shiftCode || "-"}</div>
-                              </div>
-                              <div className="text-primary font-bold">
+                              ) : shiftMissing ? (
+                                <div
+                                  className="flex items-center gap-1.5 min-w-[110px] px-1 py-0.5 rounded
+             bg-amber-50 border border-amber-200"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Tooltip
+                                    title="Biometric punches exist but no shift is assigned. Assign a shift here or add the timings in Shift Master."
+                                    arrow
+                                  >
+                                    <WarningAmberOutlined className="!w-4 !h-4 text-amber-600 shrink-0" />
+                                  </Tooltip>
+
+                                  <div className="flex flex-col leading-tight min-w-0">
+                                    <span className="text-[11px] font-semibold text-amber-700 truncate">
+                                      No shift
+                                    </span>
+                                    <span className="text-[10px] text-amber-600/80 truncate">
+                                      punches present
+                                    </span>
+                                  </div>
+
+                                  <div className="ml-auto flex items-center gap-0.5">
+                                    {canEditShift && (
+                                      <Tooltip title="Assign a shift to this record" arrow>
+                                        <IconButton
+                                          size="small"
+                                          className="!p-0.5 !text-primary hover:!bg-primary/10"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openField(emp.employeeId, "shiftCode", emp.shiftCode ?? null);
+                                          }}
+                                        >
+                                          <Add className="!w-3.5 !h-3.5" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                    <Tooltip title="Open Shift Master to add the shift timings" arrow>
+                                      <IconButton
+                                        size="small"
+                                        className="!p-0.5 !text-primary hover:!bg-primary/10"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          goToShiftMaster();
+                                        }}
+                                      >
+                                        <OpenInNewOutlined className="!w-3.5 !h-3.5" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() =>
+                                    canEditShift &&
+                                    openField(emp.employeeId, "shiftCode", emp.shiftCode ?? null)
+                                  }
+                                  title={canEditShift ? "Click to edit shift" : undefined}
+                                  tabIndex={canEditShift ? 0 : -1}
+                                  onKeyDown={(e) => {
+                                    if (!canEditShift) return;
+                                    if (e.key === "Enter" || e.key === " ") {
+                                      e.preventDefault();
+                                      openField(emp.employeeId, "shiftCode", emp.shiftCode ?? null);
+                                    }
+                                  }}
+                                  className={`min-w-[70px] text-[12px] p-1 rounded-sm flex items-center gap-1.5 ${canEditShift
+                                    ? "cursor-pointer hover:bg-blue-50 hover:ring-1 hover:ring-blue-300"
+                                    : ""
+                                    }`}
+                                >
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border border-gray-300 shrink-0"
+                                    style={{
+                                      backgroundColor: shiftColorMap[emp.shiftCode ?? ""] || "#9ca3af",
+                                    }}
+                                  />
+                                  <span>{emp.shiftCode || "-"}</span>
+                                </div>
+                              )}
+                              <div className="text-primary font-bold text-[11px] leading-tight">
                                 {emp.shiftStart || "-"} - {emp.shiftEnd || "-"}
                               </div>
                             </TableCell>
@@ -2213,7 +2525,7 @@ export function DailyRegister() {
                                             "& .MuiInputBase-input": {
                                               color:
                                                 (emp.status ?? "").toString().toLowerCase().match(/irregular|missed|checked_?in/)
-                                                  ? "#dc2626" // red-600 when problem status
+                                                  ? "#dc2626"
                                                   : emp.checkInTime
                                                     ? "#15803d"
                                                     : "#ef4444",
@@ -2500,7 +2812,6 @@ export function DailyRegister() {
             </TableContainer>
           </div>
 
-          {/* ── Vertical column filter ── */}
           <div className="border-l border-gray-200 flex items-start pt-2 px-1">
             <div className="flex flex-col items-center gap-2">
               <Tooltip title="Show / hide columns" placement="left" arrow>
@@ -2551,7 +2862,6 @@ export function DailyRegister() {
               onClose={() => setColumnMenuAnchor(null)}
               anchorOrigin={{ vertical: "top", horizontal: "left" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
-            // PaperProps={{ sx: { minWidth: 210, maxHeight: 400 } }}
             >
               <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between">
                 <span className="text-[12px] font-semibold text-gray-700">Columns</span>
@@ -3582,22 +3892,22 @@ export function DailyRegister() {
               </div>
             )}
 
-            {/* ── Staged response summary ── */}
             {importResult && !importing && (
               <div
                 className={`border rounded-lg p-3 bg-white-50 space-y-2 ${importResult.failed > 0 && importResult.success === 0
                   ? "border-red-200 bg-red-50"
                   : importResult.failed > 0
                     ? "border-orange-200 bg-orange-50"
-                    : "border-green-200 bg-green-50"
+                    : importResult.skipped > 0
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-green-200 bg-green-50"
                   }`}
               >
-                {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {importResult.failed > 0 && importResult.success === 0 ? (
                       <ErrorOutlined className="text-red-500" fontSize="small" />
-                    ) : importResult.failed > 0 ? (
+                    ) : importResult.failed > 0 || importResult.skipped > 0 ? (
                       <WarningAmberOutlined className="text-orange-500" fontSize="small" />
                     ) : (
                       <CheckCircleOutlined className="text-green-500" fontSize="small" />
@@ -3607,18 +3917,23 @@ export function DailyRegister() {
                     </span>
                   </div>
                   <span className="text-[12px]">
-                    <span className="text-green-600 font-semibold">{importResult.success}</span>{" "}
+                    <span className="text-green-600 font-semibold">
+                      {importResult.success}
+                    </span>{" "}
                     staged
-                    {importResult.skipped ? (
-                      <span className="text-amber-600 ml-2">{importResult.skipped} skipped</span>
-                    ) : null}
+                    {importResult.skipped > 0 && (
+                      <span className="text-amber-600 ml-2">
+                        {importResult.skipped} skipped
+                      </span>
+                    )}
                     {importResult.failed > 0 && (
-                      <span className="text-red-600 ml-2">{importResult.failed} failed</span>
+                      <span className="text-red-600 ml-2">
+                        {importResult.failed} failed
+                      </span>
                     )}
                   </span>
                 </div>
 
-                {/* Meta — one compact line */}
                 <div className="text-[11px] text-gray-600">
                   {importResult.source && (
                     <span className="capitalize">{importResult.source}</span>
@@ -3626,7 +3941,9 @@ export function DailyRegister() {
                   {importResult.importType && (
                     <>
                       {" · "}
-                      <span className="capitalize">{importResult.importType.toLowerCase()}</span>
+                      <span className="capitalize">
+                        {importResult.importType.toLowerCase()}
+                      </span>
                     </>
                   )}
                   {importResult.periodStart && importResult.periodEnd && (
@@ -3638,31 +3955,43 @@ export function DailyRegister() {
                   )}
                   {" · "}
                   {importResult.totalPunches ?? 0} punches
-                  {/* {importResult.daysImported ? ` · ${importResult.daysImported} days` : ""} */}
                 </div>
 
-                {/* Rows */}
                 {importResult.rows.length > 0 && (
                   <div className="max-h-[180px] overflow-y-auto bg-white-50 rounded border border-gray-200">
                     <table className="w-full text-[12px]">
                       <tbody>
                         {importResult.rows.map((row: any, idx: number) => {
                           const msg = String(row?.message ?? "");
-                          const ok = SUCCESS_ROW_MESSAGES.has(msg.toLowerCase());
+                          const lower = msg.toLowerCase();
+                          const ok = SUCCESS_ROW_MESSAGES.has(lower);
+                          const skipped = lower.startsWith("skipped");
                           return (
-                            <tr key={idx} className="border-b border-gray-200 last:border-0">
+                            <tr
+                              key={idx}
+                              className="border-b border-gray-200 last:border-0"
+                            >
                               <td className="px-2 py-1 font-mono text-gray-800 w-[70px]">
                                 {row.employeeCode || "-"}
                               </td>
                               <td className="px-2 py-1 text-gray-500 w-[100px]">
                                 {row.date ? dayjs(row.date).format("DD MMM") : "-"}
                               </td>
-                              <td className={`px-2 py-1 ${ok ? "text-green-700" : "text-red-600"}`}>
+                              <td
+                                className={`px-2 py-1 ${ok
+                                  ? "text-green-700"
+                                  : skipped
+                                    ? "text-amber-700"
+                                    : "text-red-600"
+                                  }`}
+                              >
                                 {msg || "-"}
                               </td>
                               <td className="px-2 py-1 text-center w-[28px]">
                                 {ok ? (
                                   <CheckCircleOutlined className="text-green-500 !w-3.5 !h-3.5" />
+                                ) : skipped ? (
+                                  <WarningAmberOutlined className="text-amber-500 !w-3.5 !h-3.5" />
                                 ) : (
                                   <ErrorOutlined className="text-red-500 !w-3.5 !h-3.5" />
                                 )}
@@ -3675,11 +4004,37 @@ export function DailyRegister() {
                   </div>
                 )}
 
-                {/* Errors (only real ones) */}
-                {importResult.errors.length > 0 && (
+                {importResult.skippedEmployees &&
+                  importResult.skippedEmployees.length > 0 && (
+                    <div className="max-h-[90px] overflow-y-auto bg-amber-50 rounded p-2 border border-amber-200">
+                      {importResult.skippedEmployees
+                        .slice(0, 5)
+                        .map((s: any, i: number) => (
+                          <div
+                            key={i}
+                            className="text-[12px] text-amber-700 py-0.5"
+                          >
+                            • {s.employeeId}
+                            {s.employeeName ? ` ${s.employeeName}` : ""} —{" "}
+                            {s.skippedPunches ?? 0} punch(es) on{" "}
+                            {Array.isArray(s.dates) ? s.dates.join(", ") : "-"}:{" "}
+                            {s.reason || "skipped"}
+                          </div>
+                        ))}
+                      {importResult.skippedEmployees.length > 5 && (
+                        <div className="text-[11px] text-gray-500 mt-1">
+                          + {importResult.skippedEmployees.length - 5} more
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                {importResult.errors && importResult.errors.length > 0 && (
                   <div className="max-h-[90px] overflow-y-auto bg-white/50 rounded p-2">
-                    {importResult.errors.slice(0, 5).map((e, i) => (
-                      <div key={i} className="text-[12px] text-red-600 py-0.5">• {e}</div>
+                    {importResult.errors.slice(0, 5).map((e: any, i: number) => (
+                      <div key={i} className="text-[12px] text-red-600 py-0.5">
+                        • {String(e)}
+                      </div>
                     ))}
                     {importResult.errors.length > 5 && (
                       <div className="text-[11px] text-gray-500 mt-1">
@@ -3701,60 +4056,6 @@ export function DailyRegister() {
                 </ul>
               </div>
             </Alert>
-
-            {/* <div className="flex gap-2">
-              <Button
-                variant="outlined"
-                size="small"
-                className="!text-primary !border-primary"
-                onClick={handlePreviewFile}
-                disabled={!importFile || importing}
-              >
-                Preview Data
-              </Button>
-            </div> */}
-
-            {/* {previewData.length > 0 && (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
-                  <span className="text-[12px] font-medium text-gray-600">
-                    Preview (first 5 rows)
-                  </span>
-                </div>
-                <div className="max-h-[150px] overflow-y-auto">
-                  <table className="w-full text-[12px]">
-                    <thead className="bg-gray-50 sticky top-0">
-                      <tr>
-                        <th className="px-3 py-1.5 text-left text-gray-600">Employee</th>
-                        <th className="px-3 py-1.5 text-left text-gray-600">Original Timestamp</th>
-                        <th className="px-3 py-1.5 text-left text-gray-600">Formatted</th>
-                        <th className="px-3 py-1.5 text-center text-gray-600">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.map((row, index) => (
-                        <tr key={index} className="border-t border-gray-100">
-                          <td className="px-3 py-1.5 font-mono">{row.employeeCode}</td>
-                          <td className="px-3 py-1.5 text-gray-500">
-                            {row.originalTimestamp}
-                          </td>
-                          <td className="px-3 py-1.5 font-mono">
-                            {row.formattedTimestamp}
-                          </td>
-                          <td className="px-3 py-1.5 text-center">
-                            {row.isValid ? (
-                              <CheckCircleOutlined className="text-green-500 !w-4 !h-4" />
-                            ) : (
-                              <ErrorOutlined className="text-red-500 !w-4 !h-4" />
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )} */}
           </div>
         </DialogContent>
 
@@ -4377,7 +4678,7 @@ export function DailyRegister() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Movements Dialog ─────────────────────────────────────────────── */}
+      {/* Movements Dialog */}
       <Dialog
         open={movementDialogOpen}
         onClose={() => {
@@ -4389,13 +4690,13 @@ export function DailyRegister() {
         fullWidth
       >
         <DialogTitle className="flex items-center justify-between border-b border-gray-200 !p-2">
-          <span className="!pl-4 flex items-center gap-2">
+          <span className="!pl-4 flex items-center gap-2 flex-wrap">
             <SwapHorizOutlined className="text-primary" />
-            Movements
+            <span className="text-[13px] font-semibold text-gray-800">Movements</span>
             {movementEmployee && (
               <span className="text-[12px] font-normal text-gray-500">
-                ({movementEmployee.employeeName} ({movementEmployee.employeeCode}) ·{" "}
-                {dayjs(date).format("DD MMM YYYY")})
+                {movementEmployee.employeeName} ({movementEmployee.employeeCode}) ·{" "}
+                {dayjs(date).format("DD MMM YYYY")}
               </span>
             )}
           </span>
@@ -4417,138 +4718,199 @@ export function DailyRegister() {
               <span className="text-[12px]">No movements recorded for this employee.</span>
             </Alert>
           ) : (
-            <div className="space-y-2">
-              {movementEmployee && (
-                <div className="grid grid-cols-3 items-center justify-center gap-2 text-[12px] bg-gray-50 border border-gray-200 rounded p-2">
-                  <div>
-                    <span className="text-gray-500">Check-in:</span>{" "}
-                    <b className="text-green-600">
-                      {movementEmployee.checkInTime
-                        ? dayjs(movementEmployee.checkInTime).format("HH:mm:ss")
-                        : "-"}
-                    </b>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Movements:</span>{" "}
-                    <b className="text-blue-500">{movementRows.length}</b>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Check-out:</span>{" "}
-                    <b className="text-green-600">
-                      {movementEmployee.checkOutTime
-                        ? dayjs(movementEmployee.checkOutTime).format("HH:mm:ss")
-                        : "-"}
-                    </b>
-                  </div>
-                </div>
-              )}
+            <div className="space-y-3">
+              {/* ── One-line summary ── */}
+              <div className="text-[12px] text-gray-700">
+                {(() => {
+                  const totalAway = movementRows.reduce(
+                    (s, r) => s + (r.durationMinutes ?? 0),
+                    0,
+                  );
+                  const officialCount = movementRows.filter(
+                    (r) => getRowPermissionType(r) === "OFFICIAL_WORK",
+                  ).length;
+                  const personalCount = movementRows.filter(
+                    (r) => getRowPermissionType(r) === "PERSONAL_WORK",
+                  ).length;
+                  const breakCount = movementRows.filter(
+                    (r) =>
+                      getRowPermissionType(r) == null &&
+                      (r as any).classification === "break",
+                  ).length;
+                  const openTrips = movementRows.filter((r) => !r.inTime).length;
+                  const parts: string[] = [
+                    `${movementRows.length} trip${movementRows.length !== 1 ? "s" : ""}`,
+                    `${formatMinutes(timeUnit, totalAway)} away total`,
+                  ];
+                  if (officialCount) parts.push(`${officialCount} official`);
+                  if (personalCount) parts.push(`${personalCount} personal`);
+                  if (breakCount) parts.push(`${breakCount} break`);
+                  if (openTrips) parts.push(`${openTrips} open`);
+                  return (
+                    <span className="font-medium text-gray-800">
+                      {parts.join(" · ")}
+                    </span>
+                  );
+                })()}
+              </div>
 
+              {/* ── Simple table ── */}
               <div className="border border-gray-200 rounded overflow-hidden">
-                <div className="grid grid-cols-[36px_1fr_1fr_90px_180px_150px] gap-2 bg-gray-50 px-3 py-2 border-b border-gray-200 text-[12px] font-medium text-gray-800">
-                  <div className="!font-bold">#</div>
-                  <div className="!font-bold">OUT</div>
-                  <div className="!font-bold">IN</div>
-                  <div className="!font-bold">Duration</div>
-                  <div className="!font-bold">Classification</div>
-                  <div className="!font-bold">Permission Req.</div>
-                </div>
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600 w-[40px]">
+                        #
+                      </th>
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600">
+                        Out
+                      </th>
+                      <th className="text-left px-3 py-2 font-semibold text-gray-600">
+                        In
+                      </th>
+                      <th className="text-right px-3 py-2 font-semibold text-gray-600 w-[90px]">
+                        Duration
+                      </th>
+                      <th className="text-center px-3 py-2 font-semibold text-gray-600">
+                        Classify
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movementRows.map((row) => {
+                      const isOpen = !row.inTime;
+                      const permissionType = getRowPermissionType(row);
+                      const localClass = (row as any).classification as
+                        | "official"
+                        | "personal"
+                        | "break"
+                        | null;
+                      const isOfficial = permissionType === "OFFICIAL_WORK";
+                      const isPersonal = permissionType === "PERSONAL_WORK";
+                      const isBreak =
+                        !isOfficial && !isPersonal && localClass === "break";
+                      const isLocked = isOfficial || isPersonal || isBreak;
+                      const isSaving =
+                        row.saving || movementSavingIdx === row.index;
 
-                <div className="max-h-[360px] overflow-y-auto">
-                  {movementRows.map((row) => (
-                    <div
-                      key={row.index}
-                      className="grid grid-cols-[36px_1fr_1fr_90px_180px_150px] gap-2 px-3 py-2 border-b border-gray-200 last:border-0 items-center"
-                    >
-                      <div className="text-[12px] text-gray-400">{row.index}</div>
+                      const activeValue: "official" | "personal" | "break" | null =
+                        isOfficial
+                          ? "official"
+                          : isPersonal
+                            ? "personal"
+                            : isBreak
+                              ? "break"
+                              : null;
 
-                      <div className="text-[12px]">
-                        {dayjs(row.outTime).format("DD MMM HH:mm:ss")}
-                      </div>
-
-                      <div className="text-[12px]">
-                        {row.inTime ? (
-                          dayjs(row.inTime).format("DD MMM HH:mm:ss")
-                        ) : (
-                          <span className="text-amber-600">Still out</span>
-                        )}
-                      </div>
-
-                      <div className="text-[12px] text-gray-700">
-                        {row.durationMinutes != null
-                          ? formatMinutes(timeUnit, row.durationMinutes)
-                          : "-"}
-                      </div>
-
-                      <div>
-                        <ToggleButtonGroup
-                          size="small"
-                          exclusive
-                          value={row.classification}
-                          onChange={(_, val) => {
-                            if (!val) return;
-                            handleMovementClassify(row, val);
-                          }}
-                          disabled={row.saving || movementSavingIdx === row.index}
-                          className="text-gray-800"
+                      return (
+                        <tr
+                          key={row.index}
+                          className="border-b border-gray-200 last:border-0"
                         >
-                          <ToggleButton
-                            value="official"
-                            className="text-gray-800 border-gray-200"
-                            sx={{ px: 1, py: 0.25, textTransform: "none", fontSize: 11 }}
-                          >
-                            Official
-                          </ToggleButton>
-                          <ToggleButton
-                            value="personal"
-                            className="text-gray-800 border-gray-200"
-                            sx={{ px: 1, py: 0.25, textTransform: "none", fontSize: 11 }}
-                          >
-                            Personal
-                          </ToggleButton>
-                          <ToggleButton
-                            value="break"
-                            className="text-gray-800 border-gray-200"
-                            sx={{ px: 1, py: 0.25, textTransform: "none", fontSize: 11 }}
-                          >
-                            Break
-                          </ToggleButton>
-                        </ToggleButtonGroup>
-                      </div>
+                          <td className="px-3 py-2 text-gray-400 tabular-nums">
+                            {row.index}
+                          </td>
+                          <td className="px-3 py-2 text-gray-800 tabular-nums">
+                            {dayjs(row.outTime).format("HH:mm:ss")}
+                          </td>
+                          <td className="px-3 py-2 tabular-nums">
+                            {isOpen ? (
+                              <span className="text-orange-600 italic">Still out</span>
+                            ) : (
+                              <span className="text-gray-800">
+                                {dayjs(row.inTime).format("HH:mm:ss")}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-gray-700 tabular-nums">
+                            {row.durationMinutes != null
+                              ? formatMinutes(timeUnit, row.durationMinutes)
+                              : "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <ToggleButtonGroup
+                                size="small"
+                                exclusive
+                                className="text-gray-800"
+                                value={activeValue}
+                                onChange={(_, val) => {
+                                  if (!val) return;
+                                  if (isLocked) return; // safety guard
+                                  handleMovementClassify(row, val);
+                                }}
+                                disabled={isLocked || isSaving}
+                                sx={{
+                                  "& .MuiToggleButton-root": {
+                                    px: 1,
+                                    py: 0.25,
+                                    textTransform: "none",
+                                    fontSize: 11,
+                                    borderColor: "#e5e7eb",
+                                    // color: "#374151",
+                                    "&.Mui-selected": { color: "#fff" },
+                                    "&.Mui-disabled": { opacity: 1, color: "#fff" },
+                                  },
+                                  "& .MuiToggleButton-root[value='official'].Mui-selected":
+                                  {
+                                    backgroundColor: "#3b82f6",
+                                    borderColor: "#3b82f6",
+                                  },
+                                  "& .MuiToggleButton-root[value='personal'].Mui-selected":
+                                  {
+                                    backgroundColor: "#10b981",
+                                    borderColor: "#10b981",
+                                  },
+                                  "& .MuiToggleButton-root[value='break'].Mui-selected":
+                                  {
+                                    backgroundColor: "#f59e0b",
+                                    borderColor: "#f59e0b",
+                                  },
+                                }}
+                              >
+                                <ToggleButton value="official" className="text-gray-800">
+                                  {isOfficial && (
+                                    <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
+                                  )}
+                                  Official
+                                </ToggleButton>
+                                <ToggleButton value="personal" className="text-gray-800">
+                                  {isPersonal && (
+                                    <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
+                                  )}
+                                  Personal
+                                </ToggleButton>
+                                <ToggleButton value="break" className="text-gray-800">
+                                  {isBreak && (
+                                    <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
+                                  )}
+                                  Break
+                                </ToggleButton>
+                              </ToggleButtonGroup>
 
-                      <div className="text-[12px]">
-                        {row.classification === "break" ? (
-                          <Chip
-                            size="small"
-                            label="No request (break)"
-                            className="!bg-amber-100 !text-amber-700"
-                          />
-                        ) : row.classification ? (
-                          row.saving ? (
-                            <span className="text-gray-500">Creating…</span>
-                          ) : row.permissionRequestId ? (
-                            <Chip
-                              size="small"
-                              label={`Request created (${row.classification})`}
-                              className={
-                                row.classification === "official"
-                                  ? "!bg-blue-100 !text-blue-700"
-                                  : "!bg-emerald-100 !text-emerald-700"
-                              }
-                            />
-                          ) : (
-                            <Chip
-                              size="small"
-                              label="No request"
-                              className="!bg-gray-100 !text-gray-600"
-                            />
-                          )
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                              {isLocked && (
+                                <Tooltip
+                                  title={
+                                    isOfficial
+                                      ? "Locked — covered by official work permission"
+                                      : isPersonal
+                                        ? "Locked — covered by personal work permission"
+                                        : "Locked — marked as break"
+                                  }
+                                  arrow
+                                >
+                                  <span className="text-gray-400 text-[10px]">
+                                    🔒
+                                  </span>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

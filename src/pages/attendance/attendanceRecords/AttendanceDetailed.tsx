@@ -368,14 +368,14 @@ export function AttendanceDetailed() {
 
                     <TableCell>
                       <div className="!text-green-700 !font-bold"> {r.checkInTime ? formatTimewithSec(r.checkInTime) : '-'} </div>
-                     
+
                     </TableCell>
 
                     <TableCell>{r.checkOutDate ? formatDate(r.checkOutDate) : '-'}</TableCell>
 
                     <TableCell>
                       <div className="!text-blue-600 !font-bold">{r.checkOutTime ? formatTimewithSec(r.checkOutTime) : '-'}</div>
-                      
+
                     </TableCell>
 
                     <TableCell>
@@ -458,8 +458,10 @@ export function AttendanceDetailed() {
                   ["Department", selectedRecord.department ?? "—"],
                   ["Designation", selectedRecord.designation ?? "—"],
                   ["Status", ATTENDANCE_STATUS_LABELS[selectedRecord.status]],
-                  ["Check In", formatTime(selectedRecord.checkInTime)],
-                  ["Check Out", formatTime(selectedRecord.checkOutTime)],
+                  ["Check In Date", selectedRecord.checkInDate],
+                  ["Check In Time", formatTime(selectedRecord.checkInTime)],
+                  ["Check Out Date", selectedRecord.checkOutDate],
+                  ["Check Out Time", formatTime(selectedRecord.checkOutTime)],
                   ["Worked Hours", formatMinutes(selectedRecord.workedMinutes)],
                   ["Late Minutes", selectedRecord.lateMinutes ? formatMinutes(selectedRecord.lateMinutes) : "—"],
                   ["Early Out", selectedRecord.earlyOutMinutes ? formatMinutes(selectedRecord.earlyOutMinutes) : "—"],

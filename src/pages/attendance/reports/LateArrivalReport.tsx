@@ -42,7 +42,7 @@ export function LateArrivalReport({ onBack }: Props) {
   const [limit, setLimit] = useState(20);
   const [generating, setGenerating] = useState(false);
 
-  const params = { fromDate, toDate, departmentId: departmentId || undefined, minLateMinutes };
+  const params = { fromDate, toDate, departmentId: departmentId == "All" ? undefined : departmentId || undefined, minLateMinutes };
 
   async function generate(p = page, l = limit) {
     setGenerating(true);

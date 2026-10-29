@@ -896,6 +896,7 @@ export const API_ENDPOINTS = {
       RUN_ATTENDANCE: "/integration/biometric/punches/run-attendance",
       STAGE_PUNCHES: "/integration/biometric/punches/stage",
       GET_STAGED_PUNCHES: "/integration/biometric/punches/staged",
+      DELETE_STAGED_PUNCHES: "/integration/biometric/punches/staged",
       UPDATE_STAGED_PUNCH: (employeeId: string, date: string) =>
         `/integration/biometric/punches/staged/${employeeId}/${date}`,
     },

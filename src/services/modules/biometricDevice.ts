@@ -292,6 +292,9 @@ export interface UpdateStagedPunchRequest {
   checkInTime?: string | null;
   checkOutTime?: string | null;
   remarks?: string | null;
+  shiftCode?: string | null;
+  shiftStart?: string | null;
+  shiftEnd?: string | null;
 }
 
 
@@ -624,6 +627,14 @@ async stagePunches(data: StagePunchesRequest): Promise<StagePunchesResponse> {
 async getStagedPunches(params?: { from?: string; to?: string; status?: any, unit?: string, groupByDepartment?: boolean }): Promise<StagedPunch[]> {
   const response: any = await apiService.get(
     API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
+    { params },
+  );
+  return unwrapApiData<StagedPunch[]>(response) ?? [];
+},
+
+async deleteStagedPunches(params?: { from?: string; to?: string; employeeId?: string; }) {
+  const response: any = await apiService.delete(
+    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.DELETE_STAGED_PUNCHES,
     { params },
   );
   return unwrapApiData<StagedPunch[]>(response) ?? [];

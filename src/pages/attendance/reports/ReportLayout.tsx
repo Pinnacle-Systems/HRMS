@@ -3,6 +3,7 @@ import { IconButton, Tooltip, CircularProgress, Button } from "@mui/material";
 import {
   ArrowBackOutlined, FileDownloadOutlined,
   TableViewOutlined, RefreshOutlined,
+  PictureAsPdfOutlined,
 } from "@mui/icons-material";
 import { attendanceService } from "../../../services/modules/attendance";
 import { apiService } from "../../../services/api/api.config";
@@ -84,12 +85,11 @@ export function ReportLayout({
                 <TableViewOutlined fontSize="small" className="text-green-600 !w-4" />
               </IconButton>
             </Tooltip>
-            {/* <Tooltip title="Export CSV">
-              <IconButton size="small" onClick={() => handleExport("csv")} className="border border-gray-300">
+            <Tooltip title="Export Pdf">
+              <IconButton size="small" onClick={() => handleExport("pdf")} className="border border-gray-300">
                 <PictureAsPdfOutlined fontSize="small" className="text-red-500 !w-4" />
-                <NoteAltOutlined fontSize="small" className="text-red-500 !w-4"/>
               </IconButton>
-            </Tooltip> */}
+            </Tooltip>
             <Tooltip title="Export CSV">
               <IconButton size="small" onClick={() => handleExport("csv")} className="border border-gray-300">
                 <FileDownloadOutlined fontSize="small" className="text-blue-500 !w-4" />
