@@ -125,7 +125,7 @@ export async function mockAllApis(page: Page) {
    */
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/**",
+    "**/api/**",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -139,7 +139,7 @@ export async function mockAllApis(page: Page) {
   );
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/payroll/dashboard",
+    "**/api/payroll/dashboard",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -168,7 +168,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/auth/session",
+    "**/api/auth/session",
     async (route) => {
       const session = createMockAdminSession();
 
@@ -201,7 +201,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/auth/me**",
+    "**/api/auth/me**",
     async (route) => {
       const session = createMockAdminSession();
 
@@ -234,7 +234,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/permissions**",
+    "**/api/permissions**",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -254,7 +254,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/auth/context**",
+    "**/api/auth/context**",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -295,7 +295,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/auth/profile",
+    "**/api/auth/profile",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -324,7 +324,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/auth/refresh-token",
+    "**/api/auth/refresh-token",
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -350,7 +350,7 @@ export async function mockAllApis(page: Page) {
   // --------------------------------------------------
 
   await page.route(
-    "https://pnc-hr.auvitapps.com:7091/api/org/company/**",
+    "**/api/org/company/**",
     async (route) => {
       const method = route.request().method();
 
