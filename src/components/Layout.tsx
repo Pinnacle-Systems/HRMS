@@ -88,6 +88,7 @@ import GuidedTour from "./GuidedTour";
 import { formatDate } from "../utils/dateFormatter";
 import React from "react";
 import type { EventData } from "react-joyride";
+import dot from '../assets/dot.png';
 
 const drawerWidth = 220;
 const guidedTourStorageKey = "hrms-guided-tour-completed";
@@ -922,11 +923,11 @@ export default function Layout() {
         : [];
       setPageHistory((currentHistory) =>
         currentHistory.length === normalizedPages.length &&
-        currentHistory.every(
-          (page, index) =>
-            page.path === normalizedPages[index].path &&
-            page.label === normalizedPages[index].label
-        )
+          currentHistory.every(
+            (page, index) =>
+              page.path === normalizedPages[index].path &&
+              page.label === normalizedPages[index].label
+          )
           ? currentHistory
           : normalizedPages
       );
@@ -1065,8 +1066,9 @@ export default function Layout() {
                   {/* Company Info */}
                   <div>
                     <div className="flex items-center gap-2">
+                      <img src={dot} alt="Dot.HR Logo" width="50" height="30" />
                       <div className="font-bold text-gray-700 whitespace-nowrap">
-                        Dot.<span className="text-primary">HR</span>
+                        <span className="text-primary">HR</span>
                       </div>
                       {user && getWorkspaceLabel && (
                         <div className="text-[10px] text-gray-400 leading-3 whitespace-nowrap">
@@ -1120,11 +1122,10 @@ export default function Layout() {
                 <Tooltip title="Notifications">
                   <IconButton
                     size="small"
-                    aria-label={`${
-                      pendingApprovalCount > 0
+                    aria-label={`${pendingApprovalCount > 0
                         ? `${pendingApprovalCount} pending`
                         : "No"
-                    } notifications`}
+                      } notifications`}
                     color="inherit"
                     onClick={handleNotificationClick}
                     data-tour="notifications"
@@ -1590,11 +1591,11 @@ export default function Layout() {
           {open && (
             <Box className="px-3 py-1">
               <Box className="flex items-center gap-1 shadow-sm">
-                <img src={logo} className="!w-6 !h-6 mr-2" alt="logo" />
+                <img src={companyInfo?.logoUrl} className="!w-6 !h-6 mr-2" alt="logo" />
                 <Box>
                   <div className="text-gray-500 text-[10px]">Organization</div>
                   <div className="text-gray-800 font-bold text-[12px]">
-                    Pinnacle Systems
+                    {companyInfo?.companyName || "Company Name"}
                   </div>
                 </Box>
               </Box>
@@ -2167,46 +2168,59 @@ export default function Layout() {
             ))}
           </List>
           {open ? (
-            <div className="flex items-center justify-between cursor-pointer py-3 pl-4 border-t border-gray-200">
-              <div className="flex items-center gap-2">
-                <div className="relative group">
-                  <Avatar
-                    src={user?.profilePic}
-                    className="!w-8 !h-8 text-2xl cursor-pointer"
-                  >
-                    {avatarInitial}
-                  </Avatar>
-                </div>
-                <div className="text-[12px] text-gray-800">
-                  <div>{user?.roles}</div>
-                  <div className="text-gray-500 text-[5px]">
-                    {user?.email}
+            <>
+              <div className="flex items-center justify-between cursor-pointer py-3 pl-4 border-t border-gray-200">
+                <div className="flex items-center gap-2">
+                  <div className="relative group">
+                    <Avatar
+                      src={user?.profilePic}
+                      className="!w-8 !h-8 text-2xl cursor-pointer"
+                    >
+                      {avatarInitial}
+                    </Avatar>
+                  </div>
+                  <div className="text-[12px] text-gray-800">
+                    <div>{user?.roles}</div>
+                    <div className="text-gray-500 text-[5px]">
+                      {user?.email}
+                    </div>
                   </div>
                 </div>
+                <div className="flex items-center">
+                  <Tooltip title="Logout" onClick={() => handleLogout()}>
+                    <IconButton
+                      className={`dark:!text-primary ${open ? "!mr-1" : "!mr-4"
+                        }`}
+                    >
+                      <PowerSettingsNewOutlined />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Theme" onClick={() => toggleMode()}>
+                    <IconButton
+                      className={`dark:!text-primary ${open ? "!mr-1" : "!mr-4"
+                        }`}
+                    >
+                      {mode === "dark" ? (
+                        <LightModeOutlined className="h-5 w-5" />
+                      ) : (
+                        <DarkModeOutlined className="h-5 w-5" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </div>
               </div>
-              <div className="flex items-center">
-                <Tooltip title="Logout" onClick={() => handleLogout()}>
-                  <IconButton
-                    className={`dark:!text-primary ${open ? "!mr-1" : "!mr-4"
-                      }`}
-                  >
-                    <PowerSettingsNewOutlined />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Theme" onClick={() => toggleMode()}>
-                  <IconButton
-                    className={`dark:!text-primary ${open ? "!mr-1" : "!mr-4"
-                      }`}
-                  >
-                    {mode === "dark" ? (
-                      <LightModeOutlined className="h-5 w-5" />
-                    ) : (
-                      <DarkModeOutlined className="h-5 w-5" />
-                    )}
-                  </IconButton>
-                </Tooltip>
-              </div>
-            </div>
+              <Box className="px-3 py-1 border-t border-gray-200">
+                <Box className="flex items-center gap-1 shadow-sm">
+                  <img src={logo} className="!w-6 !h-6 mr-2" alt="logo" />
+                  <Box>
+                    <div className="text-gray-500 text-[10px]">Powered By</div>
+                    <div className="text-gray-800 font-bold text-[10px]">
+                      Pinnacle Systems
+                    </div>
+                  </Box>
+                </Box>
+              </Box>
+            </>
           ) : (
             <div>
               <Tooltip title="Theme CTRL + D" onClick={() => toggleMode()}>
