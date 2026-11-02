@@ -13,8 +13,6 @@ import {
 type RoleScenario = {
   name: string;
   roles: E2ERole[];
-  expectedDashboard: RegExp;
-  workspaceLabel: string;
   visibleNav: string[];
 };
 
@@ -131,56 +129,42 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "ADMIN",
     roles: ["ADMIN"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation(["ADMIN"]),
   },
 
   {
     name: "HR",
     roles: ["HR"],
-    expectedDashboard: /\/hr\/dashboard$/,
-    workspaceLabel: "HR Workspace",
     visibleNav: getVisibleNavigation(["HR"]),
   },
 
   {
     name: "MANAGER",
     roles: ["MANAGER"],
-    expectedDashboard: /\/manager\/dashboard$/,
-    workspaceLabel: "Manager Workspace",
     visibleNav: getVisibleNavigation(["MANAGER"]),
   },
 
   {
     name: "EMPLOYEE",
     roles: ["EMPLOYEE"],
-    expectedDashboard: /\/employee\/dashboard$/,
-    workspaceLabel: "Employee Portal",
     visibleNav: getVisibleNavigation(["EMPLOYEE"]),
   },
 
   {
     name: "ADMIN_HR",
     roles: ["ADMIN", "HR"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation(["ADMIN", "HR"]),
   },
 
   {
     name: "ADMIN_MANAGER",
     roles: ["ADMIN", "MANAGER"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation(["ADMIN", "MANAGER"]),
   },
 
   {
     name: "ADMIN_EMPLOYEE",
     roles: ["ADMIN", "EMPLOYEE", "ESS"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation([
       "ADMIN",
       "EMPLOYEE",
@@ -191,8 +175,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "HR_MANAGER",
     roles: ["HR", "MANAGER"],
-    expectedDashboard: /\/hr\/dashboard$/,
-    workspaceLabel: "HR Workspace",
     visibleNav: getVisibleNavigation([
       "HR",
       "MANAGER",
@@ -202,8 +184,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "HR_EMPLOYEE",
     roles: ["HR", "EMPLOYEE", "ESS"],
-    expectedDashboard: /\/hr\/dashboard$/,
-    workspaceLabel: "HR Workspace",
     visibleNav: getVisibleNavigation([
       "HR",
       "EMPLOYEE",
@@ -214,8 +194,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "MANAGER_EMPLOYEE",
     roles: ["MANAGER", "EMPLOYEE", "ESS"],
-    expectedDashboard: /\/manager\/dashboard$/,
-    workspaceLabel: "Manager Workspace",
     visibleNav: getVisibleNavigation([
       "MANAGER",
       "EMPLOYEE",
@@ -226,8 +204,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "ADMIN_HR_MANAGER",
     roles: ["ADMIN", "HR", "MANAGER"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation([
       "ADMIN",
       "HR",
@@ -238,8 +214,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "ADMIN_HR_EMPLOYEE",
     roles: ["ADMIN", "HR", "EMPLOYEE", "ESS"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation([
       "ADMIN",
       "HR",
@@ -251,8 +225,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "ADMIN_MANAGER_EMPLOYEE",
     roles: ["ADMIN", "MANAGER", "EMPLOYEE", "ESS"],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation([
       "ADMIN",
       "MANAGER",
@@ -264,8 +236,6 @@ const roleScenarios: RoleScenario[] = [
   {
     name: "HR_MANAGER_EMPLOYEE",
     roles: ["HR", "MANAGER", "EMPLOYEE", "ESS"],
-    expectedDashboard: /\/hr\/dashboard$/,
-    workspaceLabel: "HR Workspace",
     visibleNav: getVisibleNavigation([
       "HR",
       "MANAGER",
@@ -283,8 +253,6 @@ const roleScenarios: RoleScenario[] = [
       "EMPLOYEE",
       "ESS",
     ],
-    expectedDashboard: /\/admin\/dashboard$/,
-    workspaceLabel: "Admin Console",
     visibleNav: getVisibleNavigation([
       "ADMIN",
       "HR",
@@ -776,12 +744,12 @@ test.describe(
 
           await waitForDashboard(
             page,
-            scenario.expectedDashboard,
+            getExpectedDashboard(scenario.roles),
           );
 
           await expect(
             page.getByText(
-              scenario.workspaceLabel,
+              getWorkspaceLabel(scenario.roles),
               {
                 exact: true,
               },
@@ -858,7 +826,7 @@ test.describe(
             await page.goto(
               route.path,
               {
-                waitUntil: "commit",
+                waitUntil: "domcontentloaded",
               },
             );
 
@@ -868,12 +836,9 @@ test.describe(
 
             if (!isAllowed) {
               await expect(
-                page.getByText(
-                  "Unable to determine access",
-                  {
-                    exact: true,
-                  },
-                ),
+                page.getByRole("heading", {
+                  name: "Unable to determine access",
+                }),
               ).toBeVisible({
                 timeout: 10000,
               });

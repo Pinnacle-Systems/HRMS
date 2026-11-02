@@ -125,7 +125,7 @@ export async function mockAllApis(page: Page) {
    */
 
   await page.route(
-    "**/api/**",
+    (url) => url.pathname.startsWith("/api/"),
     async (route) => {
       await route.fulfill({
         status: 200,
@@ -157,6 +157,41 @@ export async function mockAllApis(page: Page) {
             departmentWiseData: [],
             deductionComposition: [],
             monthlyTrend: [],
+          },
+        }),
+      });
+    },
+  );
+
+  await page.route(
+    (url) => url.pathname.endsWith("/api/notifications/approvals/count"),
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            total: 0,
+            byType: {},
+          },
+        }),
+      });
+    },
+  );
+
+  await page.route(
+    (url) => url.pathname.endsWith("/api/notifications/approvals"),
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          data: {
+            total: 0,
+            byType: {},
+            items: [],
           },
         }),
       });
