@@ -10,6 +10,7 @@ import {
   FALLBACK_PASSWORD_POLICY,
   validatePasswordAgainstPolicy,
 } from "../../../utils/passwordPolicyValidation";
+import dot from '../../../assets/dot.png';
 
 export default function ResetPassword() {
   const location = useLocation();
@@ -187,10 +188,11 @@ export default function ResetPassword() {
         <div className="bg-gradient-to-bl rounded-xl from-primary-50 to-gray-100 p-10 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-8">
-              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
+              {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
                 Dot.<span className="text-primary">HR</span>
-              </span>
+              </span> */}
+               <img src={dot} alt="Dot.HR Logo" width="100"/>
             </div>
             <p className="text-2xl font-bold mb-4">
               Fresh <span className="text-primary">Start. </span>

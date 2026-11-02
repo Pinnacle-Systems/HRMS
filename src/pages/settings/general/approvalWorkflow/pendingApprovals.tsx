@@ -25,6 +25,7 @@ import {
 } from "../../../../services/modules/approvalWorkflow";
 import { useUI } from "../../../../context/Snackbar";
 import { formatDateTime } from "../../../../utils/dateFormatter";
+import { getRowColor } from "../../../const";
 
 const statusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -158,7 +159,7 @@ export default function PendingApprovals() {
                   return (
                     <TableRow
                       key={r.id}
-                      hover
+                      sx={getRowColor(idx)}
                       className="!cursor-pointer"
                       onClick={() => openDetail(r)}
                     >

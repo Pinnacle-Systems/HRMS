@@ -8,6 +8,7 @@ import { getDefaultRoute } from "../../../auth/authMapper";
 import { buildLoginRequest } from "../../../auth/authApi";
 import otpImg from '../../../assets/otp.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
+import dot from '../../../assets/dot.png';
 
 type VerifyOtpLocationState = {
   email?: string;
@@ -424,10 +425,11 @@ export default function VerifyOTP() {
         <div className="bg-gradient-to-bl rounded-xl from-primary-50 to-gray-100 p-10 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-8">
-              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
+              {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
               <span className="font-bold text-gray-700">
                 Dot.<span className="text-primary">HR</span>
-              </span>
+              </span> */}
+               <img src={dot} alt="Dot.HR Logo" width="100"/>
             </div>
             <h1 className="text-2xl font-semibold text-gray-900 leading-snug mb-4">
               {isSignupFlow ? "Verify Your Email" : "Verify Your Identity"}

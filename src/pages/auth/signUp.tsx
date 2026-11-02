@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import grp from '../../assets/grp.png';
 import { useUI } from "../../context/Snackbar";
 import { authService } from "../../services/modules/auth";
+import dot from '../../assets/dot.png';
 
 interface SignupFormData {
   firstName: string;
@@ -283,10 +284,11 @@ export default function Signup() {
           <div className="hidden md:flex md:col-span-2 bg-gradient-to-br from-primary-50 to-gray-100 p-10 flex-col justify-between">
             <div>
               <div className="flex items-center gap-2 mb-8">
-                <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
+                {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
                 <span className="font-bold text-gray-700">
                   Dot.<span className="text-primary">HR</span>
-                </span>
+                </span> */}
+                 <img src={dot} alt="Dot.HR Logo" width="100"/>
               </div>
               <h1 className="text-3xl font-semibold leading-snug mb-6">
                 Create your <br />

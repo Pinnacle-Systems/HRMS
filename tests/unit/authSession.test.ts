@@ -20,6 +20,16 @@ describe("authSession", () => {
     expect(getRefreshToken()).toBe(session.refreshToken);
   });
 
+  it("retains the refresh token when the access token has expired", () => {
+    const session = createMockAuthSession({ expiresAt: Date.now() - 1 });
+    saveSession(session);
+
+    expect(loadSession()).toEqual(session);
+    expect(getAccessToken()).toBe(session.accessToken);
+    expect(getRefreshToken()).toBe(session.refreshToken);
+    expect(localStorage.getItem(AUTH_STORAGE_KEY)).not.toBeNull();
+  });
+
   it("clears the stored session", () => {
     saveSession(createMockAuthSession());
     localStorage.setItem("hrms-page-history-user-1", "history");

@@ -5,6 +5,7 @@ import { useUI } from "../../../context/Snackbar";
 import { authService } from "../../../services/modules/auth";
 import forgot from '../../../assets/forgot.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
+import dot from '../../../assets/dot.png';
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -40,10 +41,11 @@ function ForgotPassword() {
           <div>
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-8">
-                <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
+                {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
                 <span className="font-bold text-gray-700">
                   Dot.<span className="text-primary">HR</span>
-                </span>
+                </span> */}
+                 <img src={dot} alt="Dot.HR Logo" width="100"/>
               </div>
             </div>
             <p className="text-2xl font-bold mb-4">

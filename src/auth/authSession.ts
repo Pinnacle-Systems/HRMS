@@ -25,15 +25,14 @@ export function loadSession(): AuthSession | null {
 
   try {
     const session = JSON.parse(raw) as AuthSession;
-     if (session.expiresAt && session.expiresAt < Date.now()) {
-      logger.warn("Session token expired, clearing");
-      clearSession();
-      return null;
-    }
     if (!session.accessToken || !session.refreshToken || !session.user) {
       logger.warn("Stored auth session is incomplete; clearing it");
       clearSession();
       return null;
+    }
+
+    if (session.expiresAt && session.expiresAt < Date.now()) {
+      logger.debug("Access token expired; retaining session for refresh");
     }
 
     logger.debug("Loaded auth session", {

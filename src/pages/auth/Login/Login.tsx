@@ -7,6 +7,7 @@ import { redirectAfterAuth } from "../../../auth/authMapper";
 import { buildLoginRequest } from "../../../auth/authApi";
 import grp from '../../../assets/grp.png';
 import pinnacle from '../../../assets/pinnacle.jpg';
+import dot from '../../../assets/dot.png';
 
 type LoginLocationState = {
   tenantId?: string;
@@ -245,11 +246,12 @@ export default function Login() {
         {/* Left Section */}
         <div className="rounded-xl p-10 flex flex-col justify-between bg-gradient-to-bl from-primary-50 to-gray-100">
           <div>
-            <div className="flex items-center gap-2 mb-8">
-              <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div>
-              <span className="font-bold text-gray-700">
+            <div className="flex items-center gap-2 mb-6">
+              {/* <div className="w-4 h-4 bg-primary rounded-sm rotate-45"></div> */}
+              <img src={dot} alt="Dot.HR Logo" width="100"/>
+              {/* <span className="font-bold text-gray-700">
                 Dot.<span className="text-primary">HR</span>
-              </span>
+              </span> */}
             </div>
             <h1 className="text-2xl font-semibold leading-snug mb-6">
               Sign in to <br />
