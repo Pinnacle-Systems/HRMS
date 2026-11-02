@@ -98,6 +98,15 @@ const processQueue = (error: unknown | null, token: string | null = null) => {
   failedQueue = [];
 };
 
+const redirectToLogin = () => {
+  clearSession();
+
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    logger.info("Redirecting to login after authentication failure");
+    window.location.replace("/login");
+  }
+};
+
 export const setupInterceptors = (axiosInstance: AxiosInstance) => {
   // Request Interceptor
   axiosInstance.interceptors.request.use(
@@ -149,6 +158,11 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
       const isPublicRequestUrl = isPublicRequest(requestUrl);
       // const metadata = originalRequest?.metadata;
 
+      if (error.response?.status === 401 && originalRequest?._retry) {
+        redirectToLogin();
+        return Promise.reject(error);
+      }
+
       // Don't attempt refresh for public routes/requests
       if (isPublicRoute || isPublicRequestUrl) {
         return Promise.reject(error);
@@ -156,8 +170,7 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
 
       // Don't attempt refresh if it's the refresh request itself
       if (isRefreshRequest) {
-        // Clear session if refresh fails
-        clearSession();
+        redirectToLogin();
         return Promise.reject(error);
       }
 
@@ -167,7 +180,7 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
         const refreshToken = getRefreshToken();
         if (!refreshToken) {
           logger.warn("No refresh token available for 401");
-          clearSession();
+          redirectToLogin();
           return Promise.reject(error);
         }
 
@@ -224,10 +237,7 @@ export const setupInterceptors = (axiosInstance: AxiosInstance) => {
           // Process queue with error
           processQueue(refreshError, null);
 
-          // Clear session
-          clearSession();
-
-          // Return the original error - don't redirect here
+          redirectToLogin();
           return Promise.reject(error);
         } finally {
           isRefreshing = false;
