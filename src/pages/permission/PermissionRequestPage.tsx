@@ -781,9 +781,9 @@ export default function PermissionRequestPage() {
                         const targetId = employee?.id || "";
                         const targetName = employee
                           ? employee.name ||
-                            employee.fullName ||
-                            employee.employeeName ||
-                            "Employee"
+                          employee.fullName ||
+                          employee.employeeName ||
+                          "Employee"
                           : "";
                         setSelectedEmployee(employee ?? null);
                         setForm((current) => ({
@@ -833,6 +833,7 @@ export default function PermissionRequestPage() {
                   }}
                   // minDate={dayjs(today)}
                   minDate={dayjs().subtract(1, "day")}
+                  format="DD/MM/YYYY"
                   slotProps={{
                     textField: { fullWidth: true, size: "small" },
                   }}
@@ -1059,12 +1060,9 @@ export default function PermissionRequestPage() {
                 elevation={0}
                 className="overflow-hidden rounded-xl !border !border-gray-200 !bg-white"
               >
-                <TableContainer sx={{ maxHeight: 560 }}>
+                <TableContainer className="max-h-[calc(100vh-300px)] overflow-auto">
                   <Table
                     stickyHeader
-                    size="small"
-                    aria-label="Permission requests"
-                    sx={{ minWidth: 1200 }}
                   >
                     <TableHead>
                       <TableRow>
@@ -1186,9 +1184,8 @@ export default function PermissionRequestPage() {
 
                             <TableCell sx={{ whiteSpace: "nowrap" }}>
                               {request.fromTime || request.toTime
-                                ? `${formatTime(request.fromTime) || "-"} – ${
-                                    formatTime(request.toTime) || "-"
-                                  }`
+                                ? `${formatTime(request.fromTime) || "-"} – ${formatTime(request.toTime) || "-"
+                                }`
                                 : "-"}
                             </TableCell>
 
@@ -1253,7 +1250,24 @@ export default function PermissionRequestPage() {
                                 py: 0.5,
                               }}
                             >
-                              <div className="flex items-center justify-center gap-0.5">
+                              <div className="grid grid-cols-[1fr_2fr_1fr_1fr] items-center justify-center gap-0.5">
+
+                                 {request.gatePassEnabled ? (
+                                  <Tooltip title="Download gate-pass slip">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        aria-label={`Download gate-pass slip ${request.requestNumber || request.id
+                                          }`}
+                                        onClick={() => void downloadSlip(request)}
+                                        sx={{ p: 0.5 }}
+                                      >
+                                        <DownloadOutlinedIcon fontSize="small" className="text-green-600"/>
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                ) : <div></div>}
+
                                 <Button
                                   size="small"
                                   variant="outlined"
@@ -1272,23 +1286,6 @@ export default function PermissionRequestPage() {
                                     : "Details"}
                                 </Button>
 
-                                {request.gatePassEnabled && (
-                                  <Tooltip title="Download gate-pass slip">
-                                    <span>
-                                      <IconButton
-                                        size="small"
-                                        aria-label={`Download gate-pass slip ${
-                                          request.requestNumber || request.id
-                                        }`}
-                                        onClick={() => void downloadSlip(request)}
-                                        sx={{ p: 0.5 }}
-                                      >
-                                        <DownloadOutlinedIcon fontSize="small" />
-                                      </IconButton>
-                                    </span>
-                                  </Tooltip>
-                                )}
-
                                 <Tooltip
                                   title={
                                     request.autoPosted
@@ -1299,9 +1296,8 @@ export default function PermissionRequestPage() {
                                   <span>
                                     <IconButton
                                       size="small"
-                                      aria-label={`Edit permission request ${
-                                        request.requestNumber || request.id
-                                      }`}
+                                      aria-label={`Edit permission request ${request.requestNumber || request.id
+                                        }`}
                                       disabled={request.autoPosted}
                                       onClick={() => openEdit(request)}
                                       sx={{ p: 0.5, color: "primary.main" }}
@@ -1325,9 +1321,8 @@ export default function PermissionRequestPage() {
                                     <IconButton
                                       size="small"
                                       color="error"
-                                      aria-label={`Delete permission request ${
-                                        request.requestNumber || request.id
-                                      }`}
+                                      aria-label={`Delete permission request ${request.requestNumber || request.id
+                                        }`}
                                       disabled={request.autoPosted}
                                       onClick={() =>
                                         void handleDelete(request)
@@ -1436,9 +1431,8 @@ export default function PermissionRequestPage() {
                 )}
                 <p className="mt-1 text-[12px] text-gray-500">
                   {selectedRequest.fromTime || selectedRequest.toTime
-                    ? `${formatTime(selectedRequest.fromTime) || "—"} – ${
-                        formatTime(selectedRequest.toTime) || "—"
-                      }`
+                    ? `${formatTime(selectedRequest.fromTime) || "—"} – ${formatTime(selectedRequest.toTime) || "—"
+                    }`
                     : "Time not specified"}{" "}
                   · {selectedRequest.destination}
                 </p>

@@ -6,7 +6,6 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
-  Divider,
   FormControl,
   FormControlLabel,
   Grid,
@@ -36,7 +35,12 @@ import {
   Refresh as RefreshIcon,
   Rule as RuleIcon,
   AccountTree as AccountTreeIcon,
+  Edit,
+  Delete,
+  CheckCircle,
+  Cancel,
 } from "@mui/icons-material";
+import { GlobalPagination } from "../../../../components/GlobalPagination";
 import {
   approvalWorkflowService,
   type ApprovalConfiguration,
@@ -53,6 +57,7 @@ import { useUI } from "../../../../context/Snackbar";
 import { getRowColor } from "../../../const";
 import { employeeService } from "../../../../services/modules/employees";
 import { useAuth } from "../../../../auth/authContext";
+import { PERMISSION_FIELDS, PERMISSION_LABELS, type PermissionField } from "./approvalMatrixConfig";
 
 type ApproverOption = {
   id: string;
@@ -146,6 +151,10 @@ export default function ApprovalWorkflowConfig() {
   const skipNextDetailLoadRef = useRef<string | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [configurationsLoading, setConfigurationsLoading] = useState(false);
+  const [screen, setScreen] = useState<"list" | "form">("list");
+  const [configurationsPage, setConfigurationsPage] = useState(0);
+  const [configurationsLimit, setConfigurationsLimit] = useState(10);
   // const [evaluating, setEvaluating] = useState(false);
 
   const [modules, setModules] = useState<ApprovalModule[]>([]);
@@ -174,19 +183,64 @@ export default function ApprovalWorkflowConfig() {
     Record<number, string[]>
   >({});
 
-  // Stable reset handler — called ONLY on explicit user actions
+  const [permissions, setPermissions] = useState<Record<PermissionField, boolean>>({
+    create: false, update: false, delete: false, statusChange: false,
+  });
+  const [endpoints, setEndpoints] = useState("");
+  const [baselinePermissions, setBaselinePermissions] = useState(permissions);
+  const [baselineEndpoints, setBaselineEndpoints] = useState("");
+
   const handleResetForm = useCallback(() => {
     setSelectedConfigId("");
     setWorkflowName("");
-    // setPriorityWeight(1);
     setNoRulesRequired(false);
     setActive(true);
     setRules([]);
     setLevels([]);
-    // setEvalResult(null);
-    // setEvalFieldValues({});
     setValueOptionsByRule({});
+
+    // matrix reset
+    const empty = { create: false, update: false, delete: false, statusChange: false };
+    setPermissions(empty);
+    setEndpoints("");
+    setBaselinePermissions(empty);
+    setBaselineEndpoints("");
   }, []);
+
+  const seedApprovalMatrix = (data: ApprovalConfiguration) => {
+    const matrix = {
+      create: data.approvalMatrix?.create ?? data.create ?? false,
+      update: data.approvalMatrix?.update ?? data.update ?? false,
+      delete: data.approvalMatrix?.delete ?? data.delete ?? false,
+      statusChange: data.approvalMatrix?.statusChange ?? data.statusChange ?? false,
+    };
+    const matrixEndpoints = data.approvalMatrix?.endpoints ?? data.endpoints ?? "";
+
+    setPermissions(matrix);
+    setBaselinePermissions(matrix);
+    setEndpoints(matrixEndpoints);
+    setBaselineEndpoints(matrixEndpoints);
+  };
+
+  const togglePermission = (field: PermissionField) =>
+    setPermissions((p) => ({ ...p, [field]: !p[field] }));
+
+  const setAllPermissions = (value: boolean) =>
+    setPermissions({ create: value, update: value, delete: value, statusChange: value });
+
+  const permissionsDirty =
+    PERMISSION_FIELDS.some((f) => permissions[f] !== baselinePermissions[f]) ||
+    endpoints !== baselineEndpoints;
+
+  const paginatedConfigurations = configurations.slice(
+    configurationsPage * configurationsLimit,
+    (configurationsPage + 1) * configurationsLimit
+  );
+
+  useEffect(() => {
+    const lastPage = Math.max(0, Math.ceil(configurations.length / configurationsLimit) - 1);
+    if (configurationsPage > lastPage) setConfigurationsPage(lastPage);
+  }, [configurations.length, configurationsLimit, configurationsPage]);
 
   // ---- Initial load (modules, operators, employees) ----
   useEffect(() => {
@@ -199,7 +253,7 @@ export default function ApprovalWorkflowConfig() {
         const [modRes, opRes, empRes] = await Promise.all([
           approvalWorkflowService.getModules({ size: 100 }),
           approvalWorkflowService.getOperators({ activeOnly: true }),
-          employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, }),
+          employeeService.getEmployees({ includeActive: true, branch: session?.branchId || undefined, }),
         ]);
         setModules(modRes.data.content);
         setOperators(opRes.data);
@@ -244,32 +298,22 @@ export default function ApprovalWorkflowConfig() {
     };
   }, [moduleId, showSnackbar]);
 
-  // ---- Load configurations when module changes ----
+  // ---- Load configurations when the module filter changes ----
   useEffect(() => {
-    if (!moduleId) {
-      setConfigurations([]);
-      setSelectedConfigId("");
-      return;
-    }
     let cancelled = false;
+    setConfigurationsLoading(true);
     approvalWorkflowService
-      .getConfigurations({ moduleId })
+      .getConfigurations({ moduleId: moduleId || undefined, size: 100 })
       .then((res) => {
         if (cancelled) return;
         setConfigurations(res.data.content);
-        if (res.data.content.length > 0) {
-          setSelectedConfigId((prev) => {
-            const stillValid =
-              prev && res.data.content.some((c: ApprovalConfiguration) => c.id === prev);
-            return stillValid ? prev : res.data.content[0].id;
-          });
-        } else {
-          setSelectedConfigId("");
-        }
       })
       .catch((err) => {
         if (!cancelled)
           showSnackbar(getErrorMessage(err, "Failed to load configurations."), "error");
+      })
+      .finally(() => {
+        if (!cancelled) setConfigurationsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -291,10 +335,12 @@ export default function ApprovalWorkflowConfig() {
       .then((res) => {
         if (cancelled) return;
         const data = res.data;
+        setModuleId(data.moduleId);
         setWorkflowName(data.workflowName);
         // setPriorityWeight(data.priorityWeight ?? 1);
         setNoRulesRequired(data.noRulesRequired);
         setActive(data.active);
+        seedApprovalMatrix(data);
         setRules(data.rules || []);
         setLevels(
           (data.levels || []).map((level) => ({
@@ -475,14 +521,14 @@ export default function ApprovalWorkflowConfig() {
   //   () => modules.find((m) => m.id === moduleId)?.moduleName || "",
   //   [modules, moduleId]
   // );
-
   const handleSave = async () => {
+    // ---- 1. Header validation ----
     if (!moduleId || !workflowName) {
       showSnackbar("Please fill in all required fields.", "warning");
       return;
     }
 
-    // Validate rule completeness when rules are required
+    // ---- 2. Rule validation ----
     if (!noRulesRequired) {
       const incomplete = rules.find(
         (r) =>
@@ -499,6 +545,17 @@ export default function ApprovalWorkflowConfig() {
       }
     }
 
+    // ---- 3. Approval Matrix validation ----
+    const anyPermissionOn = PERMISSION_FIELDS.some((f) => permissions[f]);
+    if (!anyPermissionOn && !noRulesRequired) {
+      showSnackbar(
+        "Enable at least one action (Create / Update / Delete / Status change) in the Approval Matrix.",
+        "warning"
+      );
+      return;
+    }
+
+    // ---- 4. Level validation ----
     const missingApprover = levels.find((level) =>
       level.approverType === "role"
         ? level.approverRoles.length === 0
@@ -507,7 +564,8 @@ export default function ApprovalWorkflowConfig() {
 
     if (missingApprover) {
       showSnackbar(
-        `Select at least one ${missingApprover.approverType === "role" ? "role" : "employee"} for "${missingApprover.levelTitle}".`,
+        `Select at least one ${missingApprover.approverType === "role" ? "role" : "employee"
+        } for "${missingApprover.levelTitle}".`,
         "warning"
       );
       return;
@@ -527,12 +585,18 @@ export default function ApprovalWorkflowConfig() {
       return;
     }
 
+    // ---- 5. Build payload (now includes matrix flags + endpoints) ----
     const payload: ApprovalConfigurationPayload = {
       workflowName,
       moduleId,
       noRulesRequired,
       active,
       priorityWeight: 1,
+      endpoints,
+      create: permissions.create,
+      update: permissions.update,
+      delete: permissions.delete,
+      statusChange: permissions.statusChange,
       rules: noRulesRequired
         ? []
         : rules.map((r) => ({
@@ -551,10 +615,14 @@ export default function ApprovalWorkflowConfig() {
       })),
     };
 
-    // Capture current form BEFORE save so we can re-seed from it after.
+    // ---- 6. Snapshot form BEFORE save (to re-seed after, no refetch race) ----
     const savedWorkflowName = workflowName;
     const savedRules = rules;
     const savedLevels = levels;
+    const savedPermissions = { ...permissions };
+    const savedEndpoints = endpoints;
+    const savedNoRulesRequired = payload.noRulesRequired;
+    const savedActive = payload.active;
 
     setSaving(true);
     try {
@@ -569,19 +637,27 @@ export default function ApprovalWorkflowConfig() {
         showSnackbar("Configuration created successfully.", "success");
       }
 
-      // 1. Refresh the list only (not the details) so the selector updates.
-      const listRes = await approvalWorkflowService.getConfigurations({ moduleId });
+      // ---- 7. Refresh the list only (not the details) ----
+      const listRes = await approvalWorkflowService.getConfigurations(
+        { moduleId: moduleId || undefined, size: 100 }
+      );
       setConfigurations(listRes.data.content);
 
-      // 2. Re-seed the form from what we just saved — no refetch race.
-      //    Also mark this id to be skipped by the detail-load effect.
+      // ---- 8. Re-seed form + matrix from what we just saved ----
       skipNextDetailLoadRef.current = savedId;
       setSelectedConfigId(savedId);
       setWorkflowName(savedWorkflowName);
       setRules(savedRules);
       setLevels(savedLevels);
-      setNoRulesRequired(payload.noRulesRequired);
-      setActive(payload.active);
+      setNoRulesRequired(savedNoRulesRequired);
+      setActive(savedActive);
+
+      // Matrix re-seed + baseline commit (clears "matrix unsaved" chip)
+      setPermissions(savedPermissions);
+      setEndpoints(savedEndpoints);
+      setBaselinePermissions(savedPermissions);
+      setBaselineEndpoints(savedEndpoints);
+      setScreen("list");
     } catch (error) {
       showSnackbar(getErrorMessage(error, "Failed to save configuration."), "error");
     } finally {
@@ -600,12 +676,11 @@ export default function ApprovalWorkflowConfig() {
         try {
           await approvalWorkflowService.deleteConfiguration(id);
           showSnackbar("Configuration deleted.", "success");
-          const res = await approvalWorkflowService.getConfigurations({ moduleId });
+          const res = await approvalWorkflowService.getConfigurations(
+            { moduleId: moduleId || undefined, size: 100 }
+          );
           setConfigurations(res.data.content);
-          if (res.data.content.length > 0) {
-            skipNextDetailLoadRef.current = null;
-            setSelectedConfigId(res.data.content[0].id);
-          } else {
+          if (id === selectedConfigId) {
             handleResetForm();
           }
         } catch (error) {
@@ -624,7 +699,9 @@ export default function ApprovalWorkflowConfig() {
         `Configuration ${res.data.active ? "activated" : "deactivated"}.`,
         "success"
       );
-      const listRes = await approvalWorkflowService.getConfigurations({ moduleId });
+      const listRes = await approvalWorkflowService.getConfigurations(
+        { moduleId: moduleId || undefined, size: 100 }
+      );
       setConfigurations(listRes.data.content);
       if (id === selectedConfigId) {
         setActive(res.data.active);
@@ -647,6 +724,7 @@ export default function ApprovalWorkflowConfig() {
         // setPriorityWeight(data.priorityWeight ?? 1);
         setNoRulesRequired(data.noRulesRequired);
         setActive(data.active);
+        seedApprovalMatrix(data);
         setRules(data.rules || []);
         setLevels(
           (data.levels || []).map((level) => ({
@@ -691,6 +769,23 @@ export default function ApprovalWorkflowConfig() {
 
   const isNewConfig = !selectedConfigId;
 
+  const startNewConfiguration = () => {
+    handleResetForm();
+    setScreen("form");
+  };
+
+  const editConfiguration = (configuration: ApprovalConfiguration) => {
+    skipNextDetailLoadRef.current = null;
+    setModuleId(configuration.moduleId);
+    setSelectedConfigId(configuration.id);
+    setScreen("form");
+  };
+
+  const returnToConfigurationList = () => {
+    handleResetForm();
+    setScreen("list");
+  };
+
   const compactInputSx = {
     "& .MuiInputBase-root": {
       fontSize: "0.8rem",
@@ -702,11 +797,192 @@ export default function ApprovalWorkflowConfig() {
     },
   } as const;
 
+  const BooleanCell = ({ value }: any) => (
+    value ? (
+      <CheckCircle className="!w-4 text-green-500 mx-auto" />
+    ) : (
+      <Cancel className="!w-4 text-gray-300 mx-auto" />
+    )
+  );
+
+  if (screen === "list") {
+    return (
+      <Box className="space-y-3">
+        <Paper
+          elevation={0}
+          className="!bg-white border border-gray-200"
+          sx={{ p: 2, borderRadius: 1 }}
+        >
+          <Stack
+            direction="row"
+            spacing={2}
+            className="flex-col items-stretch justify-between sm:flex-row sm:items-center"
+          >
+            <Box>
+              <Typography variant="h6" className="!font-semibold text-gray-800">
+                Approval configurations
+              </Typography>
+              <Typography variant="body2" className="text-gray-500">
+                Create, edit, and manage approval workflows.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} className="items-center">
+              <FormControl sx={{ minWidth: 220 }}>
+                <InputLabel id="approval-module-filter-label">Module</InputLabel>
+                <Select
+                  labelId="approval-module-filter-label"
+                  value={moduleId}
+                  label="Module"
+                  onChange={(event) => {
+                    setModuleId(event.target.value);
+                    setConfigurationsPage(0);
+                  }}
+                >
+                  <MenuItem value="">All modules</MenuItem>
+                  {modules.map((module) => (
+                    <MenuItem key={module.id} value={module.id}>
+                      {module.moduleName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                disableElevation
+                startIcon={<AddIcon />}
+                onClick={startNewConfiguration}
+                className="!bg-primary whitespace-nowrap !w-[300px]"
+              >
+                New configuration
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <TableContainer className="border border-gray-200">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell className="!font-semibold">S No</TableCell>
+                <TableCell className="!font-semibold">Workflow</TableCell>
+                <TableCell className="!font-semibold">Module</TableCell>
+                <TableCell className="!font-semibold" align="center">Create</TableCell>
+                <TableCell className="!font-semibold" align="center">Update</TableCell>
+                <TableCell className="!font-semibold" align="center">Delete</TableCell>
+                <TableCell className="!font-semibold" align="center">Status Change</TableCell>
+                <TableCell className="!font-semibold" align="center">Status</TableCell>
+                <TableCell className="!font-semibold" align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {configurationsLoading ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    <CircularProgress size={22} sx={{ my: 2 }} />
+                  </TableCell>
+                </TableRow>
+              ) : configurations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+                      No approval configurations found.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedConfigurations.map((configuration, i) => (
+                  <TableRow key={configuration.id} sx={getRowColor(i)}>
+                    <TableCell>{configurationsPage * configurationsLimit + i + 1}</TableCell>
+                    <TableCell>{configuration.workflowName}</TableCell>
+                    <TableCell>{configuration.moduleName || "—"}</TableCell>
+                    <TableCell align="center">
+                      <BooleanCell value={configuration.create} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <BooleanCell value={configuration.update} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <BooleanCell value={configuration.delete} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <BooleanCell value={configuration.statusChange} />
+                    </TableCell>
+                    <TableCell align="center">
+                      {/* Status + Activate/Deactivate combined in one column */}
+                      <Stack direction="row" spacing={1} className="justify-center">
+                        <Chip
+                          size="small"
+                          label={configuration.active ? "Active" : "Inactive"}
+                          color={configuration.active ? "success" : "error"}
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" className="justify-center">
+                          <Button
+                          size="small"
+                          color={configuration.active ? "warning" : "success"}
+                          onClick={() => void handleToggleActive(configuration.id)}
+                        >
+                          {configuration.active ? "Deactivate" : "Activate"}
+                        </Button>
+                        <IconButton onClick={() => editConfiguration(configuration)}>
+                          <Edit className="!w-4 text-blue-500" />
+                        </IconButton>
+                        <IconButton onClick={() => void handleDeleteConfiguration(configuration.id)}>
+                          <Delete className="!w-4 text-error" />
+                        </IconButton>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <GlobalPagination
+          total={configurations.length}
+          page={configurationsPage + 1}
+          limit={configurationsLimit}
+          onPageChange={(page) => setConfigurationsPage(page - 1)}
+          onLimitChange={(limit) => {
+            setConfigurationsLimit(limit);
+            setConfigurationsPage(0);
+          }}
+          pageSizeOptions={[10, 20, 50, 100]}
+          showTotal
+        />
+      </Box>
+    );
+  }
+
   return (
     <Box className="space-y-2">
       <div className="space-y-2 h-[calc(100vh-257px)] overflow-auto">
         {/* ============ HEADER ============ */}
         <div className="bg-white border border-gray-200 rounded-md p-2">
+          <Stack
+            direction="row"
+            className="mb-3 items-center justify-between"
+          >
+            <Box>
+              <Typography variant="h6" className="!font-semibold">
+                {isNewConfig ? "Create approval configuration" : "Edit approval configuration"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Configure workflow rules, approvers, and approval actions.
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={returnToConfigurationList}
+              disabled={saving}
+            >
+              Back to configurations
+            </Button>
+          </Stack>
           <Grid container spacing={2} className="items-center">
             {/* Workflow Name */}
             <Grid size={{ xs: 6, md: 3 }}>
@@ -780,91 +1056,6 @@ export default function ApprovalWorkflowConfig() {
             </Grid>
           </Grid>
 
-          {/* Configuration selector row */}
-          {moduleId && (
-            <>
-              <Divider className="!my-1" />
-              <div className="flex items-center justify-between gap-3 mt-2">
-                {/* Left: config selector */}
-                <div className="flex items-center gap-2">
-                  <Typography variant="caption" className="!text-gray-500 !font-medium">
-                    Configuration
-                  </Typography>
-                  <FormControl sx={{ minWidth: 280 }} size="small">
-                    <Select
-                      value={selectedConfigId}
-                      onChange={(e) => {
-                        skipNextDetailLoadRef.current = null;
-                        setSelectedConfigId(e.target.value);
-                      }}
-                      displayEmpty
-                      sx={{ height: 28 }}
-                      renderValue={(selected) => {
-                        if (!selected) return <em>— New Configuration —</em>;
-                        const cfg = configurations.find((c) => c.id === selected);
-                        return (
-                          <div className="flex items-center gap-1">
-                            <span>{cfg?.workflowName}</span>
-                            {cfg && !cfg.active && (
-                              <Chip
-                                label="inactive"
-                                size="small"
-                                color="default"
-                                variant="outlined"
-                                sx={{ height: 18, fontSize: "0.65rem" }}
-                              />
-                            )}
-                          </div>
-                        );
-                      }}
-                    >
-                      <MenuItem value="">
-                        <em>— New Configuration —</em>
-                      </MenuItem>
-                      {configurations.map((c) => (
-                        <MenuItem key={c.id} value={c.id}>
-                          {c.workflowName} {c.active ? "" : "(inactive)"}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </div>
-
-                {/* Right: config action buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<AddIcon className="!w-3" />}
-                    onClick={handleResetForm}
-                  >
-                    New
-                  </Button>
-                  {selectedConfigId && (
-                    <>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color={active ? "warning" : "success"}
-                        onClick={() => handleToggleActive(selectedConfigId)}
-                      >
-                        {active ? "Deactivate" : "Activate"}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon className="!w-3" />}
-                        onClick={() => handleDeleteConfiguration(selectedConfigId)}
-                      >
-                        Delete
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
         </div>
 
         {/* ============ BUILDER SECTION ============ */}
@@ -1381,6 +1572,80 @@ export default function ApprovalWorkflowConfig() {
               </TableContainer>
             </Paper>
           </Grid>
+
+          {/* ============ APPROVAL MATRIX (per configuration) ============ */}
+          <Grid size={{ xs: 12 }}>
+            <Paper
+              elevation={0}
+              className="!bg-white border border-gray-200"
+              sx={{ p: 2, borderRadius: 0, border: "1px solid", borderColor: "divider" }}
+            >
+              <SectionHeader
+                icon={<AccountTreeIcon fontSize="small" className="!w-3" />}
+                title="Approval Matrix"
+                subtitle="Which actions on this module require approval for this configuration"
+                action={
+                  <Stack direction="row">
+                    <Button size="small" variant="outlined" className="!mr-3" onClick={() => setAllPermissions(true)}>
+                      Select all
+                    </Button>
+                    <Button size="small" variant="outlined" color="error" onClick={() => setAllPermissions(false)}>
+                      Clear all
+                    </Button>
+                  </Stack>
+                }
+              />
+
+              <Table size="small" className="border border-gray-200 rounded-lg">
+                <TableHead>
+                  <TableRow>
+                    <TableCell className="!font-semibold" sx={{ width: 220 }}>Action</TableCell>
+                    <TableCell className="!font-semibold" align="center" sx={{ width: 120 }}>
+                      Requires Approval
+                    </TableCell>
+                    <TableCell className="!font-semibold">Description</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {PERMISSION_FIELDS.map((field, i) => (
+                    <TableRow key={field} sx={getRowColor(i)}>
+                      <TableCell>
+                        <Typography variant="body2" className="!font-medium">
+                          {PERMISSION_LABELS[field]}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Switch
+                          size="small"
+                          color="primary"
+                          checked={permissions[field]}
+                          onChange={() => togglePermission(field)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="caption" className="!text-gray-500">
+                          {field === "create" && "New records created for this module are held for approval."}
+                          {field === "update" && "Edits to existing records are held for approval."}
+                          {field === "delete" && "Deletions are held for approval before removal."}
+                          {field === "statusChange" && "Status transitions are held for approval."}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {permissionsDirty && (
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  className="!mt-2"
+                  label="Matrix changes not saved yet"
+                />
+              )}
+            </Paper>
+          </Grid>
         </Grid>
 
         {/* ============ EVALUATION PANEL ============ */}
@@ -1503,7 +1768,7 @@ export default function ApprovalWorkflowConfig() {
           <Button
             variant="outlined"
             color="inherit"
-            onClick={handleResetForm}
+            onClick={returnToConfigurationList}
             disabled={saving}
             size="small"
             className="!text-gray-800 !border-gray-200"

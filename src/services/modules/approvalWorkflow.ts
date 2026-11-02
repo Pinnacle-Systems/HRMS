@@ -62,6 +62,14 @@ export interface ApprovalLevel {
   approverEmployeeIds?: string[];
 }
 
+export interface ApprovalConfigurationMatrix {
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+  statusChange: boolean;
+  endpoints: string;
+}
+
 export interface ApprovalConfiguration {
   id: string;
   workflowName: string;
@@ -69,7 +77,13 @@ export interface ApprovalConfiguration {
   moduleName: string;
   priorityWeight: number;
   noRulesRequired: boolean;
+  endpoints?: string;
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+  statusChange: boolean;
   active: boolean;
+  approvalMatrix?: ApprovalConfigurationMatrix;
   rules: ApprovalRule[];
   levels: ApprovalLevel[];
 }
@@ -80,6 +94,11 @@ export interface ApprovalConfigurationPayload {
   moduleId: string;
   priorityWeight?: number;
   noRulesRequired: boolean;
+  endpoints: string;
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+  statusChange: boolean;
   active: boolean;
   rules: {
     fieldId: string;
@@ -164,6 +183,104 @@ export interface ApprovalRequest {
   decidedAt: string;
   levels: ApprovalRequestLevel[];
 }
+
+// ================= MATRIX =================
+export interface ApprovalMatrixModule {
+  id: string;
+  moduleName: string;
+  description: string;
+  tableNames: string;
+  active: boolean;
+  create: boolean;
+  update: boolean;
+  delete: boolean;
+  statusChange: boolean;
+  endpointCount: number;
+}
+
+export interface ApprovalMatrix {
+  requireApprovals: boolean;
+  modules: ApprovalMatrixModule[];
+}
+
+export type ApprovalMatrixAction = "create" | "update" | "delete" | "status_change";
+
+export interface ApprovalEndpoint {
+  method: string;
+  path: string;
+  action: ApprovalMatrixAction | string;
+  controller: string;
+  handler: string;
+  tables: string[];
+  governed: boolean;
+}
+
+export interface ApprovalMatrixUpdatePayload {
+  requireApprovals?: boolean | null;
+  modules?: Array<{
+    id: string;
+    create?: boolean | null;
+    update?: boolean | null;
+    delete?: boolean | null;
+    statusChange?: boolean | null;
+  }>;
+}
+
+// ================= PENDING CHANGES =================
+
+export type ApprovalChangeStatus =
+  | "pending_approval"
+  | "approved"
+  | "rejected"
+  | "returned";
+
+export type ApprovalChangeDecision = "approved" | "rejected" | "returned";
+
+export interface ApprovalChangeLevel extends ApprovalRequestLevel {
+  approverType?: "user" | "role";
+  approverRoles?: string[];
+}
+
+export interface ApprovalChangeApproval {
+  id: string;
+  moduleId: string;
+  moduleName: string;
+  configurationId: string;
+  workflowName: string;
+  recordId: string;
+  status: "pending" | "approved" | "rejected" | "returned" | string;
+  currentLevelSeq: number;
+  submittedBy: string;
+  submittedByName: string;
+  submittedAt: string;
+  decidedAt: string | null;
+  levels: ApprovalChangeLevel[];
+}
+
+export interface ApprovalChange {
+  id: string;
+  workflowName: string;
+  method: string;
+  path: string;
+  query: string | null;
+  body: Record<string, unknown> | null;
+  requestedBy: string;
+  status: ApprovalChangeStatus | string;
+  approvalRequestId: string;
+  approval: ApprovalChangeApproval | null;
+  decisionComments: string | null;
+  appliedHttpStatus: number | null;
+  appliedResponse: string | null;
+  submittedAt: string;
+  decidedAt: string | null;
+}
+
+export interface ApprovalChangeDecisionPayload {
+  decision: ApprovalChangeDecision;
+  comments?: string;
+}
+
+export type PermissionField = "create" | "update" | "delete" | "statusChange";
 
 export const approvalWorkflowService = {
   // ================= MODULES =================
@@ -337,5 +454,54 @@ export const approvalWorkflowService = {
     permissions?: string[];
   }): Promise<ApiResponse<ApprovalRequest[]>> {
     return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.APPROVAL_REQUESTS.PENDING_FOR_ME, { params });
+  },
+
+  // ================= MATRIX =================
+  async getApprovalMatrix(): Promise<ApiResponse<ApprovalMatrix>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.MATRIX);
+  },
+
+  async saveApprovalMatrix(
+    payload: ApprovalMatrixUpdatePayload
+  ): Promise<ApiResponse<ApprovalMatrix>> {
+    return apiService.put(API_ENDPOINTS.APPROVAL_WORKFLOW.MATRIX, payload);
+  },
+
+  async getModuleEndpoints(
+    id: string,
+    params?: {
+      action?: ApprovalMatrixAction;
+      method?: "POST" | "PUT" | "PATCH" | "DELETE";
+    }
+  ): Promise<ApiResponse<ApprovalEndpoint[]>> {
+    return apiService.get(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.MODULE_ENDPOINTS(id),
+      { params }
+    );
+  },
+
+  // ================= PENDING CHANGES =================
+  async getApprovalChanges(params?: {
+    status?: ApprovalChangeStatus;
+  }): Promise<ApiResponse<ApprovalChange[]>> {
+    return apiService.get(API_ENDPOINTS.APPROVAL_WORKFLOW.CHANGES, { params });
+  },
+
+  async getApprovalChangeById(
+    id: string
+  ): Promise<ApiResponse<ApprovalChange>> {
+    return apiService.get(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.CHANGE_BY_ID(id)
+    );
+  },
+
+  async decideApprovalChange(
+    id: string,
+    payload: ApprovalChangeDecisionPayload
+  ): Promise<ApiResponse<ApprovalChange>> {
+    return apiService.post(
+      API_ENDPOINTS.APPROVAL_WORKFLOW.CHANGE_DECISION(id),
+      payload
+    );
   },
 };

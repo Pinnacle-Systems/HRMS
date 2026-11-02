@@ -229,7 +229,7 @@ export default function ApprovalModuleManagement() {
         {/* {loading ? (
           <Alert severity="info">Loading modules...</Alert>
         ) : ( */}
-          <TableContainer className="rounded-md bg-white border border-gray-200 max-h-[calc(100vh-300px)] overflow-auto">
+          <TableContainer className="rounded-md bg-white-50 border border-gray-200 max-h-[calc(100vh-300px)] overflow-auto">
             <Table stickyHeader>
               <TableHead>
                 <TableRow>

@@ -38,6 +38,11 @@ describe("approvalWorkflowService", () => {
       priorityWeight: 1,
       noRulesRequired: false,
       active: true,
+      create: true,
+      update: true,
+      delete: true,
+      statusChange: true,
+      endpoints: "",
       rules: [
         {
           fieldId: "employeeId",

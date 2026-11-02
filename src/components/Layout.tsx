@@ -77,7 +77,10 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useTheme } from "../context/themeContext";
 import { Chip, MenuList, Typography } from "@mui/material";
 import { companyService } from "../services/modules/company";
-import { policyService } from "../services";
+import {
+  notificationsService,
+  type PendingApprovalNotification,
+} from "../services/modules/notifications";
 import { hasPermission, PAYROLL_PERMISSIONS } from "../const";
 import { PERMISSIONS } from "../auth/Permissions";
 import { PasswordExpiryAlert } from "./PasswordExpiryAlert";
@@ -88,15 +91,6 @@ import type { EventData } from "react-joyride";
 
 const drawerWidth = 220;
 const guidedTourStorageKey = "hrms-guided-tour-completed";
-
-interface Notification {
-  id: string;
-  policyId: string;
-  versionId: string;
-  notifiedBy: string;
-  notifiedAt: string;
-  message: string;
-}
 
 interface PreviousPage {
   path: string;
@@ -395,8 +389,10 @@ export default function Layout() {
 
   const [notificationAnchorEl, setNotificationAnchorEl] =
     useState<null | HTMLElement>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notifications, setNotifications] = useState<
+    PendingApprovalNotification[]
+  >([]);
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [companyInfo, setCompanyInfo] = useState<Partial<any>>({});
@@ -469,29 +465,49 @@ export default function Layout() {
     setNotificationAnchorEl(null);
   };
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
+    const params = {
+      userId: user?.userId,
+      tenantId: user?.tenantId,
+    };
+
     try {
       setIsLoadingNotifications(true);
-      const response: any = await policyService.getPolicyNotifications();
-      const notificationData = response.data || [];
-      setNotifications(notificationData);
-      setUnreadCount(notificationData.length);
+      const [approvalsResult, countResult] = await Promise.allSettled([
+        notificationsService.getPendingApprovals(params),
+        notificationsService.getPendingApprovalsCount(params),
+      ]);
+
+      if (approvalsResult.status === "fulfilled") {
+        setNotifications(approvalsResult.value.data.items);
+      } else {
+        console.error(
+          "Error fetching pending approvals:",
+          approvalsResult.reason,
+        );
+      }
+
+      if (countResult.status === "fulfilled") {
+        setPendingApprovalCount(countResult.value.data.total);
+      } else {
+        console.error(
+          "Error fetching pending approval count:",
+          countResult.reason,
+        );
+      }
     } catch (error) {
-      console.error("Error fetching notifications:", error);
+      console.error("Error fetching pending approvals:", error);
     } finally {
       setIsLoadingNotifications(false);
     }
-  };
+  }, [user?.tenantId, user?.userId]);
 
-  const markNotificationAsRead = async (_notificationId: string) => {
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-  };
-
-  const handleNotificationItemClick = (notification: Notification) => {
-    if (notification.policyId) {
-      navigate(`/policies/${notification.policyId}`);
+  const handleNotificationItemClick = (
+    notification: PendingApprovalNotification,
+  ) => {
+    if (notification.actionPath) {
+      navigate(notification.actionPath);
     }
-    markNotificationAsRead(notification.id);
     handleNotificationClose();
   };
 
@@ -503,6 +519,7 @@ export default function Layout() {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
+    if (Number.isNaN(date.getTime())) return "Recently";
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
@@ -988,7 +1005,7 @@ export default function Layout() {
       setCompanyInfo(session?.company || {});
     }
     fetchNotifications();
-  }, []);
+  }, [fetchNotifications, session?.company, user?.roles]);
 
   const homePath = user ? getDefaultRoute(user) : "/home";
   const isHomeActive = location.pathname === homePath;
@@ -1103,14 +1120,17 @@ export default function Layout() {
                 <Tooltip title="Notifications">
                   <IconButton
                     size="small"
-                    aria-label={`${unreadCount > 0 ? `${unreadCount} unread` : "No"
-                      } notifications`}
+                    aria-label={`${
+                      pendingApprovalCount > 0
+                        ? `${pendingApprovalCount} pending`
+                        : "No"
+                    } notifications`}
                     color="inherit"
                     onClick={handleNotificationClick}
                     data-tour="notifications"
                   >
                     <Badge
-                      badgeContent={unreadCount}
+                      badgeContent={pendingApprovalCount}
                       color="error"
                       max={99}
                       className="text-primary"
@@ -1400,21 +1420,6 @@ export default function Layout() {
             Notifications
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            {notifications.length > 0 && (
-              <Typography
-                variant="caption"
-                sx={{
-                  cursor: "pointer",
-                  "&:hover": { textDecoration: "underline" },
-                }}
-                className="text-blue-500"
-                onClick={() => {
-                  setUnreadCount(0);
-                }}
-              >
-                Mark all as read
-              </Typography>
-            )}
             <IconButton size="small" onClick={handleNotificationClose}>
               <CloseOutlined fontSize="small" className="text-gray-800" />
             </IconButton>
@@ -1424,14 +1429,14 @@ export default function Layout() {
         {isLoadingNotifications ? (
           <Box sx={{ p: 3, textAlign: "center" }}>
             <Typography variant="body2" color="text.secondary">
-              Loading notifications...
+              Loading pending approvals...
             </Typography>
           </Box>
         ) : notifications.length === 0 ? (
           <Box sx={{ p: 3, textAlign: "center" }}>
             <NotificationsNoneOutlinedIcon sx={{ fontSize: 40, mb: 1 }} />
             <Typography variant="body2" color="text.secondary">
-              No notifications
+              No pending approvals
             </Typography>
           </Box>
         ) : (
@@ -1439,13 +1444,12 @@ export default function Layout() {
             sx={{
               p: 0,
               overflow: "auto",
-              maxHeight: "calc(100vh - 525px) !important",
+              maxHeight: "calc(100vh - 300px) !important",
             }}
           >
             {notifications.map((notification) => (
               <MenuItem
-                key={notification.id}
-                onClick={() => handleNotificationItemClick(notification)}
+                key={`${notification.type}:${notification.id}`}
                 sx={{
                   display: "flex",
                   flexDirection: "column",
@@ -1471,10 +1475,7 @@ export default function Layout() {
                   <ListItemText
                     primary={
                       <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                        {notification.message.toLowerCase().includes("policy")
-                          ? "Policy"
-                          : "New"}{" "}
-                        Update
+                        {notification.title}
                       </Typography>
                     }
                     secondary={
@@ -1483,7 +1484,13 @@ export default function Layout() {
                         color="text.secondary"
                         sx={{ mt: 0.5 }}
                       >
-                        {notification.message}
+                        {notification.employeeName}
+                        {notification.employeeCode
+                          ? ` (${notification.employeeCode})`
+                          : ""}
+                        {notification.detail
+                          ? ` · ${notification.detail}`
+                          : ""}
                       </Typography>
                     }
                   />
@@ -1499,57 +1506,37 @@ export default function Layout() {
                 >
                   <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
                     <Typography
+                      component="button"
+                      type="button"
                       variant="caption"
                       color="primary"
-                      sx={{ cursor: "pointer" }}
+                      onClick={() => handleNotificationItemClick(notification)}
+                      sx={{
+                        cursor: "pointer",
+                        border: 0,
+                        padding: 0,
+                        background: "none",
+                        font: "inherit",
+                      }}
                     >
                       View Details
                     </Typography>
-                    {notification.message
-                      .toLowerCase()
-                      .includes("policy") && (
-                        <Chip
-                          label="Policy"
-                          size="small"
-                          color="primary"
-                          variant="filled"
-                          className="!bg-primary"
-                          sx={{ fontSize: "10px", height: 20 }}
-                        />
-                      )}
+                    <Chip
+                      label={notification.type.replace(/_/g, " ")}
+                      size="small"
+                      color="primary"
+                      variant="filled"
+                      className="!bg-primary"
+                      sx={{ fontSize: "10px", height: 20 }}
+                    />
                   </Box>
                   <Typography variant="caption" color="text.secondary">
-                    {formatNotificationTime(notification.notifiedAt)}
+                    {formatNotificationTime(notification.submittedAt)}
                   </Typography>
                 </Box>
               </MenuItem>
             ))}
           </MenuList>
-        )}
-
-        {notifications.length > 0 && (
-          <Box
-            sx={{
-              p: 1.5,
-              textAlign: "center",
-            }}
-            className="border-t border-gray-200"
-          >
-            <Typography
-              variant="caption"
-              className="text-primary"
-              sx={{
-                cursor: "pointer",
-                fontWeight: 500,
-                "&:hover": { textDecoration: "underline" },
-              }}
-              onClick={() => {
-                handleNotificationClose();
-              }}
-            >
-              View all notifications
-            </Typography>
-          </Box>
         )}
       </Menu>
 

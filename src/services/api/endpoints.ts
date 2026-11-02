@@ -60,10 +60,22 @@ export const API_ENDPOINTS = {
     // Evaluate (Dry-run)
     EVALUATE: "/approval/evaluate",
 
+    MATRIX: "/approval/matrix",
+    MODULE_ENDPOINTS: (id: string) => `/approval/modules/${id}/endpoints`,
+
     APPROVAL_REQUESTS: {
       REQUEST_BY_ID: (id: string) => `/approval/requests/${id}`,
       PENDING_FOR_ME: "/approval/requests/pending-for-me",
     },
+
+    CHANGES: "/approval/changes",
+    CHANGE_BY_ID: (id: string) => `/approval/changes/${id}`,
+    CHANGE_DECISION: (id: string) => `/approval/changes/${id}/decision`,
+  },
+
+  NOTIFICATIONS: {
+    APPROVALS: "/notifications/approvals",
+    APPROVALS_COUNT: "/notifications/approvals/count",
   },
 
   BRANCH: {
@@ -897,6 +909,8 @@ export const API_ENDPOINTS = {
       STAGE_PUNCHES: "/integration/biometric/punches/stage",
       GET_STAGED_PUNCHES: "/integration/biometric/punches/staged",
       DELETE_STAGED_PUNCHES: "/integration/biometric/punches/staged",
+      GET_STAGED_EMPLOYEE_MOVEMENT: (employeeId: string) =>
+        `/integration/biometric/punches/staged/${employeeId}/movement`,
       UPDATE_STAGED_PUNCH: (employeeId: string, date: string) =>
         `/integration/biometric/punches/staged/${employeeId}/${date}`,
     },

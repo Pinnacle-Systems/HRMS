@@ -82,12 +82,12 @@ import { DateTimePicker } from "@mui/x-date-pickers";
 import { useAuth } from "../../../auth/authContext";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { NotificationsActiveOutlined } from "@mui/icons-material";
-import { biometricService, type BiometricDevice, type StagedPunch } from "../../../services/modules/biometricDevice";
+import { biometricService, type BiometricDevice, type MovementRow, type StagedPunch } from "../../../services/modules/biometricDevice";
 import { formatDateTime, formatMinutes } from "../../../utils/dateFormatter";
 import { employeeService } from "../../../services/modules/employees";
 import { useNavigate } from "react-router-dom";
 import { shiftService } from "../../../services/modules/shifts";
-import { pairMovements, type PairedMovement } from "../movement";
+import { pairMovements } from "../movement";
 import { permissionRequestService } from "../../../services/modules/permissionRequests";
 
 // ── Module-scope helpers ─────────────────────────────────────────────────
@@ -140,11 +140,12 @@ const isShiftMissing = (emp: RegisterEmployee): boolean => {
 
 const REAL_MOVEMENT_PERMISSIONS = new Set(["OFFICIAL_WORK", "PERSONAL_WORK"]);
 
-const getMovementPermissionType = (row: PairedMovement): string | null => {
+const getMovementPermissionType = (row: any): string | null => {
+  if (!row) return null;
   const candidates = [
-    (row as any).permissionType,
-    (row as any).outMovement?.permissionType,
-    (row as any).inMovement?.permissionType,
+    row.permissionType,
+    row.outMovement?.permissionType,
+    row.inMovement?.permissionType,
   ];
   for (const pt of candidates) {
     if (!pt) continue;
@@ -294,8 +295,9 @@ export function DailyRegister() {
 
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [movementEmployee, setMovementEmployee] = useState<RegisterEmployee | null>(null);
-  const [movementRows, setMovementRows] = useState<PairedMovement[]>([]);
+  const [movementRows, setMovementRows] = useState<MovementRow[]>([]);
   const [movementSavingIdx, setMovementSavingIdx] = useState<number | null>(null);
+  const [refreshingMovementFor, setRefreshingMovementFor] = useState<string | null>(null);
 
   const [groupByDepartment, setGroupByDepartment] = useState<boolean>(
     () => sessionStorage.getItem("dailyRegisterGroupByDept") === "true",
@@ -1665,46 +1667,169 @@ export function DailyRegister() {
   );
   const hasMissingShift = employeesMissingShift.length > 0;
 
-  // ── OPEN MOVEMENTS (attach raw movements + permissionType onto paired rows) ─
-  const openMovements = (emp: RegisterEmployee) => {
-    setMovementEmployee(emp);
-    const rawMovements = dedupeMovements(emp.movement ?? []);
-    const paired = pairMovements(rawMovements).map((p) => {
-      const rawOut = rawMovements.find(
+  const buildMovementRows = (movements: any[]): MovementRow[] => {
+    const rawMovements = dedupeMovements(movements ?? []);
+
+    const hasTime = (m: any) => m?.time != null && String(m.time).trim() !== "";
+
+    const punchMovements = rawMovements.filter(hasTime);
+    const permissionOnlyMovements = rawMovements.filter(
+      (m: any) =>
+        !hasTime(m) &&
+        (m?.permissionType || String(m?.type ?? "").toUpperCase() === "PERMISSION"),
+    );
+
+    const paired: MovementRow[] = pairMovements(punchMovements).map((p, i) => {
+      const rawOut = punchMovements.find(
         (m: any) =>
           dayjs(m.time).isSame(dayjs(p.outTime)) &&
           (m.type === "OUT" || m.type === "out"),
       ) as any;
       const rawIn = p.inTime
-        ? (rawMovements.find(
+        ? (punchMovements.find(
           (m: any) =>
             dayjs(m.time).isSame(dayjs(p.inTime)) &&
             (m.type === "IN" || m.type === "in"),
         ) as any)
         : null;
-      const permissionType =
-        rawOut?.permissionType ?? rawIn?.permissionType ?? null;
       return {
-        ...p,
-        permissionType,
+        kind: "punch",
+        index: p.index ?? i + 1,
+        outTime: p.outTime,
+        inTime: p.inTime ?? null,
+        durationMinutes: p.durationMinutes ?? null,
+        permissionType:
+          rawOut?.permissionType ?? rawIn?.permissionType ?? null,
+        requestNumber:
+          rawOut?.requestNumber ?? rawIn?.requestNumber ?? null,
         outMovement: rawOut,
         inMovement: rawIn,
-      } as PairedMovement;
+      } as any;
     });
-    setMovementRows(paired);
+
+    const permissionRows: MovementRow[] = permissionOnlyMovements.map(
+      (m: any, i) => {
+        const durationMinutes =
+          m.durationMinutes != null
+            ? Number(m.durationMinutes)
+            : m.hours != null
+              ? Number(m.hours) * 60
+              : null;
+        return {
+          kind: "permission",
+          index: paired.length + i + 1,
+          durationMinutes,
+          permissionType: m.permissionType ?? null,
+          requestNumber: m.requestNumber ?? null,
+          saving: false,
+        };
+      },
+    );
+
+    return [...paired, ...permissionRows];
+  };
+
+  // ── OPEN MOVEMENTS ───────────────────────────────────────────────────────
+  const openMovements = (emp: RegisterEmployee) => {
+    const rows = buildMovementRows(emp.movement ?? []);
+    setMovementEmployee(emp);
+    setMovementRows(rows);
     setMovementDialogOpen(true);
+  };
+
+  const extractMovementsFor = (payload: any, employeeId: string): any[] => {
+    const root = payload?.data ?? payload;
+
+    // 1. Already a movement array (items with `time` or `permissionType` or `type`)
+    if (Array.isArray(root)) {
+      const looksLikeMovements = root.length === 0 || root.some(
+        (m: any) =>
+          m?.time != null ||
+          m?.permissionType != null ||
+          String(m?.type ?? "").toUpperCase() === "PERMISSION" ||
+          String(m?.type ?? "").toUpperCase() === "OUT" ||
+          String(m?.type ?? "").toUpperCase() === "IN",
+      );
+      if (looksLikeMovements) return root;
+
+      // 2. Array of employee wrappers — pick the matching one
+      const match = root.find((e: any) => e?.employeeId === employeeId);
+      if (match) {
+        return Array.isArray(match.movement) ? match.movement : [];
+      }
+      return [];
+    }
+
+    // 3. Single employee wrapper object
+    if (root && typeof root === "object") {
+      if (root.employeeId === employeeId) {
+        return Array.isArray(root.movement) ? root.movement : [];
+      }
+      if (Array.isArray(root.movement)) return root.movement;
+    }
+
+    return [];
+  };
+
+  const refreshMovement = async (emp?: RegisterEmployee) => {
+    const target = emp ?? movementEmployee;
+    if (!target || refreshingMovementFor) return;
+
+    setRefreshingMovementFor(target.employeeId);
+    try {
+      const response = await biometricService.getStagedEmployeeMovement(
+        target.employeeId,
+        { from: date, to: date },
+      );
+
+      const list = extractMovementsFor(response, target.employeeId);
+      const rows = buildMovementRows(list);
+
+      // 1. Patch the table row
+      setEmployees((prev) =>
+        prev.map((e) =>
+          e.employeeId === target.employeeId ? { ...e, movement: list } : e,
+        ),
+      );
+
+      // 2. Patch the dialog if it's open for this employee
+      if (movementEmployee?.employeeId === target.employeeId) {
+        setMovementEmployee({ ...movementEmployee, movement: list });
+        setMovementRows(rows);
+      }
+
+      const tripCount = rows.length;
+      showSnackbar(
+        tripCount > 0
+          ? `Found ${tripCount} movement${tripCount !== 1 ? "s" : ""}`
+          : "No movements found for this employee",
+        tripCount > 0 ? "success" : "info",
+      );
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message ?? err?.message ?? "Failed to refresh movements",
+        "error",
+      );
+    } finally {
+      setRefreshingMovementFor(null);
+    }
   };
 
   // ── CLASSIFY MOVEMENT ────────────────────────────────────────────────────
   const handleMovementClassify = async (
-    row: PairedMovement,
+    row: MovementRow,
     value: "official" | "personal" | "break",
   ) => {
     if (!movementEmployee) return;
     if (movementSavingIdx != null) return;
+    // Permission-only rows are already classified and cannot be re-classified.
+    if ((row as any).kind === "permission") return;
 
     const existingType = getMovementPermissionType(row);
     if (existingType) return;
+
+    const rowOutTime = (row as any).outTime as string | undefined;
+    const rowInTime = (row as any).inTime as string | null | undefined;
 
     setMovementRows((prev) =>
       prev.map((r) =>
@@ -1716,14 +1841,14 @@ export function DailyRegister() {
     try {
       let permissionRequestId: string | null = null;
 
-      if (value === "official" || value === "personal") {
+      if ((value === "official" || value === "personal") && rowOutTime) {
         const created: any = await permissionRequestService.createPermission({
           employeeId: movementEmployee.employeeId,
           permissionType: value === "official" ? "official_work" : "personal_work",
           date: dayjs(movementEmployee.checkInDate ?? date).format("YYYY-MM-DD"),
-          departureTime: dayjs(row.outTime).format("HH:mm:ss"),
+          departureTime: dayjs(rowOutTime).format("HH:mm:ss"),
           expectedReturnTime: dayjs(
-            row.inTime ?? movementEmployee.checkOutTime ?? new Date(),
+            rowInTime ?? movementEmployee.checkOutTime ?? new Date(),
           ).format("HH:mm:ss"),
           destination: "Biometric Movement",
           reason: value,
@@ -1745,7 +1870,7 @@ export function DailyRegister() {
                   ? "OFFICIAL_WORK"
                   : value === "personal"
                     ? "PERSONAL_WORK"
-                    : r.permissionType,
+                    : (r as any).permissionType,
               permissionRequestId,
               saving: false,
             }
@@ -1759,11 +1884,14 @@ export function DailyRegister() {
           if (e.employeeId !== movementEmployee.employeeId) return e;
           const updatedMovements = (e.movement ?? []).map((m: any) => {
             const sameOut =
-              dayjs(m.time).isSame(dayjs(row.outTime)) &&
+              rowOutTime &&
+              m?.time &&
+              dayjs(m.time).isSame(dayjs(rowOutTime)) &&
               (m.type === "OUT" || m.type === "out");
             const sameIn =
-              row.inTime &&
-              dayjs(m.time).isSame(dayjs(row.inTime)) &&
+              rowInTime &&
+              m?.time &&
+              dayjs(m.time).isSame(dayjs(rowInTime)) &&
               (m.type === "IN" || m.type === "in");
             if (!sameOut && !sameIn) return m;
             if (value === "official") {
@@ -1795,7 +1923,6 @@ export function DailyRegister() {
         "success",
       );
 
-      // ── Refresh from the server so persistence is guaranteed ────────────
       await loadStagedPunches();
     } catch (err: any) {
       setMovementRows((prev) =>
@@ -1848,7 +1975,7 @@ export function DailyRegister() {
     });
   };
 
-  const getRowPermissionType = (row: PairedMovement): string | null =>
+  const getRowPermissionType = (row: MovementRow): string | null =>
     getMovementPermissionType(row);
 
   return (
@@ -2088,7 +2215,7 @@ export function DailyRegister() {
                 "&:hover": { transform: "rotate(90deg)" },
               }}
             >
-              <RefreshOutlined fontSize="small" className="text-gray-500" />
+              <RefreshOutlined fontSize="small" className="text-gray-500 !w-4" />
             </IconButton>
           </Tooltip>
         </div>
@@ -2262,6 +2389,8 @@ export function DailyRegister() {
 
                       const canEditShift = !isLeave && !processStatus.locked;
                       const shiftMissing = !isLeave && isShiftMissing(emp);
+
+                      const movementTripCount = buildMovementRows(emp.movement ?? []).length;
 
                       return (
                         <TableRow
@@ -2711,22 +2840,58 @@ export function DailyRegister() {
 
                           {showColumn("movement") && (
                             <TableCell className="!sticky right-[99px] !z-20 bg-inherit">
-                              {emp.movement && emp.movement.length > 0 ? (
-                                <Tooltip
-                                  title={`${pairMovements(emp.movement).length} movement(s) — click to review`}
-                                >
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    className="!text-primary !border-primary !text-[11px] !py-0 !px-2 !min-w-0"
-                                    startIcon={<SwapHorizOutlined className="!w-3.5 !h-3.5" />}
-                                    onClick={() => openMovements(emp)}
+                              {movementTripCount > 0 ? (
+                                <div className="flex items-center gap-1">
+                                  <Tooltip
+                                    title={`${movementTripCount} movement(s) — click to review`}
                                   >
-                                    {pairMovements(emp.movement).length}
-                                  </Button>
-                                </Tooltip>
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      className="!text-primary !border-primary !text-[11px] !py-0 !px-2 !min-w-0"
+                                      startIcon={<SwapHorizOutlined className="!w-3.5 !h-3.5" />}
+                                      onClick={() => openMovements(emp)}
+                                    >
+                                      {movementTripCount}
+                                    </Button>
+                                  </Tooltip>
+                                  <Tooltip title="Refresh movements" arrow>
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        disabled={refreshingMovementFor === emp.employeeId}
+                                        onClick={() => void refreshMovement(emp)}
+                                        sx={{ p: 0.5, color: "text.secondary" }}
+                                      >
+                                        {refreshingMovementFor === emp.employeeId ? (
+                                          <CircularProgress size={14} />
+                                        ) : (
+                                          <RefreshOutlined className="!w-3 text-gray-500" />
+                                        )}
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                </div>
                               ) : (
-                                <span className="text-gray-400 text-[12px]">-</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="text-gray-400 text-[12px]">-</span>
+                                  <Tooltip title="Refresh movements" arrow>
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        disabled={refreshingMovementFor === emp.employeeId}
+                                        onClick={() => void refreshMovement(emp)}
+                                        sx={{ p: 0.5, color: "text.secondary" }}
+                                      >
+                                        {refreshingMovementFor === emp.employeeId ? (
+                                          <CircularProgress size={14} />
+                                        ) : (
+                                          <RefreshOutlined className="!w-3 text-gray-500" />
+                                        )}
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                </div>
                               )}
                             </TableCell>
                           )}
@@ -4700,16 +4865,36 @@ export function DailyRegister() {
               </span>
             )}
           </span>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setMovementDialogOpen(false);
-              setMovementEmployee(null);
-              setMovementRows([]);
-            }}
-          >
-            <CloseOutlined fontSize="small" className="text-gray-800" />
-          </IconButton>
+          <span className="flex items-center">
+            <Tooltip title="Refresh movements">
+              <span>
+                <IconButton
+                  size="small"
+                  aria-label="Refresh movements"
+                  onClick={() => void refreshMovement()}
+                  disabled={
+                    !!refreshingMovementFor || !movementEmployee
+                  }
+                >
+                  {refreshingMovementFor === movementEmployee?.employeeId ? (
+                    <CircularProgress size={18} />
+                  ) : (
+                    <RefreshOutlined fontSize="small" className="text-gray-800 mr-1" />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setMovementDialogOpen(false);
+                setMovementEmployee(null);
+                setMovementRows([]);
+              }}
+            >
+              <CloseOutlined fontSize="small" className="text-gray-800" />
+            </IconButton>
+          </span>
         </DialogTitle>
 
         <DialogContent className="!p-4">
@@ -4737,14 +4922,22 @@ export function DailyRegister() {
                       getRowPermissionType(r) == null &&
                       (r as any).classification === "break",
                   ).length;
-                  const openTrips = movementRows.filter((r) => !r.inTime).length;
+                  const permissionOnlyCount = movementRows.filter(
+                    (r) => (r as any).kind === "permission",
+                  ).length;
+                  const openTrips = movementRows.filter(
+                    (r) => (r as any).kind === "punch" && !(r as any).inTime,
+                  ).length;
+
                   const parts: string[] = [
-                    `${movementRows.length} trip${movementRows.length !== 1 ? "s" : ""}`,
+                    `${movementRows.length} entr${movementRows.length !== 1 ? "ies" : "y"}`,
                     `${formatMinutes(timeUnit, totalAway)} away total`,
                   ];
                   if (officialCount) parts.push(`${officialCount} official`);
                   if (personalCount) parts.push(`${personalCount} personal`);
                   if (breakCount) parts.push(`${breakCount} break`);
+                  if (permissionOnlyCount)
+                    parts.push(`${permissionOnlyCount} permission-only`);
                   if (openTrips) parts.push(`${openTrips} open`);
                   return (
                     <span className="font-medium text-gray-800">
@@ -4769,7 +4962,7 @@ export function DailyRegister() {
                         In
                       </th>
                       <th className="text-right px-3 py-2 font-semibold text-gray-600 w-[90px]">
-                        Duration
+                        Duration(min)
                       </th>
                       <th className="text-center px-3 py-2 font-semibold text-gray-600">
                         Classify
@@ -4778,20 +4971,26 @@ export function DailyRegister() {
                   </thead>
                   <tbody>
                     {movementRows.map((row) => {
-                      const isOpen = !row.inTime;
+                      const isPermissionOnly = (row as any).kind === "permission";
+                      const rowOutTime = (row as any).outTime as string | undefined;
+                      const rowInTime = (row as any).inTime as string | null | undefined;
+                      const isOpen = !isPermissionOnly && !rowInTime;
+
                       const permissionType = getRowPermissionType(row);
                       const localClass = (row as any).classification as
                         | "official"
                         | "personal"
                         | "break"
                         | null;
+
                       const isOfficial = permissionType === "OFFICIAL_WORK";
                       const isPersonal = permissionType === "PERSONAL_WORK";
                       const isBreak =
                         !isOfficial && !isPersonal && localClass === "break";
-                      const isLocked = isOfficial || isPersonal || isBreak;
+                      const isLocked =
+                        isPermissionOnly || isOfficial || isPersonal || isBreak;
                       const isSaving =
-                        row.saving || movementSavingIdx === row.index;
+                        (row as any).saving || movementSavingIdx === row.index;
 
                       const activeValue: "official" | "personal" | "break" | null =
                         isOfficial
@@ -4804,107 +5003,156 @@ export function DailyRegister() {
 
                       return (
                         <tr
-                          key={row.index}
+                          key={`${(row as any).kind}-${row.index}`}
                           className="border-b border-gray-200 last:border-0"
                         >
                           <td className="px-3 py-2 text-gray-400 tabular-nums">
                             {row.index}
                           </td>
-                          <td className="px-3 py-2 text-gray-800 tabular-nums">
-                            {dayjs(row.outTime).format("HH:mm:ss")}
-                          </td>
+
+                          {/* Out column */}
                           <td className="px-3 py-2 tabular-nums">
-                            {isOpen ? (
-                              <span className="text-orange-600 italic">Still out</span>
-                            ) : (
-                              <span className="text-gray-800">
-                                {dayjs(row.inTime).format("HH:mm:ss")}
+                            {isPermissionOnly ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium">
+                                Permission
                               </span>
+                            ) : rowOutTime ? (
+                              <span className="text-gray-800">
+                                {dayjs(rowOutTime).format("HH:mm:ss")}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
                             )}
                           </td>
+
+                          {/* In column */}
+                          <td className="px-3 py-2 tabular-nums">
+                            {isPermissionOnly ? (
+                              <span className="text-gray-400 text-[12px]">—</span>
+                            ) : isOpen ? (
+                              <span className="text-orange-600 italic">Still out</span>
+                            ) : rowInTime ? (
+                              <span className="text-gray-800">
+                                {dayjs(rowInTime).format("HH:mm:ss")}
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Duration */}
                           <td className="px-3 py-2 text-right text-gray-700 tabular-nums">
                             {row.durationMinutes != null
                               ? formatMinutes(timeUnit, row.durationMinutes)
                               : "—"}
                           </td>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <ToggleButtonGroup
-                                size="small"
-                                exclusive
-                                className="text-gray-800"
-                                value={activeValue}
-                                onChange={(_, val) => {
-                                  if (!val) return;
-                                  if (isLocked) return; // safety guard
-                                  handleMovementClassify(row, val);
-                                }}
-                                disabled={isLocked || isSaving}
-                                sx={{
-                                  "& .MuiToggleButton-root": {
-                                    px: 1,
-                                    py: 0.25,
-                                    textTransform: "none",
-                                    fontSize: 11,
-                                    borderColor: "#e5e7eb",
-                                    // color: "#374151",
-                                    "&.Mui-selected": { color: "#fff" },
-                                    "&.Mui-disabled": { opacity: 1, color: "#fff" },
-                                  },
-                                  "& .MuiToggleButton-root[value='official'].Mui-selected":
-                                  {
-                                    backgroundColor: "#3b82f6",
-                                    borderColor: "#3b82f6",
-                                  },
-                                  "& .MuiToggleButton-root[value='personal'].Mui-selected":
-                                  {
-                                    backgroundColor: "#10b981",
-                                    borderColor: "#10b981",
-                                  },
-                                  "& .MuiToggleButton-root[value='break'].Mui-selected":
-                                  {
-                                    backgroundColor: "#f59e0b",
-                                    borderColor: "#f59e0b",
-                                  },
-                                }}
-                              >
-                                <ToggleButton value="official" className="text-gray-800">
-                                  {isOfficial && (
-                                    <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
-                                  )}
-                                  Official
-                                </ToggleButton>
-                                <ToggleButton value="personal" className="text-gray-800">
-                                  {isPersonal && (
-                                    <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
-                                  )}
-                                  Personal
-                                </ToggleButton>
-                                <ToggleButton value="break" className="text-gray-800">
-                                  {isBreak && (
-                                    <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
-                                  )}
-                                  Break
-                                </ToggleButton>
-                              </ToggleButtonGroup>
 
-                              {isLocked && (
+                          {/* Classify */}
+                          <td className="px-3 py-2">
+                            {isPermissionOnly ? (
+                              <div className="flex items-center justify-center gap-1">
                                 <Tooltip
                                   title={
-                                    isOfficial
-                                      ? "Locked — covered by official work permission"
-                                      : isPersonal
-                                        ? "Locked — covered by personal work permission"
-                                        : "Locked — marked as break"
+                                    row.requestNumber
+                                      ? `Permission request ${row.requestNumber}`
+                                      : "Covered by a permission request"
                                   }
                                   arrow
                                 >
-                                  <span className="text-gray-400 text-[10px]">
-                                    🔒
+                                  <span
+                                    className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${isOfficial
+                                      ? "bg-blue-50 text-blue-700"
+                                      : isPersonal
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : "bg-gray-100 text-gray-600"
+                                      }`}
+                                  >
+                                    {isOfficial
+                                      ? "Official"
+                                      : isPersonal
+                                        ? "Personal"
+                                        : row.permissionType ?? "Permission"}
                                   </span>
                                 </Tooltip>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <ToggleButtonGroup
+                                  size="small"
+                                  exclusive
+                                  className="text-gray-800"
+                                  value={activeValue}
+                                  onChange={(_, val) => {
+                                    if (!val) return;
+                                    if (isLocked) return;
+                                    handleMovementClassify(row, val);
+                                  }}
+                                  disabled={isLocked || isSaving}
+                                  sx={{
+                                    "& .MuiToggleButton-root": {
+                                      px: 1,
+                                      py: 0.25,
+                                      textTransform: "none",
+                                      fontSize: 11,
+                                      borderColor: "#e5e7eb",
+                                      "&.Mui-selected": { color: "#fff" },
+                                      "&.Mui-disabled": { opacity: 1, color: "#fff" },
+                                    },
+                                    "& .MuiToggleButton-root[value='official'].Mui-selected":
+                                    {
+                                      backgroundColor: "#3b82f6",
+                                      borderColor: "#3b82f6",
+                                    },
+                                    "& .MuiToggleButton-root[value='personal'].Mui-selected":
+                                    {
+                                      backgroundColor: "#10b981",
+                                      borderColor: "#10b981",
+                                    },
+                                    "& .MuiToggleButton-root[value='break'].Mui-selected":
+                                    {
+                                      backgroundColor: "#f59e0b",
+                                      borderColor: "#f59e0b",
+                                    },
+                                  }}
+                                >
+                                  <ToggleButton value="official" className="text-gray-800">
+                                    {isOfficial && (
+                                      <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
+                                    )}
+                                    Official
+                                  </ToggleButton>
+                                  <ToggleButton value="personal" className="text-gray-800">
+                                    {isPersonal && (
+                                      <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
+                                    )}
+                                    Personal
+                                  </ToggleButton>
+                                  <ToggleButton value="break" className="text-gray-800">
+                                    {isBreak && (
+                                      <CheckCircleOutlined className="!w-3 !h-3 mr-0.5" />
+                                    )}
+                                    Break
+                                  </ToggleButton>
+                                </ToggleButtonGroup>
+
+                                {isLocked && (
+                                  <Tooltip
+                                    title={
+                                      isOfficial
+                                        ? "Locked — covered by official work permission"
+                                        : isPersonal
+                                          ? "Locked — covered by personal work permission"
+                                          : "Locked — marked as break"
+                                    }
+                                    arrow
+                                  >
+                                    <span className="text-gray-400 text-[10px]">
+                                      🔒
+                                    </span>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

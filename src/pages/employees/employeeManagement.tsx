@@ -67,7 +67,7 @@ import {
   MoreVertOutlined,
   NoAccountsOutlined,
   PaidOutlined,
-  VisibilityOutlined
+  VisibilityOutlined,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -81,6 +81,7 @@ import {
   DialogContent,
   FormControl,
   FormControlLabel,
+  FormHelperText,
   IconButton,
   InputLabel,
   LinearProgress,
@@ -96,125 +97,236 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography
+  Typography,
 } from "@mui/material";
 import { useAuth } from "../../auth/authContext.ts";
 import { masterSx, resignationTypes } from "./const.ts";
 import DataState from "../../components/DataState.tsx";
 import { dialogsx } from "../../const.ts";
 
-// Helper function to check if an employee is inactive
-const isEmployeeInactive = (employee: Employee): boolean => {
-  return employee.isActive === false ||
+// ---------- Helpers ----------
+const isEmployeeInactive = (employee: EmployeeSummaryResponse): boolean => {
+  return (
+    employee.isActive === false ||
     employee.employeeStatus === "INACTIVE" ||
     employee.employeeStatus === "RESIGNED" ||
     employee.employeeStatus === "TERMINATED" ||
-    employee.employeeStatus === "INACTIVE" ||
-    !!employee.deactivatedAt;
+    !!employee.deactivatedAt
+  );
 };
 
-// const getKnownAttendanceRecordState = (
-//   employee: Employee,
-// ): boolean | null => {
-//   const recordFlag =
-//     employee.hasAttendanceRecords ??
-//     employee.hasAttendanceRecord ??
-//     employee.hasAttendance;
-//   if (typeof recordFlag === "boolean") return recordFlag;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MOBILE_REGEX = /^[0-9+\-\s()]{7,15}$/;
 
-//   const recordCount =
-//     employee.attendanceRecordCount ??
-//     employee.attendanceRecordsCount ??
-//     employee.attendanceCount;
-//   if (recordCount !== undefined && recordCount !== null) {
-//     const count = Number(recordCount);
-//     if (Number.isFinite(count)) return count > 0;
-//   }
+// Build a full profile update while keeping the new joining date and resetting exit dates.
+function buildRehirePutPayload(
+  prev: Record<string, any>,
+  formData: Partial<Employee>,
+  newJoiningDate: string,
+  previousEmployeeId: string,
+) {
+  const pick = (key: string) => prev?.[key] ?? null;
 
-//   if (Array.isArray(employee.attendanceRecords)) {
-//     return employee.attendanceRecords.length > 0;
-//   }
+  const put: Record<string, any> = {
+    // Personal
+    firstName: pick("firstName"),
+    middleName: pick("middleName"),
+    lastName: pick("lastName"),
+    nickName: pick("nickName"),
+    employeeReferenceNumber: pick("employeeReferenceNumber"),
+    emailAddress: formData.emailAddress ?? pick("emailAddress"),
+    personalEmailAddress: pick("personalEmailAddress"),
+    mobileNumber: formData.mobileNumber ?? pick("mobileNumber"),
+    extensionNumber: pick("extensionNumber"),
+    genderId: pick("genderId"),
+    dateOfBirth: pick("dateOfBirth"),
+    birthday: pick("birthday"),
+    maritalStatusId: pick("maritalStatusId"),
+    marriageDate: pick("marriageDate"),
+    bloodGroupId: pick("bloodGroupId"),
+    fathersName: pick("fathersName"),
+    spouseName: pick("spouseName"),
+    nationalityId: pick("nationalityId"),
+    religionId: pick("religionId"),
+    height: pick("height"),
+    weight: pick("weight"),
+    disabilityTypeId: pick("disabilityTypeId"),
+    identificationMark: pick("identificationMark"),
+    hobbies: pick("hobbies"),
+    languagesKnown: pick("languagesKnown"),
 
-//   return null;
-// };
+    // Employment (form wins if user selected something new)
+    employeeStatusId: formData.employeeStatusId ?? null,
+    previouslyWorked: true,
+    previousEmployeeId,
+    designationId: formData.designationId ?? pick("designationId"),
+    gradeId: pick("gradeId"),
+    empTypeId: pick("empTypeId"),
+    departmentId: formData.departmentId ?? pick("departmentId"),
+    assignedHrId: pick("assignedHrId"),
+    branchId: formData.branchId ?? pick("branchId"),
+    employeeGroupId: formData.employeeGroupId ?? pick("employeeGroupId"),
+    managerId: pick("managerId"),
+    bandId: pick("bandId"),
 
-// const readAttendanceRecordState = (response: any): boolean => {
-//   const payload = response?.data?.data ?? response?.data ?? response;
-//   if (payload == null) return false;
-//   if (Array.isArray(payload)) return payload.length > 0;
-//   if (Array.isArray(payload.content)) return payload.content.length > 0;
-//   if (typeof payload.totalElements === "number") return payload.totalElements > 0;
-//   if (typeof payload.totalRecords === "number") return payload.totalRecords > 0;
-//   if (Array.isArray(payload.records)) return payload.records.length > 0;
-//   if (Array.isArray(payload.attendanceRecords)) {
-//     return payload.attendanceRecords.length > 0;
-//   }
-//   if (
-//     payload.attendanceDate ||
-//     payload.checkInTime ||
-//     payload.checkOutTime ||
-//     payload.status
-//   ) {
-//     return true;
-//   }
-//   throw new Error("Attendance response did not include a recognizable record list.");
-// };
+    // Dates — new joining, RESET exit-related ones
+    joiningDate: newJoiningDate,
+    confirmationDate: null,
+    relievedDate: null,
+    probationPeriod: pick("probationPeriod"),
+    noticePeriod: pick("noticePeriod"),
+
+    // Assignments / policies
+    attendanceSchemaId: pick("attendanceSchemaId"),
+    vehicleTypeId: pick("vehicleTypeId"),
+    currentCompanyExperience: pick("currentCompanyExperience"),
+    referredBy: pick("referredBy"),
+    bonusPolicyId: pick("bonusPolicyId"),
+    otPolicyId: pick("otPolicyId"),
+    otAmount: pick("otAmount"),
+
+    // Flags
+    hostel: pick("hostel") ?? false,
+    vehicleFacility: pick("vehicleFacility") ?? false,
+    migrant: pick("migrant") ?? false,
+    exService: pick("exService") ?? false,
+    monthly: pick("monthly") ?? false,
+    physicallyChallenged: pick("physicallyChallenged") ?? false,
+    internationalEmployee: pick("internationalEmployee") ?? false,
+    pfEligible: pick("pfEligible") ?? false,
+    excessEpfEligible: pick("excessEpfEligible") ?? false,
+    excessEpsEligible: pick("excessEpsEligible") ?? false,
+    existingEpsMember: pick("existingEpsMember") ?? false,
+    esiEligible: pick("esiEligible") ?? false,
+    lwfCovered: pick("lwfCovered") ?? false,
+
+    // Remarks
+    adminRemarks: pick("adminRemarks"),
+
+    // Statutory IDs
+    idCardNo: pick("idCardNo"),
+    midNo: pick("midNo"),
+    oldIdNo: prev.employeeId ?? pick("oldIdNo"),
+    panNumber: pick("panNumber"),
+    aadhaarEnrolmentNo: pick("aadhaarEnrolmentNo"),
+    nameAsOnAadhaar: pick("nameAsOnAadhaar"),
+    aadhaarNumber: pick("aadhaarNumber"),
+    universalAccountNumber: pick("universalAccountNumber"),
+    pranNumber: pick("pranNumber"),
+    nameAsPerPran: pick("nameAsPerPran"),
+    passportNumber: pick("passportNumber"),
+    visaType: pick("visaType"),
+    visaExpiry: pick("visaExpiry"),
+    loginIpAddress: pick("loginIpAddress"),
+    loginUserName: pick("loginUserName"),
+    nameInPan: pick("nameInPan"),
+    nameInPassport: pick("nameInPassport"),
+    placeOfIssue: pick("placeOfIssue"),
+    dateOfIssue: pick("dateOfIssue"),
+    expiryDate: pick("expiryDate"),
+    insuranceNumber: pick("insuranceNumber"),
+    nameInInsurance: pick("nameInInsurance"),
+    insuranceValidFrom: pick("insuranceValidFrom"),
+    insuranceValidTo: pick("insuranceValidTo"),
+
+    // Background verification
+    backgroundCheckStatus: pick("backgroundCheckStatus"),
+    backgroundVerificationIndicator: pick("backgroundVerificationIndicator"),
+    backgroundVerificationCompletedOn: pick("backgroundVerificationCompletedOn"),
+    agencyName: pick("agencyName"),
+    backgroundCheckRemarks: pick("backgroundCheckRemarks"),
+
+    // Bank
+    bankAccountNumber: pick("bankAccountNumber"),
+    ifscCode: pick("ifscCode"),
+    bankAccountTypeId: pick("bankAccountTypeId"),
+    bankName: pick("bankName"),
+    bankBranch: pick("bankBranch"),
+    salaryPaymentModeId: pick("salaryPaymentModeId"),
+    salaryTypeId: pick("salaryTypeId"),
+    ddPayableAt: pick("ddPayableAt"),
+    nameAsPerBankRecords: pick("nameAsPerBankRecords"),
+    iban: pick("iban"),
+
+    // PF / ESI
+    pfNumber: pick("pfNumber"),
+    pfSchemeId: pick("pfSchemeId"),
+    pfJoiningDate: pick("pfJoiningDate"),
+    esiNumber: pick("esiNumber"),
+    esiJoiningDate: pick("esiJoiningDate"),
+    esiRelievingDate: pick("esiRelievingDate"),
+  };
+
+  return put;
+}
+
+type FormErrorField =
+  | "name"
+  | "emailAddress"
+  | "joiningDate"
+  | "departmentId"
+  | "designationId"
+  | "employeeGroupId"
+  | "templateId"
+  | "mobileNumber"
+  | "branchId"
+  | "previousEmployeeId"
+  | "manualEmployeeId";
+
+type FormErrors = Partial<Record<FormErrorField, string>>;
 
 export default function EmployeeManagement() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
   const navigate = useNavigate();
   const { session } = useAuth();
-  const showSnackbarRef = useRef(showSnackbar);
-  showSnackbarRef.current = showSnackbar;
-  // State for employees
+
+  // ---------- List state ----------
   const [employees, setEmployees] = useState<Employee[]>([]);
-  // const [attendanceRecordState, setAttendanceRecordState] = useState<
-  //   Record<string, boolean>
-  // >({});
   const [employeeStats, setEmployeeStats] = useState<EmployeeStatsSummary | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortCriteria, setSortCriteria] = useState<Array<{ field: string, order: 'ASC' | 'DESC' }>>([
-    { field: 'employeeId', order: 'ASC' }
+  const [sortCriteria, setSortCriteria] = useState<Array<{ field: string; order: "ASC" | "DESC" }>>([
+    { field: "employeeId", order: "ASC" },
   ]);
 
-  // Filter state
+  // ---------- Filters ----------
   const [filterOpen, setFilterOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterConfig | null>(null);
   const [employeeView, setEmployeeView] = useState<"active" | "inactive" | "all">("active");
 
+  // ---------- Dialogs ----------
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
-    null,
-  );
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [bulkUploadDialogOpen, setBulkUploadDialogOpen] = useState(false);
 
-  // Form data
+  // ---------- Form ----------
   const [formData, setFormData] = useState<Partial<Employee>>({});
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const fieldRefs = useRef<Partial<Record<FormErrorField, HTMLElement | null>>>({});
 
+  // ---------- Bulk upload ----------
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(
-    null,
-  );
+  const [uploadResult, setUploadResult] = useState<BulkUploadResponse | null>(null);
+  const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] = useState(false);
+
+  // ---------- Master data ----------
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [branches, setBranches] = useState<Branches[]>([]);
   const [empStatus, setEmpStatus] = useState<Category[]>([]);
   const [employeeTypes, setEmployeeTypes] = useState<Category[]>([]);
-  const [filterEmployees, setFilterEmployees] = useState<EmployeeSummaryResponse[]>([]);
+  const [_filterEmployees, setFilterEmployees] = useState<EmployeeSummaryResponse[]>([]);
   const [employeeGroups, setEmployeeGroups] = useState<Category[]>([]);
   const [shiftCommonTemplates, setShiftCommonTemplates] = useState<Category[]>([]);
 
-  // Code Generation (used by Add Employee dialog)
+  // ---------- Employee-ID generation ----------
   const [hasManualEmpId, setHasManualEmpId] = useState(false);
   const [empCodeType, setEmpCodeType] = useState("pattern");
-  const [empGenerationFlow, setEmpGenerationFlow] = useState<
-    "new" | "continue"
-  >("new");
+  const [empGenerationFlow, setEmpGenerationFlow] = useState<"new" | "continue">("new");
   const [empPrefix, setEmpPrefix] = useState("EMP");
   const [empStartNumber, setEmpStartNumber] = useState("1");
   const [zero, setZero] = useState(0);
@@ -223,30 +335,25 @@ export default function EmployeeManagement() {
   const [employeeIdConfig, setEmployeeIdConfig] = useState<any>(null);
   const [nextIdPreview, setNextIdPreview] = useState<string>("");
 
-  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(
-    null,
-  );
-  const [selectedEmployeeForExport, setSelectedEmployeeForExport] = useState<
-    string | null
-  >(null);
+  // ---------- Export ----------
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedEmployeeForExport, setSelectedEmployeeForExport] = useState<string | null>(null);
 
-  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(
-    null,
-  );
-  const [actionMenuEmployee, setActionMenuEmployee] = useState<Employee | null>(
-    null,
-  );
+  // ---------- Row actions ----------
+  const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
+  const [actionMenuEmployee, setActionMenuEmployee] = useState<Employee | null>(null);
+
+  // ---------- Deactivate / relieving ----------
   const [relievingDialogOpen, setRelievingDialogOpen] = useState(false);
-  const [relievingDialogEmployee, setRelievingDialogEmployee] =
-    useState<Employee | null>(null);
+  const [relievingDialogEmployee, setRelievingDialogEmployee] = useState<Employee | null>(null);
   const [relievingDate, setRelievingDate] = useState("");
   const [proposedRelievedDate, setProposedRelievedDate] = useState("");
   const [systemGeneratedRelievedDate, setSystemGeneratedRelievedDate] = useState("");
   const [resignationType, setResignationType] = useState("");
-  const [excelHasEmployeeIdColumn, setExcelHasEmployeeIdColumn] =
-    useState(false);
   const [adminRemarks, setAdminRemarks] = useState("");
   const [eligibleForRehire, setEligibleForRehire] = useState(true);
+
+  // ---------- Resigned dialog ----------
   const [resignedDialogOpen, setResignedDialogOpen] = useState(false);
   const [resignedEmployees, _setResignedEmployees] = useState<Employee[]>([]);
   const [resignedSearch, setResignedSearch] = useState("");
@@ -254,70 +361,22 @@ export default function EmployeeManagement() {
   const [resignedEmployeeDetails, setResignedEmployeeDetails] = useState<Record<string, any>>({});
   const [resignedDetailsLoading, setResignedDetailsLoading] = useState<string | null>(null);
 
+  // ---------- Hard-delete conflict ----------
   const [hardDeleteErrorDialogOpen, setHardDeleteErrorDialogOpen] = useState(false);
   const [hardDeleteErrorEmployee, setHardDeleteErrorEmployee] = useState<Employee | null>(null);
   const [hardDeleteErrorMessage, setHardDeleteErrorMessage] = useState<string>("");
 
+  // ---------- Rejoin (previously worked) ----------
   const [previouslyWorked, setPreviouslyWorked] = useState(false);
   const [previousEmployeeId, setPreviousEmployeeId] = useState("");
   const [inactiveEmployees, setInactiveEmployees] = useState<EmployeeSummaryResponse[]>([]);
   const [inactiveEmployeesLoading, setInactiveEmployeesLoading] = useState(false);
+  const [previousEmployeeDetails, setPreviousEmployeeDetails] = useState<any | null>(null);
+  const [previousDetailsLoading, setPreviousDetailsLoading] = useState(false);
+  const [fetchPreviousData, setFetchPreviousData] = useState(false);
+  const previousEmployeeRequestId = useRef(0);
 
-  // useEffect(() => {
-  //   let cancelled = false;
-  //   setAttendanceRecordState({});
-
-  //   const employeesToCheck = employees.filter(
-  //     (employee) => getKnownAttendanceRecordState(employee) === null,
-  //   );
-  //   const knownStates: Record<string, boolean> = {};
-  //   employees.forEach((employee) => {
-  //     const state = getKnownAttendanceRecordState(employee);
-  //     if (state !== null) knownStates[employee.id] = state;
-  //   });
-  //   setAttendanceRecordState(knownStates);
-
-  //   if (employeesToCheck.length === 0) {
-  //     return () => {
-  //       cancelled = true;
-  //     };
-  //   }
-
-  //   void Promise.allSettled(
-  //     employeesToCheck.map(async (employee) => [
-  //       employee.id,
-  //       readAttendanceRecordState(
-  //         await attendanceService.getEmployeeAttendance(employee.id),
-  //       ),
-  //     ] as const),
-  //   ).then((results) => {
-  //     if (cancelled) return;
-
-  //     const verifiedStates = { ...knownStates };
-  //     let verificationFailed = false;
-  //     results.forEach((result) => {
-  //       if (result.status === "fulfilled") {
-  //         const [employeeId, hasRecords] = result.value;
-  //         verifiedStates[employeeId] = hasRecords;
-  //       } else {
-  //         verificationFailed = true;
-  //       }
-  //     });
-  //     setAttendanceRecordState(verifiedStates);
-
-  //     if (verificationFailed) {
-  //       showSnackbarRef.current(
-  //         "Could not verify attendance records for some employees. Permanent deletion is hidden until verification succeeds.",
-  //         "error",
-  //       );
-  //     }
-  //   });
-
-  //   return () => {
-  //     cancelled = true;
-  //   };
-  // }, [employees]);
-
+  // ---------- Derived ----------
   const filterFields = useMemo(
     () =>
       getEmployeeFilterFields(
@@ -326,11 +385,47 @@ export default function EmployeeManagement() {
         branches,
         empStatus,
         employeeTypes,
-        // filterEmployees,
       ),
-    [departments, designations, branches, empStatus, employeeTypes, filterEmployees],
+    [departments, designations, branches, empStatus, employeeTypes],
   );
 
+  // ---------- Error helpers ----------
+  const clearFieldError = (field: FormErrorField) => {
+    setFormErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const focusFirstError = (errors: FormErrors) => {
+    const order: FormErrorField[] = [
+      "manualEmployeeId",
+      "name",
+      "emailAddress",
+      "joiningDate",
+      "branchId",
+      "departmentId",
+      "designationId",
+      "mobileNumber",
+      "previousEmployeeId",
+      "employeeGroupId",
+      "templateId",
+    ];
+    for (const key of order) {
+      if (errors[key]) {
+        const el = fieldRefs.current[key];
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          (el as HTMLInputElement).focus?.();
+        }
+        return;
+      }
+    }
+  };
+
+  // ---------- API helpers ----------
   const loadEmployeeIdConfig = async () => {
     try {
       const res: any = await employeeService.getEmployeeId();
@@ -352,16 +447,6 @@ export default function EmployeeManagement() {
     }
   };
 
-  useEffect(() => {
-    loadEmployeeIdConfig();
-  }, []);
-
-  useEffect(() => {
-    if (employeeIdConfig) {
-      setExcelHasEmployeeIdColumn(!employeeIdConfig.configured);
-    }
-  }, [employeeIdConfig]);
-
   const generatePreview = async () => {
     showSpinner();
     try {
@@ -374,7 +459,7 @@ export default function EmployeeManagement() {
             : undefined,
         numberOfDigits:
           empCodeType === "alphanumeric" ? parseInt(empDigitCount) : undefined,
-        paddingWidth: zero ? zero : undefined
+        paddingWidth: zero ? zero : undefined,
       };
       const res: any = await employeeService.previewEmployeeId(payload);
       const response = res?.data ?? res;
@@ -386,81 +471,10 @@ export default function EmployeeManagement() {
     }
   };
 
-  useEffect(() => {
-    if (hasManualEmpId || !employeeDialogOpen) return;
-    if (empGenerationFlow === "continue") {
-      setNextIdPreview(employeeIdConfig?.nextSequencePreview || "");
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (empCodeType === "pattern" && (!empPrefix || !empStartNumber || !zero)) return;
-      generatePreview();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [
-    empCodeType,
-    empPrefix,
-    zero,
-    empStartNumber,
-    empDigitCount,
-    empGenerationFlow,
-    employeeDialogOpen,
-    hasManualEmpId,
-    employeeIdConfig,
-  ]);
-
-  const handleApplyFilters = (filters: FilterConfig) => {
-    setActiveFilters(filters);
-    setPage(0);
-  };
-
-  const removeFilter = (ruleId: string) => {
-    if (activeFilters) {
-      const newRules = activeFilters.rules.filter((rule) => rule.id !== ruleId);
-      if (newRules.length > 0) {
-        const newFilters = { ...activeFilters, rules: newRules };
-        setActiveFilters(newFilters);
-      } else {
-        clearAllFilters();
-      }
-      setPage(0);
-    }
-  };
-
-  const clearAllFilters = () => {
-    setActiveFilters(null);
-    setPage(0);
-  };
-
-  const getActiveFilterCount = (): number => {
-    return activeFilters?.rules.length || 0;
-  };
-
-  const toggleSort = (field: string) => {
-    setSortCriteria(prev => {
-      const existingIndex = prev.findIndex(s => s.field === field);
-      if (existingIndex >= 0) {
-        const currentOrder = prev[existingIndex].order;
-        if (currentOrder === 'ASC') {
-          const newCriteria = [...prev];
-          newCriteria[existingIndex] = { field, order: 'DESC' };
-          return newCriteria;
-        }
-        else if (currentOrder === 'DESC') {
-          return prev.filter(s => s.field !== field);
-        }
-      } else {
-        return [{ field, order: 'ASC' }];
-      }
-      return prev;
-    });
-    setPage(0);
-  };
-
   const getEmployees = async () => {
     showSpinner();
     try {
-      const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
+      const sortParams = sortCriteria.map((s) => `${s.field},${s.order.toLowerCase()}`);
 
       const params: EmployeeListQuery = {
         page,
@@ -475,7 +489,7 @@ export default function EmployeeManagement() {
         params.includeActive = true;
       } else if (employeeView === "inactive") {
         params.includeInactive = true;
-      } 
+      }
       const response = await employeeService.getEmployees(params);
       const employeePage = normalizeEmployeePageResponse(response);
       const employeeData = employeePage.content as Employee[];
@@ -483,28 +497,19 @@ export default function EmployeeManagement() {
       let visibleEmployees = employeeData;
 
       if (employeeView === "inactive") {
-        visibleEmployees = employeeData.filter((employee) =>
-          isEmployeeInactive(employee)
-        );
+        visibleEmployees = employeeData.filter((employee) => isEmployeeInactive(employee));
       } else if (employeeView === "active") {
-        visibleEmployees = employeeData.filter((employee) =>
-          !isEmployeeInactive(employee)
-        );
+        visibleEmployees = employeeData.filter((employee) => !isEmployeeInactive(employee));
       }
 
       setTotal(employeePage.totalElements);
 
-      // Apply client-side filters for unsupported filters
       if (
         activeFilters &&
         activeFilters.rules.length > 0 &&
         !isEmployeeServerSupportedFilter(activeFilters)
       ) {
-        visibleEmployees = applyFiltersToData(
-          visibleEmployees,
-          activeFilters,
-          EMPLOYEE_FIELD_MAP,
-        );
+        visibleEmployees = applyFiltersToData(visibleEmployees, activeFilters, EMPLOYEE_FIELD_MAP);
       }
 
       setEmployees(visibleEmployees);
@@ -532,81 +537,97 @@ export default function EmployeeManagement() {
 
       const category: any = await categoryService.getActiveCategoryItem();
 
-      // Designation
-      const designationCategory = category.data.find(
-        (element: any) => element.categoryName?.toLowerCase().includes('designation')
+      const designationCategory = category.data.find((element: any) =>
+        element.categoryName?.toLowerCase().includes("designation"),
       );
       if (designationCategory) {
         setDesignations(designationCategory.items);
       }
 
-      // Employee Status
-      const empStatusCategory = category.data.find(
-        (element: any) => {
-          const categoryName = element.categoryName?.toLowerCase() || '';
-          return categoryName.includes('employee status') || categoryName.includes('emp status')
-        }
-      );
+      const empStatusCategory = category.data.find((element: any) => {
+        const categoryName = element.categoryName?.toLowerCase() || "";
+        return categoryName.includes("employee status") || categoryName.includes("emp status");
+      });
       if (empStatusCategory) {
         setEmpStatus(empStatusCategory.items);
       }
 
-      // Employee Group
-      const employeeGroupCategory = category.data.find(
-        (element: any) => element.categoryName?.toLowerCase().includes('employee group')
+      const employeeGroupCategory = category.data.find((element: any) =>
+        element.categoryName?.toLowerCase().includes("employee group"),
       );
       if (employeeGroupCategory) {
         setEmployeeGroups(employeeGroupCategory.items);
       }
 
-      const employeeTypeCategory = category.data.find(
-        (element: any) => {
-          const categoryName = element.categoryName?.toLowerCase() || '';
-          return categoryName.includes('employee type') || categoryName.includes('employment type');
-        }
-      );
+      const employeeTypeCategory = category.data.find((element: any) => {
+        const categoryName = element.categoryName?.toLowerCase() || "";
+        return categoryName.includes("employee type") || categoryName.includes("employment type");
+      });
       if (employeeTypeCategory) {
         setEmployeeTypes(employeeTypeCategory.items);
       }
 
       const employeeOptionsResponse = await employeeService.getEmployees({
         page: 0,
-        // size: 1000,
-        sort: 'name,asc',
+        sort: "name,asc",
         includeInactive: true,
         branch: session?.branchId || undefined,
       });
       setFilterEmployees(normalizeEmployeePageResponse(employeeOptionsResponse).content);
 
-      // Shift Common Template
       const shiftCommonTemplateCategory = category.data.find(
-        (element: any) => element.categoryName === 'Shift Common Template'
+        (element: any) => element.categoryName === "Shift Common Template",
       );
       if (shiftCommonTemplateCategory) {
         setShiftCommonTemplates(shiftCommonTemplateCategory.items);
       }
-
     } catch (error: any) {
       showSnackbar(error.message, "error");
     }
   };
 
+  // ---------- Effects ----------
+  useEffect(() => {
+    loadEmployeeIdConfig();
+  }, []);
+
+  useEffect(() => {
+    if (employeeIdConfig) {
+      setExcelHasEmployeeIdColumn(!employeeIdConfig.configured);
+    }
+  }, [employeeIdConfig]);
+
+  useEffect(() => {
+    if (hasManualEmpId || !employeeDialogOpen) return;
+    if (empGenerationFlow === "continue") {
+      setNextIdPreview(employeeIdConfig?.nextSequencePreview || "");
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (empCodeType === "pattern" && (!empPrefix || !empStartNumber || !zero)) return;
+      generatePreview();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [
+    empCodeType,
+    empPrefix,
+    zero,
+    empStartNumber,
+    empDigitCount,
+    empGenerationFlow,
+    employeeDialogOpen,
+    hasManualEmpId,
+    employeeIdConfig,
+  ]);
+
   useEffect(() => {
     getEmployees();
-  }, [
-    page,
-    limit,
-    searchTerm,
-    activeFilters,
-    employeeView,
-    sortCriteria,
-  ]);
+  }, [page, limit, searchTerm, activeFilters, employeeView, sortCriteria]);
 
   useEffect(() => {
     getMasterData();
   }, []);
 
-  // Add this effect after loadEmployeeIdConfig effect
   useEffect(() => {
     if (!previouslyWorked || isEditing) return;
     if (inactiveEmployees.length > 0) return;
@@ -615,14 +636,34 @@ export default function EmployeeManagement() {
     setInactiveEmployeesLoading(true);
     (async () => {
       try {
-        const res = await employeeService.getEmployees({
-          page: 0,
-          sort: "name,asc",
-          includeActive: true,
-          branch: session?.branchId || undefined,
-        });
-        const pageData = normalizeEmployeePageResponse(res);
-        const inactive = (pageData.content as Employee[]).filter(isEmployeeInactive);
+        const inactive: EmployeeSummaryResponse[] = [];
+        let page = 0;
+        let hasNextPage = true;
+
+        while (hasNextPage) {
+          // const response = await employeeService.getDeactivatedEmployees({
+          //   page,
+          //   size: 100,
+          //   sort: "name,asc",
+          //   branch: session?.branchId || undefined,
+          // });
+          const response = await employeeService.getEmployees({
+            page,
+            // size: 100,
+            sort: "name,asc",
+            branch: session?.branchId || undefined,
+            includeInactive: true
+          });
+          const pageData = normalizeEmployeePageResponse(response);
+          inactive.push(...pageData.content.filter(isEmployeeInactive));
+
+          hasNextPage =
+            !pageData.last &&
+            pageData.content.length > 0 &&
+            (pageData.totalPages === 0 || page + 1 < pageData.totalPages);
+          page += 1;
+        }
+
         if (!cancelled) setInactiveEmployees(inactive);
       } catch (error: any) {
         if (!cancelled) {
@@ -638,23 +679,70 @@ export default function EmployeeManagement() {
     };
   }, [previouslyWorked, isEditing]);
 
-  const getSortIcon = (column: string) => {
-    const sortCriterion = sortCriteria.find(s => s.field === column);
-    if (!sortCriterion) return null;
-    const orderIcon = sortCriterion.order === "ASC" ? (
-      <ArrowUpward fontSize="small" className="!w-3" />
-    ) : (
-      <ArrowDownward fontSize="small" className="!w-3" />
-    );
-
-    return (
-      <span className="flex items-center">
-        {orderIcon}
-        {/* <span className="text-[10px] text-gray-400 ml-0.5">({sortCriterion.order})</span> */}
-      </span>
-    );
+  // ---------- Filters ----------
+  const handleApplyFilters = (filters: FilterConfig) => {
+    setActiveFilters(filters);
+    setPage(0);
   };
 
+  const removeFilter = (ruleId: string) => {
+    if (activeFilters) {
+      const newRules = activeFilters.rules.filter((rule) => rule.id !== ruleId);
+      if (newRules.length > 0) {
+        const newFilters = { ...activeFilters, rules: newRules };
+        setActiveFilters(newFilters);
+      } else {
+        clearAllFilters();
+      }
+      setPage(0);
+    }
+  };
+
+  const clearAllFilters = () => {
+    setActiveFilters(null);
+    setPage(0);
+  };
+
+  const getActiveFilterCount = (): number => {
+    return activeFilters?.rules.length || 0;
+  };
+
+  // ---------- Sorting ----------
+  const toggleSort = (field: string) => {
+    setSortCriteria((prev) => {
+      const existingIndex = prev.findIndex((s) => s.field === field);
+      if (existingIndex >= 0) {
+        const currentOrder = prev[existingIndex].order;
+        if (currentOrder === "ASC") {
+          const newCriteria = [...prev];
+          newCriteria[existingIndex] = { field, order: "DESC" };
+          return newCriteria;
+        }
+        if (currentOrder === "DESC") {
+          return prev.filter((s) => s.field !== field);
+        }
+      } else {
+        return [{ field, order: "ASC" }];
+      }
+      return prev;
+    });
+    setPage(0);
+  };
+
+  const getSortIcon = (column: string) => {
+    const sortCriterion = sortCriteria.find((s) => s.field === column);
+    if (!sortCriterion) return null;
+    const orderIcon =
+      sortCriterion.order === "ASC" ? (
+        <ArrowUpward fontSize="small" className="!w-3" />
+      ) : (
+        <ArrowDownward fontSize="small" className="!w-3" />
+      );
+
+    return <span className="flex items-center">{orderIcon}</span>;
+  };
+
+  // ---------- Employee-ID helpers ----------
   const generateEmployeeIdPreview = () => {
     if (hasManualEmpId) {
       return manualEmployeeId || "Manual Entry";
@@ -693,6 +781,33 @@ export default function EmployeeManagement() {
     return preview.previewId;
   };
 
+  const configureEmployeeId = async () => {
+    if (!validateEmployeeIdConfig()) return;
+    showSpinner();
+    try {
+      const payload: any = { formatType: empCodeType.toUpperCase() };
+      if (empCodeType === "pattern") {
+        payload.prefix = empPrefix;
+        payload.paddingWidth = zero;
+        payload.startingNumber = parseInt(empStartNumber);
+      }
+      if (empCodeType === "number") {
+        payload.paddingWidth = zero;
+        payload.startingNumber = parseInt(empStartNumber);
+      }
+      if (empCodeType === "alphanumeric") {
+        payload.numberOfDigits = parseInt(empDigitCount);
+      }
+      await employeeService.updateEmployeeId(payload);
+      await loadEmployeeIdConfig();
+      showSnackbar("Employee ID configuration saved.", "success");
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to save configuration", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
   const validateEmployeeIdConfig = () => {
     if (hasManualEmpId) return true;
     if (empGenerationFlow === "continue") return true;
@@ -717,6 +832,73 @@ export default function EmployeeManagement() {
     return true;
   };
 
+  // ---------- FORM VALIDATION ----------
+  const validateEmployeeForm = (): boolean => {
+    const errors: FormErrors = {};
+
+    if (!isEditing && hasManualEmpId) {
+      if (!manualEmployeeId.trim()) {
+        errors.manualEmployeeId = "Employee ID is required";
+      }
+    }
+
+    if (!isEditing) {
+      if (!formData.name?.trim()) {
+        errors.name = "Employee name is required";
+      }
+    }
+
+    if (!isEditing) {
+      if (!formData.emailAddress?.trim()) {
+        errors.emailAddress = "Email is required";
+      } else if (!EMAIL_REGEX.test(formData.emailAddress.trim())) {
+        errors.emailAddress = "Enter a valid email address";
+      }
+    }
+
+    if (!formData.joiningDate) {
+      errors.joiningDate = "Joining date is required";
+    }
+
+    if (!session?.branchId && !formData.branchId) {
+      errors.branchId = "Branch is required";
+    }
+
+    if (!formData.departmentId) {
+      errors.departmentId = "Department is required";
+    }
+
+    if (!formData.designationId) {
+      errors.designationId = "Designation is required";
+    }
+
+    if (formData.mobileNumber && !MOBILE_REGEX.test(formData.mobileNumber.trim())) {
+      errors.mobileNumber = "Enter a valid mobile number";
+    }
+
+    if (!isEditing && previouslyWorked && !previousEmployeeId) {
+      errors.previousEmployeeId = "Select the previous employee record";
+    }
+
+    if (!formData.employeeGroupId) {
+      errors.employeeGroupId = "Employee group is required";
+    }
+
+    if (!formData.templateId) {
+      errors.templateId = "Shift common template is required";
+    }
+
+    setFormErrors(errors);
+
+    const isValid = Object.keys(errors).length === 0;
+    if (!isValid) {
+      focusFirstError(errors);
+      showSnackbar("Please fill all required fields before saving.", "error");
+    }
+    return isValid;
+  };
+
+  // ---------- Form lifecycle ----------
   const resetForm = () => {
     setFormData({
       name: "",
@@ -730,6 +912,7 @@ export default function EmployeeManagement() {
       employeeGroupId: "",
       template: "",
     });
+    setFormErrors({});
 
     setHasManualEmpId(false);
     setEmpCodeType("pattern");
@@ -742,39 +925,40 @@ export default function EmployeeManagement() {
     setEmpGenerationFlow(employeeIdConfig?.configured ? "continue" : "new");
     setPreviouslyWorked(false);
     setPreviousEmployeeId("");
+    setPreviousEmployeeDetails(null);
+    setPreviousDetailsLoading(false);
+    setFetchPreviousData(false);
   };
 
   const handleOpenAddDialog = () => {
     setIsEditing(false);
     resetForm();
-    setPreviouslyWorked(false);
-    setPreviousEmployeeId("");
     setEmployeeDialogOpen(true);
     loadEmployeeIdConfig();
   };
 
   const handleOpenEditDialog = async (employee: Employee) => {
     setIsEditing(true);
+    setFormErrors({});
     const response: any = await employeeService.getEmployeeById(employee.id);
     setSelectedEmployee(response.data);
 
     const resolvedDepartment = departments.find(
-      (d) => d.id === employee.departmentId || d.departmentName === employee.department
+      (d) => d.id === employee.departmentId || d.departmentName === employee.department,
     );
     const resolvedDesignation = designations.find(
-      (d) => d.id === employee.designationId || d.name === employee.designation
+      (d) => d.id === employee.designationId || d.name === employee.designation,
     );
     const resolvedBranchId =
-      employee.branchId ||
-      branches.find((b) => b.branchName === employee.branch)?.id;
+      employee.branchId || branches.find((b) => b.branchName === employee.branch)?.id;
     const resolvedEmployeeStatus = empStatus.find(
-      (s) => s.id === employee.employeeStatusId || s.name === employee.employeeStatus
+      (s) => s.id === employee.employeeStatusId || s.name === employee.employeeStatus,
     );
     const resolvedEmployeeGroup = employeeGroups.find(
-      (s) => s.id === employee.employeeGroupId || s.name === employee.employeeGroup
+      (s) => s.id === employee.employeeGroupId || s.name === employee.employeeGroup,
     );
     const resolvedTemplate = shiftCommonTemplates.find(
-      (s) => s.id === employee.templateId || s.name === employee.template
+      (s) => s.id === employee.templateId || s.name === employee.template,
     );
 
     setFormData({
@@ -799,10 +983,92 @@ export default function EmployeeManagement() {
     setEmployeeDialogOpen(true);
   };
 
+  // ---------- Rejoin ----------
+  const handleSelectPreviousEmployee = async (
+    newValue: EmployeeSummaryResponse | null,
+  ) => {
+    const requestId = ++previousEmployeeRequestId.current;
+    setPreviousEmployeeId(newValue?.id || "");
+    setPreviousEmployeeDetails(null);
+    setFetchPreviousData(false);
+    clearFieldError("previousEmployeeId");
+
+    if (!newValue) {
+      setPreviousDetailsLoading(false);
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      name: newValue.name || "",
+      emailAddress: newValue.emailAddress || "",
+      mobileNumber: newValue.mobileNumber || "",
+    }));
+
+    setPreviousDetailsLoading(true);
+    try {
+      const res: any = await employeeService.getEmployeeById(newValue.id);
+      const details = res?.data ?? res;
+      if (requestId !== previousEmployeeRequestId.current) return;
+      setPreviousEmployeeDetails(details);
+
+      const resolvedDepartment = departments.find(
+        (d) => d.id === details.departmentId || d.departmentName === details.department,
+      );
+      const resolvedDesignation = designations.find(
+        (d) => d.id === details.designationId || d.name === details.designation,
+      );
+      const resolvedGroup = employeeGroups.find(
+        (g) => g.id === details.employeeGroupId || g.name === details.employeeGroup,
+      );
+      const resolvedTemplate = shiftCommonTemplates.find(
+        (t) => t.id === details.templateId || t.name === details.template,
+      );
+      const resolvedBranchId =
+        details.branchId || branches.find((b) => b.branchName === details.branch)?.id;
+
+      setFormData((prev) => ({
+        ...prev,
+        name: details.name || details.firstName || newValue.name || "",
+        emailAddress: details.emailAddress || newValue.emailAddress || "",
+        mobileNumber: details.mobileNumber || newValue.mobileNumber || "",
+        department: resolvedDepartment || null,
+        departmentId: resolvedDepartment?.id || details.departmentId || "",
+        designation: resolvedDesignation || null,
+        designationId: resolvedDesignation?.id || details.designationId || "",
+        employeeGroup: resolvedGroup || null,
+        employeeGroupId: resolvedGroup?.id || details.employeeGroupId || "",
+        template: resolvedTemplate || null,
+        templateId: resolvedTemplate?.id || details.templateId || "",
+        branch: details.branch || "",
+        branchId: resolvedBranchId || session?.branchId || "",
+      }));
+    } catch (error: any) {
+      if (requestId === previousEmployeeRequestId.current) {
+        showSnackbar(error.message || "Failed to load previous employee details", "error");
+      }
+    } finally {
+      if (requestId === previousEmployeeRequestId.current) {
+        setPreviousDetailsLoading(false);
+      }
+    }
+  };
+
+  // ---------- Save ----------
+  // Create a new employee record, then optionally copy the previous profile.
   const handleSaveEmployee = async () => {
+    if (!validateEmployeeForm()) return;
     if (!validateEmployeeIdConfig()) return;
+    if (previouslyWorked && fetchPreviousData && !previousEmployeeDetails) {
+      showSnackbar("Wait for the previous employee details to finish loading.", "error");
+      return;
+    }
+
     showSpinner();
     try {
+      // ────────────────────────────────────────────────────────────
+      // EDIT
+      // ────────────────────────────────────────────────────────────
       if (isEditing) {
         const empId = selectedEmployee!.id;
         await employeeService.updateAdminInfo(empId, {
@@ -838,50 +1104,94 @@ export default function EmployeeManagement() {
           oldIdNo: selectedEmployee?.oldIdNo || selectedEmployee?.employeeId,
         });
         showSnackbar("Employee updated successfully!", "success");
-      } else {
-        const employeeId = await getEmployeeIdForCreation();
-        if (previouslyWorked && !previousEmployeeId) {
+        setEmployeeDialogOpen(false);
+        resetForm();
+        getEmployees();
+        return;
+      }
+
+      // ────────────────────────────────────────────────────────────
+      // CREATE
+      // ────────────────────────────────────────────────────────────
+      const employeeId = await getEmployeeIdForCreation();
+
+      const createPayload: any = {
+        employeeId,
+        firstName: formData.name,
+        middleName: undefined,
+        lastName: undefined,
+        emailAddress: formData.emailAddress,
+        mobileNumber: formData.mobileNumber || null,
+        joiningDate: formData.joiningDate,
+        designationId: formData.designationId,
+        departmentId: formData.departmentId,
+        // assignedHrId: formData.assignedHrId || null,
+        branchId: formData.branchId,
+        employeeGroupId: formData.employeeGroupId,
+        employeeStatusId: formData.employeeStatusId || null,
+        userId: null,
+        template: formData.templateId,
+        previouslyWorked: Boolean(previouslyWorked),
+        previousEmployeeId: previouslyWorked ? previousEmployeeId : null,
+        aadhaarLockedFields: [],
+      };
+
+      const createRes: any = await employeeService.createEmployee(createPayload);
+      const newEmployee = createRes?.data?.data ?? createRes?.data ?? createRes;
+      const newEmployeeId: string = newEmployee?.id;
+
+      if (previouslyWorked && fetchPreviousData) {
+        if (!newEmployeeId) {
           showSnackbar(
-            "Please select the previous employee record (old inactive employee) for the rejoin.",
+            `Employee created with ID ${employeeId}, but its record ID was not returned, so previous data could not be applied.`,
             "error",
           );
+          await loadEmployeeIdConfig();
+          setEmployeeDialogOpen(false);
+          resetForm();
+          getEmployees();
           return;
+        } else {
+          try {
+            const putPayload = buildRehirePutPayload(
+              previousEmployeeDetails,
+              formData,
+              formData.joiningDate!,
+              previousEmployeeId,
+            );
+            await employeeService.updateEmployee(newEmployeeId, putPayload);
+          } catch (error: any) {
+            showSnackbar(
+              `Employee created with ID ${employeeId}, but previous data could not be applied: ${error.message || "Update failed."}`,
+              "error",
+            );
+            await loadEmployeeIdConfig();
+            setEmployeeDialogOpen(false);
+            resetForm();
+            getEmployees();
+            return;
+          }
         }
-        const payload: any = {
-          firstName: formData.name,
-          emailAddress: formData.emailAddress,
-          joiningDate: formData.joiningDate,
-          employeeId: employeeId,
-          departmentId: formData.departmentId,
-          designationId: formData.designationId,
-          branchId: formData.branchId,
-          mobileNumber: formData.mobileNumber,
-          employeeStatusId: formData.employeeStatusId,
-          employeeGroupId: formData.employeeGroupId,
-          template: formData.templateId,
-          midNo: employeeId,
-          previouslyWorked: Boolean(previouslyWorked),
-        };
-        if (previouslyWorked) {
-          payload.previousEmployeeId = previousEmployeeId;
-        }
-        await employeeService.createEmployee(payload);
-        showSnackbar(
-          `Employee Created! ID: ${employeeId}. Welcome email sent to ${formData.emailAddress}`,
-          "success",
-        );
-        await loadEmployeeIdConfig();
       }
+
+      showSnackbar(
+        previouslyWorked && fetchPreviousData
+          ? `Rejoining employee created with ID ${employeeId}. Previous employee data was applied.`
+          : `Employee Created! ID: ${employeeId}. Welcome email sent to ${formData.emailAddress}`,
+        "success",
+      );
+      await loadEmployeeIdConfig();
       setEmployeeDialogOpen(false);
       resetForm();
       getEmployees();
     } catch (error: any) {
-      showSnackbar(error.message, "error");
+      showSnackbar(error?.message || "Failed to save employee.", "error");
     } finally {
       hideSpinner();
     }
   };
 
+  // ---------- Resigned helpers ----------
   const getResignedField = (employee: Employee, ...fields: string[]): any => {
     for (const field of fields) {
       const value = (employee as unknown as Record<string, unknown>)[field];
@@ -926,11 +1236,12 @@ export default function EmployeeManagement() {
     ].some((value) => String(value).toLowerCase().includes(query));
   });
 
+  // ---------- Deactivate / hard-delete ----------
   const handleDeactivateEmployee = async (
     id: string,
     name: string,
     remarks: string,
-    eligibleForRehire: boolean,
+    eligible: boolean,
     details: Record<string, string | boolean | undefined> = {},
   ) => {
     showConfirmDialog({
@@ -942,20 +1253,17 @@ export default function EmployeeManagement() {
         showSpinner();
         const payload = {
           remarks,
-          eligibleForRehire: Boolean(eligibleForRehire),
+          eligibleForRehire: Boolean(eligible),
           rehireRefferedBy: session?.user.email || "System",
           rehireRefferedDateTime: new Date().toISOString(),
           ...details,
-        }
+        };
         try {
           await employeeService.deactivateEmployee(id, payload);
           showSnackbar(`"${name}" has been deactivated.`, "success");
           getEmployees();
         } catch (error: any) {
-          showSnackbar(
-            error.message || "Failed to deactivate employee.",
-            "error",
-          );
+          showSnackbar(error.message || "Failed to deactivate employee.", "error");
         } finally {
           hideSpinner();
         }
@@ -980,9 +1288,7 @@ export default function EmployeeManagement() {
           );
           getEmployees();
         } catch (error: any) {
-          const status =
-            error?.response?.status ?? error?.status ?? error?.statusCode;
-
+          const status = error?.response?.status ?? error?.status ?? error?.statusCode;
           const message =
             error?.response?.data?.message ||
             error?.response?.data?.error ||
@@ -1003,35 +1309,6 @@ export default function EmployeeManagement() {
     });
   };
 
-  // const handleReactivateEmployee = async (id: string, name: string) => {
-  //   showConfirmDialog({
-  //     title: "Reactivate Employee",
-  //     message: `Reactivate "${name}"? The employee will be restored to active status.`,
-  //     confirmText: "Reactivate",
-  //     cancelText: "Cancel",
-  //     onConfirm: async () => {
-  //       showSpinner();
-  //       try {
-  //         const updated: EmployeeSummaryResponse =
-  //           await employeeService.reactivateEmployee(id);
-  //         showSnackbar(
-  //           `"${updated?.name ?? name}" has been reactivated.`,
-  //           "success",
-  //         );
-  //         await employeeService.updateAdminInfo(id, { relievedDate: "" });
-  //         getEmployees();
-  //       } catch (error: any) {
-  //         showSnackbar(
-  //           error.message || "Failed to reactivate employee.",
-  //           "error",
-  //         );
-  //       } finally {
-  //         hideSpinner();
-  //       }
-  //     },
-  //   });
-  // };
-
   const openDeactivateDialog = (employee: Employee) => {
     setRelievingDialogEmployee(employee);
     const proposed = dayjs().format("YYYY-MM-DD");
@@ -1045,117 +1322,6 @@ export default function EmployeeManagement() {
     setAdminRemarks("");
     setEligibleForRehire(true);
     setRelievingDialogOpen(true);
-  };
-
-  const BULK_UPLOAD_ACCEPTED = [".csv", ".xlsx"];
-  const BULK_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
-
-  const handleCloseBulkUploadDialog = () => {
-    setBulkUploadDialogOpen(false);
-    setUploadFile(null);
-    setUploadProgress(0);
-    setUploadResult(null);
-  };
-
-  const handleBulkUpload = async () => {
-    if (!uploadFile) {
-      showSnackbar("Please select a file to upload", "error");
-      return;
-    }
-    const ext = uploadFile.name
-      .toLowerCase()
-      .slice(uploadFile.name.lastIndexOf("."));
-    if (!BULK_UPLOAD_ACCEPTED.includes(ext)) {
-      showSnackbar(
-        "Invalid file type. Please upload a CSV or XLSX file.",
-        "error",
-      );
-      return;
-    }
-    if (uploadFile.size > BULK_UPLOAD_MAX_BYTES) {
-      showSnackbar(
-        "File exceeds the 10 MB limit. Please upload a smaller file.",
-        "error",
-      );
-      return;
-    }
-    setUploadResult(null);
-    showSpinner();
-    try {
-      const response: any = await employeeService.bulkUploadEmployees(
-        uploadFile,
-        excelHasEmployeeIdColumn,
-        session?.branchId || "",
-        (progress) => {
-          setUploadProgress(progress);
-        },
-      );
-      const result = normalizeBulkUploadResponse(response);
-      setUploadResult(result);
-      if (result.failureCount === 0) {
-        showSnackbar(
-          `${result.successCount} employees imported successfully`,
-          "success",
-        );
-      } else {
-        showSnackbar(
-          `Upload completed with ${result.failureCount} row error(s). See details below.`,
-          "warning",
-        );
-      }
-      getEmployees();
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to upload", "error");
-    } finally {
-      hideSpinner();
-    }
-  };
-
-  const openExportMenu = (
-    event: React.MouseEvent<HTMLElement>,
-    employeeId?: string,
-  ) => {
-    setSelectedEmployeeForExport(employeeId || null);
-    setExportAnchorEl(event.currentTarget);
-  };
-
-  const closeExportMenu = () => {
-    setExportAnchorEl(null);
-    setSelectedEmployeeForExport(null);
-  };
-
-  const handleExport = async (format: "csv" | "xlsx" | "pdf") => {
-    try {
-      showSpinner();
-
-      if (selectedEmployeeForExport) {
-        await employeeService.downloadEmployeeByIdExport(
-          selectedEmployeeForExport,
-          format,
-        );
-        showSnackbar(`Employee exported as ${format.toUpperCase()}`, "success");
-      } else {
-        const sortParams = sortCriteria.map(s => `${s.field},${s.order.toLowerCase()}`);
-
-        const params: any = {
-          search: searchTerm || undefined,
-          sort: sortParams,
-          includeInactive: employeeView !== "active" ? true : undefined,
-          ...buildEmployeeServerFilterParams(activeFilters),
-        };
-
-        await employeeService.downloadEmployeeExport(params, format);
-        showSnackbar(
-          `Employees exported as ${format.toUpperCase()}`,
-          "success",
-        );
-      }
-    } catch (error: any) {
-      showSnackbar(error.message || "Failed to export", "error");
-    } finally {
-      hideSpinner();
-      closeExportMenu();
-    }
   };
 
   const updateReleivingDate = async (emp: any, value: any, remarks: any) => {
@@ -1196,18 +1362,12 @@ export default function EmployeeManagement() {
         midNo: selectedEmployee?.midNo,
         oldIdNo: selectedEmployee?.oldIdNo,
       });
-      handleDeactivateEmployee(
-        emp.id,
-        emp.name,
-        remarks,
-        eligibleForRehire,
-        {
-          resignationType,
-          proposedRelievedDate,
-          systemGeneratedRelievedDate,
-          relievedDate: value,
-        },
-      );
+      handleDeactivateEmployee(emp.id, emp.name, remarks, eligibleForRehire, {
+        resignationType,
+        proposedRelievedDate,
+        systemGeneratedRelievedDate,
+        relievedDate: value,
+      });
     } catch (error: any) {
       showSnackbar(error.message, "error");
     } finally {
@@ -1215,10 +1375,8 @@ export default function EmployeeManagement() {
     }
   };
 
-  const openActionMenu = (
-    event: React.MouseEvent<HTMLElement>,
-    employee: Employee,
-  ) => {
+  // ---------- Row menu ----------
+  const openActionMenu = (event: React.MouseEvent<HTMLElement>, employee: Employee) => {
     setActionMenuEmployee(employee);
     setActionMenuAnchor(event.currentTarget);
   };
@@ -1230,8 +1388,102 @@ export default function EmployeeManagement() {
 
   const viewEmployeeDetails = (employee: any) => {
     if (employee) navigate(`/employees/${employee.id}`);
-  }
+  };
 
+  // ---------- Bulk upload ----------
+  const BULK_UPLOAD_ACCEPTED = [".csv", ".xlsx"];
+  const BULK_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+  const handleCloseBulkUploadDialog = () => {
+    setBulkUploadDialogOpen(false);
+    setUploadFile(null);
+    setUploadProgress(0);
+    setUploadResult(null);
+  };
+
+  const handleBulkUpload = async () => {
+    if (!uploadFile) {
+      showSnackbar("Please select a file to upload", "error");
+      return;
+    }
+    const ext = uploadFile.name.toLowerCase().slice(uploadFile.name.lastIndexOf("."));
+    if (!BULK_UPLOAD_ACCEPTED.includes(ext)) {
+      showSnackbar("Invalid file type. Please upload a CSV or XLSX file.", "error");
+      return;
+    }
+    if (uploadFile.size > BULK_UPLOAD_MAX_BYTES) {
+      showSnackbar("File exceeds the 10 MB limit. Please upload a smaller file.", "error");
+      return;
+    }
+    setUploadResult(null);
+    showSpinner();
+    try {
+      const response: any = await employeeService.bulkUploadEmployees(
+        uploadFile,
+        excelHasEmployeeIdColumn,
+        session?.branchId || "",
+        (progress) => {
+          setUploadProgress(progress);
+        },
+      );
+      const result = normalizeBulkUploadResponse(response);
+      setUploadResult(result);
+      if (result.failureCount === 0) {
+        showSnackbar(`${result.successCount} employees imported successfully`, "success");
+      } else {
+        showSnackbar(
+          `Upload completed with ${result.failureCount} row error(s). See details below.`,
+          "warning",
+        );
+      }
+      getEmployees();
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to upload", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  // ---------- Export ----------
+  const openExportMenu = (event: React.MouseEvent<HTMLElement>, employeeId?: string) => {
+    setSelectedEmployeeForExport(employeeId || null);
+    setExportAnchorEl(event.currentTarget);
+  };
+
+  const closeExportMenu = () => {
+    setExportAnchorEl(null);
+    setSelectedEmployeeForExport(null);
+  };
+
+  const handleExport = async (format: "csv" | "xlsx" | "pdf") => {
+    try {
+      showSpinner();
+
+      if (selectedEmployeeForExport) {
+        await employeeService.downloadEmployeeByIdExport(selectedEmployeeForExport, format);
+        showSnackbar(`Employee exported as ${format.toUpperCase()}`, "success");
+      } else {
+        const sortParams = sortCriteria.map((s) => `${s.field},${s.order.toLowerCase()}`);
+        const params: any = {
+          search: searchTerm || undefined,
+          sort: sortParams,
+          includeInactive: employeeView !== "active" ? true : undefined,
+          ...buildEmployeeServerFilterParams(activeFilters),
+        };
+        await employeeService.downloadEmployeeExport(params, format);
+        showSnackbar(`Employees exported as ${format.toUpperCase()}`, "success");
+      }
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to export", "error");
+    } finally {
+      hideSpinner();
+      closeExportMenu();
+    }
+  };
+
+  // =====================================================================
+  // RENDER (unchanged from original except the rehire checkbox block)
+  // =====================================================================
   return (
     <div className="">
       <div className="flex justify-between items-center mb-4">
@@ -1281,21 +1533,25 @@ export default function EmployeeManagement() {
 
             const getDisplayValue = () => {
               if (!field) return rule.value;
-              if (field.type === 'select' || field.type === 'multiSelect') {
+              if (field.type === "select" || field.type === "multiSelect") {
                 const option = field.options?.find((o) => o.value === rule.value);
                 return option?.label ?? rule.value;
               }
-              if (field.type === 'boolean') {
-                if (rule.value === true || rule.value === 'true' || rule.value === 'yes') return 'Yes';
-                if (rule.value === false || rule.value === 'false' || rule.value === 'no') return 'No';
+              if (field.type === "boolean") {
+                if (rule.value === true || rule.value === "true" || rule.value === "yes")
+                  return "Yes";
+                if (rule.value === false || rule.value === "false" || rule.value === "no")
+                  return "No";
                 return rule.value;
               }
-              if (field.type === 'date' && rule.value) {
-                return dayjs(rule.value).format('DD/MM/YYYY');
+              if (field.type === "date" && rule.value) {
+                return dayjs(rule.value).format("DD/MM/YYYY");
               }
-              if (rule.operator === 'between' && rule.value2) {
-                const val1 = field.type === 'date' ? dayjs(rule.value).format('DD/MM/YYYY') : rule.value;
-                const val2 = field.type === 'date' ? dayjs(rule.value2).format('DD/MM/YYYY') : rule.value2;
+              if (rule.operator === "between" && rule.value2) {
+                const val1 =
+                  field.type === "date" ? dayjs(rule.value).format("DD/MM/YYYY") : rule.value;
+                const val2 =
+                  field.type === "date" ? dayjs(rule.value2).format("DD/MM/YYYY") : rule.value2;
                 return `${val1} - ${val2}`;
               }
               return rule.value;
@@ -1307,7 +1563,7 @@ export default function EmployeeManagement() {
             return (
               <Chip
                 key={rule.id}
-                label={`${field?.label || rule.field} ${operatorLabel} ${displayValue || ''}`}
+                label={`${field?.label || rule.field} ${operatorLabel} ${displayValue || ""}`}
                 onDelete={() => removeFilter(rule.id)}
                 size="small"
                 color="primary"
@@ -1323,21 +1579,23 @@ export default function EmployeeManagement() {
 
       {/* Workforce Summary */}
       {(() => {
-        const activeCount = employeeStats?.totalActiveEmployees ?? employees.filter((employee) => !isEmployeeInactive(employee)).length;
-        const inactiveCount = employeeStats?.totalInactiveEmployees ?? employees.filter(isEmployeeInactive).length;
+        const activeCount =
+          employeeStats?.totalActiveEmployees ??
+          employees.filter((employee) => !isEmployeeInactive(employee)).length;
+        const inactiveCount =
+          employeeStats?.totalInactiveEmployees ?? employees.filter(isEmployeeInactive).length;
         const activeRate = employeeStats?.totalEmployees
           ? Math.round((activeCount / employeeStats.totalEmployees) * 100)
-          : total ? Math.round((activeCount / total) * 100) : 0;
+          : total
+            ? Math.round((activeCount / total) * 100)
+            : 0;
         const totalEmployees = employeeStats?.totalEmployees ?? total;
-        // const onboardingQueue = employeeStats?.onboardingQueue ?? employees.filter(
-        //   (employee) => employee.employeeStatus === "ONBOARDING",
-        // ).length;
-        const onboardingInProgress = employeeStats?.onboardingInProgress ?? employees.filter(
-          (employee) => employee.employeeStatus === "ONBOARDING_IN_PROGRESS",
-        ).length;
-        const onboardingCompleted = employeeStats?.onboardingCompleted ?? employees.filter(
-          (employee) => employee.employeeStatus === "ONBOARDING_COMPLETED",
-        ).length;
+        const onboardingInProgress =
+          employeeStats?.onboardingInProgress ??
+          employees.filter((employee) => employee.employeeStatus === "ONBOARDING_IN_PROGRESS").length;
+        const onboardingCompleted =
+          employeeStats?.onboardingCompleted ??
+          employees.filter((employee) => employee.employeeStatus === "ONBOARDING_COMPLETED").length;
 
         const summaryCards = [
           {
@@ -1376,14 +1634,6 @@ export default function EmployeeManagement() {
               setPage(0);
             },
           },
-          // {
-          //   label: "Onboarding Queue",
-          //   value: onboardingQueue,
-          //   detail: "Awaiting onboarding start",
-          //   icon: <ArrowUpward />,
-          //   tone: "text-amber-700 bg-amber-50",
-          //   bar: "bg-amber-500",
-          // },
           {
             label: "Onboarding InProgress",
             value: onboardingInProgress,
@@ -1413,17 +1663,21 @@ export default function EmployeeManagement() {
             {summaryCards.map((card) => (
               <div
                 key={card.label}
-                className="relative overflow-hidden rounded-xl border px-4 py-2 shadow-sm transition-shadow cursor-pointer"
+                className="relative overflow-hidden rounded-xl border border-gray-200 px-4 py-2 shadow-sm transition-shadow cursor-pointer"
                 onClick={card.onClick}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-medium text-gray-500 whitespace-nowrap">{card.label}</div>
+                    <div className="font-medium text-gray-500 whitespace-nowrap">
+                      {card.label}
+                    </div>
                     <div className="text-xl font-semibold tracking-tight text-gray-900">
                       {card.value}
                     </div>
                   </div>
-                  <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg ${card.tone}`}>
+                  <div
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-lg ${card.tone}`}
+                  >
                     {card.icon}
                   </div>
                 </div>
@@ -1433,7 +1687,9 @@ export default function EmployeeManagement() {
                 <div className="absolute bottom-0 left-0 h-1 w-full bg-gray-100">
                   <div
                     className={`h-full ${card.bar}`}
-                    style={{ width: `${total ? Math.min((card.value / total) * 100, 100) : 0}%` }}
+                    style={{
+                      width: `${total ? Math.min((card.value / total) * 100, 100) : 0}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -1462,7 +1718,12 @@ export default function EmployeeManagement() {
                 setPage(0);
               }}
               className={employeeView === view ? "!bg-primary !text-white" : "!text-gray-600"}
-              sx={{ borderRadius: 0, minWidth: 68, textTransform: "capitalize", whiteSpace: "nowrap" }}
+              sx={{
+                borderRadius: 0,
+                minWidth: 68,
+                textTransform: "capitalize",
+                whiteSpace: "nowrap",
+              }}
             >
               {view === "active" ? "Active" : view === "inactive" ? "Inactive" : "All"}
             </Button>
@@ -1491,27 +1752,14 @@ export default function EmployeeManagement() {
           Export
         </Button>
 
-        <Menu
-          anchorEl={exportAnchorEl}
-          open={Boolean(exportAnchorEl)}
-          onClose={closeExportMenu}
-        >
-          <MenuItem
-            className="!text-[12px]"
-            onClick={() => handleExport("csv")}
-          >
+        <Menu anchorEl={exportAnchorEl} open={Boolean(exportAnchorEl)} onClose={closeExportMenu}>
+          <MenuItem className="!text-[12px]" onClick={() => handleExport("csv")}>
             Export as CSV
           </MenuItem>
-          <MenuItem
-            className="!text-[12px]"
-            onClick={() => handleExport("xlsx")}
-          >
+          <MenuItem className="!text-[12px]" onClick={() => handleExport("xlsx")}>
             Export as Excel
           </MenuItem>
-          <MenuItem
-            className="!text-[12px]"
-            onClick={() => handleExport("pdf")}
-          >
+          <MenuItem className="!text-[12px]" onClick={() => handleExport("pdf")}>
             Export as PDF
           </MenuItem>
         </Menu>
@@ -1521,21 +1769,19 @@ export default function EmployeeManagement() {
       <TableContainer
         component={Paper}
         elevation={0}
-        className={`${activeFilters && activeFilters.rules.length > 0 ? "h-[calc(100vh-385px)]" : "h-[calc(100vh-330px)]"} overflow-auto border border-gray-200 !bg-white-50`}
+        className={`${activeFilters && activeFilters.rules.length > 0
+            ? "h-[calc(100vh-385px)]"
+            : "h-[calc(100vh-330px)]"
+          } overflow-auto border border-gray-200 !bg-white-50`}
       >
         <Table stickyHeader>
           <TableHead className="bg-gray-100">
             <TableRow>
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
-                sx={{
-                  ...stickyHeaderLeftSx,
-                  minWidth: "70px",
-                }}
+                sx={{ ...stickyHeaderLeftSx, minWidth: "70px" }}
               >
-                <div className="flex items-center gap-1">
-                  S No
-                </div>
+                <div className="flex items-center gap-1">S No</div>
               </TableCell>
               <TableCell
                 className="nth-c !font-semibold text-gray-800 cursor-pointer"
@@ -1553,7 +1799,8 @@ export default function EmployeeManagement() {
                 sx={{ ...stickyHeaderLeftOffsetSx("160px"), minWidth: "100px" }}
               >
                 <div className="relative flex items-center gap-1">
-                  Employee ID <Tooltip
+                  Employee ID{" "}
+                  <Tooltip
                     title="Few Information are missing for the highlighted employees (Department / Designation / Template / Group)"
                     arrow
                   >
@@ -1562,7 +1809,7 @@ export default function EmployeeManagement() {
                         !employee.department ||
                         !employee.designation ||
                         !employee.template ||
-                        !employee.employeeGroup
+                        !employee.employeeGroup,
                     ) ? (
                       <span className="animate-blink bg-red-500 w-2 h-2 rounded-full" />
                     ) : (
@@ -1589,7 +1836,6 @@ export default function EmployeeManagement() {
                 <div className="flex items-center gap-1">
                   Department
                   {getSortIcon("department")}
-
                 </div>
               </TableCell>
               <TableCell
@@ -1599,7 +1845,6 @@ export default function EmployeeManagement() {
                 <div className="flex items-center gap-1">
                   Designation
                   {getSortIcon("designation")}
-
                 </div>
               </TableCell>
               <TableCell
@@ -1638,39 +1883,21 @@ export default function EmployeeManagement() {
                   {getSortIcon("template")}
                 </div>
               </TableCell>
-              <TableCell
-                className="!font-semibold text-gray-800 cursor-pointer"
-              >
-                <div className="flex items-center gap-1">
-                  Relieved Date
-                </div>
+              <TableCell className="!font-semibold text-gray-800 cursor-pointer">
+                <div className="flex items-center gap-1">Relieved Date</div>
               </TableCell>
               <TableCell
                 className="!font-semibold text-gray-800 text-center"
-                sx={{
-                  ...stickyHeaderRightSx,
-                  minWidth: "100px",
-                }}
+                sx={{ ...stickyHeaderRightSx, minWidth: "100px" }}
               >
-                <div className="text-center">
-                  Actions
-                </div>
+                <div className="text-center">Actions</div>
               </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {employees.map((employee, index) => (
-              <TableRow
-                key={employee.id}
-                hover
-                sx={getRowColor(index)}
-              >
-                <TableCell
-                  sx={{
-                    ...getStickyLeftSx(index),
-                    minWidth: "70px",
-                  }}
-                >
+              <TableRow key={employee.id} hover sx={getRowColor(index)}>
+                <TableCell sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}>
                   {page * limit + index + 1}
                 </TableCell>
                 <TableCell
@@ -1690,12 +1917,13 @@ export default function EmployeeManagement() {
                     if (!employee.designation) missing.push("Designation");
                     if (!employee.template) missing.push("Template");
                     if (!employee.employeeGroup) missing.push("Group");
-
                     const isComplete = missing.length === 0;
 
                     return (
                       <Tooltip
-                        title={isComplete ? "All details assigned" : `Missing: ${missing.join(", ")}`}
+                        title={
+                          isComplete ? "All details assigned" : `Missing: ${missing.join(", ")}`
+                        }
                         arrow
                       >
                         <div
@@ -1714,47 +1942,25 @@ export default function EmployeeManagement() {
                 >
                   {employee.name}
                 </TableCell>
+                <TableCell>{employee.department || "-"}</TableCell>
+                <TableCell>{employee.designation || "-"}</TableCell>
                 <TableCell>
-                  {employee.department || "-"}
+                  {employee.joiningDate ? formatDate(employee.joiningDate) : "-"}
                 </TableCell>
-                <TableCell>
-                  {employee.designation || "-"}
-                </TableCell>
-                <TableCell>
-                  {employee.joiningDate
-                    ? formatDate(employee.joiningDate)
-                    : "-"}
-                </TableCell>
-                <TableCell>
-                  {employee.emailAddress}
-                </TableCell>
-                <TableCell>
-                  {employee.mobileNumber || "-"}
-                </TableCell>
-                <TableCell className="font-medium">
-                  {employee.template || '-'}
-                </TableCell>
-                <TableCell>
-                  {employee.relievedDate || "-"}
-                </TableCell>
+                <TableCell>{employee.emailAddress}</TableCell>
+                <TableCell>{employee.mobileNumber || "-"}</TableCell>
+                <TableCell className="font-medium">{employee.template || "-"}</TableCell>
+                <TableCell>{employee.relievedDate || "-"}</TableCell>
                 <TableCell
                   className="text-center"
-                  sx={{
-                    ...getStickyRightSx(index),
-                    minWidth: "50px",
-                  }}
+                  sx={{ ...getStickyRightSx(index), minWidth: "50px" }}
                 >
                   <div className="flex items-center justify-center">
-                    {/* {!isEmployeeInactive(employee) && ( */}
                     <Tooltip title="More Actions">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => openActionMenu(e, employee)}
-                      >
+                      <IconButton size="small" onClick={(e) => openActionMenu(e, employee)}>
                         <MoreVertOutlined className="!w-4 text-gray-800" />
                       </IconButton>
                     </Tooltip>
-                    {/* )} */}
                     {!isEmployeeInactive(employee) && (
                       <Tooltip title="Edit">
                         <IconButton
@@ -1778,11 +1984,11 @@ export default function EmployeeManagement() {
                         <IconButton
                           size="small"
                           onClick={() => {
-                            navigate(`/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`);
+                            navigate(
+                              `/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`,
+                            );
                           }}
-                          sx={{
-                            cursor: "pointer",
-                          }}
+                          sx={{ cursor: "pointer" }}
                         >
                           {employee.annualCtc && employee.annualCtc > 0 ? (
                             <PaidOutlined className="!w-4 text-green-600" />
@@ -1798,26 +2004,9 @@ export default function EmployeeManagement() {
                           size="small"
                           onClick={() => openDeactivateDialog(employee)}
                         >
-                          <NoAccountsOutlined
-                            className="!w-4"
-                            sx={{ color: "#ef4444" }}
-                          />
+                          <NoAccountsOutlined className="!w-4" sx={{ color: "#ef4444" }} />
                         </IconButton>
                       </Tooltip>
-                    // ) : (
-                    //   <Tooltip title="Reactivate">
-                    //     <IconButton
-                    //       size="small"
-                    //       onClick={() =>
-                    //         handleReactivateEmployee(employee.id, employee.name)
-                    //       }
-                    //     >
-                    //       <HowToRegOutlined
-                    //         className="!w-4"
-                    //         sx={{ color: "#16a34a" }}
-                    //       />
-                    //     </IconButton>
-                    //   </Tooltip>
                     )}
                   </div>
                 </TableCell>
@@ -1826,16 +2015,11 @@ export default function EmployeeManagement() {
             {employees.length === 0 && (
               <TableRow>
                 <TableCell colSpan={13} className="text-center py-8 text-gray-500">
-                  <DataState
-                    compact
-                    type="empty"
-                    title="No Employee Found."
-                  />
+                  <DataState compact type="empty" title="No Employee Found." />
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
-
         </Table>
       </TableContainer>
 
@@ -1876,9 +2060,7 @@ export default function EmployeeManagement() {
           <div className="text-gray-800 ml-4 text-[12px]">
             {isEditing ? "Edit Employee" : "Add New Employee"}
           </div>
-          <IconButton
-            onClick={() => setEmployeeDialogOpen(false)}
-          >
+          <IconButton onClick={() => setEmployeeDialogOpen(false)}>
             <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
@@ -1896,42 +2078,52 @@ export default function EmployeeManagement() {
               fullWidth
               label="Employee Name"
               value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, name: e.target.value });
+                clearFieldError("name");
+              }}
               required
               disabled={isEditing}
+              error={!!formErrors.name}
+              helperText={formErrors.name}
+              inputRef={(el) => { fieldRefs.current.name = el; }}
             />
             <TextField
               fullWidth
               label="Email ID"
               type="email"
               value={formData.emailAddress}
-              onChange={(e) =>
-                setFormData({ ...formData, emailAddress: e.target.value })
-              }
+              onChange={(e) => {
+                setFormData({ ...formData, emailAddress: e.target.value });
+                clearFieldError("emailAddress");
+              }}
               required
               disabled={isEditing}
+              error={!!formErrors.emailAddress}
+              helperText={formErrors.emailAddress}
+              inputRef={(el) => { fieldRefs.current.emailAddress = el; }}
             />
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
                 label="Date of Joining"
                 format="DD/MM/YYYY"
-                value={
-                  formData.joiningDate ? dayjs(formData.joiningDate) : null
-                }
-                onChange={(newValue) =>
+                value={formData.joiningDate ? dayjs(formData.joiningDate) : null}
+                onChange={(newValue) => {
                   setFormData({
                     ...formData,
-                    joiningDate: newValue
-                      ? dayjs(newValue).format("YYYY-MM-DD")
-                      : "",
-                  })
-                }
+                    joiningDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
+                  });
+                  clearFieldError("joiningDate");
+                }}
                 slotProps={{
                   textField: {
                     fullWidth: true,
-                    required: true
+                    required: true,
+                    error: !!formErrors.joiningDate,
+                    helperText: formErrors.joiningDate,
+                    inputRef: (el: HTMLInputElement | null) => {
+                      fieldRefs.current.joiningDate = el;
+                    },
                   },
                   openPickerButton: {
                     color: "primary",
@@ -1940,41 +2132,42 @@ export default function EmployeeManagement() {
                 }}
               />
             </LocalizationProvider>
-            {
-              !session?.branchId && <FormControl fullWidth>
+            {!session?.branchId && (
+              <FormControl fullWidth error={!!formErrors.branchId}>
                 <InputLabel>Branch</InputLabel>
                 <Select
                   value={formData.branch || ""}
                   label="Branch"
                   className="!text-[12px]"
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setFormData({
                       ...formData,
                       branch: e.target.value,
-                      branchId: branches.find(
-                        (d) => d.branchName === e.target.value,
-                      )?.id,
-                    })
-                  }
+                      branchId: branches.find((d) => d.branchName === e.target.value)?.id,
+                    });
+                    clearFieldError("branchId");
+                  }}
                 >
                   <MenuItem value="" className="!text-[12px]">
                     Select Branch
                   </MenuItem>
                   {branches.map((bran) => (
-                    <MenuItem
-                      key={bran.id}
-                      value={bran.branchName}
-                      className="!text-[12px]"
-                    >
-                      {bran.branchName} <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
+                    <MenuItem key={bran.id} value={bran.branchName} className="!text-[12px]">
+                      {bran.branchName}{" "}
+                      <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
                     </MenuItem>
                   ))}
                 </Select>
+                {formErrors.branchId && <FormHelperText>{formErrors.branchId}</FormHelperText>}
               </FormControl>
-            }
+            )}
             <Autocomplete
               fullWidth
-              options={formData.branch ? departments.filter((item) => item.branchName == formData.branch) : departments}
+              options={
+                formData.branch
+                  ? departments.filter((item) => item.branchName == formData.branch)
+                  : departments
+              }
               getOptionLabel={(option) => option.departmentName || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
               value={formData.department || null}
@@ -1984,13 +2177,18 @@ export default function EmployeeManagement() {
                   department: newValue,
                   departmentId: newValue?.id || "",
                 });
+                clearFieldError("departmentId");
               }}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label="Department"
+                  required
                   variant="outlined"
                   className="!text-[12px]"
+                  error={!!formErrors.departmentId}
+                  helperText={formErrors.departmentId}
+                  inputRef={(el) => { fieldRefs.current.departmentId = el; }}
                 />
               )}
               sx={masterSx}
@@ -2007,42 +2205,22 @@ export default function EmployeeManagement() {
                   designation: newValue,
                   designationId: newValue?.id || "",
                 });
+                clearFieldError("designationId");
               }}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   label="Designation"
                   variant="outlined"
+                  required
                   className="!text-[12px]"
+                  error={!!formErrors.designationId}
+                  helperText={formErrors.designationId}
+                  inputRef={(el) => { fieldRefs.current.designationId = el; }}
                 />
               )}
               sx={masterSx}
             />
-
-            {/* <Autocomplete
-              fullWidth
-              options={empStatus}
-              getOptionLabel={(option) => option.name || ""}
-              isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={formData.employeeStatus || ""}
-              disabled={!formData.joiningDate}
-              onChange={(_, newValue) => {
-                setFormData({
-                  ...formData,
-                  employeeStatus: newValue,
-                  employeeStatusId: newValue?.id || "",
-                });
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Employee Status"
-                  variant="outlined"
-                  className="!text-[12px]"
-                />
-              )}
-              sx={masterSx}
-            /> */}
 
             {!isEditing && (
               <>
@@ -2050,58 +2228,87 @@ export default function EmployeeManagement() {
                   fullWidth
                   label="Mobile Number"
                   value={formData.mobileNumber}
-                  onChange={(e) =>
-                    setFormData({ ...formData, mobileNumber: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, mobileNumber: e.target.value });
+                    clearFieldError("mobileNumber");
+                  }}
+                  error={!!formErrors.mobileNumber}
+                  helperText={formErrors.mobileNumber}
+                  inputRef={(el) => { fieldRefs.current.mobileNumber = el; }}
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 10
+                    }
+                  }}
                 />
                 <FormControlLabel
                   control={
                     <Checkbox
                       checked={previouslyWorked}
+                      className="text-gray-800"
                       onChange={(e) => {
                         const checked = e.target.checked;
                         setPreviouslyWorked(checked);
-                        if (!checked) setPreviousEmployeeId("");
+                        if (!checked) {
+                          previousEmployeeRequestId.current += 1;
+                          setPreviousEmployeeId("");
+                          setPreviousEmployeeDetails(null);
+                          setPreviousDetailsLoading(false);
+                          setInactiveEmployeesLoading(false);
+                          setFetchPreviousData(false);
+                          clearFieldError("previousEmployeeId");
+                        }
                       }}
                     />
                   }
                   label="Previously worked here (rejoining employee)"
                 />
                 {previouslyWorked && (
-                  <Autocomplete
-                    fullWidth
-                    loading={inactiveEmployeesLoading}
-                    options={inactiveEmployees}
-                    getOptionLabel={(option) =>
-                      `${option.name ?? ""} (${option.employeeId ?? ""})`
-                    }
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    value={
-                      inactiveEmployees.find((emp) => emp.id === previousEmployeeId) || null
-                    }
-                    onChange={(_, newValue) => {
-                      setPreviousEmployeeId(newValue?.id || "");
-                      // Optionally prefill some basic info for the rejoin
-                      if (newValue) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          name: prev.name || newValue.name || "",
-                          emailAddress: prev.emailAddress || newValue.emailAddress || "",
-                        }));
+                  <>
+                    <Autocomplete
+                      fullWidth
+                      loading={inactiveEmployeesLoading || previousDetailsLoading}
+                      options={inactiveEmployees}
+                      getOptionLabel={(option) =>
+                        `${option.name ?? ""} (${option.employeeId ?? ""})`
                       }
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Previous Employee ID (old, inactive record)"
-                        variant="outlined"
-                        required
-                        className="!text-[12px]"
-                        helperText="The rejoin is created as a new employee with a new ID. The old record is left untouched."
-                      />
-                    )}
-                    sx={masterSx}
-                  />
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      value={inactiveEmployees.find((emp) => emp.id === previousEmployeeId) || null}
+                      onChange={(_, newValue) => handleSelectPreviousEmployee(newValue)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Previous Employee ID (old, inactive record) *"
+                          variant="outlined"
+                          required
+                          className="!text-[12px]"
+                          error={!!formErrors.previousEmployeeId}
+                          helperText={
+                            formErrors.previousEmployeeId ||
+                            "The rejoin is created as a new employee with a new ID. The old record is left untouched."
+                          }
+                          inputRef={(el) => { fieldRefs.current.previousEmployeeId = el; }}
+                        />
+                      )}
+                      sx={masterSx}
+                    />
+                    <FormControlLabel
+                      className="md:col-span-2"
+                      control={
+                        <Checkbox
+                          checked={fetchPreviousData}
+                          className="text-gray-800"
+                          onChange={(e) => setFetchPreviousData(e.target.checked)}
+                          disabled={!previousEmployeeDetails || previousDetailsLoading}
+                        />
+                      }
+                      label={
+                        previousDetailsLoading
+                          ? "Loading previous employee details…"
+                          : "Fetch and apply all previous employee data (department, designation, group, template, branch, mobile, etc.) to this new record"
+                      }
+                    />
+                  </>
                 )}
               </>
             )}
@@ -2110,13 +2317,14 @@ export default function EmployeeManagement() {
               options={employeeGroups}
               getOptionLabel={(option) => option.name || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={formData.employeeGroup || ""}
+              value={formData.employeeGroup || null}
               onChange={(_, newValue) => {
                 setFormData({
                   ...formData,
                   employeeGroup: newValue,
                   employeeGroupId: newValue?.id || "",
                 });
+                clearFieldError("employeeGroupId");
               }}
               renderInput={(params) => (
                 <TextField
@@ -2124,7 +2332,10 @@ export default function EmployeeManagement() {
                   label="Employee Group"
                   variant="outlined"
                   className="!text-[12px]"
-                  required={true}
+                  required
+                  error={!!formErrors.employeeGroupId}
+                  helperText={formErrors.employeeGroupId}
+                  inputRef={(el) => { fieldRefs.current.employeeGroupId = el; }}
                 />
               )}
               sx={masterSx}
@@ -2134,13 +2345,14 @@ export default function EmployeeManagement() {
               options={shiftCommonTemplates}
               getOptionLabel={(option) => option.name || ""}
               isOptionEqualToValue={(option, value) => option.id === value.id}
-              value={formData.template || ""}
+              value={formData.template || null}
               onChange={(_, newValue) => {
                 setFormData({
                   ...formData,
                   template: newValue,
                   templateId: newValue?.id || "",
                 });
+                clearFieldError("templateId");
               }}
               renderInput={(params) => (
                 <TextField
@@ -2148,7 +2360,10 @@ export default function EmployeeManagement() {
                   label="Shift Common Template"
                   variant="outlined"
                   className="!text-[12px]"
-                  required={true}
+                  required
+                  error={!!formErrors.templateId}
+                  helperText={formErrors.templateId}
+                  inputRef={(el) => { fieldRefs.current.templateId = el; }}
                 />
               )}
               sx={masterSx}
@@ -2160,7 +2375,10 @@ export default function EmployeeManagement() {
                 control={
                   <Checkbox
                     checked={hasManualEmpId}
-                    onChange={(e) => setHasManualEmpId(e.target.checked)}
+                    onChange={(e) => {
+                      setHasManualEmpId(e.target.checked);
+                      clearFieldError("manualEmployeeId");
+                    }}
                     className="text-gray-800"
                   />
                 }
@@ -2170,33 +2388,24 @@ export default function EmployeeManagement() {
 
               <div className="md:col-span-2 border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-800">
-                    Employee ID Configuration
-                  </div>
-                  <Button variant="contained" size="small" onClick={getEmployeeIdForCreation}>
+                  <div className="font-semibold text-gray-800">Employee ID Configuration</div>
+                  <Button variant="contained" size="small" onClick={configureEmployeeId}>
                     Configure
                   </Button>
                 </div>
                 {!hasManualEmpId ? (
                   <>
                     <FormControl fullWidth className="!mt-6">
-                      <InputLabel>
-                        Generation Flow
-                      </InputLabel>
+                      <InputLabel>Generation Flow</InputLabel>
                       <Select
                         value={empGenerationFlow}
                         label="Generation Flow"
                         className="!text-[12px]"
                         onChange={(e) =>
-                          setEmpGenerationFlow(
-                            e.target.value as "new" | "continue",
-                          )
+                          setEmpGenerationFlow(e.target.value as "new" | "continue")
                         }
                       >
-                        <MenuItem
-                          value="new"
-                          className="!text-[12px]"
-                        >
+                        <MenuItem value="new" className="!text-[12px]">
                           Generate With New Pattern
                         </MenuItem>
                         <MenuItem
@@ -2210,33 +2419,25 @@ export default function EmployeeManagement() {
                     </FormControl>
 
                     {empGenerationFlow === "new" && (
-                      <div className={`grid grid-cols-1 ${empCodeType === "pattern" ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 mt-6`}>
+                      <div
+                        className={`grid grid-cols-1 ${empCodeType === "pattern" ? "md:grid-cols-4" : "md:grid-cols-3"
+                          } gap-4 mt-6`}
+                      >
                         <FormControl fullWidth>
-                          <InputLabel>
-                            Format Type
-                          </InputLabel>
+                          <InputLabel>Format Type</InputLabel>
                           <Select
                             value={empCodeType}
                             label="Format Type"
                             className="!text-[12px]"
                             onChange={(e) => setEmpCodeType(e.target.value)}
                           >
-                            <MenuItem
-                              value="pattern"
-                              className="!text-[12px]"
-                            >
+                            <MenuItem value="pattern" className="!text-[12px]">
                               Pattern
                             </MenuItem>
-                            <MenuItem
-                              value="alphanumeric"
-                              className="!text-[12px]"
-                            >
+                            <MenuItem value="alphanumeric" className="!text-[12px]">
                               Alphanumeric
                             </MenuItem>
-                            <MenuItem
-                              value="number"
-                              className="!text-[12px]"
-                            >
+                            <MenuItem value="number" className="!text-[12px]">
                               Number
                             </MenuItem>
                           </Select>
@@ -2276,7 +2477,7 @@ export default function EmployeeManagement() {
                                 setZero(
                                   newZero < empStartNumber.length
                                     ? empStartNumber.length
-                                    : newZero
+                                    : newZero,
                                 );
                               }}
                               slotProps={{ htmlInput: { min: empStartNumber.length } }}
@@ -2323,7 +2524,7 @@ export default function EmployeeManagement() {
                                 setZero(
                                   newZero < empStartNumber.length
                                     ? empStartNumber.length
-                                    : newZero
+                                    : newZero,
                                 );
                               }}
                               slotProps={{ htmlInput: { min: empStartNumber.length } }}
@@ -2341,16 +2542,12 @@ export default function EmployeeManagement() {
                             <div>
                               Last Generated ID:&nbsp;
                               <strong>
-                                {employeeIdConfig?.lastGeneratedId ||
-                                  "No Employees"}
+                                {employeeIdConfig?.lastGeneratedId || "No Employees"}
                               </strong>
                             </div>
-
                             <div>
                               Next Sequence:&nbsp;
-                              <strong>
-                                {employeeIdConfig?.nextSequencePreview || "N/A"}
-                              </strong>
+                              <strong>{employeeIdConfig?.nextSequencePreview || "N/A"}</strong>
                             </div>
                           </>
                         )}
@@ -2368,11 +2565,16 @@ export default function EmployeeManagement() {
                   <div className="mt-4">
                     <TextField
                       fullWidth
-                      label="Employee ID"
+                      label="Employee ID *"
                       value={manualEmployeeId}
-                      onChange={(e) => setManualEmployeeId(e.target.value)}
+                      onChange={(e) => {
+                        setManualEmployeeId(e.target.value);
+                        clearFieldError("manualEmployeeId");
+                      }}
                       placeholder="EMP001"
-                      helperText="Enter unique employee ID"
+                      error={!!formErrors.manualEmployeeId}
+                      helperText={formErrors.manualEmployeeId || "Enter unique employee ID"}
+                      inputRef={(el) => { fieldRefs.current.manualEmployeeId = el; }}
                     />
                   </div>
                 )}
@@ -2380,8 +2582,7 @@ export default function EmployeeManagement() {
             </>
           )}
           <div className="text-[12px] text-gray-500 mt-2">
-            On saving, onboarding will begin and the employee will receive a
-            password setup email.
+            On saving, onboarding will begin and the employee will receive a password setup email.
           </div>
         </DialogContent>
         <DialogActions className="!p-4 border-t !border-gray-300">
@@ -2392,11 +2593,7 @@ export default function EmployeeManagement() {
           >
             Cancel
           </Button>
-          <Button
-            onClick={() => handleSaveEmployee()}
-            variant="contained"
-            className="!bg-primary"
-          >
+          <Button onClick={() => handleSaveEmployee()} variant="contained" className="!bg-primary">
             {isEditing ? "Update Employee" : "Add & Send Welcome Email"}
           </Button>
         </DialogActions>
@@ -2410,57 +2607,43 @@ export default function EmployeeManagement() {
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        {actionMenuEmployee && !isEmployeeInactive(actionMenuEmployee) &&
-          (
-            <MenuItem
-              className="!text-[12px]"
-              onClick={() => {
-                if (actionMenuEmployee)
-                  navigate(`/employees/${actionMenuEmployee.id}`);
-                closeActionMenu();
-              }}
-            >
-              <VisibilityOutlined
-                className="!w-4 mr-2"
-                sx={{ color: "var(--color-primary)" }}
-              />
-              View Details
-            </MenuItem>
-          )
-        }
+        {actionMenuEmployee && !isEmployeeInactive(actionMenuEmployee) && (
+          <MenuItem
+            className="!text-[12px]"
+            onClick={() => {
+              if (actionMenuEmployee) navigate(`/employees/${actionMenuEmployee.id}`);
+              closeActionMenu();
+            }}
+          >
+            <VisibilityOutlined className="!w-4 mr-2" sx={{ color: "var(--color-primary)" }} />
+            View Details
+          </MenuItem>
+        )}
 
-        {actionMenuEmployee && !isEmployeeInactive(actionMenuEmployee) &&
-          (
-            <MenuItem
-              className="!text-[12px]"
-              onClick={(e) => {
-                if (actionMenuEmployee) openExportMenu(e, actionMenuEmployee.id);
-                // closeActionMenu();
-              }}
-            >
-              <FileDownloadOutlined
-                className="!w-4 mr-2"
-                color="primary"
-              />
-              Export Employee
-            </MenuItem>
-          )
-        }
+        {actionMenuEmployee && !isEmployeeInactive(actionMenuEmployee) && (
+          <MenuItem
+            className="!text-[12px]"
+            onClick={(e) => {
+              if (actionMenuEmployee) openExportMenu(e, actionMenuEmployee.id);
+            }}
+          >
+            <FileDownloadOutlined className="!w-4 mr-2" color="primary" />
+            Export Employee
+          </MenuItem>
+        )}
 
-        {actionMenuEmployee && isEmployeeInactive(actionMenuEmployee) &&
-          // attendanceRecordState[actionMenuEmployee.id] === false &&
-          (
-            <MenuItem
-              className="!text-[12px] !text-red-600"
-              onClick={() => {
-                handleHardDeleteEmployee(actionMenuEmployee);
-                closeActionMenu();
-              }}
-            >
-              <Delete className="!w-4 mr-2" color="error" />
-              Delete Permanently
-            </MenuItem>
-          )}
+        {actionMenuEmployee && isEmployeeInactive(actionMenuEmployee) && (
+          <MenuItem
+            className="!text-[12px] !text-red-600"
+            onClick={() => {
+              handleHardDeleteEmployee(actionMenuEmployee);
+              closeActionMenu();
+            }}
+          >
+            <Delete className="!w-4 mr-2" color="error" />
+            Delete Permanently
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Relieving Date Dialog */}
@@ -2471,19 +2654,14 @@ export default function EmployeeManagement() {
         fullWidth
       >
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
-          <div className="text-gray-800 text-[12px] ml-4 font-medium">
-            Deactivate Employee
-          </div>
-          <IconButton
-            onClick={() => setRelievingDialogOpen(false)}
-          >
+          <div className="text-gray-800 text-[12px] ml-4 font-medium">Deactivate Employee</div>
+          <IconButton onClick={() => setRelievingDialogOpen(false)}>
             <CloseOutlined className="!text-gray-800" />
           </IconButton>
         </div>
         <DialogContent>
           <div className="text-[12px] text-gray-600 mb-5">
-            Enter the relieving date for{" "}
-            <strong>{relievingDialogEmployee?.name}</strong>
+            Enter the relieving date for <strong>{relievingDialogEmployee?.name}</strong>
           </div>
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <DatePicker
@@ -2494,7 +2672,9 @@ export default function EmployeeManagement() {
                 (() => {
                   const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
                   const generated = proposed
-                    ? dayjs(proposed).add(Number(relievingDialogEmployee?.noticePeriod || 0), "day").format("YYYY-MM-DD")
+                    ? dayjs(proposed)
+                      .add(Number(relievingDialogEmployee?.noticePeriod || 0), "day")
+                      .format("YYYY-MM-DD")
                     : "";
                   setProposedRelievedDate(proposed);
                   setSystemGeneratedRelievedDate(generated);
@@ -2518,14 +2698,24 @@ export default function EmployeeManagement() {
               label="Relieved Date"
               format="DD/MM/YYYY"
               value={relievingDate ? dayjs(relievingDate) : null}
-              onChange={(newValue) => setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+              onChange={(newValue) =>
+                setRelievingDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
+              }
               slotProps={{ textField: { className: "!mt-4" } }}
             />
           </LocalizationProvider>
           <FormControl fullWidth className="!mt-4">
             <InputLabel>Resignation Type</InputLabel>
-            <Select value={resignationType} label="Resignation Type" onChange={(event) => setResignationType(event.target.value)}>
-              {resignationTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+            <Select
+              value={resignationType}
+              label="Resignation Type"
+              onChange={(event) => setResignationType(event.target.value)}
+            >
+              {resignationTypes.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {type}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <TextField
@@ -2558,10 +2748,7 @@ export default function EmployeeManagement() {
           <Button
             onClick={async () => {
               if (relievingDialogEmployee) {
-                await updateReleivingDate(
-                  relievingDialogEmployee,
-                  relievingDate, adminRemarks
-                );
+                await updateReleivingDate(relievingDialogEmployee, relievingDate, adminRemarks);
                 setRelievingDialogOpen(false);
                 setRelievingDate("");
                 setProposedRelievedDate("");
@@ -2587,9 +2774,7 @@ export default function EmployeeManagement() {
         fullWidth
       >
         <div className="flex items-center justify-between border-b border-gray-300 p-2">
-          <div className="text-gray-800 ml-4 text-[12px] font-medium">
-            Resigned Employees
-          </div>
+          <div className="text-gray-800 ml-4 text-[12px] font-medium">Resigned Employees</div>
           <IconButton onClick={() => setResignedDialogOpen(false)}>
             <CloseOutlined className="!text-gray-800" />
           </IconButton>
@@ -2622,25 +2807,56 @@ export default function EmployeeManagement() {
                       <TableCell>
                         <IconButton
                           size="small"
-                          aria-label={expandedResignedEmployeeId === employee.id ? "Collapse employee details" : "Expand employee details"}
+                          aria-label={
+                            expandedResignedEmployeeId === employee.id
+                              ? "Collapse employee details"
+                              : "Expand employee details"
+                          }
                           onClick={() => toggleResignedEmployeeDetails(employee)}
                         >
-                          {expandedResignedEmployeeId === employee.id ? <ExpandLessOutlined className="!text-gray-800" /> : <ExpandMoreOutlined className="!text-gray-800" />}
+                          {expandedResignedEmployeeId === employee.id ? (
+                            <ExpandLessOutlined className="!text-gray-800" />
+                          ) : (
+                            <ExpandMoreOutlined className="!text-gray-800" />
+                          )}
                         </IconButton>
                         {index + 1}
                       </TableCell>
-                      <TableCell><div className="py-2">{employee.name || "-"}</div></TableCell>
                       <TableCell>
-                        {getResignedField(employee, "deactivationReason", "deactivatedReason", "reason", "remarks")}
+                        <div className="py-2">{employee.name || "-"}</div>
                       </TableCell>
-                      <TableCell>{getResignedField(employee, "adminRemarks", "remarks")}</TableCell>
                       <TableCell>
-                        {getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt") !== "-"
-                          ? formatDate(getResignedField(employee, "relievedDate", "relievingDate", "deactivatedAt"))
+                        {getResignedField(
+                          employee,
+                          "deactivationReason",
+                          "deactivatedReason",
+                          "reason",
+                          "remarks",
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getResignedField(employee, "adminRemarks", "remarks")}
+                      </TableCell>
+                      <TableCell>
+                        {getResignedField(
+                          employee,
+                          "relievedDate",
+                          "relievingDate",
+                          "deactivatedAt",
+                        ) !== "-"
+                          ? formatDate(
+                            getResignedField(
+                              employee,
+                              "relievedDate",
+                              "relievingDate",
+                              "deactivatedAt",
+                            ),
+                          )
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") === "-"
+                        {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") ===
+                          "-"
                           ? "-"
                           : getResignedField(employee, "eligibleForRehire", "eligibleToRehire")
                             ? "Yes"
@@ -2651,7 +2867,9 @@ export default function EmployeeManagement() {
                       <TableRow>
                         <TableCell colSpan={6} className="!bg-primary-50 border border-gray-200">
                           {resignedDetailsLoading === employee.id ? (
-                            <div className="py-4 text-center text-gray-500">Loading employee details...</div>
+                            <div className="py-4 text-center text-gray-500">
+                              Loading employee details...
+                            </div>
                           ) : (
                             <div className="grid grid-cols-1 gap-3 p-3 text-[12px] md:grid-cols-3">
                               {[
@@ -2672,15 +2890,25 @@ export default function EmployeeManagement() {
                                 ["Deactivation Remarks", "deactivationRemarks"],
                                 ["Eligible to Rehire", "eligibleForRehire"],
                               ].map(([label, field]) => {
-                                const value = getResignedField(resignedEmployeeDetails[employee.id] || employee, field);
+                                const value = getResignedField(
+                                  resignedEmployeeDetails[employee.id] || employee,
+                                  field,
+                                );
                                 return (
                                   <div key={field}>
                                     <div className="font-medium text-gray-500">{label}</div>
                                     <div className="mt-1 text-gray-800">
-                                      {field.toLowerCase().includes("date") || field === "deactivatedAt"
-                                        ? value === "-" ? "-" : formatDate(value)
+                                      {field.toLowerCase().includes("date") ||
+                                        field === "deactivatedAt"
+                                        ? value === "-"
+                                          ? "-"
+                                          : formatDate(value)
                                         : field === "eligibleForRehire"
-                                          ? value === "-" ? "-" : value ? "Yes" : "No"
+                                          ? value === "-"
+                                            ? "-"
+                                            : value
+                                              ? "Yes"
+                                              : "No"
                                           : value}
                                     </div>
                                   </div>
@@ -2721,9 +2949,8 @@ export default function EmployeeManagement() {
         </div>
         <DialogContent>
           <Alert severity="info" className="mb-4">
-            Download the template, fill in employee details, and upload the
-            file. Backend sends invite / welcome emails to newly imported
-            employees automatically.
+            Download the template, fill in employee details, and upload the file. Backend sends
+            invite / welcome emails to newly imported employees automatically.
           </Alert>
 
           <div className="text-center mb-4">
@@ -2735,10 +2962,7 @@ export default function EmployeeManagement() {
                 try {
                   await employeeService.downloadBulkUploadTemplate();
                 } catch (error: any) {
-                  showSnackbar(
-                    error.message || "Failed to download template.",
-                    "error",
-                  );
+                  showSnackbar(error.message || "Failed to download template.", "error");
                 } finally {
                   hideSpinner();
                 }
@@ -2752,10 +2976,9 @@ export default function EmployeeManagement() {
               control={
                 <Checkbox
                   checked={excelHasEmployeeIdColumn}
-                  onChange={(e) =>
-                    setExcelHasEmployeeIdColumn(e.target.checked)
-                  }
-                  className={`text-gray-800 ${!excelHasEmployeeIdColumn ? "animate-blink" : ""}`}
+                  onChange={(e) => setExcelHasEmployeeIdColumn(e.target.checked)}
+                  className={`text-gray-800 ${!excelHasEmployeeIdColumn ? "animate-blink" : ""
+                    }`}
                   disabled={!employeeIdConfig?.configured}
                 />
               }
@@ -2771,10 +2994,11 @@ export default function EmployeeManagement() {
               ]
             </div>
           </div>
-          {
-            !employeeIdConfig?.configured &&
-            <div className="mb-2 text-[12px] text-amber-800">To configure Click "Add Employee" Button to configure the ID generation</div>
-          }
+          {!employeeIdConfig?.configured && (
+            <div className="mb-2 text-[12px] text-amber-800">
+              To configure Click "Add Employee" Button to configure the ID generation
+            </div>
+          )}
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
             <input
               type="file"
@@ -2788,36 +3012,28 @@ export default function EmployeeManagement() {
             />
             <label htmlFor="file-upload" className="cursor-pointer">
               <CloudUploadOutlined className="text-6xl text-gray-400 mb-2" />
-              <Typography
-                variant="body1"
-                className="text-gray-600"
-              >
+              <Typography variant="body1" className="text-gray-600">
                 {uploadFile ? uploadFile.name : "Click to select a file"}
               </Typography>
-              <Typography
-                variant="caption"
-                className="text-gray-400"
-              >
+              <Typography variant="caption" className="text-gray-400">
                 Accepted formats: CSV, XLSX &nbsp;·&nbsp; Max size: 10 MB
               </Typography>
-              <Typography
-                variant="body1"
-              >
-                Required Fields: <span className="text-red-500 font-bold">First Name - Last Name - Email {(!employeeIdConfig?.configured || excelHasEmployeeIdColumn) ? '- EmployeeID' : ''}</span>
+              <Typography variant="body1">
+                Required Fields:{" "}
+                <span className="text-red-500 font-bold">
+                  First Name - Last Name - Email{" "}
+                  {!employeeIdConfig?.configured || excelHasEmployeeIdColumn
+                    ? "- EmployeeID"
+                    : ""}
+                </span>
               </Typography>
             </label>
           </div>
 
           {uploadProgress > 0 && uploadProgress < 100 && (
             <Box className="mt-4">
-              <LinearProgress
-                variant="determinate"
-                value={uploadProgress}
-              />
-              <Typography
-                variant="caption"
-                className="text-gray-500 mt-1"
-              >
+              <LinearProgress variant="determinate" value={uploadProgress} />
+              <Typography variant="caption" className="text-gray-500 mt-1">
                 Uploading: {uploadProgress}%
               </Typography>
             </Box>
@@ -2827,25 +3043,20 @@ export default function EmployeeManagement() {
             <div className="mt-4 space-y-4">
               <div
                 className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
-                  ? "border-orange-200 bg-orange-50/40"
-                  : "border-green-200 bg-green-50"
+                    ? "border-orange-200 bg-orange-50/40"
+                    : "border-green-200 bg-green-50"
                   }`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <div className="font-semibold text-gray-800 text-base">
-                      Upload Result
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {uploadResult.fileName}
-                    </div>
+                    <div className="font-semibold text-gray-800 text-base">Upload Result</div>
+                    <div className="text-xs text-gray-500">{uploadResult.fileName}</div>
                   </div>
 
                   <Chip
                     label={uploadResult.status || "COMPLETED"}
                     color={
-                      uploadResult?.failureCount &&
-                        uploadResult?.failureCount > 0
+                      uploadResult?.failureCount && uploadResult?.failureCount > 0
                         ? "warning"
                         : "success"
                     }
@@ -2856,9 +3067,7 @@ export default function EmployeeManagement() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="bg-white rounded-lg border p-3">
                     <div className="text-xs text-gray-500">Total Records</div>
-                    <div className="font-bold text-lg">
-                      {uploadResult.totalRecords ?? 0}
-                    </div>
+                    <div className="font-bold text-lg">{uploadResult.totalRecords ?? 0}</div>
                   </div>
 
                   <div className="bg-white rounded-lg border p-3">
@@ -2876,18 +3085,14 @@ export default function EmployeeManagement() {
                   </div>
 
                   <div className="bg-white rounded-lg border p-3">
-                    <div className="text-xs text-gray-500">
-                      Welcome Emails Sent
-                    </div>
+                    <div className="text-xs text-gray-500">Welcome Emails Sent</div>
                     <div className="font-bold text-lg text-blue-600">
                       {uploadResult.welcomeEmailsSent ?? 0}
                     </div>
                   </div>
 
                   <div className="bg-white rounded-lg border p-3">
-                    <div className="text-xs text-gray-500">
-                      Welcome Emails Failed
-                    </div>
+                    <div className="text-xs text-gray-500">Welcome Emails Failed</div>
                     <div className="font-bold text-lg text-orange-600">
                       {uploadResult.welcomeEmailsFailed ?? 0}
                     </div>
@@ -2905,75 +3110,56 @@ export default function EmployeeManagement() {
 
                 {uploadResult.jobId && (
                   <div className="mt-3 text-xs text-gray-500 border-t pt-2">
-                    Job ID:{" "}
-                    <span className="font-mono">{uploadResult.jobId}</span>
+                    Job ID: <span className="font-mono">{uploadResult.jobId}</span>
                   </div>
                 )}
               </div>
 
-              {uploadResult.generatedEmployeeIds &&
-                uploadResult.generatedEmployeeIds?.length > 0 && (
-                  <div className="border border-green-200 rounded-lg p-4 bg-green-50">
-                    <div className="flex items-center gap-2 mb-3">
-                      <CheckCircleOutlined
-                        fontSize="small"
+              {uploadResult.generatedEmployeeIds && uploadResult.generatedEmployeeIds?.length > 0 && (
+                <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircleOutlined fontSize="small" color="success" />
+                    <div className="font-semibold text-green-700">Generated Employee IDs</div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
+                    {uploadResult.generatedEmployeeIds.map((id: string, index: number) => (
+                      <Chip
+                        key={`${id}-${index}`}
+                        label={id}
                         color="success"
+                        variant="outlined"
+                        size="small"
                       />
-                      <div className="font-semibold text-green-700">
-                        Generated Employee IDs
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {uploadResult.welcomeEmailFailures && uploadResult.welcomeEmailFailures?.length > 0 && (
+                <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                  <div className="font-semibold text-orange-700 mb-3">Welcome Email Failures</div>
+
+                  <div className="max-h-40 overflow-auto space-y-2">
+                    {uploadResult.welcomeEmailFailures.map((failure: string, index: number) => (
+                      <div
+                        key={index}
+                        className="text-sm text-orange-700 bg-white border rounded p-2"
+                      >
+                        {failure}
                       </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
-                      {uploadResult.generatedEmployeeIds.map(
-                        (id: string, index: number) => (
-                          <Chip
-                            key={`${id}-${index}`}
-                            label={id}
-                            color="success"
-                            variant="outlined"
-                            size="small"
-                          />
-                        ),
-                      )}
-                    </div>
+                    ))}
                   </div>
-                )}
-
-              {uploadResult.welcomeEmailFailures &&
-                uploadResult.welcomeEmailFailures?.length > 0 && (
-                  <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-                    <div className="font-semibold text-orange-700 mb-3">
-                      Welcome Email Failures
-                    </div>
-
-                    <div className="max-h-40 overflow-auto space-y-2">
-                      {uploadResult.welcomeEmailFailures.map(
-                        (failure: string, index: number) => (
-                          <div
-                            key={index}
-                            className="text-sm text-orange-700 bg-white border rounded p-2"
-                          >
-                            {failure}
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                )}
+                </div>
+              )}
 
               {uploadResult.errors && uploadResult.errors?.length > 0 && (
                 <div className="border border-red-200 rounded-lg p-4 bg-red-50">
-                  <div className="font-semibold text-red-700 mb-3">
-                    Row Errors
-                  </div>
+                  <div className="font-semibold text-red-700 mb-3">Row Errors</div>
 
                   <div className="max-h-72 overflow-auto space-y-3">
                     {uploadResult.errors.map((err: any, index: number) => (
-                      <div
-                        key={index}
-                        className="bg-white border border-red-100 rounded-lg p-3"
-                      >
+                      <div key={index} className="bg-white border border-red-100 rounded-lg p-3">
                         {(err.row ?? err.rowNumber) !== undefined && (
                           <div className="font-medium text-red-700">
                             Row {err.row ?? err.rowNumber}
@@ -2988,9 +3174,7 @@ export default function EmployeeManagement() {
                         )}
 
                         {err.message && (
-                          <div className="text-sm text-red-600 mt-1">
-                            {err.message}
-                          </div>
+                          <div className="text-sm text-red-600 mt-1">{err.message}</div>
                         )}
 
                         {err.errors && (
@@ -3051,24 +3235,21 @@ export default function EmployeeManagement() {
 
           <div className="text-[12px] text-gray-700 space-y-2">
             <div>
-              <span className="font-medium">Employee:</span>{" "}
-              {hardDeleteErrorEmployee?.name}
+              <span className="font-medium">Employee:</span> {hardDeleteErrorEmployee?.name}
               {hardDeleteErrorEmployee?.employeeId
                 ? ` (${hardDeleteErrorEmployee.employeeId})`
                 : ""}
             </div>
 
-            <div className="pt-1 text-gray-600">
-              To proceed, you can either:
-            </div>
+            <div className="pt-1 text-gray-600">To proceed, you can either:</div>
             <ul className="list-disc ml-5 text-gray-600 space-y-1">
               <li>
-                <strong>Deactivate</strong> the employee instead — history is
-                preserved and they can be reactivated later.
+                <strong>Deactivate</strong> the employee instead — history is preserved and they
+                can be reactivated later.
               </li>
               <li>
-                <strong>Clear the attendance history</strong> for this employee
-                first, then retry the permanent delete.
+                <strong>Clear the attendance history</strong> for this employee first, then retry
+                the permanent delete.
               </li>
             </ul>
           </div>
@@ -3086,17 +3267,6 @@ export default function EmployeeManagement() {
           >
             Cancel
           </Button>
-          {/* <Button
-            onClick={() => {
-              setHardDeleteErrorDialogOpen(false);
-              // optionally jump to attendance for this employee
-              // navigate(`/attendance/employee/${...}`);
-            }}
-            variant="contained"
-            className="!bg-primary"
-          >
-            Go to Attendance
-          </Button> */}
           <Button
             onClick={() => {
               const emp = hardDeleteErrorEmployee;

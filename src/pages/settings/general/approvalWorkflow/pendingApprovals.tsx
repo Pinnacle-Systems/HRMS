@@ -24,6 +24,7 @@ import {
   type ApprovalRequest,
 } from "../../../../services/modules/approvalWorkflow";
 import { useUI } from "../../../../context/Snackbar";
+import { formatDateTime } from "../../../../utils/dateFormatter";
 
 const statusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -49,12 +50,12 @@ const decisionColor = (decision: string) => {
   }
 };
 
-const formatDate = (value?: string | null) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
-};
+// const formatDate = (value?: string | null) => {
+//   if (!value) return "—";
+//   const d = new Date(value);
+//   if (isNaN(d.getTime())) return "—";
+//   return d.toLocaleString();
+// };
 
 export default function PendingApprovals() {
   const [requests, setRequests] = useState<ApprovalRequest[]>([]);
@@ -79,7 +80,7 @@ export default function PendingApprovals() {
   };
 
   useEffect(() => {
-    loadPending();
+    void loadPending();
   }, []);
 
   const filtered = useMemo(() => {
@@ -164,11 +165,11 @@ export default function PendingApprovals() {
                       <TableCell>{idx + 1 }</TableCell>
                       <TableCell>{r.workflowName}</TableCell>
                       <TableCell>{r.moduleName}</TableCell>
-                      <TableCell>{r.submittedByName || "—"}</TableCell>
-                      <TableCell>{formatDate(r.submittedAt)}</TableCell>
+                      <TableCell>{r.submittedByName || "-"}</TableCell>
+                      <TableCell>{formatDateTime(r.submittedAt)}</TableCell>
                       <TableCell>
                         {currentLevel?.levelTitle ??
-                          `Level ${r.currentLevelSeq ?? "—"}`}
+                          `Level ${r.currentLevelSeq ?? "-"}`}
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -188,23 +189,23 @@ export default function PendingApprovals() {
 
       {/* Detail Drawer */}
       <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)}>
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <Typography variant="h6" className="!font-bold">
+        <div className="bg-white relative top-[68px]">
+          <div className="flex items-center justify-between border-b border-gray-200 p-2">
+            <Typography variant="h6" className="!font-bold text-gray-800">
               Approval Request
             </Typography>
             <IconButton onClick={() => setSelected(null)}>
-              <CloseIcon />
+              <CloseIcon className="!text-gray-800 !w-4" />
             </IconButton>
           </div>
 
           {detailLoading ? (
-            <div className="flex justify-center py-16">
+            <div className="flex justify-center py-16 p-4 h-[calc(100vh-119px)] overflow-y-auto">
               <CircularProgress size={28} />
             </div>
           ) : selected ? (
-            <>
-              <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="p-4 h-[calc(100vh-119px)] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <Info label="Workflow" value={selected.workflowName} />
                 <Info label="Module" value={selected.moduleName} />
                 <Info label="Status">
@@ -221,15 +222,15 @@ export default function PendingApprovals() {
                 <Info label="Submitted By" value={selected.submittedByName} />
                 <Info
                   label="Submitted At"
-                  value={formatDate(selected.submittedAt)}
+                  value={formatDateTime(selected.submittedAt)}
                 />
                 <Info label="Record ID" value={selected.recordId} />
-                <Info label="Decided At" value={formatDate(selected.decidedAt)} />
+                <Info label="Decided At" value={formatDateTime(selected.decidedAt)} />
               </div>
 
-              <Divider className="!my-4" />
+              <Divider className="!my-4 border border-gray-200" />
 
-              <Typography variant="subtitle1" className="!font-semibold mb-2">
+              <Typography variant="subtitle1" className="!font-semibold text-gray-800 mb-2">
                 Levels
               </Typography>
 
@@ -239,7 +240,7 @@ export default function PendingApprovals() {
                     key={lvl.seqNo}
                     className={`rounded-lg border p-3 ${
                       lvl.current
-                        ? "border-blue-400 bg-blue-50"
+                        ? "border-blue-400 bg-blue-50 dark:bg-blue-100/50"
                         : "border-gray-200"
                     }`}
                   >
@@ -323,7 +324,7 @@ export default function PendingApprovals() {
                               variant="caption"
                               className="!text-gray-400"
                             >
-                              {formatDate(d.decidedAt)}
+                              {formatDateTime(d.decidedAt)}
                             </Typography>
                           </div>
                         ))}
@@ -337,7 +338,7 @@ export default function PendingApprovals() {
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           ) : null}
         </div>
       </Drawer>
@@ -359,7 +360,7 @@ function Info({
       <Typography variant="caption" className="!text-gray-500">
         {label}
       </Typography>
-      <div className="mt-0.5">
+      <div className="mt-0.5 text-gray-800">
         {children ?? <Typography variant="body2">{value || "—"}</Typography>}
       </div>
     </div>

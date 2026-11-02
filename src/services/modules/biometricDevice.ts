@@ -128,6 +128,15 @@ export interface StagedPunch {
   checkOutTimeOnly?: { hour: number; minute: number; second: number; nano: number };
 }
 
+export interface StagedEmployeeMovement {
+  time: string;
+  type: "IN" | "OUT";
+  device: string;
+  source?: string;
+  permissionType?: string;
+  requestNumber?: string;
+}
+
 interface ApiEnvelope<T> {
   success?: boolean;
   message?: string;
@@ -296,6 +305,26 @@ export interface UpdateStagedPunchRequest {
   shiftStart?: string | null;
   shiftEnd?: string | null;
 }
+
+export type MovementRow =
+  | {
+    kind: "punch";            // paired OUT/IN
+    index: number;
+    outTime: string;
+    inTime: string | null;
+    durationMinutes: number | null;
+    permissionType: string | null;
+    requestNumber?: string | null;
+    saving?: boolean;
+  }
+  | {
+    kind: "permission";       // permission-only, no punch times
+    index: number;
+    durationMinutes: number | null;   // from durationMinutes or hours*60
+    permissionType: string | null;
+    requestNumber: string | null;
+    saving?: boolean;
+  };
 
 
 // function getTenantDatabaseName(): string {
@@ -605,40 +634,51 @@ export const biometricService = {
   // }
 
   async runAttendance(payload?: { from?: string; to?: string }): Promise<RunAttendanceResponse> {
-  const response: any = await apiService.post(
-    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.RUN_ATTENDANCE,
-    payload,
-  );
-  return unwrapApiData<RunAttendanceResponse>(response);
-},
+    const response: any = await apiService.post(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.RUN_ATTENDANCE,
+      payload,
+    );
+    return unwrapApiData<RunAttendanceResponse>(response);
+  },
 
-async stagePunches(data: StagePunchesRequest): Promise<StagePunchesResponse> {
-  const response: any = await apiService.post(
-    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.STAGE_PUNCHES,
-    data,
-  );
-  // stage's data is `{}` — return the envelope message instead of unwrapping
-  return {
-    success: response?.success ?? true,
-    message: response?.message ?? "",
-  };
-},
+  async stagePunches(data: StagePunchesRequest): Promise<StagePunchesResponse> {
+    const response: any = await apiService.post(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.STAGE_PUNCHES,
+      data,
+    );
+    // stage's data is `{}` — return the envelope message instead of unwrapping
+    return {
+      success: response?.success ?? true,
+      message: response?.message ?? "",
+    };
+  },
 
-async getStagedPunches(params?: { from?: string; to?: string; status?: any, unit?: string, groupByDepartment?: boolean }): Promise<StagedPunch[]> {
-  const response: any = await apiService.get(
-    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
-    { params },
-  );
-  return unwrapApiData<StagedPunch[]>(response) ?? [];
-},
+  async getStagedPunches(params?: { from?: string; to?: string; status?: any, unit?: string, groupByDepartment?: boolean }): Promise<StagedPunch[]> {
+    const response: any = await apiService.get(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
+      { params },
+    );
+    return unwrapApiData<StagedPunch[]>(response) ?? [];
+  },
 
-async deleteStagedPunches(params?: { from?: string; to?: string; employeeId?: string; }) {
-  const response: any = await apiService.delete(
-    API_ENDPOINTS.ATTENDANCE.BIOMETRIC.DELETE_STAGED_PUNCHES,
-    { params },
-  );
-  return unwrapApiData<StagedPunch[]>(response) ?? [];
-},
+  async getStagedEmployeeMovement(
+    employeeId: string,
+    params?: { from?: string; to?: string },
+  ): Promise<StagedEmployeeMovement[]> {
+    const response: any = await apiService.get(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_EMPLOYEE_MOVEMENT(employeeId),
+      { params },
+    );
+    return unwrapApiData<StagedEmployeeMovement[]>(response) ?? [];
+  },
+
+  async deleteStagedPunches(params?: { from?: string; to?: string; employeeId?: string; }) {
+    const response: any = await apiService.delete(
+      API_ENDPOINTS.ATTENDANCE.BIOMETRIC.DELETE_STAGED_PUNCHES,
+      { params },
+    );
+    return unwrapApiData<StagedPunch[]>(response) ?? [];
+  },
 
   async updateStagedPunch(
     employeeId: string,
