@@ -653,7 +653,7 @@ export const biometricService = {
     };
   },
 
-  async getStagedPunches(params?: { from?: string; to?: string; status?: any, unit?: string, groupByDepartment?: boolean }): Promise<StagedPunch[]> {
+  async getStagedPunches(params?: { from?: string; to?: string; status?: any, unit?: string, groupByDepartment?: boolean, departmentId?: string }): Promise<StagedPunch[]> {
     const response: any = await apiService.get(
       API_ENDPOINTS.ATTENDANCE.BIOMETRIC.GET_STAGED_PUNCHES,
       { params },

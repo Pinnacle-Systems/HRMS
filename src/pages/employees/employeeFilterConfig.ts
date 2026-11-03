@@ -34,9 +34,10 @@ export const getEmployeeFilterFields = (
   departments: Department[],
   designations: Designation[],
   branches: Branches[],
-  // empStatus: Category[],
   employeeTypes: Category[] = [],
   employees: EmployeeSummaryResponse[] = [],
+  employeeGroups: Category[] = [],
+  shiftCommonTemplates: Category[] = [],
 ): FilterField[] => {
   const employeeOptions = employees
     .filter((employee) => employee.id || employee.employeeId)
@@ -48,6 +49,20 @@ export const getEmployeeFilterFields = (
   const employmentFields: FilterField[] = [
     { id: 'search', label: 'Employee Search', type: 'text', group: EMPLOYEE_FIELD_GROUPS.BASIC_INFO },
     { id: 'joiningDate', label: 'Joining Date', type: 'date', group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT },
+    {
+      id: 'employeeGroupId',
+      label: 'Employee Group',
+      type: 'select',
+      group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
+      options: employeeGroups.map(group => ({ value: group.id, label: group.name })),
+    },
+    {
+      id: 'templateId',
+      label: 'Shift Common Template',
+      type: 'select',
+      group: EMPLOYEE_FIELD_GROUPS.EMPLOYMENT,
+      options: shiftCommonTemplates.map(template => ({ value: template.id, label: template.name })),
+    },
     { 
       id: 'dept', 
       label: 'Department', 

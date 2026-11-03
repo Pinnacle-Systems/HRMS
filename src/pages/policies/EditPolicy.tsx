@@ -71,8 +71,15 @@ export default function EditPolicy() {
         policyService.getPolicyById(id!),
         policyService.getPolicyVersions(id!),
       ]);
+      const cleanedVersions = (versionsData.data || []).map((v: any) => ({
+        ...v,
+        configJson: (() => {
+          const { leaveTypes, ...rest } = v.configJson || {};
+          return rest;
+        })(),
+      }));
       setPolicy(policyData.data || {});
-      setVersions(versionsData.data || []);
+      setVersions(cleanedVersions);
       if (versionsData.data.length > 0) {
         const assignmentsResults = await Promise.all(
           versionsData.data.map(async (v: any) => {

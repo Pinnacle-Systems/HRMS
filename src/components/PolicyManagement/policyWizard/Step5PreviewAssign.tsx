@@ -12,15 +12,17 @@ import {
   Preview as PreviewIcon,
   Send as SendIcon,
 } from '@mui/icons-material';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
-import { DatePicker } from '@mui/x-date-pickers';
-import { helperSx } from '../const';
+// import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+// import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+// import dayjs from 'dayjs';
+// import { DatePicker } from '@mui/x-date-pickers';
+// import { helperSx } from '../const';
 import { EmployeeSelector } from '../Common/EmployeeSelector';
 import type { Employee } from '../../../types/policy';
 import type { Step5PreviewAssignProps } from '../types';
 import { policyService } from '../../../services';
+import { formatDateTime } from '../../../utils/dateFormatter';
+import { getRowColor } from '../../../pages/const';
 
 const statusChipColor = (status?: string): 'default' | 'warning' | 'info' | 'success' => {
   switch (status) {
@@ -44,7 +46,7 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
   eligibilityConfig,
   approvalFlow,
   effectiveFrom,
-  onEffectiveFromChange,
+  // onEffectiveFromChange,
   versionId,
   policyStatus,
   onSubmitForApproval,
@@ -117,7 +119,7 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                 </TableHead>
                 <TableBody className='bg-white-50'>
                   {config.entitlements.map((leave: any, i: number) => (
-                    <TableRow key={i}>
+                    <TableRow key={i} sx={getRowColor(i)}>
                       <TableCell><Chip label={leave.leaveType || leave.code} size="small" className='text-gray-500 bg-gray-100' /> {leave.name}</TableCell>
                       <TableCell>{leave.annualEntitlement} days</TableCell>
                       <TableCell>{leave.accrualType}</TableCell>
@@ -194,17 +196,21 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                     />
                   </Box>
                 </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
+                 <Grid size={{ xs: 12, md: 3 }}>
+                  <Typography variant="caption" color="text.secondary">Effective From</Typography>
+                  <Typography variant="body2">{effectiveFrom ? formatDateTime(effectiveFrom) : '-'}</Typography>
+                </Grid>
+                {/* <Grid size={{ xs: 12, md: 3 }}>
                   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
                     <DatePicker
                       label="Effective From"
                       format="DD/MM/YYYY"
                       value={effectiveFrom ? dayjs(effectiveFrom) : dayjs()}
-                      onChange={(newValue) =>
-                        onEffectiveFromChange?.(
-                          newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
-                        )
-                      }
+                      // onChange={(newValue) =>
+                      //   onEffectiveFromChange?.(
+                      //     newValue ? dayjs(newValue).format("YYYY-MM-DD") : ""
+                      //   )
+                      // }
                       slotProps={{
                         textField: {
                           fullWidth: true,
@@ -215,7 +221,7 @@ export const Step5PreviewAssign: React.FC<Step5PreviewAssignProps> = ({
                       sx={helperSx}
                     />
                   </LocalizationProvider>
-                </Grid>
+                </Grid> */}
               </Grid>
             </CardContent>
           </Card>

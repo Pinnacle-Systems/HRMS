@@ -12,6 +12,8 @@ export interface EmployeeListQuery {
   branch?: string;
   designationId?: string;
   empTypeId?: string;
+  employeeGroupId?: string;
+  templateId?: string;
   employeeStatusId?: string;
   managerId?: string;
   joinedFrom?: string;

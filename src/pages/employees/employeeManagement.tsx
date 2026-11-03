@@ -351,7 +351,7 @@ export default function EmployeeManagement() {
   const [systemGeneratedRelievedDate, setSystemGeneratedRelievedDate] = useState("");
   const [resignationType, setResignationType] = useState("");
   const [adminRemarks, setAdminRemarks] = useState("");
-  const [eligibleForRehire, setEligibleForRehire] = useState(true);
+  const [eligibleForRehire, setEligibleForRehire] = useState(false);
 
   // ---------- Resigned dialog ----------
   const [resignedDialogOpen, setResignedDialogOpen] = useState(false);
@@ -383,10 +383,12 @@ export default function EmployeeManagement() {
         departments,
         designations,
         branches,
-        empStatus,
         employeeTypes,
+        _filterEmployees,
+        employeeGroups,
+        shiftCommonTemplates,
       ),
-    [departments, designations, branches, empStatus, employeeTypes],
+    [departments, designations, branches, employeeTypes, _filterEmployees, employeeGroups, shiftCommonTemplates],
   );
 
   // ---------- Error helpers ----------
@@ -1320,7 +1322,7 @@ export default function EmployeeManagement() {
     setSystemGeneratedRelievedDate(generated);
     setResignationType("");
     setAdminRemarks("");
-    setEligibleForRehire(true);
+    setEligibleForRehire(false);
     setRelievingDialogOpen(true);
   };
 
@@ -1467,9 +1469,14 @@ export default function EmployeeManagement() {
         const params: any = {
           search: searchTerm || undefined,
           sort: sortParams,
-          includeInactive: employeeView !== "active" ? true : undefined,
+          // includeInactive: employeeView !== "active" ? true : undefined,
           ...buildEmployeeServerFilterParams(activeFilters),
         };
+        if (employeeView === "active") {
+          params.includeActive = true;
+        } else if (employeeView === "inactive") {
+          params.includeInactive = true;
+        }
         await employeeService.downloadEmployeeExport(params, format);
         showSnackbar(`Employees exported as ${format.toUpperCase()}`, "success");
       }
@@ -1770,8 +1777,8 @@ export default function EmployeeManagement() {
         component={Paper}
         elevation={0}
         className={`${activeFilters && activeFilters.rules.length > 0
-            ? "h-[calc(100vh-385px)]"
-            : "h-[calc(100vh-330px)]"
+          ? "h-[calc(100vh-385px)]"
+          : "h-[calc(100vh-330px)]"
           } overflow-auto border border-gray-200 !bg-white-50`}
       >
         <Table stickyHeader>
@@ -2270,7 +2277,8 @@ export default function EmployeeManagement() {
                       loading={inactiveEmployeesLoading || previousDetailsLoading}
                       options={inactiveEmployees}
                       getOptionLabel={(option) =>
-                        `${option.name ?? ""} (${option.employeeId ?? ""})`
+                        `${option.name ?? ""} (${option.employeeId ?? ""})
+                         ${option.eligibleForRehire ? "" : "(Not Eligible for Rehire)"}`
                       }
                       isOptionEqualToValue={(option, value) => option.id === value.id}
                       value={inactiveEmployees.find((emp) => emp.id === previousEmployeeId) || null}
@@ -2755,7 +2763,7 @@ export default function EmployeeManagement() {
                 setSystemGeneratedRelievedDate("");
                 setResignationType("");
                 setAdminRemarks("");
-                setEligibleForRehire(true);
+                setEligibleForRehire(false);
               }
             }}
             variant="contained"
@@ -3043,8 +3051,8 @@ export default function EmployeeManagement() {
             <div className="mt-4 space-y-4">
               <div
                 className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
-                    ? "border-orange-200 bg-orange-50/40"
-                    : "border-green-200 bg-green-50"
+                  ? "border-orange-200 bg-orange-50/40"
+                  : "border-green-200 bg-green-50"
                   }`}
               >
                 <div className="flex items-center justify-between mb-4">

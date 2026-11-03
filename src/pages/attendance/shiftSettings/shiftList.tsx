@@ -216,7 +216,7 @@ export const ShiftList = () => {
       const params: any = {
         page: page,
         size: limit,
-        sort: 'shiftCode,ASC'
+        sort: ['templateId,ASC', 'templateId,ASC','shiftCode,ASC'],
       };
       if (searchTerm) {
         params.search = searchTerm;

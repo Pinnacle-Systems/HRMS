@@ -280,7 +280,12 @@ export function AttendanceDetailed() {
                     label="From"
                     format="DD/MM/YYYY"
                     value={fromDate ? dayjs(fromDate) : null}
-                    onChange={(newValue) => setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
+                    onChange={(newValue, context) => {
+                      if (context.validationError == null) {
+                        setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+                      }
+                    }}
+                    // onChange={(newValue) => setFromDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")}
                     maxDate={toDate ? dayjs(toDate) : undefined}
                     slotProps={{ textField: { sx: { width: "140px" } } }}
                   />

@@ -53,6 +53,8 @@ import {
   SwapHorizOutlined,
   DeleteOutlined,
   OpenInNewOutlined,
+  ChevronLeftOutlined,
+  ChevronRightOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -806,7 +808,8 @@ export function DailyRegister() {
         to: date,
         status: buildStatusParam(statusFilter),
         unit: unitParam(timeUnit),
-        groupByDepartment
+        groupByDepartment,
+        departmentId: departmentId === "All" ? undefined : departmentId,
       });
       const list = groupByDepartment
         ? flattenGroupedStagedPunches(data)
@@ -1080,36 +1083,36 @@ export function DailyRegister() {
     }
   }
 
-  async function handleBulkProcess() {
-    if (selected.size === 0) {
-      showSnackbar("Select at least one employee", "warning");
-      return;
-    }
-    showConfirmDialog({
-      title: "Bulk Process Attendance",
-      message: `Process attendance for ${selected.size} selected employee(s) on ${dayjs(date).format("DD MMM YYYY")}?`,
-      confirmText: "Process",
-      onConfirm: async () => {
-        showSpinner();
-        try {
-          await attendanceService.bulkProcess({
-            processDate: date,
-            employeeIds: Array.from(selected),
-          });
-          showSnackbar(`Attendance processed for ${selected.size} employees`, "success");
-          setSelected(new Set());
-          loadRegister();
-        } catch (err: any) {
-          showSnackbar(
-            err?.response?.data?.message ?? "Failed to bulk process",
-            "error",
-          );
-        } finally {
-          hideSpinner();
-        }
-      },
-    });
-  }
+  // async function handleBulkProcess() {
+  //   if (selected.size === 0) {
+  //     showSnackbar("Select at least one employee", "warning");
+  //     return;
+  //   }
+  //   showConfirmDialog({
+  //     title: "Bulk Process Attendance",
+  //     message: `Process attendance for ${selected.size} selected employee(s) on ${dayjs(date).format("DD MMM YYYY")}?`,
+  //     confirmText: "Process",
+  //     onConfirm: async () => {
+  //       showSpinner();
+  //       try {
+  //         await attendanceService.bulkProcess({
+  //           processDate: date,
+  //           employeeIds: Array.from(selected),
+  //         });
+  //         showSnackbar(`Attendance processed for ${selected.size} employees`, "success");
+  //         setSelected(new Set());
+  //         loadRegister();
+  //       } catch (err: any) {
+  //         showSnackbar(
+  //           err?.response?.data?.message ?? "Failed to bulk process",
+  //           "error",
+  //         );
+  //       } finally {
+  //         hideSpinner();
+  //       }
+  //     },
+  //   });
+  // }
 
   async function submitBulkCheckin(employeesToCheckin = bulkCheckinEmployees) {
     if (employeesToCheckin.length === 0) {
@@ -1230,9 +1233,8 @@ export function DailyRegister() {
       showSnackbar("Please enter a reminder message", "warning");
       return;
     }
-
     const employeeIds = employeesToRem
-      .map((e: any) => e.employeeId ?? e.id)
+      .map((e: any) => e.id)
       .filter(Boolean);
 
     if (employeeIds.length === 0) {
@@ -1978,6 +1980,20 @@ export function DailyRegister() {
   const getRowPermissionType = (row: MovementRow): string | null =>
     getMovementPermissionType(row);
 
+  const handlePrev = () => {
+    const current = date ? dayjs(date) : dayjs();
+    const prev = current.subtract(1, 'day');
+    if (prev.isAfter(dayjs(), 'day')) return;
+    setDate(prev.format('YYYY-MM-DD'));
+  };
+
+  const handleNext = () => {
+    const current = date ? dayjs(date) : dayjs();
+    const next = current.add(1, 'day');
+    if (next.isAfter(dayjs(), 'day')) return;
+    setDate(next.format('YYYY-MM-DD'));
+  };
+
   return (
     <div className="p-4 space-y-3">
       {stagedPunchCheckFailed && (
@@ -2115,6 +2131,18 @@ export function DailyRegister() {
               }}
               format="DD/MM/YYYY"
               maxDate={dayjs()}
+              slots={{
+                inputAdornment: () => (
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <IconButton size="small" onClick={handlePrev}>
+                      <ChevronLeftOutlined fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={handleNext}>
+                      <ChevronRightOutlined fontSize="small" />
+                    </IconButton>
+                  </div>
+                ),
+              }}
             />
           </LocalizationProvider>
           <FormControl sx={{ minWidth: 150 }}>
@@ -2228,7 +2256,7 @@ export function DailyRegister() {
             {selected.size} selected
           </span>
           <div className="flex items-center gap-2 ml-2 flex-wrap">
-            <Button
+            {/* <Button
               size="small"
               variant="outlined"
               className="!text-primary !border-primary"
@@ -2245,7 +2273,7 @@ export function DailyRegister() {
               onClick={handleBulkProcess}
             >
               Bulk Process
-            </Button>
+            </Button> */}
             <Button
               size="small"
               variant="contained"
@@ -2285,7 +2313,7 @@ export function DailyRegister() {
                 ? "max-h-[calc(100vh-565px)]"
                 : selected.size > 0 || todayHoliday
                   ? "max-h-[calc(100vh-200px)]"
-                  : "max-h-[calc(100vh-200px)]"
+                  : "max-h-[calc(100vh-420px)]"
                 }`}
             >
               <Table size="small" stickyHeader>

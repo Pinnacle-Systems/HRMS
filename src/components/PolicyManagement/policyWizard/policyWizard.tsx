@@ -263,6 +263,7 @@ export const PolicyWizard: React.FC<PolicyWizardProps> = ({
             config={policyConfig}
             eligibilityConfig={eligibilityConfig}
             approvalFlow={approvalFlow}
+            effectiveFrom={policyDefinition.effectiveFrom}
             versionId={currentVersionId}
             policyStatus={policyDefinition.status}
             onSubmitForApproval={
