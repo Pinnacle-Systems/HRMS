@@ -3,6 +3,15 @@ import { API_ENDPOINTS } from "../api/endpoints";
 
 type EmployeeLike = Record<string, any>;
 
+export type EmployeeDetailsReportFormat = "pdf" | "html" | "excel" | "csv";
+export type EmployeeDetailsReportLanguage = "both" | "en";
+
+export interface EmployeeDetailsReportOptions {
+  format: EmployeeDetailsReportFormat;
+  lang: EmployeeDetailsReportLanguage;
+  forms: string[];
+}
+
 export interface EmployeeListQuery {
   page?: number;
   size?: number;
@@ -869,6 +878,67 @@ export const employeeService = {
 
     link.remove();
 
+    window.URL.revokeObjectURL(url);
+  },
+
+  async downloadEmployeeDetailsReport(
+    employeeIds: string | string[],
+    options: EmployeeDetailsReportOptions,
+  ) {
+    const ids = typeof employeeIds === "string" ? [employeeIds] : employeeIds;
+    if (ids.length === 0) {
+      throw new Error("Select at least one employee for the details report.");
+    }
+    if (ids.length > 200) {
+      throw new Error("Details reports can include a maximum of 200 employees.");
+    }
+
+    const isSingleEmployee = ids.length === 1;
+    const response = await apiService.axiosInstance.get(
+      isSingleEmployee
+        ? API_ENDPOINTS.EMPLOYEE.DETAILS_REPORT(encodeURIComponent(ids[0]))
+        : API_ENDPOINTS.EMPLOYEE.DETAILS_REPORT_MANY,
+      {
+        params: {
+          ...(isSingleEmployee ? {} : { employeeIds: ids.join(",") }),
+          format: options.format,
+          lang: options.lang,
+          forms: options.forms.join(","),
+        },
+        responseType: "blob",
+      },
+    );
+
+    const blob = response.data;
+    if (!blob || blob.size === 0) {
+      throw new Error("Downloaded employee details report is empty.");
+    }
+    if (blob.type?.includes("application/json") || blob.type?.includes("text/plain")) {
+      const text = await blob.text();
+      let errorMessage = "Failed to download employee details report.";
+      try {
+        const json = JSON.parse(text);
+        if (json.message) errorMessage = json.message;
+      } catch {
+        if (text) errorMessage = text;
+      }
+      throw new Error(errorMessage);
+    }
+
+    let filename = `employee_details.${options.format === "excel" ? "xlsx" : options.format}`;
+    const disposition = response.headers["content-disposition"];
+    const filenameMatch = disposition?.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+    if (filenameMatch?.[1]) {
+      filename = filenameMatch[1].replace(/['"]/g, "");
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
     window.URL.revokeObjectURL(url);
   },
 };

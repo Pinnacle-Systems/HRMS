@@ -185,7 +185,11 @@ export default function CategorySettings() {
   };
 
   const handleViewItems = (category: Category) => {
-    navigate(`/settings/employee/category-items/${category.id}`, {
+    const catName = category.categoryName
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-"); 
+    navigate(`/settings/employee/category-items/${catName}`, {
       state: { category },
     });
   };

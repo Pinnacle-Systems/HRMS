@@ -232,6 +232,8 @@ export const API_ENDPOINTS = {
 
     EXPORT: "/employees/export",
     EXPORT_BY_ID: (id: string) => `/employees/${id}/export`,
+    DETAILS_REPORT: (id: string) => `/employees/${id}/details-report`,
+    DETAILS_REPORT_MANY: "/employees/details-report",
   },
 
   MASTER: {

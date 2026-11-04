@@ -3,6 +3,8 @@ import {
   employeeService,
   normalizeEmployeePageResponse,
   normalizeBulkUploadResponse,
+  type EmployeeDetailsReportFormat,
+  type EmployeeDetailsReportLanguage,
   type EmployeeListQuery,
   type BulkUploadResponse,
   type EmployeeSummaryResponse,
@@ -85,6 +87,7 @@ import {
   IconButton,
   InputLabel,
   LinearProgress,
+  ListItemText,
   Menu,
   MenuItem,
   Paper,
@@ -117,6 +120,14 @@ const isEmployeeInactive = (employee: EmployeeSummaryResponse): boolean => {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_REGEX = /^[0-9+\-\s()]{7,15}$/;
+const EMPLOYEE_DETAILS_REPORT_FORMS = [
+  { value: "details", label: "Employee details" },
+  { value: "pf-form-2", label: "PF Form 2 — nomination & declaration" },
+  { value: "esi-form-1", label: "ESI Form 1 — declaration & instructions" },
+  { value: "form-34", label: "Form 34 — nomination of dues" },
+  { value: "appointment-order", label: "Appointment order" },
+  { value: "all", label: "All forms" },
+];
 
 // Build a full profile update while keeping the new joining date and resetting exit dates.
 function buildRehirePutPayload(
@@ -338,6 +349,12 @@ export default function EmployeeManagement() {
   // ---------- Export ----------
   const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedEmployeeForExport, setSelectedEmployeeForExport] = useState<string | null>(null);
+  const [selectedReportEmployeeIds, setSelectedReportEmployeeIds] = useState<string[]>([]);
+  const [detailsReportDialogOpen, setDetailsReportDialogOpen] = useState(false);
+  const [detailsReportFormat, setDetailsReportFormat] = useState<EmployeeDetailsReportFormat>("pdf");
+  const [detailsReportLanguage, setDetailsReportLanguage] =
+    useState<EmployeeDetailsReportLanguage>("both");
+  const [detailsReportForms, setDetailsReportForms] = useState<string[]>(["details"]);
 
   // ---------- Row actions ----------
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
@@ -1488,6 +1505,50 @@ export default function EmployeeManagement() {
     }
   };
 
+  const openDetailsReportDialog = (employeeIds: string[]) => {
+    setSelectedReportEmployeeIds(employeeIds);
+    setDetailsReportDialogOpen(true);
+  };
+
+  const handleToggleEmployeeSelection = (employeeIds: string[], checked: boolean) => {
+    const nextIds = new Set(selectedReportEmployeeIds);
+    if (checked) {
+      employeeIds.forEach((id) => nextIds.add(id));
+      if (nextIds.size > 200) {
+        showSnackbar("Details reports can include a maximum of 200 employees.", "warning");
+        return;
+      }
+    } else {
+      employeeIds.forEach((id) => nextIds.delete(id));
+    }
+    setSelectedReportEmployeeIds(Array.from(nextIds));
+  };
+
+  const handleDownloadDetailsReport = async () => {
+    if (selectedReportEmployeeIds.length === 0) {
+      showSnackbar("Select at least one employee for the details report.", "error");
+      return;
+    }
+    if (detailsReportForms.length === 0) {
+      showSnackbar("Select at least one form to include in the report.", "error");
+      return;
+    }
+    try {
+      showSpinner();
+      await employeeService.downloadEmployeeDetailsReport(selectedReportEmployeeIds, {
+        format: detailsReportFormat,
+        lang: detailsReportLanguage,
+        forms: detailsReportForms,
+      });
+      showSnackbar("Employee details report downloaded.", "success");
+      setDetailsReportDialogOpen(false);
+    } catch (error: any) {
+      showSnackbar(error.message || "Failed to download employee details report.", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
   // =====================================================================
   // RENDER (unchanged from original except the rehire checkbox block)
   // =====================================================================
@@ -1752,6 +1813,18 @@ export default function EmployeeManagement() {
 
         <Button
           variant="outlined"
+          startIcon={<FileDownloadOutlined />}
+          disabled={selectedReportEmployeeIds.length === 0}
+          onClick={() => openDetailsReportDialog(selectedReportEmployeeIds)}
+          sx={{ flexShrink: 0 }}
+        >
+          Details Report{selectedReportEmployeeIds.length > 0
+            ? ` (${selectedReportEmployeeIds.length})`
+            : ""}
+        </Button>
+
+        <Button
+          variant="outlined"
           startIcon={<DownloadOutlined />}
           onClick={(e) => openExportMenu(e)}
           sx={{ flexShrink: 0 }}
@@ -1770,6 +1843,116 @@ export default function EmployeeManagement() {
             Export as PDF
           </MenuItem>
         </Menu>
+
+        <Dialog
+          open={detailsReportDialogOpen}
+          onClose={() => setDetailsReportDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-2">
+             <div>
+              <Typography variant="h6">Employee Details Report</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {selectedReportEmployeeIds.length === 1
+                ? "Generate a report for one employee."
+                : `Generate one report per employee for ${selectedReportEmployeeIds.length} employees.`}
+            </Typography>
+             </div>
+             <IconButton>
+                <CloseOutlined className="!text-gray-800"/>
+             </IconButton>
+          </div>
+          <DialogContent className="flex flex-col gap-5 !pt-5">
+            <FormControl fullWidth>
+              <InputLabel id="details-report-format-label">Format</InputLabel>
+              <Select
+                labelId="details-report-format-label"
+                value={detailsReportFormat}
+                label="Format"
+                onChange={(event) =>
+                  setDetailsReportFormat(event.target.value as EmployeeDetailsReportFormat)
+                }
+              >
+                <MenuItem value="pdf">PDF</MenuItem>
+                <MenuItem value="html">HTML</MenuItem>
+                <MenuItem value="excel">Excel</MenuItem>
+                <MenuItem value="csv">CSV</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="details-report-language-label">Language</InputLabel>
+              <Select
+                labelId="details-report-language-label"
+                value={detailsReportLanguage}
+                label="Language"
+                onChange={(event) =>
+                  setDetailsReportLanguage(event.target.value as EmployeeDetailsReportLanguage)
+                }
+              >
+                <MenuItem value="both">English + Tamil</MenuItem>
+                <MenuItem value="en">English</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="details-report-forms-label">Forms</InputLabel>
+              <Select
+                labelId="details-report-forms-label"
+                multiple
+                value={detailsReportForms}
+                label="Forms"
+                onChange={(event) => {
+                  const selected =
+                    typeof event.target.value === "string"
+                      ? event.target.value.split(",")
+                      : event.target.value;
+                  setDetailsReportForms(
+                    selected.includes("all")
+                      ? ["all"]
+                      : selected.filter((form) => form !== "all"),
+                  );
+                }}
+                renderValue={(selected) =>
+                  selected
+                    .map(
+                      (form) =>
+                        EMPLOYEE_DETAILS_REPORT_FORMS.find((option) => option.value === form)
+                          ?.label ?? form,
+                    )
+                    .join(", ")
+                }
+              >
+                {EMPLOYEE_DETAILS_REPORT_FORMS.map((form) => (
+                  <MenuItem key={form.value} value={form.value}>
+                    <Checkbox
+                      checked={
+                        detailsReportForms.includes(form.value) ||
+                        detailsReportForms.includes("all")
+                      }
+                    />
+                    <ListItemText primary={form.label} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions className="!py-2 !px-4 border-t !border-gray-200">
+            <Button onClick={() => setDetailsReportDialogOpen(false)} variant="outlined" 
+            className="!text-gray-800 !border-gray-200">
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleDownloadDetailsReport}
+              className="!bg-primary"
+              disabled={
+                selectedReportEmployeeIds.length === 0 || detailsReportForms.length === 0
+              }
+            >
+              Download Report
+            </Button>
+          </DialogActions>
+        </Dialog>
       </div>
 
       {/* Employees Table */}
@@ -1788,12 +1971,35 @@ export default function EmployeeManagement() {
                 className="!font-semibold text-gray-800 cursor-pointer"
                 sx={{ ...stickyHeaderLeftSx, minWidth: "70px" }}
               >
-                <div className="flex items-center gap-1">S No</div>
+                <div className="flex items-center gap-1">
+                  <Checkbox
+                    size="small"
+                    checked={employees.length > 0 && employees.every((employee) =>
+                      selectedReportEmployeeIds.includes(employee.id),
+                    )}
+                    indeterminate={
+                      employees.some((employee) =>
+                        selectedReportEmployeeIds.includes(employee.id),
+                      ) &&
+                      !employees.every((employee) =>
+                        selectedReportEmployeeIds.includes(employee.id),
+                      )
+                    }
+                    onChange={(event) =>
+                      handleToggleEmployeeSelection(
+                        employees.map((employee) => employee.id),
+                        event.target.checked,
+                      )
+                    }
+                    // inputProps={{ "aria-label": "Select all employees on this page" }}
+                  />
+                  S No
+                </div>
               </TableCell>
               <TableCell
                 className="nth-c !font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("employeeGroup")}
-                sx={{ ...stickyHeaderLeftOffsetSx("70px"), minWidth: "90px" }}
+                sx={{ ...stickyHeaderLeftOffsetSx("84px"), minWidth: "90px" }}
               >
                 <div className="flex items-center gap-1">
                   Emp Group
@@ -1803,7 +2009,7 @@ export default function EmployeeManagement() {
               <TableCell
                 className="!font-semibold text-gray-800 cursor-pointer"
                 onClick={() => toggleSort("employeeId")}
-                sx={{ ...stickyHeaderLeftOffsetSx("160px"), minWidth: "100px" }}
+                sx={{ ...stickyHeaderLeftOffsetSx("174px"), minWidth: "100px" }}
               >
                 <div className="relative flex items-center gap-1">
                   Employee ID{" "}
@@ -1905,18 +2111,26 @@ export default function EmployeeManagement() {
             {employees.map((employee, index) => (
               <TableRow key={employee.id} hover sx={getRowColor(index)}>
                 <TableCell sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}>
+                  <Checkbox
+                    size="small"
+                    checked={selectedReportEmployeeIds.includes(employee.id)}
+                    onChange={(event) =>
+                      handleToggleEmployeeSelection([employee.id], event.target.checked)
+                    }
+                    // inputProps={{ "aria-label": `Select ${employee.name} for details report` }}
+                  />
                   {page * limit + index + 1}
                 </TableCell>
                 <TableCell
                   className="font-medium"
-                  sx={{ ...getStickyLeftOffsetSx(index, "70px"), minWidth: "90px" }}
+                  sx={{ ...getStickyLeftOffsetSx(index, "84px"), minWidth: "90px" }}
                 >
                   {employee.employeeGroup || "-"}
                 </TableCell>
                 <TableCell
                   className="cursor-pointer"
                   onClick={() => viewEmployeeDetails(employee)}
-                  sx={{ ...getStickyLeftOffsetSx(index, "160px"), minWidth: "100px" }}
+                  sx={{ ...getStickyLeftOffsetSx(index, "174px"), minWidth: "100px" }}
                 >
                   {(() => {
                     const missing: string[] = [];
@@ -2625,6 +2839,19 @@ export default function EmployeeManagement() {
           >
             <VisibilityOutlined className="!w-4 mr-2" sx={{ color: "var(--color-primary)" }} />
             View Details
+          </MenuItem>
+        )}
+
+        {actionMenuEmployee && (
+          <MenuItem
+            className="!text-[12px]"
+            onClick={() => {
+              openDetailsReportDialog([actionMenuEmployee.id]);
+              closeActionMenu();
+            }}
+          >
+            <FileDownloadOutlined className="!w-4 mr-2" color="primary" />
+            Employee Details Report
           </MenuItem>
         )}
 
