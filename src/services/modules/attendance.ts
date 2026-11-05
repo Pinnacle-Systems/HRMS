@@ -140,6 +140,13 @@ export const attendanceService = {
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_CORRECTIONS_BYID(id));
   },
 
+   async deleteCorrectionById(id: string) {
+    // if (USE_MOCK_ATTENDANCE_SERVICE) {
+    //   return Mock.mockResponse(Mock.getMockCorrectionById(id), "Correction request loaded");
+    // }
+    return apiService.delete(API_ENDPOINTS.ATTENDANCE.DELETE_CORRECTIONS(id));
+  },
+
   async getFinalisedPeriods(params?: { year?: number }) {
     // if (USE_MOCK_ATTENDANCE_SERVICE) {
     //   return Mock.mockResponse(Mock.getMockFinalisedPeriods(params), "Finalised periods loaded");

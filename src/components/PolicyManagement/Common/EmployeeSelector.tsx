@@ -52,7 +52,8 @@ export const EmployeeSelector: React.FC<EmployeeSelectorProps> = ({
         size: pageSize,
         search: searchTermRef.current || undefined,
         branch: session?.branchId || undefined,
-        assignedHrId: hrId
+        assignedHrId: hrId,
+        sort: "employeeId,ASC",
       });
       let list: any = response.data.content || [];
        if (isManager) {

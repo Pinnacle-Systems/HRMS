@@ -11,6 +11,7 @@ import {
   FilterListOutlined,
   CheckCircleOutlined,
   CancelOutlined,
+  DeleteOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
@@ -20,7 +21,7 @@ import type {
   BulkDecisionError,
 } from "../../../services/modules/attendanceTypes";
 import { GlobalPagination } from "../../../components/GlobalPagination";
-import { formatTime } from "../const";
+import { formatTimewithSec } from "../const";
 import dayjs from "dayjs";
 import { EmployeeSelector } from "../../../components/PolicyManagement/Common/EmployeeSelector";
 import { getRowColor } from "../../const";
@@ -34,14 +35,14 @@ const STATUS_STYLES: Record<CorrectionStatus, string> = {
 };
 
 export function CorrectionsView() {
-  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
 
   const [corrections, setCorrections] = useState<CorrectionRequest[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [search, _setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<CorrectionStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<CorrectionStatus | "">("pending");
   const [loading, setLoading] = useState(false);
 
   // Detail/Approve dialog
@@ -122,7 +123,7 @@ export function CorrectionsView() {
       await attendanceService.approveCorrection(selected.id, {
         status: approveStatus,
         approverRemarks,
-        approvedBy: session?.user.email  || "current-user",
+        approvedBy: session?.user.email || "current-user",
       });
       showSnackbar(
         approveStatus === "approved" ? "Correction approved" : "Correction rejected",
@@ -135,6 +136,31 @@ export function CorrectionsView() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleDeleteCorrection(correction: CorrectionRequest) {
+    showConfirmDialog({
+      title: "Delete Correction",
+      message: `Are you sure you want to delete the correction request from ${correction.employeeName}?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          await attendanceService.deleteCorrectionById(correction.id);
+          setSelectedIds((ids) => ids.filter((id) => id !== correction.id));
+          showSnackbar("Correction request deleted successfully", "success");
+          await loadCorrections();
+        } catch (error: any) {
+          showSnackbar(
+            error?.response?.data?.message || error?.message || "Failed to delete correction request",
+            "error",
+          );
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
   }
 
   const handlePageChange = (newPage: number) => {
@@ -182,7 +208,7 @@ export function CorrectionsView() {
         ids: selectedIds,
         status: bulkStatus,
         approverRemarks: bulkRemarks,
-        approvedBy: session?.user.email  || "current-user",
+        approvedBy: session?.user.email || "current-user",
       });
 
       const data = res?.data?.data ?? res?.data;
@@ -198,8 +224,7 @@ export function CorrectionsView() {
       }
 
       showSnackbar(
-        `${data?.successCount ?? selectedIds.length} correction(s) ${
-          bulkStatus === "approved" ? "approved" : "rejected"
+        `${data?.successCount ?? selectedIds.length} correction(s) ${bulkStatus === "approved" ? "approved" : "rejected"
         }`,
         bulkStatus === "approved" ? "success" : "info"
       );
@@ -360,12 +385,12 @@ export function CorrectionsView() {
                       {dayjs(c.attendanceDate).format("DD MMM YYYY")}
                     </TableCell>
                     <TableCell>
-                      <div className="text-green-700" title="Current In Time">{c.currentCheckIn ? formatTime(c.currentCheckIn) : '-'}</div>
-                      <div className={`${c.currentCheckIn == c.requestedCheckIn ? 'text-green-700' : 'text-red-500'}`} title="Requested In Time">{formatTime(c.requestedCheckIn)}</div>
+                      <div className="text-green-700" title="Current In Time">{c.currentCheckIn ? formatTimewithSec(c.currentCheckIn) : '-'}</div>
+                      <div className={`${c.currentCheckIn == c.requestedCheckIn ? 'text-green-700' : 'text-red-500'}`} title="Requested In Time">{formatTimewithSec(c.requestedCheckIn)}</div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-green-700" title="Current Out Time">{c.currentCheckOut ? formatTime(c.currentCheckOut) : '-'}</div>
-                      <div className={`${c.currentCheckOut == c.requestedCheckOut ? 'text-green-700' : 'text-red-500'}`} title="Requested Out Time">{formatTime(c.requestedCheckOut)}</div>
+                      <div className="text-green-700" title="Current Out Time">{c.currentCheckOut ? formatTimewithSec(c.currentCheckOut) : '-'}</div>
+                      <div className={`${c.currentCheckOut == c.requestedCheckOut ? 'text-green-700' : 'text-red-500'}`} title="Requested Out Time">{formatTimewithSec(c.requestedCheckOut)}</div>
                     </TableCell>
                     <TableCell className="max-w-[250px] truncate" title={c.reason}>{c.reason}</TableCell>
                     <TableCell>{c.source}</TableCell>
@@ -377,27 +402,60 @@ export function CorrectionsView() {
                     <TableCell className="whitespace-nowrap">
                       {c.createdAt ? formatDateTime(c.createdAt) : ''}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Tooltip title="View Details">
-                          <IconButton size="small" onClick={() => openDetail(c)}>
-                            <VisibilityOutlined className="text-primary !w-4" />
-                          </IconButton>
-                        </Tooltip>
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex items-center justify-start gap-1">
+                        {/* Group 1: View + Delete */}
                         {c.status === "pending" && (
-                          <>
+                          <div className="flex items-center gap-1">
                             <Tooltip title="Approve">
-                              <IconButton size="small" onClick={() => openApprove(c, "approved")}>
-                                <CheckCircleOutlined className="text-green-600 !w-4" />
-                              </IconButton>
+                              <Button
+                                size="small"
+                                color="success"
+                                variant="outlined"
+                                onClick={() => openApprove(c, "approved")}
+                                className="!min-w-0 !px-2 !py-0.5 !text-[11px] !normal-case"
+                                startIcon={<CheckCircleOutlined className="!w-3.5 !h-3.5" />}
+                              >
+                                Approve
+                              </Button>
                             </Tooltip>
                             <Tooltip title="Reject">
-                              <IconButton size="small" onClick={() => openApprove(c, "rejected")}>
-                                <CancelOutlined className="text-red-500 !w-4" />
+                              <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                onClick={() => openApprove(c, "rejected")}
+                                className="!min-w-0 !px-2 !py-0.5 !text-[11px] !normal-case"
+                                startIcon={<CancelOutlined className="!w-3.5 !h-3.5" />}
+                              >
+                                Reject
+                              </Button>
+                            </Tooltip>
+                          </div>
+                        )}
+
+                        {/* Divider */}
+                        {c.status === "pending" && (
+                          <div className="w-px h-5 bg-gray-300 mx-1" />
+                        )}
+
+                        {/* Group 2: Approve + Reject */}
+                       
+                         <div className="flex items-center gap-0.5">
+                          <Tooltip title="View Details">
+                            <IconButton size="small" onClick={() => openDetail(c)}>
+                              <VisibilityOutlined className="text-primary !w-4" />
+                            </IconButton>
+                          </Tooltip>
+
+                          {c.status === "pending" && (
+                            <Tooltip title="Delete Correction">
+                              <IconButton size="small" onClick={() => handleDeleteCorrection(c)}>
+                                <DeleteOutlined className="text-red-500 !w-4" />
                               </IconButton>
                             </Tooltip>
-                          </>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -438,10 +496,10 @@ export function CorrectionsView() {
                   ["Attendance Date", dayjs(selected.attendanceDate).format("DD MMM YYYY, dddd")],
                   ["Status", selected.status],
                   ["Source", selected.source ?? "—"],
-                  ["Current Check-in", formatTime(selected.currentCheckIn)],
-                  ["Current Check-out", formatTime(selected.currentCheckOut)],
-                  ["Requested Check-in", formatTime(selected.requestedCheckIn)],
-                  ["Requested Check-out", formatTime(selected.requestedCheckOut)],
+                  ["Current Check-in", formatTimewithSec(selected.currentCheckIn)],
+                  ["Current Check-out", formatTimewithSec(selected.currentCheckOut)],
+                  ["Requested Check-in", formatTimewithSec(selected.requestedCheckIn)],
+                  ["Requested Check-out", formatTimewithSec(selected.requestedCheckOut)],
                   ["Reason", selected.reason],
                   ["Submitted At", dayjs(selected.createdAt).format("DD MMM YYYY, h:mm A")],
                   ["Approver Remarks", selected.approverRemarks ?? "—"],

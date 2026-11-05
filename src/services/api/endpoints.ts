@@ -127,6 +127,7 @@ export const API_ENDPOINTS = {
       `/org/category/${cid}/items/${id}/usage`,
 
     GET_ACTIVE_CAT: "/org/category/active-items",
+    BULK_DELETE: (cid: string) => `/org/category/${cid}/items/bulk-delete`,
   },
 
   COMPANY: {
@@ -242,6 +243,7 @@ export const API_ENDPOINTS = {
     GET_ACTIVE_COUNTRIES: "/master/countries/active",
     GET_STATES: "/master/states",
     GET_CURRENCIES: "/master/currencies",
+    GET_INDUSTRY: "/master/industries",
     GET_ACTIVE_CURRENCIES: "/master/currencies/active",
     GET_STATES_BY_COUNTRY: (cid: any) => `/master/states/by-country/${cid}`,
     GET_CITIES_BY_COUNTRY: (cid: any) => `/master/cities/by-country/${cid}`,
@@ -822,6 +824,7 @@ export const API_ENDPOINTS = {
     GET_REGISTER: "/attendance/register",
     GET_CORRECTIONS: "/attendance/corrections",
     GET_CORRECTIONS_BYID: (id: string) => `/attendance/corrections/${id}`,
+    DELETE_CORRECTIONS: (id: string) => `/attendance/corrections/${id}`,
     POST_DAILY_STATUS: "/attendance/daily-status",
     POST_CORRECTION_APPROVE: (id: string) =>
       `/attendance/corrections/${id}/approve`,

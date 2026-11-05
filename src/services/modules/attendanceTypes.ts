@@ -373,6 +373,8 @@ export interface AttendanceDetailedQuery {
   search?: string;
   page?: number;
   size?: number;
+  sortBy?: string;
+  sortDir?: string;
 }
 
 export interface MusterQuery {

@@ -1,6 +1,21 @@
 import { apiService } from "../api/api.config";
 import { API_ENDPOINTS } from "../api/endpoints";
 
+export interface BulkDeleteCategoryItemsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    requested: number;
+    deleted: number;
+    failed: number;
+    results: Array<{
+      id: string;
+      deleted: boolean;
+      message: string;
+    }>;
+  };
+}
+
 export interface GetCategoryItemsParams {
   page?: number;
   size?: number;
@@ -54,6 +69,13 @@ export const categoryService = {
 
   async deleteCategoryItem(id: string, cid: string) {
     return apiService.delete(API_ENDPOINTS.CATEGORY.DELETECATITEM(id, cid));
+  },
+
+  async bulkDeleteCategoryItems(cid: string, ids: string[]) {
+    return apiService.delete<BulkDeleteCategoryItemsResponse>(
+      API_ENDPOINTS.CATEGORY.BULK_DELETE(cid),
+      { data: { ids } },
+    );
   },
 
   async toggleCategoryItemStatus(id: string, cid: string) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Button,
   Table,
@@ -17,6 +17,7 @@ import {
   Chip,
   Tooltip,
   Typography,
+  Checkbox,
 } from "@mui/material";
 import {
   Edit as EditIcon,
@@ -25,7 +26,7 @@ import {
   ArrowBack as ArrowBackIcon,
   Category as CategoryIcon,
 } from "@mui/icons-material";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { categoryService } from "../../../services/modules/category";
 import { useUI } from "../../../context/Snackbar";
 import { GlobalPagination } from "../../../components/GlobalPagination";
@@ -38,12 +39,30 @@ interface CategoryItem {
   active: boolean;
 }
 
+interface Category {
+  id: string;
+  categoryName: string;
+  enabled: boolean;
+}
+
+const MAX_BULK_DELETE_ITEMS = 200;
+
 export default function CategoryItems() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { category } = location.state || {};
+  const { categoryId } = useParams<{ categoryId: string; categoryName: string }>();
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
+  const routeCategory = (location.state as { category?: Category } | null)
+    ?.category;
+  const uiActions = useRef({ showSnackbar, showSpinner, hideSpinner });
+  useEffect(() => {
+    uiActions.current = { showSnackbar, showSpinner, hideSpinner };
+  });
+  const [category, setCategory] = useState<Category | null>(
+    () => routeCategory ?? null,
+  );
   const [items, setItems] = useState<CategoryItem[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
@@ -84,10 +103,50 @@ export default function CategoryItems() {
   };
 
   useEffect(() => {
-    if (!category) {
+    if (!categoryId) {
       navigate("/settings/employee/category-settings");
+      return;
     }
-  }, [category, navigate]);
+
+    if (routeCategory?.id === categoryId) {
+      setCategory(routeCategory);
+      return;
+    }
+
+    let active = true;
+    setCategory(null);
+    uiActions.current.showSpinner();
+    categoryService
+      .getCategoryById(categoryId)
+      .then((response: any) => {
+        const loadedCategory =
+          response?.data?.data ?? response?.data ?? response;
+        if (!loadedCategory?.id || !loadedCategory?.categoryName) {
+          throw new Error("Category was not found");
+        }
+        if (active) setCategory(loadedCategory);
+      })
+      .catch((error: any) => {
+        if (!active) return;
+        uiActions.current.showSnackbar(
+          error.message || "Failed to load category",
+          "error",
+        );
+        navigate("/settings/employee/category-settings");
+      })
+      .finally(() => {
+        if (active) uiActions.current.hideSpinner();
+      });
+
+    return () => {
+      active = false;
+      uiActions.current.hideSpinner();
+    };
+  }, [categoryId, routeCategory, navigate]);
+
+  useEffect(() => {
+    setSelectedItemIds([]);
+  }, [category?.id]);
 
   useEffect(() => {
     if (category) {
@@ -111,6 +170,7 @@ export default function CategoryItems() {
   };
 
   const handleSave = async () => {
+    if (!category) return;
     if (!formData.name || !formData.code) {
       showSnackbar("Please fill all required fields", "error");
       return;
@@ -143,6 +203,7 @@ export default function CategoryItems() {
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (!category) return;
     showConfirmDialog({
       title: "Delete Item",
       message: `Are you sure you want to delete "${name}"?`,
@@ -152,6 +213,9 @@ export default function CategoryItems() {
         showSpinner();
         try {
           await categoryService.deleteCategoryItem(id, category.id);
+          setSelectedItemIds((selectedIds) =>
+            selectedIds.filter((selectedId) => selectedId !== id),
+          );
           showSnackbar("Item deleted successfully!", "success");
           await getItems();
         } catch (error: any) {
@@ -163,7 +227,96 @@ export default function CategoryItems() {
     });
   };
 
+  const handleSelectItem = (id: string, checked: boolean) => {
+    if (!checked) {
+      setSelectedItemIds((selectedIds) =>
+        selectedIds.filter((selectedId) => selectedId !== id),
+      );
+      return;
+    }
+    if (selectedItemIds.includes(id)) return;
+    if (selectedItemIds.length >= MAX_BULK_DELETE_ITEMS) {
+      showSnackbar(
+        `You can select up to ${MAX_BULK_DELETE_ITEMS} items at a time.`,
+        "warning",
+      );
+      return;
+    }
+    setSelectedItemIds([...selectedItemIds, id]);
+  };
+
+  const handleSelectPage = (checked: boolean) => {
+    const pageIds = items.map((item) => item.id);
+    if (!checked) {
+      setSelectedItemIds((selectedIds) =>
+        selectedIds.filter((id) => !pageIds.includes(id)),
+      );
+      return;
+    }
+
+    const newIds = pageIds.filter((id) => !selectedItemIds.includes(id));
+    if (selectedItemIds.length + newIds.length > MAX_BULK_DELETE_ITEMS) {
+      showSnackbar(
+        `You can select up to ${MAX_BULK_DELETE_ITEMS} items at a time.`,
+        "warning",
+      );
+      return;
+    }
+    setSelectedItemIds([...selectedItemIds, ...newIds]);
+  };
+
+  const handleBulkDelete = () => {
+    if (!category || selectedItemIds.length === 0) return;
+
+    showConfirmDialog({
+      title: "Delete Items",
+      message: `Are you sure you want to delete ${selectedItemIds.length} selected items? Items in use or not found will be reported and the others will still be deleted.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      onConfirm: async () => {
+        showSpinner();
+        try {
+          const response = await categoryService.bulkDeleteCategoryItems(
+            category.id,
+            selectedItemIds,
+          );
+          const { deleted, failed, results } = response.data;
+          const deletedIds = results
+            .filter((result) => result.deleted)
+            .map((result) => result.id);
+          setSelectedItemIds((ids) =>
+            ids.filter((id) => !deletedIds.includes(id)),
+          );
+
+          if (failed > 0) {
+            const failureDetails = results
+              .filter((result) => !result.deleted)
+              .slice(0, 3)
+              .map((result) => result.message)
+              .filter(Boolean);
+            const remainingFailures = failed - failureDetails.length;
+            const details = failureDetails.length
+              ? ` ${failureDetails.join("; ")}${remainingFailures > 0 ? `; and ${remainingFailures} more.` : ""}`
+              : "";
+            showSnackbar(
+              `Deleted ${deleted} item(s); ${failed} failed.${details}`,
+              "warning",
+            );
+          } else {
+            showSnackbar(`Deleted ${deleted} item(s) successfully.`, "success");
+          }
+          await getItems();
+        } catch (error: any) {
+          showSnackbar(error.message || "Failed to delete selected items", "error");
+        } finally {
+          hideSpinner();
+        }
+      },
+    });
+  };
+
   const handleToggleStatus = async (item: CategoryItem) => {
+    if (!category) return;
     showSpinner();
     try {
       await categoryService.toggleCategoryItemStatus(item.id, category.id);
@@ -185,6 +338,10 @@ export default function CategoryItems() {
       maxWidth: "500px",
     },
   };
+
+  if (!category) {
+    return <Typography className="p-4 text-gray-500">Loading category...</Typography>;
+  }
 
   return (
     <>
@@ -214,14 +371,24 @@ export default function CategoryItems() {
           </div>
         </div>
         {category.categoryName !== "Employee Group" &&
-          <Button
-            variant="contained"
-            onClick={() => handleOpenDialog()}
-            className="!bg-primary"
-            disabled={!category.enabled}
-          >
-            Add Items
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleBulkDelete}
+              disabled={selectedItemIds.length === 0}
+            >
+              Delete Selected ({selectedItemIds.length})
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => handleOpenDialog()}
+              className="!bg-primary"
+              disabled={!category.enabled}
+            >
+              Add Items
+            </Button>
+          </div>
         }
       </div>
 
@@ -241,9 +408,25 @@ export default function CategoryItems() {
         <Table stickyHeader className="border border-gray-200 bg-white-50 rounded-sm w-max">
           <TableHead className="bg-gray-100">
             <TableRow>
-              <TableCell className="!font-semibold text-gray-800">
-                S No
-              </TableCell>
+              {category.categoryName !== "Employee Group" && (
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    className="text-gray-800 !p-0"
+                    checked={
+                      items.length > 0 &&
+                      items.every((item) => selectedItemIds.includes(item.id))
+                    }
+                    indeterminate={
+                      items.some((item) => selectedItemIds.includes(item.id)) &&
+                      !items.every((item) => selectedItemIds.includes(item.id))
+                    }
+                    onChange={(event) => handleSelectPage(event.target.checked)}
+                    slotProps={{
+                      input: { "aria-label": "Select all items on this page" },
+                    }}
+                  />
+                </TableCell>
+              )}
               <TableCell className="!font-semibold text-gray-800">
                 Code
               </TableCell>
@@ -263,9 +446,24 @@ export default function CategoryItems() {
           <TableBody>
             {items.map((item, index) => (
               <TableRow key={item.id} hover sx={getRowColor(index)}>
-                <TableCell className="text-gray-800">
-                  {page * limit + index + 1}
-                </TableCell>
+                {category.categoryName !== "Employee Group" && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      checked={selectedItemIds.includes(item.id)}
+                      className="text-gray-800 !p-0 !mr-2"
+                      disabled={
+                        !selectedItemIds.includes(item.id) &&
+                        selectedItemIds.length >= MAX_BULK_DELETE_ITEMS
+                      }
+                      onChange={(event) =>
+                        handleSelectItem(item.id, event.target.checked)
+                      }
+                      slotProps={{
+                        input: { "aria-label": `Select ${item.name}` },
+                      }}
+                    />{page * limit + index + 1}
+                  </TableCell>
+                )}
                 <TableCell> {item.code}</TableCell>
                 <TableCell className="font-medium text-gray-800">
                   {item.name}
@@ -275,7 +473,11 @@ export default function CategoryItems() {
                     label={item.active ? "Active" : "Inactive"}
                     color={item.active ? "success" : "error"}
                     size="small"
-                    onClick={() => {category.categoryName !== "Employee Group"  ? handleToggleStatus(item) : ''}}
+                    onClick={
+                      category.categoryName !== "Employee Group"
+                        ? () => handleToggleStatus(item)
+                        : undefined
+                    }
                     className="cursor-pointer"
                   />
                 </TableCell>

@@ -151,7 +151,7 @@ Attendance pages:
   - `/settings/general/password-config`
   - `/settings/general/branch-settings`
   - `/settings/employee/dep-settings`
-  - `/settings/employee/category-items`
+  - `/settings/employee/category-items/:categoryId/:categoryName`
   - `/settings/employee/other-category`
   - `/settings/employee/onboarding-process`
 
@@ -206,7 +206,7 @@ Attendance pages:
 - `/settings/general/password-config` (`src/pages/settings/general/passwordConfig.tsx`): password policy or settings.
 - `/settings/general/branch-settings` (`src/pages/settings/general/branchSettings.tsx`): branch office setup and location settings.
 - `/settings/employee/dep-settings` (`src/pages/settings/employee/depSettings.tsx`): department setup.
-- `/settings/employee/category-items` (`src/pages/settings/employee/categoryItems.tsx`): category management for employee settings.
+- `/settings/employee/category-items/:categoryId/:categoryName` (`src/pages/settings/employee/categoryItems.tsx`): category management for employee settings; the category name slug is used for the page-history chip label.
 - `/settings/employee/other-category` (`src/pages/settings/employee/otherCategory.tsx`): manage additional employee categories.
 - `/settings/employee/onboarding-process` (`src/pages/settings/employee/onBoardingProcess/onboard.tsx`): onboarding flows and related subpages.
 - `src/pages/settings/employee/onBoardingProcess/*`: onboarding subpages for document upload, checklist builder, assignment, and progress tracking.

@@ -139,6 +139,9 @@ export type SignupRequest = {
   password: string;
   companyName: string;
   subdomain: string;
+  country?: string;
+  state?: string;
+  industry?: string;
 };
 
 export type UserProfile = {

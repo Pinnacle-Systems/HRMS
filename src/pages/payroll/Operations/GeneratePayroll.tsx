@@ -167,6 +167,7 @@ export default function GeneratePayroll() {
             const res: any = await employeeService.getEmployees({
                 includeActive: true,
                 branch: session?.branchId || undefined,
+                sort: "employeeId,ASC",
             });
             setEmployees(res.data?.content || []);
         } catch (error) {

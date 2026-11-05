@@ -189,7 +189,7 @@ export default function CategorySettings() {
     .toLowerCase()
     .trim()
     .replace(/\s+/g, "-"); 
-    navigate(`/settings/employee/category-items/${catName}`, {
+    navigate(`/settings/employee/category-items/${category.id}/${catName}`, {
       state: { category },
     });
   };

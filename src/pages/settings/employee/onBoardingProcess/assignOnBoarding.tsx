@@ -391,7 +391,7 @@ export const AssignOnboarding = () => {
         await Promise.allSettled([
           onBoardService.getChecklists(),
           onBoardService.getAssignments(params),
-          employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined, }),
+          employeeService.getEmployees({ includeActive: true,branch: session?.branchId || undefined,sort: "employeeId,ASC" }),
         ]);
 
       if (checklistsResult.status === "fulfilled") {

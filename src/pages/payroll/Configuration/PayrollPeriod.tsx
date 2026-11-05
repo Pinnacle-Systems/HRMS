@@ -16,23 +16,29 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Paper,
   CircularProgress,
+  ToggleButton,
+  ToggleButtonGroup,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Tooltip,
 } from "@mui/material";
 import {
   CalendarToday as CalendarIcon,
-  AccessTime as ClockIcon,
-  CheckCircle as CheckCircleIcon,
-  PlayArrow as PlayIcon,
-  Cancel as XCircleIcon,
+  // AccessTime as ClockIcon,
+  // CheckCircle as CheckCircleIcon,
+  // PlayArrow as PlayIcon,
+  // Cancel as XCircleIcon,
   Close as CloseIcon,
-  Add as AddIcon,
   Edit as EditIcon,
   Assessment as FileBarChartIcon,
+  Delete,
+  // DeleteOutlined,
 } from "@mui/icons-material";
 import { periodsService } from "../../../services/modules/payrollServices/period";
 import { useUI } from "../../../context/Snackbar";
@@ -41,6 +47,9 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import dayjs from "dayjs";
+import { fiscalYearService } from "../../../services/modules/fiscalYear";
+import { companyService } from "../../../services/modules/company";
+import { getRowColor } from "../../const";
 
 const formatDate = (date: string | Date | null | undefined): string => {
   if (!date) return "-";
@@ -52,12 +61,157 @@ const formatDate = (date: string | Date | null | undefined): string => {
   });
 };
 
-const statusConfig: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
-  pending: { label: "Pending", icon: ClockIcon, color: "#f59e0b", bgColor: "#fef3c7" },
-  scheduled: { label: "Scheduled", icon: PlayIcon, color: "#3b82f6", bgColor: "#dbeafe" },
-  processed: { label: "Processed", icon: CheckCircleIcon, color: "#10b981", bgColor: "#d1fae5" },
-  closed: { label: "Closed", icon: XCircleIcon, color: "#6b7280", bgColor: "#f3f4f6" },
-};
+// const statusConfig: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
+//   pending: { label: "Pending", icon: ClockIcon, color: "#f59e0b", bgColor: "#fef3c7" },
+//   scheduled: { label: "Scheduled", icon: PlayIcon, color: "#3b82f6", bgColor: "#dbeafe" },
+//   processed: { label: "Processed", icon: CheckCircleIcon, color: "#10b981", bgColor: "#d1fae5" },
+//   closed: { label: "Closed", icon: XCircleIcon, color: "#6b7280", bgColor: "#f3f4f6" },
+// };
+
+function PeriodTable({
+  title,
+  periods,
+  activeFiscalYear,
+  onEdit,
+  onDelete,
+  viewType,
+  onViewTypeChange,
+  monthlyCount,
+  weeklyCount,
+}: {
+  title: string;
+  periods: any[];
+  activeFiscalYear: any;
+  onEdit: (period: any) => void;
+  onDelete: (id: string) => void;
+  viewType: "monthly" | "weekly";
+  onViewTypeChange: (v: "monthly" | "weekly") => void;
+  monthlyCount: number;
+  weeklyCount: number;
+}) {
+  return (
+    <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", mb: 3 }}>
+      <CardContent className="!p-5">
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+            mb: 2,
+            flexWrap: "wrap",
+          }}
+        >
+          <CalendarIcon className="text-primary !w-4" />
+          <div className="text-[12px] text-gray-800 font-bold">{title}</div>
+          <Chip
+            label={`${periods.length} periods`}
+            size="small"
+            color="warning"
+            variant="outlined"
+          />
+
+          <Box sx={{ ml: "auto" }}>
+            <ToggleButtonGroup
+              value={viewType}
+              exclusive
+              size="small"
+              onChange={(_, val) => {
+                if (val) onViewTypeChange(val);
+              }}
+            >
+              <ToggleButton value="monthly" className="!text-gray-800" sx={{ textTransform: "none", px: 1.5 }}>
+                Monthly ({monthlyCount})
+              </ToggleButton>
+              <ToggleButton value="weekly" className="!text-gray-800" sx={{ textTransform: "none", px: 1.5 }}>
+                Weekly ({weeklyCount})
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Box>
+
+        {periods.length === 0 ? (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <Typography variant="body1" className="text-gray-800">
+              {activeFiscalYear
+                ? `No ${title.toLowerCase()} found for the active fiscal year.`
+                : "No active fiscal year configured. Please activate a fiscal year in Company Settings."}
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ overflowX: "auto" }}>
+            <TableContainer className="border border-gray-200 h-[calc(100vh-282px)] overflow-auto bg-white shadow-sm rounded-md">
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell className="!font-bold">S No</TableCell>
+                    <TableCell className="!font-bold">Period Name</TableCell>
+                    <TableCell className="!font-bold">Start Date</TableCell>
+                    <TableCell className="!font-bold">End Date</TableCell>
+                    <TableCell className="!font-bold">Payment Date</TableCell>
+                    <TableCell align="right" className="!font-bold">
+                      Working Days
+                    </TableCell>
+                    <TableCell align="right" className="!font-bold">
+                      Holidays
+                    </TableCell>
+                    {/* <TableCell align="center">Status</TableCell> */}
+                    <TableCell align="center" className="!font-bold">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {periods.map((period: any, index: number) => {
+                    // const cfg = statusConfig[period.status] || statusConfig.pending;
+                    return (
+                      <TableRow key={period.id} sx={getRowColor(index)}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" className="!text-gray-800 !font-medium">
+                            {period.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{formatDate(period.startDate)}</TableCell>
+                        <TableCell>{formatDate(period.endDate)}</TableCell>
+                        <TableCell>{formatDate(period.paymentDate)}</TableCell>
+                        <TableCell align="right">{period.workingDays}</TableCell>
+                        <TableCell align="right">{period.holidays?.length ?? 0}</TableCell>
+                        {/* <TableCell align="center">
+                  <Chip
+                    label={cfg.label}
+                    // color={cfg.color}
+                    size="small"
+                  />
+                </TableCell> */}
+                        <TableCell align="center">
+                          <Tooltip title="Edit">
+                            <IconButton size="small" color="primary" onClick={() => onEdit(period)}>
+                              <EditIcon fontSize="small" className="!w-4" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(period.id);
+                              }}
+                            >
+                              <Delete fontSize="small" className="text-error" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function PayrollPeriodConfig() {
   const theme = useTheme();
@@ -67,6 +221,9 @@ export default function PayrollPeriodConfig() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [summaryData, setSummaryData] = useState<any>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
+  const [viewType, setViewType] = useState<"monthly" | "weekly">("monthly");
+
   const [formData, setFormData] = useState({
     id: "",
     name: "",
@@ -78,10 +235,21 @@ export default function PayrollPeriodConfig() {
     status: "pending",
     holidays: [] as { name: string; date: string }[],
   });
-  const [newHoliday, setNewHoliday] = useState({ name: "", date: "" });
+  // const [newHoliday, setNewHoliday] = useState({ name: "", date: "" });
+
+  const [activeFiscalYear, setActiveFiscalYear] = useState<{
+    id: string;
+    yearLabel: string;
+    startDate: string;
+    endDate: string;
+    active?: boolean;
+  } | null>(null);
 
   useEffect(() => {
-    loadPeriods();
+    (async () => {
+      await loadActiveFiscalYear();
+      await loadPeriods();
+    })();
   }, []);
 
   // Auto-load summary when dates change in create mode
@@ -93,6 +261,45 @@ export default function PayrollPeriodConfig() {
       return () => clearTimeout(delayDebounceFn);
     }
   }, [formData.startDate, formData.endDate, isEditMode]);
+
+  const loadActiveFiscalYear = async () => {
+    try {
+      const companyRes: any = await companyService.getCompany();
+      const companyId = companyRes?.data?.length
+        ? companyRes.data[0].id
+        : companyRes?.data?.id || "";
+
+      if (!companyId) {
+        setActiveFiscalYear(null);
+        return;
+      }
+
+      const fyRes: any = await fiscalYearService.getFiscalYears(companyId);
+      const list: any[] = Array.isArray(fyRes?.data) ? fyRes.data : [];
+
+      const active =
+        list.find((f) => f.active === true) ??
+        (list.length === 1 ? list[0] : null);
+
+      setActiveFiscalYear(
+        active
+          ? {
+            id: active.id,
+            yearLabel: active.yearLabel,
+            startDate: active.startDate,
+            endDate: active.endDate,
+            active: active.active,
+          }
+          : null
+      );
+    } catch (err: any) {
+      showSnackbar(
+        err?.message || "Failed to load active fiscal year",
+        "error"
+      );
+      setActiveFiscalYear(null);
+    }
+  };
 
   const loadPeriods = async () => {
     showSpinner();
@@ -114,17 +321,17 @@ export default function PayrollPeriodConfig() {
     setIsLoadingSummary(true);
     const params = {
       startDate: formData.startDate,
-      endDate: formData.endDate
+      endDate: formData.endDate,
     };
     try {
       const response: any = await periodsService.getSummaryPeriods(params);
-      setSummaryData(response.data); 
+      setSummaryData(response.data);
       if (response.data?.workingDays != null) {
-      setFormData((prev) => ({
-        ...prev,
-        workingDays: response.data.workingDays,
-      }));
-    }     
+        setFormData((prev) => ({
+          ...prev,
+          workingDays: response.data.workingDays,
+        }));
+      }
     } catch (error) {
       showSnackbar("Failed to load period summary", "error");
       setSummaryData(null);
@@ -133,23 +340,23 @@ export default function PayrollPeriodConfig() {
     }
   };
 
-  const openCreateDialog = () => {
-    setIsEditMode(false);
-    setFormData({
-      id: "",
-      name: "",
-      startDate: "",
-      endDate: "",
-      paymentDate: "",
-      cutoffDate: "",
-      workingDays: 0,
-      status: "pending",
-      holidays: [],
-    });
-    setNewHoliday({ name: "", date: "" });
-    setSummaryData(null);
-    setIsDialogOpen(true);
-  };
+  // const openCreateDialog = () => {
+  //   setIsEditMode(false);
+  //   setFormData({
+  //     id: "",
+  //     name: "",
+  //     startDate: "",
+  //     endDate: "",
+  //     paymentDate: "",
+  //     cutoffDate: "",
+  //     workingDays: 0,
+  //     status: "pending",
+  //     holidays: [],
+  //   });
+  //   setNewHoliday({ name: "", date: "" });
+  //   setSummaryData(null);
+  //   setIsDialogOpen(true);
+  // };
 
   const openEditDialog = (period: any) => {
     setIsEditMode(true);
@@ -164,7 +371,7 @@ export default function PayrollPeriodConfig() {
       status: period.status || "pending",
       holidays: period.holidays || [],
     });
-    setNewHoliday({ name: "", date: "" });
+    // setNewHoliday({ name: "", date: "" });
     setSummaryData(null);
     setIsDialogOpen(true);
   };
@@ -177,7 +384,7 @@ export default function PayrollPeriodConfig() {
 
     showSpinner();
     try {
-      const payload:any = {
+      const payload: any = {
         name: formData.name,
         startDate: formData.startDate,
         endDate: formData.endDate,
@@ -218,7 +425,7 @@ export default function PayrollPeriodConfig() {
       status: "pending",
       holidays: [],
     });
-    setNewHoliday({ name: "", date: "" });
+    // setNewHoliday({ name: "", date: "" });
     setSummaryData(null);
     setIsEditMode(false);
   };
@@ -243,34 +450,55 @@ export default function PayrollPeriodConfig() {
     });
   };
 
-  const handleAddHoliday = () => {
-    if (!newHoliday.name || !newHoliday.date) {
-      showSnackbar("Please fill holiday name and date", "warning");
-      return;
-    }
-    setFormData({
-      ...formData,
-      holidays: [...formData.holidays, { name: newHoliday.name, date: newHoliday.date }],
-    });
-    setNewHoliday({ name: "", date: "" });
-  };
+  // const handleAddHoliday = () => {
+  //   if (!newHoliday.name || !newHoliday.date) {
+  //     showSnackbar("Please fill holiday name and date", "warning");
+  //     return;
+  //   }
+  //   setFormData({
+  //     ...formData,
+  //     holidays: [...formData.holidays, { name: newHoliday.name, date: newHoliday.date }],
+  //   });
+  //   setNewHoliday({ name: "", date: "" });
+  // };
 
-  const handleRemoveHoliday = (index: number) => {
-    setFormData({
-      ...formData,
-      holidays: formData.holidays.filter((_, i) => i !== index),
-    });
-  };
+  // const handleRemoveHoliday = (index: number) => {
+  //   setFormData({
+  //     ...formData,
+  //     holidays: formData.holidays.filter((_, i) => i !== index),
+  //   });
+  // };
 
   const handleLoadSummary = async () => {
     await loadSummaryPeriods();
   };
 
-  // Render summary component
+  const visiblePeriods = periods.filter((period) => {
+    if (!activeFiscalYear) return false;
+    if (!period.startDate || !period.endDate) return false;
+
+    const pStart = dayjs(period.startDate);
+    const pEnd = dayjs(period.endDate);
+    const fStart = dayjs(activeFiscalYear.startDate);
+    const fEnd = dayjs(activeFiscalYear.endDate);
+
+    return !pStart.isAfter(fEnd) && !pEnd.isBefore(fStart);
+  });
+
+  const monthlyPeriods = visiblePeriods
+    .filter((p) => p.periodType === "monthly")
+    .sort((a, b) => dayjs(b.startDate).valueOf() - dayjs(a.startDate).valueOf());
+
+  const weeklyPeriods = visiblePeriods
+    .filter((p) => p.periodType === "weekly")
+    .sort((a, b) => dayjs(b.startDate).valueOf() - dayjs(a.startDate).valueOf());
+
+  const displayedPeriods = viewType === "monthly" ? monthlyPeriods : weeklyPeriods;
+
   const renderSummary = () => {
     if (isLoadingSummary) {
       return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
           <CircularProgress size={30} />
         </Box>
       );
@@ -278,10 +506,10 @@ export default function PayrollPeriodConfig() {
 
     if (!summaryData) {
       return (
-        <Box sx={{ textAlign: 'center', py: 3 }}>
+        <Box sx={{ textAlign: "center", py: 3 }}>
           <Typography variant="body2" className="text-gray-800">
-            {isEditMode 
-              ? "Click 'Load Summary' to view period details" 
+            {isEditMode
+              ? "Click 'Load Summary' to view period details"
               : "Select start and end dates to view summary"}
           </Typography>
         </Box>
@@ -290,8 +518,7 @@ export default function PayrollPeriodConfig() {
 
     return (
       <Stack spacing={2}>
-        {/* Date Range */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="subtitle2" className="text-gray-800">
             Period
           </Typography>
@@ -300,10 +527,9 @@ export default function PayrollPeriodConfig() {
           </Typography>
         </Box>
 
-        {/* Summary Stats */}
         <Grid container spacing={1.5}>
           <Grid size={{ xs: 3 }}>
-            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+            <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
               <Typography variant="h6" color="primary">
                 {summaryData.totalDays}
               </Typography>
@@ -313,7 +539,7 @@ export default function PayrollPeriodConfig() {
             </Paper>
           </Grid>
           <Grid size={{ xs: 3 }}>
-            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.success.main, 0.04) }}>
+            <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: alpha(theme.palette.success.main, 0.04) }}>
               <Typography variant="h6" color="success">
                 {summaryData.workingDays}
               </Typography>
@@ -323,7 +549,7 @@ export default function PayrollPeriodConfig() {
             </Paper>
           </Grid>
           <Grid size={{ xs: 3 }}>
-            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.warning.main, 0.04) }}>
+            <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: alpha(theme.palette.warning.main, 0.04) }}>
               <Typography variant="h6" color="warning">
                 {summaryData.weekends || 0}
               </Typography>
@@ -333,7 +559,7 @@ export default function PayrollPeriodConfig() {
             </Paper>
           </Grid>
           <Grid size={{ xs: 3 }}>
-            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: alpha(theme.palette.info.main, 0.04) }}>
+            <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: alpha(theme.palette.info.main, 0.04) }}>
               <Typography variant="h6" color="info">
                 {summaryData.holidays || 0}
               </Typography>
@@ -344,7 +570,6 @@ export default function PayrollPeriodConfig() {
           </Grid>
         </Grid>
 
-        {/* Holiday List */}
         {summaryData.holidayList && summaryData.holidayList.length > 0 && (
           <Box>
             <Typography variant="subtitle2" className="text-gray-800" gutterBottom>
@@ -352,16 +577,16 @@ export default function PayrollPeriodConfig() {
             </Typography>
             <Stack spacing={0.5}>
               {summaryData.holidayList.map((holiday: any, index: number) => (
-                <Box 
-                  key={index} 
-                  sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
+                <Box
+                  key={index}
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     p: 1,
                     borderRadius: 1,
                     bgcolor: alpha(theme.palette.info.main, 0.04),
-                    border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`,
                   }}
                 >
                   <Box>
@@ -372,12 +597,12 @@ export default function PayrollPeriodConfig() {
                       {formatDate(holiday.date)}
                     </Typography>
                   </Box>
-                  <Chip 
-                    label={holiday.type} 
+                  <Chip
+                    label={holiday.type}
                     size="small"
-                    color={holiday.type === 'PUBLIC' ? 'error' : 'warning'}
+                    color={holiday.type === "PUBLIC" ? "error" : "warning"}
                     variant="outlined"
-                    sx={{ height: 20, fontSize: '0.6rem' }}
+                    sx={{ height: 20, fontSize: "0.6rem" }}
                   />
                 </Box>
               ))}
@@ -385,16 +610,17 @@ export default function PayrollPeriodConfig() {
           </Box>
         )}
 
-        {/* Summary Footer */}
-        <Box sx={{ 
-          p: 1.5, 
-          borderRadius: 1, 
-          bgcolor: alpha(theme.palette.success.main, 0.04),
-          border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`
-        }}>
+        <Box
+          sx={{
+            p: 1.5,
+            borderRadius: 1,
+            bgcolor: alpha(theme.palette.success.main, 0.04),
+            border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`,
+          }}
+        >
           <Typography variant="caption" className="text-gray-500" align="center">
-            Total: {summaryData.totalDays} days | Working: {summaryData.workingDays} | 
-            Non-working: {( summaryData.weekends || 0 ) + summaryData.holidays}
+            Total: {summaryData.totalDays} days | Working: {summaryData.workingDays} | Non-working:{" "}
+            {(summaryData.weekends || 0) + summaryData.holidays}
           </Typography>
         </Box>
       </Stack>
@@ -413,122 +639,34 @@ export default function PayrollPeriodConfig() {
             Manage payroll periods, processing schedule, and auto-sync settings
           </div>
         </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon fontSize="small" />}
-            onClick={openCreateDialog}
-            className="!bg-primary"
-          >
-            Create Period
-          </Button>
-        </Box>
       </Box>
 
-      <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", mb: 3 }}>
-        <CardContent className="!p-5">
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-            <CalendarIcon className="text-primary !w-4" />
-            <div className="text-[12px] text-gray-800">
-              Calendar View — {new Date().getFullYear()}
-            </div>
-            <Chip label={`${periods.length} periods`} size="small" className="!bg-gray-200 text-gray-800 ml-2" />
-          </Box>
-          <Grid container spacing={2}>
-            {periods.length === 0 ? (
-              <Grid size={{ xs: 12 }}>
-                <Box sx={{ textAlign: "center", py: 4 }}>
-                  <Typography variant="body1" className="text-gray-800">No periods found. Click "Create Period" to add one.</Typography>
-                </Box>
-              </Grid>
-            ) : (
-              periods.map((period) => {
-                const cfg = statusConfig[period.status] || statusConfig.pending;
-                const Icon = cfg.icon;
-                const isClosed = period.status === "closed";
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+        <Typography variant="body2" className="text-gray-800">
+          Active Fiscal Year:{" "}
+          <strong>
+            {activeFiscalYear
+              ? `${activeFiscalYear.yearLabel || ""} (${formatDate(activeFiscalYear.startDate)} – ${formatDate(activeFiscalYear.endDate)})`
+              : "Not configured"}
+          </strong>
+        </Typography>
+      </Box>
 
-                return (
-                  <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={period.id}>
-                    <Paper className="bg-white-50"
-                      sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        border: `1px solid ${alpha(cfg.color, 0.3)}`,
-                        bgcolor: isClosed ? alpha(theme.palette.grey[500], 0.05) : "background.paper",
-                        transition: "all 0.2s",
-                        "&:hover": { boxShadow: 2, borderColor: 'var(--color-primary)' },
-                        opacity: isClosed ? 0.7 : 1,
-                      }}
-                    >
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1.5 }}>
-                        <Box sx={{ flex: 1 }}>
-                          <div className="text-[12px] text-gray-800 !font-bold">
-                            {period.name}
-                          </div>
-                          <div className="text-[12px] text-gray-500 mt-1">
-                            {formatDate(period.startDate)} – {formatDate(period.endDate)}
-                          </div>
-                        </Box>
-                        <Chip
-                          icon={<Icon className="!w-4" />}
-                          label={cfg.label}
-                          size="small"
-                          sx={{
-                            bgcolor: cfg.bgColor,
-                            color: cfg.color,
-                            fontSize: "0.65rem",
-                            fontWeight: 500,
-                            "& .MuiChip-icon": { color: cfg.color },
-                          }}
-                        />
-                      </Box>
-                      <Stack spacing={0.75}>
-                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                          <div className="text-[12px] text-gray-500">Payment date</div>
-                          <div className="text-[12px] text-gray-800">{formatDate(period.paymentDate)}</div>
-                        </Box>
-                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                          <div className="text-[12px] text-gray-500">Working days</div>
-                          <div className="text-[12px] text-gray-800">{period.workingDays}</div>
-                        </Box>
-                        {period.holidays?.length > 0 && (
-                          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                            <div className="text-[12px] text-gray-500">Holidays</div>
-                            <div className="text-[12px] text-gray-800">{period.holidays.length}</div>
-                          </Box>
-                        )}
-                      </Stack>
-                      <Box sx={{ display: "flex", gap: 1, mt: 1.5 }}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<EditIcon fontSize="small" />}
-                          onClick={() => openEditDialog(period)}
-                          sx={{ textTransform: "none", flex: 1 }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          color="error"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeletePeriod(period.id);
-                          }}
-                          sx={{ textTransform: "none" }}
-                        >
-                          Delete
-                        </Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                );
-              })
-            )}
-          </Grid>
-        </CardContent>
-      </Card>
+      <PeriodTable
+        title={
+          viewType === "monthly"
+            ? "Monthly Payroll Periods"
+            : "Weekly Payroll Periods"
+        }
+        periods={displayedPeriods}
+        activeFiscalYear={activeFiscalYear}
+        onEdit={openEditDialog}
+        onDelete={handleDeletePeriod}
+        viewType={viewType}
+        onViewTypeChange={setViewType}
+        monthlyCount={monthlyPeriods.length}
+        weeklyCount={weeklyPeriods.length}
+      />
 
       {/* Unified Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onClose={() => { setIsDialogOpen(false); resetForm(); }} maxWidth="md" sx={dialogsx}>
@@ -542,10 +680,9 @@ export default function PayrollPeriodConfig() {
             </IconButton>
           </Box>
         </DialogTitle>
-        
+
         <DialogContent className="!p-7">
           <Stack spacing={2.5}>
-            {/* Basic Fields */}
             <Grid container spacing={2}>
               <Grid size={{ xs: 12 }}>
                 <TextField
@@ -568,15 +705,12 @@ export default function PayrollPeriodConfig() {
                     onChange={(newValue) => {
                       setFormData({
                         ...formData,
-                        startDate: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                        startDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       });
                     }}
                     format="DD/MM/YYYY"
                     slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        required: true,
-                      }
+                      textField: { fullWidth: true, required: true },
                     }}
                   />
                 </Grid>
@@ -587,15 +721,12 @@ export default function PayrollPeriodConfig() {
                     onChange={(newValue) => {
                       setFormData({
                         ...formData,
-                        endDate: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                        endDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       });
                     }}
                     format="DD/MM/YYYY"
                     slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        required: true,
-                      }
+                      textField: { fullWidth: true, required: true },
                     }}
                   />
                 </Grid>
@@ -611,15 +742,12 @@ export default function PayrollPeriodConfig() {
                     onChange={(newValue) => {
                       setFormData({
                         ...formData,
-                        paymentDate: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                        paymentDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       });
                     }}
                     format="DD/MM/YYYY"
                     slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        required: true,
-                      }
+                      textField: { fullWidth: true, required: true },
                     }}
                   />
                 </Grid>
@@ -636,28 +764,9 @@ export default function PayrollPeriodConfig() {
               </Grid>
             </Grid>
 
-            {isEditMode && (
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  label="Status"
-                >
-                  <MenuItem value="pending">Pending</MenuItem>
-                  <MenuItem value="scheduled">Scheduled</MenuItem>
-                  <MenuItem value="processed">Processed</MenuItem>
-                  <MenuItem value="closed">Closed</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-
-            {/* Summary Section */}
             <Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <div className="text-[12px] text-gray-800">
-                  Period Summary
-                </div>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                <div className="text-[12px] text-gray-800">Period Summary</div>
                 {isEditMode && (
                   <Button
                     size="small"
@@ -675,8 +784,7 @@ export default function PayrollPeriodConfig() {
               </Paper>
             </Box>
 
-            {/* Holidays Section */}
-            <Box>
+            {/* <Box>
               <Typography variant="body2" sx={{ fontWeight: 500, mb: 2 }}>
                 Holidays
               </Typography>
@@ -694,14 +802,12 @@ export default function PayrollPeriodConfig() {
                     onChange={(newValue) => {
                       setNewHoliday({
                         ...newHoliday,
-                        date: newValue ? dayjs(newValue).format('YYYY-MM-DD') : ''
+                        date: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       });
                     }}
                     format="DD/MM/YYYY"
                     slotProps={{
-                      textField: {
-                        sx: { minWidth: 150 },
-                      }
+                      textField: { sx: { minWidth: 150 } },
                     }}
                   />
                 </LocalizationProvider>
@@ -716,7 +822,17 @@ export default function PayrollPeriodConfig() {
               {formData.holidays.length > 0 && (
                 <Stack spacing={1} sx={{ mt: 1 }}>
                   {formData.holidays.map((h, i) => (
-                    <Box key={i} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                    <Box
+                      key={i}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        p: 1,
+                        borderRadius: 1,
+                        bgcolor: alpha(theme.palette.primary.main, 0.04),
+                      }}
+                    >
                       <Box>
                         <Typography variant="body2">{h.name}</Typography>
                         <div className="text-[12px] text-gray-800">
@@ -730,10 +846,10 @@ export default function PayrollPeriodConfig() {
                   ))}
                 </Stack>
               )}
-            </Box>
+            </Box> */}
           </Stack>
         </DialogContent>
-        
+
         <DialogActions className="!p-4 border-t border-gray-200">
           <Button
             onClick={() => { setIsDialogOpen(false); resetForm(); }}

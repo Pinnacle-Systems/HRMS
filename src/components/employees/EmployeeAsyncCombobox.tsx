@@ -145,7 +145,7 @@ export const EmployeeAsyncCombobox = ({
         const response = await employeeService.getEmployees({
           page: targetPage,
           size: pageSize,
-          sort: "name,ASC",
+          sort: "employeeId,ASC",
           search,
           includeActive,
           branch: session?.branchId || undefined,

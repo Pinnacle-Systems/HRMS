@@ -3,7 +3,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   MenuItem, Select, FormControl, InputLabel, IconButton, Tooltip, Chip,
   Dialog, DialogContent, DialogTitle, DialogActions, Button, TextField,
-
+  TableSortLabel,
 } from "@mui/material";
 import {
   FilterListOutlined, FileDownloadOutlined,
@@ -41,6 +41,8 @@ export function AttendanceDetailed() {
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(20);
   const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Filters
   const getInitialFilterDate = () =>
@@ -115,6 +117,7 @@ export function AttendanceDetailed() {
         status: (status as any) || undefined,
         search: selectedEmployee?.id || undefined,
         page, size: limit,
+        sortBy, sortDir,
       });
       const data = res?.data?.data ?? res?.data;
       setRecords(data?.content ?? data ?? []);
@@ -125,7 +128,7 @@ export function AttendanceDetailed() {
       setLoading(false);
       hideSpinner();
     }
-  }, [fromDate, toDate, departmentId, shiftCode, status, selectedEmployee, page, limit]);
+  }, [fromDate, toDate, departmentId, shiftCode, status, selectedEmployee, page, limit, sortBy, sortDir]);
 
   const fetchMasterData = async () => {
     try {
@@ -190,7 +193,16 @@ export function AttendanceDetailed() {
     setPage(0);
   };
 
+  const handleSort = (field: string) => {
+    setSortDir((direction) =>
+      sortBy === field && direction === "asc" ? "desc" : "asc",
+    );
+    setSortBy(field);
+    setPage(0);
+  };
+
   async function exportEmployeeData() {
+    showSpinner();
     try {
       const params: any = {
         fromDate,
@@ -203,6 +215,8 @@ export function AttendanceDetailed() {
       showSnackbar("Attendance reports generated successfully", "success");
     } catch {
       showSnackbar("Attendance was finalized, but report generation failed", "warning");
+    } finally {
+      hideSpinner();
     }
   }
 
@@ -312,23 +326,48 @@ export function AttendanceDetailed() {
             <TableHead>
               <TableRow>
                 {[
-                  "S No", "Employee Name", "Date",
-                  "Shift", "Check In Date",
-                  "Check In Time",
-                  "Check Out Date",
-                  "Check Out Time",
-                  "Worked", "Late In", "Early Out", "OT", "Status", "Actions",
-                ].map((h) => (
+                  { label: "S No" },
+                  { label: "Employee Name", field: "employeeName" },
+                  { label: "Date", field: "date" },
+                  { label: "Shift" },
+                  { label: "Check In Date" },
+                  { label: "Check In Time" },
+                  { label: "Check Out Date" },
+                  { label: "Check Out Time" },
+                  { label: "Worked" },
+                  { label: "Late In" },
+                  { label: "Early Out" },
+                  { label: "OT" },
+                  { label: "Status" },
+                  { label: "Actions" },
+                ].map(({ label, field }) => (
                   <TableCell
-                    key={h}
-                    className={`!font-bold !text-gray-700 ${h === "S No" ? "!sticky left-0 !z-30" : ""
-                      } ${h === "Employee Name" ? "!sticky left-[60px] !z-30" : ""
-                      } ${h === "Date" ? "!sticky left-[180px] !z-30" : ""
-                      } ${h === "Status" ? "!sticky right-[76px] !z-30" : ""
-                      } ${h === "Actions" ? "!sticky right-0 !z-30" : ""
+                    key={label}
+                    className={`!font-bold !text-gray-700 ${label === "S No" ? "!sticky left-0 !z-30" : ""
+                      } ${label === "Employee Name" ? "!sticky left-[60px] !z-30" : ""
+                      } ${label === "Date" ? "!sticky left-[180px] !z-30" : ""
+                      } ${label === "Status" ? "!sticky right-[76px] !z-30" : ""
+                      } ${label === "Actions" ? "!sticky right-0 !z-30" : ""
                       }`}
                   >
-                    {h}
+                    {field ? (
+                      <TableSortLabel
+                        active={sortBy === field}
+                        direction={sortBy === field ? sortDir : "asc"}
+                        onClick={() => handleSort(field)}
+                        className="!text-gray-800"
+                        sx={{
+                          "& .MuiTableSortLabel-icon": {
+                            color: "inherit !important",
+                            height: "14px",
+                          },
+                        }}
+                      >
+                        {label}
+                      </TableSortLabel>
+                    ) : (
+                      label
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

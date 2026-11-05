@@ -253,7 +253,7 @@ export default function ApprovalWorkflowConfig() {
         const [modRes, opRes, empRes] = await Promise.all([
           approvalWorkflowService.getModules({ size: 100 }),
           approvalWorkflowService.getOperators({ activeOnly: true }),
-          employeeService.getEmployees({ includeActive: true, branch: session?.branchId || undefined, }),
+          employeeService.getEmployees({ includeActive: true, branch: session?.branchId || undefined,sort: "employeeId,ASC" }),
         ]);
         setModules(modRes.data.content);
         setOperators(opRes.data);

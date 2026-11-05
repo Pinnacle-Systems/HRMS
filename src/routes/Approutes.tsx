@@ -806,7 +806,7 @@ function AppRoutesContent() {
                       <Route path="employee/onboarding-process/:tab?" element={<OnBoardingProcess />} />
                       <Route path="employee/department-settings" element={<DepartmentSettings />} />
                       <Route path="employee/category-settings" element={<CategorySettings />} />
-                      <Route path="employee/category-items/:categoryId" element={<CategoryItems />} />
+                      <Route path="employee/category-items/:categoryId/:categoryName" element={<CategoryItems />} />
                     </Route>
 
                     {/* Policy Settings - Admin & HR with POLICY_WRITE */}

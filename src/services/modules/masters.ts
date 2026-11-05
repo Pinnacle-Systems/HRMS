@@ -22,6 +22,10 @@ export const masterService = {
     return apiService.get(API_ENDPOINTS.MASTER.GET_STATES, { params });
   },
 
+  async getIndustries(params?: any) {
+    return apiService.get(API_ENDPOINTS.MASTER.GET_INDUSTRY, { params });
+  },
+
   async getCurrencies(params?: any) {
     return apiService.get(API_ENDPOINTS.MASTER.GET_CURRENCIES, { params });
   },

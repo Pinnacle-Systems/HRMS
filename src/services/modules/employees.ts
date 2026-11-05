@@ -16,6 +16,7 @@ export interface EmployeeListQuery {
   page?: number;
   size?: number;
   sort?: string | string[];
+  filters?: string;
   search?: string;
   dept?: string;
   branch?: string;
@@ -221,6 +222,7 @@ export const buildEmployeeListParams = (
     "page",
     "size",
     "sort",
+    "filters",
     "search",
     "dept",
     "branch",
@@ -372,7 +374,7 @@ export const employeeService = {
 
   async hardDeleteEmployee(id: string) {
     return apiService.delete(API_ENDPOINTS.EMPLOYEE.HARD_DELETE(id));
-},
+  },
 
   async reactivateEmployee(id: string): Promise<EmployeeSummaryResponse> {
     const response: any = await apiService.patch(
@@ -941,4 +943,47 @@ export const employeeService = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+
+  async downloadEmployeeDetailsReportBlob(
+    employeeIds: string[],
+    options: {
+      format: EmployeeDetailsReportFormat;
+      lang: EmployeeDetailsReportLanguage;
+      forms: string[];
+    },
+  ): Promise<{ blob: Blob; filename: string }> {
+    const response = await apiService.axiosInstance.get("/employees/details-report", {
+      params: {
+        employeeIds: employeeIds.join(","), // "id1,id2,id3"
+        format: options.format,              // "pdf" | "html" | "excel" | "csv"
+        lang: options.lang,                  // "both" | "en"
+        forms: options.forms.join(","),      // "details,pf-form-2"
+      },
+      responseType: "blob",
+    });
+    
+    const disposition =
+      (response.headers?.["content-disposition"] as string | undefined) ?? "";
+    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
+    const fallbackExt = options.format === "excel" ? "xlsx" : options.format;
+    const filename = match
+      ? decodeURIComponent(match[1])
+      : `employee-details-report.${fallbackExt}`;
+
+    const blob =
+      response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], {
+          type:
+            options.format === "pdf"
+              ? "application/pdf"
+              : options.format === "html"
+                ? "text/html"
+                : options.format === "excel"
+                  ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  : "text/csv",
+        });
+
+    return { blob, filename };
+  }
 };
