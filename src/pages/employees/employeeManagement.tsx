@@ -41,12 +41,9 @@ import { branchService } from "../../services/modules/branch";
 import { formatDate } from "../../utils/dateFormatter";
 import type { FilterConfig } from "../../types/filter.ts";
 import { operatorLabels } from "../../types/filterOperators";
-import { applyFiltersToData } from "../../utils/filterUtils";
 import {
   getEmployeeFilterFields,
-  buildEmployeeServerFilterParams,
-  isEmployeeServerSupportedFilter,
-  EMPLOYEE_FIELD_MAP,
+  serializeEmployeeFilters,
 } from "./employeeFilterConfig";
 import FilterAltOutlinedIcon from "@mui/icons-material/FilterAltOutlined";
 import type { Category } from "../../services/modules/shifts.ts";
@@ -69,6 +66,7 @@ import {
   MoreVertOutlined,
   NoAccountsOutlined,
   PaidOutlined,
+  PrintOutlined,           
   VisibilityOutlined,
 } from "@mui/icons-material";
 import {
@@ -393,6 +391,15 @@ export default function EmployeeManagement() {
   const [fetchPreviousData, setFetchPreviousData] = useState(false);
   const previousEmployeeRequestId = useRef(0);
 
+  // ---------- Personal Files preview ----------
+  const [personalFilesPreviewOpen, setPersonalFilesPreviewOpen] = useState(false);
+  const [personalFilesPreviewUrl, setPersonalFilesPreviewUrl] = useState<string | null>(null);
+  const [personalFilesPreviewBlob, setPersonalFilesPreviewBlob] = useState<Blob | null>(null);
+  const [personalFilesPreviewLoading, setPersonalFilesPreviewLoading] = useState(false);
+  const [personalFilesPreviewError, setPersonalFilesPreviewError] = useState<string | null>(null);
+  const [personalFilesPreviewFormat, setPersonalFilesPreviewFormat] =
+    useState<EmployeeDetailsReportFormat>("pdf");
+
   // ---------- Derived ----------
   const filterFields = useMemo(
     () =>
@@ -500,7 +507,7 @@ export default function EmployeeManagement() {
         size: limit,
         sort: sortParams,
         branch: session?.branchId || undefined,
-        ...buildEmployeeServerFilterParams(activeFilters),
+        filters: serializeEmployeeFilters(activeFilters),
       };
 
       if (searchTerm) params.search = searchTerm;
@@ -522,14 +529,6 @@ export default function EmployeeManagement() {
       }
 
       setTotal(employeePage.totalElements);
-
-      if (
-        activeFilters &&
-        activeFilters.rules.length > 0 &&
-        !isEmployeeServerSupportedFilter(activeFilters)
-      ) {
-        visibleEmployees = applyFiltersToData(visibleEmployees, activeFilters, EMPLOYEE_FIELD_MAP);
-      }
 
       setEmployees(visibleEmployees);
 
@@ -660,18 +659,11 @@ export default function EmployeeManagement() {
         let hasNextPage = true;
 
         while (hasNextPage) {
-          // const response = await employeeService.getDeactivatedEmployees({
-          //   page,
-          //   size: 100,
-          //   sort: "name,asc",
-          //   branch: session?.branchId || undefined,
-          // });
           const response = await employeeService.getEmployees({
             page,
-            // size: 100,
-            sort: "name,asc",
+            sort: "employeeId,asc",
             branch: session?.branchId || undefined,
-            includeInactive: true
+            includeInactive: true,
           });
           const pageData = normalizeEmployeePageResponse(response);
           inactive.push(...pageData.content.filter(isEmployeeInactive));
@@ -697,6 +689,12 @@ export default function EmployeeManagement() {
       cancelled = true;
     };
   }, [previouslyWorked, isEditing]);
+
+  useEffect(() => {
+    return () => {
+      if (personalFilesPreviewUrl) URL.revokeObjectURL(personalFilesPreviewUrl);
+    };
+  }, []);
 
   // ---------- Filters ----------
   const handleApplyFilters = (filters: FilterConfig) => {
@@ -1074,7 +1072,6 @@ export default function EmployeeManagement() {
   };
 
   // ---------- Save ----------
-  // Create a new employee record, then optionally copy the previous profile.
   const handleSaveEmployee = async () => {
     if (!validateEmployeeForm()) return;
     if (!validateEmployeeIdConfig()) return;
@@ -1085,9 +1082,6 @@ export default function EmployeeManagement() {
 
     showSpinner();
     try {
-      // ────────────────────────────────────────────────────────────
-      // EDIT
-      // ────────────────────────────────────────────────────────────
       if (isEditing) {
         const empId = selectedEmployee!.id;
         await employeeService.updateAdminInfo(empId, {
@@ -1129,9 +1123,6 @@ export default function EmployeeManagement() {
         return;
       }
 
-      // ────────────────────────────────────────────────────────────
-      // CREATE
-      // ────────────────────────────────────────────────────────────
       const employeeId = await getEmployeeIdForCreation();
 
       const createPayload: any = {
@@ -1144,7 +1135,6 @@ export default function EmployeeManagement() {
         joiningDate: formData.joiningDate,
         designationId: formData.designationId,
         departmentId: formData.departmentId,
-        // assignedHrId: formData.assignedHrId || null,
         branchId: formData.branchId,
         employeeGroupId: formData.employeeGroupId,
         employeeStatusId: formData.employeeStatusId || null,
@@ -1486,8 +1476,7 @@ export default function EmployeeManagement() {
         const params: any = {
           search: searchTerm || undefined,
           sort: sortParams,
-          // includeInactive: employeeView !== "active" ? true : undefined,
-          ...buildEmployeeServerFilterParams(activeFilters),
+          filters: serializeEmployeeFilters(activeFilters),
         };
         if (employeeView === "active") {
           params.includeActive = true;
@@ -1524,7 +1513,8 @@ export default function EmployeeManagement() {
     setSelectedReportEmployeeIds(Array.from(nextIds));
   };
 
-  const handleDownloadDetailsReport = async () => {
+  // ---------- Personal Files: Preview / Print / Download ----------
+  const handlePreviewDetailsReport = async () => {
     if (selectedReportEmployeeIds.length === 0) {
       showSnackbar("Select at least one employee for the details report.", "error");
       return;
@@ -1533,24 +1523,124 @@ export default function EmployeeManagement() {
       showSnackbar("Select at least one form to include in the report.", "error");
       return;
     }
+
+    setPersonalFilesPreviewOpen(true);
+    setPersonalFilesPreviewLoading(true);
+    setPersonalFilesPreviewError(null);
+    setPersonalFilesPreviewUrl(null);
+    setPersonalFilesPreviewBlob(null);
+    setPersonalFilesPreviewFormat(detailsReportFormat);
+
     try {
-      showSpinner();
-      await employeeService.downloadEmployeeDetailsReport(selectedReportEmployeeIds, {
-        format: detailsReportFormat,
-        lang: detailsReportLanguage,
-        forms: detailsReportForms,
-      });
-      showSnackbar("Employee details report downloaded.", "success");
+      const { blob } = await employeeService.downloadEmployeeDetailsReportBlob(
+        selectedReportEmployeeIds,
+        {
+          format: detailsReportFormat,
+          lang: detailsReportLanguage,
+          forms: detailsReportForms,
+        },
+      );
+      setPersonalFilesPreviewBlob(blob);
+
+      if (detailsReportFormat === "pdf" || detailsReportFormat === "html") {
+        const mime = detailsReportFormat === "pdf" ? "application/pdf" : "text/html";
+        const url = URL.createObjectURL(
+          blob.type ? blob : new Blob([blob], { type: mime }),
+        );
+        setPersonalFilesPreviewUrl(url);
+      }
+
       setDetailsReportDialogOpen(false);
     } catch (error: any) {
-      showSnackbar(error.message || "Failed to download employee details report.", "error");
+      setPersonalFilesPreviewError(
+        error.message || "Failed to generate employee details report.",
+      );
     } finally {
-      hideSpinner();
+      setPersonalFilesPreviewLoading(false);
     }
   };
 
+  const downloadPreviewedReport = () => {
+    if (!personalFilesPreviewBlob) return;
+    const ext =
+      personalFilesPreviewFormat === "excel" ? "xlsx" : personalFilesPreviewFormat;
+    const filename = `employee-details-report-${Date.now()}.${ext}`;
+    const url = URL.createObjectURL(personalFilesPreviewBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showSnackbar("Report downloaded.", "success");
+  };
+
+  const printPreviewedReport = () => {
+    if (personalFilesPreviewUrl) {
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = personalFilesPreviewUrl;
+      iframe.onload = () => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch {
+          showSnackbar("Printing failed — use the download instead.", "error");
+        }
+      };
+      document.body.appendChild(iframe);
+      setTimeout(() => iframe.remove(), 60_000);
+      return;
+    }
+
+    if (personalFilesPreviewBlob) {
+      const url = URL.createObjectURL(personalFilesPreviewBlob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      showSnackbar(
+        "This format can't print inline. Open the file in its viewer and use Print there.",
+        "warning",
+      );
+      return;
+    }
+
+    showSnackbar("Generate the report first, then print.", "error");
+  };
+
+  const openPreviewInNewTab = () => {
+    if (personalFilesPreviewUrl) {
+      window.open(personalFilesPreviewUrl, "_blank");
+      return;
+    }
+    if (personalFilesPreviewBlob) {
+      const url = URL.createObjectURL(personalFilesPreviewBlob);
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    }
+  };
+
+  const closePersonalFilesPreview = () => {
+    setPersonalFilesPreviewOpen(false);
+    if (personalFilesPreviewUrl) URL.revokeObjectURL(personalFilesPreviewUrl);
+    setPersonalFilesPreviewUrl(null);
+    setPersonalFilesPreviewBlob(null);
+    setPersonalFilesPreviewError(null);
+    setPersonalFilesPreviewFormat("pdf");
+  };
+
+  const handleCancelDetailsReportDialog = () => {
+    setDetailsReportDialogOpen(false);
+    // If preview wasn't generated, do nothing extra.
+  };
+
   // =====================================================================
-  // RENDER (unchanged from original except the rehire checkbox block)
+  // RENDER
   // =====================================================================
   return (
     <div className="">
@@ -1813,24 +1903,27 @@ export default function EmployeeManagement() {
 
         <Button
           variant="outlined"
-          startIcon={<FileDownloadOutlined />}
-          disabled={selectedReportEmployeeIds.length === 0}
-          onClick={() => openDetailsReportDialog(selectedReportEmployeeIds)}
-          sx={{ flexShrink: 0 }}
-        >
-          Details Report{selectedReportEmployeeIds.length > 0
-            ? ` (${selectedReportEmployeeIds.length})`
-            : ""}
-        </Button>
-
-        <Button
-          variant="outlined"
           startIcon={<DownloadOutlined />}
           onClick={(e) => openExportMenu(e)}
           sx={{ flexShrink: 0 }}
         >
           Export
         </Button>
+
+        {selectedReportEmployeeIds.length > 0 && (
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={<FileDownloadOutlined />}
+            onClick={() => openDetailsReportDialog(selectedReportEmployeeIds)}
+            sx={{ flexShrink: 0 }}
+          >
+            Personal Files
+            {selectedReportEmployeeIds.length > 0
+              ? ` (${selectedReportEmployeeIds.length})`
+              : ""}
+          </Button>
+        )}
 
         <Menu anchorEl={exportAnchorEl} open={Boolean(exportAnchorEl)} onClose={closeExportMenu}>
           <MenuItem className="!text-[12px]" onClick={() => handleExport("csv")}>
@@ -1844,24 +1937,25 @@ export default function EmployeeManagement() {
           </MenuItem>
         </Menu>
 
+        {/* ---------- Details Report Config Dialog ---------- */}
         <Dialog
           open={detailsReportDialogOpen}
-          onClose={() => setDetailsReportDialogOpen(false)}
+          onClose={handleCancelDetailsReportDialog}
           maxWidth="sm"
           fullWidth
         >
           <div className="flex items-center justify-between border-b border-gray-200 px-6 py-2">
-             <div>
+            <div>
               <Typography variant="h6">Employee Details Report</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {selectedReportEmployeeIds.length === 1
-                ? "Generate a report for one employee."
-                : `Generate one report per employee for ${selectedReportEmployeeIds.length} employees.`}
-            </Typography>
-             </div>
-             <IconButton>
-                <CloseOutlined className="!text-gray-800"/>
-             </IconButton>
+              <Typography variant="body2" color="text.secondary">
+                {selectedReportEmployeeIds.length === 1
+                  ? "Generate a report for one employee."
+                  : `Generate one report per employee for ${selectedReportEmployeeIds.length} employees.`}
+              </Typography>
+            </div>
+            <IconButton onClick={handleCancelDetailsReportDialog}>
+              <CloseOutlined className="!text-gray-800" />
+            </IconButton>
           </div>
           <DialogContent className="flex flex-col gap-5 !pt-5">
             <FormControl fullWidth>
@@ -1925,6 +2019,7 @@ export default function EmployeeManagement() {
                 {EMPLOYEE_DETAILS_REPORT_FORMS.map((form) => (
                   <MenuItem key={form.value} value={form.value}>
                     <Checkbox
+                      className="!p-0 !mr-2 text-gray-800"  
                       checked={
                         detailsReportForms.includes(form.value) ||
                         detailsReportForms.includes("all")
@@ -1937,19 +2032,22 @@ export default function EmployeeManagement() {
             </FormControl>
           </DialogContent>
           <DialogActions className="!py-2 !px-4 border-t !border-gray-200">
-            <Button onClick={() => setDetailsReportDialogOpen(false)} variant="outlined" 
-            className="!text-gray-800 !border-gray-200">
+            <Button
+              onClick={handleCancelDetailsReportDialog}
+              variant="outlined"
+              className="!text-gray-800 !border-gray-200"
+            >
               Cancel
             </Button>
             <Button
               variant="contained"
-              onClick={handleDownloadDetailsReport}
+              onClick={handlePreviewDetailsReport}
               className="!bg-primary"
               disabled={
                 selectedReportEmployeeIds.length === 0 || detailsReportForms.length === 0
               }
             >
-              Download Report
+              Preview Report
             </Button>
           </DialogActions>
         </Dialog>
@@ -1959,10 +2057,11 @@ export default function EmployeeManagement() {
       <TableContainer
         component={Paper}
         elevation={0}
-        className={`${activeFilters && activeFilters.rules.length > 0
-          ? "h-[calc(100vh-385px)]"
-          : "h-[calc(100vh-330px)]"
-          } overflow-auto border border-gray-200 !bg-white-50`}
+        className={`${
+          activeFilters && activeFilters.rules.length > 0
+            ? "h-[calc(100vh-385px)]"
+            : "h-[calc(100vh-330px)]"
+        } overflow-auto border border-gray-200 !bg-white-50`}
       >
         <Table stickyHeader>
           <TableHead className="bg-gray-100">
@@ -1974,9 +2073,13 @@ export default function EmployeeManagement() {
                 <div className="flex items-center gap-1">
                   <Checkbox
                     size="small"
-                    checked={employees.length > 0 && employees.every((employee) =>
-                      selectedReportEmployeeIds.includes(employee.id),
-                    )}
+                    className="!p-0 text-gray-800"
+                    checked={
+                      employees.length > 0 &&
+                      employees.every((employee) =>
+                        selectedReportEmployeeIds.includes(employee.id),
+                      )
+                    }
                     indeterminate={
                       employees.some((employee) =>
                         selectedReportEmployeeIds.includes(employee.id),
@@ -1991,7 +2094,6 @@ export default function EmployeeManagement() {
                         event.target.checked,
                       )
                     }
-                    // inputProps={{ "aria-label": "Select all employees on this page" }}
                   />
                   S No
                 </div>
@@ -2113,11 +2215,11 @@ export default function EmployeeManagement() {
                 <TableCell sx={{ ...getStickyLeftSx(index), minWidth: "70px" }}>
                   <Checkbox
                     size="small"
+                    className="!p-0 !mr-3 text-gray-800"
                     checked={selectedReportEmployeeIds.includes(employee.id)}
                     onChange={(event) =>
                       handleToggleEmployeeSelection([employee.id], event.target.checked)
                     }
-                    // inputProps={{ "aria-label": `Select ${employee.name} for details report` }}
                   />
                   {page * limit + index + 1}
                 </TableCell>
@@ -2148,8 +2250,9 @@ export default function EmployeeManagement() {
                         arrow
                       >
                         <div
-                          className={`!font-bold cursor-pointer transition-colors hover:!text-blue-500 hover:!underline ${isComplete ? "!text-green-800" : "!text-red-600"
-                            }`}
+                          className={`!font-bold cursor-pointer transition-colors hover:!text-blue-500 hover:!underline ${
+                            isComplete ? "!text-green-800" : "!text-red-600"
+                          }`}
                         >
                           {employee.employeeId}
                         </div>
@@ -2307,7 +2410,9 @@ export default function EmployeeManagement() {
               disabled={isEditing}
               error={!!formErrors.name}
               helperText={formErrors.name}
-              inputRef={(el) => { fieldRefs.current.name = el; }}
+              inputRef={(el) => {
+                fieldRefs.current.name = el;
+              }}
             />
             <TextField
               fullWidth
@@ -2322,7 +2427,9 @@ export default function EmployeeManagement() {
               disabled={isEditing}
               error={!!formErrors.emailAddress}
               helperText={formErrors.emailAddress}
-              inputRef={(el) => { fieldRefs.current.emailAddress = el; }}
+              inputRef={(el) => {
+                fieldRefs.current.emailAddress = el;
+              }}
             />
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
               <DatePicker
@@ -2375,7 +2482,9 @@ export default function EmployeeManagement() {
                   {branches.map((bran) => (
                     <MenuItem key={bran.id} value={bran.branchName} className="!text-[12px]">
                       {bran.branchName}{" "}
-                      <span className="text-gray-500 ml-2 !capitalize">({bran.branchCode})</span>
+                      <span className="text-gray-500 ml-2 !capitalize">
+                        ({bran.branchCode})
+                      </span>
                     </MenuItem>
                   ))}
                 </Select>
@@ -2409,7 +2518,9 @@ export default function EmployeeManagement() {
                   className="!text-[12px]"
                   error={!!formErrors.departmentId}
                   helperText={formErrors.departmentId}
-                  inputRef={(el) => { fieldRefs.current.departmentId = el; }}
+                  inputRef={(el) => {
+                    fieldRefs.current.departmentId = el;
+                  }}
                 />
               )}
               sx={masterSx}
@@ -2437,7 +2548,9 @@ export default function EmployeeManagement() {
                   className="!text-[12px]"
                   error={!!formErrors.designationId}
                   helperText={formErrors.designationId}
-                  inputRef={(el) => { fieldRefs.current.designationId = el; }}
+                  inputRef={(el) => {
+                    fieldRefs.current.designationId = el;
+                  }}
                 />
               )}
               sx={masterSx}
@@ -2455,11 +2568,13 @@ export default function EmployeeManagement() {
                   }}
                   error={!!formErrors.mobileNumber}
                   helperText={formErrors.mobileNumber}
-                  inputRef={(el) => { fieldRefs.current.mobileNumber = el; }}
+                  inputRef={(el) => {
+                    fieldRefs.current.mobileNumber = el;
+                  }}
                   slotProps={{
                     htmlInput: {
-                      maxLength: 10
-                    }
+                      maxLength: 10,
+                    },
                   }}
                 />
                 <FormControlLabel
@@ -2495,7 +2610,9 @@ export default function EmployeeManagement() {
                          ${option.eligibleForRehire ? "" : "(Not Eligible for Rehire)"}`
                       }
                       isOptionEqualToValue={(option, value) => option.id === value.id}
-                      value={inactiveEmployees.find((emp) => emp.id === previousEmployeeId) || null}
+                      value={
+                        inactiveEmployees.find((emp) => emp.id === previousEmployeeId) || null
+                      }
                       onChange={(_, newValue) => handleSelectPreviousEmployee(newValue)}
                       renderInput={(params) => (
                         <TextField
@@ -2509,7 +2626,9 @@ export default function EmployeeManagement() {
                             formErrors.previousEmployeeId ||
                             "The rejoin is created as a new employee with a new ID. The old record is left untouched."
                           }
-                          inputRef={(el) => { fieldRefs.current.previousEmployeeId = el; }}
+                          inputRef={(el) => {
+                            fieldRefs.current.previousEmployeeId = el;
+                          }}
                         />
                       )}
                       sx={masterSx}
@@ -2557,7 +2676,9 @@ export default function EmployeeManagement() {
                   required
                   error={!!formErrors.employeeGroupId}
                   helperText={formErrors.employeeGroupId}
-                  inputRef={(el) => { fieldRefs.current.employeeGroupId = el; }}
+                  inputRef={(el) => {
+                    fieldRefs.current.employeeGroupId = el;
+                  }}
                 />
               )}
               sx={masterSx}
@@ -2585,7 +2706,9 @@ export default function EmployeeManagement() {
                   required
                   error={!!formErrors.templateId}
                   helperText={formErrors.templateId}
-                  inputRef={(el) => { fieldRefs.current.templateId = el; }}
+                  inputRef={(el) => {
+                    fieldRefs.current.templateId = el;
+                  }}
                 />
               )}
               sx={masterSx}
@@ -2642,8 +2765,9 @@ export default function EmployeeManagement() {
 
                     {empGenerationFlow === "new" && (
                       <div
-                        className={`grid grid-cols-1 ${empCodeType === "pattern" ? "md:grid-cols-4" : "md:grid-cols-3"
-                          } gap-4 mt-6`}
+                        className={`grid grid-cols-1 ${
+                          empCodeType === "pattern" ? "md:grid-cols-4" : "md:grid-cols-3"
+                        } gap-4 mt-6`}
                       >
                         <FormControl fullWidth>
                           <InputLabel>Format Type</InputLabel>
@@ -2769,7 +2893,9 @@ export default function EmployeeManagement() {
                             </div>
                             <div>
                               Next Sequence:&nbsp;
-                              <strong>{employeeIdConfig?.nextSequencePreview || "N/A"}</strong>
+                              <strong>
+                                {employeeIdConfig?.nextSequencePreview || "N/A"}
+                              </strong>
                             </div>
                           </>
                         )}
@@ -2796,7 +2922,9 @@ export default function EmployeeManagement() {
                       placeholder="EMP001"
                       error={!!formErrors.manualEmployeeId}
                       helperText={formErrors.manualEmployeeId || "Enter unique employee ID"}
-                      inputRef={(el) => { fieldRefs.current.manualEmployeeId = el; }}
+                      inputRef={(el) => {
+                        fieldRefs.current.manualEmployeeId = el;
+                      }}
                     />
                   </div>
                 )}
@@ -2908,8 +3036,8 @@ export default function EmployeeManagement() {
                   const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
                   const generated = proposed
                     ? dayjs(proposed)
-                      .add(Number(relievingDialogEmployee?.noticePeriod || 0), "day")
-                      .format("YYYY-MM-DD")
+                        .add(Number(relievingDialogEmployee?.noticePeriod || 0), "day")
+                        .format("YYYY-MM-DD")
                     : "";
                   setProposedRelievedDate(proposed);
                   setSystemGeneratedRelievedDate(generated);
@@ -3002,6 +3130,7 @@ export default function EmployeeManagement() {
         </DialogActions>
       </Dialog>
 
+      {/* Resigned Employees Dialog */}
       <Dialog
         open={resignedDialogOpen}
         onClose={() => setResignedDialogOpen(false)}
@@ -3080,18 +3209,18 @@ export default function EmployeeManagement() {
                           "deactivatedAt",
                         ) !== "-"
                           ? formatDate(
-                            getResignedField(
-                              employee,
-                              "relievedDate",
-                              "relievingDate",
-                              "deactivatedAt",
-                            ),
-                          )
+                              getResignedField(
+                                employee,
+                                "relievedDate",
+                                "relievingDate",
+                                "deactivatedAt",
+                              ),
+                            )
                           : "-"}
                       </TableCell>
                       <TableCell>
                         {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") ===
-                          "-"
+                        "-"
                           ? "-"
                           : getResignedField(employee, "eligibleForRehire", "eligibleToRehire")
                             ? "Yes"
@@ -3134,7 +3263,7 @@ export default function EmployeeManagement() {
                                     <div className="font-medium text-gray-500">{label}</div>
                                     <div className="mt-1 text-gray-800">
                                       {field.toLowerCase().includes("date") ||
-                                        field === "deactivatedAt"
+                                      field === "deactivatedAt"
                                         ? value === "-"
                                           ? "-"
                                           : formatDate(value)
@@ -3212,8 +3341,9 @@ export default function EmployeeManagement() {
                 <Checkbox
                   checked={excelHasEmployeeIdColumn}
                   onChange={(e) => setExcelHasEmployeeIdColumn(e.target.checked)}
-                  className={`text-gray-800 ${!excelHasEmployeeIdColumn ? "animate-blink" : ""
-                    }`}
+                  className={`text-gray-800 ${
+                    !excelHasEmployeeIdColumn ? "animate-blink" : ""
+                  }`}
                   disabled={!employeeIdConfig?.configured}
                 />
               }
@@ -3277,10 +3407,11 @@ export default function EmployeeManagement() {
           {uploadResult && (
             <div className="mt-4 space-y-4">
               <div
-                className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
-                  ? "border-orange-200 bg-orange-50/40"
-                  : "border-green-200 bg-green-50"
-                  }`}
+                className={`border rounded-lg p-4 ${
+                  uploadResult?.failureCount && uploadResult?.failureCount > 0
+                    ? "border-orange-200 bg-orange-50/40"
+                    : "border-green-200 bg-green-50"
+                }`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -3350,43 +3481,49 @@ export default function EmployeeManagement() {
                 )}
               </div>
 
-              {uploadResult.generatedEmployeeIds && uploadResult.generatedEmployeeIds?.length > 0 && (
-                <div className="border border-green-200 rounded-lg p-4 bg-green-50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <CheckCircleOutlined fontSize="small" color="success" />
-                    <div className="font-semibold text-green-700">Generated Employee IDs</div>
-                  </div>
+              {uploadResult.generatedEmployeeIds &&
+                uploadResult.generatedEmployeeIds?.length > 0 && (
+                  <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <CheckCircleOutlined fontSize="small" color="success" />
+                      <div className="font-semibold text-green-700">Generated Employee IDs</div>
+                    </div>
 
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
-                    {uploadResult.generatedEmployeeIds.map((id: string, index: number) => (
-                      <Chip
-                        key={`${id}-${index}`}
-                        label={id}
-                        color="success"
-                        variant="outlined"
-                        size="small"
-                      />
-                    ))}
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-auto">
+                      {uploadResult.generatedEmployeeIds.map((id: string, index: number) => (
+                        <Chip
+                          key={`${id}-${index}`}
+                          label={id}
+                          color="success"
+                          variant="outlined"
+                          size="small"
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {uploadResult.welcomeEmailFailures && uploadResult.welcomeEmailFailures?.length > 0 && (
-                <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-                  <div className="font-semibold text-orange-700 mb-3">Welcome Email Failures</div>
+              {uploadResult.welcomeEmailFailures &&
+                uploadResult.welcomeEmailFailures?.length > 0 && (
+                  <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
+                    <div className="font-semibold text-orange-700 mb-3">
+                      Welcome Email Failures
+                    </div>
 
-                  <div className="max-h-40 overflow-auto space-y-2">
-                    {uploadResult.welcomeEmailFailures.map((failure: string, index: number) => (
-                      <div
-                        key={index}
-                        className="text-sm text-orange-700 bg-white border rounded p-2"
-                      >
-                        {failure}
-                      </div>
-                    ))}
+                    <div className="max-h-40 overflow-auto space-y-2">
+                      {uploadResult.welcomeEmailFailures.map(
+                        (failure: string, index: number) => (
+                          <div
+                            key={index}
+                            className="text-sm text-orange-700 bg-white border rounded p-2"
+                          >
+                            {failure}
+                          </div>
+                        ),
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {uploadResult.errors && uploadResult.errors?.length > 0 && (
                 <div className="border border-red-200 rounded-lg p-4 bg-red-50">
@@ -3516,6 +3653,98 @@ export default function EmployeeManagement() {
             disabled={!hardDeleteErrorEmployee}
           >
             Deactivate Instead
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ---------- Personal Files Preview Dialog (NEW) ---------- */}
+      <Dialog
+        open={personalFilesPreviewOpen}
+        onClose={closePersonalFilesPreview}
+        maxWidth="lg"
+        fullWidth
+        sx={{ "& .MuiDialog-paper": { height: "90vh", maxWidth: "1200px" } }}
+      >
+        <div className="flex items-center justify-between border-b border-gray-300 p-2">
+          <div className="text-gray-800 ml-4 text-[13px] font-medium">
+            Personal Files Preview
+          </div>
+          <IconButton onClick={closePersonalFilesPreview}>
+            <CloseOutlined className="!text-gray-800" />
+          </IconButton>
+        </div>
+
+        <DialogContent className="!p-0 !overflow-hidden">
+          {personalFilesPreviewLoading && (
+            <div className="flex flex-col items-center justify-center h-full gap-3">
+              <LinearProgress className="w-1/2" />
+              <div className="text-[12px] text-gray-500">Generating report…</div>
+            </div>
+          )}
+
+          {!personalFilesPreviewLoading && personalFilesPreviewError && (
+            <div className="p-6">
+              <Alert severity="error">{personalFilesPreviewError}</Alert>
+            </div>
+          )}
+
+          {!personalFilesPreviewLoading &&
+            !personalFilesPreviewError &&
+            personalFilesPreviewUrl && (
+              <iframe
+                title="Personal files preview"
+                src={personalFilesPreviewUrl}
+                className="w-full h-full"
+                style={{ border: 0 }}
+              />
+            )}
+
+          {!personalFilesPreviewLoading &&
+            !personalFilesPreviewError &&
+            !personalFilesPreviewUrl &&
+            personalFilesPreviewBlob && (
+              <div className="p-6 text-[12px] text-gray-700">
+                <Alert severity="info" className="mb-4">
+                  Inline preview is only available for PDF and HTML. The{" "}
+                  {personalFilesPreviewFormat.toUpperCase()} file is ready — you can print it
+                  (opens in a new tab) or download it.
+                </Alert>
+                <Button
+                  variant="outlined"
+                  onClick={openPreviewInNewTab}
+                  startIcon={<VisibilityOutlined />}
+                >
+                  Open in new tab
+                </Button>
+              </div>
+            )}
+        </DialogContent>
+
+        <DialogActions className="!py-2 !px-4 border-t !border-gray-200">
+          <Button
+            onClick={closePersonalFilesPreview}
+            variant="outlined"
+            className="!text-gray-800 !border-gray-200"
+          >
+            Close
+          </Button>
+          <Button
+            onClick={printPreviewedReport}
+            variant="outlined"
+            color="warning"
+            disabled={!personalFilesPreviewUrl && !personalFilesPreviewBlob}
+            startIcon={<PrintOutlined />}
+          >
+            Print
+          </Button>
+          <Button
+            variant="contained"
+            onClick={downloadPreviewedReport}
+            className="!bg-primary"
+            disabled={!personalFilesPreviewBlob}
+            startIcon={<DownloadOutlined />}
+          >
+            Download
           </Button>
         </DialogActions>
       </Dialog>

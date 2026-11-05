@@ -1,7 +1,10 @@
 import type { Category } from '../../services/modules/shifts';
 import type { FilterConfig, FilterField } from '../../types';
 import type { Branches, Department, Designation } from './type';
-import type { EmployeeSummaryResponse } from '../../services/modules/employees';
+import type {
+  EmployeeListQuery,
+  EmployeeSummaryResponse,
+} from '../../services/modules/employees';
 
 export const EMPLOYEE_FIELD_GROUPS = {
   BASIC_INFO: 'Basic Information',
@@ -11,6 +14,27 @@ export const EMPLOYEE_FIELD_GROUPS = {
   FINANCIAL: 'Financial & Statutory',
   SYSTEM: 'System Fields',
 };
+
+export const EMPLOYEE_FIELD_MAP: Record<string, string> = {
+  search: 'name',
+  dept: 'departmentId',
+  branch: 'branchId',
+  active: 'isActive',
+};
+
+const SERVER_FILTER_FIELDS = new Set([
+  'search',
+  'joiningDate',
+  'employeeGroupId',
+  'templateId',
+  'dept',
+  'designationId',
+  'branch',
+  'managerId',
+  'assignedHrId',
+  'empTypeId',
+  'active',
+]);
 
 // Helper to create field with group
 // const createField = (
@@ -149,4 +173,19 @@ export const serializeEmployeeFilters = (
       };
     }),
   );
+};
+
+export const isEmployeeServerSupportedFilter = (
+  filters: FilterConfig | null,
+): boolean =>
+  !filters ||
+  filters.rules.every((rule) => SERVER_FILTER_FIELDS.has(rule.field));
+
+export const buildEmployeeServerFilterParams = (
+  filters: FilterConfig | null,
+): Pick<EmployeeListQuery, 'filters'> => {
+  if (!isEmployeeServerSupportedFilter(filters)) return {};
+
+  const serializedFilters = serializeEmployeeFilters(filters);
+  return serializedFilters ? { filters: serializedFilters } : {};
 };
