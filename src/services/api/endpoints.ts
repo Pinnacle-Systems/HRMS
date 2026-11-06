@@ -857,6 +857,7 @@ export const API_ENDPOINTS = {
 
     GET_LOCKS: "/attendance/locks",
     POST_LOCK: "/attendance/lock",
+    POST_UNLOCK_DATE: "/attendance/locks/unlock",
 
     REPORT_MONTHLY_SUMMARY: "/attendance/reports/monthly-summary",
     REPORT_LATE_ARRIVAL: "/attendance/reports/late-arrivals",

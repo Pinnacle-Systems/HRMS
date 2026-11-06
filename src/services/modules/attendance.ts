@@ -39,6 +39,8 @@ import type {
   ProcessStatusData,
   ExportDailyParams,
   BulkDecisionPayload,
+  AttendanceLock,
+  UnlockAttendanceDatePayload,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -243,12 +245,16 @@ export const attendanceService = {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_UNLOCK, payload);
   },
 
+  async unlockDate(payload: UnlockAttendanceDatePayload) {
+    return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_UNLOCK_DATE, payload);
+  },
+
   async lock(payload: LockPayload) {
     return apiService.post(API_ENDPOINTS.ATTENDANCE.POST_LOCK, payload);
   },
 
   async getAllLocks() {
-    return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_LOCKS);
+    return apiService.get<ApiResponse<AttendanceLock[]>>(API_ENDPOINTS.ATTENDANCE.GET_LOCKS);
   },
 
   // ── Reports ──

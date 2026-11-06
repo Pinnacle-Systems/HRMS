@@ -355,6 +355,23 @@ export interface UnlockPayload {
   reason: string;
   unlockedBy: string;
 }
+
+export interface UnlockAttendanceDatePayload {
+  date: string;
+  reason: string;
+}
+
+export interface AttendanceLock {
+  id: string;
+  startDate: string;
+  endDate: string;
+  lockedBy: string;
+  reason: string;
+  lockedAt: string;
+  active: boolean;
+  message?: string;
+}
+
 export interface LockPayload {
   startDate: string;
   endDate: string;

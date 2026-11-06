@@ -55,9 +55,13 @@ import {
   OpenInNewOutlined,
   ChevronLeftOutlined,
   ChevronRightOutlined,
+  FileDownloadOutlined,
+  LockOutlined,
+  LockOpenOutlined,
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
+import type { AttendanceLock, CorrectionRequestPayload } from "../../../services/modules/attendanceTypes";
 import {
   ATTENDANCE_STATUS_LABELS,
   ATTENDANCE_STATUS_BG,
@@ -91,6 +95,7 @@ import { useNavigate } from "react-router-dom";
 import { shiftService } from "../../../services/modules/shifts";
 import { pairMovements } from "../movement";
 import { permissionRequestService } from "../../../services/modules/permissionRequests";
+import { apiService } from "../../../services";
 
 // ── Module-scope helpers ─────────────────────────────────────────────────
 type ShiftOption = { code: string; start: string; end: string; color?: string };
@@ -112,11 +117,12 @@ const buildStatusParam = (statusFilter: string): string[] | undefined => {
 const unitParam = (timeUnit: "min" | "hrs"): "minutes" | "hours" =>
   timeUnit === "hrs" ? "hours" : "minutes";
 
+type RegisterExportFormat = "excel" | "pdf" | "csv" | "html";
+
 const displayUnitValue = (
   value: number | null | undefined,
 ): string | number => (value == null || (value as any) === "" ? "-" : value);
 
-/** Normalize any shift-time value (string "09:00", ISO datetime, Date, number) to "HH:mm". */
 const toHHmm = (v: unknown): string => {
   if (v == null || v === "") return "";
   const s = String(v);
@@ -195,7 +201,6 @@ type EditableField =
   | "shiftStart"
   | "shiftEnd";
 
-// ── Column visibility config ──────────────────────────────────────────────
 type ColumnKey =
   | "department"
   | "shift"
@@ -263,10 +268,12 @@ export function DailyRegister() {
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // ── NEW: per-date edit flags shared with ProcessAttendance ──
+  const [hasEditsSinceProcess, setHasEditsSinceProcess] = useState(false);
+  const [hasPendingCorrections, setHasPendingCorrections] = useState(false);
+
   const [inlineEditInProgress, _setInlineEditInProgress] = useState<string | null>(null);
-
   const [editingField, setEditingField] = useState<string | null>(null);
-
   const [draftDateTime, setDraftDateTime] = useState<any | null>(null);
 
   const [midNoWarningDialog, setMidNoWarningDialog] = useState(false);
@@ -290,10 +297,12 @@ export function DailyRegister() {
   const [shiftList, setShiftList] = useState<ShiftOption[]>([]);
   const [draftShiftCode, setDraftShiftCode] = useState<string | null>(null);
 
-  // ── Column visibility ───────────────────────────────────────────────────
+  // Column visibility
   const [visibleColumns, setVisibleColumns] =
     useState<Record<ColumnKey, boolean>>(loadVisibleColumns);
   const [columnMenuAnchor, setColumnMenuAnchor] = useState<null | HTMLElement>(null);
+  const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
+  const [exporting, setExporting] = useState(false);
 
   const [movementDialogOpen, setMovementDialogOpen] = useState(false);
   const [movementEmployee, setMovementEmployee] = useState<RegisterEmployee | null>(null);
@@ -312,9 +321,31 @@ export function DailyRegister() {
   useEffect(() => {
     try {
       localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(visibleColumns));
-    } catch {
-    }
+    } catch {}
   }, [visibleColumns]);
+
+  // ── NEW: persist edit flags per-date so ProcessAttendance can read them ──
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        `attendanceEdits:${date}`,
+        JSON.stringify({ hasEditsSinceProcess, hasPendingCorrections }),
+      );
+    } catch {}
+  }, [date, hasEditsSinceProcess, hasPendingCorrections]);
+
+  // ── NEW: hydrate edit flags from localStorage on date change ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`attendanceEdits:${date}`);
+      const parsed = raw ? JSON.parse(raw) : {};
+      setHasEditsSinceProcess(Boolean(parsed.hasEditsSinceProcess));
+      setHasPendingCorrections(Boolean(parsed.hasPendingCorrections));
+    } catch {
+      setHasEditsSinceProcess(false);
+      setHasPendingCorrections(false);
+    }
+  }, [date]);
 
   useEffect(() => {
     shiftService
@@ -363,7 +394,11 @@ export function DailyRegister() {
       setDraftDateTime(null);
       return;
     }
-    if (!canEditPunchTimes) return;
+    if (field === "checkInDate" || field === "checkOutDate") {
+      if (!canEditPunchTimes || processStatus?.locked) return;
+    } else if (!canEditPunchTimeFields) {
+      return;
+    }
     setEditingField(editKey(employeeId, field));
     setDraftDateTime(dayjs.isDayjs(initial) ? initial : null);
   };
@@ -379,12 +414,90 @@ export function DailyRegister() {
     navigate(SHIFT_MASTER_ROUTE);
   };
 
+  const openCorrectionRequest = (
+    emp: RegisterEmployee,
+    field: EditableField,
+    value: dayjs.Dayjs,
+  ) => {
+    if (processStatus?.locked) {
+      showSnackbar("Attendance is closed and finalized; punch times cannot be edited", "warning");
+      return;
+    }
+    if (field !== "checkInTime" && field !== "checkOutTime") return;
+
+    setPendingCorrection({
+      employeeId: emp.employeeId,
+      attendanceDate: date,
+      currentCheckIn: emp.checkInTime,
+      currentCheckOut: emp.checkOutTime,
+      requestedCheckIn:
+        field === "checkInTime"
+          ? value.toISOString()
+          : emp.checkInTime ?? "",
+      requestedCheckOut:
+        field === "checkOutTime"
+          ? value.toISOString()
+          : emp.checkOutTime ?? "",
+      reason: "",
+    });
+    setCorrectionReason("");
+    setCorrectionRequestOpen(true);
+  };
+
+  const submitCorrectionRequest = async () => {
+    if (!pendingCorrection) return;
+    if (!correctionReason.trim()) {
+      showSnackbar("Please enter a reason for the correction request", "warning");
+      return;
+    }
+    if (processStatus?.locked) {
+      showSnackbar("Attendance is closed and finalized; punch times cannot be edited", "warning");
+      setCorrectionRequestOpen(false);
+      return;
+    }
+
+    setSubmittingCorrection(true);
+    try {
+      await attendanceService.requestCorrection({
+        ...pendingCorrection,
+        reason: correctionReason.trim(),
+      });
+      setEmployees((current) =>
+        current.map((employee) =>
+          employee.employeeId === pendingCorrection.employeeId
+            ? { ...employee, correctionPending: true }
+            : employee,
+        ),
+      );
+      // ── NEW: pending corrections block processing ──
+      setHasPendingCorrections(true);
+      showSnackbar("Correction request submitted for approval", "success");
+      setCorrectionRequestOpen(false);
+      setPendingCorrection(null);
+    } catch (error: any) {
+      showSnackbar(
+        error?.response?.data?.message ?? error?.message ?? "Failed to submit correction request",
+        "error",
+      );
+    } finally {
+      setSubmittingCorrection(false);
+    }
+  };
+
   // ── Punch-only update ────────────────────────────────────────────────────
   const updateStagedPunchAPI = async (
     emp: RegisterEmployee,
     field: EditableField,
     value: dayjs.Dayjs,
   ) => {
+    if (processStatus?.locked) {
+      showSnackbar("Attendance is closed and finalized; punch times cannot be edited", "warning");
+      return;
+    }
+    if (canEditProcessedPunchTimes) {
+      openCorrectionRequest(emp, field, value);
+      return;
+    }
     if (!canEditPunchTimes) {
       showSnackbar("Punch details can only be edited while staged punches exist", "warning");
       return;
@@ -420,10 +533,8 @@ export function DailyRegister() {
 
           return {
             ...e,
-
             checkInTime: updated.checkInTime ?? e.checkInTime ?? null,
             checkOutTime: updated.checkOutTime ?? e.checkOutTime ?? null,
-
             checkInDate:
               updated.checkInDate ??
               (updated.checkInTime
@@ -434,30 +545,27 @@ export function DailyRegister() {
               (updated.checkOutTime
                 ? dayjs(updated.checkOutTime).format("YYYY-MM-DD")
                 : e.checkOutDate),
-
             employeeName: updated.employeeName ?? e.employeeName,
             employeeCode: updated.employeeCode ?? e.employeeCode,
             department: updated.department ?? e.department,
             designation: updated.designation ?? e.designation,
             template: updated.template ?? e.template,
-
             shiftCode: updated.shiftCode ?? e.shiftCode,
             shiftStart: toHHmm(updated.shiftStart ?? e.shiftStart),
             shiftEnd: toHHmm(updated.shiftEnd ?? e.shiftEnd),
-
             status: (updated.status ?? e.status) as any,
-
             workedMinutes: updated.workedMinutes ?? e.workedMinutes,
             lateMinutes: updated.lateMinutes ?? e.lateMinutes,
             earlyOutMinutes: updated.earlyOutMinutes ?? e.earlyOutMinutes,
             overtimeMinutes: updated.overtimeMinutes ?? e.overtimeMinutes,
-
             movement: updated.movement ?? e.movement,
           };
         }),
       );
 
       showSnackbar("Punch updated", "success");
+      // ── NEW: mark the date as edited ──
+      setHasEditsSinceProcess(true);
       loadTodaySummary();
     } catch (err: any) {
       showSnackbar(
@@ -517,6 +625,8 @@ export function DailyRegister() {
       );
 
       showSnackbar("Shift updated", "success");
+      // ── NEW: shift change invalidates the processed result ──
+      setHasEditsSinceProcess(true);
     } catch (err: any) {
       showSnackbar(
         err?.response?.data?.message ?? err?.message ?? "Failed to update shift",
@@ -537,7 +647,6 @@ export function DailyRegister() {
     });
   };
 
-  // Validate the current draft value
   const validateDraft = (
     emp: RegisterEmployee,
     field: EditableField,
@@ -653,6 +762,7 @@ export function DailyRegister() {
     }
 
     closeField();
+    if (canEditProcessedPunchTimes) return;
 
     const editableFields = getEditableFieldsForEmployee(emp);
     const currentIndex = editableFields.indexOf(field);
@@ -721,6 +831,10 @@ export function DailyRegister() {
   const [punchTime, setPunchTime] = useState("");
   const [punchRemarks, setPunchRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [correctionRequestOpen, setCorrectionRequestOpen] = useState(false);
+  const [pendingCorrection, setPendingCorrection] = useState<CorrectionRequestPayload | null>(null);
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [submittingCorrection, setSubmittingCorrection] = useState(false);
 
   // Bulk status dialog
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
@@ -763,6 +877,51 @@ export function DailyRegister() {
   const [punchImportToDate, setPunchImportToDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [deviceImportLoading, setDeviceImportLoading] = useState(false);
   const [processStatus, setProcessStatus] = useState<any>({});
+  const [isLoadingProcessStatus, setIsLoadingProcessStatus] = useState(true);
+  const [lockedDatesOpen, setLockedDatesOpen] = useState(false);
+  const [attendanceLocks, setAttendanceLocks] = useState<AttendanceLock[]>([]);
+  const [isLoadingLocks, setIsLoadingLocks] = useState(false);
+  const [selectedLock, setSelectedLock] = useState<AttendanceLock | null>(null);
+  const [unlockReason, setUnlockReason] = useState("");
+  const [isUnlockingDate, setIsUnlockingDate] = useState(false);
+  const canEditProcessedPunchTimes =
+    Boolean(processStatus?.processed) &&
+    !processStatus?.locked &&
+    !isLoadingProcessStatus;
+  const canEditPunchTimeFields =
+    !processStatus?.locked &&
+    !loadingStagedPunches &&
+    !stagedPunchCheckFailed &&
+    (hasStagedPunches || canEditProcessedPunchTimes);
+
+  const loadAttendanceLocks = async (): Promise<AttendanceLock[] | null> => {
+    setIsLoadingLocks(true);
+    try {
+      const response = await attendanceService.getAllLocks();
+      const data = response?.data || [];
+      if (!Array.isArray(data)) {
+        throw new Error("The attendance lock list returned an invalid response");
+      }
+      const activeLocks = data.filter((lock: AttendanceLock) => lock.active);
+      setAttendanceLocks(activeLocks);
+      return activeLocks;
+    } catch (error: any) {
+      showSnackbar(
+        error?.response?.data?.message ?? error?.message ?? "Failed to load locked attendance dates",
+        "error",
+      );
+      return null;
+    } finally {
+      setIsLoadingLocks(false);
+    }
+  };
+
+  const openLockedDates = () => {
+    setSelectedLock(null);
+    setUnlockReason("");
+    setLockedDatesOpen(true);
+    void loadAttendanceLocks();
+  };
 
   useEffect(() => {
     if (date) {
@@ -773,18 +932,28 @@ export function DailyRegister() {
 
   useEffect(() => {
     if (!date) return;
+    let cancelled = false;
+    setIsLoadingProcessStatus(true);
     const fetchProcessStatus = async () => {
       try {
-        const res = await attendanceService.getProcessAttendanceStatus({
+        const res: any = await attendanceService.getProcessAttendanceStatus({
           date,
           departmentId: departmentId === "All" ? undefined : departmentId || undefined,
         });
-        setProcessStatus(res.data || {})
+        if (!cancelled) {
+          setProcessStatus(res?.data?.data ?? res?.data ?? {});
+        }
       } catch {
-        showSnackbar("Failed to fetch status", "error")
+        if (!cancelled) {
+          setProcessStatus({});
+          showSnackbar("Failed to fetch attendance processing status", "error");
+        }
+      } finally {
+        if (!cancelled) setIsLoadingProcessStatus(false);
       }
     };
     fetchProcessStatus();
+    return () => { cancelled = true; };
   }, [date, departmentId]);
 
   const flattenGroupedStagedPunches = (data: any): StagedPunch[] => {
@@ -826,7 +995,7 @@ export function DailyRegister() {
     } finally {
       setLoadingStagedPunches(false);
     }
-  }, [date, statusFilter, timeUnit, groupByDepartment]);
+  }, [date, statusFilter, timeUnit, groupByDepartment, departmentId]);
 
   const loadRegister = useCallback(async () => {
     setLoading(true);
@@ -847,7 +1016,7 @@ export function DailyRegister() {
           branchId: session?.branchId || undefined,
           status: buildStatusParam(statusFilter),
           unit: unitParam(timeUnit),
-          groupByDepartment
+          groupByDepartment,
         });
         const data = res?.data?.data ?? res?.data;
         let employeesData: RegisterEmployee[];
@@ -858,6 +1027,10 @@ export function DailyRegister() {
         }
         setEmployees(employeesData);
         setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
+        // ── NEW: hydrate pending corrections from the API ──
+        setHasPendingCorrections(
+          employeesData.some((e: RegisterEmployee) => e.correctionPending === true),
+        );
       } else {
         const mapped: RegisterEmployee[] = staged.map((s) => ({
           employeeId: s.employeeId,
@@ -883,6 +1056,10 @@ export function DailyRegister() {
         } as any));
         setEmployees(mapped);
         setTotal(mapped.length);
+        // ── NEW: hydrate pending corrections from staged data ──
+        setHasPendingCorrections(
+          mapped.some((e) => (e as any).correctionPending === true),
+        );
       }
     } catch {
       showSnackbar("Failed to load daily register", "error");
@@ -890,7 +1067,100 @@ export function DailyRegister() {
       setLoading(false);
       hideSpinner();
     }
-  }, [date, departmentId, statusFilter, loadStagedPunches, timeUnit, groupByDepartment]);
+  }, [date, departmentId, statusFilter, loadStagedPunches, timeUnit, groupByDepartment, session?.branchId]);
+
+  const unlockAttendanceDate = async () => {
+    if (!selectedLock || !unlockReason.trim()) return;
+    if (selectedLock.startDate > date || selectedLock.endDate < date) {
+      showSnackbar("Select a lock that includes the current attendance date", "warning");
+      return;
+    }
+
+    setIsUnlockingDate(true);
+    try {
+      await attendanceService.unlockDate({
+        date,
+        reason: unlockReason.trim(),
+      });
+      showSnackbar("Attendance date unlocked. You can now edit and reprocess it.", "success");
+      setSelectedLock(null);
+      setUnlockReason("");
+      const activeLocks = await loadAttendanceLocks();
+
+      try {
+        const response: any = await attendanceService.getProcessAttendanceStatus({
+          date,
+          departmentId: departmentId === "All" ? undefined : departmentId || undefined,
+        });
+        setProcessStatus(response?.data?.data ?? response?.data ?? {});
+      } catch (error: any) {
+        const dateStillLocked = activeLocks?.some(
+          (lock) => lock.startDate <= date && lock.endDate >= date,
+        );
+        if (dateStillLocked === false) {
+          setProcessStatus((current: any) => ({ ...current, processed: true, locked: false }));
+        }
+        showSnackbar(
+          error?.response?.data?.message ?? error?.message ?? "Date was unlocked, but its status could not be refreshed",
+          "error",
+        );
+      }
+      await loadRegister();
+      // ── NEW: unlock re-enables editing — reset per-date edit flags ──
+      setHasEditsSinceProcess(false);
+      setHasPendingCorrections(false);
+      try {
+        localStorage.setItem(
+          `attendanceEdits:${date}`,
+          JSON.stringify({ hasEditsSinceProcess: false, hasPendingCorrections: false }),
+        );
+      } catch {}
+    } catch (error: any) {
+      showSnackbar(
+        error?.response?.data?.message ?? error?.message ?? "Failed to unlock attendance date",
+        "error",
+      );
+    } finally {
+      setIsUnlockingDate(false);
+    }
+  };
+
+  const exportRegister = async (format: RegisterExportFormat) => {
+    setExportMenuAnchor(null);
+    setExporting(true);
+    showSpinner();
+    try {
+      const res: any = await attendanceService.getRegister({
+        startDate: date,
+        endDate: date,
+        departmentId: departmentId === "All" ? undefined : departmentId || undefined,
+        branchId: session?.branchId || undefined,
+        status: buildStatusParam(statusFilter),
+        exportFormat: format,
+        groupByDepartment,
+        unit: unitParam(timeUnit),
+      });
+      const fileUrl = res?.data?.fileUrl;
+      if (typeof fileUrl !== "string" || !fileUrl.trim()) {
+        throw new Error("The attendance export did not return a file");
+      }
+
+      const extension = format === "excel" ? "xlsx" : format;
+      await apiService.downloadFromPath(
+        fileUrl,
+        `attendance-register_${date}.${extension}`,
+      );
+      showSnackbar("Attendance register exported successfully", "success");
+    } catch (error: any) {
+      showSnackbar(
+        error?.response?.data?.message ?? error?.message ?? "Failed to export attendance register",
+        "error",
+      );
+    } finally {
+      setExporting(false);
+      hideSpinner();
+    }
+  };
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -1043,6 +1313,8 @@ export function DailyRegister() {
         `${punchType === "checkIn" ? "Check-in" : "Check-out"} marked for ${punchEmployee.employeeName}`,
         "success",
       );
+      // ── NEW: manual punch = edit ──
+      setHasEditsSinceProcess(true);
       setPunchDialogOpen(false);
       loadRegister();
       loadTodaySummary();
@@ -1083,37 +1355,6 @@ export function DailyRegister() {
     }
   }
 
-  // async function handleBulkProcess() {
-  //   if (selected.size === 0) {
-  //     showSnackbar("Select at least one employee", "warning");
-  //     return;
-  //   }
-  //   showConfirmDialog({
-  //     title: "Bulk Process Attendance",
-  //     message: `Process attendance for ${selected.size} selected employee(s) on ${dayjs(date).format("DD MMM YYYY")}?`,
-  //     confirmText: "Process",
-  //     onConfirm: async () => {
-  //       showSpinner();
-  //       try {
-  //         await attendanceService.bulkProcess({
-  //           processDate: date,
-  //           employeeIds: Array.from(selected),
-  //         });
-  //         showSnackbar(`Attendance processed for ${selected.size} employees`, "success");
-  //         setSelected(new Set());
-  //         loadRegister();
-  //       } catch (err: any) {
-  //         showSnackbar(
-  //           err?.response?.data?.message ?? "Failed to bulk process",
-  //           "error",
-  //         );
-  //       } finally {
-  //         hideSpinner();
-  //       }
-  //     },
-  //   });
-  // }
-
   async function submitBulkCheckin(employeesToCheckin = bulkCheckinEmployees) {
     if (employeesToCheckin.length === 0) {
       showSnackbar("Select at least one employee", "warning");
@@ -1143,6 +1384,7 @@ export function DailyRegister() {
         `Bulk check-in completed: ${data.checkedIn || 0} successful, ${data.skipped || 0} skipped`,
         data.errors > 0 ? "warning" : "success",
       );
+      setHasEditsSinceProcess(true);
       setBulkCheckinEmployees([]);
       setBulkCheckinRemarks("");
       setBulkCheckinOpen(false);
@@ -1191,6 +1433,7 @@ export function DailyRegister() {
         `Bulk check-out completed: ${data.checkedOut || 0} successful, ${data.skipped || 0} skipped`,
         data.errors > 0 ? "warning" : "success",
       );
+      setHasEditsSinceProcess(true);
       setBulkCheckinEmployees([]);
       setBulkCheckoutRemarks("");
       setBulkCheckinOpen(false);
@@ -1607,6 +1850,15 @@ export function DailyRegister() {
     1;
 
   const runAttendance = async () => {
+    // ── NEW: block until corrections are approved ──
+    if (hasPendingCorrections) {
+      showSnackbar(
+        "There are pending punch corrections for this date. Approve or reject them before processing attendance.",
+        "warning",
+      );
+      return;
+    }
+
     showSpinner();
     try {
       const result = await biometricService.runAttendance({ from: date, to: date });
@@ -1616,6 +1868,8 @@ export function DailyRegister() {
         (result.errors ? `, ${result.errors} errors` : ""),
         result.errors > 0 ? "warning" : "success",
       );
+
+      // Register now holds the records; staged buffer is empty
       const response: any = await attendanceService.getRegister({
         startDate: date,
         endDate: date,
@@ -1630,12 +1884,23 @@ export function DailyRegister() {
       setTotal(data?.totalElements ?? (Array.isArray(data) ? data.length : 0));
       await loadStagedPunches();
       await loadTodaySummary();
+
+      // ── NEW: reset edit flags on successful commit ──
+      setHasEditsSinceProcess(false);
+
+      // ── NEW: go straight to the Process page so the user can validate + process ──
+      navigate(
+        `/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}`,
+      );
     } catch (error: any) {
-      showSnackbar(error?.response?.data?.message ?? error?.message ?? "Failed to run attendance", "error");
+      showSnackbar(
+        error?.response?.data?.message ?? error?.message ?? "Failed to run attendance",
+        "error",
+      );
     } finally {
       hideSpinner();
     }
-  }
+  };
 
   const getDisplayStatus = (emp: RegisterEmployee): string => {
     const rawStatus = (emp.status ?? "").toString().toLowerCase();
@@ -1742,7 +2007,6 @@ export function DailyRegister() {
   const extractMovementsFor = (payload: any, employeeId: string): any[] => {
     const root = payload?.data ?? payload;
 
-    // 1. Already a movement array (items with `time` or `permissionType` or `type`)
     if (Array.isArray(root)) {
       const looksLikeMovements = root.length === 0 || root.some(
         (m: any) =>
@@ -1754,7 +2018,6 @@ export function DailyRegister() {
       );
       if (looksLikeMovements) return root;
 
-      // 2. Array of employee wrappers — pick the matching one
       const match = root.find((e: any) => e?.employeeId === employeeId);
       if (match) {
         return Array.isArray(match.movement) ? match.movement : [];
@@ -1762,7 +2025,6 @@ export function DailyRegister() {
       return [];
     }
 
-    // 3. Single employee wrapper object
     if (root && typeof root === "object") {
       if (root.employeeId === employeeId) {
         return Array.isArray(root.movement) ? root.movement : [];
@@ -1787,14 +2049,12 @@ export function DailyRegister() {
       const list = extractMovementsFor(response, target.employeeId);
       const rows = buildMovementRows(list);
 
-      // 1. Patch the table row
       setEmployees((prev) =>
         prev.map((e) =>
           e.employeeId === target.employeeId ? { ...e, movement: list } : e,
         ),
       );
 
-      // 2. Patch the dialog if it's open for this employee
       if (movementEmployee?.employeeId === target.employeeId) {
         setMovementEmployee({ ...movementEmployee, movement: list });
         setMovementRows(rows);
@@ -1824,7 +2084,6 @@ export function DailyRegister() {
   ) => {
     if (!movementEmployee) return;
     if (movementSavingIdx != null) return;
-    // Permission-only rows are already classified and cannot be re-classified.
     if ((row as any).kind === "permission") return;
 
     const existingType = getMovementPermissionType(row);
@@ -1860,7 +2119,6 @@ export function DailyRegister() {
         permissionRequestId = created?.id ?? created?.data?.id ?? null;
       }
 
-      // ── Update the dialog's local rows ──────────────────────────────────
       setMovementRows((prev) =>
         prev.map((r) =>
           r.index === row.index
@@ -1880,7 +2138,6 @@ export function DailyRegister() {
         ),
       );
 
-      // ── Update the parent `employees` state so the table reflects it ─────
       setEmployees((prev) =>
         prev.map((e) => {
           if (e.employeeId !== movementEmployee.employeeId) return e;
@@ -2027,6 +2284,24 @@ export function DailyRegister() {
         </Alert>
       )}
 
+      {hasPendingCorrections && (
+        <Alert severity="warning" icon={<PendingActionsOutlined fontSize="small" />}>
+          <span className="text-[12px]">
+            There are <strong>pending punch corrections</strong> for this date. Processing
+            attendance is blocked until they are approved or rejected.
+          </span>
+        </Alert>
+      )}
+
+      {hasEditsSinceProcess && processStatus?.processed && !processStatus?.locked && (
+        <Alert severity="info" icon={<WarningAmberOutlined fontSize="small" />}>
+          <span className="text-[12px]">
+            You have edited punches after processing. <strong>Reprocess attendance</strong> before
+            closing & finalizing.
+          </span>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="text-[12px] font-bold text-gray-500">{getSummaryHeader()}</div>
 
@@ -2058,52 +2333,122 @@ export function DailyRegister() {
           >
             Send Reminders {selected.size > 0 && `(${selected.size})`}
           </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            className="!text-primary !border-primary"
+            startIcon={<LockOpenOutlined className="!w-4" />}
+            onClick={openLockedDates}
+          >
+            Locked Dates
+          </Button>
 
-          {hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed ? (
+          {!loading && !isLoadingProcessStatus && (
             <>
-              <Button
-                size="small"
-                variant="contained"
-                color="success"
-                startIcon={<PlayArrowOutlined className="!w-4" />}
-                onClick={runAttendance}
-              >
-                Run Attendance ({stagedPunches.length})
-              </Button>
-              <Tooltip
-                title="Delete all staged punches for this date. Committed attendance and raw punches are kept."
-                arrow
-              >
+              {processStatus?.processed === true && processStatus?.locked === true ? (
                 <Button
                   size="small"
                   variant="outlined"
-                  color="error"
-                  startIcon={<DeleteOutlined className="!w-4" />}
-                  onClick={clearStagedPunches}
+                  color="warning"
+                  startIcon={<LockOutlined className="!w-4" />}
+                  onClick={openLockedDates}
                 >
-                  Clear Staged
+                  Closed
                 </Button>
-              </Tooltip>
-            </>
-          ) : !loadingStagedPunches &&
-            !stagedPunchCheckFailed &&
-            !loading &&
-            employees.length > 0 &&
-            !processStatus?.locked ? (
-            <Button
-              size="small"
-              variant="contained"
-              color="success"
-              startIcon={<PlayArrowOutlined className="!w-4" />}
-              onClick={() =>
-                navigate(
-                  `/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}`,
+              ) : processStatus?.processed === true && processStatus?.locked === false ? (
+                // ── NEW: reprocess label depends on whether there are pending edits ──
+                hasEditsSinceProcess ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="warning"
+                    startIcon={<PlayArrowOutlined className="!w-4" />}
+                    onClick={() =>
+                      navigate(
+                        `/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}&reprocess=true`,
+                      )
+                    }
+                  >
+                    Reprocess Required
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    startIcon={<PlayArrowOutlined className="!w-4" />}
+                    onClick={() =>
+                      navigate(
+                        `/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}&reprocess=true`,
+                      )
+                    }
+                  >
+                    Re-process
+                  </Button>
                 )
-              }
-            >
-              Process Attendance
-            </Button>
-          ) : null}
+              ) : processStatus?.processed === false && processStatus?.locked === false ? (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  startIcon={<PlayArrowOutlined className="!w-4" />}
+                  onClick={() => {
+                    if (hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed) {
+                      if (hasPendingCorrections) {
+                        showSnackbar(
+                          "Resolve pending corrections before running attendance.",
+                          "warning",
+                        );
+                        return;
+                      }
+                      void runAttendance();
+                    } else {
+                      navigate(
+                        `/attendance/process?fromDate=${encodeURIComponent(date)}&toDate=${encodeURIComponent(date)}`,
+                      );
+                    }
+                  }}
+                  disabled={hasPendingCorrections}
+                  title={
+                    hasPendingCorrections
+                      ? "Pending corrections must be approved before processing"
+                      : undefined
+                  }
+                >
+                  {hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed
+                    ? `Commit & Process (${stagedPunches.length})`
+                    : "Process Attendance"}
+                </Button>
+              ) : null}
+              {hasStagedPunches && !loadingStagedPunches && !stagedPunchCheckFailed && (
+                <Tooltip
+                  title="Delete all staged punches for this date. Committed attendance and raw punches are kept."
+                  arrow
+                >
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteOutlined className="!w-4" />}
+                    onClick={clearStagedPunches}
+                  >
+                    Clear
+                  </Button>
+                </Tooltip>
+              )}
+              {hasPendingCorrections && (
+                <Chip
+                  size="small"
+                  color="warning"
+                  icon={<PendingActionsOutlined className="!w-4" />}
+                  label="Corrections pending"
+                  onClick={() =>  navigate(
+                        `/attendance/management/corrections`,
+                      )}
+                />
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -2131,17 +2476,23 @@ export function DailyRegister() {
               }}
               format="DD/MM/YYYY"
               maxDate={dayjs()}
-              slots={{
-                inputAdornment: () => (
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <IconButton size="small" onClick={handlePrev}>
-                      <ChevronLeftOutlined fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" onClick={handleNext}>
-                      <ChevronRightOutlined fontSize="small" />
-                    </IconButton>
-                  </div>
-                ),
+              slotProps={{
+                textField: {
+                  slotProps: {
+                    input: {
+                      startAdornment: (
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          <IconButton size="small" onClick={handlePrev}>
+                            <ChevronLeftOutlined fontSize="small" className="text-gray-600" />
+                          </IconButton>
+                          <IconButton size="small" onClick={handleNext}>
+                            <ChevronRightOutlined fontSize="small" className="text-gray-600" />
+                          </IconButton>
+                        </div>
+                      ),
+                    },
+                  },
+                },
               }}
             />
           </LocalizationProvider>
@@ -2246,6 +2597,27 @@ export function DailyRegister() {
               <RefreshOutlined fontSize="small" className="text-gray-500 !w-4" />
             </IconButton>
           </Tooltip>
+
+          <Tooltip title="Export attendance">
+            <IconButton
+              size="small"
+              disabled={exporting}
+              onClick={(event) => setExportMenuAnchor(event.currentTarget)}
+              aria-label="Export attendance register"
+            >
+              <FileDownloadOutlined fontSize="small" className="text-gray-500 !w-4" />
+            </IconButton>
+          </Tooltip>
+          <Menu
+            anchorEl={exportMenuAnchor}
+            open={Boolean(exportMenuAnchor)}
+            onClose={() => setExportMenuAnchor(null)}
+          >
+            <MenuItem onClick={() => void exportRegister("excel")}>Export as Excel</MenuItem>
+            <MenuItem onClick={() => void exportRegister("pdf")}>Export as PDF</MenuItem>
+            <MenuItem onClick={() => void exportRegister("csv")}>Export as CSV</MenuItem>
+            <MenuItem onClick={() => void exportRegister("html")}>Export as HTML</MenuItem>
+          </Menu>
         </div>
       </div>
 
@@ -2256,24 +2628,6 @@ export function DailyRegister() {
             {selected.size} selected
           </span>
           <div className="flex items-center gap-2 ml-2 flex-wrap">
-            {/* <Button
-              size="small"
-              variant="outlined"
-              className="!text-primary !border-primary"
-              startIcon={<EventNoteOutlined fontSize="small" />}
-              onClick={() => setBulkDialogOpen(true)}
-            >
-              Daily Status
-            </Button>
-            <Button
-              size="small"
-              variant="outlined"
-              className="!text-primary !border-primary"
-              startIcon={<CheckCircleOutlined fontSize="small" />}
-              onClick={handleBulkProcess}
-            >
-              Bulk Process
-            </Button> */}
             <Button
               size="small"
               variant="contained"
@@ -2439,7 +2793,7 @@ export function DailyRegister() {
                             <span>{i + 1}</span>
                           </TableCell>
                           <TableCell className="!sticky left-[68px] !z-20 bg-inherit ">
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 text-[12px]">
                               <div>
                                 {emp.employeeName} ({emp.employeeCode})
                               </div>
@@ -2449,7 +2803,7 @@ export function DailyRegister() {
 
                           {showColumn("department") && (
                             <TableCell>
-                              <div>{emp.department || "-"}</div>
+                              <div className="text-[12px]">{emp.department || "-"}</div>
                               <div className="text-blue-500">{emp.designation || "-"}</div>
                             </TableCell>
                           )}
@@ -2506,8 +2860,7 @@ export function DailyRegister() {
                                 />
                               ) : shiftMissing ? (
                                 <div
-                                  className="flex items-center gap-1.5 min-w-[110px] px-1 py-0.5 rounded
-             bg-amber-50 border border-amber-200"
+                                  className="flex items-center gap-1.5 min-w-[110px] px-1 py-0.5 rounded bg-amber-50 border border-amber-200"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <Tooltip
@@ -2654,14 +3007,14 @@ export function DailyRegister() {
                           {showColumn("checkInTime") && (
                             <TableCell data-edit-cell="checkInTime">
                               <div className="flex items-center gap-1">
-                                {isEditingField(emp.employeeId, "checkInTime") && canEditPunchTimes && !processStatus.locked ? (
+                                {isEditingField(emp.employeeId, "checkInTime") && canEditPunchTimeFields ? (
                                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                                     <TimePicker
                                       ampm={false}
                                       value={draftDateTime}
                                       onChange={(newValue) => setDraftDateTime(newValue)}
                                       format="HH:mm:ss"
-                                      disabled={isLeave || isEditing || !canEditPunchTimes}
+                                      disabled={isLeave || isEditing || !canEditPunchTimeFields}
                                       slotProps={{
                                         textField: {
                                           size: "small",
@@ -2701,7 +3054,7 @@ export function DailyRegister() {
                                     value={displayCheckInTime}
                                     onClick={() =>
                                       !isLeave &&
-                                      canEditPunchTimes &&
+                                      canEditPunchTimeFields &&
                                       !isEditing &&
                                       !processStatus.locked &&
                                       openField(
@@ -2710,7 +3063,7 @@ export function DailyRegister() {
                                         emp.checkInTime ? dayjs(emp.checkInTime) : null,
                                       )
                                     }
-                                    disabled={isLeave || isEditing || !canEditPunchTimes}
+                                    disabled={isLeave || isEditing || !canEditPunchTimeFields}
                                     className={punchTimeColor(emp, "checkInTime")}
                                   />
                                 )}
@@ -2788,14 +3141,14 @@ export function DailyRegister() {
                           {showColumn("checkOutTime") && (
                             <TableCell data-edit-cell="checkOutTime">
                               <div className="flex items-center gap-1">
-                                {isEditingField(emp.employeeId, "checkOutTime") && canEditPunchTimes && !processStatus.locked ? (
+                                {isEditingField(emp.employeeId, "checkOutTime") && canEditPunchTimeFields ? (
                                   <LocalizationProvider dateAdapter={AdapterDayjs}>
                                     <TimePicker
                                       ampm={false}
                                       value={draftDateTime}
                                       onChange={(newValue) => setDraftDateTime(newValue)}
                                       format="HH:mm:ss"
-                                      disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
+                                      disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimeFields}
                                       slotProps={{
                                         textField: {
                                           size: "small",
@@ -2835,7 +3188,7 @@ export function DailyRegister() {
                                     value={displayCheckOutTime}
                                     onClick={() =>
                                       !isLeave &&
-                                      canEditPunchTimes &&
+                                      canEditPunchTimeFields &&
                                       !isEditing &&
                                       !processStatus.locked &&
                                       emp.checkInTime &&
@@ -2845,7 +3198,7 @@ export function DailyRegister() {
                                         emp.checkOutTime ? dayjs(emp.checkOutTime) : null,
                                       )
                                     }
-                                    disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimes}
+                                    disabled={isLeave || isEditing || !emp.checkInTime || !canEditPunchTimeFields}
                                     className={punchTimeColor(emp, "checkOutTime")}
                                   />
                                 )}
@@ -2943,8 +3296,13 @@ export function DailyRegister() {
                                       {label}
                                     </span>
                                     {emp.correctionPending && (
-                                      <Tooltip title="Correction pending approval">
+                                      <Tooltip title="Correction pending approval — blocks processing">
                                         <PendingActionsOutlined className="!w-4 !h-4 text-amber-500" />
+                                      </Tooltip>
+                                    )}
+                                    {hasEditsSinceProcess && (
+                                      <Tooltip title="Edited after processing — reprocess before finalizing">
+                                        <WarningAmberOutlined className="!w-4 !h-4 text-orange-500" />
                                       </Tooltip>
                                     )}
                                   </div>
@@ -3112,6 +3470,56 @@ export function DailyRegister() {
       </div>
 
       {/* ─── DIALOGS ─── */}
+
+      <Dialog
+        open={correctionRequestOpen}
+        onClose={() => {
+          if (submittingCorrection) return;
+          setCorrectionRequestOpen(false);
+          setPendingCorrection(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle className="border-b border-gray-200">Request Punch Time Correction</DialogTitle>
+        <DialogContent className="!pt-2">
+          <Alert severity="info" className="!mb-6">
+            This attendance is already processed. The requested time will take effect only after approval.
+          </Alert>
+          <TextField
+            label="Reason"
+            value={correctionReason}
+            onChange={(event) => setCorrectionReason(event.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+            required
+            autoFocus
+            slotProps={{ htmlInput: { maxLength: 500 } }}
+          />
+        </DialogContent>
+        <DialogActions className="border-t border-gray-200">
+          <Button
+            onClick={() => {
+              setCorrectionRequestOpen(false);
+              setPendingCorrection(null);
+            }}
+            disabled={submittingCorrection}
+            variant="outlined"
+            className="!text-gray-800 !border-gray-200 !border"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => void submitCorrectionRequest()}
+            disabled={submittingCorrection || !correctionReason.trim()}
+            variant="contained"
+            className="!bg-primary"
+          >
+            {submittingCorrection ? "Submitting..." : "Submit Request"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Check-in / Check-out Dialog */}
       <Dialog
@@ -4932,7 +5340,6 @@ export function DailyRegister() {
             </Alert>
           ) : (
             <div className="space-y-3">
-              {/* ── One-line summary ── */}
               <div className="text-[12px] text-gray-700">
                 {(() => {
                   const totalAway = movementRows.reduce(
@@ -4975,7 +5382,6 @@ export function DailyRegister() {
                 })()}
               </div>
 
-              {/* ── Simple table ── */}
               <div className="border border-gray-200 rounded overflow-hidden">
                 <table className="w-full text-[12px]">
                   <thead>
@@ -5038,7 +5444,6 @@ export function DailyRegister() {
                             {row.index}
                           </td>
 
-                          {/* Out column */}
                           <td className="px-3 py-2 tabular-nums">
                             {isPermissionOnly ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-medium">
@@ -5053,7 +5458,6 @@ export function DailyRegister() {
                             )}
                           </td>
 
-                          {/* In column */}
                           <td className="px-3 py-2 tabular-nums">
                             {isPermissionOnly ? (
                               <span className="text-gray-400 text-[12px]">—</span>
@@ -5068,14 +5472,12 @@ export function DailyRegister() {
                             )}
                           </td>
 
-                          {/* Duration */}
                           <td className="px-3 py-2 text-right text-gray-700 tabular-nums">
                             {row.durationMinutes != null
                               ? formatMinutes(timeUnit, row.durationMinutes)
                               : "—"}
                           </td>
 
-                          {/* Classify */}
                           <td className="px-3 py-2">
                             {isPermissionOnly ? (
                               <div className="flex items-center justify-center gap-1">
@@ -5203,6 +5605,114 @@ export function DailyRegister() {
             }}
           >
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={lockedDatesOpen}
+        onClose={() => {
+          if (isUnlockingDate) return;
+          setLockedDatesOpen(false);
+          setSelectedLock(null);
+          setUnlockReason("");
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle className="border-b border-gray-200">
+          Locked Attendance Dates
+        </DialogTitle>
+        <DialogContent className="!pt-4 space-y-3">
+          <Alert severity="warning">
+            A locked date cannot be edited or reprocessed. Select a lock containing {dayjs(date).format("DD MMM YYYY")} and provide a reason to reopen that date. Other dates in the lock range remain locked. If its month is finalised, unlock the month first.
+          </Alert>
+          {isLoadingLocks ? (
+            <LinearProgress />
+          ) : attendanceLocks.length === 0 ? (
+            <Alert severity="info">There are no active attendance locks.</Alert>
+          ) : (
+            <div className="max-h-72 overflow-y-auto space-y-2">
+              {attendanceLocks.map((lock) => {
+                const selectedDateIsLocked =
+                  lock.startDate <= date && lock.endDate >= date;
+                const isSelected = selectedLock?.id === lock.id;
+                return (
+                  <div
+                    key={lock.id}
+                    className={`flex items-center justify-between gap-3 rounded border p-3 ${isSelected ? "border-primary bg-white" : "border-gray-200"
+                      }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                        <LockOutlined className="!w-4 !h-4" />
+                        {dayjs(lock.startDate).format("DD MMM YYYY")}
+                        {lock.endDate !== lock.startDate &&
+                          ` - ${dayjs(lock.endDate).format("DD MMM YYYY")}`}
+                        {selectedDateIsLocked && (
+                          <Chip label="Selected date" size="small" color="warning" />
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500">
+                        {lock.reason || "No reason provided"}
+                        {lock.lockedBy ? ` · Locked by ${lock.lockedBy}` : ""}
+                      </div>
+                    </div>
+                    <Button
+                      size="small"
+                      variant={isSelected ? "contained" : "outlined"}
+                      onClick={() => {
+                        setSelectedLock(lock);
+                        setUnlockReason("");
+                      }}
+                      disabled={isUnlockingDate || !selectedDateIsLocked}
+                    >
+                      {isSelected ? "Selected" : "Select"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {selectedLock && (
+            <TextField
+              label="Reason for unlock"
+              value={unlockReason}
+              className="!mt-6"
+              onChange={(event) => setUnlockReason(event.target.value)}
+              fullWidth
+              required
+              multiline
+              minRows={2}
+              autoFocus
+              disabled={isUnlockingDate}
+            />
+          )}
+        </DialogContent>
+        <DialogActions className="border-t border-gray-200">
+          <Button
+            variant="outlined"
+            onClick={() => setLockedDatesOpen(false)}
+            disabled={isUnlockingDate}
+            className="!text-gray-800 !border-gray-200"
+          >
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<LockOpenOutlined />}
+            onClick={() => void unlockAttendanceDate()}
+            disabled={
+              isLoadingLocks ||
+              isUnlockingDate ||
+              !selectedLock ||
+              selectedLock.startDate > date ||
+              selectedLock.endDate < date ||
+              !unlockReason.trim()
+            }
+          >
+            {isUnlockingDate ? "Unlocking..." : "Unlock Date"}
           </Button>
         </DialogActions>
       </Dialog>
