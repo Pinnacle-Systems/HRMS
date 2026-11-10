@@ -2468,7 +2468,7 @@ export default function Home() {
               <DashboardIcon />
             </Avatar>
             <Box>
-              <div className="text-gray-800 font-bold text-[18px]">Dashboard</div>
+              <div className="text-gray-800 font-bold text-[14px]">Dashboard</div>
               <Typography variant="body2" color="textSecondary" className="text-gray-800">Welcome back, {user ? getWorkspaceLabel(user).split(' ')[0] : ''}!</Typography>
             </Box>
           </Stack>

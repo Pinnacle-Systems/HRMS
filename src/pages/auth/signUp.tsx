@@ -345,12 +345,12 @@ export default function Signup() {
   const [statesLoading, setStatesLoading] = useState(false);
   const [industriesLoading, setIndustriesLoading] = useState(false);
 
-  // Fetch active countries on mount
+  // Fetch public countries on mount
   useEffect(() => {
     const fetchCountries = async () => {
       setCountriesLoading(true);
       try {
-        const response = await masterService.getActiveCountries();
+        const response = await masterService.getPublicCountries();
         setCountries(toAutocompleteOptions(response));
       } catch (err) {
         console.error("Failed to fetch countries:", err);
@@ -377,7 +377,7 @@ export default function Signup() {
     const fetchStates = async () => {
       setStatesLoading(true);
       try {
-        const response = await masterService.getStatesByCountry(
+        const response = await masterService.getPublicStates(
           formData.country,
         );
         if (!cancelled) {
@@ -406,7 +406,7 @@ export default function Signup() {
     const fetchIndustries = async () => {
       setIndustriesLoading(true);
       try {
-        const response: any = await masterService.getIndustries();
+        const response = await masterService.getPublicIndustries();
         setIndustries(toAutocompleteOptions(response));
       } catch (err) {
         console.error("Failed to fetch industries:", err);
@@ -1020,7 +1020,7 @@ export default function Signup() {
                         }`}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-                        .vibedomain.com
+                        .dot.com
                       </span>
                     </div>
                     {touched.subdomain && errors.subdomain && (

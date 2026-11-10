@@ -250,6 +250,12 @@ export const API_ENDPOINTS = {
     GET_CITIES_BY_STATE: (sid: any) => `/master/cities/by-state/${sid}`,
   },
 
+  PUBLIC: {
+    COUNTRIES: "/public/countries",
+    STATES: "/public/states",
+    INDUSTRIES: "/public/industries",
+  },
+
   LEAVE: {
     BASE: "/leaves",
     // MY_APPROVALS: "/leaves/approvals/my",

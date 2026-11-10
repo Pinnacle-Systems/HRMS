@@ -18,12 +18,26 @@ export const masterService = {
     return apiService.get(API_ENDPOINTS.MASTER.GET_ACTIVE_COUNTRIES, { params });
   },
 
+  async getPublicCountries() {
+    return apiService.get(API_ENDPOINTS.PUBLIC.COUNTRIES);
+  },
+
   async getStates(params?: any) {
     return apiService.get(API_ENDPOINTS.MASTER.GET_STATES, { params });
   },
 
+  async getPublicStates(countryId?: string) {
+    return apiService.get(API_ENDPOINTS.PUBLIC.STATES, {
+      params: countryId ? { countryId } : undefined,
+    });
+  },
+
   async getIndustries(params?: any) {
     return apiService.get(API_ENDPOINTS.MASTER.GET_INDUSTRY, { params });
+  },
+
+  async getPublicIndustries() {
+    return apiService.get(API_ENDPOINTS.PUBLIC.INDUSTRIES);
   },
 
   async getCurrencies(params?: any) {

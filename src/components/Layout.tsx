@@ -88,7 +88,8 @@ import GuidedTour from "./GuidedTour";
 import { formatDate } from "../utils/dateFormatter";
 import React from "react";
 import type { EventData } from "react-joyride";
-import dot from '../assets/dot.png';
+// import dot from "../assets/dot.png";
+import dotBgWhite from "../assets/dotBgWhite.jpeg";
 
 const drawerWidth = 220;
 const guidedTourStorageKey = "hrms-guided-tour-completed";
@@ -1030,91 +1031,101 @@ export default function Layout() {
         <Toolbar className="bg-white !grid">
           <div className="bg-white w-full min-w-0">
             {/* First Row - Main Toolbar */}
-            <div className="flex justify-between items-center mt-0.5">
-              {/* Left Section - Logo and Navigation */}
-              <Box className="flex text-primary items-center gap-2 flex-shrink-0">
+            <div className="flex justify-between items-center mt-0.5 gap-4">
+              {/* ── Left: Menu + Customer Card + "by" Connector + Brand ── */}
+              <Box className="flex items-center gap-1 flex-shrink-0 min-w-0">
                 <IconButton
                   color="inherit"
                   aria-label="open drawer"
                   onClick={handleDrawerToggle}
                   edge="start"
-                  className="text-primary"
+                  className="!p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   data-tour="menu-toggle"
                 >
-                  <MenuIcon />
+                  <MenuIcon fontSize="small" className="!text-primary" />
                 </IconButton>
 
-                <Box className="flex items-center gap-2 flex-shrink-0">
-                  {/* Company Logo */}
-                  {companyInfo?.logoUrl ? (
-                    <img
-                      src={companyInfo.logoUrl}
-                      alt={`${companyInfo.companyName || "Company"} logo`}
-                      width="30px"
-                      height="30px"
-                    />
-                  ) : (
-                    <div className="w-[30px] h-[30px] bg-primary-100 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-primary bg-primary-100 rounded-full w-8 h-8 flex items-center justify-center">
-                        {companyInfo?.companyName
-                          ?.charAt(0)
-                          ?.toUpperCase() || "H"}
+                {/* Customer Card */}
+                <Box
+                  className="flex items-center gap-2 pl-2 pr-3.5 pt-1.5 pb-1 rounded-md"
+                  // border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all duration-200 cursor-default"
+                  data-tour="customer-brand"
+                >
+                  <Box className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden border border-gray-100 shrink-0">
+                    {companyInfo?.logoUrl ? (
+                      <img
+                        src={companyInfo.logoUrl}
+                        alt={`${companyInfo.companyName || "Company"} logo`}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-sm font-bold text-primary">
+                        {companyInfo?.companyName?.slice(0,2)?.toUpperCase() || "H"}
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </Box>
 
-                  {/* Company Info */}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <img src={dot} alt="Dot.HR Logo" width="50" height="30" />
-                      <div className="font-bold text-gray-700 whitespace-nowrap">
-                        <span className="text-primary">HR</span>
-                      </div>
-                      {user && getWorkspaceLabel && (
-                        <div className="text-[10px] text-gray-400 leading-3 whitespace-nowrap">
-                          {getWorkspaceLabel(user)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-[12px] text-gray-800 whitespace-nowrap">
+                  <div className="hidden md:flex flex-cl items-center min-w-0 ml-1">
+                    {/* <img src={dot} alt="DoT.HR" className="h-5 w-auto object-contain" /> */}
+                    <img src={dotBgWhite} alt="DoT.HR" className="h-5 w-auto object-contain" />
+                    {/* <div className="flex items-center"> */}
+                    {/* <span className="text-[10px] text-gray-800 whitespace-nowrap max-w-[160px]">
                         {companyInfo?.companyName || "Company Name"}
-                      </div>
+                      </span> */}
+                    <div className="text-[10px] font-medium text-gray-400 ml-1 mt-0.5">
+                      {user && getWorkspaceLabel ? getWorkspaceLabel(user) : "Workspace"}
                     </div>
+                    {/* </div> */}
                   </div>
                 </Box>
+
+                {/* Connector */}
+                {/* <div className="hidden sm:flex items-center gap-1.5 px-1 flex-shrink-0">
+                  <span className="h-px w-3 bg-gray-200" />
+                  <span className="text-[8px] text-gray-400 font-semibold uppercase tracking-widest">
+                    by
+                  </span>
+                  <span className="h-px w-3 bg-gray-200" />
+                </div> */}
+
+                {/* Brand Card */}
+                {/* <Box
+                  className="hidden sm:flex items-center justify-center px-3 py-1.5 rounded-md bg-white border border-gray-200 shadow-sm flex-shrink-0"
+                  data-tour="brand-logo"
+                >
+                  <img src={dot} alt="DoT.HR" className="h-7 w-auto object-contain" />
+                </Box> */}
               </Box>
 
-              {/* Right Section - Actions */}
-              <Box className="flex items-center gap-2 flex-shrink-0">
-                {/* Branch Info */}
+              {/* ── Right: Context + Actions + Avatar ── */}
+              <Box className="flex items-center gap-1 flex-shrink-0">
+
+                {/* Branch / Fiscal-year context pill */}
                 {session && (
-                  <div className="text-[10px] whitespace-nowrap">
-                    <div className="text-gray-800">
-                      {session.branchName} - {session.branchCode}{" "}
-                      <span className="text-primary font-bold">
-                        ({session.fiscalYearLabel})
-                      </span>
-                    </div>
+                  <div className="hidden lg:flex items-center gap-1.5 mr-1 pl-3 pr-3.5 py-1 rounded-lg bg-gray-50 border border-gray-200 whitespace-nowrap">
+                    <span className="text-[10px] font-medium text-gray-600">
+                      {session.branchName}
+                      {session.branchCode && (
+                        <span className="text-gray-400"> · {session.branchCode}</span>
+                      )}
+                    </span>
+                    <span className="text-[10px] font-semibold text-primary bg-primary-50 px-1.5 py-0.5 rounded">
+                      FY {session.fiscalYearLabel}
+                    </span>
                   </div>
                 )}
 
-                {/* Search Button */}
-                <Tooltip title="Search (CTRL + P)">
+                {/* Search — compact icon with tooltip; visible shortcut chip on md+ */}
+                <Tooltip title="Search (Ctrl + P)">
                   <IconButton
                     size="small"
                     aria-label="search"
                     color="inherit"
                     onClick={() => setSearchOpen?.(true)}
+                    className="!p-2 rounded-lg hover:bg-gray-100 transition-colors"
                     data-tour="global-search"
                   >
-                    <Chip
-                      label="CTRL + P"
-                      icon={<SearchOutlined className="text-gray-500 !w-5" />}
-                      size="small"
-                      variant="outlined"
-                      className="!text-gray-500"
-                    />
+                    <SearchOutlined className="text-gray-500 !w-5 !h-5" />
                   </IconButton>
                 </Tooltip>
 
@@ -1122,21 +1133,23 @@ export default function Layout() {
                 <Tooltip title="Notifications">
                   <IconButton
                     size="small"
-                    aria-label={`${pendingApprovalCount > 0
+                    aria-label={
+                      pendingApprovalCount > 0
                         ? `${pendingApprovalCount} pending`
-                        : "No"
-                      } notifications`}
+                        : "No notifications"
+                    }
                     color="inherit"
                     onClick={handleNotificationClick}
+                    className="!p-2 rounded-lg hover:bg-gray-100 transition-colors"
                     data-tour="notifications"
                   >
                     <Badge
                       badgeContent={pendingApprovalCount}
                       color="error"
                       max={99}
-                      className="text-primary"
+                      overlap="circular"
                     >
-                      <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5" />
+                      <NotificationsNoneOutlinedIcon className="text-gray-500 !w-5 !h-5" />
                     </Badge>
                   </IconButton>
                 </Tooltip>
@@ -1146,25 +1159,29 @@ export default function Layout() {
                   <IconButton
                     size="small"
                     onClick={handleConMenuOpen}
-                    className="text-gray-500"
                     aria-label="theme settings"
+                    className="!p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
                   >
-                    <ContrastOutlinedIcon className="!w-5" />
+                    <ContrastOutlinedIcon className="!w-5 !h-5" />
                   </IconButton>
                 </Tooltip>
 
+                {/* Guided tour */}
                 <Tooltip title="Start guided tour">
                   <IconButton
                     size="small"
                     onClick={startGuidedTour}
-                    className="text-gray-500"
                     aria-label="start guided tour"
+                    className="!p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
                   >
-                    <HelpOutlineTwoTone className="!w-5" />
+                    <HelpOutlineTwoTone className="!w-5 !h-5" />
                   </IconButton>
                 </Tooltip>
 
-                {/* Profile/Avatar */}
+                {/* Divider before avatar */}
+                <span className="h-6 w-px bg-gray-200 mx-1.5" />
+
+                {/* Avatar */}
                 <Tooltip title={user?.email || "Account"}>
                   <IconButton
                     size="small"
@@ -1172,12 +1189,13 @@ export default function Layout() {
                     onClick={handleProfileMenuOpen}
                     color="inherit"
                     aria-label="account menu"
+                    className="!p-0.5 rounded-full hover:bg-gray-100 transition-colors"
                     data-tour="account-menu"
                   >
                     <Avatar
                       src={user?.profilePic}
                       alt={user?.email || "User avatar"}
-                      className="!w-8 !h-8 !border !border-gray-200 text-2xl cursor-pointer"
+                      className="!w-8 !h-8 !border !border-gray-200 text-sm cursor-pointer"
                     >
                       {avatarInitial ||
                         user?.email?.charAt(0)?.toUpperCase() ||
@@ -1242,7 +1260,7 @@ export default function Layout() {
                       className={`${isHomeActive
                         ? "!bg-primary !text-white"
                         : "!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white"
-                        } !border-none !h-5 flex-shrink-0`}
+                        } !border-none !h-4 flex-shrink-0`}
                       aria-label="Go to Home"
                     />
                     <span className="text-gray-300 flex-shrink-0">|</span>
@@ -1269,10 +1287,9 @@ export default function Layout() {
                             `${location.pathname}${location.search}`
                             ? "!bg-primary !text-white"
                             : "!text-gray-800 !bg-gray-200 hover:!bg-primary hover:!text-white"
-                            } !border-none !h-5 flex-shrink-0`}
+                            } !border-none !h-4 flex-shrink-0`}
                           aria-label={`Go to ${page.label || "page"}`}
                         />
-
                         {index < pageHistory.length - 1 && (
                           <span className="text-gray-300 flex-shrink-0">|</span>
                         )}
@@ -1284,7 +1301,7 @@ export default function Layout() {
                         label="Clear All"
                         onClick={handleClearAllHistory}
                         variant="outlined"
-                        className="!h-5 !text-gray-800"
+                        className="!h-4 !text-gray-800"
                       />
                     </div>
                   </Box>
@@ -1590,14 +1607,29 @@ export default function Layout() {
         <List className="!pb-0">
           {open && (
             <Box className="px-3 py-1">
-              <Box className="flex items-center gap-1 shadow-sm">
-                <img src={companyInfo?.logoUrl} className="!w-6 !h-6 mr-2" alt="logo" />
-                <Box>
+              <Box className="flex items-center gap-2 shadow-sm">
+                {companyInfo?.logoUrl ? (
+                  <img
+                    src={companyInfo.logoUrl}
+                    alt={`${companyInfo.companyName || "Company"} logo`}
+                    className="!w-6 !h-6 mr-1 rounded object-contain border border-gray-200"
+                  />
+                ) : (
+                  <span className="text-sm font-bold text-primary">
+                    {companyInfo?.companyName?.slice(0,2)?.toUpperCase() || "HR"}
+                  </span>
+                )}
+                <Box className="min-w-0">
                   <div className="text-gray-500 text-[10px]">Organization</div>
-                  <div className="text-gray-800 font-bold text-[12px]">
+                  <div className="text-gray-800 font-bold text-[10px] truncate">
                     {companyInfo?.companyName || "Company Name"}
                   </div>
                 </Box>
+                {/* <img
+                  src={dot}
+                  alt="DoT.HR"
+                  className="!h-5 w-auto ml-auto object-contain"
+                /> */}
               </Box>
             </Box>
           )}

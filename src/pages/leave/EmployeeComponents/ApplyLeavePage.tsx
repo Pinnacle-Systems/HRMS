@@ -93,12 +93,27 @@ export default function ApplyLeavePage() {
     () => leaveTypes.find((leaveType) => leaveType.id === form.leaveTypeId),
     [form.leaveTypeId, leaveTypes],
   );
+  
+  const allowHalfDay = selectedLeaveType?.allowHalfDay === true;
 
   const attachmentRequired = requiresLeaveAttachment({
     leaveTypeCode: selectedLeaveType?.code,
     leaveTypeName: selectedLeaveType?.name,
     totalDays: calculation?.days,
   });
+
+  useEffect(() => {
+    if (
+      selectedLeaveType?.allowHalfDay === false &&
+      (form.fromSession !== "FULL_DAY" || form.toSession !== "FULL_DAY")
+    ) {
+      setForm((current) => ({
+        ...current,
+        fromSession: "FULL_DAY",
+        toSession: "FULL_DAY",
+      }));
+    }
+  }, [form.fromSession, form.toSession, selectedLeaveType]);
 
   // Prepare existing leave data from requests
   const prepareExistingLeaveData = (leaveRequests: LeaveRequest[]) => {
@@ -234,8 +249,8 @@ export default function ApplyLeavePage() {
           leaveTypeId: form.leaveTypeId,
           fromDate: form.fromDate.format("YYYY-MM-DD"),
           toDate: form.toDate.format("YYYY-MM-DD"),
-          fromSession: form.fromSession,
-          toSession: form.toSession,
+          fromSession: allowHalfDay ? form.fromSession : "FULL_DAY",
+          toSession: allowHalfDay ? form.toSession : "FULL_DAY",
           leaveYear: form.fromDate.year(),
         };
         const response: any = await leaveService.calculateLeaveDays(payload);
@@ -256,6 +271,7 @@ export default function ApplyLeavePage() {
     form.fromSession,
     form.toDate,
     form.toSession,
+    allowHalfDay,
     currentEmployeeId,
     showSnackbar,
   ]);
@@ -329,8 +345,8 @@ export default function ApplyLeavePage() {
         leaveTypeId: form.leaveTypeId || leaveTypeId,
         fromDate: form.fromDate?.format("YYYY-MM-DD"),
         toDate: form.toDate?.format("YYYY-MM-DD"),
-        fromSession: form.fromSession,
-        toSession: form.toSession,
+        fromSession: allowHalfDay ? form.fromSession : "FULL_DAY",
+        toSession: allowHalfDay ? form.toSession : "FULL_DAY",
         appliedReason: form.appliedReason,
         status,
         // approverId: approverId || undefined,
@@ -545,7 +561,12 @@ export default function ApplyLeavePage() {
                         placeholder="Select type"
                         value={form.leaveTypeId}
                         error={Boolean(errors.leaveTypeId)}
-                        helperText={errors.leaveTypeId}
+                        helperText={
+                          errors.leaveTypeId ||
+                          (selectedLeaveType?.allowHalfDay === false
+                            ? "Half-day leave is not allowed for this leave type."
+                            : undefined)
+                        }
                         onChange={(event) =>
                           handleChange("leaveTypeId", event.target.value)
                         }
@@ -580,12 +601,13 @@ export default function ApplyLeavePage() {
                           fromSession={form.fromSession}
                           toSession={form.toSession}
                           onSessionChange={(from, to) => {
-                            handleChange("fromSession", from);
-                            handleChange("toSession", to);
+                            if (from !== null) handleChange("fromSession", from);
+                            if (to !== null) handleChange("toSession", to);
                           }}
                           minDate={dayjs().startOf("day")}
                           maxDate={dayjs().add(365, "day")}
                           leaveTypeId={form.leaveTypeId}
+                          allowHalfDay={allowHalfDay}
                           onCalculate={calculate}
                           existingLeaveDates={existingLeaveDates}
                           existingLeaveDetails={existingLeaveDetails}
@@ -833,7 +855,7 @@ export default function ApplyLeavePage() {
                     </div>
 
                     {/* LOP Warning - Compact */}
-                    {calculation.insufficientBalance && (
+                    {/* {calculation.insufficientBalance && (
                       <div className="bg-gradient-to-r from-red-50 to-orange-50/70 border border-red-200 rounded-lg p-2.5">
                         <div className="flex items-start gap-1.5">
                           <div className="text-[10px] text-red-700">
@@ -859,7 +881,7 @@ export default function ApplyLeavePage() {
                           />
                         </div>
                       </div>
-                    )}
+                    )} */}
 
                     {(calculation.lopDays > 0 || calculation.insufficientBalance || (calculation.balanceAfter ?? 0) < 0) && (
                       <div className="bg-gradient-to-r from-red-50 to-orange-50/70 border border-red-200 rounded-lg p-2.5">

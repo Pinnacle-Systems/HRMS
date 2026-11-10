@@ -139,6 +139,9 @@ export default function MyLeaveRequestsPage() {
     string | null
   >(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const editAllowsHalfDay =
+    leaveTypes.find((leaveType) => leaveType.id === editForm.leaveTypeId)
+      ?.allowHalfDay === true;
 
   const loadRequests = async () => {
     setLoading(true);
@@ -419,13 +422,20 @@ export default function MyLeaveRequestsPage() {
   const handleEditRequest = (request: LeaveRequest) => {
     closeActionMenu();
     setEditRequest(request);
+    const requestAllowsHalfDay =
+      leaveTypes.find((leaveType) => leaveType.id === request.leaveTypeId)
+        ?.allowHalfDay === true;
     // Populate form with existing data
     setEditForm({
       leaveTypeId: request.leaveTypeId || "",
       fromDate: request.fromDate ? dayjs(request.fromDate) : null,
-      fromSession: request.fromSession || "FULL_DAY",
+      fromSession: requestAllowsHalfDay
+        ? request.fromSession || "FULL_DAY"
+        : "FULL_DAY",
       toDate: request.toDate ? dayjs(request.toDate) : null,
-      toSession: request.toSession || "FULL_DAY",
+      toSession: requestAllowsHalfDay
+        ? request.toSession || "FULL_DAY"
+        : "FULL_DAY",
       appliedReason: request.reason || request.appliedReason || "",
       emergencyContact: request.emergencyContactNumber || "",
       currentStatus: request.currentStatus || "DRAFT"
@@ -481,8 +491,8 @@ export default function MyLeaveRequestsPage() {
         leaveTypeId: editForm.leaveTypeId,
         fromDate: editForm.fromDate?.format("YYYY-MM-DD"),
         toDate: editForm.toDate?.format("YYYY-MM-DD"),
-        fromSession: editForm.fromSession,
-        toSession: editForm.toSession,
+        fromSession: editAllowsHalfDay ? editForm.fromSession : "FULL_DAY",
+        toSession: editAllowsHalfDay ? editForm.toSession : "FULL_DAY",
         appliedReason: editForm.appliedReason,
         emergencyContactNumber: editForm.emergencyContact.trim() || undefined,
         // status: "DRAFT" as LeaveRequestStatus,
@@ -1622,10 +1632,32 @@ export default function MyLeaveRequestsPage() {
                   fullWidth
                   value={editForm.leaveTypeId}
                   error={Boolean(editErrors.leaveTypeId)}
-                  helperText={editErrors.leaveTypeId}
-                  onChange={(event) =>
-                    handleEditChange("leaveTypeId", event.target.value)
+                  helperText={
+                    editErrors.leaveTypeId ||
+                    (editForm.leaveTypeId && !editAllowsHalfDay
+                      ? "Half-day leave is not allowed for this leave type."
+                      : undefined)
                   }
+                  onChange={(event) => {
+                    const nextLeaveTypeId = event.target.value;
+                    const nextLeaveType = leaveTypes.find(
+                      (leaveType) => leaveType.id === nextLeaveTypeId,
+                    );
+                    setEditForm((current) => ({
+                      ...current,
+                      leaveTypeId: nextLeaveTypeId,
+                      ...(!nextLeaveType?.allowHalfDay
+                        ? {
+                            fromSession: "FULL_DAY" as const,
+                            toSession: "FULL_DAY" as const,
+                          }
+                        : {}),
+                    }));
+                    setEditErrors((current) => ({
+                      ...current,
+                      leaveTypeId: "",
+                    }));
+                  }}
                   size="small"
                   sx={selectSx}
                 >
@@ -1722,7 +1754,11 @@ export default function MyLeaveRequestsPage() {
                     sx={selectSx}
                   >
                     {sessionOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
+                      <MenuItem
+                        key={option.value}
+                        value={option.value}
+                        disabled={!editAllowsHalfDay && option.value !== "FULL_DAY"}
+                      >
                         {option.label}
                       </MenuItem>
                     ))}
@@ -1746,7 +1782,11 @@ export default function MyLeaveRequestsPage() {
                     sx={selectSx}
                   >
                     {sessionOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
+                      <MenuItem
+                        key={option.value}
+                        value={option.value}
+                        disabled={!editAllowsHalfDay && option.value !== "FULL_DAY"}
+                      >
                         {option.label}
                       </MenuItem>
                     ))}
@@ -1813,5 +1853,4 @@ export default function MyLeaveRequestsPage() {
     </LeavePageShell>
   );
 }
-
 

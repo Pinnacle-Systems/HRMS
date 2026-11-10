@@ -42,6 +42,26 @@ describe("Master Data", () => {
       expect(apiService.get).toHaveBeenCalledWith(API_ENDPOINTS.MASTER.GET_ACTIVE_COUNTRIES, { params: undefined });
     });
 
+    it("getPublicCountries calls the public endpoint", async () => {
+      (apiService.get as any).mockResolvedValue({ data: [] });
+      await masterService.getPublicCountries();
+      expect(apiService.get).toHaveBeenCalledWith(API_ENDPOINTS.PUBLIC.COUNTRIES);
+    });
+
+    it("getPublicStates filters by countryId", async () => {
+      (apiService.get as any).mockResolvedValue({ data: [] });
+      await masterService.getPublicStates("country-1");
+      expect(apiService.get).toHaveBeenCalledWith(API_ENDPOINTS.PUBLIC.STATES, {
+        params: { countryId: "country-1" },
+      });
+    });
+
+    it("getPublicIndustries calls the public endpoint", async () => {
+      (apiService.get as any).mockResolvedValue({ data: [] });
+      await masterService.getPublicIndustries();
+      expect(apiService.get).toHaveBeenCalledWith(API_ENDPOINTS.PUBLIC.INDUSTRIES);
+    });
+
     it("getStatesByCountry calls the correct endpoint", async () => {
       (apiService.get as any).mockResolvedValue({ data: [] });
       await masterService.getStatesByCountry("c1");
