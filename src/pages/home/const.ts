@@ -41,9 +41,16 @@ export const getWidgetColor = (type: string) => {
   return { bg: "#F5F5F5", color: "#616161" };
 };
 
-export type WidgetSize = "small" | "medium" | "large" | "full";
-export type WidgetType = "kpi" | "bar" | "line" | "pie" | "area" | "table" | "list" | "metrics" | "donut" | "treemap" | "sunburst" | "sankey";
+export type WidgetSize = "small" | "medium" | "large" | "full" | string;
+export type WidgetType =
+  | "kpi" | "bar" | "line" | "pie" | "area" | "table" | "list" | "metrics"
+  | "donut" | "treemap" | "sunburst" | "sankey"
+  | "column" | "stacked-bar" | "grouped-bar" | "scatter" | "bubble"
+  | "radar" | "heatmap" | "funnel" | "gauge"
+  | "composed" | "radial-bar" | "boxplot"
+  | string; // allow future chart types without breaking
 export type DataSourceType = "bi" | "sql" | "op";
+
 export interface DashboardBuilderWidget {
   id: string;
   widgetId: string;
@@ -63,6 +70,8 @@ export interface DashboardBuilderWidget {
       source?: string;
       target?: string;
       value?: string;
+      labelDim?: string;
+      valueMetric?: string;
       colorScheme?: string;
       showLegend?: boolean;
     };

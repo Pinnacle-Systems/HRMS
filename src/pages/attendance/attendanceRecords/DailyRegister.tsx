@@ -321,7 +321,7 @@ export function DailyRegister() {
   useEffect(() => {
     try {
       localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(visibleColumns));
-    } catch {}
+    } catch { }
   }, [visibleColumns]);
 
   // ── NEW: persist edit flags per-date so ProcessAttendance can read them ──
@@ -331,7 +331,7 @@ export function DailyRegister() {
         `attendanceEdits:${date}`,
         JSON.stringify({ hasEditsSinceProcess, hasPendingCorrections }),
       );
-    } catch {}
+    } catch { }
   }, [date, hasEditsSinceProcess, hasPendingCorrections]);
 
   // ── NEW: hydrate edit flags from localStorage on date change ──
@@ -1114,7 +1114,7 @@ export function DailyRegister() {
           `attendanceEdits:${date}`,
           JSON.stringify({ hasEditsSinceProcess: false, hasPendingCorrections: false }),
         );
-      } catch {}
+      } catch { }
     } catch (error: any) {
       showSnackbar(
         error?.response?.data?.message ?? error?.message ?? "Failed to unlock attendance date",
@@ -2326,15 +2326,6 @@ export function DailyRegister() {
           </Button>
           <Button
             size="small"
-            variant="contained"
-            className="!bg-primary"
-            startIcon={<NotificationsActiveOutlined className="!w-4" />}
-            onClick={handleOpenReminderDialog}
-          >
-            Send Reminders {selected.size > 0 && `(${selected.size})`}
-          </Button>
-          <Button
-            size="small"
             variant="outlined"
             className="!text-primary !border-primary"
             startIcon={<LockOpenOutlined className="!w-4" />}
@@ -2432,7 +2423,7 @@ export function DailyRegister() {
                     startIcon={<DeleteOutlined className="!w-4" />}
                     onClick={clearStagedPunches}
                   >
-                    Clear
+                    Clear Logs
                   </Button>
                 </Tooltip>
               )}
@@ -2442,9 +2433,9 @@ export function DailyRegister() {
                   color="warning"
                   icon={<PendingActionsOutlined className="!w-4" />}
                   label="Corrections pending"
-                  onClick={() =>  navigate(
-                        `/attendance/management/corrections`,
-                      )}
+                  onClick={() => navigate(
+                    `/attendance/management/corrections`,
+                  )}
                 />
               )}
             </>
@@ -2643,6 +2634,15 @@ export function DailyRegister() {
               }}
             >
               Bulk Action
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              className="!bg-primary"
+              startIcon={<NotificationsActiveOutlined className="!w-4" />}
+              onClick={handleOpenReminderDialog}
+            >
+              Send Reminders {selected.size > 0 && `(${selected.size})`}
             </Button>
             <Button
               size="small"
@@ -4651,9 +4651,9 @@ export function DailyRegister() {
               <div className="text-[12px]">
                 <strong>File format requirements:</strong>
                 <ul className="list-disc ml-4 mt-1 space-y-0.5">
-                  <li>Required columns: Employee Code, Timestamp</li>
-                  <li>Optional columns: Punch Type (IN/OUT), Device ID</li>
-                  <li>The selected register date is used for the file date span</li>
+                  <li>Required columns: Employee Code, Timestamp, Punch Type (IN/OUT)</li>
+                  <li>Optional columns: Device ID</li>
+                  {/* <li>The selected register date is used for the file date span</li> */}
                 </ul>
               </div>
             </Alert>

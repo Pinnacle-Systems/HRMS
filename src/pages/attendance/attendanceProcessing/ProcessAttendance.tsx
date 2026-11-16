@@ -174,7 +174,7 @@ export function ProcessAttendance() {
 
   // ── Dates ──────────────────────────────────────────────────────────────
   const [fromDate, setFromDate] = useState(initialFromDate);
-  const [toDate, setToDate] = useState(initialToDate);   // ← FIX: preserve initialToDate
+  const [toDate, setToDate] = useState(initialToDate);
   const [departmentId, setDepartmentId] = useState("");
   const [workerType, setWorkerType] = useState<WorkerType>("Both");
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -191,6 +191,7 @@ export function ProcessAttendance() {
     locked: boolean;
     recordCount: number;
     recommendedAction?: string;
+    closeAction?: string;
   } | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
@@ -215,6 +216,7 @@ export function ProcessAttendance() {
   const [hasEditsSinceProcess, setHasEditsSinceProcess] = useState(false);
   const [hasPendingCorrections, setHasPendingCorrections] = useState(false);
   const [blockedCorrections, setBlockedCorrections] = useState<BlockedCorrection[]>([]);
+  // const [isLoadingCorrections, setIsLoadingCorrections] = useState(false);
 
   // ── NEW: only allow close when the most recent process actually succeeded ──
   const [lastProcessSucceeded, setLastProcessSucceeded] = useState(false);
@@ -234,6 +236,14 @@ export function ProcessAttendance() {
     blockedCorrections.length > 0 ||
     Boolean(processStatus?.processed);
 
+  // ── NEW: Close & Finalize is allowed whenever backend says the date is
+  //         processed AND not yet locked, OR when we just processed
+  //         successfully in this session (covers the brief window before
+  //         refreshProcessStatus() returns).
+  const canCloseAndFinalize =
+    Boolean(processStatus?.processed && !processStatus?.locked) ||
+    (lastProcessSucceeded && !isClosed && !processStatus?.locked);
+
   // Mutually-exclusive buttons
   const showProcessButton =
     !hasCorrectionsForDate &&
@@ -243,32 +253,58 @@ export function ProcessAttendance() {
   const showReprocessButton =
     hasCorrectionsForDate && !processStatus?.locked;
 
-  // ── Hydrate per-date flags from localStorage ──────────────────────────
+  // ── Hydrate per-date local-only flags from localStorage ───────────────
+  // NOTE: we only read `hasEditsSinceProcess` from localStorage now.
+  // `hasPendingCorrections` is authoritative from the backend (see below).
   useEffect(() => {
     try {
       const raw = localStorage.getItem(`attendanceEdits:${fromDate}`);
       const parsed = raw ? JSON.parse(raw) : {};
       setHasEditsSinceProcess(Boolean(parsed.hasEditsSinceProcess));
-      setHasPendingCorrections(Boolean(parsed.hasPendingCorrections));
     } catch {
       setHasEditsSinceProcess(false);
-      setHasPendingCorrections(false);
     }
   }, [fromDate, toDate]);
 
-  // Persist "date has corrections" so a reload doesn't un-gate Process
+  // ── Authoritative pending-corrections fetch (backend is source of truth) ─
   useEffect(() => {
-    if (hasCorrectionsForDate) {
-      try {
-        const raw = localStorage.getItem(`attendanceEdits:${fromDate}`) ?? "{}";
-        const parsed = JSON.parse(raw);
-        localStorage.setItem(
-          `attendanceEdits:${fromDate}`,
-          JSON.stringify({ ...parsed, hasPendingCorrections: true }),
-        );
-      } catch { }
+    if (!fromDate || !toDate) {
+      setHasPendingCorrections(false);
+      setBlockedCorrections([]);
+      return;
     }
-  }, [hasCorrectionsForDate, fromDate]);
+    let cancelled = false;
+    const loadPendingCorrections = async () => {
+      // setIsLoadingCorrections(true);
+      showSpinner();
+      try {
+        // Adjust the method name here if your service differs.
+        const res: any = await attendanceService.getCorrections({
+          status: "pending",
+          fromDate,
+          toDate,
+          departmentId: departmentId || undefined,
+        });
+        if (cancelled) return;
+        const data = res?.data?.data ?? res?.data ?? [];
+        const list = Array.isArray(data) ? data : data?.content ?? [];
+        setHasPendingCorrections(list.length > 0);
+        // Only clear blockedCorrections derived from CONFLICT when backend
+        // confirms nothing is pending. Keep it in sync with reality.
+        if (list.length === 0) {
+          setBlockedCorrections([]);
+        }
+      } catch {
+        // Don't trust stale localStorage on failure — leave flags as-is
+        // (they will be reconciled on next successful fetch or process).
+      } finally {
+        // if (!cancelled) setIsLoadingCorrections(false);
+        hideSpinner();
+      }
+    };
+    void loadPendingCorrections();
+    return () => { cancelled = true; };
+  }, [fromDate, toDate, departmentId]);
 
   // ── Invalidate "success" + "blocked" when target changes ──────────────
   useEffect(() => {
@@ -390,6 +426,8 @@ export function ProcessAttendance() {
       processed: valid.every((r: any) => r.processed === true),
       locked: valid.every((r: any) => r.locked === true),
       recordCount: valid.reduce((s: number, r: any) => s + (r.recordCount ?? 0), 0),
+      recommendedAction: valid[0]?.recommendedAction,
+      closeAction: valid[0]?.closeAction,
     };
   }, [fromDate, toDate, departmentId, workerType]);
 
@@ -406,8 +444,8 @@ export function ProcessAttendance() {
         if (!cancelled) {
           setProcessStatus(data ?? null);
           setIsClosed(Boolean(data?.locked));
-          // Only re-enable close if status says processed AND we've previously
-          // succeeded locally; render still gates on lastProcessSucceeded.
+          // Only re-enable close if status says processed AND not locked;
+          // render is still gated by canCloseAndFinalize below.
           setShowCloseOption(Boolean(data?.processed && !data?.locked));
         }
       } catch {
@@ -455,7 +493,7 @@ export function ProcessAttendance() {
     try {
       localStorage.setItem(
         `attendanceEdits:${fromDate}`,
-        JSON.stringify({ hasEditsSinceProcess: false, hasPendingCorrections: false }),
+        JSON.stringify({ hasEditsSinceProcess: false }),
       );
     } catch { }
   };
@@ -764,12 +802,8 @@ export function ProcessAttendance() {
         const parsed = parseBlockedCorrections(msg);
         setBlockedCorrections(parsed);
         setHasPendingCorrections(true);
-        try {
-          localStorage.setItem(
-            `attendanceEdits:${fromDate}`,
-            JSON.stringify({ hasEditsSinceProcess, hasPendingCorrections: true }),
-          );
-        } catch { }
+        // NOTE: we no longer persist hasPendingCorrections to localStorage.
+        // The corrections-fetch effect will reconcile this with the backend.
         showSnackbar(
           "Processing blocked: pending attendance corrections must be approved first.",
           "error",
@@ -797,7 +831,7 @@ export function ProcessAttendance() {
 
   // ── Close & Finalize ──────────────────────────────────────────────────
   async function handleCloseAndFinalize() {
-    if (!lastProcessSucceeded) {
+    if (!canCloseAndFinalize) {
       showSnackbar(
         "Process attendance successfully before closing & finalizing.",
         "warning",
@@ -975,9 +1009,9 @@ export function ProcessAttendance() {
     }
   }
 
-  // ── Manual Close — proper dialog, gated on lastProcessSucceeded ───────
+  // ── Manual Close ──────────────────────────────────────────────────────
   function handleManualClose() {
-    if (!lastProcessSucceeded) {
+    if (!canCloseAndFinalize) {
       showSnackbar("Process attendance successfully before closing.", "warning");
       return;
     }
@@ -1337,7 +1371,7 @@ export function ProcessAttendance() {
               <Button
                 color="inherit"
                 size="small"
-                onClick={() => navigate(`/attendance/register?date=${fromDate}`)}
+                onClick={() => navigate(`/attendance/records/daily-register`)}
               >
                 Go to Register
               </Button>
@@ -1431,7 +1465,7 @@ export function ProcessAttendance() {
 
       {/* ────────── Close & Finalize banner (only after success) ────────── */}
       {showCloseOption &&
-        lastProcessSucceeded &&
+        canCloseAndFinalize &&
         canProcessAttendance &&
         !isClosed &&
         !processStatus?.locked &&
@@ -1457,7 +1491,7 @@ export function ProcessAttendance() {
 
       {/* ────────── Edits pending → guide to reprocess ────────── */}
       {showCloseOption &&
-        lastProcessSucceeded &&
+        canCloseAndFinalize &&
         !isClosed &&
         !processStatus?.locked &&
         hasEditsSinceProcess && (
@@ -1634,7 +1668,7 @@ export function ProcessAttendance() {
 
           {/* Manual Close — only after success + no edits */}
           {canProcessAttendance &&
-            lastProcessSucceeded &&
+            canCloseAndFinalize &&
             !result.locked &&
             !processStatus?.locked &&
             (result.processed ?? 0) > 0 &&
@@ -1837,7 +1871,7 @@ export function ProcessAttendance() {
               <li>If the date is clean → only <strong>Process</strong> is offered</li>
               <li>Pending corrections block both actions until approved</li>
               <li>Edits after processing require a reprocess before close & finalize</li>
-              <li>Close & Finalize is enabled only after a successful process call</li>
+              <li>Close & Finalize is enabled when the date is processed and unlocked (or just after a successful process call)</li>
               <li>Finalised periods must be unlocked before they can be reprocessed</li>
             </ul>
           </span>
@@ -1972,10 +2006,10 @@ export function ProcessAttendance() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {preCheck.nightDuty.map((n) => (
-                      <TableRow key={n.employeeId} hover>
+                    {preCheck.nightDuty.map((n,i) => (
+                      <TableRow key={n.employeeId} sx={getRowColor(i)}>
                         <TableCell className="font-mono text-xs">{n.employeeCode}</TableCell>
-                        <TableCell>{n.employeeName}</TableCell>
+                        <TableCell><div className="p-2">{n.employeeName}</div></TableCell>
                         <TableCell>{n.shiftCode ?? "-"}</TableCell>
                         <TableCell>
                           {n.checkInTime ? formatTimewithSec(n.checkInTime) : "-"}

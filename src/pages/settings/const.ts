@@ -526,12 +526,12 @@ export const tabs = [
     label: "Payroll",
     roles: ["ADMIN"] as UserRole[],
     options: [
-      {
-        id: "payrol-settings",
-        label: "Payroll Settings",
-        path: "/settings/payroll/payroll-settings",
-        roles: ["ADMIN"] as UserRole[],
-      },
+      // {
+      //   id: "payrol-settings",
+      //   label: "Payroll Settings",
+      //   path: "/settings/payroll/payroll-settings",
+      //   roles: ["ADMIN"] as UserRole[],
+      // },
       // {
       //   id: "salary-components",
       //   label: "Salary Components",
@@ -568,12 +568,12 @@ export const tabs = [
         path: "/settings/payroll/payroll-settings/schedule",
         roles: ["ADMIN"] as UserRole[],
       },
-      {
-        id: "approval-workflow",
-        label: "Approval Workflow",
-        path: "/settings/payroll/payroll-settings/approval",
-        roles: ["ADMIN"] as UserRole[],
-      },
+      // {
+      //   id: "approval-workflow",
+      //   label: "Approval Workflow",
+      //   path: "/settings/payroll/payroll-settings/approval",
+      //   roles: ["ADMIN"] as UserRole[],
+      // },
     ],
   },
   {

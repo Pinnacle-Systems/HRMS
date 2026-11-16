@@ -25,8 +25,10 @@ export interface Period {
   paymentDate: string;
   cutoffDate: string;
   workingDays: number;
+  workingDaysPerWeek?: number;
   status: string;         
   daySplit: DaySplit;
+  periodType?: string;
 }
 
 export interface Holiday {
@@ -46,6 +48,21 @@ export interface PeriodCreatePayload {
   holidays: Holiday[];
 }
 
+export interface PeriodUpdateResult extends Period {
+  affectedPeriods: string[];
+}
+
+export interface PeriodUpdateResponse {
+  success: boolean;
+  message: string;
+  data: PeriodUpdateResult;
+  timestamp: string;
+}
+
+export interface PeriodUpdateOptions {
+  dryRun?: boolean;
+}
+
 export interface PeriodUpdatePayload {
   name: string;
   startDate: string;
@@ -53,13 +70,31 @@ export interface PeriodUpdatePayload {
   paymentDate: string;
   cutoffDate: string;
   workingDays: number;
+  workingDaysPerWeek?: number;
   status: string;
   holidays: Holiday[];
 }
 
+export type PeriodSortBy =
+  | "startDate"
+  | "endDate"
+  | "paymentDate"
+  | "cutoffDate"
+  | "workingDays"
+  | "name"
+  | "status"
+  | "periodType";
+
+export type PeriodSortDirection = "asc" | "desc";
+
+export interface PeriodSortParams {
+  sortBy: PeriodSortBy;
+  sortDir: PeriodSortDirection;
+}
+
 export const periodsService = {
-  async getPeriods() {
-    return apiService.get(API_ENDPOINTS.PAYROLL.PERIODS.BASE);
+  async getPeriods(params?: PeriodSortParams) {
+    return apiService.get(API_ENDPOINTS.PAYROLL.PERIODS.BASE, { params });
   },
 
   async getSummaryPeriods(params: any) {
@@ -74,8 +109,16 @@ export const periodsService = {
     return apiService.post(API_ENDPOINTS.PAYROLL.PERIODS.CREATE, payload);
   },
 
-  async updatePeriod(id: string, payload: PeriodUpdatePayload) {
-    return apiService.put(API_ENDPOINTS.PAYROLL.PERIODS.UPDATE(id), payload);
+  async updatePeriod(
+    id: string,
+    payload: PeriodUpdatePayload,
+    options?: PeriodUpdateOptions,
+  ) {
+    return apiService.put<PeriodUpdateResponse>(
+      API_ENDPOINTS.PAYROLL.PERIODS.UPDATE(id),
+      payload,
+      { params: options },
+    );
   },
 
   async deletePeriod(id: string) {

@@ -1348,8 +1348,6 @@ const EChartsRenderer = ({ data, type, config, is3D = false }: EChartsRendererPr
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
   const theme = useTheme();
-  // const [chartKey, setChartKey] = useState(0);
-
 
   const rows = data?.data || [];
   const columns = data?.columns || [];
@@ -1398,11 +1396,9 @@ const EChartsRenderer = ({ data, type, config, is3D = false }: EChartsRendererPr
     return readableOption;
   };
 
-
   useEffect(() => {
     if (!chartRef.current) return;
 
-    // Get the device pixel ratio for sharper rendering
     const dpr = window.devicePixelRatio || 1;
 
     chartInstance.current = echarts.init(chartRef.current, null, {
@@ -1414,12 +1410,10 @@ const EChartsRenderer = ({ data, type, config, is3D = false }: EChartsRendererPr
 
     const resizeObserver = new ResizeObserver(() => {
       if (chartInstance.current) {
-        // Proper resize with debounce
         chartInstance.current.resize({
           width: 'auto',
           height: 'auto',
         });
-        // setChartKey(prev => prev + 1); // Force re-render on resize
       }
     });
     resizeObserver.observe(chartRef.current);
@@ -1443,13 +1437,15 @@ const EChartsRenderer = ({ data, type, config, is3D = false }: EChartsRendererPr
     );
 
     const xAxisCol = config?.xAxis || stringColumns[0]?.id || columns[0]?.id;
-    const yAxisCols = config?.yAxis || numericColumns.slice(0, 2).map((c: any) => c.id);
+    const yAxisCols = config?.yAxis && Array.isArray(config.yAxis) && config.yAxis.length > 0
+      ? config.yAxis
+      : numericColumns.slice(0, 2).map((c: any) => c.id);
     const labelDim = config?.labelDim || config?.dimension || stringColumns[0]?.id || columns[0]?.id;
     const valueMetric = config?.valueMetric || config?.metric || config?.value || numericColumns[0]?.id || columns[1]?.id;
     const hierarchy = config?.hierarchy || [stringColumns[0]?.id, stringColumns[1]?.id].filter(Boolean);
     const sourceKey = config?.source || stringColumns[0]?.id;
     const targetKey = config?.target || stringColumns[1]?.id;
-    const yAxisCol = config?.yAxis || yAxisCols[0] || stringColumns[1]?.id || columns[1]?.id;
+    const yAxisCol = config?.yAxis?.[0] || yAxisCols[0] || stringColumns[1]?.id || columns[1]?.id;
 
     const chartData = rows.map((row: any) => {
       const obj: any = { ...row };
@@ -1507,14 +1503,17 @@ const EChartsRenderer = ({ data, type, config, is3D = false }: EChartsRendererPr
         option = getFunnelChartOption(chartData, labelDim, valueMetric, palette);
         break;
 
+      // ✅ FIXED: Added missing case for boxplot
       case 'boxplot':
         option = getBoxplotChartOption(chartData, yAxisCols, palette);
         break;
 
+      // ✅ FIXED: Added missing case for composed
       case 'composed':
         option = getComposedChartOption(chartData, xAxisCol, yAxisCols, palette);
         break;
 
+      // ✅ FIXED: Added missing case for radial-bar
       case 'radial-bar':
         option = getRadialBarChartOption(chartData, labelDim, valueMetric, palette);
         break;

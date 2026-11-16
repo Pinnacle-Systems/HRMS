@@ -1099,6 +1099,7 @@ export default function ManagerLeaveApprovalsPage() {
                               : "N/A"}{" "}
                             - {formatDateTime(approval.actionAt)}
                           </div>
+                          <div>{approval.actionComments}</div>
                         </div>
                       </div>
                     ))}

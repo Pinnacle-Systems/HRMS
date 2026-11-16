@@ -18,7 +18,6 @@ import {
   TextField,
   MenuItem,
   Alert,
-  Snackbar,
   Box,
   Grid,
   Card,
@@ -26,9 +25,12 @@ import {
   Divider,
   Switch,
   FormControlLabel,
+  Paper,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
-  Search,
+  // Search,
   Refresh,
   Lock,
   LockOpen,
@@ -37,12 +39,16 @@ import {
   CheckCircle,
   LockOutlined,
   AttachMoneyOutlined,
+  CalendarToday,
+  TrendingUp,
+  TrendingDown,
+  Info,
+  Person,
 } from "@mui/icons-material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
-import DataState from "../../../components/DataState";
 import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCombobox";
 import { useUI } from "../../../context/Snackbar";
 import { leaveService } from "../../../services/modules/leave";
@@ -57,43 +63,118 @@ import type {
   FinalSettlementProcess,
   FinalSettlementPayload,
 } from "../../../services/modules/leaveTypes";
-import LeavePageShell from "../components/LeavePageShell";
-import { getRowColor } from "../../const";
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { useAuth } from "../../../auth/authContext";
 import { formatCurrency } from "../../payroll/const";
 import { dialogsx } from "../../../const";
+import { getRowColor } from "../../const";
 
+/* -------------------------------------------------------------------------- */
+/*                              Helper Components                             */
+/* -------------------------------------------------------------------------- */
+
+function PageHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: string;
+  subtitle?: string;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <Box className="mb-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div className="text-[12px] font-bold text-gray-900">{title}</div>
+          {subtitle && (
+            <p className="text-[12px] text-gray-500 mt-0.5">{subtitle}</p>
+          )}
+        </div>
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
+      </div>
+    </Box>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  icon,
+  tone = "blue",
+}: {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  tone?: "blue" | "green" | "red" | "purple";
+}) {
+  const toneMap: Record<string, string> = {
+    blue: "bg-blue-50 border-blue-100",
+    green: "bg-green-50 border-green-100",
+    red: "bg-red-50 border-red-100",
+    purple: "bg-purple-50 border-purple-100",
+  };
+  return (
+    <Paper
+      elevation={0}
+      className={`!border ${toneMap[tone]} !rounded-xl !p-3 !bg-white flex items-center justify-between`}
+    >
+      <div>
+        <div className="text-[11px] text-gray-500 font-medium">{label}</div>
+        <div className="text-[20px] font-bold text-gray-900 mt-0.5">{value}</div>
+      </div>
+      <div className="p-2 bg-white/70 rounded-full">{icon}</div>
+    </Paper>
+  );
+}
+
+/**
+ * Centered empty-state row content (replaces DataState).
+ */
+function EmptyCell({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center py-6 bg-white w-full text-center text-[12px] text-gray-500">
+      {message}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                Main Component                              */
+/* -------------------------------------------------------------------------- */
 
 export default function HrPayrollInputsPage() {
-  const { showSnackbar } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner } = useUI();
+  const { session } = useAuth();
+  const isHR = session?.user?.roles?.includes("HR");
+
   const [inputs, setInputs] = useState<PayrollLeaveInput[]>([]);
   const [summary, setSummary] = useState<PayrollLeaveSummary | null>(null);
-  const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-  const { session } = useAuth();
-  const isHR = session?.user.roles.includes('HR');
+  const [activeTab, setActiveTab] = useState(0);
 
-  // Filter states
+  // Filters
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
-  const [fromDate, setFromDate] = useState(dayjs().startOf("month"));
-  const [toDate, setToDate] = useState(dayjs());
-
-  // New states for payroll inputs
   const [payrollMonth, setPayrollMonth] = useState(dayjs().format("YYYY-MM"));
+  const [fromDate, setFromDate] = useState(
+    dayjs(`${dayjs().format("YYYY-MM")}-01`).startOf("month"),
+  );
+  const [toDate, setToDate] = useState(
+    dayjs(`${dayjs().format("YYYY-MM")}-01`).endOf("month"),
+  );
   const [branchId, _setBranchId] = useState<string>("");
   const [departmentId, _setDepartmentId] = useState<string>("");
 
-  // Dialog states
+  // Dialogs / status
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Encashment states
+  // Encashment
   const [encashmentDialogOpen, setEncashmentDialogOpen] = useState(false);
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [encashments, setEncashments] = useState<LeaveEncashment[]>([]);
@@ -110,7 +191,7 @@ export default function HrPayrollInputsPage() {
   const [encashmentPreviewData, setEncashmentPreviewData] =
     useState<LeaveEncashmentPreview | null>(null);
 
-  // Settlement states
+  // Settlement
   const [settlementDialogOpen, setSettlementDialogOpen] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [settlementData, setSettlementData] =
@@ -122,9 +203,13 @@ export default function HrPayrollInputsPage() {
       lapseNonEncashable: true,
       notes: "",
     });
+
   const [leaveTypes, setLeaveTypes] = useState<{ id: string; name: string }[]>(
     [],
   );
+
+  /* ------------------------------- Loaders ------------------------------- */
+
   useEffect(() => {
     leaveService
       .getLeaveTypes()
@@ -133,25 +218,21 @@ export default function HrPayrollInputsPage() {
           res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
         setLeaveTypes(Array.isArray(data) ? data : []);
       })
-      .catch(() => { });
-
-    // branchService.getDropdownBranches().then((res: any) => {
-    //   const data = res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
-    //   setBranchId(Array.isArray(data) ? data : []);
-    // }).catch(() => { });
-
-    // departmentService.getActiveDepartments().then((res: any) => {
-    //   const data = res.data?.data?.content ?? res.data?.content ?? res.data ?? [];
-    //   setLeaveTypes(Array.isArray(data) ? data : []);
-    // }).catch(() => { });
+      .catch(() => {});
   }, []);
 
-  // Load payroll inputs (without employee filter)
+  useEffect(() => {
+    const monthStart = dayjs(`${payrollMonth}-01`).startOf("month");
+    const monthEnd = dayjs(`${payrollMonth}-01`).endOf("month");
+    setFromDate(monthStart);
+    setToDate(monthEnd);
+  }, [payrollMonth]);
+
   const loadPayrollInputs = async () => {
-    setLoading(true);
+    showSpinner();
     try {
       const response: any = await leaveService.getPayrollLeaveInputs({
-        payrollMonth: payrollMonth,
+        payrollMonth,
         branchId: branchId || undefined,
         departmentId: departmentId || undefined,
         page: 0,
@@ -163,20 +244,18 @@ export default function HrPayrollInputsPage() {
     } catch (err: any) {
       showSnackbar(err?.message || "Failed to load payroll inputs", "error");
     } finally {
-      setLoading(false);
+      hideSpinner();
     }
   };
 
-  // Load summary for selected employee
   const loadSummary = async () => {
     if (!employeeId) {
       setSummary(null);
       return;
     }
-
     try {
       const response: any = await leaveService.getPayrollLeaveSummary({
-        employeeId: employeeId,
+        employeeId,
         from: fromDate.format("YYYY-MM-DD"),
         to: toDate.format("YYYY-MM-DD"),
       });
@@ -187,13 +266,11 @@ export default function HrPayrollInputsPage() {
     }
   };
 
-  // Load encashments for selected employee
   const loadEncashments = async () => {
     if (!employeeId) return;
-
     try {
       const response: any = await leaveService.getLeaveEncashments({
-        employeeId: employeeId,
+        employeeId,
         page: 0,
         size: 50,
       });
@@ -207,14 +284,21 @@ export default function HrPayrollInputsPage() {
 
   useEffect(() => {
     loadPayrollInputs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payrollMonth, branchId, departmentId]);
 
   useEffect(() => {
     if (employeeId) {
       loadSummary();
       loadEncashments();
+    } else {
+      setSummary(null);
+      setEncashments([]);
     }
-  }, [employeeId, fromDate, toDate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeId, payrollMonth]);
+
+  /* ------------------------------ Handlers ------------------------------- */
 
   const handleEmployeeChange = (
     id: string | null,
@@ -224,6 +308,7 @@ export default function HrPayrollInputsPage() {
     setEmployeeName(employee?.name || "");
     if (!id) {
       setSummary(null);
+      setEncashments([]);
     }
   };
 
@@ -235,25 +320,26 @@ export default function HrPayrollInputsPage() {
     }
   };
 
-  // Generate, Lock, Unlock functions
+  const handleResetFilters = () => {
+    setEmployeeId(null);
+    setEmployeeName(null);
+    setPayrollMonth(dayjs().format("YYYY-MM"));
+  };
+
   const handleGenerate = async () => {
     setProcessing(true);
     try {
-      const payload: GeneratePayload = {
-        payrollMonth: payrollMonth,
-        // branchId: branchId || "default-branch-id",
-        // departmentId: departmentId || "default-department-id",
-      };
+      const payload: GeneratePayload = { payrollMonth };
       const response: any = await leaveService.generateLeaveInputs(payload);
       if (response.success) {
-        setSuccessMessage("Leave inputs generated successfully");
+        showSnackbar("Leave inputs generated successfully",'success');
         await loadPayrollInputs();
         setGenerateDialogOpen(false);
       } else {
-        setErrorMessage(response.message || "Failed to generate leave inputs");
+        showSnackbar(response.message || "Failed to generate leave inputs",'error');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to generate leave inputs");
+      showSnackbar(err?.message || "Failed to generate leave inputs",'error');
     } finally {
       setProcessing(false);
     }
@@ -262,36 +348,31 @@ export default function HrPayrollInputsPage() {
   const handleLock = async (lock: boolean) => {
     setProcessing(true);
     try {
-      const payload: LockUnlockPayload = {
-        payrollMonth: payrollMonth,
-        // branchId: branchId || "default-branch-id",
-        // departmentId: departmentId || "default-department-id",
-      };
+      const payload: LockUnlockPayload = { payrollMonth };
       const response: any = lock
         ? await leaveService.lockLeaveInputs(payload)
         : await leaveService.unlockLeaveInputs(payload);
       if (response.success) {
-        setSuccessMessage(
-          `Leave inputs ${lock ? "locked" : "unlocked"} successfully`,
+        showSnackbar(
+          `Leave inputs ${lock ? "locked" : "unlocked"} successfully`, 'success'
         );
         await loadPayrollInputs();
         setLockDialogOpen(false);
       } else {
-        setErrorMessage(
+        showSnackbar(
           response.message ||
-          `Failed to ${lock ? "lock" : "unlock"} leave inputs`,
+            `Failed to ${lock ? "lock" : "unlock"} leave inputs`,'error'
         );
       }
     } catch (err: any) {
-      setErrorMessage(
-        err?.message || `Failed to ${lock ? "lock" : "unlock"} leave inputs`,
+      showSnackbar(
+        err?.message || `Failed to ${lock ? "lock" : "unlock"} leave inputs`,'error'
       );
     } finally {
       setProcessing(false);
     }
   };
 
-  // Encashment functions
   const handleEncashmentPreview = async () => {
     if (!employeeId) {
       showSnackbar("Please select an employee first", "warning");
@@ -305,12 +386,11 @@ export default function HrPayrollInputsPage() {
       showSnackbar("Please fill all required fields", "warning");
       return;
     }
-
     setProcessing(true);
     try {
       const response: any = await leaveService.previewLeaveEncashment({
         ...encashmentFormData,
-        employeeId: employeeId,
+        employeeId,
       });
       if (response.success) {
         setEncashmentPreviewData(response.data);
@@ -333,19 +413,17 @@ export default function HrPayrollInputsPage() {
       showSnackbar("Please select an employee first", "warning");
       return;
     }
-
     setProcessing(true);
     try {
       const response: any = await leaveService.createLeaveEncashment({
         ...encashmentFormData,
-        employeeId: employeeId,
+        employeeId,
       });
       if (response.success) {
-        setSuccessMessage("Leave encashment created successfully");
+        showSnackbar("Leave encashment created successfully",'success');
         setEncashmentDialogOpen(false);
         setPreviewDialogOpen(false);
         await loadEncashments();
-        // Reset form
         setEncashmentFormData({
           employeeId: "",
           leaveTypeId: "",
@@ -357,22 +435,20 @@ export default function HrPayrollInputsPage() {
         });
         setEncashmentPreviewData(null);
       } else {
-        setErrorMessage(response.message || "Failed to create encashment");
+        showSnackbar(response.message || "Failed to create encashment",'error');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to create encashment");
+      showSnackbar(err?.message || "Failed to create encashment",'error');
     } finally {
       setProcessing(false);
     }
   };
 
-  // Settlement functions
   const handleSettlementPreview = async () => {
     if (!employeeId) {
       showSnackbar("Please select an employee first", "warning");
       return;
     }
-
     setProcessing(true);
     try {
       const response: any = await leaveService.previewFinalSettlement(
@@ -397,7 +473,6 @@ export default function HrPayrollInputsPage() {
 
   const handleProcessSettlement = async () => {
     if (!employeeId) return;
-
     setProcessing(true);
     try {
       const response: any = await leaveService.processFinalSettlement(
@@ -405,15 +480,15 @@ export default function HrPayrollInputsPage() {
         settlementFormData,
       );
       if (response.success) {
-        setSuccessMessage("Final settlement processed successfully");
+        showSnackbar("Final settlement processed successfully",'success');
         setSettlementDialogOpen(false);
         setConfirmDialogOpen(false);
         setSettlementData(response.data);
       } else {
-        setErrorMessage(response.message || "Failed to process settlement");
+        showSnackbar(response.message || "Failed to process settlement",'error');
       }
     } catch (err: any) {
-      setErrorMessage(err?.message || "Failed to process settlement");
+      showSnackbar(err?.message || "Failed to process settlement",'error');
     } finally {
       setProcessing(false);
     }
@@ -423,6 +498,8 @@ export default function HrPayrollInputsPage() {
     setSelectedType(type);
     setDetailsDialogOpen(true);
   };
+
+  /* ------------------------ Render: Settlement summary ------------------- */
 
   const renderSettlementSummary = (data: FinalSettlementProcess) => (
     <Box className="mt-4">
@@ -492,13 +569,9 @@ export default function HrPayrollInputsPage() {
               <TableCell className="!font-semibold text-center">
                 Closing Balance
               </TableCell>
-              <TableCell className="!font-semibold text-center">
-                Action
-              </TableCell>
+              <TableCell className="!font-semibold text-center">Action</TableCell>
               <TableCell className="!font-semibold text-center">Days</TableCell>
-              <TableCell className="!font-semibold text-center">
-                Amount
-              </TableCell>
+              <TableCell className="!font-semibold text-center">Amount</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -547,135 +620,136 @@ export default function HrPayrollInputsPage() {
     </Box>
   );
 
-  // const totalLeaveDays = summary?.totalLeaveDays || 0;
-  // const paidLeaveDays = summary?.paidLeaveDays || 0;
-  // const lopDays = summary?.lopDays || 0;
+  /* --------------------------------- Render ------------------------------ */
 
   return (
-    <LeavePageShell
-      group="hr"
-      title="Payroll Inputs"
-      subtitle="Leave-related payroll inputs and monthly rollups"
-    >
-      {/* Snackbar for messages */}
-      <Snackbar
-        open={!!successMessage}
-        autoHideDuration={6000}
-        onClose={() => setSuccessMessage(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setSuccessMessage(null)}
-          severity="success"
-          sx={{ width: "100%" }}
-        >
-          {successMessage}
-        </Alert>
-      </Snackbar>
-      <Snackbar
-        open={!!errorMessage}
-        autoHideDuration={6000}
-        onClose={() => setErrorMessage(null)}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert
-          onClose={() => setErrorMessage(null)}
-          severity="error"
-          sx={{ width: "100%" }}
-        >
-          {errorMessage}
-        </Alert>
-      </Snackbar>
+    <div>
+      <PageHeader
+        title="Payroll Inputs"
+        subtitle="Leave-related payroll inputs, encashments & final settlements"
+        actions={
+          <>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Refresh className="!w-4" />}
+              onClick={handleSearch}
+              className="!text-gray-700 !border-gray-300"
+            >
+              Refresh
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<Add className="!w-4" />}
+              onClick={() => setGenerateDialogOpen(true)}
+              disabled={processing}
+              className="!bg-primary"
+            >
+              Generate
+            </Button>
+          </>
+        }
+      />
 
-      {/* Filter Section */}
-      <div className="p-4 pt-6 my-4 border border-gray-200 rounded-xl bg-white-50">
+      {/* Filters */}
+      <Paper
+        elevation={0}
+        className="!border !border-gray-200 !rounded-sm !p-4 !mb-4 !bg-white"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 bg-primary rounded-full" />
+            <span className="text-[13px] font-semibold text-gray-900">
+              Filters
+            </span>
+          </div>
+          <Chip
+            label={`Month: ${dayjs(payrollMonth).format("MMM YYYY")}`}
+            size="small"
+            className="!bg-blue-50 !text-blue-700 !border-blue-200 !font-semibold"
+          />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           <div className="md:col-span-3">
-            {/* <EmployeeAsyncCombobox
-              value={employeeId}
-              selectedEmployee={employeeName}
-              onChange={(id) => handleEmployeeChange(id)}
-              placeholder="Search Employee (for summary)"
-            /> */}
             <EmployeeAsyncCombobox
               value={employeeId}
-              onChange={(employeeId, employee) =>
-                handleEmployeeChange(employeeId, employee)
-              }
-              filters={{ assignedHrId: isHR ? session?.user.employeeId : '' }}
+              onChange={(id, emp) => handleEmployeeChange(id, emp)}
+              filters={{
+                assignedHrId: isHR ? session?.user.employeeId : "",
+              }}
             />
           </div>
-          <div className="md:col-span-2">
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+
+           <div className="md:col-span-2">
+            <label className="block text-[11px] font-medium text-gray-600 mb-1">
+              Payroll Month
+            </label>
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
-                label="From Date"
-                format="DD/MM/YYYY"
-                value={fromDate}
-                onChange={(newValue) =>
-                  newValue && setFromDate(dayjs(newValue))
+                format="MM/YYYY"
+                views={["month", "year"]}
+                value={dayjs(payrollMonth)}
+                onChange={(v) =>
+                  v && setPayrollMonth(dayjs(v).format("YYYY-MM"))
                 }
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />
             </LocalizationProvider>
           </div>
+
           <div className="md:col-span-2">
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <label className="block text-[11px] font-medium text-gray-600 mb-1">
+              From Date{" "}
+              <span className="text-gray-400 font-normal">(auto)</span>
+            </label>
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
-                label="To Date"
                 format="DD/MM/YYYY"
-                value={toDate}
-                minDate={fromDate ?? undefined}
-                onChange={(newValue) => newValue && setToDate(dayjs(newValue))}
+                value={fromDate}
+                disabled
                 slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />
             </LocalizationProvider>
           </div>
-          {/* <div className="md:col-span-2">
-            <TextField
-              fullWidth
-              label="Payroll Month"
-              type="month"
-              size="small"
-              value={payrollMonth}
-              onChange={(e) => setPayrollMonth(e.target.value)}
-            />
-          </div> */}
+
           <div className="md:col-span-2">
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+            <label className="block text-[11px] font-medium text-gray-600 mb-1">
+              To Date <span className="text-gray-400 font-normal">(auto)</span>
+            </label>
+            <LocalizationProvider
+              dateAdapter={AdapterDayjs}
+              adapterLocale="en-gb"
+            >
               <DatePicker
-                label="Payroll Month"
                 format="DD/MM/YYYY"
-                views={["month", "year"]}
-                value={dayjs(payrollMonth)}
-                className="!text-[12px]"
-                onChange={(newValue) => {
-                  if (newValue) {
-                    setPayrollMonth(dayjs(newValue).format("YYYY-MM"));
-                  }
-                }}
+                value={toDate}
+                disabled
+                slotProps={{ textField: { fullWidth: true, size: "small" } }}
               />
             </LocalizationProvider>
           </div>
-          <div className="md:col-span-2 flex gap-2">
+
+          <div className="md:col-span-3 flex gap-2">
             <Button
+              fullWidth
               variant="contained"
               onClick={handleSearch}
-              disabled={loading}
-              className="!bg-primary  !px-4"
-              startIcon={
-                loading ? (
-                  <CircularProgress size={16} color="inherit" />
-                ) : (
-                  <Search />
-                )
-              }
+              className="!bg-primary !h-10"
             >
-              {loading ? "Loading..." : "Search"}
+              Search
             </Button>
-            <Tooltip title="Refresh">
+            <Tooltip title="Reset filters">
               <IconButton
-                onClick={handleSearch}
-                className="!border !border-gray-300 !rounded-lg"
+                onClick={handleResetFilters}
+                className="!border !border-gray-300 !rounded-lg !h-10 !w-10"
               >
                 <Refresh fontSize="small" className="text-gray-500" />
               </IconButton>
@@ -683,25 +757,20 @@ export default function HrPayrollInputsPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2">
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<Add className="!w-4" />}
-            onClick={() => setGenerateDialogOpen(true)}
-            disabled={processing}
-          >
-            Generate
-          </Button>
+        {/* Quick actions */}
+        <div className="mt-3 pt-3 border-t border-gray-200 flex flex-wrap gap-2 items-center">
+          <span className="text-[11px] font-medium text-gray-500 mr-1">
+            Quick Actions:
+          </span>
           <Button
             size="small"
             variant="outlined"
             startIcon={<LockOutlined className="!w-4" />}
             onClick={() => setLockDialogOpen(true)}
             disabled={processing}
+            className="!text-gray-700 !border-gray-300"
           >
-            Lock
+            Lock / Unlock
           </Button>
           <Button
             size="small"
@@ -709,144 +778,275 @@ export default function HrPayrollInputsPage() {
             startIcon={<AttachMoneyOutlined className="!w-4" />}
             onClick={() => {
               if (!employeeId) {
-                showSnackbar("Please select an employee first", "warning");
+                showSnackbar("Select an employee first", "warning");
                 return;
               }
               setEncashmentDialogOpen(true);
             }}
             disabled={!employeeId}
+            className="!text-gray-700 !border-gray-300"
           >
             Encashment
           </Button>
           <Button
             size="small"
-            variant="contained"
-            color="primary"
+            variant="outlined"
+            color="warning"
             startIcon={<CheckCircle className="!w-4" />}
             onClick={() => {
               if (!employeeId) {
-                showSnackbar("Please select an employee first", "warning");
+                showSnackbar("Select an employee first", "warning");
                 return;
               }
               setSettlementDialogOpen(true);
             }}
             disabled={!employeeId}
-            className=""
           >
             Final Settlement
           </Button>
+
+          {employeeName && (
+            <Chip
+              icon={<Person className="!w-4" />}
+              label={employeeName}
+              size="small"
+              className="!bg-blue-50 !text-blue-700 !border-blue-200 !ml-auto"
+              onDelete={() => handleEmployeeChange(null)}
+            />
+          )}
         </div>
+      </Paper>
 
-        {/* {employeeName && (
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <div className="flex items-center gap-2">
-              <Person className="text-blue-500" fontSize="small" />
-              <span className="text-[12px] text-gray-600">
-                Showing summary for: <strong className="text-gray-800">{employeeName}</strong>
-              </span>
-              <span className="text-[12px]] text-gray-500 ml-1">
-                {fromDate.format('DD MMM YYYY')} - {toDate.format('DD MMM YYYY')}
-              </span>
-            </div>
-          </div>
-        )} */}
-      </div>
-
-      {/* Summary Cards - Only show when employee is selected */}
-      {/* {employeeId && summary && !loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[12px] text-gray-500">Total Leave Days</div>
-                <div className="text-2xl font-bold text-gray-900 mt-1">{totalLeaveDays}</div>
-              </div>
-              <div className="p-2.5 bg-blue-50 rounded-full">
-                <CalendarToday className="text-blue-500" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[12px] text-gray-500">Paid Leave Days</div>
-                <div className="text-2xl font-bold text-green-600 mt-1">{paidLeaveDays}</div>
-              </div>
-              <div className="p-2.5 bg-green-50 rounded-full">
-                <TrendingUp className="text-green-500" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[12px] text-gray-500">LOP Days</div>
-                <div className="text-2xl font-bold text-red-600 mt-1">{lopDays}</div>
-              </div>
-              <div className="p-2.5 bg-red-50 rounded-full">
-                <TrendingDown className="text-red-500" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[12px] text-gray-500">Total Leave Types</div>
-                <div className="text-2xl font-bold text-gray-900 mt-1">{summary.byLeaveType.length ?? 0}</div>
-              </div>
-              <div className="p-2.5 bg-purple-50 rounded-full">
-                <Info className="text-purple-500" />
-              </div>
-            </div>
-          </div>
+      {/* KPI cards */}
+      {employeeId && summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <StatCard
+            label="Total Leave Days"
+            value={summary.totalLeaveDays ?? 0}
+            icon={<CalendarToday className="!text-blue-500" />}
+            tone="blue"
+          />
+          <StatCard
+            label="Paid Leave Days"
+            value={summary.paidLeaveDays ?? 0}
+            icon={<TrendingUp className="!text-green-500" />}
+            tone="green"
+          />
+          <StatCard
+            label="LOP Days"
+            value={summary.lopDays ?? 0}
+            icon={<TrendingDown className="!text-red-500" />}
+            tone="red"
+          />
+          <StatCard
+            label="Leave Types"
+            value={summary.byLeaveType?.length ?? 0}
+            icon={<Info className="!text-purple-500" />}
+            tone="purple"
+          />
         </div>
-      )} */}
+      )}
 
-      {/* Leave Type Breakdown */}
-      {employeeId &&
-        summary &&
-        summary.byLeaveType &&
-        summary.byLeaveType.length > 0 &&
-        !loading && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-6 bg-primary rounded-full"></div>
-                <div className="text-[12px] font-bold text-gray-900">
-                  Leave Type Breakdown
-                </div>
-              </div>
-              <span className="text-[12px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-200">
-                {summary.byLeaveType.length} types
-              </span>
-            </div>
-            <TableContainer className="overflow-auto border border-gray-200 rounded-sm">
-              <Table size="small">
-                <TableHead>
-                  <TableRow className="bg-gray-50">
-                    <TableCell className="!font-semibold">Leave Type</TableCell>
-                    <TableCell className="!font-semibold">Code</TableCell>
-                    <TableCell className="!font-semibold text-center">
-                      Days
-                    </TableCell>
-                    <TableCell className="!font-semibold text-center">
-                      Status
-                    </TableCell>
-                    <TableCell className="!font-semibold text-center">
-                      Action
+      {/* Tabbed tables */}
+      <Paper
+        elevation={0}
+        className="!border !border-gray-200 !rounded-md overflow-hidden"
+      >
+        <Tabs
+          value={activeTab}
+          onChange={(_, v) => setActiveTab(v)}
+          className="!border-b !border-gray-200 !bg-gray-50 !min-h-[44px]"
+          sx={{
+            "& .MuiTabs-indicator": {
+              backgroundColor: "var(--color-primary)",
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+            },
+          }}
+        >
+          <Tab
+            label={`Payroll Inputs (${inputs.length})`}
+            className="!text-gray-800"
+          />
+          <Tab
+            label={`Leave Breakdown (${summary?.byLeaveType?.length ?? 0})`}
+            className="!text-gray-800"
+          />
+          <Tab
+            label={`Encashments (${encashments.length})`}
+            className="!text-gray-800"
+          />
+        </Tabs>
+
+        {/* TAB 0 — Payroll inputs */}
+        {activeTab === 0 && (
+          <TableContainer className="overflow-auto">
+            <Table size="small">
+              <TableHead>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Employee
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Code
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Month
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    LOP
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Paid
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Total
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Status
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Lock
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {inputs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <EmptyCell message="No payroll leave inputs found." />
                     </TableCell>
                   </TableRow>
-                </TableHead>
-                <TableBody>
-                  {summary.byLeaveType.map((type: any, i: number) => (
-                    <TableRow key={type.leaveTypeId || i} sx={getRowColor(i)}>
+                ) : (
+                  inputs.map((input, i) => (
+                    <TableRow key={input.id} sx={getRowColor(i)}>
                       <TableCell>
-                        <div className="text-gray-900 font-medium">
-                          {type.name}
-                        </div>
+                        <span className="font-medium text-gray-900 text-[12px]">
+                          {input.employeeName}
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-[12px] bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
+                        <span className="text-[11px] text-gray-500">
+                          {input.employeeCode}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[11px] text-gray-700">
+                          {input.payrollMonth}
+                        </span>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={input.lopDays || 0}
+                          size="small"
+                          className={
+                            input.lopDays > 0
+                              ? "!bg-red-50 !text-red-700 !border-red-200 !font-semibold"
+                              : "!bg-gray-50 !text-gray-500 !border-gray-200"
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={input.paidLeaveDays || 0}
+                          size="small"
+                          className={
+                            input.paidLeaveDays > 0
+                              ? "!bg-green-50 !text-green-700 !border-green-200 !font-semibold"
+                              : "!bg-gray-50 !text-gray-500 !border-gray-200"
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={input.totalLeaveDays || 0}
+                          size="small"
+                          className="!bg-blue-50 !text-blue-700 !border-blue-200 !font-semibold"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={input.status || "Active"}
+                          size="small"
+                          className={
+                            input.status === "ACTIVE"
+                              ? "!bg-green-50 !text-green-700 !border-green-200"
+                              : "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
+                          }
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          icon={
+                            input.locked ? (
+                              <Lock className="!text-red-500 !w-3 !h-3" />
+                            ) : (
+                              <LockOpen className="!text-green-500 !w-3 !h-3" />
+                            )
+                          }
+                          label={input.locked ? "Locked" : "Unlocked"}
+                          size="small"
+                          className={
+                            input.locked
+                              ? "!bg-red-50 !text-red-700 !border-red-200"
+                              : "!bg-green-50 !text-green-700 !border-green-200"
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {/* TAB 1 — Leave breakdown */}
+        {activeTab === 1 && (
+          <TableContainer className="overflow-auto">
+            <Table size="small">
+              <TableHead>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Leave Type
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Code
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Days
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Status
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-center">
+                    Action
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {!employeeId ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <EmptyCell message="Select an employee to see leave breakdown." />
+                    </TableCell>
+                  </TableRow>
+                ) : !summary || !summary.byLeaveType?.length ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <EmptyCell message="No leave breakdown available." />
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  summary.byLeaveType.map((type: any, i: number) => (
+                    <TableRow key={type.leaveTypeId || i} sx={getRowColor(i)}>
+                      <TableCell>
+                        <span className="text-[12px] font-medium text-gray-900">
+                          {type.name}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[11px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200">
                           {type.code}
                         </span>
                       </TableCell>
@@ -869,294 +1069,137 @@ export default function HrPayrollInputsPage() {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        <Tooltip title="View Details">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => handleTypeClick(type)}
-                            className="!text-[12px]  !px-2 !py-0.5 !border-blue-400 !text-blue-700 hover:!bg-blue-50"
-                          >
-                            Details
-                          </Button>
-                        </Tooltip>
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => handleTypeClick(type)}
+                          className="!text-[11px] !text-blue-700 !px-2 !py-0"
+                        >
+                          Details
+                        </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </div>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
 
-      {/* Encashment - By employees */}
-      <div className="!mt-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
-            <div className="text-[12px] font-bold text-gray-900">
-              Encashment Details
-            </div>
-          </div>
-          {!loading && encashments.length > 0 && (
-            <span className="text-[12px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-200">
-              {encashments.length} entries
-            </span>
-          )}
-        </div>
-        <TableContainer className="overflow-auto border border-gray-200 rounded-sm">
-          <Table>
-            <TableHead>
-              <TableRow className="bg-gray-50">
-                <TableCell className="!font-semibold">Employee</TableCell>
-                <TableCell className="!font-semibold">
-                  Leave Type Name
-                </TableCell>
-                <TableCell className="!font-semibold">Leave Year</TableCell>
-                <TableCell className="!font-semibold">Payroll Month</TableCell>
-                <TableCell className="!font-semibold">Amount</TableCell>
-                <TableCell className="!font-semibold">Per Day Rate</TableCell>
-                <TableCell className="!font-semibold">Notes</TableCell>
-                <TableCell className="!font-semibold">Status</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!loading &&
-                encashments.map((input, i) => (
-                  <TableRow key={input.id} sx={getRowColor(i)}>
-                    <TableCell>
-                      <div className="font-medium text-gray-900">
-                        {input.employeeName}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-500">
-                        {input.leaveTypeName}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-700">
-                        {input.leaveYear}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={input.payrollMonth}
-                        size="small"
-                        className="!bg-blue-50 !text-blue-700 !border-blue-200 !font-semibold"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-700">
-                        {input.amount}
-                      </span>
-                    </TableCell>
-
-                    <TableCell>
-                      <Chip
-                        label={input.perDayRate}
-                        size="small"
-                        className="!bg-blue-50 !text-blue-700 !border-blue-200 !font-semibold"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-700">
-                        {input.notes}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-700">
-                        {input.status}
-                      </span>
+        {/* TAB 2 — Encashments */}
+        {activeTab === 2 && (
+          <TableContainer className="overflow-auto">
+            <Table size="small">
+              <TableHead>
+                <TableRow className="bg-gray-50">
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Employee
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Leave Type
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Year
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Payroll Month
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-right">
+                    Amount
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px] text-right">
+                    Rate
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Notes
+                  </TableCell>
+                  <TableCell className="!font-semibold !text-[11px]">
+                    Status
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {!employeeName ? (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <EmptyCell message="Select an employee to see encashments." />
                     </TableCell>
                   </TableRow>
-                ))}
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={8} className="p-8">
-                    <DataState
-                      compact
-                      type="loading"
-                      title="Loading payroll inputs..."
-                    />
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loading && employeeName && encashments.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="p-8">
-                    <DataState
-                      compact
-                      type="empty"
-                      title="No encashment details found."
-                    />
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        {
-          !employeeName &&
-          <div className="text-[12px] text-gray-400 text-center p-6 border bg-white-50 border-gray-200">Select Employee to Get Encashment Details</div>
-        }
-      </div>
-
-      {/* Payroll Input Details Table - Shows all employees */}
-      <div className="!mt-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
-            <div className="text-[12px] font-bold text-gray-900">
-              Payroll Input Details
-            </div>
-          </div>
-          {!loading && inputs.length > 0 && (
-            <span className="text-[12px] bg-blue-50 text-blue-700 px-2 py-1 rounded-full border border-blue-200">
-              {inputs.length} entries
-            </span>
-          )}
-        </div>
-        <TableContainer className="overflow-auto border border-gray-200 rounded-sm">
-          <Table>
-            <TableHead>
-              <TableRow className="bg-gray-50">
-                <TableCell className="!font-semibold">Employee</TableCell>
-                <TableCell className="!font-semibold">Code</TableCell>
-                <TableCell className="!font-semibold">Month</TableCell>
-                <TableCell className="!font-semibold text-center">
-                  LOP Days
-                </TableCell>
-                <TableCell className="!font-semibold text-center">
-                  Paid Leave Days
-                </TableCell>
-                <TableCell className="!font-semibold text-center">
-                  Total Leave Days
-                </TableCell>
-                <TableCell className="!font-semibold text-center">
-                  Status
-                </TableCell>
-                <TableCell className="!font-semibold text-center">
-                  Locked
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!loading &&
-                inputs.map((input, i) => (
-                  <TableRow key={input.id} sx={getRowColor(i)}>
-                    <TableCell>
-                      <div className="font-medium text-gray-900">
-                        {input.employeeName}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-500">
-                        {input.employeeCode}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[12px] text-gray-700">
-                        {input.payrollMonth}
-                      </span>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={input.lopDays || 0}
-                        size="small"
-                        className={
-                          input.lopDays > 0
-                            ? "!bg-red-50 !text-red-700 !border-red-200 !font-semibold"
-                            : "!bg-gray-50 !text-gray-500 !border-gray-200"
-                        }
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={input.paidLeaveDays || 0}
-                        size="small"
-                        className={
-                          input.paidLeaveDays > 0
-                            ? "!bg-green-50 !text-green-700 !border-green-200 !font-semibold"
-                            : "!bg-gray-50 !text-gray-500 !border-gray-200"
-                        }
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={input.totalLeaveDays || 0}
-                        size="small"
-                        className="!bg-blue-50 !text-blue-700 !border-blue-200 !font-semibold"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={input.status || "Active"}
-                        size="small"
-                        className={
-                          input.status === "ACTIVE"
-                            ? "!bg-green-50 !text-green-700 !border-green-200"
-                            : "!bg-yellow-50 !text-yellow-700 !border-yellow-200"
-                        }
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        icon={
-                          input.locked ? (
-                            <Lock className="!text-red-500 !w-3 !h-3" />
-                          ) : (
-                            <LockOpen className="!text-green-500 !w-3 !h-3" />
-                          )
-                        }
-                        label={input.locked ? "Locked" : "Unlocked"}
-                        size="small"
-                        className={
-                          input.locked
-                            ? "!bg-red-50 !text-red-700 !border-red-200"
-                            : "!bg-green-50 !text-green-700 !border-green-200"
-                        }
-                      />
+                ) : encashments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <EmptyCell message="No encashment details found." />
                     </TableCell>
                   </TableRow>
-                ))}
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={8}>
-                    <DataState
-                      compact
-                      type="loading"
-                      title="Loading payroll inputs..."
-                    />
-                  </TableCell>
-                </TableRow>
-              )}
-              {!loading && inputs.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8}>
-                    <DataState
-                      compact
-                      type="empty"
-                      title="No payroll leave inputs found."
-                    />
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </div>
+                ) : (
+                  encashments.map((e, i) => (
+                    <TableRow key={e.id} sx={getRowColor(i)}>
+                      <TableCell>
+                        <span className="font-medium text-[12px] text-gray-900">
+                          {e.employeeName}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[11px] text-gray-600">
+                          {e.leaveTypeName}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[11px] text-gray-700">
+                          {e.leaveYear}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={e.payrollMonth}
+                          size="small"
+                          className="!bg-blue-50 !text-blue-700 !border-blue-200 !font-semibold"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <span className="text-[12px] font-semibold text-gray-900">
+                          {formatCurrency(e.amount)}
+                        </span>
+                      </TableCell>
+                      <TableCell align="right">
+                        <span className="text-[11px] text-gray-600">
+                          {formatCurrency(e.perDayRate)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[11px] text-gray-600">
+                          {e.notes || "-"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={e.status}
+                          size="small"
+                          className="!bg-gray-50 !text-gray-700 !border-gray-200"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
 
+      {/* =========================== DIALOGS =========================== */}
 
-      {/* Leave Type Breakdown Dialog */}
+      {/* Leave Type Details */}
       <Dialog
         open={detailsDialogOpen}
         onClose={() => setDetailsDialogOpen(false)}
         maxWidth="sm"
+        fullWidth
         sx={dialogsx}
       >
         <DialogTitle className="!pb-2">
           <div className="flex items-center gap-2">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
+            <div className="w-1 h-6 bg-primary rounded-full" />
             <span className="text-[12px] font-semibold text-gray-900">
               Leave Type Details
             </span>
@@ -1212,14 +1255,14 @@ export default function HrPayrollInputsPage() {
         <DialogActions className="!p-3 !border-t !border-gray-200">
           <Button
             onClick={() => setDetailsDialogOpen(false)}
-            className="!text-gray-600 "
+            className="!text-gray-600"
           >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Generate Dialog */}
+      {/* Generate */}
       <Dialog
         open={generateDialogOpen}
         onClose={() => setGenerateDialogOpen(false)}
@@ -1257,10 +1300,10 @@ export default function HrPayrollInputsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Lock/Unlock Dialog */}
+      {/* Lock / Unlock */}
       <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)}>
         <DialogTitle className="border-b border-gray-200">
-          Lock/Unlock Payroll Inputs
+          Lock / Unlock Payroll Inputs
         </DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mt: 2 }}>
@@ -1300,7 +1343,7 @@ export default function HrPayrollInputsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Encashment Dialog */}
+      {/* Encashment form */}
       <Dialog
         open={encashmentDialogOpen}
         onClose={() => {
@@ -1308,11 +1351,12 @@ export default function HrPayrollInputsPage() {
           setEncashmentPreviewData(null);
         }}
         maxWidth="md"
+        fullWidth
         sx={dialogsx}
       >
         <DialogTitle className="border-b !p-2 border-gray-200">
           <div className="flex items-center gap-2 ml-4">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
+            <div className="w-1 h-6 bg-primary rounded-full" />
             <span className="text-[12px] text-gray-900">Leave Encashment</span>
           </div>
         </DialogTitle>
@@ -1328,20 +1372,15 @@ export default function HrPayrollInputsPage() {
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                {/* <TextField
-                  fullWidth
-                  label="Payroll Month"
-                  type="month"
-                  value={encashmentFormData.payrollMonth}
-                  onChange={(e) => setEncashmentFormData({ ...encashmentFormData, payrollMonth: e.target.value })}
-                /> */}
-                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                <LocalizationProvider
+                  dateAdapter={AdapterDayjs}
+                  adapterLocale="en-gb"
+                >
                   <DatePicker
                     label="Payroll Month"
-                    format="DD/MM/YYYY"
+                    format="MM/YYYY"
                     views={["month", "year"]}
                     value={dayjs(encashmentFormData.payrollMonth)}
-                    className="!text-[12px]"
                     onChange={(newValue) => {
                       if (newValue) {
                         setEncashmentFormData({
@@ -1350,20 +1389,14 @@ export default function HrPayrollInputsPage() {
                         });
                       }
                     }}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
                 </LocalizationProvider>
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                {/* <TextField
-                  fullWidth
-                  label="Leave Type ID"
-                  value={encashmentFormData.leaveTypeId}
-                  onChange={(e) => setEncashmentFormData({ ...encashmentFormData, leaveTypeId: e.target.value })}
-                  required
-                  placeholder="Enter leave type ID"
-                /> */}
                 <TextField
                   select
+                  fullWidth
                   label="Leave Type"
                   value={encashmentFormData.leaveTypeId}
                   onChange={(e) =>
@@ -1425,7 +1458,6 @@ export default function HrPayrollInputsPage() {
                   required
                 />
               </Grid>
-
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
@@ -1449,7 +1481,7 @@ export default function HrPayrollInputsPage() {
                       <strong>
                         {formatCurrency(
                           encashmentFormData.days *
-                          encashmentFormData.perDayRate,
+                            encashmentFormData.perDayRate,
                         )}
                       </strong>
                     </Alert>
@@ -1489,7 +1521,7 @@ export default function HrPayrollInputsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Encashment Preview Dialog */}
+      {/* Encashment preview */}
       <Dialog
         open={previewDialogOpen}
         onClose={() => {
@@ -1497,11 +1529,12 @@ export default function HrPayrollInputsPage() {
           setEncashmentPreviewData(null);
         }}
         maxWidth="md"
+        fullWidth
         sx={dialogsx}
       >
         <DialogTitle className="border-b border-gray-200 !p-2">
           <div className="flex items-center gap-2 ml-4">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
+            <div className="w-1 h-6 bg-primary rounded-full" />
             <span className="text-[12px] text-gray-800">
               Encashment Preview
             </span>
@@ -1597,7 +1630,7 @@ export default function HrPayrollInputsPage() {
               setPreviewDialogOpen(false);
               setEncashmentPreviewData(null);
             }}
-            className="!text-gray-800 !border-gray-200 "
+            className="!text-gray-800 !border-gray-200"
           >
             Close
           </Button>
@@ -1605,23 +1638,24 @@ export default function HrPayrollInputsPage() {
             variant="contained"
             onClick={handleCreateEncashment}
             disabled={processing}
-            className="!bg-primary "
+            className="!bg-primary"
           >
             {processing ? <CircularProgress size={24} /> : "Confirm & Create"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Final Settlement Dialog */}
+      {/* Final settlement form */}
       <Dialog
         open={settlementDialogOpen}
         onClose={() => setSettlementDialogOpen(false)}
         maxWidth="lg"
+        fullWidth
         sx={dialogsx}
       >
         <DialogTitle className="border-b !p-2 border-gray-200">
           <div className="flex items-center gap-2 ml-4">
-            <div className="w-1 h-6 bg-primary rounded-full"></div>
+            <div className="w-1 h-6 bg-primary rounded-full" />
             <span className="text-[12px] text-gray-800">Final Settlement</span>
           </div>
         </DialogTitle>
@@ -1646,32 +1680,28 @@ export default function HrPayrollInputsPage() {
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                {/* <TextField
-                  fullWidth
-                  label="Payroll Month"
-                  type="month"
-                  value={settlementFormData.payrollMonth}
-                  onChange={(e) => setSettlementFormData({ ... , payrollMonth: e.target.value })}
-                /> */}
-                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+                <LocalizationProvider
+                  dateAdapter={AdapterDayjs}
+                  adapterLocale="en-gb"
+                >
                   <DatePicker
                     label="Payroll Month"
+                    format="MM/YYYY"
                     views={["month", "year"]}
-                    // format="DD/MM/YYYY"
-                    value={dayjs(encashmentFormData.payrollMonth)}
-                    className="!text-[12px]"
+                    value={dayjs(settlementFormData.payrollMonth)}
                     onChange={(newValue) => {
                       if (newValue) {
-                        setEncashmentFormData({
-                          ...encashmentFormData,
+                        setSettlementFormData({
+                          ...settlementFormData,
                           payrollMonth: dayjs(newValue).format("YYYY-MM"),
                         });
                       }
                     }}
+                    slotProps={{ textField: { fullWidth: true } }}
                   />
                 </LocalizationProvider>
               </Grid>
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -1729,14 +1759,14 @@ export default function HrPayrollInputsPage() {
             variant="contained"
             onClick={handleProcessSettlement}
             disabled={processing}
-            className="!bg-primary "
+            className="!bg-primary"
           >
             {processing ? <CircularProgress size={24} /> : "Process Settlement"}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Confirm Settlement Dialog */}
+      {/* Confirm settlement */}
       <Dialog
         open={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
@@ -1788,12 +1818,11 @@ export default function HrPayrollInputsPage() {
             color="error"
             onClick={handleProcessSettlement}
             disabled={processing}
-            className=""
           >
             {processing ? <CircularProgress size={24} /> : "Confirm & Process"}
           </Button>
         </DialogActions>
       </Dialog>
-    </LeavePageShell>
+    </div>
   );
 }

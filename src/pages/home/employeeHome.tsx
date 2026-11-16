@@ -894,16 +894,16 @@ export default function EmployeeHome() {
             <CircularProgress size={18} /> Loading your requests...
           </div>
         ) : requests.length ? (
-          <div className="divide-y divide-gray-100">
+          <div className="">
             {requests.slice(0, 4).map((request) => {
               const status = request.currentStatus || request.status;
               return (
                 <div
                   key={request.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-4 first:pt-0 last:pb-0"
+                  className="flex flex-wrap items-center justify-between gap-3 py-4 border-b border-gray-200 last:border-0 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <div className="font-medium text-gray-900">
+                    <div className="text-[12px] text-gray-900">
                       {request.leaveTypeName || "Leave request"}
                     </div>
                     <div className="mt-1 text-[12px] text-gray-500">
@@ -920,6 +920,7 @@ export default function EmployeeHome() {
                     label={String(status || "Unknown").replaceAll("_", " ")}
                     color={getRequestStatusColor(status)}
                     variant="outlined"
+                    className="text-gray-800"
                   />
                 </div>
               );

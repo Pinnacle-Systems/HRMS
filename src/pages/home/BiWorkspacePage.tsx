@@ -88,6 +88,8 @@ import { DashboardBuilderFull } from "./dashboardBuiler";
 import type { QueryJson, QuerySet } from "./const";
 import { apiService } from "../../services";
 import { useNavigate, useParams } from "react-router-dom";
+// ✅ FIXED: Missing import for the Power BI canvas tab
+import PowerBIStyleWorkspace from "./powerBI";
 
 // ============ Utility Functions ============
 
@@ -165,7 +167,6 @@ export default function BiWorkspacePage() {
   const [schemaDialogOpen, setSchemaDialogOpen] = useState(false);
 
   // Dashboard Builder / Query Set Administration
-  // const [builderPages, setBuilderPages] = useState<DashboardBuilderPage[]>([]);
   const [presetId, setPresetId] = useState("");
   const [querySets, setQuerySets] = useState<QuerySet[]>([]);
   const [querySetFormOpen, setQuerySetFormOpen] = useState(false);
@@ -193,7 +194,6 @@ export default function BiWorkspacePage() {
   });
 
   // ====== Dynamic Query State ======
-  // The full query payload according to the BI API
   const [queryPayload, setQueryPayload] = useState<BIQueryRequest>({
     dimensions: [],
     metrics: [],
@@ -261,13 +261,11 @@ export default function BiWorkspacePage() {
   const [exportMenuAnchor, setExportMenuAnchor] = useState<null | HTMLElement>(null);
   const [jsonError, setJsonError] = useState(false);
 
-  // const [presetDetailOpen, setPresetDetailOpen] = useState(false);
-  // const [presetDetail, setPresetDetail] = useState<any>(null);
-
   // Tabs
   const tabs = useMemo(
     () => [
       { path: "reports", label: "Reports", icon: <Report /> },
+      { path: "canvas", label: "Canvas", icon: <Dashboard /> },
       { path: "query-engine", label: "Query Engine", icon: <QueryStats /> },
       { path: "exports", label: "Exports", icon: <Download /> },
       { path: "datasets", label: "Datasets", icon: <SchemaIcon /> },
@@ -276,6 +274,7 @@ export default function BiWorkspacePage() {
     ],
     []
   );
+
   const activeTab = Math.max(tabs.findIndex((tab) => tab.path === activeTabPath), 0);
 
   // ============ Load Data ============
@@ -300,28 +299,7 @@ export default function BiWorkspacePage() {
       }
 
       const res: any = await dashboardService.listBIQuerySets();
-      setQuerySets(res.data)
-
-
-      // const adminResults = await Promise.allSettled([
-      //   // dashboardService.listDashboardBuilderPages(),
-      // ]);      
-
-      // if (adminResults[0].status === "fulfilled") {
-      //   setBuilderPages(
-      //     Array.isArray(adminResults[0].value?.data)
-      //       ? adminResults[0].value.data
-      //       : []
-      //   );
-      // }
-
-      // if (adminResults[1].status === "fulfilled") {
-      //   setQuerySets(
-      //     Array.isArray(adminResults[1].value?.data)
-      //       ? adminResults[1].value.data
-      //       : []
-      //   );
-      // }
+      setQuerySets(res.data);
     } catch (err) {
       setError("Unable to load BI workspace data right now.");
     } finally {
@@ -335,14 +313,12 @@ export default function BiWorkspacePage() {
       const schema = response?.data;
       if (schema) {
         setDatasetSchema(schema);
-        // Initialize query payload with available dimensions/metrics
         const dims = schema.dimensions?.map((d: any) => d.id) || [];
         const metrics = schema.metrics?.map((m: any) => m.id) || [];
-        // Set default date field if any
         const dateField = schema.dateFields?.[0]?.id || "";
         setQueryPayload((prev) => ({
           ...prev,
-          dimensions: dims.slice(0, 2), // first two as default
+          dimensions: dims.slice(0, 2),
           metrics: metrics.slice(0, 2),
         }));
         setDateRange((prev) => ({
@@ -359,7 +335,6 @@ export default function BiWorkspacePage() {
     void loadWorkspace();
   }, []);
 
-  // When dataset selection changes, reload schema
   useEffect(() => {
     if (selectedDataset) {
       void loadSchemaForDataset(selectedDataset);
@@ -379,22 +354,53 @@ export default function BiWorkspacePage() {
     };
   }, []);
 
-  // ============ Reports CRUD ============
+  // ============ Query Builder Function (moved up to avoid use-before-def) ============
 
-  const handleViewReport = async (reportId: string, type: string) => {
-    showSpinner();
-    try {
-      const response: any = await dashboardService.getBIReport(reportId);
-      const data = response?.data;
-      if (data) {
-        setSelectedReport(data);
-        type == 'view' ? setReportDetailOpen(true) : handleEditReport(data)
+  const buildQueryFromState = (): BIQueryRequest => {
+    const query: BIQueryRequest = {
+      dimensions: queryPayload.dimensions || [],
+      metrics: queryPayload.metrics || [],
+      limit: queryPayload.limit || 50,
+      includeTotals: queryPayload.includeTotals !== undefined ? queryPayload.includeTotals : true,
+    };
+
+    if (dateRange.field && dateRange.from) {
+      const dateRangeObj: any = {
+        field: dateRange.field,
+        from: dateRange.from,
+        granularity: dateRange.granularity || "month",
+      };
+      if (dateRange.to) {
+        dateRangeObj.to = dateRange.to;
       }
-    } catch (err) {
-      showSnackbar("Failed to load report details", "error");
-    } finally {
-      hideSpinner();
+      query.dateRange = dateRangeObj;
     }
+
+    if (filterConditions.length > 0) {
+      query.filters = {
+        operator: "and",
+        conditions: filterConditions.map((c) => ({
+          field: c.field,
+          operator: c.operator,
+          value: c.value,
+        })),
+      };
+    }
+
+    if (topN && topN.dimension && topN.metric) {
+      query.topN = {
+        dimension: topN.dimension,
+        metric: topN.metric,
+        limit: topN.limit || 10,
+        includeOthers: topN.includeOthers !== undefined ? topN.includeOthers : true,
+      };
+    }
+
+    if (sort.length > 0) {
+      query.sort = sort;
+    }
+
+    return query;
   };
 
   const validateQuery = (query: any): { valid: boolean; message?: string } => {
@@ -404,6 +410,24 @@ export default function BiWorkspacePage() {
       return { valid: false, message: "Query must include at least one dimension or metric." };
     }
     return { valid: true };
+  };
+
+  // ============ Reports CRUD ============
+
+  const handleViewReport = async (reportId: string, type: string) => {
+    showSpinner();
+    try {
+      const response: any = await dashboardService.getBIReport(reportId);
+      const data = response?.data;
+      if (data) {
+        setSelectedReport(data);
+        type === 'view' ? setReportDetailOpen(true) : handleEditReport(data);
+      }
+    } catch (err) {
+      showSnackbar("Failed to load report details", "error");
+    } finally {
+      hideSpinner();
+    }
   };
 
   const handleCreateReport = async () => {
@@ -416,10 +440,8 @@ export default function BiWorkspacePage() {
       return;
     }
 
-    // Build final query from state
     const finalQuery = buildQueryFromState();
 
-    // Validate
     const validation = validateQuery(finalQuery);
     if (!validation.valid) {
       showSnackbar(validation.message || "Invalid query", "error");
@@ -431,7 +453,6 @@ export default function BiWorkspacePage() {
       const payload: CreateBIReportRequest = {
         ...reportForm,
         query: finalQuery,
-        // visibilityRole: ""
       };
       delete payload.query.topN;
       delete payload.query.sort;
@@ -446,7 +467,6 @@ export default function BiWorkspacePage() {
           query: { dimensions: [], metrics: [], limit: 50, includeTotals: true },
           visualization: { type: "table", config: {} },
           visibility: "PRIVATE",
-          // visibilityRole: ""
         });
         await loadWorkspace();
       }
@@ -508,14 +528,12 @@ export default function BiWorkspacePage() {
       datasetId: report.datasetId,
       query: q,
       visualization: report.visualization || { type: "table", config: {} },
-      visibility: report.visibility || "private",
+      visibility: report.visibility || "PRIVATE",
     });
-    // Synchronize visual builder state with report's query
     setQueryPayload(q);
 
-    // Reset and populate filters
     if (q.filters?.conditions) {
-      setFilterConditions(q.filters.conditions.map(c => ({
+      setFilterConditions(q.filters.conditions.map((c: any) => ({
         field: c.field,
         operator: c.operator,
         value: String(c.value),
@@ -524,7 +542,6 @@ export default function BiWorkspacePage() {
       setFilterConditions([]);
     }
 
-    // Date range
     if (q.dateRange) {
       setDateRange({
         field: q.dateRange.field || "",
@@ -536,7 +553,6 @@ export default function BiWorkspacePage() {
       setDateRange({ field: "", from: null, to: null, granularity: "month" });
     }
 
-    // Top N
     if (q.topN) {
       setTopN({
         dimension: q.topN.dimension || "",
@@ -548,22 +564,17 @@ export default function BiWorkspacePage() {
       setTopN(null);
     }
 
-    // Sort
     if (q.sort) {
       setSort(convertSortFromAPI(q.sort));
     } else {
       setSort([]);
     }
 
-    // Populate the query builder with report's query
-    // setQueryPayload(report.query);
-    // Also set filter conditions etc if needed
     setIsEditingReport(true);
     setReportFormOpen(true);
   };
 
   useEffect(() => {
-    // Reset visual builder when dataset changes
     setQueryPayload({ dimensions: [], metrics: [], limit: 50, includeTotals: true });
     setFilterConditions([]);
     setDateRange({ field: "", from: null, to: null, granularity: "month" });
@@ -591,7 +602,7 @@ export default function BiWorkspacePage() {
           hideSpinner();
         }
       }
-    })
+    });
   };
 
   const handleRunReport = async (reportId: string, overrides?: BIReportRunRequest) => {
@@ -633,8 +644,6 @@ export default function BiWorkspacePage() {
     }
   };
 
-  // ============ Report Export Polling ============
-
   const startPollingReportExport = (jobRef: string) => {
     if (reportExportPollingIntervalRef.current) {
       clearInterval(reportExportPollingIntervalRef.current);
@@ -664,60 +673,6 @@ export default function BiWorkspacePage() {
 
   // ============ Query Engine ============
 
-  // Build the full BI query from the UI state
-  const buildQueryFromState = (): BIQueryRequest => {
-    const query: BIQueryRequest = {
-      dimensions: queryPayload.dimensions || [],
-      metrics: queryPayload.metrics || [],
-      limit: queryPayload.limit || 50,
-      includeTotals: queryPayload.includeTotals !== undefined ? queryPayload.includeTotals : true,
-    };
-
-    // Date range
-    if (dateRange.field && dateRange.from) {
-      const dateRangeObj: any = {
-        field: dateRange.field,
-        from: dateRange.from,
-        granularity: dateRange.granularity || "month",
-      };
-      if (dateRange.to) {
-        dateRangeObj.to = dateRange.to;
-      }
-      query.dateRange = dateRangeObj;
-    }
-
-
-    // Filters
-    if (filterConditions.length > 0) {
-      query.filters = {
-        operator: "and",
-        conditions: filterConditions.map((c) => ({
-          field: c.field,
-          operator: c.operator,
-          value: c.value,
-        })),
-      };
-    }
-
-    // Top N
-    if (topN && topN.dimension && topN.metric) {
-      query.topN = {
-        dimension: topN.dimension,
-        metric: topN.metric,
-        limit: topN.limit || 10,
-        includeOthers: topN.includeOthers !== undefined ? topN.includeOthers : true,
-      };
-    }
-
-    // Sort
-    if (sort.length > 0) {
-      query.sort = sort;
-    }
-
-    return query;
-  };
-
-  // Update queryPayload from form changes
   const updateQueryPayload = (updates: Partial<BIQueryRequest>) => {
     setQueryPayload((prev) => ({ ...prev, ...updates }));
   };
@@ -858,11 +813,12 @@ export default function BiWorkspacePage() {
     exportPollingIntervalRef.current = interval;
   };
 
-  const handleDownloadFromUrl = async (url: string, format?: string) => {   
-    await apiService.downloadFromPath(url,`exportJob.${format}`)
+  const handleDownloadFromUrl = async (url: string, format?: string) => {
+    await apiService.downloadFromPath(url, `exportJob.${format}`);
   };
 
-  // ============ Render Query Builder ============
+  // ============ Query Set Admin ============
+
   const resetQuerySetForm = () => {
     setEditingQuerySetId(null);
     setQuerySetForm({
@@ -931,7 +887,6 @@ export default function BiWorkspacePage() {
           payload.paramBindings = querySetForm.paramBindings;
         }
       } else {
-        // For DSL, datasetId and queryJson are required
         payload.datasetId = querySetForm.datasetId;
 
         const queryJson: any = {
@@ -941,7 +896,6 @@ export default function BiWorkspacePage() {
           includeTotals: querySetForm.queryJson?.includeTotals !== undefined ? querySetForm.queryJson.includeTotals : true,
         };
 
-        // Only add optional fields if they have values
         if (querySetForm.queryJson?.sort?.length > 0) {
           queryJson.sort = querySetForm.queryJson.sort;
         }
@@ -1057,7 +1011,6 @@ export default function BiWorkspacePage() {
           payload.paramBindings = querySetForm.paramBindings;
         }
       } else {
-        // For DSL, datasetId and queryJson are required
         payload.datasetId = querySetForm.datasetId;
 
         const queryJson: any = {
@@ -1067,7 +1020,6 @@ export default function BiWorkspacePage() {
           includeTotals: querySetForm.queryJson?.includeTotals !== undefined ? querySetForm.queryJson.includeTotals : true,
         };
 
-        // Only add optional fields if they have values
         if (querySetForm.queryJson?.sort?.length > 0) {
           queryJson.sort = querySetForm.queryJson.sort;
         }
@@ -1104,7 +1056,6 @@ export default function BiWorkspacePage() {
       hideSpinner();
     }
   };
-
 
   const handleDeleteQuerySet = async (querySetId: string) => {
     showConfirmDialog({
@@ -1151,10 +1102,8 @@ export default function BiWorkspacePage() {
       const preset = response?.data;
 
       if (preset?.query) {
-        // Load the query into the builder
         const query = preset.query;
 
-        // Set dimensions and metrics
         setQueryPayload({
           dimensions: query.dimensions || [],
           metrics: query.metrics || [],
@@ -1162,7 +1111,6 @@ export default function BiWorkspacePage() {
           includeTotals: query.includeTotals !== undefined ? query.includeTotals : true,
         });
 
-        // Set filter conditions
         if (query.filters?.conditions) {
           setFilterConditions(query.filters.conditions.map((condition: any) => ({
             field: condition.field || "",
@@ -1173,7 +1121,6 @@ export default function BiWorkspacePage() {
           setFilterConditions([]);
         }
 
-        // Set date range
         if (query.dateRange) {
           setDateRange({
             field: query.dateRange.field || "",
@@ -1185,7 +1132,6 @@ export default function BiWorkspacePage() {
           setDateRange({ field: "", from: null, to: null, granularity: "month" });
         }
 
-        // Set Top N
         if (query.topN) {
           setTopN({
             dimension: query.topN.dimension || "",
@@ -1197,7 +1143,6 @@ export default function BiWorkspacePage() {
           setTopN(null);
         }
 
-        // Set Sort
         if (Array.isArray(query.sort)) {
           setSort(query.sort.map((item: any) => ({
             field: item.field,
@@ -1207,12 +1152,10 @@ export default function BiWorkspacePage() {
           setSort([]);
         }
 
-        // Show preset info
         const title = preset.title || presetId;
         const description = preset.description ? ` - ${preset.description}` : '';
         showSnackbar(`✅ Preset "${title}" loaded successfully${description}`, "success");
 
-        // Clear any errors
         setError(null);
       } else {
         showSnackbar("Preset response did not include a query payload", "error");
@@ -1226,99 +1169,9 @@ export default function BiWorkspacePage() {
     }
   };
 
-  // const renderBuilderAdmin = () => (
-  //   <Card className="bg-white">
-  //     <CardHeader title="Dashboard Builder" className="text-gray-800" />
-  //     <CardContent className="space-y-4">
-  //       <Box className="grid grid-cols-1 md:grid-cols-2 gap-5">
-  //         <TextField
-  //           label="Page key"
-  //           value={builderPageForm.pageKey}
-  //           onChange={(e) =>
-  //             setBuilderPageForm((prev) => ({ ...prev, pageKey: e.target.value }))
-  //           }
-  //         />
-  //         <TextField
-  //           label="Title"
-  //           value={builderPageForm.title}
-  //           onChange={(e) =>
-  //             setBuilderPageForm((prev) => ({ ...prev, title: e.target.value }))
-  //           }
-  //         />
-  //         <TextField
-  //           label="Description"
-  //           value={builderPageForm.description}
-  //           onChange={(e) =>
-  //             setBuilderPageForm((prev) => ({ ...prev, description: e.target.value }))
-  //           }
-  //         />
-  //         <TextField
-  //           label="Display order"
-  //           type="number"
-  //           value={builderPageForm.displayOrder}
-  //           onChange={(e) =>
-  //             setBuilderPageForm((prev) => ({
-  //               ...prev,
-  //               displayOrder: Number(e.target.value || 1),
-  //             }))
-  //           }
-  //         />
-  //       </Box>
-  //       <Box className="flex gap-2">
-  //         <Button
-  //           variant="contained" className="!bg-primary"
-  //           onClick={() => void (editingBuilderPageId ? handleUpdateBuilderPage() : createBuilderPage())}
-  //         >
-  //           {editingBuilderPageId ? "Update Dashboard Page" : "Create Dashboard Page"}
-  //         </Button>
-  //         {editingBuilderPageId && (
-  //           <Button variant="outlined" className="!text-gray-800 !border-gray-200" onClick={resetBuilderPageForm}>
-  //             Cancel
-  //           </Button>
-  //         )}
-  //       </Box>
-
-  //       <TableContainer className="bg-white">
-  //         <Table className="border border-gray-200">
-  //           <TableHead>
-  //             <TableRow>
-  //               <TableCell>S No</TableCell>
-  //               <TableCell>Page Key</TableCell>
-  //               <TableCell>Title</TableCell>
-  //               <TableCell>Description</TableCell>
-  //               <TableCell align="right">Actions</TableCell>
-  //             </TableRow>
-  //           </TableHead>
-  //           <TableBody>
-  //             {builderPages.map((page, i) => (
-  //               <TableRow key={page.id} sx={getRowColor(i)}>
-  //                 <TableCell>{i + 1}</TableCell>
-  //                 <TableCell>{page.pageKey}</TableCell>
-  //                 <TableCell>{page.title}</TableCell>
-  //                 <TableCell>{page.description}</TableCell>
-  //                 <TableCell align="right">
-  //                   <Box className="flex justify-end gap-1">
-  //                     <IconButton size="small" color="primary" onClick={() => void handleEditBuilderPage(page.id)}>
-  //                       <Edit fontSize="small" className="!w-4" />
-  //                     </IconButton>
-  //                     <IconButton size="small" color="error" onClick={() => void handleDeleteBuilderPage(page.id)}>
-  //                       <DeleteIcon fontSize="small" className="!w-4" />
-  //                     </IconButton>
-  //                   </Box>
-  //                 </TableCell>
-  //               </TableRow>
-  //             ))}
-  //           </TableBody>
-  //         </Table>
-  //       </TableContainer>
-  //     </CardContent>
-  //   </Card>
-  // );
-
   const renderBuilderAdmin = () => <DashboardBuilderFull />;
 
   const renderQuerySetAdmin = () => {
-    // Calculate total query sets
     const totalQuerySets = querySets.length;
 
     return (
@@ -1341,7 +1194,6 @@ export default function BiWorkspacePage() {
           }
         />
         <CardContent className="space-y-4">
-          {/* Quick Reference Guide */}
           <Paper className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <Typography variant="subtitle2" className="text-blue-800 flex items-center gap-2">
               <Info className="!w-4 !h-4" />
@@ -1379,7 +1231,6 @@ export default function BiWorkspacePage() {
             </Box>
           </Paper>
 
-          {/* Query Sets Table */}
           <TableContainer className="bg-white border border-gray-200 rounded-lg">
             <Table>
               <TableHead className="bg-gray-50">
@@ -1446,7 +1297,7 @@ export default function BiWorkspacePage() {
                               color="primary"
                               onClick={() => void handleEditQuerySet(querySet.id)}
                             >
-                              <Edit fontSize="small" className="!w-4"/>
+                              <Edit fontSize="small" className="!w-4" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete">
@@ -1455,7 +1306,7 @@ export default function BiWorkspacePage() {
                               color="error"
                               onClick={() => void handleDeleteQuerySet(querySet.id)}
                             >
-                              <DeleteIcon fontSize="small" className="!w-4"/>
+                              <DeleteIcon fontSize="small" className="!w-4" />
                             </IconButton>
                           </Tooltip>
                         </Box>
@@ -1467,7 +1318,6 @@ export default function BiWorkspacePage() {
             </Table>
           </TableContainer>
 
-          {/* Usage Example */}
           {totalQuerySets > 0 && (
             <Paper className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
               <Typography variant="subtitle2" className="text-gray-700 flex items-center gap-2">
@@ -1488,7 +1338,6 @@ export default function BiWorkspacePage() {
     );
   };
 
-
   const renderQueryBuilder = () => {
     if (!datasetSchema) {
       return <Typography className="text-gray-500">Select a dataset to see its schema and build queries.</Typography>;
@@ -1498,22 +1347,6 @@ export default function BiWorkspacePage() {
 
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }} className="h-[calc(100vh-355px)] overflow-auto">
-        {/* <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
-          <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600 }}>
-            Query Preset Loader
-          </Typography>
-          <Box className="flex gap-3 items-center">
-            <TextField
-              label="Preset id"
-              value={presetId}
-              onChange={(e) => setPresetId(e.target.value)}
-            />
-            <Button variant="outlined" onClick={() => void handleLoadPreset()}>
-              Load Preset
-            </Button>
-          </Box>
-        </Paper> */}
-
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
             Query Preset Loader
@@ -1561,7 +1394,6 @@ export default function BiWorkspacePage() {
             </FormControl>
           </Box>
 
-          {/* Show selected preset info */}
           {presetId && (
             <Box className="mt-3">
               {(() => {
@@ -1591,7 +1423,6 @@ export default function BiWorkspacePage() {
           )}
         </Paper>
 
-        {/* Date Range */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
             Date Range
@@ -1616,7 +1447,6 @@ export default function BiWorkspacePage() {
                 format="DD/MM/YYYY"
                 value={dateRange.from ? dayjs(dateRange.from) : null}
                 onChange={(newValue) => setDateRange({ ...dateRange, from: newValue ? dayjs(newValue).format("YYYY-MM-DD") : null })}
-              // slotProps={{ textField: { size: "small" } }}
               />
               <DatePicker
                 label="To"
@@ -1624,7 +1454,6 @@ export default function BiWorkspacePage() {
                 value={dateRange.to ? dayjs(dateRange.to) : null}
                 minDate={dateRange.from ? dayjs(dateRange.from) : undefined}
                 onChange={(newValue) => setDateRange({ ...dateRange, to: newValue ? dayjs(newValue).format("YYYY-MM-DD") : null })}
-              // slotProps={{ textField: { size: "small" } }}
               />
             </LocalizationProvider>
             <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -1634,8 +1463,6 @@ export default function BiWorkspacePage() {
                 onChange={(e) => setDateRange({ ...dateRange, granularity: e.target.value })}
                 label="Granularity"
               >
-                {/* <MenuItem value="day">Day</MenuItem>
-                <MenuItem value="week">Week</MenuItem> */}
                 <MenuItem value="month">Month</MenuItem>
                 <MenuItem value="quarter">Quarter</MenuItem>
                 <MenuItem value="year">Year</MenuItem>
@@ -1645,7 +1472,6 @@ export default function BiWorkspacePage() {
         </Paper>
 
         <div className="flex items-center gap-4">
-          {/* Dimensions */}
           <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200 w-full">
             <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
               Dimensions
@@ -1662,7 +1488,6 @@ export default function BiWorkspacePage() {
                 {dimensions.map((dim) => (
                   <MenuItem key={dim.id} value={dim.id}>
                     <Checkbox checked={(queryPayload.dimensions || []).indexOf(dim.id) > -1} />
-                    {/* <ListItemText primary={dim.id} secondary={dim.type} className="!text-gray-800" /> */}
                     <div>
                       <div className="!text-gray-800" >{dim.id}</div>
                       <div className="!text-gray-500" >{dim.type}</div>
@@ -1673,7 +1498,6 @@ export default function BiWorkspacePage() {
             </FormControl>
           </Paper>
 
-          {/* Metrics */}
           <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200 w-full">
             <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
               Metrics
@@ -1690,7 +1514,6 @@ export default function BiWorkspacePage() {
                 {metrics.map((metric) => (
                   <MenuItem key={metric.id} value={metric.id}>
                     <Checkbox checked={(queryPayload.metrics || []).indexOf(metric.id) > -1} />
-                    {/* <ListItemText primary={metric.id} secondary={`${metric.aggregation} (${metric.type})`} /> */}
                     <div>
                       <div className="!text-gray-800" >{metric.id}</div>
                       <div className="!text-gray-500" >{metric.aggregation} (${metric.type})</div>
@@ -1700,10 +1523,8 @@ export default function BiWorkspacePage() {
               </Select>
             </FormControl>
           </Paper>
-
         </div>
 
-        {/* Filters */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
             Filters
@@ -1775,7 +1596,6 @@ export default function BiWorkspacePage() {
           </Button>
         </Paper>
 
-        {/* Top N */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
             Top N
@@ -1827,7 +1647,6 @@ export default function BiWorkspacePage() {
               label="Limit"
               type="number"
               value={topN?.limit || 10}
-              // onChange={(e) => setTopN((prev) => ({ ...prev, limit: parseInt(e.target.value, 10) || 10 }))}
               onChange={(e) => {
                 const limit = parseInt(e.target.value, 10) || 10;
                 setTopN((prev) => ({
@@ -1837,13 +1656,11 @@ export default function BiWorkspacePage() {
                   includeOthers: prev?.includeOthers !== undefined ? prev.includeOthers : true,
                 }));
               }}
-            // sx={{ width: 100 }}
             />
             <FormControlLabel
               control={
                 <Switch
                   checked={topN?.includeOthers !== undefined ? topN.includeOthers : true}
-                  // onChange={(e) => setTopN((prev) => ({ ...prev, includeOthers: e.target.checked }))}
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setTopN((prev) => ({
@@ -1853,7 +1670,6 @@ export default function BiWorkspacePage() {
                       includeOthers: checked,
                     }));
                   }}
-
                 />
               }
               className="!text-gray-800"
@@ -1862,7 +1678,6 @@ export default function BiWorkspacePage() {
           </div>
         </Paper>
 
-        {/* Sort */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>
             Sort
@@ -1918,7 +1733,6 @@ export default function BiWorkspacePage() {
           </Button>
         </Paper>
 
-        {/* Limit & Totals */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <div className="flex items-center gap-2">
             <TextField
@@ -1942,7 +1756,6 @@ export default function BiWorkspacePage() {
           </div>
         </Paper>
 
-        {/* JSON Preview (Read-Only / Editable) */}
         <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
           <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 1 }}>
             Query Payload (JSON)
@@ -1956,11 +1769,7 @@ export default function BiWorkspacePage() {
             onChange={(e) => {
               try {
                 const parsed = JSON.parse(e.target.value);
-                // Update state from JSON (advanced users)
-                // For simplicity, we can merge or replace
                 setQueryPayload(parsed);
-                // Also need to sync filter conditions etc. This is advanced.
-                // For now, we just show read-only.
               } catch {
                 // Allow invalid JSON during typing
               }
@@ -1989,23 +1798,6 @@ export default function BiWorkspacePage() {
             <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
               {reports.length} Reports Available
             </Typography>
-            {/* <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
-                setIsEditingReport(false);
-                setReportForm({
-                  name: "",
-                  datasetId: datasets.length > 0 ? datasets[0].datasetId : "",
-                  query: { dimensions: [], metrics: [], limit: 50, includeTotals: true },
-                  visualization: { type: "table", config: {} },
-                  visibility: "PRIVATE",
-                });
-                setReportFormOpen(true);
-              }}
-            >
-              New Report
-            </Button> */}
           </Box>
 
           <Grid container spacing={2}>
@@ -2022,13 +1814,11 @@ export default function BiWorkspacePage() {
                           <Chip label={report.visibility} size="small" variant="outlined" color={report.visibility === "PRIVATE" ? "default" : "warning"} />
                         </Box>
                       }
-                      // avatar={<Avatar sx={{ bgcolor: theme.palette.primary.main, width: 40, height: 40 }}><ReportOutlined /></Avatar>}
                       action={
                         <Box>
                           {report.editable && (
                             <Tooltip title="Edit">
-                              <IconButton size="small" onClick={() => { handleViewReport(report.id, 'edit') }}>
-                                {/* <IconButton size="small" onClick={() => {  if (selectedReport) handleEditReport(selectedReport)}}> */}
+                              <IconButton size="small" onClick={() => { handleViewReport(report.id, 'edit'); }}>
                                 <Edit fontSize="small" color="primary" className="!w-4" />
                               </IconButton>
                             </Tooltip>
@@ -2047,7 +1837,6 @@ export default function BiWorkspacePage() {
                     <div className="flex items-center justify-end gap-2 p-4 pt-0">
                       <Button size="small" variant="outlined" className="!text-primary !border-primary" startIcon={<VisibilityIcon />} onClick={() => handleViewReport(report.id, 'view')}>View</Button>
                       <Button size="small" variant="contained" color="success" startIcon={<PlayArrow />} onClick={() => handleRunReport(report.id)}>Run</Button>
-                      {/* <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => handleExportReport(report.id, "csv")} disabled={reportExportLoading}>Export</Button> */}
                     </div>
                   </Card>
                 </Grid>
@@ -2069,21 +1858,6 @@ export default function BiWorkspacePage() {
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          {/* <TextField
-            select
-            label="Dataset"
-            value={selectedDataset}
-            onChange={(event) => setSelectedDataset(event.target.value)}
-            sx={{ width: 250 }}
-            slotProps={{ select: { native: true } }}
-          >
-            <option value="">Select a dataset</option>
-            {datasets.map((dataset) => (
-              <option key={dataset.datasetId} value={dataset.datasetId}>
-                {dataset.title || dataset.datasetId} {!dataset.available && "(Coming Soon)"}
-              </option>
-            ))}
-          </TextField> */}
           <FormControl sx={{ width: 250 }}>
             <InputLabel>Dataset</InputLabel>
             <Select
@@ -2101,14 +1875,6 @@ export default function BiWorkspacePage() {
         </div>
         <div className="flex items-center gap-4">
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadWorkspace} disabled={loading}>Refresh</Button>
-          {/* <Button
-            variant="outlined"
-            startIcon={<Download />}
-            onClick={(e) => setExportMenuAnchor(e.currentTarget)}
-            disabled={exportLoading || !selectedDataset}
-          >
-            {exportLoading ? <CircularProgress size={24} /> : "Export"}
-          </Button> */}
         </div>
         <Menu
           anchorEl={exportMenuAnchor}
@@ -2134,13 +1900,6 @@ export default function BiWorkspacePage() {
             Export as Excel
           </MenuItem>
         </Menu>
-        {/* <Button variant="outlined" startIcon={<Download />} onClick={handleCreateExport} disabled={exportLoading || !selectedDataset}>
-          {exportLoading ? <CircularProgress size={24} /> : "Export"}
-        </Button>
-        <TextField select size="small" label="Format" value={exportFormat} onChange={(e) => setExportFormat(e.target.value as "csv" | "xlsx")} sx={{ width: 120 }}>
-          <MenuItem value="csv">CSV</MenuItem>
-          <MenuItem value="xlsx">Excel</MenuItem>
-        </TextField> */}
       </div>
 
       {renderQueryBuilder()}
@@ -2180,8 +1939,6 @@ export default function BiWorkspacePage() {
           Save as Report
         </Button>
       </div>
-
-      {/* {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>} */}
 
       {queryResult && (
         <Fade in={!!queryResult}>
@@ -2270,21 +2027,6 @@ export default function BiWorkspacePage() {
       <Paper variant="outlined" className="!bg-white" sx={{ p: 3 }}>
         <Typography variant="subtitle1" className="text-gray-800" sx={{ fontWeight: 600, mb: 3 }}>Create New Export</Typography>
         <div className="flex items-center gap-4">
-          {/* <TextField
-            select
-            label="Dataset"
-            value={selectedDataset}
-            onChange={(event) => setSelectedDataset(event.target.value)}
-            sx={{ width: 200 }}
-            slotProps={{ select: { native: true } }}
-          >
-            <option value="">Select a dataset</option>
-            {datasets.map((dataset) => (
-              <option key={dataset.datasetId} value={dataset.datasetId}>
-                {dataset.title || dataset.datasetId}
-              </option>
-            ))}
-          </TextField> */}
           <FormControl sx={{ width: 250 }}>
             <InputLabel>Dataset</InputLabel>
             <Select
@@ -2343,8 +2085,8 @@ export default function BiWorkspacePage() {
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
               <Chip label={`Job: ${exportJob.jobRef}`} size="small" className="text-gray-800" variant="outlined" />
-              <Chip label={`Format: ${exportJob.format}`} size="small" variant="outlined" className="text-gray-800"/>
-              {exportJob.rowCount > 0 && <Chip label={`Rows: ${exportJob.rowCount}`} size="small" variant="outlined" className="text-gray-800"/>}
+              <Chip label={`Format: ${exportJob.format}`} size="small" variant="outlined" className="text-gray-800" />
+              {exportJob.rowCount > 0 && <Chip label={`Rows: ${exportJob.rowCount}`} size="small" variant="outlined" className="text-gray-800" />}
               {exportJob.fileBytes > 0 && <Chip label={`Size: ${(exportJob.fileBytes / 1024).toFixed(1)} KB`} size="small" className="text-gray-800" variant="outlined" />}
             </Box>
             <LinearProgress variant="determinate" value={exportJob.progressPercent || 0} sx={{ height: 8, borderRadius: 4 }} color={exportJob.status === "failed" ? "error" : "primary"} />
@@ -2352,7 +2094,6 @@ export default function BiWorkspacePage() {
             {exportJob.status === "completed" && exportJob.downloadUrl && (
               <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
                 <Button variant="contained" color="success" startIcon={<FileDownloadIcon />} onClick={() => handleDownloadFromUrl(exportJob.downloadUrl!)}>Download File</Button>
-                {/* <Button variant="outlined" onClick={() => handleDownloadExport(exportJob.jobRef)}>Download via Proxy</Button> */}
               </Box>
             )}
             {exportJob.status === "failed" && exportJob.errorMessage && <Alert severity="error">{exportJob.errorMessage}</Alert>}
@@ -2391,7 +2132,7 @@ export default function BiWorkspacePage() {
                     <TableCell>
                       {job.status === "completed" && job.downloadUrl && (
                         <Tooltip title="Download">
-                          <IconButton size="small" color="success" onClick={() => handleDownloadFromUrl(job.downloadUrl!,job.format)}>
+                          <IconButton size="small" color="success" onClick={() => handleDownloadFromUrl(job.downloadUrl!, job.format)}>
                             <FileDownloadIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -2466,20 +2207,13 @@ export default function BiWorkspacePage() {
             <FormControl fullWidth>
               <InputLabel>Visibility</InputLabel>
               <Select value={reportForm.visibility} onChange={(e) => setReportForm({ ...reportForm, visibility: e.target.value as "PRIVATE" | "ROLE" | "TENANT" })} label="Visibility">
-                <MenuItem value="private">Private (Only you)</MenuItem>
-                <MenuItem value="role">Role Based</MenuItem>
-                <MenuItem value="tenant">Tenant (All users)</MenuItem>
+                {/* ✅ FIXED: Standardized to uppercase to match type */}
+                <MenuItem value="PRIVATE">Private (Only you)</MenuItem>
+                <MenuItem value="ROLE">Role Based</MenuItem>
+                <MenuItem value="TENANT">Tenant (All users)</MenuItem>
               </Select>
             </FormControl>
-            {reportForm.visibility === "ROLE" && (
-              <TextField
-                fullWidth
-                label="Visibility Role"
-                value={reportForm.visibilityRole || ""}
-                onChange={(e) => setReportForm({ ...reportForm, visibilityRole: e.target.value })}
-                placeholder="e.g., admin, manager"
-              />
-            )}
+            {/* ✅ FIXED: Removed visibilityRole (not in type). If needed, extend the type. */}
           </div>
 
           <Box>
@@ -2626,20 +2360,15 @@ export default function BiWorkspacePage() {
 
   const renderReportDetailDialog = () => (
     <Dialog open={reportDetailOpen} onClose={() => setReportDetailOpen(false)} maxWidth="lg">
-      {/* <DialogTitle sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}> */}
       <div className="flex items-center justify-between border-b border-gray-200 p-2">
         <div className="ml-4">
           <Typography variant="h6" sx={{ fontWeight: 600 }}>{selectedReport?.name || "Report Details"}</Typography>
           <Typography variant="caption" className="text-gray-500">{selectedReport?.datasetId} • {selectedReport?.visibility}</Typography>
         </div>
         <Box sx={{ display: "flex", gap: 1 }}>
-          {/* <Button size="small" variant="outlined" startIcon={<EditIcon />} onClick={() => { if (selectedReport) { handleEditReport(selectedReport); setReportDetailOpen(false); } }} disabled={!selectedReport?.editable}>Edit</Button>
-            <Button size="small" variant="contained" startIcon={<PlayArrow />} onClick={() => { if (selectedReport) { handleRunReport(selectedReport.id); setReportDetailOpen(false); } }}>Run</Button>
-            <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => { if (selectedReport) { handleExportReport(selectedReport.id, "csv"); setReportDetailOpen(false); } }}>Export</Button> */}
           <IconButton onClick={() => setReportDetailOpen(false)}><CloseIcon className="text-gray-800" /></IconButton>
         </Box>
       </div>
-      {/* </DialogTitle> */}
       <DialogContent sx={{ p: 2 }}>
         {selectedReport ? (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -2648,7 +2377,6 @@ export default function BiWorkspacePage() {
               <Chip label={`Visibility: ${selectedReport.visibility}`} variant="outlined" className="text-gray-800" />
               <Chip label={`Created: ${new Date(selectedReport.createdAt).toLocaleDateString()}`} variant="outlined" className="text-gray-800" />
               <Chip label={`Updated: ${new Date(selectedReport.updatedAt).toLocaleDateString()}`} variant="outlined" className="text-gray-800" />
-              {/* {selectedReport.editable && <Chip label="Editable" color="success" size="small" />} */}
             </Box>
 
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Query Configuration</Typography>
@@ -2664,8 +2392,6 @@ export default function BiWorkspacePage() {
                 </Paper>
               </>
             )}
-
-
           </Box>
         ) : (
           <CircularProgress />
@@ -2679,6 +2405,7 @@ export default function BiWorkspacePage() {
     </Dialog>
   );
 
+  // ============ Query Set Form Dialog ============
 
   const renderQuerySetFormDialog = () => (
     <Dialog open={querySetFormOpen} onClose={() => setQuerySetFormOpen(false)} maxWidth="md" fullWidth>
@@ -2687,12 +2414,11 @@ export default function BiWorkspacePage() {
           {editingQuerySetId ? "Edit Query Set" : "Create Query Set"}
         </Typography>
         <IconButton onClick={() => setQuerySetFormOpen(false)}>
-          <CloseIcon className="text-gray-800"/>
+          <CloseIcon className="text-gray-800" />
         </IconButton>
       </div>
       <DialogContent className="!p-4">
         <Box className="grid grid-cols-1 gap-6">
-          {/* Guide */}
           <Box className="bg-blue-50 p-3 rounded-lg border border-blue-200">
             <Typography variant="subtitle2" className="text-blue-800 flex items-center gap-2">
               <Info className="!w-4 !h-4" />
@@ -2759,7 +2485,6 @@ export default function BiWorkspacePage() {
             </Select>
           </FormControl>
 
-          {/* Dataset ID - Required for DSL */}
           {querySetForm.queryType === "DSL" && (
             <TextField
               label="Dataset ID"
@@ -2772,7 +2497,6 @@ export default function BiWorkspacePage() {
             />
           )}
 
-          {/* SQL Text - Only show for SQL type */}
           {querySetForm.queryType === "SQL" && (
             <TextField
               label="SQL Text"
@@ -2802,7 +2526,6 @@ ORDER BY headcount DESC`}
             />
           )}
 
-          {/* Query JSON - Only show for DSL type */}
           {querySetForm.queryType === "DSL" && (
             <Box>
               <Typography variant="subtitle2" className="text-gray-700 mb-2">
@@ -2863,7 +2586,6 @@ ORDER BY headcount DESC`}
             </Box>
           )}
 
-          {/* Visualization - Only show for DSL type */}
           {querySetForm.queryType === "DSL" && (
             <Box>
               <Typography variant="subtitle2" className="text-gray-700 mb-2">
@@ -2932,164 +2654,6 @@ ORDER BY headcount DESC`}
     </Dialog>
   );
 
-  // const renderQueryPresetLoader = () => {
-  //   // Get preset info from available query sets
-  //   const presetInfo = querySets.find(qs => qs.presetId === presetId);
-
-  //   return (
-  //     <Paper variant="outlined" sx={{ p: 2 }} className="!bg-white border border-gray-200">
-  //       <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600, mb: 2 }}>
-  //         Query Preset Loader
-  //       </Typography>
-
-  //       <Box className="flex gap-3 items-start">
-  //         <Box className="flex-1">
-  //           <Autocomplete
-  //             freeSolo
-  //             fullWidth
-  //             options={querySets.map(qs => qs.presetId || qs.id)}
-  //             value={presetId}
-  //             onInputChange={(_, newValue) => {
-  //               setPresetId(newValue || "");
-  //             }}
-  //             onChange={(_, newValue) => {
-  //               setPresetId(newValue || "");
-  //             }}
-  //             renderInput={(params) => (
-  //               <TextField
-  //                 {...params}
-  //                 label="Preset ID"
-  //                 placeholder="Enter preset ID or select from list..."
-  //                 helperText={
-  //                   presetInfo ? (
-  //                     <Box className="flex items-center gap-2">
-  //                       <Chip
-  //                         label={presetInfo.title}
-  //                         size="small"
-  //                         color="info"
-  //                         variant="outlined"
-  //                       />
-  //                       {presetInfo.description && (
-  //                         <Typography variant="caption" className="text-gray-500">
-  //                           {presetInfo.description}
-  //                         </Typography>
-  //                       )}
-  //                     </Box>
-  //                   ) : (
-  //                     "Type to search or select from available presets"
-  //                   )
-  //                 }
-  //               // InputProps={{
-  //               //   ...params.InputProps,
-  //               // }}
-  //               />
-  //             )}
-  //             renderOption={(props, option) => {
-  //               const qs = querySets.find(q => q.presetId === option);
-  //               return (
-  //                 <li {...props}>
-  //                   <Box>
-  //                     <Typography variant="body2" className="font-medium">
-  //                       {qs?.title || option}
-  //                     </Typography>
-  //                     {qs?.description && (
-  //                       <Typography variant="caption" className="text-gray-500 block">
-  //                         {qs.description}
-  //                       </Typography>
-  //                     )}
-  //                     <Typography variant="caption" className="text-gray-400 font-mono text-xs">
-  //                       ID: {option}
-  //                     </Typography>
-  //                   </Box>
-  //                 </li>
-  //               );
-  //             }}
-  //             noOptionsText="No presets found. Create one in the Query Sets tab."
-  //             loadingText="Loading presets..."
-  //             sx={{ flex: 1 }}
-  //           />
-  //         </Box>
-
-  //         <Box className="flex gap-2">
-  //           <Button
-  //             variant="contained"
-  //             className="!bg-primary"
-  //             onClick={() => void handleLoadPreset()}
-  //             disabled={!presetId.trim() || !selectedDataset}
-  //             startIcon={<PlayArrow />}
-  //           >
-  //             Load
-  //           </Button>
-  //           {presetInfo && (
-  //             <Tooltip title="View preset details">
-  //               <Button
-  //                 variant="outlined"
-  //                 className="!text-gray-800 !border-gray-200"
-  //                 onClick={() => {
-  //                   // Show preset details in a dialog or expand the info
-  //                   showSnackbar(
-  //                     `📋 ${presetInfo.title}: ${presetInfo.description || 'No description'}`,
-  //                     "info"
-  //                   );
-  //                 }}
-  //               >
-  //                 <Info fontSize="small" />
-  //               </Button>
-  //             </Tooltip>
-  //           )}
-  //         </Box>
-  //       </Box>
-
-  //       {/* Quick access chips for available presets */}
-  //       {querySets.length > 0 && (
-  //         <Box className="mt-3">
-  //           <Typography variant="caption" className="text-gray-500">
-  //             Quick load:
-  //           </Typography>
-  //           <Box className="flex flex-wrap gap-1 mt-1">
-  //             {querySets.slice(0, 6).map((qs) => (
-  //               <Chip
-  //                 key={qs.id}
-  //                 label={qs.presetId || qs.id}
-  //                 size="small"
-  //                 variant={presetId === (qs.presetId || qs.id) ? "filled" : "outlined"}
-  //                 color={presetId === (qs.presetId || qs.id) ? "primary" : "default"}
-  //                 className="cursor-pointer hover:bg-blue-50"
-  //                 onClick={() => {
-  //                   setPresetId(qs.presetId || qs.id);
-  //                   setTimeout(() => handleLoadPreset(), 100);
-  //                 }}
-  //                 title={qs.title}
-  //               />
-  //             ))}
-  //             {querySets.length > 6 && (
-  //               <Chip
-  //                 label={`+${querySets.length - 6} more`}
-  //                 size="small"
-  //                 variant="outlined"
-  //                 className="text-gray-500"
-  //                 onClick={() => {
-  //                   setActiveTab(5); // Switch to Query Sets tab
-  //                 }}
-  //               />
-  //             )}
-  //           </Box>
-  //         </Box>
-  //       )}
-
-  //       {/* Preset loaded indicator */}
-  //       {presetId && !presetInfo && (
-  //         <Box className="mt-2">
-  //           <Alert severity="info" className="text-sm">
-  //             Preset "{presetId}" is not in your query sets. You can still load it if it exists in the dataset.
-  //           </Alert>
-  //         </Box>
-  //       )}
-  //     </Paper>
-  //   );
-  // };
-
-
   // ============ Main Render ============
 
   return (
@@ -3120,13 +2684,15 @@ ORDER BY headcount DESC`}
           {tabs.map((tab) => <Tab key={tab.label} className="!text-gray-800" iconPosition="start" label={tab.label} />)}
         </Tabs>
 
+        {/* ✅ FIXED: All 7 TabPanels now rendered with correct indices matching the tabs array */}
         <Box sx={{ pt: 3, px: 2, pb: 1 }}>
           <TabPanel index={0} value={activeTab}>{renderReportsTab()}</TabPanel>
-          <TabPanel index={1} value={activeTab}>{renderQueryEngineTab()}</TabPanel>
-          <TabPanel index={2} value={activeTab}>{renderExportsTab()}</TabPanel>
-          <TabPanel index={3} value={activeTab}>{renderDatasetsTab()}</TabPanel>
-          <TabPanel index={4} value={activeTab}>{renderBuilderAdmin()}</TabPanel>
-          <TabPanel index={5} value={activeTab}>{renderQuerySetAdmin()}</TabPanel>
+          <TabPanel index={1} value={activeTab}><PowerBIStyleWorkspace /></TabPanel>
+          <TabPanel index={2} value={activeTab}>{renderQueryEngineTab()}</TabPanel>
+          <TabPanel index={3} value={activeTab}>{renderExportsTab()}</TabPanel>
+          <TabPanel index={4} value={activeTab}>{renderDatasetsTab()}</TabPanel>
+          <TabPanel index={5} value={activeTab}>{renderBuilderAdmin()}</TabPanel>
+          <TabPanel index={6} value={activeTab}>{renderQuerySetAdmin()}</TabPanel>
         </Box>
       </Paper>
 
@@ -3135,16 +2701,11 @@ ORDER BY headcount DESC`}
       {renderReportFormDialog()}
       {renderReportExportDialog()}
       {renderQuerySetFormDialog()}
-      {/* {renderQueryPresetLoader()} */}
     </Box>
   );
 }
 
-// ============ TabPanel Component (used internally) ============
-
-// function TabPanel({ children, index, value }: { children?: ReactNode; index: number; value: number }) {
-//   return value === index ? <Box sx={{ py: 0 }}>{children}</Box> : null;
-// }
+// ============ TabPanel Component ============
 
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;

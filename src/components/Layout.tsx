@@ -68,7 +68,6 @@ import {
   HowToRegOutlined,
   GroupOutlined,
   RequestQuoteOutlined,
-  BadgeOutlined,
   RuleOutlined,
 } from "@mui/icons-material";
 import Collapse from "@mui/material/Collapse";
@@ -559,6 +558,12 @@ export default function Layout() {
       permissions: PAYROLL_PERMISSIONS.RUNS,
     },
     {
+      text: "Payroll Inputs",
+      path: "/payroll/inputs",
+      icon: <RequestQuoteOutlined className="!w-4" />,
+      permissions: [],
+    },
+    {
       text: "Generate Payroll",
       path: "/payroll/generate",
       icon: <WorkOutlineOutlined className="!w-4" />,
@@ -715,18 +720,15 @@ export default function Layout() {
           ? [{ text: "Manager Approvals", path: "/leaves/approvals" }]
           : []),
         ...(user?.roles.some((role) => role === "HR" || role === "ADMIN")
-          ? [{ text: "HR Requests", path: "/leaves/hr/requests" }]
+          ? [{ text: "HR Approvals", path: "/leaves/hr/requests" }]
           : []),
         ...(user?.roles.includes("ADMIN")
           ? [{ text: "Leave Settings", path: "/leaves/admin/leave-types" }]
           : []),
+        ...(user?.roles.some((role) => ["EMPLOYEE","MANAGER", "HR", "ADMIN"].includes(role))
+          ? [{ text: "Permission Requests", path: "/leaves/permission-requests" }]
+          : []),
       ],
-    },
-    {
-      text: "Permission Requests",
-      icon: <BadgeOutlined />,
-      path: "/permission-requests",
-      roles: ["EMPLOYEE", "ESS", "MANAGER", "HR", "ADMIN"],
     },
     {
       text: "Attendance",
@@ -1051,7 +1053,7 @@ export default function Layout() {
                   // border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all duration-200 cursor-default"
                   data-tour="customer-brand"
                 >
-                  <Box className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden border border-gray-100 shrink-0">
+                  {/* <Box className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden border border-gray-100 shrink-0">
                     {companyInfo?.logoUrl ? (
                       <img
                         src={companyInfo.logoUrl}
@@ -1063,7 +1065,7 @@ export default function Layout() {
                         {companyInfo?.companyName?.slice(0,2)?.toUpperCase() || "H"}
                       </span>
                     )}
-                  </Box>
+                  </Box> */}
 
                   <div className="hidden md:flex flex-cl items-center min-w-0 ml-1">
                     {/* <img src={dot} alt="DoT.HR" className="h-5 w-auto object-contain" /> */}
@@ -1616,7 +1618,7 @@ export default function Layout() {
                   />
                 ) : (
                   <span className="text-sm font-bold text-primary">
-                    {companyInfo?.companyName?.slice(0,2)?.toUpperCase() || "HR"}
+                    {companyInfo?.companyName?.slice(0, 2)?.toUpperCase() || "HR"}
                   </span>
                 )}
                 <Box className="min-w-0">

@@ -36,7 +36,6 @@ import {
   Description as FileStackIcon,
   People as UsersIcon,
   CalendarToday as CalendarIcon,
-  List as ListOrderedIcon,
   Edit as EditIcon,
   Save as SaveIcon,
   History as HistoryIcon,
@@ -66,7 +65,7 @@ const NAV_ITEMS = [
   { id: "tax", label: "Tax Rules", icon: FileStackIcon },
   { id: "pf-esi", label: "PF / ESI Settings", icon: UsersIcon },
   { id: "schedule", label: "Payroll Schedule", icon: CalendarIcon },
-  { id: "approval", label: "Approval Workflow", icon: ListOrderedIcon },
+  // { id: "approval", label: "Approval Workflow", icon: ListOrderedIcon },
 ];
 
 // ==================== DEFAULT DATA ====================
@@ -85,6 +84,13 @@ const defaultAutoSyncFeatures: AutoSyncFeature[] = [
   { name: "Auto-apply Salary Revisions", enabled: false },
   { name: "Email Payslips", enabled: false },
   { name: "Bank File Export", enabled: true },
+];
+
+const defaultOldRegimeSlabs: TaxSlab[] = [
+  { min: 0, max: 250000, rate: 0 },
+  { min: 250001, max: 500000, rate: 5 },
+  { min: 500001, max: 1000000, rate: 20 },
+  { min: 1000001, max: 0, rate: 30 },
 ];
 
 const formatCurrency = (amount: number): string =>
@@ -128,7 +134,7 @@ const renderHistoryValue = (value: unknown): React.ReactNode => {
         label={value ? "Enabled" : "Disabled"}
         color={value ? "success" : "default"}
         variant={value ? "filled" : "outlined"}
-        className={` ${value ? "": "!text-gray-800"} `}
+        className={` ${value ? "" : "!text-gray-800"} `}
       />
     );
   }
@@ -160,7 +166,7 @@ const renderHistoryValue = (value: unknown): React.ReactNode => {
   if (isTaxSlab(value)) {
     return (
       <Stack direction="row" spacing={1.5}>
-        <Typography variant="body2">{formatSlabRange(value)}dd</Typography>
+        <Typography variant="body2">{formatSlabRange(value)}</Typography>
         <Chip
           size="small"
           label={value.rate === 0 ? "Nil" : `${value.rate}%`}
@@ -260,6 +266,7 @@ const SettingsHistoryDialog = ({
   loading,
   error,
   entries,
+  unwrapKey,
 }: {
   title: string;
   open: boolean;
@@ -267,6 +274,8 @@ const SettingsHistoryDialog = ({
   loading: boolean;
   error: string | null;
   entries: PayrollSettingsHistoryEntry[];
+  /** If the API nests the config under a key (e.g. "taxRules", "pfEsiSettings"), pass it here so the body renders the config itself, not the wrapper. */
+  unwrapKey?: string;
 }) => (
   <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
     <DialogTitle className="!border-b border-gray-200 flex items-center justify-between !p-1">
@@ -287,10 +296,15 @@ const SettingsHistoryDialog = ({
       ) : (
         <Stack spacing={2} sx={{ mt: 2 }}>
           {entries.map((entry, index) => {
-            const { id, supersededAt, changedBy, ...configuration } = entry;
+            const { id, supersededAt, changedBy, ...rest } = entry as Record<string, unknown>;
+            // Unwrap the nested configuration key if present; otherwise render the remaining fields as-is.
+            const configuration =
+              unwrapKey && rest[unwrapKey] !== undefined
+                ? (rest[unwrapKey] as Record<string, unknown>)
+                : rest;
             return (
               <Card
-                key={id ?? index}
+                key={String(id ?? index)}
                 variant="outlined"
                 className="!border !border-gray-200"
                 sx={{ borderRadius: 2, overflow: "hidden" }}
@@ -314,12 +328,12 @@ const SettingsHistoryDialog = ({
                     <HistoryIcon fontSize="small" className="!text-gray-800 !w-4" />
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                       {supersededAt
-                        ? new Date(supersededAt).toLocaleString()
+                        ? new Date(supersededAt as string).toLocaleString()
                         : "Date unavailable"}
                     </Typography>
                   </Stack>
                   <Typography variant="caption" className="!text-gray-800">
-                    Changed by: <strong>{changedBy ?? "—"}</strong>
+                    Changed by: <strong>{(changedBy as string) ?? "—"}</strong>
                   </Typography>
                 </Box>
 
@@ -346,40 +360,174 @@ const SettingsHistoryDialog = ({
 interface SettingsComponentProps {
   settings: PayrollSettings | null;
   onSave: (data: Partial<PayrollSettings>) => Promise<void>;
-  saving: boolean;
+  // saving: boolean;
 }
 
 // ==================== TAX RULES SETTINGS (EDITABLE) ====================
 
-const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
+/**
+ * Mirrors the server-side validation in PUT /api/payroll/settings/tax-rules:
+ *  - at least one slab
+ *  - lowest slab starts at min = 0
+ *  - slabs are contiguous (each min === previous max + 1)
+ *  - only the highest slab may be open-ended (max = 0)
+ *  - rates strictly ascend
+ */
+const validateTaxSlabs = (slabs: TaxSlab[]): string | null => {
+  if (slabs.length === 0) return "At least one tax slab is required.";
+  if (slabs[0].min !== 0) return "The lowest slab must start at ₹0.";
+
+  for (let i = 0; i < slabs.length; i++) {
+    const s = slabs[i];
+    if (s.min < 0) return `Slab ${i + 1}: 'From' cannot be negative.`;
+    if (s.max !== 0 && s.max <= s.min)
+      return `Slab ${i + 1}: 'To' must be greater than 'From'.`;
+    if (s.max === 0 && i !== slabs.length - 1)
+      return `Slab ${i + 1}: only the highest slab may be open-ended (To = 0).`;
+    if (s.rate < 0 || s.rate > 100)
+      return `Slab ${i + 1}: rate must be between 0 and 100.`;
+
+    if (i > 0) {
+      const prev = slabs[i - 1];
+      if (prev.max === 0)
+        return "Cannot have a slab after an open-ended slab.";
+      if (s.min !== prev.max + 1)
+        return `Slab ${i + 1}: 'From' must be ${prev.max + 1} (previous slab's 'To' + 1).`;
+      if (s.rate <= prev.rate)
+        return `Slab ${i + 1}: rate must be strictly greater than the previous slab's rate.`;
+    }
+  }
+  return null;
+};
+
+const TaxRulesSettings = ({ settings, onSave }: SettingsComponentProps) => {
+  const { showSnackbar } = useUI();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [history, setHistory] = useState<PayrollSettingsHistoryEntry[]>([]);
 
-  const [taxRules, setTaxRules] = useState<TaxRules>({
-    defaultRegime: "New Regime",
-    tdsComputation: {
-      projectionMethod: "Annualized",
-      declarationConsideration: "Enabled",
-      perquisiteTax: "Disabled",
-    },
-    slabs: [
-      { min: 0, max: 300000, rate: 0 },
-      { min: 300001, max: 600000, rate: 5 },
-      { min: 600001, max: 900000, rate: 10 },
-      { min: 900001, max: 1200000, rate: 15 },
-      { min: 1200001, max: 1500000, rate: 20 },
-      { min: 1500001, max: 0, rate: 30 },
-    ],
+  // Defaults for a fresh install
+  const defaultNewRegimeSlabs: TaxSlab[] = [
+    { min: 0, max: 300000, rate: 0 },
+    { min: 300001, max: 600000, rate: 5 },
+    { min: 600001, max: 900000, rate: 10 },
+    { min: 900001, max: 1200000, rate: 15 },
+    { min: 1200001, max: 1500000, rate: 20 },
+    { min: 1500001, max: 0, rate: 30 },
+  ];
+
+  // ---- New Regime slabs ----
+  const [newRegimeSlabs, setNewRegimeSlabs] = useState<TaxSlab[]>(defaultNewRegimeSlabs);
+
+  // ---- Old Regime slabs ----
+  const [oldRegimeSlabs, setOldRegimeSlabs] = useState<TaxSlab[]>(defaultOldRegimeSlabs);
+
+  // ---- Non-slab tax rules (regime selection + TDS computation) ----
+  const [defaultRegime, setDefaultRegime] = useState<string>("New Regime");
+  const [tdsComputation, setTdsComputation] = useState<TaxRules["tdsComputation"]>({
+    projectionMethod: "Annualized",
+    declarationConsideration: "Enabled",
+    perquisiteTax: "Disabled",
   });
 
+  // Track whether Old Regime slabs have been resolved from history.
+  const [oldRegimeFetched, setOldRegimeFetched] = useState(false);
+
+  // ---------------- Load from settings prop ----------------
   useEffect(() => {
-    if (settings?.taxRules) setTaxRules(settings.taxRules);
+    if (!settings?.taxRules) return;
+    const incoming = settings.taxRules;
+    setDefaultRegime(incoming.defaultRegime);
+    setTdsComputation(incoming.tdsComputation);
+
+    if (incoming.defaultRegime === "Old Regime") {
+      // Currently saved regime IS old → its slabs are the old-regime slabs.
+      setOldRegimeSlabs(incoming.slabs);
+      setOldRegimeFetched(true);
+      // New-regime slabs still need to come from history (or defaults).
+      void loadNewRegimeSlabsFromHistory();
+    } else {
+      // Currently saved regime IS new → its slabs are the new-regime slabs.
+      setNewRegimeSlabs(incoming.slabs);
+      // Old-regime slabs come from history (or defaults).
+      void loadOldRegimeSlabsFromHistory();
+    }
   }, [settings]);
 
-  const handleSave = () => onSave({ taxRules });
+  // ---------------- History-based slab loading ----------------
+  const findSlabsByRegime = (
+    entries: PayrollSettingsHistoryEntry[],
+    regime: "Old Regime" | "New Regime"
+  ): TaxSlab[] | null => {
+    // History is newest-first per API docs.
+    for (const entry of entries as any[]) {
+      const rules = entry?.taxRules ?? entry;
+      if (rules?.defaultRegime === regime && Array.isArray(rules?.slabs)) {
+        return rules.slabs as TaxSlab[];
+      }
+    }
+    return null;
+  };
 
+  const loadOldRegimeSlabsFromHistory = async () => {
+    if (oldRegimeFetched) return;
+    setOldRegimeFetched(true);
+    try {
+      const response: any = await payrollService.getPayrollTaxRulesHistory();
+      if (!response.success || !Array.isArray(response.data)) return;
+      const slabs = findSlabsByRegime(response.data, "Old Regime");
+      if (slabs && slabs.length > 0) setOldRegimeSlabs(slabs);
+      // else keep defaults
+    } catch (error) {
+      console.error("Failed to load old-regime slabs from history:", error);
+    }
+  };
+
+  const loadNewRegimeSlabsFromHistory = async () => {
+    try {
+      const response: any = await payrollService.getPayrollTaxRulesHistory();
+      if (!response.success || !Array.isArray(response.data)) return;
+      const slabs = findSlabsByRegime(response.data, "New Regime");
+      if (slabs && slabs.length > 0) setNewRegimeSlabs(slabs);
+    } catch (error) {
+      console.error("Failed to load new-regime slabs from history:", error);
+    }
+  };
+
+  // ---------------- Active slab set based on current regime ----------------
+  const isOldRegime = defaultRegime === "Old Regime";
+  const activeSlabs = isOldRegime ? oldRegimeSlabs : newRegimeSlabs;
+
+  const setActiveSlabs = (next: TaxSlab[]) => {
+    if (isOldRegime) setOldRegimeSlabs(next);
+    else setNewRegimeSlabs(next);
+  };
+
+  const handleRegimeChange = (regime: string) => {
+    setDefaultRegime(regime);
+    if (regime === "Old Regime") {
+      void loadOldRegimeSlabsFromHistory();
+    }
+  };
+
+  // ---------------- Save ----------------
+  const handleSave = async () => {
+    const validationError = validateTaxSlabs(activeSlabs);
+    if (validationError) {
+      showSnackbar(validationError, "error");
+      return;
+    }
+    await onSave({
+      taxRules: {
+        defaultRegime,
+        tdsComputation,
+        slabs: activeSlabs,
+      },
+    });
+  };
+
+  // ---------------- History dialog ----------------
   const handleOpenHistory = async () => {
     setHistoryOpen(true);
     setHistoryLoading(true);
@@ -403,32 +551,27 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
     return `${formatCurrency(slab.min)} – ${formatCurrency(slab.max)}`;
   };
 
-  // ---------- Slab CRUD ----------
+  // ---------------- Slab CRUD ----------------
   const updateSlab = (index: number, patch: Partial<TaxSlab>) => {
-    setTaxRules((prev) => {
-      const slabs = [...prev.slabs];
-      slabs[index] = { ...slabs[index], ...patch };
-      return { ...prev, slabs };
-    });
+    const slabs = [...activeSlabs];
+    slabs[index] = { ...slabs[index], ...patch };
+    setActiveSlabs(slabs);
   };
 
   const addSlab = () => {
-    setTaxRules((prev) => {
-      const last = prev.slabs[prev.slabs.length - 1];
-      const newMin = last ? (last.max === 0 ? last.min + 300000 : last.max + 1) : 0;
-      return {
-        ...prev,
-        slabs: [...prev.slabs, { min: newMin, max: newMin + 299999, rate: 0 }],
-      };
-    });
+    const last = activeSlabs[activeSlabs.length - 1];
+    if (last && last.max === 0) return;
+    const newMin = last ? last.max + 1 : 0;
+    const newMax = newMin + 299999;
+    const newRate = last ? last.rate : 0;
+    setActiveSlabs([...activeSlabs, { min: newMin, max: newMax, rate: newRate }]);
   };
 
   const removeSlab = (index: number) => {
-    setTaxRules((prev) => ({
-      ...prev,
-      slabs: prev.slabs.filter((_, i) => i !== index),
-    }));
+    setActiveSlabs(activeSlabs.filter((_, i) => i !== index));
   };
+
+  const canAddSlab = activeSlabs.length === 0 || activeSlabs[activeSlabs.length - 1].max !== 0;
 
   return (
     <Stack spacing={2}>
@@ -455,14 +598,14 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
             startIcon={<SaveIcon fontSize="small" />}
             className="!bg-primary"
             onClick={handleSave}
-            disabled={saving}
           >
-            {saving ? "Saving..." : "Save Changes"}
+            Save Changes
           </Button>
         </Stack>
       </Box>
 
       <Grid container spacing={2}>
+        {/* Regime selector */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 2.5 }}>
@@ -474,15 +617,15 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                   {["New Regime", "Old Regime"].map((r) => (
                     <Button
                       key={r}
-                      variant={r === taxRules.defaultRegime ? "contained" : "outlined"}
+                      variant={r === defaultRegime ? "contained" : "outlined"}
                       fullWidth
-                      className={` ${r === taxRules.defaultRegime ? "text-white !font-bold" : "!text-gray-800 !border-gray-200"}`}
+                      className={` ${r === defaultRegime ? "text-white !font-bold" : "!text-gray-800 !border-gray-200"}`}
                       sx={{
                         textTransform: "none",
                         py: 1.5,
-                        ...(r === taxRules.defaultRegime && { bgcolor: "var(--color-primary)" }),
+                        ...(r === defaultRegime && { bgcolor: "var(--color-primary)" }),
                       }}
-                      onClick={() => setTaxRules({ ...taxRules, defaultRegime: r })}
+                      onClick={() => handleRegimeChange(r)}
                     >
                       {r}
                     </Button>
@@ -496,6 +639,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
           </Card>
         </Grid>
 
+        {/* TDS computation */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card className="bg-white border border-gray-200" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
             <CardContent sx={{ p: 1, pb: "10px !important" }}>
@@ -506,18 +650,20 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                 <FormControl fullWidth>
                   <InputLabel>Projection Method</InputLabel>
                   <Select
-                    value={taxRules.tdsComputation.projectionMethod}
+                    value={tdsComputation.projectionMethod}
                     label="Projection Method"
                     onChange={(e) =>
-                      setTaxRules({
-                        ...taxRules,
-                        tdsComputation: { ...taxRules.tdsComputation, projectionMethod: e.target.value },
-                      })
+                      setTdsComputation({ ...tdsComputation, projectionMethod: e.target.value })
                     }
                   >
                     <MenuItem value="Annualized">Annualized</MenuItem>
                     <MenuItem value="Monthly">Monthly</MenuItem>
                     <MenuItem value="Actual">Actual</MenuItem>
+                    {!["Annualized", "Monthly", "Actual"].includes(tdsComputation.projectionMethod) && (
+                      <MenuItem value={tdsComputation.projectionMethod}>
+                        {tdsComputation.projectionMethod}
+                      </MenuItem>
+                    )}
                   </Select>
                 </FormControl>
 
@@ -532,14 +678,11 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       </Typography>
                     </Box>
                     <Switch
-                      checked={taxRules.tdsComputation.declarationConsideration === "Enabled"}
+                      checked={tdsComputation.declarationConsideration === "Enabled"}
                       onChange={(e) =>
-                        setTaxRules({
-                          ...taxRules,
-                          tdsComputation: {
-                            ...taxRules.tdsComputation,
-                            declarationConsideration: e.target.checked ? "Enabled" : "Disabled",
-                          },
+                        setTdsComputation({
+                          ...tdsComputation,
+                          declarationConsideration: e.target.checked ? "Enabled" : "Disabled",
                         })
                       }
                     />
@@ -557,14 +700,11 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       </Typography>
                     </Box>
                     <Switch
-                      checked={taxRules.tdsComputation.perquisiteTax === "Enabled"}
+                      checked={tdsComputation.perquisiteTax === "Enabled"}
                       onChange={(e) =>
-                        setTaxRules({
-                          ...taxRules,
-                          tdsComputation: {
-                            ...taxRules.tdsComputation,
-                            perquisiteTax: e.target.checked ? "Enabled" : "Disabled",
-                          },
+                        setTdsComputation({
+                          ...tdsComputation,
+                          perquisiteTax: e.target.checked ? "Enabled" : "Disabled",
                         })
                       }
                     />
@@ -576,11 +716,12 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
         </Grid>
       </Grid>
 
+      {/* Slab table */}
       <Card className="border border-gray-200 bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
         <CardContent sx={{ p: 2.5 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
             <Typography variant="subtitle2" className="text-gray-800" sx={{ fontWeight: 600 }}>
-              New Regime Tax Slabs (FY 2026-27)
+              {defaultRegime} Tax Slabs (FY 2026-27)
             </Typography>
             <Button
               size="small"
@@ -588,6 +729,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
               startIcon={<AddIcon />}
               onClick={addSlab}
               variant="contained"
+              disabled={!canAddSlab}
             >
               Add Slab
             </Button>
@@ -604,7 +746,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                 </TableRow>
               </TableHead>
               <TableBody>
-                {taxRules.slabs.map((slab, index) => (
+                {activeSlabs.map((slab, index) => (
                   <TableRow key={index} sx={getRowColor(index)}>
                     <TableCell>
                       <TextField
@@ -631,9 +773,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                         value={slab.rate}
                         onChange={(e) => updateSlab(index, { rate: parseFloat(e.target.value) || 0 })}
                         sx={{ width: 100, "& .MuiInputBase-input": { px: 2, py: 0.5 } }}
-                        slotProps={{
-                          htmlInput: { min: 0, max: 100, step: 0.5 },
-                        }}
+                        slotProps={{ htmlInput: { min: 0, max: 100, step: 0.5 } }}
                       />
                     </TableCell>
                     <TableCell align="right">
@@ -652,7 +792,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
               Preview:
             </Typography>
             <Stack direction="row" sx={{ mt: 0.5 }}>
-              {taxRules.slabs.map((slab, i) => (
+              {activeSlabs.map((slab, i) => (
                 <Box key={i} className="p-3 rounded-lg text-[12px] bg-head text-gray-800">
                   {formatSlabRangeLocal(slab)} → {slab.rate === 0 ? "Nil" : `${slab.rate}%`}
                 </Box>
@@ -669,6 +809,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
         loading={historyLoading}
         error={historyError}
         entries={history}
+        unwrapKey="taxRules"
       />
     </Stack>
   );
@@ -676,7 +817,7 @@ const TaxRulesSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
 
 // ==================== PF/ESI SETTINGS (EDITABLE) ====================
 
-const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
+const PFESISettings = ({ settings, onSave }: SettingsComponentProps) => {
   const theme = useTheme();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -780,7 +921,7 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
         </Box>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" className="!border-amber-500 !text-amber-500"
-          startIcon={<HistoryIcon fontSize="small" />} onClick={handleOpenHistory}>
+            startIcon={<HistoryIcon fontSize="small" />} onClick={handleOpenHistory}>
             View history
           </Button>
           <Button
@@ -788,9 +929,9 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
             startIcon={<SaveIcon fontSize="small" />}
             className="!bg-primary"
             onClick={handleSave}
-            disabled={saving}
+          // disabled={saving}
           >
-            {saving ? "Saving..." : "Save Changes"}
+            Save Changes
           </Button>
         </Stack>
       </Box>
@@ -917,6 +1058,7 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
         loading={historyLoading}
         error={historyError}
         entries={history}
+        unwrapKey="pfEsiSettings"
       />
     </Stack>
   );
@@ -924,7 +1066,7 @@ const PFESISettings = ({ settings, onSave, saving }: SettingsComponentProps) => 
 
 // ==================== SCHEDULE SETTINGS ====================
 
-const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
+const ScheduleSettings = ({ settings, onSave }: SettingsComponentProps) => {
   const [schedule, setSchedule] = useState<Schedule>({
     frequency: "monthly",
     attendanceCutoffDate: 26,
@@ -965,9 +1107,9 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
           startIcon={<SaveIcon fontSize="small" />}
           className="!bg-primary"
           onClick={handleSave}
-          disabled={saving}
+        // disabled={saving}
         >
-          {saving ? "Saving..." : "Save Changes"}
+          Save Changes
         </Button>
       </Box>
 
@@ -989,6 +1131,10 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                     <MenuItem value="monthly">Monthly</MenuItem>
                     <MenuItem value="weekly">Weekly</MenuItem>
                     <MenuItem value="biweekly">Bi-Weekly</MenuItem>
+                    {/* Fallback for any non-standard value coming from the API */}
+                    {!["monthly", "weekly", "biweekly"].includes(schedule.frequency) && (
+                      <MenuItem value={schedule.frequency}>{schedule.frequency}</MenuItem>
+                    )}
                   </Select>
                 </FormControl>
 
@@ -1003,6 +1149,7 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       onChange={(e) => setSchedule({ ...schedule, attendanceCutoffDate: parseInt(e.target.value) || 0 })}
                       size="small"
                       sx={{ width: 80 }}
+                      slotProps={{ htmlInput: { min: 1, max: 31 } }}
                     />
                     <Typography variant="body2" className="text-gray-500">
                       of each month
@@ -1021,6 +1168,7 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       onChange={(e) => setSchedule({ ...schedule, salaryPaymentDate: parseInt(e.target.value) || 0 })}
                       size="small"
                       sx={{ width: 80 }}
+                      slotProps={{ htmlInput: { min: 1, max: 31 } }}
                     />
                     <Typography variant="body2" className="text-gray-500">
                       of next month
@@ -1039,6 +1187,7 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
                       onChange={(e) => setSchedule({ ...schedule, processingStartDate: parseInt(e.target.value) || 0 })}
                       size="small"
                       sx={{ width: 80 }}
+                      slotProps={{ htmlInput: { min: 1, max: 31 } }}
                     />
                     <Typography variant="body2" className="text-gray-500">
                       of next month
@@ -1085,7 +1234,7 @@ const ScheduleSettings = ({ settings, onSave, saving }: SettingsComponentProps) 
 
 // ==================== APPROVAL WORKFLOW SETTINGS (EDITABLE) ====================
 
-const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponentProps) => {
+const ApprovalWorkflowSettings = ({ settings, onSave }: SettingsComponentProps) => {
   const theme = useTheme();
   const [approvalWorkflow, setApprovalWorkflow] = useState<ApprovalWorkflowStep[]>(defaultApprovalSteps);
   const [editIndex, setEditIndex] = useState<number | null>(null);
@@ -1148,9 +1297,9 @@ const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponen
             startIcon={<SaveIcon fontSize="small" />}
             className="!bg-primary"
             onClick={handleSave}
-            disabled={saving}
+          // disabled={saving}
           >
-            {saving ? "Saving..." : "Save Workflow"}
+            Save Workflow
           </Button>
         </Stack>
       </Box>
@@ -1202,11 +1351,9 @@ const ApprovalWorkflowSettings = ({ settings, onSave, saving }: SettingsComponen
                       onChange={(e) => updateStep(i, { sla: e.target.value })}
                       fullWidth
                     />
-                    {/* <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}> */}
-                      <Button size="small" variant="contained" className="!bg-primary" onClick={() => setEditIndex(null)}>
-                        Done
-                      </Button>
-                    {/* </Box> */}
+                    <Button size="small" variant="contained" className="!bg-primary" onClick={() => setEditIndex(null)}>
+                      Done
+                    </Button>
                   </div>
                 ) : (
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1280,16 +1427,16 @@ export default function PayrollSettings() {
   const theme = useTheme();
   const activeTab = contentMap[tab] ? tab : "tax";
 
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // const [loading, setLoading] = useState(false);
+  // const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<PayrollSettings | null>(null);
-  const { showSnackbar } = useUI();
+  const { showSnackbar, showSpinner, hideSpinner } = useUI();
 
   // ---------- FETCH ALL SETTINGS ----------
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        setLoading(true);
+        showSpinner();
         const [settingsResponse, taxRulesResponse]: any = await Promise.all([
           payrollService.getPayrollSettings(),
           payrollService.getPayrollTaxRules<TaxRules>(),
@@ -1310,7 +1457,7 @@ export default function PayrollSettings() {
       } catch (error: unknown) {
         showSnackbar("Failed to fetch payroll settings", "error");
       } finally {
-        setLoading(false);
+        hideSpinner();
       }
     };
     fetchSettings();
@@ -1319,9 +1466,9 @@ export default function PayrollSettings() {
   // ---------- SAVE (routes to the right endpoint) ----------
   const handleSaveSettings = async (updatedSettings: Partial<PayrollSettings>) => {
     try {
-      setSaving(true);
+      showSpinner();
 
-      // 1) Tax rules → dedicated endpoint
+      // 1) Tax rules → dedicated endpoint (full replacement; server validates slabs)
       if (updatedSettings.taxRules) {
         const response: any = await payrollService.updatePayrollTaxRules<TaxRules>(updatedSettings.taxRules);
         if (!response.success) throw new Error(response.message || "Failed to save tax rules");
@@ -1345,19 +1492,19 @@ export default function PayrollSettings() {
     } catch (error: unknown) {
       showSnackbar(error instanceof Error ? error.message : "An error occurred while saving settings", "error");
     } finally {
-      setSaving(false);
+      hideSpinner();
     }
   };
 
   const Content = contentMap[activeTab];
 
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", my: 3 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", my: 3 }}>
+  //       <CircularProgress />
+  //     </Box>
+  //   );
+  // }
 
   return (
     <>
@@ -1398,7 +1545,7 @@ export default function PayrollSettings() {
 
         {/* Content */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Content settings={settings} onSave={handleSaveSettings} saving={saving} />
+          <Content settings={settings} onSave={handleSaveSettings} />
         </Box>
       </Box>
     </>

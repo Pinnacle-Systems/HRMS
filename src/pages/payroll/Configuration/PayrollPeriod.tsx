@@ -18,6 +18,7 @@ import {
   TextField,
   Paper,
   CircularProgress,
+  Alert,
   ToggleButton,
   ToggleButtonGroup,
   TableContainer,
@@ -38,9 +39,16 @@ import {
   Edit as EditIcon,
   Assessment as FileBarChartIcon,
   Delete,
+  ArrowUpward,
+  ArrowDownward,
   // DeleteOutlined,
 } from "@mui/icons-material";
 import { periodsService } from "../../../services/modules/payrollServices/period";
+import type {
+  PeriodUpdatePayload,
+  PeriodSortBy,
+  PeriodSortDirection,
+} from "../../../services/modules/payrollServices/period";
 import { useUI } from "../../../context/Snackbar";
 import { dialogsx } from "../../../const";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -78,6 +86,9 @@ function PeriodTable({
   onViewTypeChange,
   monthlyCount,
   weeklyCount,
+  sortBy,
+  sortDir,
+  onSortChange,
 }: {
   title: string;
   periods: any[];
@@ -88,7 +99,31 @@ function PeriodTable({
   onViewTypeChange: (v: "monthly" | "weekly") => void;
   monthlyCount: number;
   weeklyCount: number;
+  sortBy: PeriodSortBy;
+  sortDir: PeriodSortDirection;
+  onSortChange: (field: PeriodSortBy) => void;
 }) {
+  const toggleSort = (field: PeriodSortBy) => {
+    if (sortBy !== field) {
+      onSortChange(field);
+      return;
+    }
+    onSortChange(field);
+  };
+
+  const getSortIcon = (column: PeriodSortBy) => {
+    if (sortBy !== column) return null;
+    return (
+      <span className="flex items-center">
+        {sortDir === "asc" ? (
+          <ArrowUpward fontSize="small" className="!w-3" />
+        ) : (
+          <ArrowDownward fontSize="small" className="!w-3" />
+        )}
+      </span>
+    );
+  };
+
   return (
     <Card className="bg-white" sx={{ borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)", mb: 3 }}>
       <CardContent className="!p-5">
@@ -119,10 +154,10 @@ function PeriodTable({
                 if (val) onViewTypeChange(val);
               }}
             >
-              <ToggleButton value="monthly" className="!text-gray-800" sx={{ textTransform: "none", px: 1.5 }}>
+              <ToggleButton value="monthly" className="!text-gray-800 !border-gray-200" sx={{ textTransform: "none", px: 1, py: 0, minWidth: 0 }}>
                 Monthly ({monthlyCount})
               </ToggleButton>
-              <ToggleButton value="weekly" className="!text-gray-800" sx={{ textTransform: "none", px: 1.5 }}>
+              <ToggleButton value="weekly" className="!text-gray-800 !border-gray-200" sx={{ textTransform: "none", px: 1, py: 0, minWidth: 0 }}>
                 Weekly ({weeklyCount})
               </ToggleButton>
             </ToggleButtonGroup>
@@ -139,17 +174,54 @@ function PeriodTable({
           </Box>
         ) : (
           <Box sx={{ overflowX: "auto" }}>
-            <TableContainer className="border border-gray-200 h-[calc(100vh-282px)] overflow-auto bg-white shadow-sm rounded-md">
+            <TableContainer className="border border-gray-200 h-[calc(100vh-262px)] overflow-auto bg-white shadow-sm rounded-md">
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell className="!font-bold">S No</TableCell>
-                    <TableCell className="!font-bold">Period Name</TableCell>
-                    <TableCell className="!font-bold">Start Date</TableCell>
-                    <TableCell className="!font-bold">End Date</TableCell>
-                    <TableCell className="!font-bold">Payment Date</TableCell>
-                    <TableCell align="right" className="!font-bold">
-                      Working Days
+                    <TableCell
+                      className="!font-bold text-gray-800 cursor-pointer"
+                      onClick={() => toggleSort("name")}
+                    >
+                      <div className="relative flex items-center gap-1">
+                        Period Name {getSortIcon("name")}
+                      </div>
+                    </TableCell>
+                    <TableCell
+                      className="!font-bold text-gray-800 cursor-pointer"
+                      onClick={() => toggleSort("startDate")}
+                    >
+                      <div className="relative flex items-center gap-1">
+                        Start Date {getSortIcon("startDate")}
+                      </div>
+                    </TableCell>
+
+                    <TableCell
+                      className="!font-bold text-gray-800 cursor-pointer"
+                      onClick={() => toggleSort("endDate")}
+                    >
+                      <div className="relative flex items-center gap-1">
+                        End Date {getSortIcon("endDate")}
+                      </div>
+                    </TableCell>
+
+                    <TableCell
+                      className="!font-bold text-gray-800 cursor-pointer"
+                      onClick={() => toggleSort("paymentDate")}
+                    >
+                      <div className="relative flex items-center gap-1">
+                        Payment Date {getSortIcon("paymentDate")}
+                      </div>
+                    </TableCell>
+
+                    <TableCell
+                      align="right"
+                      className="!font-bold text-gray-800 cursor-pointer"
+                      onClick={() => toggleSort("workingDays")}
+                    >
+                      <div className="relative flex items-center justify-end gap-1">
+                        Working Days {getSortIcon("workingDays")}
+                      </div>
                     </TableCell>
                     <TableCell align="right" className="!font-bold">
                       Holidays
@@ -223,6 +295,8 @@ export default function PayrollPeriodConfig() {
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   const [viewType, setViewType] = useState<"monthly" | "weekly">("monthly");
+  const [sortBy, setSortBy] = useState<PeriodSortBy>("startDate");
+  const [sortDir, setSortDir] = useState<PeriodSortDirection>("asc");
 
   const [formData, setFormData] = useState({
     id: "",
@@ -232,9 +306,11 @@ export default function PayrollPeriodConfig() {
     paymentDate: "",
     cutoffDate: "",
     workingDays: 0,
+    workingDaysPerWeek: "" as number | "",
     status: "pending",
     holidays: [] as { name: string; date: string }[],
   });
+  const [previewAffectedPeriods, setPreviewAffectedPeriods] = useState<string[] | null>(null);
   // const [newHoliday, setNewHoliday] = useState({ name: "", date: "" });
 
   const [activeFiscalYear, setActiveFiscalYear] = useState<{
@@ -301,16 +377,35 @@ export default function PayrollPeriodConfig() {
     }
   };
 
-  const loadPeriods = async () => {
+  const loadPeriods = async (params: { sortBy: PeriodSortBy; sortDir: PeriodSortDirection } = { sortBy, sortDir }) => {
     showSpinner();
     try {
-      const response: any = await periodsService.getPeriods();
+      const response: any = await periodsService.getPeriods(params);
       setPeriods(response.data?.items || response.data || []);
     } catch (error) {
       showSnackbar("Failed to load payroll periods", "error");
     } finally {
       hideSpinner();
     }
+  };
+
+  const handleSortChange = (field: PeriodSortBy) => {
+    let nextDir: PeriodSortDirection;
+
+    if (sortBy !== field) {
+      nextDir = "asc";
+    } else if (sortDir === "asc") {
+      nextDir = "desc";
+    } else {
+      setSortBy("startDate");
+      setSortDir("desc");
+      loadPeriods({ sortBy: "startDate", sortDir: "desc" });
+      return;
+    }
+
+    setSortBy(field);
+    setSortDir(nextDir);
+    loadPeriods({ sortBy: field, sortDir: nextDir });
   };
 
   const loadSummaryPeriods = async () => {
@@ -368,32 +463,73 @@ export default function PayrollPeriodConfig() {
       paymentDate: period.paymentDate?.split("T")[0] || "",
       cutoffDate: period.cutoffDate?.split("T")[0] || "",
       workingDays: period.workingDays || 0,
+      workingDaysPerWeek: period.workingDaysPerWeek ?? "",
       status: period.status || "pending",
       holidays: period.holidays || [],
     });
+    setPreviewAffectedPeriods(null);
     // setNewHoliday({ name: "", date: "" });
     setSummaryData(null);
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const buildPeriodPayload = (): PeriodUpdatePayload => ({
+    name: formData.name,
+    startDate: formData.startDate,
+    endDate: formData.endDate,
+    paymentDate: formData.paymentDate,
+    cutoffDate: formData.cutoffDate || formData.startDate,
+    workingDays: formData.workingDays || summaryData?.workingDays || 0,
+    ...(formData.workingDaysPerWeek !== ""
+      ? { workingDaysPerWeek: formData.workingDaysPerWeek }
+      : {}),
+    status: formData.status,
+    // holidays: formData.holidays,
+    holidays: formData.holidays as unknown as PeriodUpdatePayload["holidays"],
+  });
+
+  const validatePeriodForm = () => {
     if (!formData.name || !formData.startDate || !formData.endDate || !formData.paymentDate) {
       showSnackbar("Please fill all required fields", "warning");
-      return;
+      return false;
     }
+    if (
+      formData.workingDaysPerWeek !== "" &&
+      (!Number.isInteger(formData.workingDaysPerWeek) ||
+        formData.workingDaysPerWeek < 1 ||
+        formData.workingDaysPerWeek > 7)
+    ) {
+      showSnackbar("Working days per week must be between 1 and 7", "warning");
+      return false;
+    }
+    return true;
+  };
+
+  const handlePreviewUpdate = async () => {
+    if (!validatePeriodForm()) return;
 
     showSpinner();
     try {
-      const payload: any = {
-        name: formData.name,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        paymentDate: formData.paymentDate,
-        cutoffDate: formData.cutoffDate || formData.startDate,
-        workingDays: formData.workingDays || summaryData.workingDays,
-        status: formData.status,
-        holidays: formData.holidays,
-      };
+      const response = await periodsService.updatePeriod(
+        formData.id,
+        buildPeriodPayload(),
+        { dryRun: true },
+      );
+      setPreviewAffectedPeriods(response.data.affectedPeriods ?? []);
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to preview payroll period changes", "error");
+      setPreviewAffectedPeriods(null);
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!validatePeriodForm()) return;
+
+    showSpinner();
+    try {
+      const payload = buildPeriodPayload();
 
       if (isEditMode) {
         await periodsService.updatePeriod(formData.id, payload);
@@ -422,11 +558,13 @@ export default function PayrollPeriodConfig() {
       paymentDate: "",
       cutoffDate: "",
       workingDays: 0,
+      workingDaysPerWeek: "",
       status: "pending",
       holidays: [],
     });
     // setNewHoliday({ name: "", date: "" });
     setSummaryData(null);
+    setPreviewAffectedPeriods(null);
     setIsEditMode(false);
   };
 
@@ -485,13 +623,9 @@ export default function PayrollPeriodConfig() {
     return !pStart.isAfter(fEnd) && !pEnd.isBefore(fStart);
   });
 
-  const monthlyPeriods = visiblePeriods
-    .filter((p) => p.periodType === "monthly")
-    .sort((a, b) => dayjs(b.startDate).valueOf() - dayjs(a.startDate).valueOf());
+  const monthlyPeriods = visiblePeriods.filter((p) => p.periodType === "monthly");
 
-  const weeklyPeriods = visiblePeriods
-    .filter((p) => p.periodType === "weekly")
-    .sort((a, b) => dayjs(b.startDate).valueOf() - dayjs(a.startDate).valueOf());
+  const weeklyPeriods = visiblePeriods.filter((p) => p.periodType === "weekly");
 
   const displayedPeriods = viewType === "monthly" ? monthlyPeriods : weeklyPeriods;
 
@@ -641,7 +775,7 @@ export default function PayrollPeriodConfig() {
         </Box>
       </Box>
 
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, mb: 1, flexWrap: "wrap" }}>
         <Typography variant="body2" className="text-gray-800">
           Active Fiscal Year:{" "}
           <strong>
@@ -666,6 +800,9 @@ export default function PayrollPeriodConfig() {
         onViewTypeChange={setViewType}
         monthlyCount={monthlyPeriods.length}
         weeklyCount={weeklyPeriods.length}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSortChange={handleSortChange}
       />
 
       {/* Unified Create/Edit Dialog */}
@@ -707,6 +844,7 @@ export default function PayrollPeriodConfig() {
                         ...formData,
                         startDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       });
+                      setPreviewAffectedPeriods(null);
                     }}
                     format="DD/MM/YYYY"
                     slotProps={{
@@ -723,6 +861,7 @@ export default function PayrollPeriodConfig() {
                         ...formData,
                         endDate: newValue ? dayjs(newValue).format("YYYY-MM-DD") : "",
                       });
+                      setPreviewAffectedPeriods(null);
                     }}
                     format="DD/MM/YYYY"
                     slotProps={{
@@ -762,7 +901,48 @@ export default function PayrollPeriodConfig() {
                   fullWidth
                 />
               </Grid>
+              {isEditMode && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label="Working Days Per Week"
+                    type="number"
+                    value={formData.workingDaysPerWeek}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData({
+                        ...formData,
+                        workingDaysPerWeek: value === "" ? "" : Number(value),
+                      });
+                      setPreviewAffectedPeriods(null);
+                    }}
+                    slotProps={{
+                      htmlInput: { min: 1, max: 7, step: 1 },
+                    }}
+                    helperText="Changing this recalculates working days for the fiscal year."
+                    fullWidth
+                  />
+                </Grid>
+              )}
             </Grid>
+
+            {previewAffectedPeriods !== null && (
+              <Alert severity="info">
+                <Typography variant="body2">
+                  Preview only — no changes have been saved.
+                </Typography>
+                {previewAffectedPeriods.length > 0 ? (
+                  <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+                    {previewAffectedPeriods.map((period, index) => (
+                      <li key={`${period}-${index}`}>{period}</li>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    No other periods are affected.
+                  </Typography>
+                )}
+              </Alert>
+            )}
 
             <Box>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
@@ -851,6 +1031,15 @@ export default function PayrollPeriodConfig() {
         </DialogContent>
 
         <DialogActions className="!p-4 border-t border-gray-200">
+          {isEditMode && (
+            <Button
+              onClick={handlePreviewUpdate}
+              variant="outlined"
+              className="!text-primary !border-primary"
+            >
+              Preview Changes
+            </Button>
+          )}
           <Button
             onClick={() => { setIsDialogOpen(false); resetForm(); }}
             variant="outlined"

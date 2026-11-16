@@ -421,7 +421,7 @@ export default function AdminLeaveTypesPage() {
                       }))
                     }
                     color="primary"
-                    disabled
+                    // disabled
                   />
                 }
                 label="Allow Half a Day"

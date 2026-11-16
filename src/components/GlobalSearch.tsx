@@ -179,8 +179,8 @@ const ALL_ITEMS: SearchItem[] = [
   {
     label: "Payroll Inputs",
     description: "Leave-related payroll inputs and monthly rollups",
-    path: "/leaves/hr/payroll-inputs",
-    category: "Leave",
+    path: "/payroll/inputs",
+    category: "Payroll",
     icon: <ReviewsOutlined fontSize="small" />,
     keywords: ["payroll", "inputs", "hr", "leave", "encashments", "settlements"],
     roles: ["ADMIN", "HR"],
@@ -719,8 +719,8 @@ const ALL_ITEMS: SearchItem[] = [
   {
     label: "Permission Requests",
     description: "Request time away from the workplace and generate gate-pass slips",
-    path: "/permission-requests",
-    category: "Attendance",
+    path: "/leaves/permission-requests",
+    category: "Leave",
     icon: <EventBusyOutlined fontSize="small" />,
     keywords: [
       "permission",

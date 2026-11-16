@@ -372,14 +372,13 @@ export default function UserManagement() {
                     >
                         Refresh
                     </Button> */}
-                    <Button
+                    {/* <Button
                         variant="contained"
                         className="!bg-primary"
-                        startIcon={<AddIcon />}
                         onClick={() => setOpenUserDialog(true)}
                     >
-                        Add User
-                    </Button>
+                        Edit User
+                    </Button> */}
                 </div>
             </div>
 
@@ -860,11 +859,14 @@ export default function UserManagement() {
 
             {/* Add/Edit User Dialog */}
             <Dialog open={openUserDialog} onClose={() => setOpenUserDialog(false)} maxWidth="md" fullWidth>
-                <DialogTitle>
-                    {selectedUser ? 'Edit User' : 'Add New User'}
+                <DialogTitle className="border-b !p-2 border-gray-200 flex items-center justify-between">
+                    <div className="ml-4">{selectedUser ? 'Edit User' : 'Add New User'}</div>
+                    <IconButton>
+                        <CloseOutlined className="text-gray-800"/>
+                    </IconButton>
                 </DialogTitle>
                 <DialogContent>
-                    <Grid container spacing={3} className="mt-2">
+                    <Grid container spacing={3} className="mt-6">
                         <Grid size={{ xs: 12, md: 6 }}>
                             <TextField
                                 fullWidth

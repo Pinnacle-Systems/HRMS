@@ -849,7 +849,7 @@ export default function BranchSettings() {
                         label={branch.active ? "Active" : "Inactive"}
                         color={branch.active ? "success" : "error"}
                         size="small"
-                        onClick={() => handleToggleStatus(branch)}
+                        onClick={() => { branch.branchCode == 'HEAD OFFICE' ? '' : handleToggleStatus(branch) }}
                         className="cursor-pointer"
                       />
                     </TableCell>

@@ -256,6 +256,7 @@ export interface CreateDeviceRequest {
   deviceName: string;
   deviceModel: string;
   ipAddress: string;
+  staticIpAddress?: string;
   location: string;
   port: number;
   syncFrequency: number;

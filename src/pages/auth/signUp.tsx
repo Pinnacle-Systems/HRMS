@@ -570,9 +570,9 @@ export default function Signup() {
         password: formData.password,
         companyName: formData.companyName.trim(),
         subdomain: formData.subdomain.toLowerCase().trim(),
-        country: formData.country,
-        state: formData.state,
-        industry: formData.industry,
+        countryId: formData.country,
+        stateId: formData.state,
+        industryId: formData.industry,
       };
  
       const response: any = await authService.signup(signupPayload);

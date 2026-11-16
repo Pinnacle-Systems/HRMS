@@ -6,6 +6,7 @@ export type LeaveRouteId =
   | "myDashboard"
   | "apply"
   | "myRequests"
+  | "permissionRequests"
   | "hrUpcomingEvents"
   | "holidayCalendar"
   | "compOffs"
@@ -16,7 +17,6 @@ export type LeaveRouteId =
   | "hrBalances"
   | "hrAdjustments"
   | "hrLopReview"
-  | "hrPayrollInputs"
   | "hrReports"
   | "adminLeaveTypes"
   | "adminPolicies"
@@ -149,15 +149,6 @@ export const leaveRoutes: LeaveRouteConfig[] = [
     isImplemented: true,
   },
   {
-    id: "hrPayrollInputs",
-    path: "/leaves/hr/payroll-inputs",
-    label: "Payroll Inputs",
-    description: "Leave-related payroll input exports and checks will appear here.",
-    group: "hr",
-    allowedRoles: ["ADMIN", "HR"],
-    isImplemented: true,
-  }, 
-  {
     id: "hrUpcomingEvents",
     path: "/leaves/hr/upcoming-events",
     label: "Upcoming Events",
@@ -220,6 +211,16 @@ export const leaveRoutes: LeaveRouteConfig[] = [
   //   allowedRoles: ["ADMIN"],
   //   isImplemented: true,
   // },
+  {
+    id: "permissionRequests",
+    path: "/leaves/permission-requests",
+    label: "Permission Requests",
+    title: "Permission Requests",
+    description: "Request time away from work and manage gate-pass slips from one place.",
+    group: "employee",
+    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
+    isImplemented: true,
+  },
 ];
 
 export const leaveGroupLabels: Record<LeaveRouteGroup, string> = {

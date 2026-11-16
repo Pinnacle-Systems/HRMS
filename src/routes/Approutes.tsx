@@ -41,7 +41,7 @@ const HrLeaveRequestsPage = lazy(() => import("../pages/leave//HrComponents/HrLe
 const HrLeaveBalancesPage = lazy(() => import("../pages/leave/HrComponents/HrLeaveBalancesPage"));
 const HrLeaveAdjustmentsPage = lazy(() => import("../pages/leave/HrComponents/HrLeaveAdjustmentsPage"));
 const HrLopReviewPage = lazy(() => import("../pages/leave/HrComponents/HrLopReviewPage"));
-const HrPayrollInputsPage = lazy(() => import("../pages/leave/HrComponents/HrPayrollInputsPage"));
+const HrPayrollInputsPage = lazy(() => import("../pages/payroll/Operations/HrPayrollInputsPage"));
 const HrLeaveReportsPage = lazy(() => import("../pages/leave/HrComponents/HrLeaveReportsPage"));
 const AdminLeaveTypesPage = lazy(() => import("../pages/leave/AdminComponents/AdminLeaveTypesPage"));
 const AdminLeavePoliciesPage = lazy(() => import("../pages/leave/AdminComponents/AdminLeavePoliciesPage"));
@@ -132,12 +132,6 @@ interface RouteConfig {
 const routeConfigs: RouteConfig[] = [
   // ===================== BASIC ACCESS ROUTES =====================
   // Routes accessible to all authenticated users with basic permissions
-  {
-    path: "permission-requests",
-    element: <PermissionRequestPage />,
-    allowedRoles: ["ADMIN", "HR", "MANAGER", "EMPLOYEE", "ESS"],
-    requiresWorkspace: true,
-  },
   {
     path: "home",
     element: <Home />,
@@ -319,6 +313,18 @@ const routeConfigs: RouteConfig[] = [
     element: <PayrollRuns />,
     allowedRoles: ["ADMIN", "HR"],
     requiredPermissions: [PERMISSIONS.PAYROLL_READ],
+    requiresWorkspace: true,
+  },
+  {
+    path: "payroll/inputs",
+    element: <HrPayrollInputsPage />,
+    allowedRoles: ["ADMIN", "HR"],
+    requiresWorkspace: true,
+  },
+  {
+    path: "leaves/hr/payroll-inputs",
+    element: <Navigate to="/payroll/inputs" replace />,
+    allowedRoles: ["ADMIN", "HR"],
     requiresWorkspace: true,
   },
   {
@@ -522,6 +528,7 @@ const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   myDashboard: <MyLeaveDashboard />,
   apply: <ApplyLeavePage />,
   myRequests: <MyLeaveRequestsPage />,
+  permissionRequests: <PermissionRequestPage />,
   hrUpcomingEvents: <UpcomingEventsPage />,
   holidayCalendar: <HolidayCalendarPage />,
   compOffs: <CompOffsPage />,
@@ -532,7 +539,6 @@ const leaveRouteElements: Partial<Record<LeaveRouteId, ReactElement>> = {
   hrBalances: <HrLeaveBalancesPage />,
   hrAdjustments: <HrLeaveAdjustmentsPage />,
   hrLopReview: <HrLopReviewPage />,
-  hrPayrollInputs: <HrPayrollInputsPage />,
   hrReports: <HrLeaveReportsPage />,
   adminLeaveTypes: <AdminLeaveTypesPage />,
   adminPolicies: <AdminLeavePoliciesPage />,
@@ -852,6 +858,11 @@ function AppRoutesContent() {
                     <Route index element={<CompanySettings />} />
                   </Route>
                 </Route>
+
+                <Route
+                  path="permission-requests"
+                  element={<Navigate to="/leaves/permission-requests" replace />}
+                />
 
                 {/* Leave redirect */}
                 <Route

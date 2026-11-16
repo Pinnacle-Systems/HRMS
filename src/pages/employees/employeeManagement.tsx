@@ -66,7 +66,7 @@ import {
   MoreVertOutlined,
   NoAccountsOutlined,
   PaidOutlined,
-  PrintOutlined,           
+  PrintOutlined,
   VisibilityOutlined,
 } from "@mui/icons-material";
 import {
@@ -2019,7 +2019,7 @@ export default function EmployeeManagement() {
                 {EMPLOYEE_DETAILS_REPORT_FORMS.map((form) => (
                   <MenuItem key={form.value} value={form.value}>
                     <Checkbox
-                      className="!p-0 !mr-2 text-gray-800"  
+                      className="!p-0 !mr-2 text-gray-800"
                       checked={
                         detailsReportForms.includes(form.value) ||
                         detailsReportForms.includes("all")
@@ -2057,11 +2057,10 @@ export default function EmployeeManagement() {
       <TableContainer
         component={Paper}
         elevation={0}
-        className={`${
-          activeFilters && activeFilters.rules.length > 0
+        className={`${activeFilters && activeFilters.rules.length > 0
             ? "h-[calc(100vh-385px)]"
             : "h-[calc(100vh-330px)]"
-        } overflow-auto border border-gray-200 !bg-white-50`}
+          } overflow-auto border border-gray-200 !bg-white-50`}
       >
         <Table stickyHeader>
           <TableHead className="bg-gray-100">
@@ -2116,7 +2115,7 @@ export default function EmployeeManagement() {
                 <div className="relative flex items-center gap-1">
                   Employee ID{" "}
                   <Tooltip
-                    title="Few Information are missing for the highlighted employees (Department / Designation / Template / Group)"
+                    title="Few Information are missing for the highlighted employees (Department / Designation / Template / Group / CTC)"
                     arrow
                   >
                     {employees.some(
@@ -2124,6 +2123,7 @@ export default function EmployeeManagement() {
                         !employee.department ||
                         !employee.designation ||
                         !employee.template ||
+                        !employee.annualCtc ||
                         !employee.employeeGroup,
                     ) ? (
                       <span className="animate-blink bg-red-500 w-2 h-2 rounded-full" />
@@ -2240,6 +2240,7 @@ export default function EmployeeManagement() {
                     if (!employee.designation) missing.push("Designation");
                     if (!employee.template) missing.push("Template");
                     if (!employee.employeeGroup) missing.push("Group");
+                    if (!employee.annualCtc) missing.push("CTC");
                     const isComplete = missing.length === 0;
 
                     return (
@@ -2250,9 +2251,8 @@ export default function EmployeeManagement() {
                         arrow
                       >
                         <div
-                          className={`!font-bold cursor-pointer transition-colors hover:!text-blue-500 hover:!underline ${
-                            isComplete ? "!text-green-800" : "!text-red-600"
-                          }`}
+                          className={`!font-bold cursor-pointer transition-colors hover:!text-blue-500 hover:!underline ${isComplete ? "!text-green-800" : "!text-red-600"
+                            }`}
                         >
                           {employee.employeeId}
                         </div>
@@ -2302,7 +2302,7 @@ export default function EmployeeManagement() {
                         title={
                           employee.annualCtc && employee.annualCtc > 0
                             ? "Click to Re-assign Salary"
-                            : "Click to Assign Salary"
+                            : "Salary not assigned — click to assign"
                         }
                       >
                         <IconButton
@@ -2312,12 +2312,16 @@ export default function EmployeeManagement() {
                               `/payroll/assign?employeeId=${encodeURIComponent(employee.id)}`,
                             );
                           }}
-                          sx={{ cursor: "pointer" }}
+                          sx={{ cursor: "pointer", position: "relative" }}
                         >
                           {employee.annualCtc && employee.annualCtc > 0 ? (
                             <PaidOutlined className="!w-4 text-green-600" />
                           ) : (
-                            <MoneyOffCsred className="!w-4 text-red-500" />
+                            <span className="relative inline-flex items-center justify-center">
+                              <MoneyOffCsred className="!w-4 text-red-500" />
+                              {/* Blinking red dot — same pattern used in Employee ID column */}
+                              <span className="absolute -top-1 -right-1 animate-blink bg-red-500 w-2 h-2 rounded-full" />
+                            </span>
                           )}
                         </IconButton>
                       </Tooltip>
@@ -2765,9 +2769,8 @@ export default function EmployeeManagement() {
 
                     {empGenerationFlow === "new" && (
                       <div
-                        className={`grid grid-cols-1 ${
-                          empCodeType === "pattern" ? "md:grid-cols-4" : "md:grid-cols-3"
-                        } gap-4 mt-6`}
+                        className={`grid grid-cols-1 ${empCodeType === "pattern" ? "md:grid-cols-4" : "md:grid-cols-3"
+                          } gap-4 mt-6`}
                       >
                         <FormControl fullWidth>
                           <InputLabel>Format Type</InputLabel>
@@ -3036,8 +3039,8 @@ export default function EmployeeManagement() {
                   const proposed = newValue ? dayjs(newValue).format("YYYY-MM-DD") : "";
                   const generated = proposed
                     ? dayjs(proposed)
-                        .add(Number(relievingDialogEmployee?.noticePeriod || 0), "day")
-                        .format("YYYY-MM-DD")
+                      .add(Number(relievingDialogEmployee?.noticePeriod || 0), "day")
+                      .format("YYYY-MM-DD")
                     : "";
                   setProposedRelievedDate(proposed);
                   setSystemGeneratedRelievedDate(generated);
@@ -3209,18 +3212,18 @@ export default function EmployeeManagement() {
                           "deactivatedAt",
                         ) !== "-"
                           ? formatDate(
-                              getResignedField(
-                                employee,
-                                "relievedDate",
-                                "relievingDate",
-                                "deactivatedAt",
-                              ),
-                            )
+                            getResignedField(
+                              employee,
+                              "relievedDate",
+                              "relievingDate",
+                              "deactivatedAt",
+                            ),
+                          )
                           : "-"}
                       </TableCell>
                       <TableCell>
                         {getResignedField(employee, "eligibleForRehire", "eligibleToRehire") ===
-                        "-"
+                          "-"
                           ? "-"
                           : getResignedField(employee, "eligibleForRehire", "eligibleToRehire")
                             ? "Yes"
@@ -3263,7 +3266,7 @@ export default function EmployeeManagement() {
                                     <div className="font-medium text-gray-500">{label}</div>
                                     <div className="mt-1 text-gray-800">
                                       {field.toLowerCase().includes("date") ||
-                                      field === "deactivatedAt"
+                                        field === "deactivatedAt"
                                         ? value === "-"
                                           ? "-"
                                           : formatDate(value)
@@ -3341,9 +3344,8 @@ export default function EmployeeManagement() {
                 <Checkbox
                   checked={excelHasEmployeeIdColumn}
                   onChange={(e) => setExcelHasEmployeeIdColumn(e.target.checked)}
-                  className={`text-gray-800 ${
-                    !excelHasEmployeeIdColumn ? "animate-blink" : ""
-                  }`}
+                  className={`text-gray-800 ${!excelHasEmployeeIdColumn ? "animate-blink" : ""
+                    }`}
                   disabled={!employeeIdConfig?.configured}
                 />
               }
@@ -3407,11 +3409,10 @@ export default function EmployeeManagement() {
           {uploadResult && (
             <div className="mt-4 space-y-4">
               <div
-                className={`border rounded-lg p-4 ${
-                  uploadResult?.failureCount && uploadResult?.failureCount > 0
+                className={`border rounded-lg p-4 ${uploadResult?.failureCount && uploadResult?.failureCount > 0
                     ? "border-orange-200 bg-orange-50/40"
                     : "border-green-200 bg-green-50"
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>

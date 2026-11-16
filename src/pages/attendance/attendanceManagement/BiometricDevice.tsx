@@ -20,8 +20,6 @@ import {
   TextField,
   MenuItem,
   Grid,
-  Card,
-  CardContent,
   Tooltip,
   CircularProgress,
   FormControlLabel,
@@ -103,6 +101,7 @@ export const DeviceManagement: React.FC = () => {
     machineType: "",
     machineSetUp: "",
     isActive: true,
+    staticIpAddress: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -379,6 +378,7 @@ export const DeviceManagement: React.FC = () => {
       machineSetUp: "",
       isActive: true,
       port: 4370,
+      staticIpAddress: "",
     });
     setFormErrors({});
     setOpenDialog(true);
@@ -392,6 +392,7 @@ export const DeviceManagement: React.FC = () => {
       deviceSerial: device.deviceSerial || "",
       deviceModel: device.deviceModel || "",
       ipAddress: device.ipAddress || "",
+      staticIpAddress: (device as any).staticIpAddress || "",
       location: device.location || "",
       syncFrequency: device.syncFrequency || 5,
       machineType: device.machineType || "",
@@ -698,6 +699,8 @@ export const DeviceManagement: React.FC = () => {
     if (!formData.deviceModel.trim())
       errors.deviceModel = "Device model is required";
     if (!formData.ipAddress.trim()) errors.ipAddress = "IP address is required";
+    if (!formData.staticIpAddress?.trim())
+      errors.staticIpAddress = "Static IP address is required";
     if (!formData.location.trim()) errors.location = "Location is required";
     if (!formData.machineType) errors.machineType = "Machine type is required";
     if (!formData.machineSetUp)
@@ -707,6 +710,9 @@ export const DeviceManagement: React.FC = () => {
       /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     if (formData.ipAddress && !ipRegex.test(formData.ipAddress)) {
       errors.ipAddress = "Invalid IP address format";
+    }
+    if (formData.staticIpAddress && !ipRegex.test(formData.staticIpAddress)) {
+      errors.staticIpAddress = "Invalid static IP address format";
     }
 
     setFormErrors(errors);
@@ -974,7 +980,7 @@ export const DeviceManagement: React.FC = () => {
                             onClick={() => removeBulkMappingRow(mapping.id)}
                             disabled={mapping.status === 'success' || bulkMappingLoading}
                           >
-                            <CloseOutlined fontSize="small" className="text-gray-800"/>
+                            <CloseOutlined fontSize="small" className="text-gray-800" />
                           </IconButton>
                         </Tooltip>
                       </div>
@@ -1076,7 +1082,7 @@ export const DeviceManagement: React.FC = () => {
         </IconButton>
       </DialogTitle>
       <DialogContent className="!p-4" onKeyDown={handleEnterAsTab}>
-        <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid container spacing={2} sx={{ mt: 1 }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
@@ -1099,7 +1105,7 @@ export const DeviceManagement: React.FC = () => {
               required
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Device Model"
@@ -1110,10 +1116,23 @@ export const DeviceManagement: React.FC = () => {
               required
             />
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
-              label="IP Address"
+              label="Static IP Address"
+              value={formData.staticIpAddress}
+              onChange={handleFormChange("staticIpAddress")}
+              error={!!formErrors.staticIpAddress}
+              helperText={formErrors.staticIpAddress}
+              required
+              placeholder="192.168.1.15"
+            // disabled={dialogMode === "edit"}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <TextField
+              fullWidth
+              label="Local IP Address"
               value={formData.ipAddress}
               onChange={handleFormChange("ipAddress")}
               error={!!formErrors.ipAddress}
@@ -1323,7 +1342,7 @@ export const DeviceManagement: React.FC = () => {
                 sx={{ p: 2 }}
                 className="bg-white text-gray-800"
               >
-                <Grid container spacing={2}>
+                <Grid container>
                   <Grid size={{ xs: 12, md: 4 }}>
                     <DetailItem
                       icon={<ComputerIcon color="primary" />}
@@ -1344,8 +1363,8 @@ export const DeviceManagement: React.FC = () => {
                     />
                     <DetailItem
                       icon={<WifiIcon color="primary" />}
-                      label="IP Address"
-                      value={selectedDevice.ipAddress}
+                      label="Static IP Address"
+                      value={(selectedDevice as any).staticIpAddress}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, md: 4 }}>
@@ -1354,6 +1373,13 @@ export const DeviceManagement: React.FC = () => {
                       label="Location"
                       value={selectedDevice.location}
                     />
+                    <DetailItem
+                      icon={<WifiIcon color="primary" />}
+                      label="Local IP Address"
+                      value={selectedDevice.ipAddress}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <DetailItem
                       icon={<SettingsOutlined color="primary" />}
                       label="Machine Type"
@@ -1878,11 +1904,11 @@ export const DeviceManagement: React.FC = () => {
   );
 
   // ==================== MAIN RENDER ====================
-  const stats = {
-    total: devices.length,
-    active: devices.filter((d) => d.isActive).length,
-    inactive: devices.filter((d) => !d.isActive).length,
-  };
+  // const stats = {
+  //   total: devices.length,
+  //   active: devices.filter((d) => d.isActive).length,
+  //   inactive: devices.filter((d) => !d.isActive).length,
+  // };
 
   return (
     <Box sx={{ p: 2 }}>
@@ -1932,7 +1958,7 @@ export const DeviceManagement: React.FC = () => {
       </Box>
 
       {/* Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      {/* <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 4, md: 4 }}>
           <Card className="bg-white-50">
             <CardContent className="!text-gray-800">
@@ -1961,7 +1987,7 @@ export const DeviceManagement: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
+      </Grid> */}
 
       <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
         <Grid container spacing={2} sx={{ mb: 2 }} className="items-center">
