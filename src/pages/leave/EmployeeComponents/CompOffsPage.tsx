@@ -68,15 +68,24 @@ export default function CompOffsPage() {
   const [reason, setReason] = useState("");
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const currentEmployeeId = session?.user.employeeId ? session?.user.employeeId : session?.user.userId ?? "";
+  const [submitting, setSubmitting] = useState(false); // FIX: guard against double-submit
+  const currentEmployeeId = session?.user.employeeId
+    ? session?.user.employeeId
+    : session?.user.userId ?? "";
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [sessionFilter, setSessionFilter] = useState("ALL");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
-  const loadCompOffs = async () => {
-    showSpinner();
+
+  const unwrapList = <T,>(response: any): T[] => {
+    const raw = response?.data?.content ?? response?.data ?? response ?? [];
+    return Array.isArray(raw) ? (raw as T[]) : [];
+  };
+
+  const loadCompOffs = async (opts?: { skipSpinner?: boolean }) => {
+    if (!opts?.skipSpinner) showSpinner();
     try {
       if (!currentEmployeeId) {
         throw new Error("Current employee id is unavailable");
@@ -89,13 +98,17 @@ export default function CompOffsPage() {
         sort: "createdAt,DESC",
       });
 
-      const data = response.data?.content ?? response.data ?? [];
+      const data = unwrapList<CompOffCredit>(response);
       setAllCredits(data);
       setFilteredCredits(data);
     } catch (err: any) {
-      showSnackbar(err?.message || "Failed to load comp-offs", "error");
+      console.error("loadCompOffs failed", err, err?.response?.data);
+      showSnackbar(
+        err?.response?.data?.message || err?.message || "Failed to load comp-offs",
+        "error",
+      );
     } finally {
-      hideSpinner();
+      if (!opts?.skipSpinner) hideSpinner();
     }
   };
 
@@ -151,13 +164,11 @@ export default function CompOffsPage() {
           size: 50,
           sort: "name,ASC",
         });
-        if (isMounted) {
-          setLeaveTypes(response.data ?? response.data?.content ?? []);
-        }
-      } catch {
-        if (isMounted) {
-          setLeaveTypes([]);
-        }
+        if (!isMounted) return;
+        setLeaveTypes(unwrapList<LeaveType>(response));
+      } catch (err) {
+        console.error("loadLeaveTypes failed", err);
+        if (isMounted) setLeaveTypes([]);
       }
     };
 
@@ -172,8 +183,8 @@ export default function CompOffsPage() {
       leaveTypes.find(
         (leaveType) =>
           ["CO", "COMP_OFF", "COMP-OFF"].includes(
-            leaveType.code.toUpperCase(),
-          ) || leaveType.name.toLowerCase().includes("comp"),
+            leaveType.code?.toUpperCase() ?? "",
+          ) || leaveType.name?.toLowerCase().includes("comp"),
       ),
     [leaveTypes],
   );
@@ -185,7 +196,6 @@ export default function CompOffsPage() {
     const approved = allCredits.filter((c) => c.currentStatus === "APPROVED");
     const rejected = allCredits.filter((c) => c.currentStatus === "REJECTED");
     const expired = allCredits.filter((c) => c.currentStatus === "EXPIRED");
-    // const used = allCredits.filter(c => c.currentStatus === "USED");
 
     return {
       total: allCredits.length,
@@ -196,7 +206,6 @@ export default function CompOffsPage() {
       approved: approved.reduce((sum, c) => sum + c.creditDays, 0),
       rejectedCount: rejected.length,
       expiredCount: expired.length,
-      // usedCount: used.length,
     };
   }, [allCredits]);
 
@@ -208,63 +217,63 @@ export default function CompOffsPage() {
   };
 
   const submitRequest = async () => {
+    if (submitting) return;
+
     const nextErrors: Record<string, string> = {};
     if (!workedDate) nextErrors.workedDate = "Worked date is required";
     if (!reason.trim()) nextErrors.reason = "Reason is required";
     if (!compOffLeaveType?.id)
       nextErrors.leaveTypeId = "Comp-off leave type is unavailable";
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
 
+    if (Object.keys(nextErrors).length) {
+      const first = Object.values(nextErrors)[0];
+      showSnackbar(first, "error");
+      return;
+    }
+
+    setSubmitting(true);
     showSpinner();
     try {
       if (!currentEmployeeId) {
         throw new Error("Current employee id is unavailable");
       }
 
-      const response: any = await leaveService.requestCompOffCredit({
+      const expiry = calculateCompOffExpiryDate(workedDate!.toDate());
+      const payload = {
         workedDate: workedDate!.format("YYYY-MM-DD"),
         sessionType: sessionType,
         creditDays: sessionType === "FULL_DAY" ? 1 : 0.5,
-        expiryDate: formatDateForApi(
-          calculateCompOffExpiryDate(workedDate!.toDate()),
-        ),
+        expiryDate: formatDateForApi(expiry),
         reason,
-        leaveTypeId: compOffLeaveType?.id,
-        approverId: "2122db24-272f-46fb-8482-e0dd03e614d8" //managerId
-      },{employeeId: currentEmployeeId,});
+        leaveTypeId: compOffLeaveType!.id,
+        // approverId: "2122db24-272f-46fb-8482-e0dd03e614d8", // managerId
+      };
+      await leaveService.requestCompOffCredit(payload, {
+        employeeId: currentEmployeeId,
+      });
 
-      if (response.success) {
-        showSnackbar(
-          "Comp-off credit request submitted for approval",
-          "success",
-        );
-        await loadCompOffs(); // Reload the list
-        setOpen(false);
-        resetForm();
-      }
-    } catch (err: any) {
+      hideSpinner();
       showSnackbar(
-        err?.message || "Failed to request comp-off credit",
+        "Comp-off credit request submitted for approval",
+        "success",
+      );
+      setOpen(false);
+      resetForm();
+      await loadCompOffs({ skipSpinner: true });
+    } catch (err: any) {
+      console.error("comp-off submit failed", err, err?.response?.data);
+      showSnackbar(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to request comp-off credit",
         "error",
       );
     } finally {
       hideSpinner();
+      setSubmitting(false);
     }
   };
-
-  // Get status color for chips
-  // const getStatusColor = (status: string) => {
-  //   const colors: Record<string, any> = {
-  //     AVAILABLE: "success",
-  //     PENDING: "warning",
-  //     APPROVED: "info",
-  //     REJECTED: "error",
-  //     EXPIRED: "default",
-  //     USED: "secondary",
-  //   };
-  //   return colors[status] || "default";
-  // };
 
   return (
     <LeavePageShell
@@ -331,90 +340,12 @@ export default function CompOffsPage() {
 
         <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl py-2 px-4 border border-gray-200/50">
           <div className="text-[12px]">Expired</div>
-          <div className="text-xl font-bold">
-            {statistics.expiredCount}
-          </div>
+          <div className="text-xl font-bold">{statistics.expiredCount}</div>
           <div className="text-[12px] text-gray-600/70">Credits expired</div>
         </div>
       </div>
 
       {/* Filters */}
-      {/* <div className="bg-white border border-gray-200 rounded-lg overflow-hidden !mb-4">
-        <div className="px-3 py-1 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FilterListOutlinedIcon className="text-gray-500" />
-            <span className="font-medium text-gray-700">Filters</span>
-            {(statusFilter !== "ALL" || sessionFilter !== "ALL" || searchTerm) && (
-              <Chip
-                label="Active Filters"
-                size="small"
-                color="primary"
-                onDelete={handleResetFilters}
-              />
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Tooltip title="Reset Filters">
-              <Button
-                size="small"
-                variant="outlined"
-                className="!text-gray-600 !border-gray-300"
-                onClick={handleResetFilters}
-              >
-                Reset
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <div className="grid grid-cols-4 gap-3">
-            <FormControl size="small" fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-                sx={selectSx}
-              >
-                {statusFilterOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl size="small" fullWidth>
-              <InputLabel>Session</InputLabel>
-              <Select
-                value={sessionFilter}
-                label="Session"
-                onChange={(e) => setSessionFilter(e.target.value)}
-                sx={selectSx}
-              >
-                <MenuItem value="ALL">All Sessions</MenuItem>
-                {sessionOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <div className="col-span-2">
-              <TextField
-                size="small"
-                fullWidth
-                label="Search"
-                placeholder="Search by reason, request number..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </div> */}
       <div className="bg-white border border-gray-200 rounded-lg !mb-4 px-4 py-2.5 flex items-center gap-3 flex-wrap">
         <FilterListOutlinedIcon className="text-gray-400 !w-4 !h-4" />
 
@@ -459,7 +390,7 @@ export default function CompOffsPage() {
           />
           <DatePicker
             value={toDate ? dayjs(toDate) : null}
-            minDate={dayjs(fromDate) ?? undefined}
+            minDate={fromDate ? dayjs(fromDate) : undefined}
             format="DD/MM/YYYY"
             onChange={(newValue) =>
               setToDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "")
@@ -580,7 +511,7 @@ export default function CompOffsPage() {
               ))}
               {filteredCredits.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8}>
+                  <TableCell colSpan={9}>
                     <DataState
                       compact
                       type="empty"
@@ -601,7 +532,10 @@ export default function CompOffsPage() {
       {/* Dialog */}
       <Dialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (submitting) return;
+          setOpen(false);
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -614,7 +548,10 @@ export default function CompOffsPage() {
             </div>
           </div>
           <IconButton
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              if (submitting) return;
+              setOpen(false);
+            }}
             className="hover:bg-gray-100 rounded-full"
           >
             <CloseOutlinedIcon className="!text-gray-500" />
@@ -625,6 +562,13 @@ export default function CompOffsPage() {
           <div className="text-[12px] text-gray-500 mb-4">
             Submit a new comp-off credit request
           </div>
+
+          {errors.leaveTypeId && (
+            <div className="text-[12px] text-red-500 mb-3">
+              {errors.leaveTypeId}
+            </div>
+          )}
+
           <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
             <div className="grid gap-5">
               <div className="grid grid-cols-2 gap-4">
@@ -637,7 +581,7 @@ export default function CompOffsPage() {
                       setWorkedDate(value ? dayjs(value) : null);
                       setErrors((current) => ({ ...current, workedDate: "" }));
                     }}
-                    maxDate={dayjs().endOf('day')}
+                    maxDate={dayjs().endOf("day")}
                     slots={{
                       openPickerIcon: CalendarMonthOutlinedIcon,
                     }}
@@ -698,6 +642,7 @@ export default function CompOffsPage() {
             variant="outlined"
             className="!text-gray-800 !border-gray-200"
             onClick={() => setOpen(false)}
+            disabled={submitting}
           >
             Cancel
           </Button>
@@ -705,13 +650,12 @@ export default function CompOffsPage() {
             variant="contained"
             className="!bg-primary"
             onClick={submitRequest}
+            disabled={submitting}
           >
-            Submit Request
+            {submitting ? "Submitting..." : "Submit Request"}
           </Button>
         </DialogActions>
       </Dialog>
     </LeavePageShell>
   );
 }
-
-

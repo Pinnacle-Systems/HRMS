@@ -42,6 +42,7 @@ interface PreCheckIssue {
   status: AttendanceStatus;
   reason: string;
   meta?: Record<string, any>;
+  attendanceDate: string;
 }
 
 interface PreCheckState {
@@ -76,6 +77,7 @@ function buildPreCheck(employees: any[], skippedCount = 0): PreCheckState {
         checkInTime: emp.checkInTime,
         checkOutTime: emp.checkOutTime,
         status: emp.status,
+        attendanceDate: emp.attendanceDate,
         reason: !hasIn
           ? "Missing check-in"
           : !hasOut
@@ -93,6 +95,7 @@ function buildPreCheck(employees: any[], skippedCount = 0): PreCheckState {
         checkInTime: emp.checkInTime,
         checkOutTime: emp.checkOutTime,
         status: emp.status,
+        attendanceDate: emp.attendanceDate,
         reason:
           hasIn || hasOut
             ? "Marked absent but has a punch — verify"
@@ -109,6 +112,7 @@ function buildPreCheck(employees: any[], skippedCount = 0): PreCheckState {
         checkInTime: emp.checkInTime,
         checkOutTime: emp.checkOutTime,
         status: emp.status,
+        attendanceDate: emp.attendanceDate,
         reason: "Night shift — verify cross-midnight hours",
       });
     }
@@ -117,14 +121,6 @@ function buildPreCheck(employees: any[], skippedCount = 0): PreCheckState {
   return { missedPunches, absents, nightDuty, skippedCount };
 }
 
-/**
- * Backend CONFLICT message shape:
- *   "Approval Pending: 1 attendance correction(s) between 2026-09-03 and 2026-09-03
- *    are not approved or rejected yet. Decide them before reprocessing:
- *    1002 SATHEESH KUMAR 2026-09-03. List them with GET /api/attendance/corrections?status=pending."
- *
- * We extract "code NAME date" triplets from the part after "reprocessing:".
- */
 function parseBlockedCorrections(message: string): BlockedCorrection[] {
   const result: BlockedCorrection[] = [];
   if (!message) return result;
@@ -236,10 +232,6 @@ export function ProcessAttendance() {
     blockedCorrections.length > 0 ||
     Boolean(processStatus?.processed);
 
-  // ── NEW: Close & Finalize is allowed whenever backend says the date is
-  //         processed AND not yet locked, OR when we just processed
-  //         successfully in this session (covers the brief window before
-  //         refreshProcessStatus() returns).
   const canCloseAndFinalize =
     Boolean(processStatus?.processed && !processStatus?.locked) ||
     (lastProcessSucceeded && !isClosed && !processStatus?.locked);
@@ -635,9 +627,8 @@ export function ProcessAttendance() {
     if (!validationResult) {
       showConfirmDialog({
         title: "Process Attendance",
-        message: `Process attendance for ${
-          workerType === "Both" ? "both Staff and Labour" : workerType
-        } from ${fromDate} to ${toDate}?`,
+        message: `Process attendance for ${workerType === "Both" ? "both Staff and Labour" : workerType
+          } from ${fromDate} to ${toDate}?`,
         confirmText: "Process",
         cancelText: "Cancel",
         onConfirm: async () => {
@@ -655,8 +646,7 @@ export function ProcessAttendance() {
     showConfirmDialog({
       title: "Process Attendance",
       message:
-        `Process attendance for ${
-          workerType === "Both" ? "both Staff and Labour" : workerType
+        `Process attendance for ${workerType === "Both" ? "both Staff and Labour" : workerType
         } from ${fromDate} to ${toDate}?\n\n` +
         `${validationResult.summary.employeesProcessed} employees will be processed.`,
       confirmText: "Process",
@@ -697,9 +687,8 @@ export function ProcessAttendance() {
     }
     showConfirmDialog({
       title: "Reprocess Attendance",
-      message: `Reprocess attendance for ${
-        workerType === "Both" ? "both Staff and Labour" : workerType
-      } on ${fromDate}? This will overwrite existing processed records.`,
+      message: `Reprocess attendance for ${workerType === "Both" ? "both Staff and Labour" : workerType
+        } on ${fromDate}? This will overwrite existing processed records.`,
       confirmText: "Reprocess",
       cancelText: "Cancel",
       onConfirm: async () => {
@@ -767,18 +756,16 @@ export function ProcessAttendance() {
 
       if (canClose) {
         showSnackbar(
-          `${processedCount} ${
-            workerType === "Both" ? "both Staff and Labour" : workerType
+          `${processedCount} ${workerType === "Both" ? "both Staff and Labour" : workerType
           } records processed successfully! ` +
-            `${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent. ` +
-            (skippedInProcess > 0 ? `${skippedInProcess} employee(s) skipped. ` : "") +
-            `Click "Close & Finalize" to lock these records.`,
+          `${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent. ` +
+          (skippedInProcess > 0 ? `${skippedInProcess} employee(s) skipped. ` : "") +
+          `Click "Close & Finalize" to lock these records.`,
           "info",
         );
       } else {
         let message =
-          `Processed ${processedCount} ${
-            workerType === "Both" ? "both Staff and Labour" : workerType
+          `Processed ${processedCount} ${workerType === "Both" ? "both Staff and Labour" : workerType
           } records successfully. ` +
           `${data.summary?.present || 0} present, ${data.summary?.absent || 0} absent.`;
         if (skippedInProcess > 0) {
@@ -880,20 +867,21 @@ export function ProcessAttendance() {
       employees = result?.employees?.length
         ? result.employees
         : registerEmployees.map((employee: any) => ({
-            employeeId: employee.employeeId,
-            employeeName: employee.employeeName,
-            employeeCode: employee.employeeCode,
-            status: employee.status,
-            checkInTime: employee.checkInTime ?? undefined,
-            checkOutTime: employee.checkOutTime ?? undefined,
-            shiftCode: employee.shiftCode ?? "",
-          }));
+          employeeId: employee.employeeId,
+          employeeName: employee.employeeName,
+          employeeCode: employee.employeeCode,
+          status: employee.status,
+          checkInTime: employee.checkInTime ?? undefined,
+          checkOutTime: employee.checkOutTime ?? undefined,
+          shiftCode: employee.shiftCode ?? "",
+          attendanceDate: employee.attendanceDate,
+        }));
       skippedCount = result?.skippedEmployees?.length ?? 0;
     } catch (err: any) {
       showSnackbar(
         err?.response?.data?.message ??
-          err?.message ??
-          "Failed to verify generated attendance records",
+        err?.message ??
+        "Failed to verify generated attendance records",
         "error",
       );
       return;
@@ -909,7 +897,6 @@ export function ProcessAttendance() {
       confirmAndClose(true, skippedCount);
       return;
     }
-
     setPreCheck(pc);
     setPreCheckConfirmed(false);
     setPreCheckOpen(true);
@@ -924,8 +911,7 @@ export function ProcessAttendance() {
     showConfirmDialog({
       title: "Close & Finalize Attendance",
       message:
-        `Are you sure you want to close attendance for ( ${fromDate} to ${toDate} ) for ${
-          workerType === "Both" ? "both Staff and Labour" : workerType
+        `Are you sure you want to close attendance for ( ${fromDate} to ${toDate} ) for ${workerType === "Both" ? "both Staff and Labour" : workerType
         }? \n\n` +
         `This will lock all records and prevent further modifications. ` +
         (hasSkipped
@@ -945,9 +931,8 @@ export function ProcessAttendance() {
             departmentId: departmentId || undefined,
             workerType,
             reprocess: false,
-            lockReason: `End of day processing - ${
-              workerType === "Both" ? "both Staff and Labour" : workerType
-            }`,
+            lockReason: `End of day processing - ${workerType === "Both" ? "both Staff and Labour" : workerType
+              }`,
             lockedBy: session?.user.userId || "System",
             preCheckDone,
             preCheckDoneBy: session?.user.email,
@@ -967,8 +952,7 @@ export function ProcessAttendance() {
           await refreshProcessStatus();
 
           showSnackbar(
-            `Attendance for ${
-              workerType === "Both" ? "both Staff and Labour" : workerType
+            `Attendance for ${workerType === "Both" ? "both Staff and Labour" : workerType
             } closed and finalized successfully!`,
             "success",
           );
@@ -977,7 +961,8 @@ export function ProcessAttendance() {
             void generateFinalizedReports();
           }, 400);
         } catch (err: any) {
-          const msg = err?.response?.data?.message ?? "Failed to close attendance";
+          const backend = err?.response?.data ?? err?.data ?? err;
+          const msg = backend?.message ?? "Failed to close attendance";
           showSnackbar(msg, "error");
         } finally {
           setProcessing(false);
@@ -1046,8 +1031,7 @@ export function ProcessAttendance() {
     showConfirmDialog({
       title: "Close & Finalize Attendance",
       message:
-        `Are you sure you want to close attendance for ${fromDate} to ${toDate} for ${
-          workerType === "Both" ? "both Staff and Labour" : workerType
+        `Are you sure you want to close attendance for ${fromDate} to ${toDate} for ${workerType === "Both" ? "both Staff and Labour" : workerType
         }?` +
         (hasSkipped
           ? `\n\nNote: ${result!.skippedEmployees!.length} employee(s) were skipped and will remain unprocessed.`
@@ -1082,8 +1066,7 @@ export function ProcessAttendance() {
           await refreshProcessStatus();
 
           showSnackbar(
-            `Attendance for ${
-              workerType === "Both" ? "both Staff and Labour" : workerType
+            `Attendance for ${workerType === "Both" ? "both Staff and Labour" : workerType
             } closed successfully!`,
             "success",
           );
@@ -1188,9 +1171,9 @@ export function ProcessAttendance() {
               color="warning"
               variant="outlined"
               icon={<PendingActionsOutlined className="!w-4" />}
-              onClick={() =>  navigate(
-                        `/attendance/management/corrections`,
-                      )}
+              onClick={() => navigate(
+                `/attendance/management/corrections`,
+              )}
             />
           )}
         </div>
@@ -1206,9 +1189,8 @@ export function ProcessAttendance() {
           />
           {departmentId && (
             <Chip
-              label={`Dept: ${
-                departments.find((d) => d.id === departmentId)?.departmentName || ""
-              }`}
+              label={`Dept: ${departments.find((d) => d.id === departmentId)?.departmentName || ""
+                }`}
               size="small"
               variant="outlined"
               className="text-gray-800"
@@ -1334,11 +1316,10 @@ export function ProcessAttendance() {
                       hasPendingCorrections ||
                       blockedCorrections.length > 0
                     }
-                    className={`flex items-center justify-center gap-2 px-5 py-2 rounded text-[12px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                      hasEditsSinceProcess || blockedCorrections.length > 0
+                    className={`flex items-center justify-center gap-2 px-5 py-2 rounded text-[12px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${hasEditsSinceProcess || blockedCorrections.length > 0
                         ? "bg-amber-600 text-white hover:bg-amber-700"
                         : "bg-primary text-white hover:bg-primary/90"
-                    }`}
+                      }`}
                   >
                     <PlayArrowOutlined fontSize="small" />
                     {hasEditsSinceProcess || blockedCorrections.length > 0
@@ -1710,10 +1691,9 @@ export function ProcessAttendance() {
                       </TableCell>
                       <TableCell align="center" sx={{ padding: "8px !important" }}>
                         <span
-                          className={`px-2 py-0.5 rounded-full m-5 font-medium ${
-                            ATTENDANCE_STATUS_BG[emp.status as AttendanceStatus] ??
+                          className={`px-2 py-0.5 rounded-full m-5 font-medium ${ATTENDANCE_STATUS_BG[emp.status as AttendanceStatus] ??
                             "bg-gray-100 text-gray-600"
-                          }`}
+                            }`}
                         >
                           {ATTENDANCE_STATUS_LABELS[emp.status as AttendanceStatus] ?? emp.status}
                         </span>
@@ -1913,6 +1893,7 @@ export function ProcessAttendance() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow className="bg-amber-50">
+                      <TableCell className="!font-bold">Attendance Date</TableCell>
                       <TableCell className="!font-bold">Code</TableCell>
                       <TableCell className="!font-bold">Name</TableCell>
                       <TableCell className="!font-bold">Shift</TableCell>
@@ -1923,7 +1904,8 @@ export function ProcessAttendance() {
                   </TableHead>
                   <TableBody>
                     {preCheck.missedPunches.map((mp, i) => (
-                      <TableRow key={mp.employeeId} sx={getRowColor(i)}>
+                      <TableRow key={`${mp.employeeId}-${mp.attendanceDate}`} sx={getRowColor(i)}>
+                        <TableCell>{mp.attendanceDate ?? "-"}</TableCell>
                         <TableCell className="font-mono text-xs">{mp.employeeCode}</TableCell>
                         <TableCell>
                           <div className="p-2">{mp.employeeName}</div>
@@ -1953,6 +1935,7 @@ export function ProcessAttendance() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow className="bg-red-50">
+                      <TableCell className="!font-bold">Attendance Date</TableCell>
                       <TableCell className="!font-bold">Code</TableCell>
                       <TableCell className="!font-bold">Name</TableCell>
                       <TableCell className="!font-bold">Shift</TableCell>
@@ -1964,10 +1947,11 @@ export function ProcessAttendance() {
                   <TableBody>
                     {preCheck.absents.map((a, i) => (
                       <TableRow
-                        key={a.employeeId}
+                        key={`${a.employeeId}-${a.attendanceDate}`}
                         sx={getRowColor(i)}
                         className={a.checkInTime || a.checkOutTime ? "bg-amber-50" : ""}
                       >
+                        <TableCell>{a.attendanceDate ?? "-"}</TableCell>
                         <TableCell className="font-mono text-xs">{a.employeeCode}</TableCell>
                         <TableCell>
                           <div className="p-2">{a.employeeName}</div>
@@ -1997,6 +1981,7 @@ export function ProcessAttendance() {
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow className="bg-indigo-50">
+                      <TableCell className="!font-bold">Attendance Date</TableCell>
                       <TableCell className="!font-bold">Code</TableCell>
                       <TableCell className="!font-bold">Name</TableCell>
                       <TableCell className="!font-bold">Shift</TableCell>
@@ -2006,8 +1991,9 @@ export function ProcessAttendance() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {preCheck.nightDuty.map((n,i) => (
-                      <TableRow key={n.employeeId} sx={getRowColor(i)}>
+                    {preCheck.nightDuty.map((n, i) => (
+                      <TableRow key={`${n.employeeId}-${n.attendanceDate}`} sx={getRowColor(i)}>
+                        <TableCell>{n.attendanceDate ?? "-"}</TableCell>
                         <TableCell className="font-mono text-xs">{n.employeeCode}</TableCell>
                         <TableCell><div className="p-2">{n.employeeName}</div></TableCell>
                         <TableCell>{n.shiftCode ?? "-"}</TableCell>
@@ -2019,10 +2005,9 @@ export function ProcessAttendance() {
                         </TableCell>
                         <TableCell>
                           <span
-                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                              ATTENDANCE_STATUS_BG[n.status as AttendanceStatus] ??
+                            className={`px-2 py-0.5 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_BG[n.status as AttendanceStatus] ??
                               "bg-gray-100 text-gray-600"
-                            }`}
+                              }`}
                           >
                             {ATTENDANCE_STATUS_LABELS[n.status as AttendanceStatus] ?? n.status}
                           </span>

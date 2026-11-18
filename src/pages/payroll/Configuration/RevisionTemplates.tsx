@@ -164,7 +164,7 @@ export default function RevisionTemplates() {
                             <TableCell className="!text-xs">{renderConfigSummary(t)}</TableCell>
                             <TableCell>
                                 {
-                                    t.config.revisionType != "decrement" && (
+                                    t.config.revisionType == "decrement" &&(
                                         <div>
                                             <span className="text-error">-</span>
                                             <TrendingDownOutlined className="text-error" />
@@ -172,7 +172,7 @@ export default function RevisionTemplates() {
                                     )
                                 }
                                 {
-                                    t.config.revisionType == "decrement" && (
+                                   ( t.config.revisionType == "increment" || !t.config.revisionType) && (
                                         <div>
                                             <TrendingUpOutlined className=" text-green-700" />
                                             <span className=" text-green-700">+</span>

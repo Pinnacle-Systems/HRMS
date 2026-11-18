@@ -154,7 +154,8 @@ export default function GeneratePayroll() {
     const fetchPeriods = async () => {
         try {
             const res: any = await periodsService.getPeriods();
-            setPayrollPeriods(res.data.items || []);
+            const periods = res.data.items.filter((m:any)=> m.periodType == 'monthly')
+            setPayrollPeriods(periods || []);
         } catch (error) {
             showSnackbar("Failed to load payroll periods", "error");
         } finally {

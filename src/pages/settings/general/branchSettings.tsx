@@ -59,10 +59,9 @@ import EmployeeAsyncCombobox from "../../../components/employees/EmployeeAsyncCo
 import type { EmployeeSummaryResponse } from "../../../services/modules/employees";
 import { companyService } from "../../../services/modules/company";
 import { normalizeGeofenceMode } from "../../../utils/geofence";
-import { useAuth } from "../../../auth/authContext";
+// import { useAuth } from "../../../auth/authContext";
 
 export default function BranchSettings() {
-  // Pagination & Sorting State
   const [branches, setBranches] = useState<Branch[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -89,7 +88,7 @@ export default function BranchSettings() {
 
   const [companyId, setCompanyId] = useState<string>("");
   const [banks, setBanks] = useState<Bank[]>([]);
-  const { session } = useAuth();
+  // const { session } = useAuth();
 
   // Dialog State
   const [openDialog, setOpenDialog] = useState(false);
@@ -129,11 +128,11 @@ export default function BranchSettings() {
       let branch: any;
       if (response.success) {
         const res = response.data.content || response.data || [];
-        if (session?.branchId) {
-          branch = res.filter((item: any) => item.id === session?.branchId)
-        } else {
+        // if (session?.branchId) {
+        //   branch = res.filter((item: any) => item.id === session?.branchId)
+        // } else {
           branch = res;
-        }
+        // }
         setBranches(branch);
         setTotal(response.data.totalElements || response.data.total || response.data.length || 0);
       }

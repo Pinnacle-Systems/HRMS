@@ -4,7 +4,7 @@ import {
 } from "@mui/material";
 import {
   PeopleOutlined, CheckCircleOutlined, CancelOutlined,
-  AccessTimeOutlined, ExitToAppOutlined,
+  AccessTimeOutlined,
   BeachAccessOutlined, WatchLaterOutlined, TrendingUpOutlined,
   WorkOutlineOutlined,
 } from "@mui/icons-material";
@@ -432,15 +432,15 @@ export function AttendanceSummary() {
     () =>
       summary
         ? [
-            { name: "Present", value: summary.present, color: ATTENDANCE_STATUS_COLORS.present },
-            { name: "Absent", value: summary.absent, color: ATTENDANCE_STATUS_COLORS.absent },
-            { name: "Late", value: summary.late, color: ATTENDANCE_STATUS_COLORS.late },
-            { name: "On Leave", value: summary.onLeave, color: ATTENDANCE_STATUS_COLORS.leave },
-            { name: "On Duty", value: summary.onDuty, color: ATTENDANCE_STATUS_COLORS.on_duty },
-            { name: "Permission", value: summary.permission, color: ATTENDANCE_STATUS_COLORS.permission },
-            { name: "Holiday", value: summary.holiday, color: ATTENDANCE_STATUS_COLORS.holiday },
-            { name: "Weekly Off", value: summary.weeklyOff, color: ATTENDANCE_STATUS_COLORS.weekly_off },
-          ].filter((d) => d.value > 0)
+          { name: "Present", value: summary.present, color: ATTENDANCE_STATUS_COLORS.present },
+          { name: "Absent", value: summary.absent, color: ATTENDANCE_STATUS_COLORS.absent },
+          { name: "Late", value: summary.late, color: ATTENDANCE_STATUS_COLORS.late },
+          { name: "On Leave", value: summary.onLeave, color: ATTENDANCE_STATUS_COLORS.leave },
+          { name: "On Duty", value: summary.onDuty, color: ATTENDANCE_STATUS_COLORS.on_duty },
+          { name: "Permission", value: summary.permission, color: ATTENDANCE_STATUS_COLORS.permission },
+          { name: "Holiday", value: summary.holiday, color: ATTENDANCE_STATUS_COLORS.holiday },
+          { name: "Weekly Off", value: summary.weeklyOff, color: ATTENDANCE_STATUS_COLORS.weekly_off },
+        ].filter((d) => d.value > 0)
         : [],
     [summary],
   );
@@ -484,8 +484,10 @@ export function AttendanceSummary() {
                       className="!w-[200px]"
                       format="DD/MM/YYYY"
                       value={selectedDate ? dayjs(selectedDate) : null}
-                      onChange={(newValue) => {
-                        setSelectedDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+                      onChange={(newValue, context) => {
+                        if (context.validationError == null) {
+                          setSelectedDate(newValue ? dayjs(newValue).format("YYYY-MM-DD") : "");
+                        }
                       }}
                       maxDate={dayjs(new Date())}
                       slotProps={{ textField: { fullWidth: true } }}
@@ -560,7 +562,7 @@ export function AttendanceSummary() {
               percentage={summary.totalEmployees ? (summary.late / summary.totalEmployees) * 100 : 0}
               onClick={() => openDetailedView("late")}
             />
-            <StatCard
+            {/* <StatCard
               label="Irregular"
               value={summary.irregular}
               icon={<ExitToAppOutlined fontSize="medium" />}
@@ -568,7 +570,7 @@ export function AttendanceSummary() {
               bgColor="bg-pink-50"
               percentage={summary.totalEmployees ? (summary.irregular / summary.totalEmployees) * 100 : 0}
               onClick={() => openDetailedView("irregular")}
-            />
+            /> */}
             <StatCard
               label="On Duty"
               value={summary.onDuty}
@@ -768,8 +770,8 @@ export function AttendanceSummary() {
                         <th className="text-left px-2 text-[12px] text-gray-500 font-semibold">Department</th>
                         <th className="text-center px-2 text-[12px] text-gray-500 font-semibold">Total</th>
                         <th className="text-center px-2 text-[12px] text-gray-500 font-semibold">Present</th>
+                        <th className="text-center px-2 text-[12px] text-gray-500 font-semibold">Absent</th>
                         <th className="text-center px-2 text-[12px] text-gray-500 font-semibold">Late</th>
-                        <th className="text-center px-2 text-[12px] text-gray-500 font-semibold">Irregular</th>
                         <th className="text-center px-2 text-[12px] text-gray-500 font-semibold">Attendance</th>
                       </tr>
                     </thead>
@@ -786,8 +788,9 @@ export function AttendanceSummary() {
                             <td className="px-2 text-center text-green-600 text-[12px] font-medium">
                               {dept.present}
                             </td>
+                            <td className="px-2 text-center text-red-600 text-[12px]">{dept.absent}</td>
                             <td className="px-2 text-center text-amber-600 text-[12px]">{dept.late}</td>
-                            <td className="px-2 text-center text-pink-600 text-[12px]">{dept.irregular}</td>
+                            {/* <td className="px-2 text-center text-pink-600 text-[12px]">{dept.irregular}</td> */}
                             <td className="px-2">
                               <div className="flex items-center gap-2 justify-center">
                                 <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">

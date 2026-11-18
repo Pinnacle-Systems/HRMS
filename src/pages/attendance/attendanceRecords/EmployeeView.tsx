@@ -22,6 +22,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import LoginOutlined from "@mui/icons-material/LoginOutlined";
 import { getRowColor } from "../../const";
+import { useNavigate } from "react-router-dom";
 
 export function EmployeeView() {
   const { showSnackbar } = useUI();
@@ -33,6 +34,7 @@ export function EmployeeView() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [infoLoading, setInfoLoading] = useState(false);
+  const navigate = useNavigate();
 
   async function loadEmployeeData() {
     if (!selectedEmployee?.id) {
@@ -246,15 +248,20 @@ export function EmployeeView() {
             {/* Pending Leaves Badge */}
             {attendanceInfo.pendingLeaves > 0 && (
               <div className="ml-auto">
-                <div className="flex items-center gap-2 bg-violet-50 border border-violet-200/60 rounded-full px-3 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => navigate('/leaves/approvals')}
+                  aria-live="polite"
+                  className="flex items-center gap-2 bg-violet-50 border border-violet-200/60 rounded-full px-3 py-1.5 cursor-pointer hover:bg-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-400 transition-colors"
+                >
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                    <span className="animate-ping motion-reduce:animate-none absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500" />
                   </span>
                   <span className="text-xs font-medium text-violet-700">
-                    {attendanceInfo.pendingLeaves} pending leave{attendanceInfo.pendingLeaves > 1 ? "s" : ""}
+                    {attendanceInfo.pendingLeaves} leave approval{attendanceInfo.pendingLeaves > 1 ? "s" : ""} pending
                   </span>
-                </div>
+                </button>
               </div>
             )}
           </div>

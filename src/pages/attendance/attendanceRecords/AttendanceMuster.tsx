@@ -28,7 +28,7 @@ const FALLBACK_LEGEND = [
   { status: "permission", specification: "PM", label: "Permission", color: "#06B6D4" },
   { status: "holiday", specification: "HD", label: "Holiday", color: "#3B82F6" },
   { status: "weekly_off", specification: "WO", label: "Week Off", color: "#9CA3AF" },
-  { status: "irregular", specification: "IR", label: "Irregular", color: "#B45309" },
+  // { status: "irregular", specification: "IR", label: "Irregular", color: "#B45309" },
   { status: "missed_out", specification: "MO", label: "Missed Out", color: "#9333EA" },
   { status: "night_duty", specification: "ND", label: "Night Duty", color: "#6366F1" },
   { status: "wfh", specification: "WFH", label: "WFH", color: "#10B981" },
@@ -67,7 +67,7 @@ const MUSTER_SUMMARY_ORDER = [
   "absent",
   "late",
   "leave",
-  "irregular",
+  // "irregular",
 ];
 
 const MUSTER_SUMMARY_FIELD_MAP: Record<string, string> = {

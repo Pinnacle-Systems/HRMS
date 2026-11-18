@@ -601,6 +601,7 @@ export default function ApplyLeavePage() {
                           fromSession={form.fromSession}
                           toSession={form.toSession}
                           onSessionChange={(from, to) => {
+                            if (!allowHalfDay) return; 
                             if (from !== null) handleChange("fromSession", from);
                             if (to !== null) handleChange("toSession", to);
                           }}
