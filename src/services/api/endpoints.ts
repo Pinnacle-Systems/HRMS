@@ -850,6 +850,7 @@ export const API_ENDPOINTS = {
       `/attendance/info/${employeeId}`,
     GET_HOLIDAYS: "/attendance/holidays",
     GET_FINALISED: "/attendance/finalised",
+    GET_FINALISATION_CHECKLIST: "/attendance/finalisation-checklist",
 
     POST_CHECKOUT: "/attendance/check-out",
     POST_BULK_PROCESS: "/attendance/bulk-process",
@@ -1099,6 +1100,13 @@ export const API_ENDPOINTS = {
 
   PAYROLL: {
     DASHBOARD: "/payroll/dashboard",
+    STATUTORY_REPORTS: {
+      TIME_CARD: "/statutory-reports/time-card",
+      SALARY_STATEMENT: "/statutory-reports/salary-statement",
+      PF_CHALLAN: "/statutory-reports/pf-challan",
+      MUSTER_ROLL: "/statutory-reports/muster-roll",
+      ESI_CHALLAN: "/statutory-reports/esi-challan",
+    },
     RUNS: {
       BASE: "/payroll/runs", //
       GET_BY_ID: (id: string) => `/payroll/runs/${id}`, //

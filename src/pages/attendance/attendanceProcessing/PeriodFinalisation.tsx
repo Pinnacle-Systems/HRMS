@@ -13,19 +13,13 @@ import {
 } from "@mui/icons-material";
 import { useUI } from "../../../context/Snackbar";
 import { attendanceService } from "../../../services/modules/attendance";
-import type { FinalisedPeriod } from "../../../services/modules/attendanceTypes";
+import type {
+  FinalisationChecklist,
+  FinalisedPeriod,
+} from "../../../services/modules/attendanceTypes";
 import { MONTHS, FINALISATION_STATUS_COLORS, FINALISATON_STATUS_LABELS, getCurrentMonthYear } from "../const";
 import dayjs from "dayjs";
 import { useAuth } from "../../../auth/authContext";
-
-const CHECKLIST = [
-  "All attendance records have been reviewed",
-  "Pending correction requests are resolved",
-  "Leave applications are approved or rejected",
-  "On-duty requests are processed",
-  "Overtime hours are validated",
-  "Irregular attendance is resolved",
-];
 
 export function PeriodFinalisation() {
   const { showSnackbar, showSpinner, hideSpinner, showConfirmDialog } = useUI();
@@ -34,7 +28,11 @@ export function PeriodFinalisation() {
   const [month, setMonth] = useState(curMonth);
   const [year, setYear] = useState(curYear);
   const [finalisedPeriods, setFinalisedPeriods] = useState<FinalisedPeriod[]>([]);
-  const [checklist, setChecklist] = useState<boolean[]>(CHECKLIST.map(() => false));
+  const [finalisationChecklist, setFinalisationChecklist] =
+    useState<FinalisationChecklist | null>(null);
+  const [checklistLoading, setChecklistLoading] = useState(true);
+  const [checklistError, setChecklistError] = useState("");
+  const [checklistReloadKey, setChecklistReloadKey] = useState(0);
   const [remarks, setRemarks] = useState("");
   const [finalising, setFinalising] = useState(false);
   const [_unlocking, _setUnlocking] = useState(false);
@@ -75,13 +73,51 @@ export function PeriodFinalisation() {
     getLocks();
   }, [loadPeriods]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setFinalisationChecklist(null);
+    setChecklistError("");
+    setChecklistLoading(true);
+
+    attendanceService.getFinalisationChecklist({ month, year })
+      .then((response) => {
+        const data = response?.data;
+        if (
+          response?.success === false ||
+          !data ||
+          !Array.isArray(data.checklist) ||
+          typeof data.readyToFinalise !== "boolean"
+        ) {
+          throw new Error(response?.message || "Invalid finalisation checklist response");
+        }
+        if (!cancelled) setFinalisationChecklist(data);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error
+          ? error.message
+          : "Failed to load finalisation checklist";
+        setChecklistError(message);
+      })
+      .finally(() => {
+        if (!cancelled) setChecklistLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [month, year, checklistReloadKey]);
+
   const currentPeriod = finalisedPeriods.find((p) => p.month === month && p.year === year);
   const isLocked = currentPeriod?.status === "locked" || currentPeriod?.status === "approved";
-  const allChecked = checklist.every(Boolean);
+  const canFinalise =
+    !checklistLoading &&
+    !checklistError &&
+    finalisationChecklist?.readyToFinalise === true;
 
   async function handleFinalise() {
-    if (!allChecked) {
-      showSnackbar("Please confirm all checklist items before finalising", "warning");
+    if (!canFinalise) {
+      showSnackbar(checklistError || "Resolve all pending checklist items before finalising", "warning");
       return;
     }
     showConfirmDialog({
@@ -94,8 +130,8 @@ export function PeriodFinalisation() {
         try {
           await attendanceService.finalise({ month, year, remarks,approvedBy: session?.user.userId });
           showSnackbar(`${MONTHS[month - 1]} ${year} attendance finalised successfully`, "success");
-          setChecklist(CHECKLIST.map(() => false));
           setRemarks("");
+          setChecklistReloadKey((key) => key + 1);
           loadPeriods();
         } catch (err: any) {
           showSnackbar(err?.response?.data?.message ?? "Failed to finalise period", "error");
@@ -108,8 +144,8 @@ export function PeriodFinalisation() {
   }
 
   async function handleProcessAndFinalise() {
-    if (!allChecked) {
-      showSnackbar("Please confirm all checklist items before finalising", "warning");
+    if (!canFinalise) {
+      showSnackbar(checklistError || "Resolve all pending checklist items before finalising", "warning");
       return;
     }
 
@@ -152,8 +188,8 @@ export function PeriodFinalisation() {
               : message,
             "success",
           );
-          setChecklist(CHECKLIST.map(() => false));
           setRemarks("");
+          setChecklistReloadKey((key) => key + 1);
           await loadPeriods();
         } catch (error: any) {
           showSnackbar(
@@ -239,6 +275,7 @@ export function PeriodFinalisation() {
         showSnackbar("Period locked successfully", "success");
       }
       setDialogOpen(false);
+      setChecklistReloadKey((key) => key + 1);
       loadPeriods();
     } catch (error: any) {
       showSnackbar(
@@ -356,24 +393,45 @@ export function PeriodFinalisation() {
               {/* Checklist */}
               <div className="space-y-2">
                 <div className="text-[12px] text-gray-800">Pre-finalisation Checklist</div>
-                {CHECKLIST.map((item, i) => (
-                  <label key={i} className="flex items-start gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={checklist[i]}
-                      onChange={() => {
-                        const next = [...checklist];
-                        next[i] = !next[i];
-                        setChecklist(next);
-                      }}
-                      className="mt-1"
-                    />
-                    <span className={`text-[12px] ${checklist[i] ? "text-gray-400 line-through" : "text-gray-700"}`}>
-                      {item}
-                    </span>
-                    {checklist[i] && <CheckCircleOutlined fontSize="small" className="text-green-500 ml-auto flex-shrink-0" />}
-                  </label>
-                ))}
+                {checklistLoading ? (
+                  <LinearProgress color="primary" />
+                ) : checklistError ? (
+                  <Alert severity="error" sx={{ py: 0.5 }}>
+                    <span className="text-xs">{checklistError}</span>
+                  </Alert>
+                ) : (
+                  <>
+                    {finalisationChecklist?.checklist.map((item) => (
+                      <div key={item.key} className="flex items-start gap-2">
+                        {item.approved ? (
+                          <CheckCircleOutlined fontSize="small" className="text-green-500 flex-shrink-0" />
+                        ) : (
+                          <WarningAmberOutlined fontSize="small" className="text-amber-500 flex-shrink-0" />
+                        )}
+                        <span className={`text-[12px] ${item.approved ? "text-gray-700" : "text-gray-700"}`}>
+                          {item.label}
+                          {!item.approved && item.pendingCount > 0 && (
+                            <span className="text-amber-700"> ({item.pendingCount} pending)</span>
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                    <Alert
+                      severity={finalisationChecklist?.readyToFinalise ? "success" : "warning"}
+                      icon={finalisationChecklist?.readyToFinalise
+                        ? <CheckCircleOutlined fontSize="small" />
+                        : <WarningAmberOutlined fontSize="small" />}
+                      sx={{ py: 0.5 }}
+                    >
+                      <span className="text-xs">
+                        {finalisationChecklist?.message ||
+                          (finalisationChecklist?.readyToFinalise
+                            ? "All checklist gates are clear."
+                            : "Resolve the pending items before finalising.")}
+                      </span>
+                    </Alert>
+                  </>
+                )}
               </div>
 
               {/* Remarks */}
@@ -386,15 +444,15 @@ export function PeriodFinalisation() {
                 onChange={(e) => setRemarks(e.target.value)}
               />
 
-              {!allChecked && (
+              {!canFinalise && !checklistError && !checklistLoading && (
                 <Alert severity="warning" icon={<WarningAmberOutlined fontSize="small" />} sx={{ py: 0.5 }}>
-                  <span className="text-xs">Complete all checklist items to enable finalisation.</span>
+                  <span className="text-xs">Resolve all pending checklist items to enable finalisation.</span>
                 </Alert>
               )}
 
               <button
                 onClick={handleFinalise}
-                disabled={finalising || !allChecked}
+                disabled={finalising || !canFinalise}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded text-sm font-medium hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <LockOutlined fontSize="small" />
@@ -402,7 +460,7 @@ export function PeriodFinalisation() {
               </button>
               <button
                 onClick={handleProcessAndFinalise}
-                disabled={finalising || !allChecked}
+                disabled={finalising || !canFinalise}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-primary text-primary rounded text-sm font-medium hover:bg-primary/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <LockOutlined fontSize="small" />

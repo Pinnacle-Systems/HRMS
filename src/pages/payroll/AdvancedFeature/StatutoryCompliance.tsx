@@ -58,6 +58,26 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import { apiService } from "../../../services";
+import { employeeService, normalizeEmployeePageResponse } from "../../../services/modules/employees";
+import { departmentService } from "../../../services/modules/department";
+import {
+  statutoryReportsService,
+  type StatutoryReportResponse,
+} from "../../../services/modules/payrollServices/statutoryReports";
+import type { Department } from "../../employees/type";
+
+type StatutoryReportType =
+  | "time-card"
+  | "salary-statement"
+  | "pf-challan"
+  | "muster-roll"
+  | "esi-challan";
+
+type StatutoryReportEmployee = {
+  id: string;
+  name: string;
+  employeeId: string;
+};
 
 const statusOptions = ["COMPLIANT", "PENDING", "NON_COMPLIANT"];
 
@@ -99,6 +119,15 @@ export default function StatutoryCompliance() {
   // Filter state
   const [selectedYear, setSelectedYear] = useState<number | "all">(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | "all">(new Date().getMonth() + 1);
+  const [reportType, setReportType] = useState<StatutoryReportType>("salary-statement");
+  const [reportYear, setReportYear] = useState(new Date().getFullYear());
+  const [reportMonth, setReportMonth] = useState(new Date().getMonth() + 1);
+  const [reportFormat, setReportFormat] = useState<"pdf" | "excel">("excel");
+  const [reportEmployeeId, setReportEmployeeId] = useState("");
+  const [reportDepartmentId, setReportDepartmentId] = useState("");
+  const [reportEmployees, setReportEmployees] = useState<StatutoryReportEmployee[]>([]);
+  const [reportDepartments, setReportDepartments] = useState<Department[]>([]);
+  const [reportOptionsLoading, setReportOptionsLoading] = useState(true);
 
   // Status dropdown state
   const [statusAnchorEl, setStatusAnchorEl] = useState<null | HTMLElement>(null);
@@ -119,6 +148,42 @@ export default function StatutoryCompliance() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadReportOptions = async () => {
+      const [employeesResult, departmentsResult] = await Promise.allSettled([
+        employeeService.getEmployees({ page: 0, size: 1000, includeActive: true }),
+        departmentService.getActiveDepartments({ page: 0, size: 1000 }),
+      ]);
+
+      if (employeesResult.status === "fulfilled") {
+        const employees = normalizeEmployeePageResponse(employeesResult.value).content;
+        setReportEmployees(
+          employees
+            .filter((employee) => employee.id)
+            .map((employee) => ({
+              id: employee.id!,
+              name: employee.name || employee.employeeId || employee.id!,
+              employeeId: employee.employeeId || "",
+            })),
+        );
+      } else {
+        showSnackbar("Failed to load employees for time card reports", "error");
+      }
+
+      if (departmentsResult.status === "fulfilled") {
+        const response: any = departmentsResult.value;
+        const data = response?.data?.data || response?.data || response;
+        const departments = data?.content || data?.items || [];
+        setReportDepartments(Array.isArray(departments) ? departments : []);
+      } else {
+        showSnackbar("Failed to load departments for muster roll reports", "error");
+      }
+      setReportOptionsLoading(false);
+    };
+
+    loadReportOptions();
   }, []);
 
   const loadData = async () => {
@@ -181,6 +246,83 @@ export default function StatutoryCompliance() {
       showSnackbar("Report generated successfully!", "success");
     } catch (error) {
       showSnackbar("Failed to generate report", "error");
+    } finally {
+      hideSpinner();
+    }
+  };
+
+  const handleGenerateStatutoryReport = async () => {
+    if (!Number.isInteger(reportYear) || reportYear < 1 || reportMonth < 1 || reportMonth > 12) {
+      showSnackbar("Enter a valid year and month", "warning");
+      return;
+    }
+    if (reportType === "time-card" && !reportEmployeeId) {
+      showSnackbar("Select an employee to generate a time card", "warning");
+      return;
+    }
+
+    const period = { year: reportYear, month: reportMonth };
+    const format = reportFormat;
+    const fileExtension = reportType === "pf-challan" || reportType === "esi-challan"
+      ? "xlsx"
+      : reportType === "time-card"
+        ? "pdf"
+        : format === "excel"
+          ? "xlsx"
+          : "pdf";
+    const reportName = {
+      "time-card": "time_card",
+      "salary-statement": "salary_statement",
+      "pf-challan": "pf_challan",
+      "muster-roll": "muster_roll",
+      "esi-challan": "esi_challan",
+    }[reportType];
+
+    showSpinner();
+    try {
+      let response: StatutoryReportResponse;
+      switch (reportType) {
+        case "time-card":
+          response = await statutoryReportsService.getTimeCard({
+            ...period,
+            employeeId: reportEmployeeId,
+          });
+          break;
+        case "salary-statement":
+          response = await statutoryReportsService.getSalaryStatement({
+            ...period,
+            format,
+          });
+          break;
+        case "pf-challan":
+          response = await statutoryReportsService.getPfChallan(period);
+          break;
+        case "muster-roll":
+          response = await statutoryReportsService.getMusterRoll({
+            ...period,
+            departmentId: reportDepartmentId || undefined,
+            format,
+          });
+          break;
+        case "esi-challan":
+          response = await statutoryReportsService.getEsiChallan(period);
+          break;
+        default:
+          throw new Error("Unsupported statutory report type");
+      }
+
+      const fileUrl = response.data?.fileUrl;
+      if (!fileUrl) {
+        throw new Error(response.message || "The report response did not include a file URL");
+      }
+      const employeeSuffix = reportType === "time-card" ? `_${reportEmployeeId}` : "";
+      await apiService.downloadFromPath(
+        fileUrl,
+        `${reportName}${employeeSuffix}_${reportYear}_${String(reportMonth).padStart(2, "0")}.${fileExtension}`,
+      );
+      showSnackbar("Statutory report downloaded successfully", "success");
+    } catch (error: any) {
+      showSnackbar(error?.message || "Failed to generate statutory report", "error");
     } finally {
       hideSpinner();
     }
@@ -381,6 +523,131 @@ export default function StatutoryCompliance() {
           </Button>
         </Stack>
       </Box>
+
+      <Card sx={{ mb: 3, borderRadius: 2, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+            Statutory Reports
+          </Typography>
+          <Typography variant="body2" className="text-gray-500" sx={{ mb: 2 }}>
+            Generate time cards, salary statements, muster rolls, and PF/ESI challans.
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Report</InputLabel>
+                <Select
+                  value={reportType}
+                  label="Report"
+                  onChange={(event) => {
+                    const value = event.target.value as StatutoryReportType;
+                    setReportType(value);
+                    if (value === "salary-statement") setReportFormat("excel");
+                    if (value === "muster-roll") setReportFormat("pdf");
+                  }}
+                >
+                  <MenuItem value="time-card">Time Card (Form 25 B)</MenuItem>
+                  <MenuItem value="salary-statement">Salary Statement</MenuItem>
+                  <MenuItem value="pf-challan">PF Challan</MenuItem>
+                  <MenuItem value="muster-roll">Muster Roll</MenuItem>
+                  <MenuItem value="esi-challan">ESI Challan</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 1.4 }}>
+              <TextField
+                label="Year"
+                type="number"
+                value={reportYear}
+                onChange={(event) => setReportYear(Number(event.target.value))}
+                fullWidth
+                size="small"
+                required
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 3, md: 1.4 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Month</InputLabel>
+                <Select
+                  value={reportMonth}
+                  label="Month"
+                  onChange={(event) => setReportMonth(Number(event.target.value))}
+                >
+                  {monthOptions.map((month) => (
+                    <MenuItem key={month.value} value={month.value}>{month.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            {reportType === "time-card" && (
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Employee</InputLabel>
+                  <Select
+                    value={reportEmployeeId}
+                    label="Employee"
+                    onChange={(event) => setReportEmployeeId(event.target.value)}
+                    disabled={reportOptionsLoading}
+                  >
+                    {reportEmployees.map((employee) => (
+                      <MenuItem key={employee.id} value={employee.id}>
+                        {employee.name}{employee.employeeId ? ` (${employee.employeeId})` : ""}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            {reportType === "muster-roll" && (
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    value={reportDepartmentId}
+                    label="Department"
+                    onChange={(event) => setReportDepartmentId(event.target.value)}
+                    disabled={reportOptionsLoading}
+                  >
+                    <MenuItem value="">All Departments</MenuItem>
+                    {reportDepartments.map((department) => (
+                      <MenuItem key={department.id} value={department.id}>
+                        {department.departmentName}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            {(reportType === "salary-statement" || reportType === "muster-roll") && (
+              <Grid size={{ xs: 6, sm: 4, md: 1.5 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Format</InputLabel>
+                  <Select
+                    value={reportFormat}
+                    label="Format"
+                    onChange={(event) => setReportFormat(event.target.value as "pdf" | "excel")}
+                  >
+                    <MenuItem value="pdf">PDF</MenuItem>
+                    <MenuItem value="excel">Excel</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
+            <Grid size={{ xs: 12, sm: "auto" }}>
+              <Button
+                variant="contained"
+                className="!bg-primary"
+                startIcon={<DownloadIcon fontSize="small" />}
+                onClick={handleGenerateStatutoryReport}
+                disabled={reportOptionsLoading && reportType === "time-card"}
+                sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+              >
+                Generate & Download
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* Compliance Stats */}
       <Grid container spacing={3} sx={{ mb: 2 }}>

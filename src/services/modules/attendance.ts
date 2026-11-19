@@ -41,6 +41,7 @@ import type {
   BulkDecisionPayload,
   AttendanceLock,
   UnlockAttendanceDatePayload,
+  FinalisationChecklist,
 } from "./attendanceTypes";
 export const USE_MOCK_ATTENDANCE_SERVICE =
   import.meta.env.VITE_USE_MOCK_ATTENDANCE_SERVICE === "true";
@@ -154,6 +155,13 @@ export const attendanceService = {
     //   return Mock.mockResponse(Mock.getMockFinalisedPeriods(params), "Finalised periods loaded");
     // }
     return apiService.get(API_ENDPOINTS.ATTENDANCE.GET_FINALISED, { params });
+  },
+
+  async getFinalisationChecklist(params: MonthYearQuery) {
+    return apiService.get<ApiResponse<FinalisationChecklist>>(
+      API_ENDPOINTS.ATTENDANCE.GET_FINALISATION_CHECKLIST,
+      { params },
+    );
   },
 
   // ── POST ──

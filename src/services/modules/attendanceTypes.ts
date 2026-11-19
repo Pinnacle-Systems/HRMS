@@ -196,6 +196,21 @@ export interface FinalisedPeriod {
   endDate: string;
 }
 
+export interface FinalisationChecklistItem {
+  key: string;
+  label: string;
+  approved: boolean;
+  pendingCount: number;
+}
+
+export interface FinalisationChecklist {
+  month: number;
+  year: number;
+  message: string;
+  checklist: FinalisationChecklistItem[];
+  readyToFinalise: boolean;
+}
+
 export interface ProcessResult {
   processDate: string;
   totalEmployees: number;
